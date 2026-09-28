@@ -203,6 +203,9 @@ func TestScopeAllReachesEveryClass(t *testing.T) {
 	if _, err := w.svc.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: w.classA, UserID: loose, Actor: admin}); err != nil {
 		t.Errorf("scope.all removing that student: %v", err)
 	}
+	if left := w.id(t, `SELECT count(*)::text FROM app.class_members WHERE class_id = $1 AND user_id = $2`, w.classA, loose); left != "0" {
+		t.Error("scope.all's removal left the student in A's class")
+	}
 	if _, err := w.svc.Commands.Archive.Handle(ctx, command.Archive{ClassID: w.classA, Archived: true, Actor: admin}); err != nil {
 		t.Errorf("scope.all archiving A's class: %v", err)
 	}
@@ -264,5 +267,54 @@ func TestAClassNamesItsOwnTeacher(t *testing.T) {
 	mine, err := w.svc.Queries.ListMine.Handle(ctx, query.ListMine{UserID: w.studentA})
 	if err != nil || len(mine) != 1 || mine[0].TeacherName == nil || *mine[0].TeacherName != "Giáo viên A "+w.marker {
 		t.Errorf("the student's classes name %+v (%v), want A", mine, err)
+	}
+}
+
+func (w *classWorld) sat(t *testing.T, author, class, student string) {
+	t.Helper()
+	testID := w.id(t, `INSERT INTO app.tests (title, status, current_version, created_by, owner_id) VALUES ('Đề', 'published', 1, $1, $1) RETURNING id::text`, author)
+	version := w.id(t, `INSERT INTO app.test_versions (test_id, version, total_points, published_by) VALUES ($1, 1, 10, $2) RETURNING id::text`, testID, author)
+	assignment := w.id(t, `INSERT INTO app.assignments (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by, published_at)
+		VALUES ($1, $2, now() - interval '1 day', now() + interval '1 day', 45, $3, now()) RETURNING id::text`, testID, version, author)
+	w.exec(t, `INSERT INTO app.assignment_classes (assignment_id, class_id) VALUES ($1, $2)`, assignment, class)
+	w.exec(t, `INSERT INTO app.attempts (assignment_id, test_version_id, student_id, attempt_no, status, session_id, shuffle_seed, beacon_token_hash,
+		        started_at, deadline_at, submitted_at, graded_at, score_earned, score_total, flagged)
+		VALUES ($1, $2, $3, 1, 'graded', gen_random_uuid(), 1, sha256('b'::bytea), now() - interval '2 hours', now() - interval '1 hour', now() - interval '90 minutes', now(), 5, 10, true)`,
+		assignment, version, student)
+}
+
+func TestARosterShowsOnlyTheViewersFigures(t *testing.T) {
+	w := newClassWorld(t)
+	ctx := context.Background()
+	w.exec(t, `INSERT INTO app.class_members (class_id, user_id, joined_via, added_by) VALUES ($1, $2, 'admin', $3)`, w.classB, w.studentA, w.b)
+	w.sat(t, w.a, w.classA, w.studentA)
+	submitted := func(scope access.Scope, classID string) int {
+		t.Helper()
+		members, err := w.svc.Queries.Members.Handle(ctx, query.Members{ClassID: classID, Scope: scope})
+		if err != nil || len(members.Items) != 1 {
+			t.Fatalf("the roster lists %d members (%v)", len(members.Items), err)
+		}
+		return members.Items[0].Stats.SubmittedCount + members.Items[0].Stats.FlaggedCount
+	}
+	if got := submitted(w.who(w.b).Scope, w.classB); got != 0 {
+		t.Errorf("B's roster shows %d figures from A's assignment", got)
+	}
+	if got := submitted(w.who(w.a).Scope, w.classA); got != 2 {
+		t.Errorf("A's roster shows %d figures, want A's own", got)
+	}
+	if got := submitted(w.who(w.admin).Scope, w.classB); got != 2 {
+		t.Errorf("scope.all's roster shows %d figures, want every one", got)
+	}
+
+	reachedByB := w.user(t, "student", "Của B", &w.b)
+	w.sat(t, w.a, w.classA, reachedByB)
+	added, err := w.svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: w.classB, UserID: reachedByB, Actor: w.who(w.b)})
+	if err != nil || added.Stats.SubmittedCount != 0 {
+		t.Errorf("B's added member carries %d submitted from A's assignment (%v)", added.Stats.SubmittedCount, err)
+	}
+	otherOfB := w.class(t, w.b)
+	added, err = w.svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: otherOfB, UserID: reachedByB, Actor: w.who(w.admin)})
+	if err != nil || added.Stats.SubmittedCount != 1 {
+		t.Errorf("scope.all's added member carries %d submitted, want 1 (%v)", added.Stats.SubmittedCount, err)
 	}
 }

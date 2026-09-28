@@ -203,12 +203,23 @@ func TestEachTeacherListsOnlyTheStudentsTheyReach(t *testing.T) {
 			if shared.Stats.SubmittedCount != c.work || shared.Stats.FlaggedCount != c.work {
 				t.Errorf("the shared student's figures count %d submitted and %d flagged, want %d of each", shared.Stats.SubmittedCount, shared.Stats.FlaggedCount, c.work)
 			}
+			if e, total := shared.Stats.ScoreEarned, shared.Stats.ScoreTotal; e == nil || total == nil || *e != float64(5*c.work) || *total != float64(10*c.work) {
+				t.Errorf("the shared student's score is %v/%v, want %d/%d", e, total, 5*c.work, 10*c.work)
+			}
 			got, err := w.app.Queries.GetStudent.Handle(context.Background(), query.GetStudent{ID: w.shared, Scope: c.scope})
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !slices.Equal(classIDs(got), c.classes) || got.Stats.SubmittedCount != c.work {
 				t.Errorf("opening the shared student shows %v and %d submitted, want %v and %d", classIDs(got), got.Stats.SubmittedCount, c.classes, c.work)
+			}
+			name := "Dùng chung " + w.marker
+			updated, err := w.app.Commands.UpdateStudent.Handle(context.Background(), command.UpdateStudent{Request: domain.WriteRequest{ActorID: c.scope.UserID, All: c.scope.All}, Input: domain.StudentPatch{ID: w.shared, FullName: &name}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(classIDs(updated), c.classes) || updated.Stats.SubmittedCount != c.work {
+				t.Errorf("updating the shared student returns %v and %d submitted, want %v and %d", classIDs(updated), updated.Stats.SubmittedCount, c.classes, c.work)
 			}
 		})
 	}
@@ -334,5 +345,33 @@ func TestACreatedStudentEntersOnlyClassesTheCreatorTeaches(t *testing.T) {
 	}
 	if _, _, err := create(domain.WriteRequest{ActorID: w.admin, All: true}, w.classA); err != nil {
 		t.Errorf("scope.all creating into A's class: %v", err)
+	}
+}
+
+func TestScopeAllReachesAStudentNoTeacherHolds(t *testing.T) {
+	w := newRosterWorld(t)
+	ctx := context.Background()
+	admin := domain.WriteRequest{ActorID: w.admin, All: true}
+	name := "Quản trị đổi tên"
+	before := w.snapshot(t, w.loose)
+	if _, err := w.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: admin, Input: domain.StudentPatch{ID: w.loose, FullName: &name}}); err != nil {
+		t.Errorf("scope.all updating the loose student: %v", err)
+	}
+	if _, err := w.app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: admin, ID: w.loose}); err != nil {
+		t.Errorf("scope.all resetting the loose student's password: %v", err)
+	}
+	if w.snapshot(t, w.loose) == before {
+		t.Error("scope.all's writes left the loose student unchanged")
+	}
+	w.exec(t, `UPDATE app.users SET disabled_at = now() WHERE id = $1`, w.loose)
+	if _, err := w.app.Commands.DeleteStudent.Handle(ctx, command.DeleteStudent{Request: domain.WriteRequest{ActorID: w.admin}, ID: w.loose}); !errors.Is(err, domain.ErrStudentNotFound) {
+		t.Errorf("the Admin without scope.all deleting the loose student: %v, want not found", err)
+	}
+	if _, err := w.app.Commands.DeleteStudent.Handle(ctx, command.DeleteStudent{Request: admin, ID: w.loose}); err != nil {
+		t.Errorf("scope.all deleting the loose student: %v", err)
+	}
+	var exists bool
+	if err := w.tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM app.users WHERE id = $1)`, w.loose).Scan(&exists); err != nil || exists {
+		t.Errorf("the loose student survived scope.all's delete (%v)", err)
 	}
 }
