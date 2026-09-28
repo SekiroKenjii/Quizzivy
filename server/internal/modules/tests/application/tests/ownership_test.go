@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 
@@ -26,11 +27,11 @@ func TestSectionGroupsAndDuplicatesBelongToTheTestsOwner(t *testing.T) {
 	}
 	testID, section, updated := snapshotDraft(t, tx, owner)
 	asset := storedGroupAsset(t, tx, owner, "audio")
-	sectionGroup, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: other, Now: time.Now()})
+	sectionGroup, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: other, Now: time.Now(), Scope: access.Scope{UserID: other, All: true}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bankGroup, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), ActorID: other, Now: time.Now()})
+	bankGroup, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), ActorID: other, Now: time.Now(), Scope: access.Scope{UserID: other}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +61,7 @@ func TestSectionGroupsAndDuplicatesBelongToTheTestsOwner(t *testing.T) {
 	}
 
 	repo := repositories.NewPostgres(db.NewContext(tx), adapters.GroupQuestions{}, mediarepo.NewPostgres(db.NewContext(tx))).WithGroupQuestions(adapters.GroupQuestions{})
-	copy, err := repo.Duplicate(ctx, domain.DuplicateInput{ID: testID, ActorID: other, Now: time.Now()})
+	copy, err := repo.Duplicate(ctx, domain.DuplicateInput{ID: testID, ActorID: other, Now: time.Now(), Scope: access.Scope{UserID: other, All: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,6 +101,7 @@ func TestARestoredDraftsQuestionsBelongToTheTestsOwner(t *testing.T) {
 	}
 	request := versionRequest(t, b, draft.ID, 1)
 	request.ActorID = other
+	request.Scope = access.Scope{UserID: other, All: true}
 	restored, err := b.tests.Commands.CreateDraftFromVersion.Handle(context.Background(), command.CreateDraftFromVersion{Request: request})
 	if err != nil {
 		t.Fatal(err)

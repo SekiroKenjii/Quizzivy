@@ -26,6 +26,7 @@ func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestReque
 		ActorID:   principal.UserID,
 		IP:        meta.IP,
 		UserAgent: meta.UserAgent,
+		Scope:     httpapi.ScopeFromContext(ctx),
 	}})
 	switch {
 	case err == nil:

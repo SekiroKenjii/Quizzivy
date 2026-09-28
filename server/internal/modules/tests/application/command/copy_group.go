@@ -19,5 +19,5 @@ func (s CopyGroupHandler) Handle(ctx context.Context, cmd CopyGroup) (domain.Sto
 		return domain.StoredGroup{}, domain.ErrGroupUnavailable
 	}
 	in := cmd.Mutation.At(s.Now())
-	return s.Repo.Copy(ctx, domain.CopyGroupInput{SourceID: in.ID, ExpectedSourceRevision: in.ExpectedRevision, OwnerSectionID: cmd.OwnerSectionID, ExpectedTestUpdatedAt: in.ExpectedTestUpdatedAt, ActorID: in.ActorID, IP: in.IP, UserAgent: in.UserAgent, Now: in.Now})
+	return s.Repo.Copy(ctx, domain.CopyGroupInput{SourceID: in.ID, ExpectedSourceRevision: in.ExpectedRevision, OwnerSectionID: cmd.OwnerSectionID, ExpectedTestUpdatedAt: in.ExpectedTestUpdatedAt, ActorID: in.ActorID, IP: in.IP, UserAgent: in.UserAgent, Now: in.Now, Scope: in.Scope, Grants: in.Grants})
 }

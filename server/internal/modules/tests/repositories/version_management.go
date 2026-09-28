@@ -20,7 +20,7 @@ func (s *Postgres) SetCurrentVersion(ctx context.Context, req domain.VersionRequ
 		return domain.Test{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := checkVersion(ctx, tx, req.ID, req.ExpectedUpdatedAt); err != nil {
+	if _, err := checkVersion(ctx, tx, req.ID, req.ExpectedUpdatedAt, req.Scope); err != nil {
 		return domain.Test{}, err
 	}
 	if err := requireActiveTest(ctx, tx, req.ID); err != nil {
@@ -42,7 +42,8 @@ func (s *Postgres) CreateDraftFromVersion(ctx context.Context, req domain.Versio
 		return domain.Test{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := checkVersion(ctx, tx, req.ID, req.ExpectedUpdatedAt); err != nil {
+	owner, err := checkVersion(ctx, tx, req.ID, req.ExpectedUpdatedAt, req.Scope)
+	if err != nil {
 		return domain.Test{}, err
 	}
 	if err := requireActiveTest(ctx, tx, req.ID); err != nil {
@@ -66,7 +67,7 @@ func (s *Postgres) CreateDraftFromVersion(ctx context.Context, req domain.Versio
 	for i, section := range copies {
 		sections[i] = section.Input
 	}
-	if err := s.lockQuestions(ctx, tx, sections); err != nil {
+	if err := s.lockQuestions(ctx, tx, owner, sections); err != nil {
 		return domain.Test{}, err
 	}
 	if err := replaceOutline(ctx, tx, req.ID, sections); err != nil {

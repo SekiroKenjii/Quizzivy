@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/opt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -17,7 +18,8 @@ func (s *Postgres) Delete(ctx context.Context, req domain.Request, now time.Time
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var status string
-	err = tx.QueryRow(ctx, `SELECT status::text FROM app.tests WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, req.ID).Scan(&status)
+	err = tx.QueryRow(ctx, `SELECT status::text FROM app.tests WHERE id = $1 AND deleted_at IS NULL AND `+scopedTest+` FOR UPDATE`,
+		req.ID, req.Scope.All, opt.String(req.Scope.UserID)).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}
@@ -50,7 +52,8 @@ func (s *Postgres) DeleteVersion(ctx context.Context, req domain.VersionRequest,
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var current int
-	err = tx.QueryRow(ctx, `SELECT current_version FROM app.tests WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, req.ID).Scan(&current)
+	err = tx.QueryRow(ctx, `SELECT current_version FROM app.tests WHERE id = $1 AND deleted_at IS NULL AND `+scopedTest+` FOR UPDATE`,
+		req.ID, req.Scope.All, opt.String(req.Scope.UserID)).Scan(&current)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}

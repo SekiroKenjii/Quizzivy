@@ -4,12 +4,13 @@ import (
 	"context"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Postgres) copyDraftGraph(ctx context.Context, tx pgx.Tx, testID string, draft domain.DraftContent, in domain.DuplicateInput) error {
+func (s *Postgres) copyDraftGraph(ctx context.Context, tx pgx.Tx, testID, owner string, draft domain.DraftContent, in domain.DuplicateInput) error {
 	protected := domain.DraftContent{}
 	for _, section := range draft.Sections {
 		owned := domain.DraftSection{Groups: section.Groups}
@@ -24,20 +25,20 @@ func (s *Postgres) copyDraftGraph(ctx context.Context, tx pgx.Tx, testID string,
 		return err
 	}
 	for _, section := range draft.Sections {
-		if err := s.copyDraftSection(ctx, tx, testID, section, in); err != nil {
+		if err := s.copyDraftSection(ctx, tx, testID, owner, section, in); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Postgres) copyDraftSection(ctx context.Context, tx pgx.Tx, testID string, section domain.DraftSection, in domain.DuplicateInput) error {
+func (s *Postgres) copyDraftSection(ctx context.Context, tx pgx.Tx, testID, owner string, section domain.DraftSection, in domain.DuplicateInput) error {
 	var sectionID string
 	if err := tx.QueryRow(ctx, `INSERT INTO app.test_sections (test_id,ordinal,title,instructions) VALUES ($1,$2,$3,$4) RETURNING id::text`, testID, section.Ordinal, section.Title, section.Instructions).Scan(&sectionID); err != nil {
 		return err
 	}
 	ids := standaloneDraftIDs(section)
-	if err := s.lockQuestions(ctx, tx, []domain.SectionInput{{QuestionIDs: ids}}); err != nil {
+	if err := s.lockQuestions(ctx, tx, owner, []domain.SectionInput{{QuestionIDs: ids}}); err != nil {
 		return err
 	}
 	if err := writeSectionQuestions(ctx, tx, sectionID, ids); err != nil {
@@ -62,7 +63,7 @@ func (s *Postgres) copyDraftSection(ctx context.Context, tx pgx.Tx, testID strin
 			return err
 		}
 		stored, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: bundle, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updated,
-			ActorID: in.ActorID, Now: in.Now, IP: in.IP, UserAgent: in.UserAgent})
+			ActorID: in.ActorID, Now: in.Now, IP: in.IP, UserAgent: in.UserAgent, Scope: in.Scope, Grants: access.NewSet(access.ContentTestsWrite)})
 		if err != nil {
 			return err
 		}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
 	"time"
@@ -21,7 +22,7 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	current, err := lockTest(ctx, tx, req.TestID)
+	current, err := lockTest(ctx, tx, req.TestID, req.Scope)
 	if err != nil {
 		return domain.Version{}, err
 	}
@@ -72,11 +73,11 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 	return published, nil
 }
 
-func lockTest(ctx context.Context, tx pgx.Tx, testID string) (int, error) {
+func lockTest(ctx context.Context, tx pgx.Tx, testID string, scope access.Scope) (int, error) {
 	var current int
 	err := tx.QueryRow(ctx,
-		`SELECT last_published_version FROM app.tests WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
-		testID).Scan(&current)
+		`SELECT last_published_version FROM app.tests WHERE id = $1 AND deleted_at IS NULL AND `+scopedTest+` FOR UPDATE`,
+		testID, scope.All, opt.String(scope.UserID)).Scan(&current)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, domain.ErrDraftNotFound
 	}

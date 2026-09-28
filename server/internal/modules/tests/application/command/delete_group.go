@@ -16,7 +16,7 @@ func (s DeleteGroupHandler) Handle(ctx context.Context, cmd DeleteGroup) (cqrs.N
 	if s.Repo == nil {
 		return cqrs.Nothing{}, domain.ErrGroupUnavailable
 	}
-	group, err := s.Repo.Get(ctx, cmd.Mutation.ID)
+	group, err := s.Repo.Get(ctx, cmd.Mutation.Actor.Scope, cmd.Mutation.ID)
 	if err != nil {
 		return cqrs.Nothing{}, err
 	}

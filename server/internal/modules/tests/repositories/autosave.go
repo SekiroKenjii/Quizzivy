@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
 	"time"
@@ -21,7 +22,8 @@ func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := checkVersion(ctx, tx, in.ID, in.Input.ExpectedUpdatedAt); err != nil {
+	owner, err := checkVersion(ctx, tx, in.ID, in.Input.ExpectedUpdatedAt, in.Scope)
+	if err != nil {
 		return domain.Test{}, err
 	}
 
@@ -29,7 +31,7 @@ func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.
 		if err := prepareOutline(ctx, tx, in.ID, in.Input); err != nil {
 			return domain.Test{}, err
 		}
-		if err := s.lockQuestions(ctx, tx, in.Input.Sections); err != nil {
+		if err := s.lockQuestions(ctx, tx, owner, in.Input.Sections); err != nil {
 			return domain.Test{}, err
 		}
 	}
@@ -94,21 +96,22 @@ func requireLegacyOutline(ctx context.Context, tx pgx.Tx, testID string) error {
 	return nil
 }
 
-func checkVersion(ctx context.Context, tx pgx.Tx, id string, expected time.Time) error {
+func checkVersion(ctx context.Context, tx pgx.Tx, id string, expected time.Time, scope access.Scope) (string, error) {
 	var current time.Time
+	var owner string
 	err := tx.QueryRow(ctx,
-		`SELECT updated_at FROM app.tests WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
-		id).Scan(&current)
+		`SELECT updated_at, owner_id::text FROM app.tests WHERE id = $1 AND deleted_at IS NULL AND `+scopedTest+` FOR UPDATE`,
+		id, scope.All, opt.String(scope.UserID)).Scan(&current, &owner)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.ErrNotFound
+		return "", domain.ErrNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("tests: lock for update: %w", err)
+		return "", fmt.Errorf("tests: lock for update: %w", err)
 	}
 	if !current.Truncate(time.Microsecond).Equal(expected.Truncate(time.Microsecond)) {
-		return domain.ErrStaleWrite
+		return "", domain.ErrStaleWrite
 	}
-	return nil
+	return owner, nil
 }
 
 func applyMetadata(ctx context.Context, tx pgx.Tx, in domain.UpdateRequest) error {

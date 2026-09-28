@@ -35,6 +35,9 @@ func (s *GroupsPostgres) create(ctx context.Context, in domain.CreateGroupInput)
 	if err != nil {
 		return domain.StoredGroup{}, err
 	}
+	if err := domain.RequireGroupWrite(in.Grants, in.OwnerSectionID == nil); err != nil {
+		return domain.StoredGroup{}, err
+	}
 	if err := insertGroup(ctx, tx, in); err != nil {
 		return domain.StoredGroup{}, err
 	}
@@ -90,7 +93,7 @@ func lockGroupOwner(ctx context.Context, tx pgx.Tx, in domain.CreateGroupInput) 
 	if err != nil {
 		return "", err
 	}
-	if err := checkVersion(ctx, tx, testID, in.ExpectedTestUpdatedAt); err != nil {
+	if _, err := checkVersion(ctx, tx, testID, in.ExpectedTestUpdatedAt, in.Scope); err != nil {
 		return "", err
 	}
 	var archived bool

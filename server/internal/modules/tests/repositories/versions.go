@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -42,9 +44,12 @@ func scanVersion(row pgx.Row) (domain.Version, error) {
 	return v, err
 }
 
-// ListVersions returns the test's publish history, newest first.
-func (s *Postgres) ListVersions(ctx context.Context, testID string) ([]domain.Version, error) {
-	rows, err := s.Query(ctx, `SELECT `+versionColumns+` WHERE v.test_id = $1 ORDER BY v.version DESC`, testID)
+// ListVersions returns the test's publish history, newest first; a test
+// outside scope has none, as an unknown id has none.
+func (s *Postgres) ListVersions(ctx context.Context, scope access.Scope, testID string) ([]domain.Version, error) {
+	rows, err := s.Query(ctx, `SELECT `+versionColumns+` JOIN app.tests vt ON vt.id = v.test_id
+		WHERE v.test_id = $1 AND ($2::boolean OR vt.owner_id = $3::uuid) ORDER BY v.version DESC`,
+		testID, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return nil, fmt.Errorf("tests: list versions: %w", err)
 	}

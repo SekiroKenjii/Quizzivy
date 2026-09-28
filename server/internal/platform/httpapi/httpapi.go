@@ -8,15 +8,13 @@ import (
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/stats"
 )
 
 // Actor is who is calling and from where, as every audited write records it.
-type Actor struct {
-	ID        string
-	IP        string
-	UserAgent string
-}
+type Actor = actor.Actor
 
 func ActorFromContext(ctx context.Context) (Actor, bool) {
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -24,7 +22,23 @@ func ActorFromContext(ctx context.Context) (Actor, bool) {
 		return Actor{}, false
 	}
 	meta := httpx.RequestMetaFromContext(ctx)
-	return Actor{ID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent}, true
+	return Actor{ID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent, Scope: scopeOf(principal)}, true
+}
+
+// ScopeFromContext is whose rows the caller may reach: their own, or every
+// teacher's when the permission gate resolved scope.all for them. Without a
+// principal it is the zero Scope, which repositories treat as matching
+// nothing.
+func ScopeFromContext(ctx context.Context) access.Scope {
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return access.Scope{}
+	}
+	return scopeOf(principal)
+}
+
+func scopeOf(principal httpx.Principal) access.Scope {
+	return access.Scope{UserID: principal.UserID, All: principal.Access.Permissions.Has(access.ScopeAll)}
 }
 
 func ActorID(ctx context.Context) string {
