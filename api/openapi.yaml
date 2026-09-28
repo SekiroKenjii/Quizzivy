@@ -54,11 +54,14 @@ info:
       and `/me/*` is named in its operation's `x-resource` list as
       `{in, name, kind}`. For a body field `name` is a JSON pointer, where `-`
       stands for every item of an array and `*` for every value of a map.
-      `kind` is the owned resource the id names (`test`, `test-version`,
-      `section`, `question`, `question-group`, `media`, `import`,
-      `import-source`, `class`, `assignment`, `attempt`, `student`), or `none`
-      for an id that names no owned resource: an option, a gap, a session,
-      an idempotency key, or a fresh identity the caller supplies. Every
+      `kind` is the owned resource the id names: `test`, `test-version`,
+      `section`, `question`, `version-question`, `version-recording`,
+      `question-group`, `media`, `import`, `import-source`, `class`,
+      `assignment`, `attempt` or `student`. The two `version-` kinds are a
+      question and a group recording of a published version, as a paper and
+      grading name them. `kind` is `none` for an id that names no owned
+      resource: an option, a gap, a session, an idempotency key, or a fresh
+      identity the caller supplies. Every
       `/teacher/*` list names the kind it lists in `x-resource-list`. The
       two-teacher isolation suite reads both: another owner's id answers
       exactly as a missing id does.
@@ -5308,7 +5311,7 @@ paths:
       operationId: listAnswersForQuestion
       x-resource:
         - { in: path, name: id, kind: assignment }
-        - { in: query, name: questionId, kind: question }
+        - { in: query, name: questionId, kind: version-question }
       x-resource-list: attempt
       x-permission: teaching.grading
       tags: [teacher-attempts]
@@ -5734,7 +5737,7 @@ paths:
       operationId: gradeAttempt
       x-resource:
         - { in: path, name: id, kind: attempt }
-        - { in: body, name: /items/-/questionId, kind: question }
+        - { in: body, name: /items/-/questionId, kind: version-question }
       x-permission: teaching.grading
       tags: [teacher-attempts]
       summary: Save manual grades
@@ -6585,7 +6588,7 @@ paths:
         - { in: path, name: id, kind: attempt }
         - { in: body, name: /sessionId, kind: none }
         - { in: body, name: /answers/*/optionIds/-, kind: none }
-        - { in: body, name: /events/-/questionId, kind: question }
+        - { in: body, name: /events/-/questionId, kind: version-question }
       x-permission: learning.take_tests
       tags: [take-test]
       summary: Autosave answers and flush buffered events
@@ -6649,7 +6652,7 @@ paths:
       x-resource:
         - { in: path, name: id, kind: attempt }
         - { in: body, name: /sessionId, kind: none }
-        - { in: body, name: /events/-/questionId, kind: question }
+        - { in: body, name: /events/-/questionId, kind: version-question }
       tags: [take-test]
       summary: Standalone event flush, including the sendBeacon path
       description: |
@@ -6698,7 +6701,7 @@ paths:
       operationId: recordAudioPlay
       x-resource:
         - { in: path, name: id, kind: attempt }
-        - { in: body, name: /questionId, kind: question }
+        - { in: body, name: /questionId, kind: version-question }
       x-permission: learning.take_tests
       tags: [take-test]
       summary: Increment the server-authoritative play counter
@@ -6741,7 +6744,7 @@ paths:
       operationId: recordGroupAudioPlay
       x-resource:
         - { in: path, name: id, kind: attempt }
-        - { in: body, name: /recordingId, kind: none }
+        - { in: body, name: /recordingId, kind: version-recording }
         - { in: body, name: /playId, kind: none }
         - { in: body, name: /sessionId, kind: none }
       x-permission: learning.take_tests

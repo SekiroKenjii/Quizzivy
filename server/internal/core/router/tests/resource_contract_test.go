@@ -11,7 +11,7 @@ import (
 )
 
 var resourceKinds = []string{
-	"test", "test-version", "section", "question", "question-group", "media",
+	"test", "test-version", "section", "question", "version-question", "version-recording", "question-group", "media",
 	"import", "import-source", "class", "assignment", "attempt", "student", "none",
 }
 
