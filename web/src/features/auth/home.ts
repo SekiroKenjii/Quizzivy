@@ -1,14 +1,21 @@
 import type { User } from "./api";
+import { hasWorkspace } from "./permissions";
 
-/** Where a signed-in user belongs (§3's route trees). */
-export function homePathFor(user: Pick<User, "role"> | null | undefined): string {
-  return user?.role === "admin" ? "/admin" : "/app";
+/**
+ * Where a signed-in user belongs (§3's route trees): the teacher's tree for
+ * the teacher or admin workspace, which share it until R4, and the student
+ * app otherwise.
+ */
+export function homePathFor(user: Pick<User, "workspaces"> | null | undefined): string {
+  return hasWorkspace(user, "teacher") || hasWorkspace(user, "admin")
+    ? "/admin"
+    : "/app";
 }
 
 /** Resolves the `?next=` a guard attached, falling back to the user's home. */
 export function destinationAfterSignIn(
   next: string | null | undefined,
-  user: Pick<User, "role"> | null | undefined,
+  user: Pick<User, "workspaces"> | null | undefined,
 ): string {
   if (next && next.startsWith("/") && !next.startsWith("//")) return next;
   return homePathFor(user);

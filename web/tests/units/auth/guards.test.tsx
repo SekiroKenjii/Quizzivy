@@ -8,9 +8,15 @@ import {
   type RouteObject,
 } from "react-router";
 import { RequireSession } from "@/app/guards/RequireSession";
-import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
+import { HomeRedirect } from "@/app/guards/HomeRedirect";
+import { StudentArea, TeacherWorkspace } from "@/app/guards/RequireWorkspace";
 import { useAuthStore } from "@/stores/auth";
-import { adminUser, studentUser } from "@tests/support/fixtures";
+import {
+  adminUser,
+  assistantUser,
+  studentUser,
+  teacherUser,
+} from "@tests/support/fixtures";
 import "@/lib/i18n";
 
 /** §5.4's route rules. Each one exists because of a specific failure: */
@@ -18,6 +24,7 @@ import "@/lib/i18n";
 /** A router with every guarded shape, so a test only has to pick a URL. */
 function renderAt(path: string) {
   const routes: RouteObject[] = [
+    { path: "/", element: <HomeRedirect /> },
     { path: "/login", element: <p>login page</p> },
     { path: "/change-password", element: <p>change password page</p> },
     {
@@ -26,7 +33,7 @@ function renderAt(path: string) {
         { path: "/change-password-guarded", element: <p>change password page</p> },
         {
           path: "/admin",
-          element: <AdminOnly />,
+          element: <TeacherWorkspace />,
           children: [
             {
               element: <Outlet />,
@@ -153,6 +160,95 @@ describe("role guards", () => {
     });
     renderAt("/app");
     expect(await screen.findByText("student home")).toBeInTheDocument();
+  });
+});
+
+const adminWhoTakesTests: typeof adminUser = {
+  ...adminUser,
+  permissions: [...adminUser.permissions, "learning.take_tests"],
+  workspaces: ["teacher", "admin", "app"],
+};
+
+const nobody: typeof studentUser = { ...studentUser, permissions: [], workspaces: [] };
+
+describe.each([
+  {
+    who: "the Admin",
+    user: adminUser,
+    home: "/admin",
+    admin: "admin home",
+    app: "/admin",
+  },
+  {
+    who: "a Teacher",
+    user: teacherUser,
+    home: "/admin",
+    admin: "admin home",
+    app: "/admin",
+  },
+  {
+    who: "an Assistant",
+    user: assistantUser,
+    home: "/admin",
+    admin: "admin home",
+    app: "/admin",
+  },
+  { who: "a Student", user: studentUser, home: "/app", admin: "403", app: "/app" },
+  {
+    who: "an Admin who takes tests",
+    user: adminWhoTakesTests,
+    home: "/admin",
+    admin: "admin home",
+    app: "/app",
+  },
+  {
+    who: "a role with no workspace",
+    user: nobody,
+    home: "/app",
+    admin: "403",
+    app: "403",
+  },
+])("workspace guards for $who", ({ user, home, admin, app }) => {
+  function signIn() {
+    useAuthStore.setState({ isBootstrapping: false, accessToken: "t", user });
+  }
+
+  function expectForbidden(router: ReturnType<typeof renderAt>, path: string) {
+    return waitFor(() => {
+      expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+      expect(screen.queryByText("admin home")).not.toBeInTheDocument();
+      expect(screen.queryByText("student home")).not.toBeInTheDocument();
+      expect(router.state.location.pathname).toBe(path);
+    });
+  }
+
+  it(`lands on ${home} from /`, async () => {
+    signIn();
+    const router = renderAt("/");
+    await waitFor(() => expect(router.state.location.pathname).toBe(home));
+  });
+
+  it(`answers /admin with ${admin}`, async () => {
+    signIn();
+    const router = renderAt("/admin");
+    if (admin === "403") {
+      await expectForbidden(router, "/admin");
+      return;
+    }
+    expect(await screen.findByText(admin)).toBeInTheDocument();
+  });
+
+  it(`answers /app with ${app}`, async () => {
+    signIn();
+    const router = renderAt("/app");
+    if (app === "403") {
+      await expectForbidden(router, "/app");
+      return;
+    }
+    await waitFor(() => expect(router.state.location.pathname).toBe(app));
+    expect(
+      await screen.findByText(app === "/app" ? "student home" : "admin home"),
+    ).toBeInTheDocument();
   });
 });
 

@@ -3,7 +3,7 @@ import { ErrorBoundary } from "@/app/ErrorBoundary";
 import NotFoundPage from "@/app/pages/NotFoundPage";
 import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
-import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
+import { StudentArea, TeacherWorkspace } from "@/app/guards/RequireWorkspace";
 import { HomeRedirect } from "@/app/guards/HomeRedirect";
 
 /**
@@ -45,7 +45,7 @@ const authTree: RouteObject = {
 
 const adminTree: RouteObject = {
   path: "admin",
-  element: <AdminOnly />,
+  element: <TeacherWorkspace />,
   children: [
     {
       lazy: page(() => import("@/layouts/AdminLayout")),

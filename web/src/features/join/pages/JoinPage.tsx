@@ -8,6 +8,7 @@ import type { TFunction } from "i18next";
 import { Button } from "@/components/ui/button";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import { homePathFor } from "@/features/auth/home";
+import { learnsOnly } from "@/features/auth/permissions";
 import { joinClass, previewJoinCode } from "@/features/join/api";
 import { clean, CODE_LENGTH, hasExcluded, normalize } from "@/features/join/code";
 import {
@@ -56,7 +57,7 @@ function JoinForm({ initial }: Readonly<{ initial: string }>) {
     const context = readJoinContext();
     return context && context.code === normalize(initial) ? context : null;
   });
-  if (resumable && (isBootstrapping || user?.role === "student")) {
+  if (resumable && (isBootstrapping || learnsOnly(user))) {
     return <ResumeJoin context={resumable} />;
   }
   return <CodeEntry initial={initial} />;
@@ -64,7 +65,7 @@ function JoinForm({ initial }: Readonly<{ initial: string }>) {
 
 function ResumeJoin({ context }: Readonly<{ context: JoinContext }>) {
   const { t } = useTranslation();
-  const isStudent = useAuthStore((s) => s.user?.role === "student");
+  const isStudent = useAuthStore((s) => learnsOnly(s.user));
   const mustChangePassword = useAuthStore((s) => s.user?.mustChangePassword === true);
   const { mutate } = useEnrol();
   const started = useRef(false);
@@ -178,7 +179,7 @@ function FoundClass({ context }: Readonly<{ context: JoinContext }>) {
   return (
     <>
       <ClassPreviewCard name={context.className} teacherName={context.teacherName} />
-      {user && user.role !== "student" ? (
+      {user && !learnsOnly(user) ? (
         <div className="flex flex-col gap-3">
           <p className="text-muted-fg text-ui text-center">{t("join.studentsOnly")}</p>
           <Button
