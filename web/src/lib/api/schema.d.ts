@@ -634,7 +634,7 @@ export interface paths {
         };
         /**
          * Search private import history
-         * @description Paginated shared teacher history with accent-insensitive title and current filename search.
+         * @description Paginated history of the caller's imports (every teacher's with `scope.all`), with accent-insensitive title and current filename search.
          */
         get: operations["listWordImports"];
         put?: never;
@@ -717,8 +717,9 @@ export interface paths {
         };
         /**
          * Authorize a short-lived original-file download
-         * @description The completed source must belong to the requested import. Historical
-         *     completed sources remain accessible to teachers. A 60-second bearer URL
+         * @description The completed source must belong to the requested import, which the caller
+         *     created (any import with `scope.all`). Historical completed sources remain
+         *     downloadable. A 60-second bearer URL
          *     forces attachment download as application/octet-stream. Response is no-store.
          *     Pending storage reservations are never downloadable.
          */
@@ -1337,7 +1338,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The five counts §8 needs and spec §15 has no endpoint for. One round trip. */
+        /** @description The five counts §8 needs and spec §15 has no endpoint for, over what the caller reaches. One round trip. */
         get: operations["getDashboard"];
         put?: never;
         post?: never;
@@ -3796,7 +3797,10 @@ export interface components {
         };
         /**
          * @description §8's teacher dashboard needs five counts that spec §15 has no endpoint for. One
-         *     round trip, not five.
+         *     round trip, not five. Every figure covers what the caller reaches: the assignments
+         *     they created or that target a class they teach, the papers the grading queue shows
+         *     them on those assignments, and the students of the classes they teach. With
+         *     `scope.all` it covers everything.
          */
         Dashboard: {
             /** @description Open assignments closing within the next 24 hours. */
@@ -3805,11 +3809,12 @@ export interface components {
             waitingStudents?: number;
             /** Format: date-time */
             oldestWaitingAt?: string | null;
-            /** @description Enabled student accounts. */
+            /** @description Enabled student accounts in the classes the caller teaches; every enabled student account with `scope.all`. */
             totalStudents?: number;
             nextClosing?: components["schemas"]["ClosingAssignment"] | null;
             openAssignments: number;
             awaitingGrading: number;
+            /** @description Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches. */
             activeStudents: number;
             flaggedAttempts: number;
             recentAttempts: components["schemas"]["AttemptListRow"][];
@@ -3821,7 +3826,7 @@ export interface components {
             closesAt: string;
             /** @description Distinct enabled students who have handed in at least one non-voided attempt. */
             submittedCount: number;
-            /** @description Enabled students in the union of class and individual targets. */
+            /** @description Enabled students in the union of class and individual targets, counting only the classes the caller teaches and the students they reach. */
             targetCount: number;
         };
         StudentAssignmentCard: {
