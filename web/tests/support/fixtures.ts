@@ -92,6 +92,12 @@ export const assistantUser: components["schemas"]["CurrentUser"] = {
   workspaces: ["teacher"],
 };
 
+export const adminWhoTakesTests: components["schemas"]["CurrentUser"] = {
+  ...adminUser,
+  permissions: [...adminUser.permissions, "learning.take_tests"],
+  workspaces: ["teacher", "admin", "app"],
+};
+
 export const myClass: components["schemas"]["MyClass"] = {
   id: "019535da-0000-7000-8000-000000000001",
   name: "Tiếng Anh giao tiếp - Lớp A",

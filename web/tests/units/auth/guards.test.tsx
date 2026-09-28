@@ -13,6 +13,7 @@ import { StudentArea, TeacherWorkspace } from "@/app/guards/RequireWorkspace";
 import { useAuthStore } from "@/stores/auth";
 import {
   adminUser,
+  adminWhoTakesTests,
   assistantUser,
   studentUser,
   teacherUser,
@@ -162,12 +163,6 @@ describe("role guards", () => {
     expect(await screen.findByText("student home")).toBeInTheDocument();
   });
 });
-
-const adminWhoTakesTests: typeof adminUser = {
-  ...adminUser,
-  permissions: [...adminUser.permissions, "learning.take_tests"],
-  workspaces: ["teacher", "admin", "app"],
-};
 
 const nobody: typeof studentUser = { ...studentUser, permissions: [], workspaces: [] };
 

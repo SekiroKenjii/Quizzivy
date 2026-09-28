@@ -109,7 +109,9 @@ describe("the hooks", () => {
     const before = renders;
 
     act(() =>
-      useAuthStore.getState().setUser({ ...teacherUser, fullName: "Trần Bình" }),
+      useAuthStore
+        .getState()
+        .setUser({ ...structuredClone(teacherUser), fullName: "Trần Bình" }),
     );
     expect(renders).toBe(before);
   });
