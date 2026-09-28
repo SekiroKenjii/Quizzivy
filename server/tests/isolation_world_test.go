@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -207,6 +208,7 @@ func (w *world) teacherWorld(name string) *party {
 		"options": []map[string]any{{"text": "nhanh", "isCorrect": false}, {"text": "giáo viên", "isCorrect": true}},
 	})
 	p.ids["question"] = id(question)
+	c.must(http.StatusOK, http.MethodPost, "/teacher/questions/tags", map[string]any{"questionIds": []string{p.ids["question"]}, "tags": []string{"cách ly"}})
 	test := c.must(http.StatusCreated, http.MethodPost, "/teacher/tests", map[string]any{"title": "Đề cách ly " + name + " " + nonce(w.t)})
 	p.ids["test"] = id(test)
 	test = c.must(http.StatusOK, http.MethodPatch, "/teacher/tests/"+id(test), map[string]any{
@@ -293,11 +295,14 @@ func (w *world) listeningVersion(p *party) string {
 	test = p.c.must(http.StatusOK, http.MethodPatch, "/teacher/tests/"+id(test), map[string]any{
 		"expectedUpdatedAt": test["updatedAt"], "sections": []map[string]any{{"title": "Phần nghe", "questionIds": []string{}}},
 	})
-	p.c.must(http.StatusCreated, http.MethodPost, "/teacher/question-groups", map[string]any{
+	p.ids["listening-test"] = id(test)
+	p.ids["listening-section"] = test["sections"].([]any)[0].(map[string]any)["id"].(string)
+	group := p.c.must(http.StatusCreated, http.MethodPost, "/teacher/question-groups", map[string]any{
 		"bundle":                groupBundle(p, uuid.NewString(), "/bundle/group/recordings/-/assetId"),
-		"ownerSectionId":        test["sections"].([]any)[0].(map[string]any)["id"],
+		"ownerSectionId":        p.ids["listening-section"],
 		"expectedTestUpdatedAt": test["updatedAt"],
 	})
+	p.ids["listening-group"] = group["bundle"].(map[string]any)["group"].(map[string]any)["id"].(string)
 	return id(p.c.must(http.StatusCreated, http.MethodPost, "/teacher/tests/"+id(test)+"/publish", nil))
 }
 
@@ -370,7 +375,7 @@ func (p *party) all() []string {
 	return out
 }
 
-func (w *world) crossReferences(a, b *party, skip ...string) []string {
+func (w *world) rowsNaming(ids []string, skip ...string) []string {
 	w.t.Helper()
 	ctx := context.Background()
 	rows, err := w.pool.Query(ctx, `SELECT table_name::text FROM information_schema.tables WHERE table_schema = 'app' AND table_type = 'BASE TABLE'`)
@@ -382,10 +387,9 @@ func (w *world) crossReferences(a, b *party, skip ...string) []string {
 		w.t.Fatal(err)
 	}
 	var patterns []string
-	for _, v := range a.all() {
+	for _, v := range ids {
 		patterns = append(patterns, "%"+v+"%")
 	}
-	theirs := b.all()
 	var out []string
 	for _, table := range tables {
 		if slices.Contains(skip, table) {
@@ -400,9 +404,19 @@ func (w *world) crossReferences(a, b *party, skip ...string) []string {
 			w.t.Fatal(err)
 		}
 		for _, row := range found {
-			if slices.ContainsFunc(theirs, func(v string) bool { return strings.Contains(row, v) }) {
-				out = append(out, table+" "+row)
-			}
+			out = append(out, table+" "+row)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func (w *world) crossReferences(a, b []string, skip ...string) []string {
+	w.t.Helper()
+	var out []string
+	for _, row := range w.rowsNaming(a, skip...) {
+		if slices.ContainsFunc(b, func(v string) bool { return strings.Contains(row, v) }) {
+			out = append(out, row)
 		}
 	}
 	return out

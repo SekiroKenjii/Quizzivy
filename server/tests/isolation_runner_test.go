@@ -23,11 +23,12 @@ type resourceSlot struct {
 }
 
 type scopedOp struct {
-	id      string
-	method  string
-	path    string
-	slots   []resourceSlot
-	listing string
+	id       string
+	method   string
+	path     string
+	slots    []resourceSlot
+	listing  string
+	optional map[string]bool
 }
 
 func scopedOperations(t *testing.T) []scopedOp {
@@ -42,7 +43,12 @@ func scopedOperations(t *testing.T) []scopedOp {
 			continue
 		}
 		for method, op := range item.Operations() {
-			s := scopedOp{id: strings.ToLower(op.OperationID[:1]) + op.OperationID[1:], method: method, path: path}
+			s := scopedOp{id: strings.ToLower(op.OperationID[:1]) + op.OperationID[1:], method: method, path: path, optional: map[string]bool{}}
+			for _, p := range append(item.Parameters, op.Parameters...) {
+				if p.Value.In == "query" && !p.Value.Required {
+					s.optional[p.Value.Name] = true
+				}
+			}
 			if raw, ok := op.Extensions["x-resource"]; ok {
 				encoded, _ := json.Marshal(raw)
 				if err := json.Unmarshal(encoded, &s.slots); err != nil {
@@ -67,6 +73,7 @@ type isoCase struct {
 	link    map[string][]string
 	as      map[string]string
 	excuse  map[string]string
+	blind   map[string]string
 }
 
 type iso struct {
@@ -76,6 +83,7 @@ type iso struct {
 	admin  *client
 	cases  map[string]isoCase
 	shared string
+	made   []string
 }
 
 func setPointer(t *testing.T, root any, pointer string, value string, must bool) (any, bool) {
@@ -86,6 +94,14 @@ func setPointer(t *testing.T, root any, pointer string, value string, must bool)
 		part := strings.NewReplacer("~1", "/", "~0", "~").Replace(parts[i])
 		last := i == len(parts)-1
 		switch part {
+		case "+":
+			m, ok := node.(map[string]any)
+			if !ok || len(m) == 0 || !last {
+				return node, false
+			}
+			for _, v := range m {
+				return map[string]any{value: v}, true
+			}
 		case "-":
 			arr, ok := node.([]any)
 			if !ok {
@@ -163,6 +179,10 @@ func (c isoCase) excused(slot string) string {
 }
 
 func (x *iso) request(op scopedOp, c isoCase, own *party, slot string, value string) (string, string, *payload) {
+	return x.build(op, c, own, slot, value, false)
+}
+
+func (x *iso) build(op scopedOp, c isoCase, own *party, slot string, value string, bare bool) (string, string, *payload) {
 	x.t.Helper()
 	values := map[string]string{}
 	for _, s := range op.slots {
@@ -186,7 +206,9 @@ func (x *iso) request(op scopedOp, c isoCase, own *party, slot string, value str
 		case "path":
 			path = strings.ReplaceAll(path, "{"+s.Name+"}", values[s.In+" "+s.Name])
 		case "query":
-			query.Set(s.Name, values[s.In+" "+s.Name])
+			if !bare || !op.optional[s.Name] {
+				query.Set(s.Name, values[s.In+" "+s.Name])
+			}
 		}
 	}
 	for k, v := range c.params {
@@ -225,19 +247,23 @@ func (x *iso) request(op scopedOp, c isoCase, own *party, slot string, value str
 	return op.method, path, new(jsonPayload(x.t, body))
 }
 
-var uuidPattern = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+var (
+	uuidPattern = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
+	timePattern = regexp.MustCompile(`\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})`)
+)
 
 func answer(s sent) string {
 	if s.json == nil {
 		return fmt.Sprintf("%d %d bytes", s.status, len(s.body))
 	}
-	e, _ := s.json["error"].(map[string]any)
-	if e == nil {
-		return fmt.Sprintf("%d success", s.status)
+	body := any(s.json)
+	if e, ok := s.json["error"].(map[string]any); ok {
+		delete(e, "requestId")
+		body = e
 	}
-	delete(e, "requestId")
-	raw, _ := json.Marshal(e)
-	return fmt.Sprintf("%d %s", s.status, uuidPattern.ReplaceAllString(string(raw), "<id>"))
+	raw, _ := json.Marshal(body)
+	masked := timePattern.ReplaceAllString(uuidPattern.ReplaceAllString(string(raw), "<id>"), "<time>")
+	return fmt.Sprintf("%d %s", s.status, masked)
 }
 
 func success(s sent) bool { return s.status >= 200 && s.status < 300 }
@@ -260,6 +286,7 @@ func (x *iso) substitute(op scopedOp, c isoCase) {
 		own := caller(x.b)
 		if c.fresh != nil {
 			own = c.fresh(x, own)
+			x.made = append(x.made, own.all()...)
 		}
 		foreign := caller(x.a)
 		theirID, missingID := foreign.id(key), uuid.NewString()
@@ -267,6 +294,7 @@ func (x *iso) substitute(op scopedOp, c isoCase) {
 		theirs := own.c.send(method, path, body)
 		if c.fresh != nil {
 			own = c.fresh(x, caller(x.b))
+			x.made = append(x.made, own.all()...)
 		}
 		method, path, body = x.request(op, c, own, slot, missingID)
 		missing := own.c.send(method, path, body)
@@ -281,11 +309,12 @@ func (x *iso) substitute(op scopedOp, c isoCase) {
 		if leaked := mentions([]byte(strings.ReplaceAll(string(theirs.body), theirID, "")), foreign); len(leaked) > 0 {
 			x.t.Errorf("%s: the answer to another owner's %s names their %v", where, s.Kind, leaked)
 		}
-		if excused != "" {
+		if c.blind[slot] != "" {
 			continue
 		}
 		if c.fresh != nil {
 			own = c.fresh(x, caller(x.b))
+			x.made = append(x.made, own.all()...)
 		}
 		method, path, body = x.request(op, c, own, slot, own.id(key))
 		mine := own.c.send(method, path, body)

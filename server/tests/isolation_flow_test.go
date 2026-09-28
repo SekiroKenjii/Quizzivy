@@ -3,9 +3,11 @@
 package e2e
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -14,9 +16,9 @@ import (
 	"github.com/google/uuid"
 )
 
-func (x *iso) view(op scopedOp, c isoCase, viewer *party) string {
+func (x *iso) view(op scopedOp, c isoCase, viewer *party, bare bool) string {
 	x.t.Helper()
-	method, path, body := x.request(op, c, viewer, "", "")
+	method, path, body := x.build(op, c, viewer, "", "", bare)
 	got := viewer.c.send(method, path, body)
 	if got.status != http.StatusOK {
 		x.t.Fatalf("%s as its owner: %d %s", op.id, got.status, got.body)
@@ -37,7 +39,10 @@ func (x *iso) views(ops []scopedOp) map[string]string {
 		if c.student {
 			viewer = x.b.student
 		}
-		out[op.id] = x.view(op, c, viewer)
+		out[op.id] = x.view(op, c, viewer, true)
+		if slices.ContainsFunc(op.slots, func(s resourceSlot) bool { return s.In == "query" && op.optional[s.Name] }) {
+			out[op.id+" filtered"] = x.view(op, c, viewer, false)
+		}
 	}
 	if got := x.b.c.send(http.MethodGet, "/teacher/students/"+x.shared, nil); got.status == http.StatusOK {
 		out["getStudent shared"] = string(got.body)
@@ -84,6 +89,19 @@ func (x *iso) beaconTo(attempt string) sent {
 	return x.w.browser().send(http.MethodPost, "/app/attempts/"+attempt+"/events", &payload{contentType: "text/plain;charset=UTF-8", data: raw})
 }
 
+func (x *iso) groupUnit(group string) sent {
+	x.t.Helper()
+	b := x.b
+	test := b.c.must(http.StatusOK, http.MethodGet, "/teacher/tests/"+b.id("listening-test"), nil)
+	return b.c.send(http.MethodPatch, "/teacher/tests/"+b.id("listening-test"), new(jsonPayload(x.t, map[string]any{
+		"expectedUpdatedAt": test["updatedAt"], "outlineFormat": "group_v1",
+		"sections": []any{map[string]any{
+			"id": b.id("listening-section"), "title": "Phần nghe", "questionIds": []any{},
+			"units": []any{map[string]any{"kind": "group", "id": group}},
+		}},
+	})))
+}
+
 func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 	w := bootWithStorage(t)
 	x := &iso{t: t, w: w, cases: isolationCases()}
@@ -113,12 +131,22 @@ func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 	shared, x.shared = w.sharedStudent(x.b)
 	before := x.views(ops)
 	x.a = w.teacherWorld("A")
+	t.Cleanup(func() {
+		if _, err := w.pool.Exec(context.Background(), `
+			UPDATE app.word_imports SET status = 'cancelled'
+			 WHERE created_by = ANY($1::uuid[]) AND status NOT IN ('committed', 'cancelled')`, []string{x.a.userID, x.b.userID}); err != nil {
+			t.Errorf("closing the suite's imports: %v", err)
+		}
+	})
 	if joined := shared.send(http.MethodPost, "/app/classes/join", new(jsonPayload(t, map[string]any{"joinCode": x.a.code}))); !success(joined) {
 		t.Fatalf("B's student joining another teacher's class: %s", answer(joined))
 	}
+	sitting := shared.must(http.StatusOK, http.MethodPost, "/app/assignments/"+x.a.id("assignment")+"/attempts", nil)
+	shared.must(http.StatusOK, http.MethodPost, "/app/attempts/"+id(sitting["attempt"].(map[string]any))+"/submit",
+		map[string]any{"sessionId": sitting["sessionId"], "reason": "manual"})
 	email, password := w.createStaff("admin")
 	x.admin = w.signedIn(email, password)
-	snapshot := w.snapshotOf(x.a)
+	snapshot, footprint := w.snapshotOf(x.a), w.rowsNaming(x.a.all(), "word_import_drafts")
 
 	for id, view := range x.views(ops) {
 		if leaked := mentions([]byte(view), x.a); len(leaked) > 0 {
@@ -149,8 +177,19 @@ func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 		t.Errorf("committing a review that holds the teacher's own image: %s", answer(mine))
 	}
 
-	for _, row := range w.crossReferences(x.a, x.b, "word_import_drafts") {
+	theirs, absent, mine = x.groupUnit(x.a.id("listening-group")), x.groupUnit(uuid.NewString()), x.groupUnit(x.b.id("listening-group"))
+	if success(absent) || answer(theirs) != answer(absent) || answer(x.groupUnit(x.a.id("question-group"))) != answer(absent) {
+		t.Errorf("a group unit naming another teacher's group answered\n  %s\nwhere a missing group answers\n  %s", answer(theirs), answer(absent))
+	}
+	if !success(mine) {
+		t.Errorf("a group unit naming the test's own group: %s", answer(mine))
+	}
+
+	for _, row := range w.crossReferences(x.a.all(), append(x.b.all(), x.made...), "word_import_drafts") {
 		t.Errorf("a row ties another teacher's work to B's: %s", row)
+	}
+	if after := w.rowsNaming(x.a.all(), "word_import_drafts"); !slices.Equal(after, footprint) {
+		t.Errorf("rows naming another teacher's work changed while B was refused:\nbefore %v\nafter  %v", footprint, after)
 	}
 
 	if after := w.snapshotOf(x.a); after != snapshot {

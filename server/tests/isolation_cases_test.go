@@ -190,6 +190,20 @@ func freshMembership(x *iso, own *party) *party {
 
 func reason(string) map[string]any { return map[string]any{"reason": "Kiểm tra cách ly"} }
 
+const (
+	promptAsset       = "body /sections/-/items/-/question/prompt/blocks/-/assetId"
+	stimulusAsset     = "body /sections/-/items/-/group/stimulus/blocks/-/assetId"
+	memberPromptAsset = "body /sections/-/items/-/group/questions/-/prompt/blocks/-/assetId"
+	optionAsset       = "body /sections/-/items/-/question/options/-/content/blocks/-/assetId"
+	memberOptionAsset = "body /sections/-/items/-/group/questions/-/options/-/content/blocks/-/assetId"
+
+	storedUnchecked = "a review stores asset references unchecked, whoever owns them; the commit check proves they resolve in the owner's scope"
+	textOnly        = "an option holds one text paragraph, so an asset is refused whatever it names"
+	notMember       = "removing someone who is not a member answers as removing a member does"
+	outsideEvent    = "an event naming a question outside the attempt's paper is kept without it; the cross-reference scan proves the id is not stored"
+	outsideAnswer   = "an answer to a question outside the attempt's paper is dropped; the cross-reference scan proves no row names it"
+)
+
 func isolationCases() map[string]isoCase {
 	fixed := func(v map[string]any) func(*iso, *party, string) any {
 		return func(*iso, *party, string) any { return v }
@@ -273,7 +287,7 @@ func isolationCases() map[string]isoCase {
 
 		"listQuestions":     {query: map[string]string{"limit": "100"}},
 		"createQuestion":    {body: func(_ *iso, own *party, _ string) any { return choiceInput(own) }},
-		"tagQuestions":      {excuse: map[string]string{"*": "tags only the questions the caller reaches"}, body: fixed(map[string]any{"questionIds": []any{""}, "tags": []any{"cách ly"}})},
+		"tagQuestions":      {excuse: map[string]string{"*": "tags only the questions the caller reaches"}, body: fixed(map[string]any{"questionIds": []any{""}, "tags": []any{"đã kiểm tra"}})},
 		"getQuestion":       {},
 		"updateQuestion":    {body: func(_ *iso, own *party, _ string) any { return choiceInput(own) }},
 		"deleteQuestion":    {fresh: freshQuestion},
@@ -291,13 +305,17 @@ func isolationCases() map[string]isoCase {
 		}},
 		"cancelWordImport":    {body: fixed(map[string]any{"expectedRevision": 1}), fresh: freshImport},
 		"getWordImportReview": {as: map[string]string{"path id": "reviewed-import"}},
-		"saveWordImportReview": {as: map[string]string{"path id": "reviewed-import"}, fresh: freshReviewedImport, excuse: map[string]string{
-			"body /sections/-/items/-/question/prompt/blocks/-/assetId":                     "a review stores asset references unchecked; the commit check resolves them",
-			"body /sections/-/items/-/group/stimulus/blocks/-/assetId":                      "a review stores asset references unchecked; the commit check resolves them",
-			"body /sections/-/items/-/group/questions/-/prompt/blocks/-/assetId":            "a review stores asset references unchecked; the commit check resolves them",
-			"body /sections/-/items/-/question/options/-/content/blocks/-/assetId":          "an option holds one text paragraph, so any asset is refused as malformed",
-			"body /sections/-/items/-/group/questions/-/options/-/content/blocks/-/assetId": "an option holds one text paragraph, so any asset is refused as malformed",
-		}, body: func(_ *iso, own *party, slot string) any { return reviewBody(own, slot) }},
+		"saveWordImportReview": {
+			as: map[string]string{"path id": "reviewed-import"}, fresh: freshReviewedImport,
+			excuse: map[string]string{
+				promptAsset: storedUnchecked, stimulusAsset: storedUnchecked, memberPromptAsset: storedUnchecked,
+			},
+			blind: map[string]string{
+				promptAsset: storedUnchecked, stimulusAsset: storedUnchecked, memberPromptAsset: storedUnchecked,
+				optionAsset: textOnly, memberOptionAsset: textOnly,
+			},
+			body: func(_ *iso, own *party, slot string) any { return reviewBody(own, slot) },
+		},
 		"adoptWordImportReprocessed": {as: map[string]string{"path id": "reviewed-import"}, body: fixed(map[string]any{"expectedRevision": 1})},
 		"getWordImportSource":        {query: map[string]string{"role": "exam"}},
 		"commitWordImport": {body: func(*iso, *party, string) any {
@@ -336,17 +354,21 @@ func isolationCases() map[string]isoCase {
 		"updateStudent":        {body: fixed(map[string]any{"fullName": "Tên đã sửa"})},
 		"resetStudentPassword": {fresh: freshStudent},
 
-		"listClasses":       {},
-		"createClass":       {},
-		"deleteClass":       {fresh: freshClass},
-		"getClass":          {},
-		"updateClass":       {body: fixed(map[string]any{"name": "Lớp đã đổi tên"})},
-		"listClassMembers":  {excuse: map[string]string{"path id": "a missing class lists no members"}},
-		"addClassMember":    {body: fixed(map[string]any{"userId": ""})},
-		"removeClassMember": {fresh: freshMembership, excuse: map[string]string{"path userId": "removing someone who is not a member succeeds"}},
-		"getJoinCode":       {},
-		"rotateJoinCode":    {body: fixed(map[string]any{})},
-		"revokeJoinCode":    {},
+		"listClasses":      {},
+		"createClass":      {},
+		"deleteClass":      {fresh: freshClass},
+		"getClass":         {},
+		"updateClass":      {body: fixed(map[string]any{"name": "Lớp đã đổi tên"})},
+		"listClassMembers": {excuse: map[string]string{"path id": "a missing class lists no members"}},
+		"addClassMember":   {body: fixed(map[string]any{"userId": ""})},
+		"removeClassMember": {
+			fresh:  freshMembership,
+			excuse: map[string]string{"path userId": notMember},
+			blind:  map[string]string{"path userId": notMember},
+		},
+		"getJoinCode":    {},
+		"rotateJoinCode": {body: fixed(map[string]any{})},
+		"revokeJoinCode": {},
 
 		"listMyClasses":        {student: true},
 		"joinClass":            {student: true},
@@ -354,9 +376,19 @@ func isolationCases() map[string]isoCase {
 		"getMyAssignment":      {student: true},
 		"startOrResumeAttempt": {student: true},
 		"getAttempt":           {student: true},
-		"saveAnswers":          {student: true, excuse: map[string]string{"body /events/-/questionId": "an event naming a question outside the attempt's paper is kept without the question"}, body: events(map[string]any{"answers": map[string]any{}})},
-		"flushEvents":          {student: true, excuse: map[string]string{"body /events/-/questionId": "an event naming a question outside the attempt's paper is kept without the question"}, body: events(map[string]any{})},
-		"recordAudioPlay":      {student: true, body: fixed(map[string]any{"questionId": ""})},
+		"saveAnswers": {
+			student: true,
+			excuse:  map[string]string{"body /events/-/questionId": outsideEvent, "body /answers/+": outsideAnswer},
+			blind:   map[string]string{"body /events/-/questionId": outsideEvent, "body /answers/+": outsideAnswer},
+			body:    events(map[string]any{"answers": map[string]any{"": map[string]any{"type": "choice", "optionIds": []any{}}}}),
+		},
+		"flushEvents": {
+			student: true,
+			excuse:  map[string]string{"body /events/-/questionId": outsideEvent},
+			blind:   map[string]string{"body /events/-/questionId": outsideEvent},
+			body:    events(map[string]any{}),
+		},
+		"recordAudioPlay": {student: true, body: fixed(map[string]any{"questionId": ""})},
 		"recordGroupAudioPlay": {student: true, body: func(_ *iso, own *party, _ string) any {
 			return map[string]any{"recordingId": "", "playId": uuid.NewString(), "sessionId": own.session}
 		}},
