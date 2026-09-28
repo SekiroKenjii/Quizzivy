@@ -27,7 +27,14 @@ func (h Classes) DeleteClass(ctx context.Context, request openapi.DeleteClassReq
 	case errors.Is(err, domain.ErrNotArchived):
 		return openapi.DeleteClass409JSONResponse(httpapi.Error(ctx, openapi.RESOURCENOTARCHIVED, "Cần lưu trữ, vô hiệu hoá hoặc đóng mục này trước khi xoá vĩnh viễn.")), nil
 	case errors.Is(err, domain.ErrReferenced):
-		return openapi.DeleteClass409JSONResponse(httpapi.Error(ctx, openapi.RESOURCEREFERENCED, "Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.")), nil
+		by := domain.ReferencedByOther
+		var refused *domain.ReferencedError
+		if errors.As(err, &refused) {
+			by = refused.By
+		}
+		return openapi.DeleteClass409JSONResponse(httpapi.ErrorWithDetails(ctx, openapi.RESOURCEREFERENCED,
+			"Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.",
+			map[string]interface{}{"referencedBy": openapi.ReferencedBy(by)})), nil
 	default:
 		return nil, err
 	}

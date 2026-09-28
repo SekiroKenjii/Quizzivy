@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/db"
@@ -104,6 +105,12 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if in.Email != nil && !req.ManagesUsers() {
+		if err := unshared(ctx, tx, req, in.ID, false); err != nil {
+			return domain.Student{}, err
+		}
+	}
+
 	tag, err := tx.Exec(ctx, `
 		UPDATE app.users u
 		   SET full_name   = coalesce($2, full_name),
@@ -114,11 +121,14 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 		                       ELSE NULL
 		                     END,
 		       session_epoch = session_epoch + CASE WHEN $4::boolean IS TRUE THEN 1 ELSE 0 END
-		 WHERE u.id = $1::uuid AND u.role = 'student'
+		 WHERE u.id = $1::uuid AND `+studentLike+`
 		   AND ($6::boolean OR u.id IN `+visibility.StudentIDs(7)+`)`,
 		in.ID, in.FullName, in.Email, in.Disabled, in.Now, req.All, opt.String(req.ActorID))
 	if db.IsUniqueViolation(err, "") {
 		return domain.Student{}, domain.ErrEmailTaken
+	}
+	if errors.Is(UserWriteError(err), domain.ErrLastAdmin) {
+		return domain.Student{}, domain.ErrLastAdmin
 	}
 	if err != nil {
 		return domain.Student{}, fmt.Errorf("students: update: %w", err)
@@ -156,7 +166,8 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 // ResetPassword sets a temporary password on a student the actor reaches,
 // revokes every session the student has and moves the session epoch, so a live
 // access token stops working too. Another teacher's student answers
-// ErrStudentNotFound.
+// ErrStudentNotFound; a student someone else also reaches answers
+// ErrStudentShared unless the actor manages accounts.
 func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, id, hash string, now time.Time) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -164,10 +175,15 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if !req.ManagesUsers() {
+		if err := unshared(ctx, tx, req, id, true); err != nil {
+			return err
+		}
+	}
 	tag, err := tx.Exec(ctx, `
 		UPDATE app.users u
 		   SET password_hash = $2, must_change_password = true, session_epoch = session_epoch + 1
-		 WHERE u.id = $1::uuid AND u.role = 'student' AND u.disabled_at IS NULL
+		 WHERE u.id = $1::uuid AND `+studentLike+` AND u.disabled_at IS NULL
 		   AND ($3::boolean OR u.id IN `+visibility.StudentIDs(4)+`)`, id, hash, req.All, opt.String(req.ActorID))
 	if err != nil {
 		return fmt.Errorf("students: reset password: %w", err)
@@ -195,4 +211,34 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func unshared(ctx context.Context, tx pgx.Tx, req domain.WriteRequest, id string, activeOnly bool) error {
+	active := ``
+	if activeOnly {
+		active = ` AND u.disabled_at IS NULL`
+	}
+	var alone bool
+	err := tx.QueryRow(ctx, `
+		SELECT coalesce(
+		         NOT EXISTS (SELECT 1 FROM app.class_members m WHERE m.user_id = u.id AND m.class_id NOT IN `+visibility.TaughtClassIDs(3)+`)
+		         AND (u.created_by IS NULL OR u.created_by = $3::uuid)
+		         AND NOT EXISTS (SELECT 1 FROM app.assignment_students s JOIN app.assignments x ON x.id = s.assignment_id
+		                          WHERE s.user_id = u.id AND x.created_by IS DISTINCT FROM $3::uuid)
+		         AND (EXISTS (SELECT 1 FROM app.class_members m WHERE m.user_id = u.id) OR u.created_by = $3::uuid),
+		         false)
+		  FROM app.users u
+		 WHERE u.id = $1::uuid AND `+studentLike+active+`
+		   AND ($2::boolean OR u.id IN `+visibility.StudentIDs(3)+`)
+		   FOR NO KEY UPDATE OF u`, id, req.All, opt.String(req.ActorID)).Scan(&alone)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrStudentNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("students: check sharing: %w", err)
+	}
+	if !alone {
+		return domain.ErrStudentShared
+	}
+	return nil
 }

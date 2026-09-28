@@ -57,14 +57,24 @@ type StudentQuery struct {
 	Scope   access.Scope
 }
 
-// WriteRequest is the actor behind a write, for the audit row and for reach: a
-// write touches only students ActorID reaches and classes ActorID teaches,
-// unless All, the actor's scope.all, is set.
+// WriteRequest is the actor behind a write, for the audit row, for reach and
+// for the guards that are not permissions: a write touches only students
+// ActorID reaches and classes ActorID teaches, unless All, the actor's
+// scope.all, is set. Grants are the actor's effective permissions; they decide
+// whether the actor manages accounts and whether a student's permissions are a
+// subset of the actor's.
 type WriteRequest struct {
 	ActorID   string
 	All       bool
+	Grants    access.Set
 	IP        string
 	UserAgent string
+}
+
+// ManagesUsers reports whether the actor holds people.users.manage, which
+// disables and enables accounts and lifts the shared-student guard.
+func (r WriteRequest) ManagesUsers() bool {
+	return r.Grants.Has(access.PeopleUsersManage)
 }
 
 // Scope is the scope the request reads under: ActorID's own, or everyone's

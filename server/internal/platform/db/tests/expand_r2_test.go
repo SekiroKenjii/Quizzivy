@@ -17,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pressly/goose/v3"
 
+	identitydomain "quizzivy/internal/modules/identity/domain"
+	identityrepo "quizzivy/internal/modules/identity/repositories"
 	"quizzivy/internal/platform/db"
 )
 
@@ -228,6 +230,9 @@ func TestTheR2ExpandKeepsTheOldBinaryWorking(t *testing.T) {
 				defer func() { _ = tx.Rollback() }()
 				_, err = tx.Exec(statement, owner)
 				refusedWith(t, err, "users_last_admin")
+				if !errors.Is(identityrepo.UserWriteError(err), identitydomain.ErrLastAdmin) {
+					t.Errorf("the identity repository maps the refusal to %v, want ErrLastAdmin", identityrepo.UserWriteError(err))
+				}
 			})
 		}
 	})

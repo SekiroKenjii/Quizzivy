@@ -15,6 +15,8 @@ import (
 
 const msgStudentNotFound = "Không tìm thấy học viên."
 
+const msgStudentForbidden = "Bạn không có quyền thao tác trên tài khoản này."
+
 // ListStudents backs §8's students table (G-07) and the two pickers that add a
 // student to a class (G-06) or to an assignment (G-01), over the students the
 // caller reaches.
@@ -148,6 +150,11 @@ func (h Identity) UpdateStudent(ctx context.Context, request openapi.UpdateStude
 	case errors.Is(err, domain.ErrEmailTaken):
 		return openapi.UpdateStudent409JSONResponse(httpapi.Error(ctx, openapi.EMAILTAKEN,
 			"Địa chỉ email này đã được dùng cho một tài khoản khác.")), nil
+	case errors.Is(err, domain.ErrForbidden):
+		return openapi.UpdateStudent403JSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, msgStudentForbidden)), nil
+	case errors.Is(err, domain.ErrStudentShared):
+		return openapi.UpdateStudent403JSONResponse(httpapi.Error(ctx, openapi.STUDENTSHARED,
+			"Học viên này còn thuộc lớp hoặc bài giao của giáo viên khác, hoặc do người khác tạo, nên chỉ quản trị viên mới đổi được email.")), nil
 	default:
 		return nil, err
 	}
@@ -166,19 +173,26 @@ func (h Identity) ResetStudentPassword(ctx context.Context, request openapi.Rese
 	}
 
 	temporary, err := h.app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: req, ID: request.Id.String()})
-	if errors.Is(err, domain.ErrStudentNotFound) {
+	switch {
+	case err == nil:
+		return openapi.ResetStudentPassword200JSONResponse{TemporaryPassword: temporary}, nil
+	case errors.Is(err, domain.ErrStudentNotFound):
 		return openapi.ResetStudentPassword404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgStudentNotFound))}, nil
-	}
-	if err != nil {
+	case errors.Is(err, domain.ErrForbidden):
+		return openapi.ResetStudentPassword403JSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, msgStudentForbidden)), nil
+	case errors.Is(err, domain.ErrStudentShared):
+		return openapi.ResetStudentPassword403JSONResponse(httpapi.Error(ctx, openapi.STUDENTSHARED,
+			"Học viên này còn thuộc lớp hoặc bài giao của giáo viên khác, hoặc do người khác tạo, nên chỉ quản trị viên mới đặt lại được mật khẩu.")), nil
+	default:
 		return nil, err
 	}
-	return openapi.ResetStudentPassword200JSONResponse{TemporaryPassword: temporary}, nil
 }
 
 func studentRequest(ctx context.Context) (domain.WriteRequest, bool) {
 	who, ok := httpapi.ActorFromContext(ctx)
-	return domain.WriteRequest{ActorID: who.ID, All: who.Scope.All, IP: who.IP, UserAgent: who.UserAgent}, ok
+	principal, _ := httpx.PrincipalFromContext(ctx)
+	return domain.WriteRequest{ActorID: who.ID, All: who.Scope.All, Grants: principal.Access.Permissions, IP: who.IP, UserAgent: who.UserAgent}, ok
 }
 
 func toAPIStudent(student domain.Student) openapi.StudentRow {

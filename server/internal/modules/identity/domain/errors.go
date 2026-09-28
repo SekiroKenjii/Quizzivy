@@ -66,6 +66,9 @@ var (
 	ErrStudentNotFound = errors.New("students: not found")
 	ErrEmailTaken      = errors.New("students: email already in use")
 	ErrClassNotFound   = errors.New("students: class not found")
+	ErrForbidden       = errors.New("students: the caller may not act on this account")
+	ErrStudentShared   = errors.New("students: someone else also reaches this student")
+	ErrLastAdmin       = errors.New("users: the last active Admin cannot be demoted, disabled or deleted")
 )
 
 var (
