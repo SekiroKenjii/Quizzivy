@@ -21,6 +21,7 @@ import (
 	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/modules/identity/repositories"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
@@ -135,6 +136,9 @@ func (l *ladder) refused(t *testing.T, label, target string) {
 	l.exec(t, `UPDATE app.users SET disabled_at = now() WHERE id = $1`, target)
 	if _, err := l.app.Commands.DeleteStudent.Handle(ctx, command.DeleteStudent{Request: root, ID: target}); !errors.Is(err, domain.ErrStudentNotFound) {
 		t.Errorf("%s: scope.all deleting them answered %v, want ErrStudentNotFound", label, err)
+	}
+	if err := repositories.NewStudents(db.NewContext(l.tx)).Delete(ctx, root, target, time.Now()); !errors.Is(err, domain.ErrStudentNotFound) {
+		t.Errorf("%s: the store's own delete lock answered %v, want ErrStudentNotFound", label, err)
 	}
 }
 
@@ -269,6 +273,14 @@ func TestOnlyAStudentNoOneElseReachesIsResetOrReaddressedByATeacher(t *testing.T
 		if c.want != nil && l.snapshot(t, c.student) != before {
 			t.Errorf("a refused email change by %s changed the student", label)
 		}
+	}
+	store := repositories.NewStudents(db.NewContext(l.tx))
+	if err := store.ResetPassword(ctx, b, l.created, "x", time.Now()); !errors.Is(err, domain.ErrStudentNotFound) {
+		t.Errorf("the store resetting a student B does not reach answered %v, want ErrStudentNotFound", err)
+	}
+	email := uuid.NewString() + "@example.test"
+	if _, err := store.Update(ctx, b, domain.StudentPatch{ID: l.created, Email: &email, Now: time.Now()}); !errors.Is(err, domain.ErrStudentNotFound) {
+		t.Errorf("the store re-addressing a student B does not reach answered %v, want ErrStudentNotFound", err)
 	}
 	gone := l.user(t, "student", "Đã khoá, dùng chung", nil)
 	l.enrol(t, l.classA, gone)
