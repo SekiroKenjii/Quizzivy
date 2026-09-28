@@ -219,10 +219,11 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			       (type, prompt, media_asset_id, media_asset_kind,
 			        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
 			        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
-			        id, context_group_id, context_ordinal, context_option_order)
+			        id, context_group_id, context_ordinal, context_option_order, owner_id)
 			VALUES ($1::app.question_type, $2, $3, $4::app.media_kind, $5, $6, $7,
 			        $8, $9::numeric, $10, $11, $12, $13, $14, $15,
-			        coalesce($16::uuid, uuidv7()), $17, $18, $19)
+			        coalesce($16::uuid, uuidv7()), $17, $18, $19,
+			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $13))
 			RETURNING id::text`,
 			string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,

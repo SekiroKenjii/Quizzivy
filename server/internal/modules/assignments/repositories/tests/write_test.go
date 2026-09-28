@@ -72,8 +72,8 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, status string) world {
 		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học viên','student')
 		 RETURNING id::text`, "asg-s-"+id+"@example.com").Scan(&w.student))
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-		"Lớp "+id).Scan(&w.class))
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+		"Lớp "+id, w.admin).Scan(&w.class))
 	must(func() error {
 		_, err := pool.Exec(ctx,
 			`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)

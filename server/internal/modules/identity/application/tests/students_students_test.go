@@ -143,8 +143,8 @@ func TestTheClassFilterNarrowsToThatRoster(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-		"Lớp "+nonce(t)).Scan(&classID); err != nil {
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+		"Lớp "+nonce(t), teacher).Scan(&classID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx,

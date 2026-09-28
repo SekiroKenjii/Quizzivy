@@ -289,7 +289,7 @@ func makeClassForEnrol(t *testing.T, pool *pgxpool.Pool) (classID, teacherID str
 	ctx := context.Background()
 	teacherID, _ = makeUser(t, pool, admin)
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ('Lớp ghi danh') RETURNING id::text`).Scan(&classID); err != nil {
+		`INSERT INTO app.classes (name, teacher_id) VALUES ('Lớp ghi danh', $1) RETURNING id::text`, teacherID).Scan(&classID); err != nil {
 		t.Fatalf("insert class: %v", err)
 	}
 	t.Cleanup(func() {

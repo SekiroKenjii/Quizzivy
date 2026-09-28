@@ -63,7 +63,7 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 		t.Fatal(err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`, "Lớp "+n).Scan(&classID); err != nil {
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`, "Lớp "+n, teacherID).Scan(&classID); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -438,12 +438,22 @@ func TestClassesPageAndSearchByName(t *testing.T) {
 	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	tag := nonce(t)
+	var teacher string
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role) VALUES ($1, 'Giáo viên', 'admin') RETURNING id::text`,
+		"page-"+tag+"@example.com").Scan(&teacher); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = $1`, teacher); err != nil {
+			t.Errorf("cleanup teacher: %v", err)
+		}
+	})
 
 	var mine []string
 	for i := range 3 {
 		var id string
-		if err := pool.QueryRow(ctx, `INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-			fmt.Sprintf("Phân Trang %s %d", tag, i)).Scan(&id); err != nil {
+		if err := pool.QueryRow(ctx, `INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+			fmt.Sprintf("Phân Trang %s %d", tag, i), teacher).Scan(&id); err != nil {
 			t.Fatal(err)
 		}
 		mine = append(mine, id)
@@ -672,6 +682,46 @@ func TestCreatingAClassReturnsItAndAuditsIt(t *testing.T) {
 	}
 	if audited != 1 {
 		t.Errorf("audit rows = %d, want 1", audited)
+	}
+}
+
+func TestATeachersNewClassIsTheirsNotTheOldestAdmins(t *testing.T) {
+	pool := newPool(t)
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+	var teacher string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1, 'Giáo viên', (SELECT id FROM app.roles WHERE builtin_key = 'teacher')) RETURNING id::text`,
+		"teacher-"+nonce(t)+"@example.com").Scan(&teacher); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = $1`, teacher); err != nil {
+			t.Errorf("cleanup teacher: %v", err)
+		}
+	})
+	created, err := store.Create(ctx, domain.CreateInput{Name: "Lớp của giáo viên " + nonce(t), ActorUserID: teacher, Now: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		if _, err := pool.Exec(c, `DELETE FROM app.audit_log WHERE entity_id = $1`, created.ID); err != nil {
+			t.Errorf("cleanup audit: %v", err)
+		}
+		if _, err := pool.Exec(c, `DELETE FROM app.classes WHERE id = $1`, created.ID); err != nil {
+			t.Errorf("cleanup class: %v", err)
+		}
+	})
+	var stored, oldestAdmin string
+	if err := pool.QueryRow(ctx, `SELECT c.teacher_id::text,
+		coalesce((SELECT u.id::text FROM app.users u JOIN app.roles r ON r.id = u.role_id
+		  WHERE r.builtin_key = 'admin' AND u.disabled_at IS NULL ORDER BY u.created_at, u.id LIMIT 1), '')
+		FROM app.classes c WHERE c.id = $1`, created.ID).Scan(&stored, &oldestAdmin); err != nil {
+		t.Fatal(err)
+	}
+	if stored != teacher {
+		t.Errorf("teacher_id = %s, want the Teacher who created it, %s (oldest Admin %s)", stored, teacher, oldestAdmin)
 	}
 }
 

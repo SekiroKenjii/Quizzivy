@@ -104,8 +104,8 @@ func lockGroupOwner(ctx context.Context, tx pgx.Tx, in domain.CreateGroupInput) 
 }
 
 func insertGroup(ctx context.Context, tx pgx.Tx, in domain.CreateGroupInput) error {
-	_, err := tx.Exec(ctx, `INSERT INTO app.question_groups (id,owner_section_id,title,instructions,created_by)
-		VALUES ($1,$2,$3,$4,$5)`, in.Bundle.Group.ID, in.OwnerSectionID, in.Bundle.Group.Title, nullableGroupContent(in.Bundle.Group.Instructions), in.ActorID)
+	_, err := tx.Exec(ctx, `INSERT INTO app.question_groups (id,owner_section_id,title,instructions,created_by,owner_id)
+		VALUES ($1,$2,$3,$4,$5,coalesce((SELECT t.owner_id FROM app.test_sections s JOIN app.tests t ON t.id = s.test_id WHERE s.id = $2),$5))`, in.Bundle.Group.ID, in.OwnerSectionID, in.Bundle.Group.Title, nullableGroupContent(in.Bundle.Group.Instructions), in.ActorID)
 	return err
 }
 

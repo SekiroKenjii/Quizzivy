@@ -198,6 +198,27 @@ func TestCommitCreatesOneTestWithItsSectionsGroupsAndBankQuestionsInOrder(t *tes
 	}
 }
 
+func TestACommittedImportBelongsToTheImporter(t *testing.T) {
+	h := commitSetup(t)
+	ctx := context.Background()
+	testID, err := h.committer.Materialize(ctx, plan(t), h.by, h.record(h.underReview(t), uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var test string
+	var questions, groups, others int
+	if err := h.pool.QueryRow(ctx, `SELECT owner_id::text,
+ (SELECT count(*) FROM app.questions WHERE created_by=$2),
+ (SELECT count(*) FROM app.question_groups g JOIN app.test_sections s ON s.id=g.owner_section_id WHERE s.test_id=$1),
+ (SELECT count(*) FROM app.questions WHERE created_by=$2 AND owner_id<>$2) + (SELECT count(*) FROM app.question_groups WHERE created_by=$2 AND owner_id<>$2)
+ FROM app.tests WHERE id=$1`, testID, h.by.ID).Scan(&test, &questions, &groups, &others); err != nil {
+		t.Fatal(err)
+	}
+	if test != h.by.ID || questions == 0 || groups == 0 || others != 0 {
+		t.Fatalf("test owner %s (want %s), %d questions and %d groups written, %d owned by someone else", test, h.by.ID, questions, groups, others)
+	}
+}
+
 func TestAFailedCommitLeavesNoTestBehind(t *testing.T) {
 	h := commitSetup(t)
 	importID := h.underReview(t)

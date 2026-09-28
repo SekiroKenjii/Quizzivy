@@ -71,8 +71,18 @@ func withTx(t *testing.T, conn *sql.DB, fn func(tx *sql.Tx, f fixture)) {
 	must(&f.studentID,
 		`INSERT INTO app.users (email, full_name) VALUES ($1, 'Học viên') RETURNING id`,
 		"student-"+tag+"@example.com")
-	must(&f.classID,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id`, "Lớp "+tag)
+	var hasTeacher bool
+	if err := tx.QueryRow(`SELECT EXISTS (SELECT 1 FROM pg_attribute
+		WHERE attrelid = 'app.classes'::regclass AND attname = 'teacher_id' AND NOT attisdropped)`).Scan(&hasTeacher); err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+	if hasTeacher {
+		must(&f.classID,
+			`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id`, "Lớp "+tag, f.adminID)
+	} else {
+		must(&f.classID,
+			`INSERT INTO app.classes (name) VALUES ($1) RETURNING id`, "Lớp "+tag)
+	}
 
 	fn(tx, f)
 }

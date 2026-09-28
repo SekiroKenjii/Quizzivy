@@ -124,8 +124,8 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 			"att-"+u.tag+"-"+id+"@example.com", u.role).Scan(u.into))
 	}
 
-	must(pool.QueryRow(ctx, `INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-		"Lớp "+id).Scan(&w.class))
+	must(pool.QueryRow(ctx, `INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+		"Lớp "+id, w.admin).Scan(&w.class))
 	exec(`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
 	      VALUES ($1::uuid,$2::uuid,'admin',$3::uuid)`, w.class, w.student, w.admin)
 

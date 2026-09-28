@@ -322,10 +322,10 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Cl
 
 	var id string
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO app.classes (name, description, self_join_enabled, created_at)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO app.classes (name, description, self_join_enabled, created_at, teacher_id)
+		VALUES ($1, $2, $3, $4, $5::uuid)
 		RETURNING id::text`,
-		in.Name, in.Description, in.SelfJoinEnabled, in.Now).Scan(&id); err != nil {
+		in.Name, in.Description, in.SelfJoinEnabled, in.Now, in.ActorUserID).Scan(&id); err != nil {
 		return domain.Class{}, fmt.Errorf("create class: %w", err)
 	}
 	if err := audit.Write(ctx, tx, audit.Entry{

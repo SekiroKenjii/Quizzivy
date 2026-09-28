@@ -361,3 +361,284 @@ func TestTheR2ExpandKeepsTheOldBinaryWorking(t *testing.T) {
 		}
 	})
 }
+
+type legacyRow struct {
+	table, id, author string
+	updatedAt         *time.Time
+}
+
+func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
+	dsn := expandScratch(t)
+	migrate := openAs(t, dsn)
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatal(err)
+	}
+	goose.SetLogger(goose.NopLogger())
+	dir := db.MigrationsDir(t)
+	if err := goose.UpTo(migrate, dir, versionBefore(t, dir, "_create_roles_and_permissions.sql")); err != nil {
+		t.Fatalf("up to v0.7.0: %v", err)
+	}
+	insertID := func(query string, args ...any) string {
+		t.Helper()
+		var id string
+		if err := migrate.QueryRow(query, args...).Scan(&id); err != nil {
+			t.Fatalf("legacy insert %q: %v", query, err)
+		}
+		return id
+	}
+	insertID(`INSERT INTO app.users (email, full_name, role, created_at, disabled_at) VALUES ('gone@example.com', 'Gone', 'admin', now() - interval '60 days', now() - interval '1 day') RETURNING id::text`)
+	first := insertID(`INSERT INTO app.users (email, full_name, role, created_at) VALUES ('first@example.com', 'First', 'admin', now() - interval '50 days') RETURNING id::text`)
+	second := insertID(`INSERT INTO app.users (email, full_name, role, created_at) VALUES ('second@example.com', 'Second', 'admin', now() - interval '40 days') RETURNING id::text`)
+	const old = `now() - interval '30 days'`
+	firstTest := insertID(`INSERT INTO app.tests (title, created_by, created_at, updated_at) VALUES ('First test', $1, `+old+`, `+old+`) RETURNING id::text`, first)
+	secondTest := insertID(`INSERT INTO app.tests (title, created_by, created_at, updated_at) VALUES ('Second test', $1, `+old+`, `+old+`) RETURNING id::text`, second)
+	section := insertID(`INSERT INTO app.test_sections (test_id, ordinal, title) VALUES ($1, 0, 'Part 1') RETURNING id::text`, secondTest)
+	rows := []legacyRow{
+		{table: "tests", id: firstTest, author: first},
+		{table: "tests", id: secondTest, author: second},
+		{table: "questions", id: insertID(`INSERT INTO app.questions (type, prompt, points, created_by, created_at, updated_at) VALUES ('short_answer', 'First question', 1, $1, `+old+`, `+old+`) RETURNING id::text`, first), author: first},
+		{table: "questions", id: insertID(`INSERT INTO app.questions (type, prompt, points, created_by, created_at, updated_at) VALUES ('short_answer', 'Second question', 1, $1, `+old+`, `+old+`) RETURNING id::text`, second), author: second},
+		{table: "question_groups", id: insertID(`INSERT INTO app.question_groups (title, created_by, created_at, updated_at) VALUES ('Bank group', $1, `+old+`, `+old+`) RETURNING id::text`, first), author: first},
+		{table: "question_groups", id: insertID(`INSERT INTO app.question_groups (owner_section_id, title, created_by, created_at, updated_at) VALUES ($1, 'Section group', $2, `+old+`, `+old+`) RETURNING id::text`, section, second), author: second},
+		{table: "media_assets", id: insertID(`INSERT INTO app.media_assets (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by) VALUES ('image', 'media/legacy.png', 'image/png', 10, 'legacy.png', sha256('legacy'::bytea), $1) RETURNING id::text`, second), author: second},
+	}
+	legacyClass := insertID(`INSERT INTO app.classes (name, created_at, updated_at) VALUES ('Legacy class', ` + old + `, ` + old + `) RETURNING id::text`)
+	var classUpdatedAt time.Time
+	if err := migrate.QueryRow(`SELECT updated_at FROM app.classes WHERE id = $1`, legacyClass).Scan(&classUpdatedAt); err != nil {
+		t.Fatal(err)
+	}
+	for i, row := range rows {
+		if row.table == "media_assets" {
+			continue
+		}
+		var updatedAt time.Time
+		if err := migrate.QueryRow(`SELECT updated_at FROM app.`+row.table+` WHERE id = $1`, row.id).Scan(&updatedAt); err != nil {
+			t.Fatal(err)
+		}
+		rows[i].updatedAt = &updatedAt
+	}
+
+	if err := goose.Up(migrate, dir); err != nil {
+		t.Fatalf("up: %v", err)
+	}
+
+	for _, row := range rows {
+		var owner string
+		var updatedAt *time.Time
+		query := `SELECT owner_id::text, NULL::timestamptz FROM app.` + row.table + ` WHERE id = $1`
+		if row.updatedAt != nil {
+			query = `SELECT owner_id::text, updated_at FROM app.` + row.table + ` WHERE id = $1`
+		}
+		if err := migrate.QueryRow(query, row.id).Scan(&owner, &updatedAt); err != nil {
+			t.Fatalf("%s %s after the backfill: %v", row.table, row.id, err)
+		}
+		if owner != row.author {
+			t.Errorf("%s %s: owner_id %s, want its author %s", row.table, row.id, owner, row.author)
+		}
+		if row.updatedAt != nil && !updatedAt.Equal(*row.updatedAt) {
+			t.Errorf("%s %s: updated_at moved from %v to %v", row.table, row.id, *row.updatedAt, *updatedAt)
+		}
+	}
+
+	var classTeacher string
+	var classUpdated time.Time
+	if err := migrate.QueryRow(`SELECT teacher_id::text, updated_at FROM app.classes WHERE id = $1`, legacyClass).Scan(&classTeacher, &classUpdated); err != nil {
+		t.Fatal(err)
+	}
+	if classTeacher != first {
+		t.Errorf("the legacy class's teacher is %s, want the oldest active Admin %s", classTeacher, first)
+	}
+	if !classUpdated.Equal(classUpdatedAt) {
+		t.Errorf("the legacy class's updated_at moved from %v to %v", classUpdatedAt, classUpdated)
+	}
+
+	app := openAs(t, appRoleDSN(t, dsn))
+
+	t.Run("the old binary's class goes to the oldest active Admin", func(t *testing.T) {
+		tx, err := app.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		var teacher string
+		if err := tx.QueryRow(`INSERT INTO app.classes (name) VALUES ('Old binary') RETURNING teacher_id::text`).Scan(&teacher); err != nil {
+			t.Fatal(err)
+		}
+		if teacher != first {
+			t.Errorf("teacher_id %s, want the oldest active Admin %s", teacher, first)
+		}
+		var named string
+		if err := tx.QueryRow(`INSERT INTO app.classes (name, teacher_id) VALUES ('New binary', $1) RETURNING teacher_id::text`, second).Scan(&named); err != nil {
+			t.Fatal(err)
+		}
+		if named != second {
+			t.Errorf("teacher_id %s, want the named teacher %s", named, second)
+		}
+	})
+
+	t.Run("the old binary's inserts are given their author as owner", func(t *testing.T) {
+		tx, err := app.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		for table, insert := range map[string]string{
+			"tests":           `INSERT INTO app.tests (title, created_by) VALUES ('Old binary', $1) RETURNING owner_id::text`,
+			"questions":       `INSERT INTO app.questions (type, prompt, points, created_by) VALUES ('short_answer', 'Old binary', 1, $1) RETURNING owner_id::text`,
+			"question_groups": `INSERT INTO app.question_groups (title, created_by) VALUES ('Old binary', $1) RETURNING owner_id::text`,
+			"media_assets":    `INSERT INTO app.media_assets (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by) VALUES ('image', 'media/old-binary.png', 'image/png', 10, 'old.png', sha256('old'::bytea), $1) RETURNING owner_id::text`,
+		} {
+			var owner string
+			if err := tx.QueryRow(insert, second).Scan(&owner); err != nil {
+				t.Fatalf("%s: %v", table, err)
+			}
+			if owner != second {
+				t.Errorf("%s: owner_id %s, want the author %s", table, owner, second)
+			}
+		}
+	})
+
+	t.Run("an explicit owner is kept", func(t *testing.T) {
+		tx, err := app.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		var owner string
+		if err := tx.QueryRow(`INSERT INTO app.tests (title, created_by, owner_id) VALUES ('Copy', $1, $2) RETURNING owner_id::text`, first, second).Scan(&owner); err != nil {
+			t.Fatal(err)
+		}
+		if owner != second {
+			t.Errorf("owner_id %s, want the named owner %s", owner, second)
+		}
+	})
+
+	t.Run("an account's creator is optional and survives its creator", func(t *testing.T) {
+		tx, err := app.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		var selfJoined, created string
+		var creator *string
+		if err := tx.QueryRow(`INSERT INTO app.users (email, full_name, role) VALUES ('self@example.com', 'Self', 'student') RETURNING id::text, created_by::text`).Scan(&selfJoined, &creator); err != nil {
+			t.Fatal(err)
+		}
+		if creator != nil {
+			t.Errorf("a self-joined account has creator %s, want none", *creator)
+		}
+		var staff string
+		if err := migrate.QueryRow(`INSERT INTO app.users (email, full_name, role) VALUES ('staff@example.com', 'Staff', 'admin') RETURNING id::text`).Scan(&staff); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if _, err := migrate.Exec(`DELETE FROM app.users WHERE id = $1`, staff); err != nil {
+				t.Errorf("cleanup staff: %v", err)
+			}
+		})
+		if err := tx.QueryRow(`INSERT INTO app.users (email, full_name, role, created_by) VALUES ('made@example.com', 'Made', 'student', $1) RETURNING id::text`, staff).Scan(&created); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(`DELETE FROM app.users WHERE id = $1`, staff); err != nil {
+			t.Fatalf("deleting the creator: %v", err)
+		}
+		if err := tx.QueryRow(`SELECT created_by::text FROM app.users WHERE id = $1`, created).Scan(&creator); err != nil {
+			t.Fatal(err)
+		}
+		if creator != nil {
+			t.Errorf("the account still names its deleted creator %s", *creator)
+		}
+	})
+
+	t.Run("each owner column is NOT VALID until R3 validates it", func(t *testing.T) {
+		for table, constraint := range map[string]string{
+			"tests":           "tests_owner_id_not_null",
+			"questions":       "questions_owner_id_not_null",
+			"question_groups": "question_groups_owner_id_not_null",
+			"media_assets":    "media_assets_owner_id_not_null",
+			"classes":         "classes_teacher_id_not_null",
+		} {
+			var validated bool
+			if err := migrate.QueryRow(`
+				SELECT c.convalidated FROM pg_constraint c
+				 WHERE c.conname = $1 AND c.conrelid = ('app.' || $2)::regclass`, constraint, table).Scan(&validated); err != nil {
+				t.Fatalf("%s: %v", constraint, err)
+			}
+			if validated {
+				t.Errorf("%s is validated; R3 owns that step", constraint)
+			}
+		}
+	})
+}
+
+func TestAddingTheClassTeacherWaitsForTheOldStudentCreateInsteadOfDeadlocking(t *testing.T) {
+	dsn := expandScratch(t)
+	migrate := openAs(t, dsn)
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatal(err)
+	}
+	goose.SetLogger(goose.NopLogger())
+	dir := db.MigrationsDir(t)
+	if err := goose.UpTo(migrate, dir, versionBefore(t, dir, "_add_classes_teacher.sql")); err != nil {
+		t.Fatalf("up to the class teacher: %v", err)
+	}
+	var admin, class string
+	if err := migrate.QueryRow(`INSERT INTO app.users (email, full_name, role) VALUES ('owner@example.com', 'Owner', 'admin') RETURNING id::text`).Scan(&admin); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate.QueryRow(`INSERT INTO app.classes (name) VALUES ('Lớp') RETURNING id::text`).Scan(&class); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	app := openAs(t, appRoleDSN(t, dsn))
+	old, err := app.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = old.Rollback() }()
+	var student string
+	if err := old.QueryRowContext(ctx, `INSERT INTO app.users (email, full_name) VALUES ('new@example.com', 'New') RETURNING id::text`).Scan(&student); err != nil {
+		t.Fatalf("the old binary's student insert: %v", err)
+	}
+
+	column := make(chan error, 1)
+	go func() { column <- goose.UpByOne(migrate, dir) }()
+	select {
+	case err := <-column:
+		if err != nil {
+			t.Fatalf("the class teacher column: %v", err)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the class teacher column waited on the old binary's open student insert: it locks app.users while holding app.classes")
+	}
+	if _, err := old.ExecContext(ctx, `INSERT INTO app.class_members (class_id, user_id, joined_via, added_by) VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, class, student, admin); err != nil {
+		t.Fatalf("the old binary's enrolment after the column: %v", err)
+	}
+
+	keys := make(chan error, 1)
+	go func() { keys <- goose.Up(migrate, dir) }()
+	select {
+	case err := <-keys:
+		t.Fatalf("the foreign keys finished while the old binary still held app.users: %v", err)
+	case <-time.After(2 * time.Second):
+	}
+	if err := old.Commit(); err != nil {
+		t.Fatalf("the old binary's commit: %v", err)
+	}
+	if err := <-keys; err != nil {
+		t.Fatalf("the rest of the migrations after the old binary committed: %v", err)
+	}
+	var teacher string
+	var restrict bool
+	if err := migrate.QueryRow(`
+		SELECT c.teacher_id::text,
+		       (SELECT k.confdeltype = 'r' AND k.convalidated FROM pg_constraint k WHERE k.conname = 'classes_teacher_id_fkey')
+		  FROM app.classes c WHERE c.id = $1`, class).Scan(&teacher, &restrict); err != nil {
+		t.Fatal(err)
+	}
+	if teacher != admin || !restrict {
+		t.Errorf("the class's teacher is %s (want %s) and its key restricts: %v", teacher, admin, restrict)
+	}
+}
