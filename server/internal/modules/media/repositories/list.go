@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/media/domain"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
+	"strings"
 )
 
 const (
@@ -13,47 +16,50 @@ const (
 	MaxLimit     = 100
 )
 
-// List returns one page of live assets, newest first, with the paging
-// beside it.
-func (s *Postgres) TotalBytes(ctx context.Context, kind *domain.Kind) (int64, error) {
-	var kindArg *string
-	if kind != nil {
-		k := string(*kind)
-		kindArg = &k
+func library(scope access.Scope, kind *domain.Kind) (string, []any) {
+	where, args := []string{"deleted_at IS NULL"}, []any{}
+	if !scope.All {
+		args = append(args, opt.String(scope.UserID))
+		where = append(where, fmt.Sprintf("owner_id = $%d::uuid", len(args)))
 	}
+	if kind != nil {
+		args = append(args, string(*kind))
+		where = append(where, fmt.Sprintf("kind = $%d::app.media_kind", len(args)))
+	}
+	return `
+		  FROM app.media_assets
+		 WHERE ` + strings.Join(where, "\n		   AND "), args
+}
+
+// TotalBytes sums the live assets List pages through for the same scope and
+// kind, so the library's header agrees with its rows.
+func (s *Postgres) TotalBytes(ctx context.Context, scope access.Scope, kind *domain.Kind) (int64, error) {
+	from, args := library(scope, kind)
 	var total int64
-	if err := s.QueryRow(ctx, `
-		SELECT coalesce(sum(bytes), 0) FROM app.media_assets
-		 WHERE deleted_at IS NULL
-		   AND ($1::app.media_kind IS NULL OR kind = $1::app.media_kind)`, kindArg).Scan(&total); err != nil {
+	if err := s.QueryRow(ctx, `SELECT coalesce(sum(bytes), 0)`+from, args...).Scan(&total); err != nil {
 		return 0, fmt.Errorf("media: total bytes: %w", err)
 	}
 	return total, nil
 }
 
+// List returns one page of the live assets in the input's scope, newest first,
+// with the paging beside it.
 func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Asset, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	var kindArg *string
-	if in.Kind != nil {
-		k := string(*in.Kind)
-		kindArg = &k
-	}
-	const from = `
-		  FROM app.media_assets
-		 WHERE deleted_at IS NULL
-		   AND ($1::app.media_kind IS NULL OR kind = $1::app.media_kind)`
+	from, args := library(in.Scope, in.Kind)
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.QueryRow(ctx, `SELECT count(*)`+from, kindArg).Scan(&page.Total); err != nil {
+	if err := s.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("media: count assets: %w", err)
 	}
 
+	args = append(args, limit, offset)
 	rows, err := s.Query(ctx, `
 		SELECT id::text, kind::text, storage_key, mime_type, bytes, duration_ms,
-		       original_filename, checksum_sha256, created_at`+from+`
+		       original_filename, checksum_sha256, created_at`+from+fmt.Sprintf(`
 		 ORDER BY created_at DESC, id DESC
-		 LIMIT $2 OFFSET $3`, kindArg, limit, offset)
+		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, paging.Page{}, fmt.Errorf("media: list assets: %w", err)
 	}

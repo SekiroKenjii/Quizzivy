@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/paging"
 )
 
@@ -9,10 +10,11 @@ import (
 type Repository interface {
 	Insert(ctx context.Context, in InsertInput) (Asset, error)
 	Get(ctx context.Context, id string) (Asset, error)
-	CountByChecksum(ctx context.Context, checksum []byte) (int, error)
+	CountByChecksum(ctx context.Context, ownerID string, checksum []byte) (int, error)
 	List(ctx context.Context, in ListInput) ([]Asset, paging.Page, error)
-	TotalBytes(ctx context.Context, kind *Kind) (int64, error)
+	TotalBytes(ctx context.Context, scope access.Scope, kind *Kind) (int64, error)
 	SoftDelete(ctx context.Context, in DeleteInput) error
 	ReferencesFor(ctx context.Context, assetIDs []string) (map[string][]TestRef, error)
 	ReachableByStudent(ctx context.Context, studentID, assetID string) (bool, error)
+	Readable(ctx context.Context, scope access.Scope, assetIDs []string) (map[string]Kind, error)
 }

@@ -102,7 +102,7 @@ func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestOb
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
 	if request.Params.Kind != nil {
 		kind := domain.Kind(*request.Params.Kind)
 		in.Kind = &kind
@@ -119,7 +119,7 @@ func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestOb
 	if err != nil {
 		return nil, err
 	}
-	totalBytes, err := h.app.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: in.Kind})
+	totalBytes, err := h.app.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: in.Kind, Scope: in.Scope})
 	if err != nil {
 		return nil, err
 	}
@@ -161,17 +161,17 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	principal, ok := httpx.PrincipalFromContext(ctx)
+	actor, ok := httpapi.ActorFromContext(ctx)
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	meta := httpx.RequestMetaFromContext(ctx)
 	_, err := h.app.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{
 		ID:        request.Id.String(),
-		ActorID:   principal.UserID,
-		IP:        meta.IP,
-		UserAgent: meta.UserAgent,
+		ActorID:   actor.ID,
+		All:       actor.Scope.All,
+		IP:        actor.IP,
+		UserAgent: actor.UserAgent,
 	}})
 	switch {
 	case err == nil:
