@@ -253,12 +253,14 @@ func TestAJoinCodeRowIsEitherLegacyOrFullySealed(t *testing.T) {
 		ciphertext []byte
 		keyID      any
 	}{
-		"a keyed row without its ciphertext": {"class_join_codes_scheme_consistent", 2, nil, 7},
-		"a keyed row without its key id":     {"class_join_codes_scheme_consistent", 2, sealed, nil},
-		"a legacy row with a ciphertext":     {"class_join_codes_scheme_consistent", 1, sealed, 7},
-		"a ciphertext of the wrong length":   {"class_join_codes_ciphertext_length", 2, make([]byte, 35), 7},
-		"key id zero":                        {"class_join_codes_key_id_nonzero", 2, sealed, 0},
-		"an unknown scheme":                  {"class_join_codes_lookup_scheme_known", 3, nil, nil},
+		"a keyed row without its ciphertext":  {"class_join_codes_scheme_consistent", 2, nil, 7},
+		"a keyed row without its key id":      {"class_join_codes_scheme_consistent", 2, sealed, nil},
+		"a legacy row with a ciphertext":      {"class_join_codes_scheme_consistent", 1, sealed, 7},
+		"a legacy row with only a ciphertext": {"class_join_codes_scheme_consistent", 1, sealed, nil},
+		"a legacy row with only a key id":     {"class_join_codes_scheme_consistent", 1, nil, 7},
+		"a ciphertext of the wrong length":    {"class_join_codes_ciphertext_length", 2, make([]byte, 35), 7},
+		"key id zero":                         {"class_join_codes_key_id_nonzero", 2, sealed, 0},
+		"an unknown scheme":                   {"class_join_codes_lookup_scheme_known", 3, nil, nil},
 	} {
 		t.Run(name, func(t *testing.T) {
 			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {

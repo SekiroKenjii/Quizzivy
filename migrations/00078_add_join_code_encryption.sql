@@ -19,7 +19,8 @@ ALTER TABLE app.class_join_codes
   ADD CONSTRAINT class_join_codes_lookup_scheme_known
     CHECK (lookup_scheme IN (1, 2)),
   ADD CONSTRAINT class_join_codes_scheme_consistent
-    CHECK ((lookup_scheme = 2) = (code_ciphertext IS NOT NULL AND key_id IS NOT NULL));
+    CHECK ((lookup_scheme = 2) = (code_ciphertext IS NOT NULL)
+       AND (lookup_scheme = 2) = (key_id IS NOT NULL));
 
 -- +goose Down
 
