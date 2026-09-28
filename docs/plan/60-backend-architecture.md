@@ -46,13 +46,18 @@ the "one package per feature" layout AGENTS.md described until then.
   module's handler (identity's `SelfEnroller` is the classes `EnrolNewMember`
   command; attempts' `Students` is the identity `StudentAccount` query); the
   rest `core/adapters` adapts.
-- **Reach rules in the kernel.** `shared/visibility` holds the two rules
-  every teaching read shares, each one SQL subquery of ids: `StudentIDs`, the
-  students a teacher reaches, and `AssignmentIDs`, the assignments a teacher
-  reaches. identity, classes and attempts splice them into their own
-  statements, and callers lift them under `scope.all`. Like `shared/audit`,
-  it is SQL in the kernel, because a port cannot splice a predicate into
-  another module's list or aggregate.
+- **Reach rules in the kernel.** `shared/visibility` holds the rules every
+  teaching read shares, each defined once as SQL:
+  - `TaughtClassIDs`: the classes a teacher teaches;
+  - `AuthoredAssignmentIDs`: the assignments a teacher created;
+  - `StudentIDs`: the students a teacher reaches;
+  - `AssignmentIDs`: the assignments a teacher reaches;
+  - `Papers`: which attempts a list of papers shows.
+
+  identity, classes, assignments, attempts and dashboard splice them into
+  their own statements, and callers lift them under `scope.all`. Like
+  `shared/audit`, it is SQL in the kernel, because a port cannot splice a
+  predicate into another module's list or aggregate.
 - **One database context, one repository base.** `platform/db.Context` wraps
   a pool or a transaction (`Exec`, `Query`, `QueryRow`, `InTx`); every module
   Postgres type embeds `db.Repository` and uses the generic `QueryOne`,
