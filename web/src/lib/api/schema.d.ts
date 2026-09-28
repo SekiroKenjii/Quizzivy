@@ -1392,12 +1392,12 @@ export interface paths {
         /**
          * @description Edits profile fields, or disables the account. Disabling blocks login
          *     without deleting any attempt history. `disabled`, either value, also
-         *     needs `people.users.manage`. Changing `email` of a student someone else
-         *     also reaches (another teacher's class, another creator, or another
-         *     teacher's individual target) needs `people.users.manage` too, because a
-         *     new address can take over the account through Google sign-in. The
-         *     student's permissions, except `learning.take_tests`, must be a subset
-         *     of the caller's.
+         *     needs `people.users.manage`. A new `email` needs `people.users.manage`
+         *     too unless no one else reaches the student, by the rule
+         *     `resetStudentPassword` states, because a new address can take over the
+         *     account through Google sign-in. Sending the address the student already
+         *     has is not a change. The student's permissions, except
+         *     `learning.take_tests`, must be a subset of the caller's.
          */
         patch: operations["updateStudent"];
         trace?: never;
@@ -1417,10 +1417,11 @@ export interface paths {
          * @description Sets a temporary password and `mustChangePassword`. There is no
          *     self-service email reset in v1 — that needs an email provider, which is
          *     the same dependency §6.3 declines (§5.4, §17.1). Only a student no one
-         *     else reaches may be reset by a teacher: every class they are in is the
-         *     caller's, no other teacher created them or targets them individually,
-         *     and a student in no class must have been created by the caller. A
-         *     holder of `people.users.manage` resets any student.
+         *     else reaches may be reset by a teacher: every class they are in,
+         *     archived ones included, is the caller's; no other account created them;
+         *     no other account's assignment targets them individually; and a student
+         *     in no class must have been created by the caller. A holder of
+         *     `people.users.manage` resets any student.
          */
         post: operations["resetStudentPassword"];
         delete?: never;
@@ -7112,8 +7113,8 @@ export interface operations {
             /**
              * @description `FORBIDDEN` — `disabled` without `people.users.manage`, or a student
              *     whose permissions are not a subset of the caller's.
-             *     `STUDENT_SHARED` — `email` for a student someone else also reaches,
-             *     without `people.users.manage`. Nothing is written.
+             *     `STUDENT_SHARED` — a new `email` for a student someone else also
+             *     reaches, without `people.users.manage`. Nothing is written.
              */
             403: {
                 headers: {
