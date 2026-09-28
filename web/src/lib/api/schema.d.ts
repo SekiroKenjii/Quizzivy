@@ -20,8 +20,9 @@ export interface paths {
          *     Never create an account and enrol in one blind tap (§6.2).
          *
          *     Lookup is by a keyed hash of the normalized code, or by its SHA-256 for
-         *     a code issued before v0.8.0, compared in constant time. The code is
-         *     stored only encrypted (§6.5).
+         *     a code issued before v0.8.0, compared in constant time. The plaintext
+         *     is never stored; a code issued from v0.8.0 on is stored encrypted
+         *     (§6.5).
          */
         post: operations["previewJoinCode"];
         delete?: never;
@@ -2834,9 +2835,11 @@ export interface components {
         /**
          * @description Metadata about the active code — **not the code itself**. The plaintext
          *     is returned exactly once, from the rotate endpoint. Thereafter only
-         *     `hint` (last 4 characters) is available. The code is stored encrypted
-         *     under a key the database does not hold, and found by a keyed hash
-         *     (§13.3), so a database dump does not hand over class access.
+         *     `hint` (last 4 characters) is available. A code issued from v0.8.0 on
+         *     is stored encrypted under a key the database does not hold and found
+         *     by a keyed hash (§13.3), so a database dump does not hand it over. A
+         *     code issued before v0.8.0 is held only as its SHA-256 hash, which a
+         *     dump can reverse beside the hint, until it is rotated (D5).
          */
         JoinCodeInfo: {
             /** @example 7K3M */
