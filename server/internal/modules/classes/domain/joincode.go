@@ -105,6 +105,23 @@ type CodeRow struct {
 	TeacherName *string
 }
 
+// StoredCode is a class's active code as stored: its metadata, how it is
+// found, and its ciphertext when it is sealed.
+type StoredCode struct {
+	IssuedCode
+	Lookup     StoredLookup
+	Ciphertext []byte
+}
+
+// ActiveJoinCode is a class's active code read back for its teacher. Code is
+// the canonical code, or empty when it cannot be read: a legacy code, which
+// only a hash holds, or one sealed under a key this server no longer holds.
+type ActiveJoinCode struct {
+	IssuedCode
+	Code   string
+	Legacy bool
+}
+
 // IssuedCode is the metadata of an active code, never the code itself.
 type IssuedCode struct {
 	ID        string

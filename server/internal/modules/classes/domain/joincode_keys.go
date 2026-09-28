@@ -126,6 +126,14 @@ func (k JoinCodeKeys) CurrentID() int16 {
 	return k.current.id
 }
 
+// PreviousID is the id of the previous key, and whether one is set.
+func (k JoinCodeKeys) PreviousID() (int16, bool) {
+	if k.previous == nil {
+		return 0, false
+	}
+	return k.previous.id, true
+}
+
 // Seal encrypts a canonical code under the current key with a random nonce,
 // bound to its class and code ids as additional data, and returns
 // nonce‖ciphertext‖tag, SealedSize bytes.

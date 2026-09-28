@@ -11,6 +11,43 @@ import (
 	"quizzivy/internal/platform/httpx"
 )
 
+const msgNoActiveCode = "Lớp này chưa có mã tham gia."
+
+// GetJoinCode implements GET /teacher/classes/{id}/join-code (D5): the active
+// code of a class the caller reaches, never cached. Another teacher's class
+// answers 404 exactly as a missing one does.
+func (h Classes) GetJoinCode(ctx context.Context, request openapi.GetJoinCodeRequestObject) (openapi.GetJoinCodeResponseObject, error) {
+	if h.app == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	active, err := h.app.Queries.ActiveCode.Handle(ctx, query.ActiveCode{Scope: httpapi.ScopeFromContext(ctx), ClassID: request.Id.String()})
+	switch {
+	case errors.Is(err, domain.ErrClassNotFound):
+		return openapi.GetJoinCode404JSONResponse{
+			NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
+		}, nil
+	case errors.Is(err, domain.ErrNoActiveCode):
+		return openapi.GetJoinCode404JSONResponse{
+			NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgNoActiveCode)),
+		}, nil
+	case err != nil:
+		return nil, err
+	}
+	noStore := "no-store"
+	out := openapi.JoinCode{
+		Hint:      active.Hint,
+		Legacy:    active.Legacy,
+		ExpiresAt: active.ExpiresAt,
+		MaxUses:   active.MaxUses,
+		UsesCount: active.UsesCount,
+	}
+	if active.Code != "" {
+		grouped := domain.JoinCodes.Format(active.Code)
+		out.Code = &grouped
+	}
+	return openapi.GetJoinCode200JSONResponse{Body: out, Headers: openapi.GetJoinCode200ResponseHeaders{CacheControl: &noStore}}, nil
+}
+
 // RotateJoinCode implements POST /teacher/classes/{id}/join-code (§6.1).
 func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinCodeRequestObject) (openapi.RotateJoinCodeResponseObject, error) {
 	if h.app == nil {

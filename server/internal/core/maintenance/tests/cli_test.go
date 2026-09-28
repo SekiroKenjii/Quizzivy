@@ -1,7 +1,9 @@
 package maintenance_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
@@ -120,5 +122,39 @@ func TestUnknownCommandsAndFlagsPrintTheUsage(t *testing.T) {
 		if !strings.Contains(err.Error(), "usage: maintenance <command> [flags]") {
 			t.Errorf("Parse(%q) = %q, want the usage line", args, err)
 		}
+	}
+}
+
+func TestRekeyJoinCodesNeedsBothKeysAndRepeatsNeither(t *testing.T) {
+	current := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0x3c}, 32))
+	previous := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0x4d}, 32))
+	for label, env := range map[string][2]string{
+		"no key":               {"", ""},
+		"no previous key":      {current, ""},
+		"an undecodable key":   {"not-base64-secret!!", previous},
+		"the same key twice":   {current, current},
+		"a short previous key": {current, base64.StdEncoding.EncodeToString([]byte("short"))},
+	} {
+		t.Setenv("JOIN_CODE_KEY", env[0])
+		t.Setenv("JOIN_CODE_KEY_PREVIOUS", env[1])
+		_, err := maintenance.Parse([]string{"rekey-join-codes", "-apply"})
+		if err == nil {
+			t.Errorf("%s was accepted", label)
+			continue
+		}
+		for _, v := range env {
+			if v != "" && strings.Contains(err.Error(), v) {
+				t.Errorf("%s: the error repeats a key: %v", label, err)
+			}
+		}
+	}
+	t.Setenv("JOIN_CODE_KEY", current)
+	t.Setenv("JOIN_CODE_KEY_PREVIOUS", previous)
+	command := parse(t, "rekey-join-codes", "-timeout", "5m")
+	if command.Timeout != 5*time.Minute {
+		t.Errorf("timeout %v", command.Timeout)
+	}
+	if got := runError(t, parse(t, "rekey-join-codes", "-batch", "0", "-apply")); !strings.Contains(got, "batch must be between") {
+		t.Errorf("-batch 0: %q", got)
 	}
 }

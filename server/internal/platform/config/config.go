@@ -138,19 +138,28 @@ func loadTokens(cfg *Config) error {
 
 func loadJoinCodeKeys(cfg *Config) error {
 	var err error
-	if cfg.JoinCodeKey, err = joinCodeKey("JOIN_CODE_KEY"); err != nil {
-		return err
+	cfg.JoinCodeKey, cfg.JoinCodeKeyPrevious, err = JoinCodeKeys()
+	return err
+}
+
+// JoinCodeKeys reads JOIN_CODE_KEY and JOIN_CODE_KEY_PREVIOUS as Load does:
+// the current key is required and the previous one optional, each standard
+// base64 of exactly 32 bytes, and the two must differ. No error repeats a
+// value.
+func JoinCodeKeys() (current, previous []byte, err error) {
+	if current, err = joinCodeKey("JOIN_CODE_KEY"); err != nil {
+		return nil, nil, err
 	}
-	if cfg.JoinCodeKey == nil {
-		return fmt.Errorf("JOIN_CODE_KEY is required: standard base64 of %d random bytes; generate one with: openssl rand -base64 32", joinCodeKeyBytes)
+	if current == nil {
+		return nil, nil, fmt.Errorf("JOIN_CODE_KEY is required: standard base64 of %d random bytes; generate one with: openssl rand -base64 32", joinCodeKeyBytes)
 	}
-	if cfg.JoinCodeKeyPrevious, err = joinCodeKey("JOIN_CODE_KEY_PREVIOUS"); err != nil {
-		return err
+	if previous, err = joinCodeKey("JOIN_CODE_KEY_PREVIOUS"); err != nil {
+		return nil, nil, err
 	}
-	if cfg.JoinCodeKeyPrevious != nil && bytes.Equal(cfg.JoinCodeKeyPrevious, cfg.JoinCodeKey) {
-		return fmt.Errorf("JOIN_CODE_KEY_PREVIOUS must differ from JOIN_CODE_KEY")
+	if previous != nil && bytes.Equal(previous, current) {
+		return nil, nil, fmt.Errorf("JOIN_CODE_KEY_PREVIOUS must differ from JOIN_CODE_KEY")
 	}
-	return nil
+	return current, previous, nil
 }
 
 func joinCodeKey(name string) ([]byte, error) {

@@ -36,7 +36,7 @@ type Commands struct {
 }
 
 type Queries struct {
-	ActiveCode cqrs.QueryHandler[query.ActiveCode, *domain.IssuedCode]
+	ActiveCode cqrs.QueryHandler[query.ActiveCode, domain.ActiveJoinCode]
 	Facets     cqrs.QueryHandler[query.Facets, domain.Facets]
 	Get        cqrs.QueryHandler[query.Get, domain.Class]
 	List       cqrs.QueryHandler[query.List, query.ListResult]

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -142,21 +144,35 @@ func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
 	return tx.Commit(ctx)
 }
 
-// ActiveCode returns the class's live code metadata, or nil if there is none.
-func (s *Postgres) ActiveCode(ctx context.Context, classID string) (*domain.IssuedCode, error) {
+// ActiveCode returns the active code of a class the scope reaches, as
+// stored. Another teacher's class answers ErrClassNotFound, exactly as a
+// missing one does; a reached class without an active code answers
+// ErrNoActiveCode.
+func (s *Postgres) ActiveCode(ctx context.Context, scope access.Scope, classID string) (domain.StoredCode, error) {
 	const q = `
-		SELECT id::text, class_id::text, code_hint, expires_at, max_uses, uses_count
-		  FROM app.class_join_codes
-		 WHERE class_id = $1 AND revoked_at IS NULL`
+		SELECT jc.id::text, jc.code_hint, jc.expires_at, jc.max_uses, jc.uses_count,
+		       jc.lookup_scheme, jc.key_id, jc.code_hash, jc.code_ciphertext
+		  FROM app.classes c
+		  LEFT JOIN app.class_join_codes jc ON jc.class_id = c.id AND jc.revoked_at IS NULL
+		 WHERE c.id = $1 AND ` + taughtClass
 
-	var c domain.IssuedCode
-	err := s.QueryRow(ctx, q, classID).Scan(
-		&c.ID, &c.ClassID, &c.Hint, &c.ExpiresAt, &c.MaxUses, &c.UsesCount)
+	var id, hint *string
+	var expiresAt *time.Time
+	var usesCount *int
+	var scheme *domain.LookupScheme
+	c := domain.StoredCode{IssuedCode: domain.IssuedCode{ClassID: classID}}
+	err := s.QueryRow(ctx, q, classID, scope.All, opt.String(scope.UserID)).Scan(
+		&id, &hint, &expiresAt, &c.MaxUses, &usesCount,
+		&scheme, &c.Lookup.KeyID, &c.Lookup.Hash, &c.Ciphertext)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return domain.StoredCode{}, domain.ErrClassNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("load active join code: %w", err)
+		return domain.StoredCode{}, fmt.Errorf("load active join code: %w", err)
 	}
-	return &c, nil
+	if id == nil {
+		return domain.StoredCode{}, domain.ErrNoActiveCode
+	}
+	c.ID, c.Hint, c.ExpiresAt, c.UsesCount, c.Lookup.Scheme = *id, *hint, *expiresAt, *usesCount, *scheme
+	return c, nil
 }

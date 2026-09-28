@@ -1589,7 +1589,24 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Read the class's active join code
+         * @description The active code of a class the caller teaches, or of any class under
+         *     `scope.all`, with its metadata (D5). The code is a bearer secret: the
+         *     response is never cached, and the operation is rate-limited like every
+         *     other that reveals one. It is not audited, because the teacher's
+         *     screens show the code on every class card.
+         *
+         *     `code` is `null` when the code cannot be read back. A code issued
+         *     before v0.8.0 is held only as a hash (`legacy: true`), and R4 rotates
+         *     those. A code sealed under a key this server no longer holds
+         *     (`legacy: false`) can be neither read nor redeemed. Rotate either to
+         *     get a readable code.
+         *
+         *     404 when the class is not the caller's, exactly as a missing class
+         *     answers, or when it has no active code.
+         */
+        get: operations["getJoinCode"];
         put?: never;
         /**
          * Issue a new join code, revoking the old one
@@ -1597,10 +1614,10 @@ export interface paths {
          *     per-class constraint cannot be violated. Previously enrolled students are
          *     unaffected (§6.1).
          *
-         *     The plaintext code is returned **exactly once, here**. It is stored
-         *     encrypted under a key the database does not hold, with a keyed hash to
-         *     find it, so a database dump does not hand over class access (§13.3).
-         *     If it is lost, rotate again.
+         *     The plaintext code is returned here, and `getJoinCode` reads it again.
+         *     It is stored encrypted under a key the database does not hold, with a
+         *     keyed hash to find it, so a database dump does not hand over class
+         *     access (§13.3).
          */
         post: operations["rotateJoinCode"];
         /**
@@ -2833,9 +2850,8 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
-         * @description Metadata about the active code — **not the code itself**. The plaintext
-         *     is returned exactly once, from the rotate endpoint. Thereafter only
-         *     `hint` (last 4 characters) is available. A code issued from v0.8.0 on
+         * @description Metadata about the active code — **not the code itself**, which
+         *     `getJoinCode` reads for its teacher. A code issued from v0.8.0 on
          *     is stored encrypted under a key the database does not hold and found
          *     by a keyed hash (§13.3), so a database dump does not hand it over. A
          *     code issued before v0.8.0 is held only as its SHA-256 hash, which a
@@ -2844,6 +2860,24 @@ export interface components {
         JoinCodeInfo: {
             /** @example 7K3M */
             hint: string;
+            expiresAt: components["schemas"]["Timestamp"];
+            maxUses: number | null;
+            usesCount: number;
+        };
+        /**
+         * @description A class's active join code, read back for its teacher (D5), with the
+         *     metadata `JoinCodeInfo` carries.
+         */
+        JoinCode: {
+            /**
+             * @description Grouped `XXXX-XXXX`, or `null` when the code cannot be read back.
+             * @example K7M3-P9QR
+             */
+            code: string | null;
+            /** @example 7K3M */
+            hint: string;
+            /** @description True for a code issued before v0.8.0, held only as a hash until it is rotated. */
+            legacy: boolean;
             expiresAt: components["schemas"]["Timestamp"];
             maxUses: number | null;
             usesCount: number;
@@ -7501,6 +7535,31 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getJoinCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinCode"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     rotateJoinCode: {
         parameters: {
             query?: never;
@@ -7543,7 +7602,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /**
-                         * @description Plaintext, grouped `XXXX-XXXX`. Shown once and never retrievable again.
+                         * @description Plaintext, grouped `XXXX-XXXX`. `getJoinCode` reads it again.
                          * @example K7M3-P9QR
                          */
                         code: string;
