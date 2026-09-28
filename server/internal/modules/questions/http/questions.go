@@ -164,7 +164,8 @@ func (h Questions) UpdateQuestion(ctx context.Context, request openapi.UpdateQue
 
 	q, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req})
 	if errors.Is(err, domain.ErrNotFound) {
-		return nil, httpx.ErrNotImplemented
+		return openapi.UpdateQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
 	}
 	if resp, handled := questionWriteError(ctx, err); handled {
 		return openapi.UpdateQuestion400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(resp)}, nil
