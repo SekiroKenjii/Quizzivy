@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/questions/application/command"
 	"quizzivy/internal/modules/questions/application/query"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"slices"
 	"strings"
 	"testing"
@@ -21,6 +22,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var everyone = access.Scope{All: true}
 
 func newPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -87,7 +90,7 @@ func write(t *testing.T, svc *application.Application, author, prompt string, ta
 // found reports whether a search returned the given question id.
 func found(t *testing.T, svc *application.Application, term, id string) bool {
 	t.Helper()
-	listResult, err := svc.Queries.List.Handle(context.Background(), query.List{Input: domain.ListInput{Query: term, Limit: repositories.MaxLimit}})
+	listResult, err := svc.Queries.List.Handle(context.Background(), query.List{Input: domain.ListInput{Scope: everyone, Query: term, Limit: repositories.MaxLimit}})
 	results := listResult.Items
 	if err != nil {
 		t.Fatalf("search %q: %v", term, err)
@@ -313,7 +316,7 @@ func TestFiltersWidenWithinAGroupAndNarrowAcross(t *testing.T) {
 		return out
 	}
 
-	one := ids(domain.ListInput{
+	one := ids(domain.ListInput{Scope: everyone,
 		Tags:  []string{tag},
 		Types: []domain.Type{domain.SingleChoice},
 	})
@@ -322,7 +325,7 @@ func TestFiltersWidenWithinAGroupAndNarrowAcross(t *testing.T) {
 	}
 
 	// Ticking the second type must ADD rows, never remove any.
-	both := ids(domain.ListInput{
+	both := ids(domain.ListInput{Scope: everyone,
 		Tags:  []string{tag},
 		Types: []domain.Type{domain.SingleChoice, domain.ShortAnswer},
 	})
@@ -331,7 +334,7 @@ func TestFiltersWidenWithinAGroupAndNarrowAcross(t *testing.T) {
 	}
 
 	// A second chip widens too -- overlap, not containment.
-	widened := ids(domain.ListInput{Tags: []string{tag, tag + "-b"}})
+	widened := ids(domain.ListInput{Scope: everyone, Tags: []string{tag, tag + "-b"}})
 	if !widened[single.ID] || !widened[essay.ID] {
 		t.Errorf("a second tag chip removed rows instead of adding them: %v", widened)
 	}
@@ -349,7 +352,7 @@ func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
 	keeps := write(t, svc, author, "Giữ thẻ cũ", tag+"-old")
 	bare := write(t, svc, author, "Chưa có thẻ")
 
-	updated, err := store.AddTags(ctx, []string{keeps.ID, bare.ID}, []string{tag + "-new"})
+	updated, err := store.AddTags(ctx, everyone, []string{keeps.ID, bare.ID}, []string{tag + "-new"})
 	if err != nil {
 		t.Fatalf("AddTags: %v", err)
 	}
@@ -357,7 +360,7 @@ func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
 		t.Errorf("updated = %d, want 2", updated)
 	}
 
-	got, err := svc.Queries.Get.Handle(ctx, query.Get{ID: keeps.ID})
+	got, err := svc.Queries.Get.Handle(ctx, query.Get{Scope: everyone, ID: keeps.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +372,7 @@ func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
 	}
 
 	// A retry after a dropped connection must not look like it did work.
-	again, err := store.AddTags(ctx, []string{keeps.ID, bare.ID}, []string{tag + "-new"})
+	again, err := store.AddTags(ctx, everyone, []string{keeps.ID, bare.ID}, []string{tag + "-new"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,7 +380,7 @@ func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
 		t.Errorf("re-applying the same tags reported %d updated, want 0", again)
 	}
 
-	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: keeps.ID})
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{Scope: everyone, ID: keeps.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +404,7 @@ func TestBulkTaggingSkipsDeletedQuestions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	updated, err := store.AddTags(ctx, []string{q.ID}, []string{"khong-nen-co"})
+	updated, err := store.AddTags(ctx, everyone, []string{q.ID}, []string{"khong-nen-co"})
 	if err != nil {
 		t.Fatal(err)
 	}

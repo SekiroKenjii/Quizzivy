@@ -44,7 +44,7 @@ func TestListedPageCarriesEachQuestionsOwnChildren(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Query: "Tron con", Limit: 50}})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Scope: everyone, Query: "Tron con", Limit: 50}})
 	listed := listResult.Items
 	if err != nil {
 		t.Fatal(err)

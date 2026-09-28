@@ -41,6 +41,10 @@ func (p pausedGroupMedia) LockForVersionUse(ctx context.Context, tx pgx.Tx, id s
 	}
 }
 
+func (p pausedGroupMedia) RequireReadable(ctx context.Context, tx pgx.Tx, scope access.Scope, ids []string) error {
+	return mediarepo.RequireReadable(ctx, tx, scope, ids)
+}
+
 func committedGroupAsset(t *testing.T, pool *pgxpool.Pool, author string) string {
 	t.Helper()
 	ctx := context.Background()
