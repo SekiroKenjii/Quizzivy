@@ -2169,7 +2169,8 @@ redeem one. Three columns join `app.class_join_codes`:
   its own scheme and key.
 - **The keys never reach the database.** A dump yields ciphertexts and keyed
   hashes; without `JOIN_CODE_KEY` neither opens nor can be hashed through the
-  40-bit code space. A legacy row's SHA-256 still can, which is why R4
-  rotates the legacy codes (D5).
+  code space. A legacy row's SHA-256 still can, and quickly: beside the
+  stored four-character hint only 2^20 codes remain. That is why R4 rotates
+  the legacy codes (D5).
 - **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
   because the previous binary looks codes up by SHA-256 alone.
