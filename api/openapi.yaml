@@ -582,7 +582,7 @@ components:
       additionalProperties: false
       required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt]
       description: |
-        Shared teacher scope within this installation, with creator attribution.
+        Belongs to the teacher who created it (`createdBy`); every import with `scope.all`.
         Sources are private originals, never learner media. Source revision zero
         means no completed source set. Upload completion does not mean recognition.
         Pending uploads are durable reservations and cannot be downloaded or processed.
@@ -2934,7 +2934,7 @@ components:
           oneOf: [{ $ref: '#/components/schemas/ClosingAssignment' }, { type: 'null' }]
         openAssignments: { type: integer, minimum: 0 }
         awaitingGrading: { type: integer, minimum: 0 }
-        activeStudents: { type: integer, minimum: 0, description: 'Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches.' }
+        activeStudents: { type: integer, minimum: 0, description: 'Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches. With `scope.all`, every enabled account that started an attempt in the last seven days, whatever its role.' }
         flaggedAttempts: { type: integer, minimum: 0 }
         recentAttempts:
           type: array
