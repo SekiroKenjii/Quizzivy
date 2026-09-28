@@ -3226,8 +3226,8 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
       x-rate-limit:
-        perIp: { perMinute: 10, perHour: 60 }
-        perCode: { perHour: 30 }
+        perIp: { perMinute: 120, perHour: 600 }
+        perCode: { perHour: 200 }
 
   /public/status:
     get:
@@ -3304,7 +3304,8 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '503': { $ref: '#/components/responses/Maintenance' }
       x-rate-limit:
-        perIp: { perMinute: 10, perHour: 60 }
+        perIp: { perMinute: 120, perHour: 600 }
+        perAddressAndEmail: { perMinute: 10 }
         perEmail: { perHour: 20 }
 
   /auth/google:
@@ -3386,8 +3387,8 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
       x-rate-limit:
-        perIp: { perMinute: 10, perHour: 60 }
-        perCode: { perHour: 30 }
+        perIp: { perMinute: 120, perHour: 600 }
+        perCode: { perHour: 200 }
 
   /auth/refresh:
     post:
@@ -3443,7 +3444,7 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '503': { $ref: '#/components/responses/Maintenance' }
       x-rate-limit:
-        perIp: { perMinute: 30, perHour: 200 }
+        perIp: { perMinute: 120, perHour: 1200 }
 
   # ====================================================================== auth
 
@@ -3535,6 +3536,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+      x-rate-limit:
+        perIp: { perMinute: 120, perHour: 1200 }
 
   /auth/change-password:
     post:
@@ -6229,8 +6233,8 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
       x-rate-limit:
-        perIp: { perMinute: 10, perHour: 60 }
-        perCode: { perHour: 30 }
+        perIp: { perMinute: 120, perHour: 600 }
+        perCode: { perHour: 200 }
 
   /app/assignments:
     get:
