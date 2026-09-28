@@ -2093,6 +2093,7 @@ functions (73-r3.md T-R3.2).
   | a class | `teacher_id` = the acting user |
   | a new test, a bank question, a bank group | the acting user |
   | a duplicated test | the source test's owner; `created_by` stays the actor |
+  | a committed Word import's test, its section groups and bank questions | the import's creator; `created_by` stays the committer (T-R2.12f) |
   | a section-owned group, a restored draft's question | the test's owner |
   | a group member | the group's owner |
   | a media asset | the uploader |
