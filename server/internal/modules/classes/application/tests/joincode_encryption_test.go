@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"testing"
 
@@ -220,14 +221,20 @@ func TestNoAuditRowCarriesTheCodeOrItsCiphertext(t *testing.T) {
 	joinsAll(t, pool, svc, classID, code)
 	row := activeRow(t, pool, classID)
 
+	needles := []string{
+		code,
+		domain.JoinCodes.Normalize(code),
+		hex.EncodeToString(row.ciphertext),
+		hex.EncodeToString(row.hash),
+		base64.StdEncoding.EncodeToString(row.ciphertext),
+		base64.StdEncoding.EncodeToString(row.hash),
+	}
 	var leaks int
 	if err := pool.QueryRow(context.Background(), `
 		SELECT count(*) FROM app.audit_log
 		 WHERE (entity_id = $1::uuid OR entity_id = $2::uuid OR diff->>'class_id' = $1::text)
-		   AND (coalesce(diff::text, '') ILIKE '%' || $3 || '%'
-		     OR coalesce(diff::text, '') ILIKE '%' || $4 || '%'
-		     OR coalesce(diff::text, '') ILIKE '%' || $5 || '%')`,
-		classID, row.id, domain.JoinCodes.Normalize(code), hex.EncodeToString(row.ciphertext), hex.EncodeToString(row.hash)).Scan(&leaks); err != nil {
+		   AND coalesce(diff::text, '') ILIKE ANY (SELECT '%' || n || '%' FROM unnest($3::text[]) AS n)`,
+		classID, row.id, needles).Scan(&leaks); err != nil {
 		t.Fatal(err)
 	}
 	if leaks != 0 {
