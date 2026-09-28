@@ -173,6 +173,57 @@ least a minute ahead of the work. The import worker is not gated: it keeps
 processing the imports it already holds (O-R1.1). If a window is needed for work
 that must not race imports, stop the worker's process group for its length.
 
+## Join-code key
+
+`JOIN_CODE_KEY` seals every join code issued from v0.8.0 on and keys the hash
+the API finds it by (D5). It is standard base64 of exactly 32 random bytes.
+The API refuses to start without it, and never logs it.
+
+- **Generate** it with `openssl rand -base64 32`.
+- **Store** it as a Fly secret (`fly secrets set JOIN_CODE_KEY=...`), with an
+  offline copy in the owner's password manager. The offline copy is the only
+  way back from a lost Fly secret.
+- **Never** paste the key into a log, a ticket, a chat or a workflow. No
+  GitHub workflow environment holds it.
+
+### Rotating the key
+
+The rekey runs from the operator's machine, never from a scheduled workflow.
+The operator supplies `JOIN_CODE_KEY` and `JOIN_CODE_KEY_PREVIOUS` to
+`cmd/maintenance` from the offline copies, with `MAINTENANCE_DATABASE_URL`.
+
+1. Set `JOIN_CODE_KEY_PREVIOUS` to the old key and `JOIN_CODE_KEY` to the new
+   one, as Fly secrets.
+2. Deploy. The API now issues codes under the new key and still finds and
+   reads codes under the old one.
+3. Run the dry run and read its report:
+   ```sh
+   maintenance rekey-join-codes
+   ```
+   `pending` is the number of codes under the old key. `legacy` is the number
+   of codes issued before v0.8.0: they hold no ciphertext and cannot be
+   re-keyed, and R4 rotates them.
+4. Apply it. It works in batches of 500 (`-batch`), one transaction each, and
+   writes only `code_hash`, `code_ciphertext` and `key_id`:
+   ```sh
+   maintenance rekey-join-codes -apply
+   ```
+   A code that does not open under the old key stops the run, naming the row
+   and never the code. Revoke that class's code and run it again.
+5. Verify that `pending` is 0 and `sealedByKey` names no row under the old
+   `previousKeyId`.
+6. Unset `JOIN_CODE_KEY_PREVIOUS` (`fly secrets unset JOIN_CODE_KEY_PREVIOUS`).
+7. Deploy.
+
+The report is JSON, like every other maintenance command's.
+
+### If the key is lost
+
+Every code sealed under it becomes unreadable and unredeemable: its class's
+code reads back as `code: null, legacy: false`, and joining with it answers
+`JOIN_CODE_INVALID`. Generate a new key, deploy it, rotate every class's code,
+and tell the teachers to share the new codes.
+
 ## Evidence still required in production
 
 - Neon project/branch and observed history window: pending access.
