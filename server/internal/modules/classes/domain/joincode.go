@@ -47,10 +47,9 @@ func (JoinCodeManager) Normalize(input string) string {
 	return b.String()
 }
 
-// Hash is the stored form. SHA-256, not Argon2id: a code is 8 characters from a
-// 32-symbol alphabet, so 40 bits of entropy from a CSPRNG. That is far too much
-// to guess online at §6.5's rate limits, and unlike a password it is not chosen
-// by a human, not reused elsewhere, and short-lived.
+// Hash is the legacy lookup hash, SHA-256, which v0.7.0 stored and its rows
+// still carry. New rows store JoinCodeKeys.Hash instead: 40 bits of code space
+// is too little to stop a database dump being hashed through offline.
 func (JoinCodeManager) Hash(normalized string) []byte {
 	sum := sha256.Sum256([]byte(normalized))
 	return sum[:]
@@ -70,7 +69,8 @@ func (JoinCodeManager) Hint(normalized string) string {
 	return normalized[len(normalized)-HintLength:]
 }
 
-// JoinCodeManager mints, normalises and hashes join codes; the plaintext is a value that exists once.
+// JoinCodeManager mints, normalises, formats and hints join codes and computes
+// their legacy hash; it holds no key.
 type JoinCodeManager struct{}
 
 var JoinCodes JoinCodeManager
@@ -101,12 +101,11 @@ type CodeRow struct {
 	CodeState
 	ClassID     string
 	ClassName   string
-	CodeHash    []byte
+	Lookup      StoredLookup
 	TeacherName *string
 }
 
-// IssuedCode is the metadata of an active code. It never carries the plaintext:
-// that exists only in the response to the request that created it (§13.3).
+// IssuedCode is the metadata of an active code, never the code itself.
 type IssuedCode struct {
 	ID        string
 	ClassID   string

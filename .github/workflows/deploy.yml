@@ -139,6 +139,7 @@ jobs:
 
           need DATABASE_URL
           need JWT_SIGNING_KEY
+          need JOIN_CODE_KEY
           need CORS_ALLOWED_ORIGINS
 
           # loadGoogle takes the client id from either name, so the group is

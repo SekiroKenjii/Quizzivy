@@ -3,6 +3,7 @@
 package application_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	classescommand "quizzivy/internal/modules/classes/application/command"
@@ -34,6 +35,14 @@ type stubGoogle struct {
 	verify    error
 	exchanged bool
 }
+
+var joinKeys = func() classesdomain.JoinCodeKeys {
+	keys, err := classesdomain.NewJoinCodeKeys(bytes.Repeat([]byte{0xa1}, classesdomain.JoinCodeKeySize), nil)
+	if err != nil {
+		panic(err)
+	}
+	return keys
+}()
 
 func (s *stubGoogle) Exchange(context.Context, string, string, string) (string, error) {
 	s.exchanged = true
@@ -280,7 +289,7 @@ func googleServiceWithEnroller(t *testing.T, pool *pgxpool.Pool, identity model.
 	t.Helper()
 	svc := newService(t, pool)
 	stub := &stubGoogle{identity: identity}
-	svc.SetGoogle(stub, classesapp.New(classesrepo.NewPostgres(db.NewContext(pool)), nil).Commands.EnrolNewMember)
+	svc.SetGoogle(stub, classesapp.New(classesrepo.NewPostgres(db.NewContext(pool)), nil, joinKeys).Commands.EnrolNewMember)
 	return svc, stub
 }
 
@@ -303,7 +312,7 @@ func makeClassForEnrol(t *testing.T, pool *pgxpool.Pool) (classID, teacherID str
 
 func issueJoinCode(t *testing.T, pool *pgxpool.Pool, classID, teacherID string) string {
 	t.Helper()
-	rotated, err := classesapp.New(classesrepo.NewPostgres(db.NewContext(pool)), nil).Commands.Rotate.Handle(context.Background(),
+	rotated, err := classesapp.New(classesrepo.NewPostgres(db.NewContext(pool)), nil, joinKeys).Commands.Rotate.Handle(context.Background(),
 		classescommand.Rotate{Request: classesdomain.RotateRequest{ClassID: classID, ActorUserID: teacherID}})
 	if err != nil {
 		t.Fatalf("issue join code: %v", err)

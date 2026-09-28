@@ -62,7 +62,7 @@ func makeClassRow(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, student
 
 func newSvc(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
-	return application.New(repositories.NewPostgres(db.NewContext(pool)), nil)
+	return application.New(repositories.NewPostgres(db.NewContext(pool)), nil, joinKeys)
 }
 
 func activeCodeCount(t *testing.T, pool *pgxpool.Pool, classID string) int {
@@ -108,7 +108,7 @@ func TestRotationRetiresTheOldCodeAndLeavesMembersAlone(t *testing.T) {
 	var revoked bool
 	if err := pool.QueryRow(ctx,
 		`SELECT revoked_at IS NOT NULL FROM app.class_join_codes WHERE code_hash = $1`,
-		domain.JoinCodes.Hash(domain.JoinCodes.Normalize(first.Code))).Scan(&revoked); err != nil {
+		joinKeys.Hash(domain.JoinCodes.Normalize(first.Code))).Scan(&revoked); err != nil {
 		t.Fatalf("old code row: %v", err)
 	}
 	if !revoked {
@@ -128,7 +128,7 @@ func TestRotationRetiresTheOldCodeAndLeavesMembersAlone(t *testing.T) {
 	}
 }
 
-func TestOnlyTheHashAndAHintAreStored(t *testing.T) {
+func TestOnlyASealedCodeAKeyedHashAndAHintAreStored(t *testing.T) {
 	// §13.3. A database dump must not hand over class access.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
@@ -152,15 +152,16 @@ func TestOnlyTheHashAndAHintAreStored(t *testing.T) {
 	if hint != canonical[len(canonical)-4:] {
 		t.Errorf("hint = %q, want the last four of %q", hint, canonical)
 	}
-	if !domain.JoinCodes.Equal(hash, domain.JoinCodes.Hash(canonical)) {
-		t.Error("the stored hash does not match the issued code")
+	if !domain.JoinCodes.Equal(hash, joinKeys.Hash(canonical)) {
+		t.Error("the stored hash is not the issued code's keyed hash")
 	}
 
 	// Nothing anywhere in the row holds the plaintext.
 	var plaintextRows int
 	if err := pool.QueryRow(context.Background(),
 		`SELECT count(*) FROM app.class_join_codes
-		  WHERE class_id = $1 AND (code_hint = $2 OR encode(code_hash,'escape') LIKE '%' || $2 || '%')`,
+		  WHERE class_id = $1 AND (code_hint = $2 OR encode(code_hash,'escape') LIKE '%' || $2 || '%'
+		        OR encode(code_ciphertext,'escape') LIKE '%' || $2 || '%')`,
 		classID, canonical).Scan(&plaintextRows); err != nil {
 		t.Fatal(err)
 	}

@@ -19,8 +19,12 @@ type EnrolNewMemberHandler struct {
 }
 
 func (s EnrolNewMemberHandler) Handle(ctx context.Context, cmd EnrolNewMember) (domain.EnrolResult, error) {
+	code, ok := s.Lookup(cmd.Code)
+	if !ok {
+		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
+	}
 	return s.Repo.Enrol(ctx, domain.EnrolInput{
-		RawCode:   cmd.Code,
+		Code:      code,
 		NewMember: &cmd.Member,
 		Now:       s.Now(),
 		IP:        opt.String(cmd.Meta.IP),

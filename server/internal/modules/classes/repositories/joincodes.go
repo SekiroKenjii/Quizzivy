@@ -46,8 +46,9 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 
 	const issue = `
 		INSERT INTO app.class_join_codes
-		       (class_id, code_hash, code_hint, expires_at, max_uses, created_by, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		       (id, class_id, code_hash, code_ciphertext, key_id, lookup_scheme,
+		        code_hint, expires_at, max_uses, created_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, 2, $6, $7, $8, $9, $10)
 		RETURNING id::text, uses_count`
 	out := domain.IssuedCode{
 		ClassID:   in.ClassID,
@@ -56,7 +57,8 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 		MaxUses:   in.MaxUses,
 	}
 	if err := tx.QueryRow(ctx, issue,
-		in.ClassID, in.CodeHash, in.Hint, in.ExpiresAt, in.MaxUses, in.ActorUserID, in.Now,
+		in.CodeID, in.ClassID, in.CodeHash, in.Ciphertext, in.KeyID,
+		in.Hint, in.ExpiresAt, in.MaxUses, in.ActorUserID, in.Now,
 	).Scan(&out.ID, &out.UsesCount); err != nil {
 		return domain.IssuedCode{}, fmt.Errorf("issue code: %w", err)
 	}

@@ -34,7 +34,7 @@ type world struct {
 	pool   *pgxpool.Pool
 }
 
-func boot(t *testing.T) *world {
+func boot(t *testing.T, configure ...func(*config.Config)) *world {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
@@ -48,8 +48,12 @@ func boot(t *testing.T) *world {
 		AllowedOrigins:              []string{"http://localhost:5173"},
 		MaxConcurrentPasswordHashes: 4,
 		JWTSigningKey:               []byte(strings.Repeat("e2e-signing-key-", 2)),
+		JoinCodeKey:                 []byte(strings.Repeat("e2e-join-code-k", 2) + "ey"),
 		AccessTokenTTL:              15 * time.Minute,
 		RefreshTokenTTL:             30 * 24 * time.Hour,
+	}
+	for _, c := range configure {
+		c(&cfg)
 	}
 	app, err := core.New(ctx, cfg, slog.New(slog.DiscardHandler))
 	if err != nil {

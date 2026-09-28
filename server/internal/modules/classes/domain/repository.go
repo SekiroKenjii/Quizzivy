@@ -27,5 +27,5 @@ type Repository interface {
 	Revoke(ctx context.Context, in RevokeInput) error
 	ActiveCode(ctx context.Context, classID string) (*IssuedCode, error)
 	Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error)
-	LookupByCodeHash(ctx context.Context, hash []byte) (*CodeRow, error)
+	LookupByCode(ctx context.Context, code JoinCodeLookup) (*CodeRow, error)
 }

@@ -19,8 +19,10 @@ export interface paths {
          *     the student sees **which class they are joining** before authenticating.
          *     Never create an account and enrol in one blind tap (§6.2).
          *
-         *     Lookup is by SHA-256 hash of the normalized code, compared in constant
-         *     time. The plaintext is never stored (§6.5).
+         *     Lookup is by a keyed hash of the normalized code, or by its SHA-256 for
+         *     a code issued before v0.8.0, compared in constant time. The plaintext
+         *     is never stored; a code issued from v0.8.0 on is stored encrypted
+         *     (§6.5).
          */
         post: operations["previewJoinCode"];
         delete?: never;
@@ -1595,9 +1597,10 @@ export interface paths {
          *     per-class constraint cannot be violated. Previously enrolled students are
          *     unaffected (§6.1).
          *
-         *     The plaintext code is returned **exactly once, here**. Only a SHA-256
-         *     hash is stored, so a database dump does not hand over class access
-         *     (§13.3). If it is lost, rotate again.
+         *     The plaintext code is returned **exactly once, here**. It is stored
+         *     encrypted under a key the database does not hold, with a keyed hash to
+         *     find it, so a database dump does not hand over class access (§13.3).
+         *     If it is lost, rotate again.
          */
         post: operations["rotateJoinCode"];
         /**
@@ -2832,8 +2835,11 @@ export interface components {
         /**
          * @description Metadata about the active code — **not the code itself**. The plaintext
          *     is returned exactly once, from the rotate endpoint. Thereafter only
-         *     `hint` (last 4 characters) is available; the stored value is a SHA-256
-         *     hash (§13.3), so a database dump does not hand over class access.
+         *     `hint` (last 4 characters) is available. A code issued from v0.8.0 on
+         *     is stored encrypted under a key the database does not hold and found
+         *     by a keyed hash (§13.3), so a database dump does not hand it over. A
+         *     code issued before v0.8.0 is held only as its SHA-256 hash, which a
+         *     dump can reverse beside the hint, until it is rotated (D5).
          */
         JoinCodeInfo: {
             /** @example 7K3M */

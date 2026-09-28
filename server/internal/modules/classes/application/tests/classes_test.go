@@ -3,6 +3,7 @@
 package application_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -24,6 +25,21 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var joinKeys = mustJoinCodeKeys(joinKeyA, nil)
+
+var (
+	joinKeyA = bytes.Repeat([]byte{0xa1}, domain.JoinCodeKeySize)
+	joinKeyB = bytes.Repeat([]byte{0xb2}, domain.JoinCodeKeySize)
+)
+
+func mustJoinCodeKeys(current, previous []byte) domain.JoinCodeKeys {
+	keys, err := domain.NewJoinCodeKeys(current, previous)
+	if err != nil {
+		panic(err)
+	}
+	return keys
+}
 
 func newPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -83,8 +99,8 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 func TestAClassCarriesItsCodesMetadataAndNeverTheCode(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, _ := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
-	joins := application.New(repositories.NewPostgres(db.NewContext(pool)), nil)
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
+	joins := application.New(repositories.NewPostgres(db.NewContext(pool)), nil, joinKeys)
 
 	rotated, err := joins.Commands.Rotate.Handle(context.Background(), command.Rotate{Request: domain.RotateRequest{
 		ClassID: classID, ActorUserID: teacherID,
@@ -119,7 +135,7 @@ func TestAClassWithNoActiveCodeReportsNone(t *testing.T) {
 	// A closed class is a normal state, not a missing row.
 	pool := newPool(t)
 	classID, _, _ := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
 
 	got, err := svc.Queries.Get.Handle(context.Background(), query.Get{ClassID: classID, Scope: everyone})
 	if err != nil {
@@ -133,8 +149,8 @@ func TestAClassWithNoActiveCodeReportsNone(t *testing.T) {
 func TestMembersShowHowEachOneGotIn(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
-	joins := application.New(repositories.NewPostgres(db.NewContext(pool)), nil)
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
+	joins := application.New(repositories.NewPostgres(db.NewContext(pool)), nil, joinKeys)
 	ctx := context.Background()
 
 	if _, err := pool.Exec(ctx,
@@ -181,7 +197,7 @@ func TestMembersShowHowEachOneGotIn(t *testing.T) {
 func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
 	ctx := context.Background()
 
 	if _, err := pool.Exec(ctx,
@@ -222,7 +238,7 @@ func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
 func TestRemovingSomeoneWhoIsNotAMemberSucceedsButAMissingClassDoesNot(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
 	ctx := context.Background()
 
 	// Idempotent: the class ends up in the requested state either way.
@@ -238,7 +254,7 @@ func TestRemovingSomeoneWhoIsNotAMemberSucceedsButAMissingClassDoesNot(t *testin
 func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
 	ctx := context.Background()
 
 	m, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "203.0.113.9", UserAgent: "go-test"}})
@@ -270,7 +286,7 @@ func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
 func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
 	ctx := context.Background()
 
 	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}}); err != nil {
@@ -303,7 +319,7 @@ func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
 func TestOnlyAStudentCanBeEnrolled(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, _ := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
 
 	_, err := svc.Commands.AddMember.Handle(context.Background(), command.AddMember{ClassID: classID, UserID: teacherID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}})
 	if !errors.Is(err, domain.ErrNotAStudent) {
@@ -314,7 +330,7 @@ func TestOnlyAStudentCanBeEnrolled(t *testing.T) {
 func TestAddingToAClassThatIsNotThereIsNotFound(t *testing.T) {
 	pool := newPool(t)
 	_, teacherID, studentID := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
 
 	_, err := svc.Commands.AddMember.Handle(context.Background(), command.AddMember{ClassID: "00000000-0000-7000-8000-0000000000cc", UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}})
 	if !errors.Is(err, domain.ErrNotFound) {
@@ -328,7 +344,7 @@ func TestAddingToAClassThatIsNotThereIsNotFound(t *testing.T) {
 func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
 	ctx := context.Background()
 
 	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}}); err != nil {

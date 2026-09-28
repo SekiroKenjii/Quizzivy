@@ -78,11 +78,17 @@ type RemoveMemberInput struct {
 	UserAgent   *string
 }
 
+// RotateInput issues a sealed code: CodeID is chosen before the insert because
+// the ciphertext is bound to it, and CodeHash is the keyed lookup hash under
+// KeyID.
 type RotateInput struct {
 	ClassID     string
 	ActorUserID string
 	All         bool
+	CodeID      string
 	CodeHash    []byte
+	Ciphertext  []byte
+	KeyID       int16
 	Hint        string
 	ExpiresAt   time.Time
 	MaxUses     *int

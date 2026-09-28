@@ -3,12 +3,14 @@ package wiring
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/core/router"
 	accessapp "quizzivy/internal/modules/access/application"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
+	classesdomain "quizzivy/internal/modules/classes/domain"
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
 	importsworker "quizzivy/internal/modules/imports/application/worker"
@@ -28,7 +30,7 @@ type Assembly struct {
 	Maintenance   httpx.MaintenanceSource
 }
 
-// Build refuses when app.permissions lacks a key this binary was compiled with, then assembles every module against the pool in dependency order: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
+// Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
 func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Assembly, error) {
 	dbx := db.NewContext(pool.Pool)
 	principals, err := accessModule(ctx, dbx)
@@ -37,7 +39,11 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	stats := attemptsrepo.NewStudentStats(dbx)
 
-	classesApp := classes(dbx, stats)
+	keys, err := classesdomain.NewJoinCodeKeys(cfg.JoinCodeKey, cfg.JoinCodeKeyPrevious)
+	if err != nil {
+		return Assembly{}, fmt.Errorf("JOIN_CODE_KEY: %w", err)
+	}
+	classesApp := classes(dbx, stats, keys)
 	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember)
 	if err != nil {
 		return Assembly{}, err
