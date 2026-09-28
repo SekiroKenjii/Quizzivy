@@ -2179,7 +2179,7 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
-         * @description Shared teacher scope within this installation, with creator attribution.
+         * @description Belongs to the teacher who created it (`createdBy`); every import with `scope.all`.
          *     Sources are private originals, never learner media. Source revision zero
          *     means no completed source set. Upload completion does not mean recognition.
          *     Pending uploads are durable reservations and cannot be downloaded or processed.
@@ -3814,7 +3814,7 @@ export interface components {
             nextClosing?: components["schemas"]["ClosingAssignment"] | null;
             openAssignments: number;
             awaitingGrading: number;
-            /** @description Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches. */
+            /** @description Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches. With `scope.all`, every enabled account that started an attempt in the last seven days, whatever its role. */
             activeStudents: number;
             flaggedAttempts: number;
             recentAttempts: components["schemas"]["AttemptListRow"][];
