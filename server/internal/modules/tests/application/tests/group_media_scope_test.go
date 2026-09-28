@@ -144,6 +144,22 @@ func TestPrepareRefusesAnUnreadableMemberAssetBeforeValidatingIt(t *testing.T) {
 		}
 	}
 
+	admin := actor.Actor{ID: w.admin, Scope: w.anyone}
+	for label, c := range map[string]struct {
+		who   actor.Actor
+		owner string
+	}{"B binding B's own": {who, w.b}, "scope.all binding A's": {admin, w.a}} {
+		created, err := w.app.Commands.CreateGroup.Handle(context.Background(), command.CreateGroup{Bundle: withMemberImage(storedGroupFixture(t, ""), storedGroupAsset(t, w.tx, c.owner, "image")), Actor: c.who, Grants: bothKeys})
+		if err != nil {
+			t.Fatalf("%s image on a member through CreateGroup: %v", label, err)
+		}
+		next := created.Bundle
+		next.Questions[0].Input.MediaAssetID = groupValue(storedGroupAsset(t, w.tx, c.owner, "image"))
+		if _, err := w.app.Commands.UpdateGroup.Handle(context.Background(), command.UpdateGroup{Mutation: model.GroupMutation{ID: created.Bundle.Group.ID, ExpectedRevision: created.Revision, Actor: c.who, Grants: bothKeys}, Bundle: next}); err != nil {
+			t.Errorf("%s image on a member through UpdateGroup: %v", label, err)
+		}
+	}
+
 	stored, err := w.app.Commands.CreateGroup.Handle(context.Background(), command.CreateGroup{Bundle: storedGroupFixture(t, ""), Actor: who, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
