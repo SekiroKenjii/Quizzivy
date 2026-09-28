@@ -24,8 +24,10 @@ this file describe the code as it is and name the release that changes them.
   (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
   since the CSP allows no inline script. Do not restyle an old console's screen
   ad hoc: its release rebuilds it.
-- **R2** replaces the `/admin/` prefix gate with per-operation permissions and
-  moves teaching operations to `/teacher/*`.
+- **Since R2** (v0.8.0) permissions, not paths, gate the API, repositories
+  scope rows to their owner, and teaching operations are under `/teacher/*`
+  ("Authentication and authorization" below). The v0.7.0 `/admin/*` API paths
+  answer through an alias until R3.
 - **R3** replaces the student layout rules in "Design" below with the deck's.
 - **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
 
@@ -142,9 +144,9 @@ module:
 | package | holds |
 |---|---|
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
-| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order; returns the `Assembly` (transports, token issuer, identity application) |
-| `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`) and one module's handlers behind another's port (`Media`, `MediaKinds`) |
-| `core/router` | `Deps`, `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`), `RateLimits` for contract operations and `ServiceRateLimits` for the routes beside it |
+| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application) |
+| `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`), one module's handlers behind another's port (`Media`, `MediaKinds`), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver` |
+| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until R3), `RateLimits` for contract operations and `ServiceRateLimits` for the routes beside it |
 | `core/jobs` | background commands (`PruneRefreshTokens`) |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
@@ -167,9 +169,11 @@ web/               quizzivy-web
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
   internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, ...)
-  internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation
+  internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation, content,
+                     access (permission keys, Principal, Scope, CanActOn), visibility (who a teacher reaches)
   internal/modules/  one directory per bounded context, four layers each:
-                     domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/
+                     domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/;
+                     access (roles, grants, the principal cache) has no http/ until R5
   tests/             end-to-end tests (build tag e2e)
   gen/openapi/       generated, committed, never hand-edited
 migrations/        goose, forward-only, 00001…
@@ -189,15 +193,32 @@ unit, integration and end-to-end in that order.
 
 ## Authentication and authorization
 
-- **Until R2, `/admin/*` is gated on the path prefix**, in `httpx.RequireRole`.
-  Adding an admin endpoint requires nothing: put it under `/admin/` and it is
-  teacher-only. Putting a teacher-only endpoint anywhere else silently makes it
-  student-reachable.
-- **From R2, every operation declares `x-permission`** in `api/openapi.yaml`, and
-  `httpx.RequirePermission` enforces it on every request; the path is no longer
-  the gate. The catalogue, the pseudo-keys and the guards that are not
-  permissions (the subset rule, strict student targets, the last admin, sign-in
-  lockout) are in `docs/plan/70-redesign-overview.md` §4.
+- **Every operation that requires a bearer token declares `x-permission`** in
+  `api/openapi.yaml`, and `httpx.RequirePermission` enforces it on every
+  request; the path is not the gate. The server refuses to start when an
+  operation declares none, or a key its path's tree does not take
+  (`httpx.PermissionRequirements`), and `permissions_test.go` pins the whole
+  map in `testdata/permissions.golden`. The catalogue, the pseudo-keys and the
+  guards that are not permissions (the subset rule, strict student targets,
+  the last admin, sign-in lockout) are in `docs/plan/70-redesign-overview.md`
+  §4.
+- **A permission says what a caller may do; `access.Scope` says whose rows.**
+  Repositories take an `access.Scope`, which only `scope.all` widens. Another
+  teacher's id answers exactly as a missing one does: 404, or for a reference
+  in a body the error an unknown id gets.
+- **Student targets go through `app.student_like_roles` and nothing else.** No
+  query reads `users.role` to decide who is a student, so an Admin with "Take
+  tests" turned on is never a student target.
+- **The subset rule lives in `access.CanActOn`.** Call it; do not restate it.
+- **A new `/teacher/*`, `/app/*` or `/me/*` operation needs an entry in the
+  isolation suite** (`server/tests/isolation_cases_test.go`), and its
+  `x-resource` names a kind for every uuid it takes; a `/teacher/*` list also
+  declares `x-resource-list`. `TestAnotherTeachersIdsAnswerAsMissingOnes`
+  fails naming an operation the table lacks, and `resource_contract_test.go`
+  a uuid without a kind.
+- **The v0.7.0 `/admin/*` teaching paths answer until R3.** The router
+  rewrites each to its `/teacher/*` path (`LegacyAdminPaths`) and logs
+  `legacy_admin_path`. A new operation never joins that table.
 - **Everything the contract does not explicitly open requires a bearer token**,
   derived from `api/openapi.yaml`'s `security`. Seven operations are open —
   login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
@@ -263,7 +284,7 @@ Use `localhost` for both, never a `127.0.0.1`/`localhost` split — that is
 cross-site and hides the cookie behaviour described in
 `docs/plan/00-overview.md` §4.1.
 
-Two local-dev facts worth not rediscovering:
+Four local-dev facts worth not rediscovering:
 
 - **The `postgres:18` image changed its data layout.** The volume mounts at
   `/var/lib/postgresql`, and the image puts data in a version subdirectory
@@ -273,6 +294,14 @@ Two local-dev facts worth not rediscovering:
   needs superuser and `quizzivy_migrate` deliberately is not one. `pg_trgm` and
   `unaccent` are *trusted* extensions, so the migrate role can install them
   itself — verified.
+- **The API refuses to start without `JOIN_CODE_KEY`** in `.env`: standard
+  base64 of exactly 32 random bytes, generated with `openssl rand -base64 32`.
+  A code sealed under a key the server no longer holds can be neither read nor
+  redeemed. `JOIN_CODE_KEY_PREVIOUS` is set only while rotating
+  (`docs/setup/operations.md`).
+- **`make test-api`'s end-to-end tier needs MinIO** (`make up`): the isolation
+  suite uploads real images, audio and Word sources, through the compose
+  endpoint and buckets unless `S3_*` and `IMPORT_S3_BUCKET` say otherwise.
 
 Two database roles: `quizzivy_migrate` owns the schema and runs goose;
 `quizzivy_app` is what the API connects as and owns nothing.
@@ -289,7 +318,8 @@ Two database roles: `quizzivy_migrate` owns the schema and runs goose;
 - Expand-contract for anything breaking; never in one migration.
 - The inventory and the reasoning behind every constraint and index are in
   `docs/plan/20-data-model.md`. Read the deviation register in §12 before
-  changing a table — twenty deviations from the spec sketch are deliberate.
+  changing a table — every deviation it lists from the spec sketch is
+  deliberate.
 
 ## Tests
 
@@ -428,15 +458,25 @@ Design for longer Vietnamese strings; avoid fixed-width labels.
 - [ ] New dependencies listed with reasons
 - [ ] Screens compared with the deck at 360, 768, 1024, 1280 and 1440, light
       and dark, in the browser — not from code
-- [ ] From R2: every new or changed operation declares `x-permission`, and a
-      second-teacher test proves the caller cannot reach another teacher's data
+- [ ] Every new or changed operation declares `x-permission`, and a
+      `/teacher/*`, `/app/*` or `/me/*` one has its isolation-suite entry
 
 ## High-risk areas — extra care
 
-`features/take-test/`, `features/integrity/`, `features/media/`, and
-anything touching `attempts` or `test_versions`. Run the relevant unit
-tests before and after every change to these. Do not refactor them
-opportunistically while doing something else.
+`features/take-test/`, `features/integrity/`, `features/media/`,
+`server/internal/modules/access/`, and anything touching `attempts`,
+`test_versions`, `users.role_id` or an owner column (`owner_id` on tests,
+questions, question groups and media assets; `classes.teacher_id`;
+`users.created_by`). Run the relevant unit tests before and after every change
+to these. Do not refactor them opportunistically while doing something else.
+
+**Access and ownership.** A write that ends someone's access revokes their
+refresh families, bumps `session_epoch` and calls `Principals.Forget` in one
+command (`docs/plan/70-redesign-overview.md` §4.2). Every insert names its
+owner itself: the `BEFORE INSERT` fill triggers exist only for the v0.7.0
+binary, and R3 drops them. A user write sets `role_id`, never `role`: 00056's
+trigger derives `role` until R3 drops the column. The `users_last_admin`
+trigger refuses any change that leaves no active Admin.
 
 **Soft delete and the reference check are two tables, so the lock must be taken
 on both sides.** `SoftDelete` locks the row it is deleting and then counts
