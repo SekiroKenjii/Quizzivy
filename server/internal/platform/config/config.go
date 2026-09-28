@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -42,9 +44,14 @@ type Config struct {
 	AccessTokenTTL      time.Duration
 	RefreshTokenTTL     time.Duration
 	RefreshCookieSecure bool
+
+	JoinCodeKey         []byte
+	JoinCodeKeyPrevious []byte
 }
 
 const defaultMaxConcurrentPasswordHashes = 4
+
+const joinCodeKeyBytes = 32
 
 // Load reads the environment and fails loudly on anything missing.
 func Load() (Config, error) {
@@ -69,6 +76,9 @@ func Load() (Config, error) {
 		return cfg, err
 	}
 	if err := loadTokens(&cfg); err != nil {
+		return cfg, err
+	}
+	if err := loadJoinCodeKeys(&cfg); err != nil {
 		return cfg, err
 	}
 	if err := loadGoogle(&cfg); err != nil {
@@ -124,6 +134,38 @@ func loadTokens(cfg *Config) error {
 	}
 	cfg.RefreshCookieSecure = getenv("REFRESH_COOKIE_SECURE", "true") != "false"
 	return nil
+}
+
+func loadJoinCodeKeys(cfg *Config) error {
+	var err error
+	if cfg.JoinCodeKey, err = joinCodeKey("JOIN_CODE_KEY"); err != nil {
+		return err
+	}
+	if cfg.JoinCodeKey == nil {
+		return fmt.Errorf("JOIN_CODE_KEY is required: standard base64 of %d random bytes; generate one with: openssl rand -base64 32", joinCodeKeyBytes)
+	}
+	if cfg.JoinCodeKeyPrevious, err = joinCodeKey("JOIN_CODE_KEY_PREVIOUS"); err != nil {
+		return err
+	}
+	if cfg.JoinCodeKeyPrevious != nil && bytes.Equal(cfg.JoinCodeKeyPrevious, cfg.JoinCodeKey) {
+		return fmt.Errorf("JOIN_CODE_KEY_PREVIOUS must differ from JOIN_CODE_KEY")
+	}
+	return nil
+}
+
+func joinCodeKey(name string) ([]byte, error) {
+	v := strings.TrimSpace(os.Getenv(name))
+	if v == "" {
+		return nil, nil
+	}
+	raw, err := base64.StdEncoding.DecodeString(v)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be standard base64; generate one with: openssl rand -base64 32", name)
+	}
+	if len(raw) != joinCodeKeyBytes {
+		return nil, fmt.Errorf("%s must decode to exactly %d bytes, got %d; generate one with: openssl rand -base64 32", name, joinCodeKeyBytes, len(raw))
+	}
+	return raw, nil
 }
 
 func loadHashing(cfg *Config) error {
