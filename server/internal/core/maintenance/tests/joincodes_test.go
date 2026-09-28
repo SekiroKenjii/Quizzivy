@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	rekeyOld = bytes.Repeat([]byte{0x3c}, classesdomain.JoinCodeKeySize)
-	rekeyNew = bytes.Repeat([]byte{0x4d}, classesdomain.JoinCodeKeySize)
+	rekeyOld   = bytes.Repeat([]byte{0x3c}, classesdomain.JoinCodeKeySize)
+	rekeyNew   = bytes.Repeat([]byte{0x4d}, classesdomain.JoinCodeKeySize)
+	rekeyStray = bytes.Repeat([]byte{0x5e}, classesdomain.JoinCodeKeySize)
 )
 
 type rekeyWorld struct {
@@ -95,6 +96,19 @@ func newRekeyWorld(t *testing.T) *rekeyWorld {
 	return w
 }
 
+func (w *rekeyWorld) isolate(t *testing.T) {
+	t.Helper()
+	if _, err := w.tx.Exec(w.ctx, `LOCK TABLE app.class_join_codes IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.tx.Exec(w.ctx, `
+		UPDATE app.class_join_codes SET revoked_at = now()
+		 WHERE revoked_at IS NULL AND lookup_scheme = 2 AND key_id <> ALL($1::smallint[])`,
+		[]int16{keysFor(t, rekeyOld, nil).CurrentID(), keysFor(t, rekeyNew, nil).CurrentID()}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (w *rekeyWorld) snapshot(t *testing.T) string {
 	t.Helper()
 	var s string
@@ -120,7 +134,7 @@ func TestTheDryRunCountsAndChangesNothing(t *testing.T) {
 	before := w.snapshot(t)
 	report := w.rekey(t, false, 500)
 	oldID, newID := keysFor(t, rekeyOld, nil).CurrentID(), keysFor(t, rekeyNew, nil).CurrentID()
-	if report.Applied || report.Moved != 0 || report.Pending != 4 || report.SealedByKey[oldID] != 4 || report.SealedByKey[newID] != 0 || report.Legacy < 1 {
+	if report.Applied || report.Moved != 0 || report.Pending != 4 || report.SealedByKey[oldID] != 4 || report.SealedByKey[newID] != 0 || report.Legacy < 1 || len(report.Unopened) != 0 {
 		t.Errorf("dry run reported %+v, want 4 pending under %d and at least one legacy code", report, oldID)
 	}
 	if report.CurrentKeyID != newID || report.PreviousKeyID != oldID {
@@ -133,6 +147,7 @@ func TestTheDryRunCountsAndChangesNothing(t *testing.T) {
 
 func TestEveryCodeUnderTheOldKeyMovesAndStillRedeems(t *testing.T) {
 	w := newRekeyWorld(t)
+	w.isolate(t)
 	before := w.snapshot(t)
 	report := w.rekey(t, true, 3)
 	oldID, newID := keysFor(t, rekeyOld, nil).CurrentID(), keysFor(t, rekeyNew, nil).CurrentID()
@@ -168,8 +183,9 @@ func TestEveryCodeUnderTheOldKeyMovesAndStillRedeems(t *testing.T) {
 	}
 }
 
-func TestACodeThatDoesNotOpenStopsTheBatchAndNamesOnlyTheRow(t *testing.T) {
+func TestACodeThatDoesNotOpenIsListedAndTheRestMove(t *testing.T) {
 	w := newRekeyWorld(t)
+	w.isolate(t)
 	var broken string
 	if err := w.tx.QueryRow(w.ctx, `
 		UPDATE app.class_join_codes
@@ -177,18 +193,51 @@ func TestACodeThatDoesNotOpenStopsTheBatchAndNamesOnlyTheRow(t *testing.T) {
 		 WHERE class_id = $1 AND revoked_at IS NULL RETURNING id::text`, w.classes[1]).Scan(&broken); err != nil {
 		t.Fatal(err)
 	}
-	before := w.snapshot(t)
-	_, err := maintenance.RekeyJoinCodes(w.ctx, w.tx, keysFor(t, rekeyNew, rekeyOld), true, 500)
-	if err == nil || !strings.Contains(err.Error(), broken) {
-		t.Fatalf("rekey with a broken row: %v, want an error naming %s", err, broken)
+	listed := func(report maintenance.RekeyReport, revoked bool) bool {
+		return len(report.Unopened) == 1 && report.Unopened[0] == maintenance.UnopenedCode{ID: broken, ClassID: w.classes[1], Revoked: revoked}
 	}
-	for _, code := range w.codes {
-		if strings.Contains(err.Error(), classesdomain.JoinCodes.Normalize(code)) || strings.Contains(err.Error(), code) {
-			t.Errorf("the error carries a code: %v", err)
+	dry := w.rekey(t, false, 3)
+	if !listed(dry, false) || dry.Pending != 3 {
+		t.Errorf("the dry run reported %+v, want the broken code listed and three to move", dry)
+	}
+	report := w.rekey(t, true, 3)
+	if !listed(report, false) || report.Moved != 3 || report.Pending != 0 {
+		t.Fatalf("apply reported %+v, want three moved past the broken code, which stays listed", report)
+	}
+	for _, code := range []string{w.codes[0]} {
+		preview, err := w.classesWith(keysFor(t, rekeyNew, nil)).Queries.Preview.Handle(w.ctx, classesquery.Preview{Code: code})
+		if err != nil || preview.Outcome != classesdomain.PreviewOK {
+			t.Errorf("a code after the broken one did not move: %+v (%v)", preview, err)
 		}
 	}
+	if _, err := w.classesWith(keysFor(t, rekeyNew, rekeyOld)).Commands.Rotate.Handle(w.ctx, classescmd.Rotate{Request: classesdomain.RotateRequest{ClassID: w.classes[1], ActorUserID: w.teacher}}); err != nil {
+		t.Fatal(err)
+	}
+	again := w.rekey(t, true, 3)
+	if !listed(again, true) || again.Moved != 0 || again.Pending != 0 {
+		t.Errorf("after the class rotated, the run reported %+v, want the broken code listed as revoked and nothing else to do", again)
+	}
+}
+
+func TestAKeyPairTheAPIDoesNotRunWithIsRefused(t *testing.T) {
+	w := newRekeyWorld(t)
+	w.isolate(t)
+	stray := w.id(t, `INSERT INTO app.classes (name, teacher_id) VALUES ('Lớp khoá lạ', $1) RETURNING id::text`, w.teacher)
+	for range 2 {
+		if _, err := w.classesWith(keysFor(t, rekeyStray, nil)).Commands.Rotate.Handle(w.ctx, classescmd.Rotate{Request: classesdomain.RotateRequest{ClassID: stray, ActorUserID: w.teacher}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := w.snapshot(t)
+	if dry := w.rekey(t, false, 500); dry.Unknown != 1 {
+		t.Errorf("the dry run reported %d active codes under an unknown key, want 1", dry.Unknown)
+	}
+	_, err := maintenance.RekeyJoinCodes(w.ctx, w.tx, keysFor(t, rekeyNew, rekeyOld), true, 500)
+	if err == nil || !strings.Contains(err.Error(), "neither JOIN_CODE_KEY") {
+		t.Fatalf("apply with a code under a third key: %v, want a refusal", err)
+	}
 	if w.snapshot(t) != before {
-		t.Error("a failed batch changed rows")
+		t.Error("a refused apply changed rows")
 	}
 }
 
