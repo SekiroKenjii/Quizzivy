@@ -40,7 +40,8 @@ the "one package per feature" layout AGENTS.md described until then.
   `MediaKinds`; classes and identity read student figures through
   `shared/stats.Source`, which attempts implements; tests' repository takes
   `QuestionLocks` and `MediaLocks` for the row locks another module holds
-  inside its transaction. A port one operation fills is typed as the other
+  inside its transaction, and for the ownership and readability checks that
+  run under those locks (`NotOwnedBy`, `RequireReadable`). A port one operation fills is typed as the other
   module's handler (identity's `SelfEnroller` is the classes `EnrolNewMember`
   command; attempts' `Students` is the identity `GetStudent` query); the
   rest `core/adapters` adapts.
