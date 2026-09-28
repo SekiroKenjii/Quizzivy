@@ -51,19 +51,25 @@ info:
       `system.api_reference`, `system.data_export`, `system.leads`) may appear
       only under `/admin/`.
     - Every uuid-typed path, query or body field under `/teacher/*`, `/app/*`
-      and `/me/*` is named in its operation's `x-resource` list as
+      and `/me/*`, and every key of a body map whose `propertyNames` is
+      `Uuid`, is named in its operation's `x-resource` list as
       `{in, name, kind}`. For a body field `name` is a JSON pointer, where `-`
-      stands for every item of an array and `*` for every value of a map.
+      stands for every item of an array, `*` for every value of a map and `+`
+      for every key of a map.
       `kind` is the owned resource the id names: `test`, `test-version`,
       `section`, `question`, `version-question`, `version-recording`,
       `question-group`, `media`, `import`, `import-source`, `class`,
       `assignment`, `attempt` or `student`. The two `version-` kinds are a
-      question and a group recording of a published version, as a paper and
-      grading name them. `kind` is `none` for an id that names no owned
-      resource: an option, a gap, a session, an idempotency key, or a fresh
-      identity the caller supplies. Every
-      `/teacher/*` list names the kind it lists in `x-resource-list`. The
-      two-teacher isolation suite reads both: another owner's id answers
+      question and a group recording of a published version, as grading and
+      the student's autosave, events and plays name them. A section unit's
+      `id` names a question or a group, as its `kind` says, and is declared
+      as a question; the suite checks the group branch separately.
+      `kind` is `none` for an id that names no owned resource: an option, a
+      gap, a session, an idempotency key, a fresh identity the caller
+      supplies, or an id the operation resolves only inside the resource its
+      path names, such as a group's own members on `updateQuestionGroup`.
+      Every `/teacher/*` list names the kind it lists in `x-resource-list`.
+      The two-teacher isolation suite reads both: another owner's id answers
       exactly as a missing id does.
     - Student-facing schemas are deliberately separate components from teacher
       ones. See `StudentQuestion` for why.
@@ -6587,6 +6593,7 @@ paths:
       x-resource:
         - { in: path, name: id, kind: attempt }
         - { in: body, name: /sessionId, kind: none }
+        - { in: body, name: /answers/+, kind: version-question }
         - { in: body, name: /answers/*/optionIds/-, kind: none }
         - { in: body, name: /events/-/questionId, kind: version-question }
       x-permission: learning.take_tests
@@ -6611,6 +6618,8 @@ paths:
                 sessionId: { $ref: '#/components/schemas/Uuid' }
                 answers:
                   type: object
+                  description: Keyed by the version question's id.
+                  propertyNames: { $ref: '#/components/schemas/Uuid' }
                   additionalProperties: { $ref: '#/components/schemas/Answer' }
                 events:
                   type: array

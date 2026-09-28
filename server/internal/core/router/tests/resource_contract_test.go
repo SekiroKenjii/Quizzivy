@@ -40,6 +40,9 @@ func uuidPointers(ref *openapi3.SchemaRef, at string, seen map[*openapi3.Schema]
 	for name, prop := range s.Properties {
 		uuidPointers(prop, at+"/"+strings.NewReplacer("~", "~0", "/", "~1").Replace(name), seen, out)
 	}
+	if names := s.PropertyNames; names != nil && names.Value != nil && names.Value.Format == "uuid" {
+		out[at+"/+"] = true
+	}
 	uuidPointers(s.AdditionalProperties.Schema, at+"/*", seen, out)
 	for _, group := range []openapi3.SchemaRefs{s.AllOf, s.OneOf, s.AnyOf} {
 		for _, sub := range group {
