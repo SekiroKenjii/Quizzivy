@@ -27,14 +27,14 @@ func makeClassRow(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, student
 	n := nonce(t)
 
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role)
-		 VALUES ($1, 'Giáo viên', 'admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1, 'Giáo viên', (SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"teacher-"+n+"@example.com").Scan(&teacherID); err != nil {
 		t.Fatalf("insert teacher: %v", err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role)
-		 VALUES ($1, 'Học viên', 'student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1, 'Học viên', (SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"student-"+n+"@example.com").Scan(&studentID); err != nil {
 		t.Fatalf("insert student: %v", err)
 	}

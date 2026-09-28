@@ -55,7 +55,7 @@ func enrol(t *testing.T, pool *pgxpool.Pool, w world, n int) []string {
 	ids := make([]string, n)
 	for i := range n {
 		if err := pool.QueryRow(ctx,
-			`INSERT INTO app.users (email, full_name, role) VALUES ($1, $2, 'student') RETURNING id::text`,
+			`INSERT INTO app.users (email, full_name, role_id) VALUES ($1, $2, (SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 			"mon-"+id+"-"+string(rune('a'+i%26))+string(rune('a'+i/26))+"@example.com",
 			"Học viên "+string(rune('A'+i%26))+string(rune('a'+i/26))).Scan(&ids[i]); err != nil {
 			t.Fatal(err)

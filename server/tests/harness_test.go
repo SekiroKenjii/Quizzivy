@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -82,16 +83,26 @@ func nonce(t *testing.T) string {
 // returns the credentials a browser would type.
 func (w *world) teacher() (email, password string) {
 	w.t.Helper()
-	password = "giao-vien-" + nonce(w.t)
+	return w.createStaff("admin")
+}
+
+func (w *world) createStaff(builtinKey string) (email, password string) {
+	w.t.Helper()
+	password = "nhan-vien-" + nonce(w.t)
 	hash, err := identitydomain.Passwords.Hash(context.Background(), password)
 	if err != nil {
 		w.t.Fatal(err)
 	}
-	email = "teacher-" + nonce(w.t) + "@example.com"
-	if _, err := w.pool.Exec(context.Background(),
-		`INSERT INTO app.users (email, full_name, role, password_hash) VALUES ($1, 'Cô Thương', 'admin', $2)`,
-		email, hash); err != nil {
-		w.t.Fatal(err)
+	email = builtinKey + "-" + nonce(w.t) + "@example.com"
+	tag, err := w.pool.Exec(context.Background(),
+		`INSERT INTO app.users (email, full_name, role_id, password_hash)
+		 SELECT $1, 'Cô Thương', r.id, $2 FROM app.roles r WHERE r.builtin_key = $3`,
+		email, hash, builtinKey)
+	if err != nil {
+		w.t.Fatalf("staff %s: %v", builtinKey, err)
+	}
+	if tag.RowsAffected() != 1 {
+		w.t.Fatalf("staff %s: no built-in role has that key", builtinKey)
 	}
 	return email, password
 }
@@ -119,6 +130,26 @@ func (c *client) login(email, password string) map[string]any {
 	}
 	c.token = body["accessToken"].(string)
 	return body
+}
+
+func (c *client) signIn(email, password string) (token string, epoch int) {
+	c.w.t.Helper()
+	c.login(email, password)
+	parts := strings.Split(c.token, ".")
+	if len(parts) != 3 {
+		c.w.t.Fatalf("the access token is not a JWT: %q", c.token)
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		c.w.t.Fatal(err)
+	}
+	var claims struct {
+		Epoch int `json:"sep"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		c.w.t.Fatal(err)
+	}
+	return c.token, claims.Epoch
 }
 
 // call sends JSON and decodes JSON; a body of nil sends nothing.

@@ -64,19 +64,32 @@ func withTx(t *testing.T, conn *sql.DB, fn func(tx *sql.Tx, f fixture)) {
 			t.Fatalf("fixture: %v", err)
 		}
 	}
-	must(&f.adminID,
-		`INSERT INTO app.users (email, full_name, role, password_hash)
-		 VALUES ($1, 'Thuong', 'admin', 'hash') RETURNING id`, "admin-"+tag+"@example.com")
-	// role defaults to 'student' (§13.3), so it is omitted rather than restated.
-	must(&f.studentID,
-		`INSERT INTO app.users (email, full_name) VALUES ($1, 'Học viên') RETURNING id`,
-		"student-"+tag+"@example.com")
-	var hasTeacher bool
-	if err := tx.QueryRow(`SELECT EXISTS (SELECT 1 FROM pg_attribute
-		WHERE attrelid = 'app.classes'::regclass AND attname = 'teacher_id' AND NOT attisdropped)`).Scan(&hasTeacher); err != nil {
-		t.Fatalf("fixture: %v", err)
+	hasColumn := func(table, column string) bool {
+		t.Helper()
+		var exists bool
+		if err := tx.QueryRow(`SELECT EXISTS (SELECT 1 FROM pg_attribute
+			WHERE attrelid = ('app.' || $1)::regclass AND attname = $2 AND NOT attisdropped)`, table, column).Scan(&exists); err != nil {
+			t.Fatalf("fixture: %v", err)
+		}
+		return exists
 	}
-	if hasTeacher {
+	if hasColumn("users", "role_id") {
+		must(&f.adminID,
+			`INSERT INTO app.users (email, full_name, role_id, password_hash)
+			 VALUES ($1, 'Thuong', (SELECT id FROM app.roles WHERE builtin_key = 'admin'), 'hash') RETURNING id`, "admin-"+tag+"@example.com")
+		must(&f.studentID,
+			`INSERT INTO app.users (email, full_name, role_id)
+			 VALUES ($1, 'Học viên', (SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id`,
+			"student-"+tag+"@example.com")
+	} else {
+		must(&f.adminID,
+			`INSERT INTO app.users (email, full_name, role, password_hash)
+			 VALUES ($1, 'Thuong', 'admin', 'hash') RETURNING id`, "admin-"+tag+"@example.com")
+		must(&f.studentID,
+			`INSERT INTO app.users (email, full_name) VALUES ($1, 'Học viên') RETURNING id`,
+			"student-"+tag+"@example.com")
+	}
+	if hasColumn("classes", "teacher_id") {
 		must(&f.classID,
 			`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id`, "Lớp "+tag, f.adminID)
 	} else {
@@ -105,24 +118,24 @@ func rejectsWith(t *testing.T, tx *sql.Tx, wantConstraint, stmt string, args ...
 func TestMustChangePasswordRequiresAPassword(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, _ fixture) {
 		rejectsWith(t, tx, "users_must_change_needs_password",
-			`INSERT INTO app.users (email, full_name, must_change_password)
-			 VALUES ('google-only@example.com', 'Học viên', true)`)
+			`INSERT INTO app.users (email, full_name, must_change_password, role_id)
+			 VALUES ('google-only@example.com', 'Học viên', true, (SELECT id FROM app.roles WHERE builtin_key = 'student'))`)
 	})
 }
 
 func TestMustChangePasswordIsFineWithAPassword(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, _ fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.users (email, full_name, password_hash, must_change_password)
-			 VALUES ('has-password@example.com', 'Học viên', 'argon2id$...', true)`)
+			`INSERT INTO app.users (email, full_name, password_hash, must_change_password, role_id)
+			 VALUES ('has-password@example.com', 'Học viên', 'argon2id$...', true, (SELECT id FROM app.roles WHERE builtin_key = 'student'))`)
 	})
 }
 
 func TestEmailUniquenessIgnoresCase(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, _ fixture) {
-		mustExec(t, tx, `INSERT INTO app.users (email, full_name) VALUES ('Hoc.Vien@Example.com', 'A')`)
+		mustExec(t, tx, `INSERT INTO app.users (email, full_name, role_id) VALUES ('Hoc.Vien@Example.com', 'A', (SELECT id FROM app.roles WHERE builtin_key = 'student'))`)
 		rejectsWith(t, tx, "users_email_lower_key",
-			`INSERT INTO app.users (email, full_name) VALUES ('hoc.vien@example.com', 'B')`)
+			`INSERT INTO app.users (email, full_name, role_id) VALUES ('hoc.vien@example.com', 'B', (SELECT id FROM app.roles WHERE builtin_key = 'student'))`)
 	})
 }
 

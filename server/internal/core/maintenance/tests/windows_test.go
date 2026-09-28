@@ -86,7 +86,7 @@ func (w world) attempt(t *testing.T, assignment string, deadline time.Time) stri
 	var id string
 	err := w.tx.QueryRow(w.ctx, `
 	 WITH student AS (
-	   INSERT INTO app.users(id,email,full_name,role) VALUES($1::uuid,$1::text || '@example.com','Student','student') RETURNING id
+	   INSERT INTO app.users(id,email,full_name,role_id) VALUES($1::uuid,$1::text || '@example.com','Student',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id
 	 )
 	 INSERT INTO app.attempts(assignment_id,test_version_id,student_id,attempt_no,status,session_id,shuffle_seed,beacon_token_hash,started_at,deadline_at)
 	 SELECT a.id,a.test_version_id,student.id,1,'in_progress',uuidv7(),1,sha256('fixture'::bytea),$3::timestamptz - interval '1 minute',$4
@@ -405,7 +405,7 @@ func (c *committed) student(t *testing.T) string {
 	t.Helper()
 	var id string
 	if err := c.pool.QueryRow(context.Background(), `
-		INSERT INTO app.users(email,full_name,role) VALUES($1 || '@example.com','Student','student')
+		INSERT INTO app.users(email,full_name,role_id) VALUES($1 || '@example.com','Student',(SELECT id FROM app.roles WHERE builtin_key = 'student'))
 		RETURNING id::text`, uuid.NewString()).Scan(&id); err != nil {
 		t.Fatal(err)
 	}

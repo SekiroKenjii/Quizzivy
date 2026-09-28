@@ -6,7 +6,8 @@
 -- E2E 8 is not here — it needs a real audio object, so it authors its own test
 -- through the admin UI.
 --
--- They share 02's published test version, so the frozen-question invariants in
+-- They rely on 01 (the Admin …00a1 and the class …00c1) and share 02's
+-- published test version (…dd01, …dd02), so the frozen-question invariants in
 -- 99-assert.sql already hold for them.
 --
 -- max_attempts is 50 rather than 1: a developer runs the suite repeatedly

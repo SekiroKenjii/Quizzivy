@@ -4,7 +4,9 @@
 -- once: a live attempt, a graded score, and a student who has never started
 -- anything. Without the third, the em dash path is never exercised by hand.
 --
--- Self-contained and idempotent, like the other two. Fixed uuids throughout.
+-- Relies on 01 (the Admin …00a1 and the class …00c1) and on 02 (the test
+-- …dd01, its version …dd02 and the assignment …dd06). Idempotent, with fixed
+-- uuids throughout.
 
 -- --------------------------------------------------------------- students
 INSERT INTO app.users (id, email, full_name, role, password_hash, must_change_password)

@@ -21,7 +21,7 @@ func TestSectionGroupsAndDuplicatesBelongToTheTestsOwner(t *testing.T) {
 	ctx := context.Background()
 	tx, owner, groups := groupTransaction(t)
 	var other string
-	if err := tx.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role) VALUES ($1, 'Other author', 'admin') RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&other); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role_id) VALUES ($1, 'Other author', (SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&other); err != nil {
 		t.Fatal(err)
 	}
 	testID, section, updated := snapshotDraft(t, tx, owner)
