@@ -75,7 +75,7 @@ func (h Imports) GetWordImportReview(ctx context.Context, request openapi.GetWor
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	v, err := h.app.Queries.Review.Handle(ctx, query.Review{ImportID: request.Id.String()})
+	v, err := h.app.Queries.Review.Handle(ctx, query.Review{ImportID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if err != nil {
 		return importFailure(ctx, err)
 	}
@@ -117,7 +117,7 @@ func (h Imports) GetWordImportSource(ctx context.Context, request openapi.GetWor
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	v, err := h.app.Queries.SourceView.Handle(ctx, query.SourceView{ImportID: request.Id.String(), Role: string(request.Params.Role)})
+	v, err := h.app.Queries.SourceView.Handle(ctx, query.SourceView{ImportID: request.Id.String(), Role: string(request.Params.Role), Scope: httpapi.ScopeFromContext(ctx)})
 	if err != nil {
 		return importFailure(ctx, err)
 	}

@@ -178,8 +178,8 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Te
 
 	var id string
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO app.tests (title, description, created_by, owner_id) VALUES ($1, $2, $3, $3)
-		 RETURNING id::text`, in.Title, in.Description, in.ActorID).Scan(&id); err != nil {
+		`INSERT INTO app.tests (title, description, created_by, owner_id) VALUES ($1, $2, $3, coalesce($4::uuid, $3))
+		 RETURNING id::text`, in.Title, in.Description, in.ActorID, opt.String(in.OwnerID)).Scan(&id); err != nil {
 		return domain.Test{}, fmt.Errorf("tests: insert: %w", err)
 	}
 	if err := audit.Write(ctx, tx, audit.Entry{

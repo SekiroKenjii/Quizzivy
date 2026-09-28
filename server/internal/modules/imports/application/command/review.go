@@ -18,7 +18,7 @@ type SaveReview struct {
 type SaveReviewHandler struct{ Drafts domain.Drafts }
 
 func (h SaveReviewHandler) Handle(ctx context.Context, in SaveReview) (domain.ReviewState, error) {
-	stored, err := h.Drafts.Draft(ctx, in.ImportID)
+	stored, err := h.Drafts.Draft(ctx, reach(in.Actor), in.ImportID)
 	if err != nil {
 		return domain.ReviewState{}, err
 	}

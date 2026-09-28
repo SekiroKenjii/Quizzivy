@@ -47,6 +47,7 @@ func (s *Service) Write(ctx context.Context, req domain.WriteRequest, update boo
 		Input:          req.Input,
 		MediaAssetKind: kind,
 		ActorID:        req.ActorID,
+		OwnerID:        req.OwnerID,
 		All:            req.All,
 		Now:            s.Now(),
 		IP:             req.IP,

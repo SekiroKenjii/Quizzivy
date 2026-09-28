@@ -6,23 +6,29 @@ import (
 	"errors"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/actor"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
 )
 
 const maxDraftBytes = 8 << 20
 
-func (s *Postgres) Draft(ctx context.Context, importID string) (domain.StoredDraft, error) {
-	return readDraft(ctx, s, importID)
+// Draft reads the review copy of an import the scope reaches, as Get does. An
+// import outside the scope answers ErrNotFound, never ErrNoDraft.
+func (s *Postgres) Draft(ctx context.Context, scope access.Scope, importID string) (domain.StoredDraft, error) {
+	return readDraft(ctx, s, scope, importID)
 }
 
-func readDraft(ctx context.Context, q db.Querier, importID string) (domain.StoredDraft, error) {
+func readDraft(ctx context.Context, q db.Querier, scope access.Scope, importID string) (domain.StoredDraft, error) {
 	var out domain.StoredDraft
 	var body []byte
-	err := q.QueryRow(ctx, `SELECT d.import_id::text, i.title, i.status, d.revision, d.body, d.candidate IS NOT NULL, d.updated_at
- FROM app.word_import_drafts d JOIN app.word_imports i ON i.id=d.import_id WHERE d.import_id=$1`, importID).Scan(&out.ImportID, &out.Title, &out.Status, &out.Revision, &body, &out.Reprocessed, &out.UpdatedAt)
+	err := q.QueryRow(ctx, `SELECT d.import_id::text, i.title, i.status, i.created_by::text, d.revision, d.body, d.candidate IS NOT NULL, d.updated_at
+ FROM app.word_import_drafts d JOIN app.word_imports i ON i.id=d.import_id WHERE d.import_id=$1 AND ($2::boolean OR i.created_by = $3::uuid)`,
+		importID, scope.All, opt.String(scope.UserID)).Scan(&out.ImportID, &out.Title, &out.Status, &out.CreatedBy, &out.Revision, &body, &out.Reprocessed, &out.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return out, missingDraft(ctx, q, importID)
+		return out, missingDraft(ctx, q, scope, importID)
 	}
 	if err != nil {
 		return out, err
@@ -30,8 +36,8 @@ func readDraft(ctx context.Context, q db.Querier, importID string) (domain.Store
 	return out, json.Unmarshal(body, &out.Draft)
 }
 
-func missingDraft(ctx context.Context, q db.Querier, importID string) error {
-	exists, err := db.Exists(ctx, q, `SELECT 1 FROM app.word_imports WHERE id=$1`, importID)
+func missingDraft(ctx context.Context, q db.Querier, scope access.Scope, importID string) error {
+	exists, err := db.Exists(ctx, q, `SELECT 1 FROM app.word_imports WHERE id=$1 AND `+scopedImport, importID, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return err
 	}
@@ -51,7 +57,7 @@ func (s *Postgres) SaveDraft(ctx context.Context, in domain.SaveDraft) (domain.S
 	}
 	var out domain.StoredDraft
 	err = s.InTx(ctx, "save import draft", func(tx pgx.Tx) error {
-		if err := touchUnderReview(ctx, tx, in.ImportID); err != nil {
+		if err := touchUnderReview(ctx, tx, in.ImportID, in.Actor); err != nil {
 			return err
 		}
 		tag, err := tx.Exec(ctx, `UPDATE app.word_import_drafts SET body=$2, revision=revision+1, edited_by=$3 WHERE import_id=$1 AND revision=$4`, in.ImportID, body, in.Actor.ID, in.ExpectedRevision)
@@ -59,12 +65,12 @@ func (s *Postgres) SaveDraft(ctx context.Context, in domain.SaveDraft) (domain.S
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			if _, err := readDraft(ctx, tx, in.ImportID); err != nil {
+			if _, err := readDraft(ctx, tx, anyImport, in.ImportID); err != nil {
 				return err
 			}
 			return domain.ErrStale
 		}
-		out, err = readDraft(ctx, tx, in.ImportID)
+		out, err = readDraft(ctx, tx, anyImport, in.ImportID)
 		return err
 	})
 	return out, err
@@ -73,7 +79,7 @@ func (s *Postgres) SaveDraft(ctx context.Context, in domain.SaveDraft) (domain.S
 func (s *Postgres) AdoptCandidate(ctx context.Context, in domain.AdoptCandidate) (domain.StoredDraft, error) {
 	var out domain.StoredDraft
 	err := s.InTx(ctx, "adopt reprocessed draft", func(tx pgx.Tx) error {
-		if err := touchUnderReview(ctx, tx, in.ImportID); err != nil {
+		if err := touchUnderReview(ctx, tx, in.ImportID, in.Actor); err != nil {
 			return err
 		}
 		var revision int64
@@ -96,15 +102,15 @@ func (s *Postgres) AdoptCandidate(ctx context.Context, in domain.AdoptCandidate)
 		if err := auditImport(ctx, tx, in.Actor, in.ImportID, "import.reprocessed_adopted"); err != nil {
 			return err
 		}
-		out, err = readDraft(ctx, tx, in.ImportID)
+		out, err = readDraft(ctx, tx, anyImport, in.ImportID)
 		return err
 	})
 	return out, err
 }
 
-func touchUnderReview(ctx context.Context, tx pgx.Tx, importID string) error {
+func touchUnderReview(ctx context.Context, tx pgx.Tx, importID string, by actor.Actor) error {
 	var status string
-	err := tx.QueryRow(ctx, `SELECT status FROM app.word_imports WHERE id=$1 FOR UPDATE`, importID).Scan(&status)
+	err := tx.QueryRow(ctx, `SELECT status FROM app.word_imports WHERE id=$1 AND `+scopedImport+` FOR UPDATE`, importID, by.Scope.All, opt.String(by.ID)).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}
@@ -131,9 +137,12 @@ func storeMachineDraft(ctx context.Context, tx pgx.Tx, c domain.Claim, draft jso
 	return err
 }
 
-func (s *Postgres) Commit(ctx context.Context, importID string) (domain.Commit, error) {
+// Commit reads the commit record of an import the scope reaches, as Get does;
+// another creator's import answers ErrNotFound, as one never committed does.
+func (s *Postgres) Commit(ctx context.Context, scope access.Scope, importID string) (domain.Commit, error) {
 	var out domain.Commit
-	err := s.QueryRow(ctx, `SELECT import_id::text, request_id::text, draft_revision, digest, test_id::text FROM app.word_import_commits WHERE import_id=$1`, importID).
+	err := s.QueryRow(ctx, `SELECT c.import_id::text, c.request_id::text, c.draft_revision, c.digest, c.test_id::text
+ FROM app.word_import_commits c JOIN app.word_imports i ON i.id = c.import_id WHERE c.import_id=$1 AND ($2::boolean OR i.created_by = $3::uuid)`, importID, scope.All, opt.String(scope.UserID)).
 		Scan(&out.ImportID, &out.RequestID, &out.DraftRevision, &out.Digest, &out.TestID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return out, domain.ErrNotFound
@@ -143,7 +152,7 @@ func (s *Postgres) Commit(ctx context.Context, importID string) (domain.Commit, 
 
 func (s *Postgres) RecordCommit(ctx context.Context, in domain.CommitRecord) error {
 	return s.InTx(ctx, "record import commit", func(tx pgx.Tx) error {
-		if err := touchUnderReview(ctx, tx, in.ImportID); err != nil {
+		if err := touchUnderReview(ctx, tx, in.ImportID, in.Actor); err != nil {
 			return err
 		}
 		var revision int64

@@ -36,7 +36,7 @@ func (s *Postgres) Run(ctx context.Context, importID, id string) (domain.Run, er
 	return scanRun(s.QueryRow(ctx, `SELECT `+runColumns+` FROM app.word_import_runs WHERE import_id=$1 AND id=$2`, importID, id))
 }
 func (s *Postgres) Runs(ctx context.Context, importID string) ([]domain.Run, error) {
-	if _, err := s.Get(ctx, importID); err != nil {
+	if _, err := s.Get(ctx, anyImport, importID); err != nil {
 		return nil, err
 	}
 	return db.QueryMany(ctx, s, `SELECT `+runColumns+` FROM app.word_import_runs WHERE import_id=$1 ORDER BY created_at DESC,id DESC LIMIT 50`, []any{importID}, func(r pgx.Rows) (domain.Run, error) { return scanRun(r) })
@@ -51,7 +51,7 @@ func (s *Postgres) Schedule(ctx context.Context, in domain.Schedule) (domain.Run
 	return out, err
 }
 func scheduleRun(ctx context.Context, tx pgx.Tx, in domain.Schedule) (domain.Run, error) {
-	parent, err := scanImport(tx.QueryRow(ctx, `SELECT `+importColumns+` FROM app.word_imports WHERE id=$1 FOR UPDATE`, in.ImportID))
+	parent, err := lockImport(ctx, tx, in.ImportID, in.Actor)
 	if err != nil {
 		return domain.Run{}, err
 	}
@@ -104,7 +104,7 @@ func checkRunnable(ctx context.Context, tx pgx.Tx, parent domain.Import) error {
 func (s *Postgres) Cancel(ctx context.Context, in domain.Cancel) (domain.Import, error) {
 	var out domain.Import
 	err := s.InTx(ctx, "cancel import", func(tx pgx.Tx) error {
-		parent, err := scanImport(tx.QueryRow(ctx, `SELECT `+importColumns+` FROM app.word_imports WHERE id=$1 FOR UPDATE`, in.ImportID))
+		parent, err := lockImport(ctx, tx, in.ImportID, in.Actor)
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func (s *Postgres) Cancel(ctx context.Context, in domain.Cancel) (domain.Import,
 		if err := auditImport(ctx, tx, in.Actor, in.ImportID, action); err != nil {
 			return err
 		}
-		out, err = readImport(ctx, tx, in.ImportID)
+		out, err = readImport(ctx, tx, anyImport, in.ImportID)
 		return err
 	})
 	return out, err

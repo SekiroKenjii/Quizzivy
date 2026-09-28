@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"quizzivy/internal/core/adapters"
+	importsapp "quizzivy/internal/modules/imports/application"
+	importscmd "quizzivy/internal/modules/imports/application/command"
 	importsdomain "quizzivy/internal/modules/imports/domain"
 	importsrepo "quizzivy/internal/modules/imports/repositories"
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -217,6 +219,46 @@ func TestACommittedImportBelongsToTheImporter(t *testing.T) {
 	}
 	if test != h.by.ID || questions == 0 || groups == 0 || others != 0 {
 		t.Fatalf("test owner %s (want %s), %d questions and %d groups written, %d owned by someone else", test, h.by.ID, questions, groups, others)
+	}
+}
+
+func TestAnAdminsCommitOfATeachersImportBelongsToTheTeacher(t *testing.T) {
+	teacher, committer, other := commitSetup(t), commitSetup(t), commitSetup(t)
+	ctx := context.Background()
+	importID := teacher.underReview(t)
+	app := importsapp.New(importsapp.Dependencies{Repo: teacher.imports, Drafts: teacher.imports, Materializer: teacher.committer})
+
+	stranger := actor.Actor{ID: other.by.ID}
+	if _, err := app.Commands.Commit.Handle(ctx, importscmd.Commit{ImportID: importID, RequestID: uuid.NewString(), DraftRevision: 1, Actor: stranger}); !errors.Is(err, importsdomain.ErrNotFound) {
+		t.Fatalf("another teacher's commit: %v, want ErrNotFound", err)
+	}
+	if other.testsCreated(t) != 0 {
+		t.Fatal("another teacher's refused commit created a test")
+	}
+	if current, err := teacher.imports.Get(ctx, access.Scope{All: true}, importID); err != nil || current.Status != "needs_review" {
+		t.Fatalf("import %+v err %v", current, err)
+	}
+
+	admin := actor.Actor{ID: committer.by.ID, Scope: access.Scope{UserID: committer.by.ID, All: true}}
+	result, err := app.Commands.Commit.Handle(ctx, importscmd.Commit{ImportID: importID, RequestID: uuid.NewString(), DraftRevision: 1, Actor: admin})
+	if err != nil {
+		t.Fatalf("the Admin's commit: %v", err)
+	}
+	var owner, creator, committedBy string
+	var questions, groups, others int
+	if err := teacher.pool.QueryRow(ctx, `SELECT t.owner_id::text, t.created_by::text,
+ (SELECT c.committed_by::text FROM app.word_import_commits c WHERE c.import_id = $3),
+ (SELECT count(*) FROM app.questions WHERE created_by = $2),
+ (SELECT count(*) FROM app.question_groups g JOIN app.test_sections s ON s.id = g.owner_section_id WHERE s.test_id = $1),
+ (SELECT count(*) FROM app.questions WHERE created_by = $2 AND owner_id <> $4) + (SELECT count(*) FROM app.question_groups WHERE created_by = $2 AND owner_id <> $4)
+ FROM app.tests t WHERE t.id = $1`, result.TestID, admin.ID, importID, teacher.by.ID).Scan(&owner, &creator, &committedBy, &questions, &groups, &others); err != nil {
+		t.Fatal(err)
+	}
+	if owner != teacher.by.ID || creator != admin.ID || committedBy != admin.ID {
+		t.Errorf("the test is owned by %s and created by %s, committed by %s; want the teacher's, made and committed by the Admin", owner, creator, committedBy)
+	}
+	if questions == 0 || groups == 0 || others != 0 {
+		t.Errorf("%d questions and %d groups written, %d owned by someone other than the teacher", questions, groups, others)
 	}
 }
 

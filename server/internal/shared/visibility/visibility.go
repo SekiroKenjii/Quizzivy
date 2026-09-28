@@ -10,6 +10,10 @@ func taught(n int) string {
 	return fmt.Sprintf(`SELECT c.id FROM app.classes c WHERE c.teacher_id = $%d::uuid`, n)
 }
 
+func members(n int) string {
+	return `SELECT m.user_id FROM app.class_members m WHERE m.class_id IN ` + TaughtClassIDs(n)
+}
+
 func authored(n int) string {
 	return fmt.Sprintf(`SELECT x.id FROM app.assignments x WHERE x.created_by = $%d::uuid`, n)
 }
@@ -28,13 +32,21 @@ func AuthoredAssignmentIDs(n int) string {
 	return `(` + authored(n) + `)`
 }
 
+// TaughtMemberIDs is the one definition of the accounts in a teacher's
+// classes, as a subquery of user ids for the teacher's id in placeholder $n:
+// the members of every class the teacher teaches, archived ones included.
+// Callers add the student-like condition. A NULL teacher has none.
+func TaughtMemberIDs(n int) string {
+	return `(` + members(n) + `)`
+}
+
 // StudentIDs is the one definition of the accounts a teacher reaches, as a
 // subquery of user ids for the teacher's id in placeholder $n: members of a
 // class the teacher teaches, accounts the teacher created, and individual
 // targets of an assignment the teacher created. Callers add the student-like
 // condition. A NULL teacher reaches no one.
 func StudentIDs(n int) string {
-	return `(SELECT m.user_id FROM app.class_members m WHERE m.class_id IN ` + TaughtClassIDs(n) + fmt.Sprintf(`
+	return `(` + members(n) + fmt.Sprintf(`
 	 UNION ALL SELECT v.id FROM app.users v WHERE v.created_by = $%d::uuid`, n) + `
 	 UNION ALL SELECT s.user_id FROM app.assignment_students s WHERE s.assignment_id IN ` + AuthoredAssignmentIDs(n) + `)`
 }
