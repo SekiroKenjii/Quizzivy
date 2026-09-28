@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"strings"
 	"testing"
 	"time"
@@ -111,7 +112,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 
 	yes := true
 	// The contract declares 200 with a StudentRow for this exact request.
-	disabled, err := store.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: domain.WriteRequest{ActorID: w.admin}, Input: domain.StudentPatch{
+	disabled, err := store.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: domain.WriteRequest{ActorID: w.admin, Grants: access.NewSet(access.All()...)}, Input: domain.StudentPatch{
 		ID: w.student, Disabled: &yes, Now: time.Now(),
 	}})
 	if err != nil {

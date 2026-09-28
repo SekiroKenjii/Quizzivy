@@ -351,7 +351,7 @@ func TestACreatedStudentEntersOnlyClassesTheCreatorTeaches(t *testing.T) {
 func TestScopeAllReachesAStudentNoTeacherHolds(t *testing.T) {
 	w := newRosterWorld(t)
 	ctx := context.Background()
-	admin := domain.WriteRequest{ActorID: w.admin, All: true}
+	admin := domain.WriteRequest{ActorID: w.admin, All: true, Grants: access.NewSet(access.All()...)}
 	name := "Quản trị đổi tên"
 	before := w.snapshot(t, w.loose)
 	if _, err := w.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: admin, Input: domain.StudentPatch{ID: w.loose, FullName: &name}}); err != nil {
