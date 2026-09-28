@@ -14,6 +14,7 @@ import (
 	"quizzivy/internal/modules/media/application/command"
 	"quizzivy/internal/modules/media/application/ports"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"sync"
 	"testing"
 	"time"
@@ -42,6 +43,8 @@ func newPool(t *testing.T) *pgxpool.Pool {
 	t.Cleanup(pool.Close)
 	return pool
 }
+
+var everyone = access.Scope{All: true}
 
 func makeUploader(t *testing.T, pool *pgxpool.Pool) string {
 	t.Helper()
