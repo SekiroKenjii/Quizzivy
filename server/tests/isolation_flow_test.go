@@ -1,0 +1,168 @@
+//go:build e2e
+
+package e2e
+
+import (
+	"encoding/json"
+	"net/http"
+	"regexp"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+func (x *iso) view(op scopedOp, c isoCase, viewer *party) string {
+	x.t.Helper()
+	method, path, body := x.request(op, c, viewer, "", "")
+	got := viewer.c.send(method, path, body)
+	if got.status != http.StatusOK {
+		x.t.Fatalf("%s as its owner: %d %s", op.id, got.status, got.body)
+	}
+	return signature.ReplaceAllString(string(got.body), "")
+}
+
+var signature = regexp.MustCompile(`[?&]X-Amz-[^"]*`)
+
+func (x *iso) views(ops []scopedOp) map[string]string {
+	out := map[string]string{}
+	for _, op := range ops {
+		c := x.cases[op.id]
+		if op.method != http.MethodGet || op.listing == "" && op.id != "getDashboard" && !strings.HasPrefix(op.id, "listMy") {
+			continue
+		}
+		viewer := x.b
+		if c.student {
+			viewer = x.b.student
+		}
+		out[op.id] = x.view(op, c, viewer)
+	}
+	if got := x.b.c.send(http.MethodGet, "/teacher/students/"+x.shared, nil); got.status == http.StatusOK {
+		out["getStudent shared"] = string(got.body)
+	} else {
+		x.t.Fatalf("B reading the shared student: %s", answer(got))
+	}
+	return out
+}
+
+func (x *iso) commitReviewWith(asset string) sent {
+	x.t.Helper()
+	imported := x.w.reviewedImport(x.b.c, x.b.userID, "commit-"+asset[:8])
+	origins := map[string]any{"type": "teacher_entered", "prompt": "teacher_entered", "options": "teacher_entered", "answer": "teacher_entered", "points": "teacher_entered"}
+	question := map[string]any{
+		"id": "q1", "label": "1", "type": "single_choice", "prompt": textDoc("Bức tranh vẽ gì?"),
+		"options": []any{
+			map[string]any{"id": "a", "label": "A", "content": textDoc("một lớp học")},
+			map[string]any{"id": "b", "label": "B", "content": textDoc("một khu chợ")},
+		},
+		"blanks": []any{}, "answer": map[string]any{"state": "known", "optionIds": []any{"a"}, "evidence": []any{}},
+		"points": "1", "origins": origins, "source": []any{},
+	}
+	stimulus := map[string]any{"format": "semantic_v1", "blocks": []any{map[string]any{"type": "image", "assetId": asset, "alt": "Hình minh hoạ"}}}
+	saved := x.b.c.must(http.StatusOK, http.MethodPut, "/teacher/imports/"+imported+"/review", map[string]any{
+		"expectedRevision": 1, "title": "Đề có hình", "acknowledged": []any{},
+		"sections": []any{map[string]any{"id": "s1", "title": "Phần 1", "origin": "teacher_entered", "source": []any{}, "items": []any{
+			map[string]any{"group": map[string]any{"id": "g1", "stimulus": stimulus, "gaps": []any{}, "source": []any{}, "questions": []any{question}}},
+		}}},
+	})
+	return x.b.c.send(http.MethodPost, "/teacher/imports/"+imported+"/commit", new(jsonPayload(x.t, map[string]any{
+		"requestId": uuid.NewString(), "draftRevision": saved["revision"],
+	})))
+}
+
+func (x *iso) beaconTo(attempt string) sent {
+	x.t.Helper()
+	raw, err := json.Marshal(map[string]any{
+		"beaconToken": x.b.student.beacon, "sessionId": x.b.student.session,
+		"events": []any{map[string]any{"kind": "tab_hidden", "occurredAt": rfc3339(time.Now()), "clientSeq": 1}},
+	})
+	if err != nil {
+		x.t.Fatal(err)
+	}
+	return x.w.browser().send(http.MethodPost, "/app/attempts/"+attempt+"/events", &payload{contentType: "text/plain;charset=UTF-8", data: raw})
+}
+
+func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
+	w := bootWithStorage(t)
+	x := &iso{t: t, w: w, cases: isolationCases()}
+	ops := scopedOperations(t)
+
+	var missing, unknown []string
+	named := map[string]bool{}
+	for _, op := range ops {
+		named[op.id] = true
+		if _, ok := x.cases[op.id]; !ok {
+			missing = append(missing, op.id)
+		}
+	}
+	for id := range x.cases {
+		if !named[id] {
+			unknown = append(unknown, id)
+		}
+	}
+	sort.Strings(missing)
+	sort.Strings(unknown)
+	if len(missing) > 0 || len(unknown) > 0 {
+		t.Fatalf("the isolation table lacks %v and names operations the contract does not have %v", missing, unknown)
+	}
+
+	x.b = w.teacherWorld("B")
+	var shared *client
+	shared, x.shared = w.sharedStudent(x.b)
+	before := x.views(ops)
+	x.a = w.teacherWorld("A")
+	if joined := shared.send(http.MethodPost, "/app/classes/join", new(jsonPayload(t, map[string]any{"joinCode": x.a.code}))); !success(joined) {
+		t.Fatalf("B's student joining another teacher's class: %s", answer(joined))
+	}
+	email, password := w.createStaff("admin")
+	x.admin = w.signedIn(email, password)
+	snapshot := w.snapshotOf(x.a)
+
+	for id, view := range x.views(ops) {
+		if leaked := mentions([]byte(view), x.a); len(leaked) > 0 {
+			t.Errorf("%s shows B another teacher's %v", id, leaked)
+		}
+		if view != before[id] {
+			t.Errorf("%s changed for B when another teacher added their own work:\nbefore %s\nafter  %s", id, before[id], view)
+		}
+	}
+
+	theirs, absent, mine := x.beaconTo(x.a.student.id("attempt")), x.beaconTo(uuid.NewString()), x.beaconTo(x.b.student.id("attempt"))
+	if success(absent) || answer(theirs) != answer(absent) {
+		t.Errorf("a beacon to another teacher's attempt answered\n  %s\nwhere a missing attempt answers\n  %s", answer(theirs), answer(absent))
+	}
+	if !success(mine) {
+		t.Errorf("a beacon to the student's own attempt: %s", answer(mine))
+	}
+
+	for _, op := range ops {
+		x.substitute(op, x.cases[op.id])
+	}
+
+	theirs, absent, mine = x.commitReviewWith(x.a.id("media")), x.commitReviewWith(uuid.NewString()), x.commitReviewWith(x.b.id("media"))
+	if success(absent) || answer(theirs) != answer(absent) {
+		t.Errorf("committing a review that holds another teacher's image answered\n  %s\nwhere a missing image answers\n  %s", answer(theirs), answer(absent))
+	}
+	if !success(mine) {
+		t.Errorf("committing a review that holds the teacher's own image: %s", answer(mine))
+	}
+
+	for _, row := range w.crossReferences(x.a, x.b, "word_import_drafts") {
+		t.Errorf("a row ties another teacher's work to B's: %s", row)
+	}
+
+	if after := w.snapshotOf(x.a); after != snapshot {
+		t.Errorf("another teacher's rows changed while B was refused: %s became %s", snapshot, after)
+	}
+	for kind, path := range map[string]string{
+		"test": "/teacher/tests/", "class": "/teacher/classes/", "assignment": "/teacher/assignments/",
+		"attempt": "/teacher/attempts/", "question": "/teacher/questions/", "question-group": "/teacher/question-groups/",
+		"import": "/teacher/imports/", "student": "/teacher/students/",
+	} {
+		if got := x.admin.send(http.MethodGet, path+x.a.id(kind), nil); got.status != http.StatusOK {
+			t.Errorf("the Admin opening the teacher's %s: %d %s", kind, got.status, got.body)
+		}
+	}
+}
