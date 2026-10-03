@@ -8,11 +8,16 @@ import (
 	"quizzivy/internal/platform/ratelimit"
 )
 
-// RateLimit applies the policy registered for the matched route.
+// RateLimit applies the policy registered for the matched route: the
+// per-address bucket, then each keyed bucket in order. It records the client
+// address on the request, so a composite key can read it through
+// ratelimit.Address, and passes that same request on, since a body key
+// restores the body on it.
 func RateLimit(reg *ratelimit.Registry, clientIP ratelimit.KeyFunc) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if retry, limited := exceeded(reg, clientIP, r); limited {
+			r = ratelimit.WithAddress(r, clientIP(r))
+			if retry, limited := exceeded(reg, r); limited {
 				writeRateLimited(w, r, retry.Seconds())
 				return
 			}
@@ -21,25 +26,26 @@ func RateLimit(reg *ratelimit.Registry, clientIP ratelimit.KeyFunc) func(http.Ha
 	}
 }
 
-func exceeded(reg *ratelimit.Registry, clientIP ratelimit.KeyFunc, r *http.Request) (time.Duration, bool) {
+func exceeded(reg *ratelimit.Registry, r *http.Request) (time.Duration, bool) {
 	route, ok := reg.Lookup(r.Pattern)
 	if !ok {
 		return 0, false
 	}
 	if route.PerIP != nil {
-		if allowed, retry := route.PerIP.Allow(clientIP(r)); !allowed {
+		if allowed, retry := route.PerIP.Allow(ratelimit.Address(r)); !allowed {
 			return retry, true
 		}
 	}
-	if route.PerKey == nil || route.Key == nil {
-		return 0, false
+	for _, bucket := range route.Keyed {
+		key := bucket.Key(r)
+		if key == "" {
+			continue
+		}
+		if allowed, retry := bucket.Limiter.Allow(key); !allowed {
+			return retry, true
+		}
 	}
-	key := route.Key(r)
-	if key == "" {
-		return 0, false
-	}
-	allowed, retry := route.PerKey.Allow(key)
-	return retry, !allowed
+	return 0, false
 }
 
 func writeRateLimited(w http.ResponseWriter, r *http.Request, seconds float64) {
