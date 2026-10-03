@@ -1333,6 +1333,7 @@
     "points_other": "{{points}} điểm",
     "perBlank": "mỗi chỗ trống {{points}} điểm",
     "audioLabel": "Đoạn ghi âm của câu hỏi",
+    "imageLabel": "Hình ảnh của câu hỏi",
     "playsLeft_one": "Còn {{count}} lượt nghe",
     "playsLeft_other": "Còn {{count}} lượt nghe",
     "flagOff": "Đánh dấu xem lại",

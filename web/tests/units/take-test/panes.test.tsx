@@ -406,7 +406,8 @@ describe("the panes from 768", () => {
       ],
     });
 
-    const image = within(sheet()).getByAltText("map.png");
+    const image = within(sheet()).getByAltText("Hình ảnh của câu hỏi");
+    expect(screen.queryByAltText("map.png")).toBeNull();
     expect(image).toHaveAttribute("src", "https://assets.example/map.png");
     expect(onPaper(image)).toBe(true);
     expect(within(sheet()).queryByRole("button", { name: "Phát" })).toBeNull();

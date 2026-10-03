@@ -124,7 +124,7 @@ it("draws a question's own recording and image in the preview", () => {
     "https://assets.example/q1.mp3",
   );
   expect(screen.getByText("Nghe thử không tính lượt làm bài.")).toBeVisible();
-  expect(screen.getByAltText("map.png")).toHaveAttribute(
+  expect(screen.getByAltText("Hình ảnh của câu hỏi")).toHaveAttribute(
     "src",
     "https://assets.example/map.png",
   );

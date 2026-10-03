@@ -1333,6 +1333,7 @@
     "points_other": "{{points}} points",
     "perBlank": "{{points}} per blank",
     "audioLabel": "Question audio",
+    "imageLabel": "Question image",
     "playsLeft_one": "{{count}} play left",
     "playsLeft_other": "{{count}} plays left",
     "flagOff": "Flag for review",

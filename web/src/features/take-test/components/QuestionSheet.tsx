@@ -64,7 +64,7 @@ export function QuestionSheet({
       {question.media?.kind === "image" && question.media.url ? (
         <ContentImage
           src={question.media.url}
-          alt={question.media.originalFilename}
+          alt={t("takeTest.imageLabel")}
           onRetry={onRetryMedia}
         />
       ) : null}
