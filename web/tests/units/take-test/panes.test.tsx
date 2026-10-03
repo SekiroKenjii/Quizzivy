@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import TakeTestPage from "@/features/take-test/pages/TakeTestPage";
@@ -165,6 +172,8 @@ describe("the panes from 768", () => {
     ).toBeTruthy();
     expect(screen.getByRole("main")).toContainElement(passage());
     expect(switcher()).toBeNull();
+    expect(within(sheet()).queryByRole("heading")).toBeNull();
+    expect(sheet().querySelectorAll("div:empty")).toHaveLength(0);
   });
 
   it("draws the passage as the part eyebrow, the title and the paragraphs at 16px", async () => {
@@ -300,6 +309,10 @@ describe("the panes from 768", () => {
     for (let moves = 0; moves < 4; moves++) await user.click(next());
     expect(within(sheet()).getByText("Phần 2 · Viết")).toBeVisible();
     expect(screen.getByRole("note")).toHaveTextContent("Viết câu trả lời ngắn.");
+    expect(
+      screen.getByRole("note").compareDocumentPosition(screen.getByRole("textbox")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await user.click(next());
     expect(screen.queryByRole("note")).toBeNull();
   });
@@ -374,7 +387,12 @@ describe("the panes from 768", () => {
       pane.getByRole("heading", { level: 2, name: "Hội thoại ở bưu điện" }),
     ).toBeVisible();
     expect(pane.getByText("Nghe rồi trả lời hai câu.")).toBeVisible();
-    expect(pane.getByRole("group", { name: "Bài nghe 1" })).toBeVisible();
+    const recording = pane.getByRole("group", { name: "Bài nghe 1" });
+    expect(recording).toBeVisible();
+    expect(
+      recording.compareDocumentPosition(pane.getByRole("radiogroup")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(pane.getByText("Còn 2 lượt nghe")).toBeVisible();
     const audio = container.querySelector("audio");
 
@@ -411,6 +429,11 @@ describe("the panes from 768", () => {
     expect(image).toHaveAttribute("src", "https://assets.example/map.png");
     expect(onPaper(image)).toBe(true);
     expect(within(sheet()).queryByRole("button", { name: "Phát" })).toBeNull();
+
+    const loads = vi.mocked(getAttempt).mock.calls.length;
+    fireEvent.error(image);
+    await userEvent.click(within(sheet()).getByRole("button", { name: "Thử lại" }));
+    await waitFor(() => expect(getAttempt).toHaveBeenCalledTimes(loads + 1));
   });
 
   it("keeps the paper surface for images and rich tables in the passage and the question", async () => {
@@ -426,6 +449,36 @@ describe("the panes from 768", () => {
     expect(
       screen.getByText("Câu 1 trên 8 · Chọn một đáp án").parentElement?.parentElement,
     ).toHaveClass(...recipe);
+  });
+
+  it("starts another group's passage at its top", async () => {
+    const user = userEvent.setup();
+    const paper = deckPassageSession(NOW);
+    const first = paper.groups![0]!;
+    await open({
+      ...paper,
+      groups: [
+        { ...first, questionIds: first.questionIds.slice(0, 1) },
+        {
+          ...first,
+          id: "018f0000-0000-7000-8000-000000009003",
+          title: "Play streets",
+          questionIds: first.questionIds.slice(1),
+          stimuli: [
+            {
+              ...first.stimuli[0]!,
+              id: "018f0000-0000-7000-8000-000000009004",
+              title: "Play streets",
+            },
+          ],
+        },
+      ],
+    });
+    passage().scrollTop = 320;
+    fireEvent.scroll(passage());
+
+    await user.click(next());
+    expect(screen.getByRole("article", { name: "Play streets" }).scrollTop).toBe(0);
   });
 });
 
@@ -471,6 +524,19 @@ describe("the panes below 768", () => {
     await user.click(answer!);
     expect(questionPane()).toBeVisible();
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+  });
+
+  it("is the deck's switcher in English", async () => {
+    await i18n.changeLanguage("en");
+    await open(deckPassageSession(NOW));
+    const tabs = screen.getByRole("group", {
+      name: "Show the passage or the question",
+    });
+    expect(
+      within(tabs)
+        .getAllByRole("button")
+        .map((tab) => tab.textContent),
+    ).toEqual(["Passage", "Question 1"]);
   });
 
   it("names the question in the switcher as the student moves", async () => {

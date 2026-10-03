@@ -85,6 +85,21 @@ it("draws the passage and the questions as the engine's panes, on a deck surface
   expect(screen.queryByRole("button", { name: "Đánh dấu xem lại" })).toBeNull();
 });
 
+it("does not repeat a material's title when it is the group's", () => {
+  render(
+    <StudentPreview
+      questions={previewQuestions}
+      groups={[
+        {
+          ...previewGroup,
+          stimuli: [{ ...previewGroup.stimuli[0]!, title: previewGroup.title }],
+        },
+      ]}
+    />,
+  );
+  expect(screen.getAllByRole("heading", { name: previewGroup.title })).toHaveLength(1);
+});
+
 it("draws a question's own recording and image in the preview", () => {
   const media = {
     id: "01935000-0000-7000-8000-000000000031",

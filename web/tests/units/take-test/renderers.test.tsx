@@ -6,7 +6,7 @@ import { QuestionBody } from "@/features/take-test/components/QuestionBody";
 import { QuestionCard } from "@/features/take-test/components/QuestionCard";
 import { QuestionSheet } from "@/features/take-test/components/QuestionSheet";
 import { UnknownType } from "@/features/take-test/components/UnknownType";
-import { questionKind } from "@/features/take-test/questionType";
+import { questionKind, questionLine } from "@/features/take-test/questionType";
 import { useTakeTestStore } from "@/features/take-test/store";
 import type { Answer, StudentQuestion } from "@/features/take-test/api";
 import { writeLargerTestText } from "@/lib/testText";
@@ -120,7 +120,8 @@ describe("single_choice", () => {
     });
     const row = screen.getByRole("radio", { name: "have lived" }).parentElement!;
     expect(row).toHaveClass("border-primary");
-    expect(row).not.toHaveClass("border-border", "hover:border-ring");
+    expect(row).not.toHaveClass("border-border");
+    expect(row).not.toHaveClass("hover:border-ring");
     const marker = row.querySelector<HTMLElement>("span[aria-hidden]")!;
     expect(marker).toHaveClass("border-primary", "bg-primary", "text-primary-fg");
     expect(marker).not.toHaveTextContent("B");
@@ -391,6 +392,23 @@ describe("a locked paper", () => {
       />,
     );
     expect(screen.getByRole("radio", { name: /has been living/ })).toBeChecked();
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toBeDisabled();
+      expect(radio.parentElement).not.toHaveClass("hover:border-ring");
+    }
+  });
+
+  it("refuses edits through the card once the store is locked", () => {
+    render(
+      <QuestionCard
+        question={question({ type: "single_choice", options })}
+        number={1}
+        total={1}
+        onAudioExpired={vi.fn()}
+      />,
+    );
+    for (const radio of screen.getAllByRole("radio")) expect(radio).toBeEnabled();
+    act(() => useTakeTestStore.getState().lockNow("superseded"));
     for (const radio of screen.getAllByRole("radio")) expect(radio).toBeDisabled();
   });
 });
@@ -650,6 +668,32 @@ describe("a type this page has no renderer for", () => {
     );
   });
 
+  it("labels each of the five types in English", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      expect(
+        (
+          [
+            "single_choice",
+            "multiple_choice",
+            "true_false",
+            "fill_blank",
+            "short_answer",
+          ] as const
+        ).map((type) => questionLine({ type }, 4, 8, i18n.t)),
+      ).toEqual([
+        "Question 4 of 8 · Choose one",
+        "Question 4 of 8 · Choose one or more",
+        "Question 4 of 8 · True or false",
+        "Question 4 of 8 · Fill in the blanks",
+        "Question 4 of 8 · Short answer",
+      ]);
+      expect(questionLine(unknown, 4, 8, i18n.t)).toBe("Question 4 of 8");
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
   it("draws no answer control in the body and writes nothing", async () => {
     const onAnswer = vi.fn();
     const { container } = render(
@@ -699,6 +743,26 @@ describe("a type this page has no renderer for", () => {
     render(<UnknownType number={3} onReload={onReload} />);
     await userEvent.click(screen.getByRole("button", { name: "Tải lại trang" }));
     expect(onReload).toHaveBeenCalledOnce();
+  });
+
+  it("reloads the page from the sheet, which gives the block no handler", async () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    try {
+      render(
+        <QuestionSheet
+          question={unknown}
+          number={3}
+          total={8}
+          answer={undefined}
+          onAnswer={vi.fn()}
+        />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Tải lại trang" }));
+      expect(reload).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
