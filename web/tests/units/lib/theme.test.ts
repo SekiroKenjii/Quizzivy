@@ -91,4 +91,28 @@ describe("theme preference", () => {
     expect(isDark()).toBe(true);
     expect(reader.result.current).toBe("dark");
   });
+
+  it("applies a theme the browser refuses to store, for as long as the page lives", () => {
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("storage is off");
+    });
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("storage is off");
+    });
+    const { result } = renderHook(() => useResolvedTheme());
+
+    act(() => writeThemePreference("dark"));
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(result.current).toBe("dark");
+    expect(readThemePreference()).toBe("dark");
+
+    act(() => writeThemePreference("light"));
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(result.current).toBe("light");
+
+    get.mockRestore();
+    set.mockRestore();
+    act(() => writeThemePreference("light"));
+    expect(localStorage.getItem("quizzivy.theme")).toBe("light");
+  });
 });

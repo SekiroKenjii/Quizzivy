@@ -47,11 +47,19 @@ async function student(page: Page) {
 }
 async function fits(page: Page) {
   await expect
-    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .poll(() =>
+      page.evaluate(() =>
+        [
+          document.documentElement,
+          document.querySelector("[data-scale='deck']"),
+          document.querySelector("main"),
+        ].every((node) => node === null || node.scrollWidth <= node.clientWidth + 1),
+      ),
+    )
     .toBe(true);
 }
 
-for (const width of [320, 360, 1024, 1440, 1920]) {
+for (const width of [320, 360, 768, 1024, 1440, 1920]) {
   test(`student discovery uses available space at ${width}px`, async ({
     page,
   }, info) => {
@@ -158,6 +166,11 @@ test("result filters survive resizing, explain empty results and retain the full
   await page.goto("/app/attempts/result/result");
   const wrong = page.getByRole("button", { name: /^Sai/ });
   await wrong.click();
+  await page.setViewportSize({ width: 800, height: 900 });
+  await expect(page.getByRole("link", { name: "Quay lại" })).toHaveCount(0);
+  await expect(
+    page.getByRole("main").getByRole("link", { name: "Bài của tôi" }),
+  ).toHaveAttribute("href", "/app");
   await page.setViewportSize({ width: 320, height: 900 });
   await expect(wrong).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(result.testTitle);
@@ -199,4 +212,90 @@ test("status filters expose counts and retain their selection through browser ba
     "true",
   );
   await expect(page.getByRole("button", { name: "Tiếp tục làm bài" })).toHaveCount(2);
+});
+
+for (const width of [767, 768]) {
+  test(`the shell is ${width < 768 ? "a tab bar" : "a top bar"} at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await student(page);
+    await page.goto("/app");
+    const destinations = page.getByRole("navigation", { name: "Điều hướng chính" });
+    await expect(destinations).toHaveCount(1);
+    const box = (await destinations.boundingBox())!;
+    const header = (await page.getByRole("banner").first().boundingBox())!;
+    expect(header.height).toBe(60);
+    if (width < 768) {
+      await expect(destinations.getByRole("link")).toHaveText([
+        /Trang chủ$/,
+        "Lớp",
+        "Tôi",
+      ]);
+      expect(box.y + box.height).toBe(900);
+      expect(box.height).toBe(65);
+    } else {
+      await expect(destinations.getByRole("link")).toHaveText([/^Trang chủ/, "Lớp"]);
+      expect(box.y + box.height).toBeLessThan(60);
+    }
+    await fits(page);
+  });
+}
+
+test("a toast clears the tab bar, and sits at the edge where there is none", async ({
+  page,
+}) => {
+  const lift = () =>
+    page.evaluate(() =>
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--toast-bottom")
+        .trim(),
+    );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await student(page);
+  await page.goto("/app");
+  await expect(page.getByRole("link", { name: "Tôi", exact: true })).toBeVisible();
+  expect(await lift()).toBe("84px");
+
+  await page.getByRole("link", { name: "Tôi", exact: true }).click();
+  await expect(page.getByRole("link", { name: "Quay lại" })).toBeVisible();
+  expect(await lift()).toBe("");
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/app");
+  await expect(page.getByRole("link", { name: "Trang chủ Quizzivy" })).toBeVisible();
+  expect(await lift()).toBe("");
+});
+
+test("the student console follows the dark theme", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("quizzivy.theme", "dark"));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await student(page);
+  await page.goto("/app");
+  await expect(page.getByRole("link", { name: "Trang chủ Quizzivy" })).toBeVisible();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  const colours = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const header = getComputedStyle(document.querySelector("header")!);
+    return {
+      token: root.getPropertyValue("--bg").trim(),
+      header: header.backgroundColor,
+    };
+  });
+  expect(colours.token).not.toBe("");
+  expect(colours.header).not.toBe("rgb(255, 255, 255)");
+  await expect(
+    page.getByRole("link", { name: "Trang chủ Quizzivy" }).locator("img"),
+  ).toHaveAttribute("src", "/brand/quizzivy-mark-on-dark.svg");
+});
+
+test("a destination whose module has not shipped is not a page", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await student(page);
+  for (const path of ["/app/learn", "/app/grades", "/app/messages"]) {
+    await page.goto(path);
+    await expect(
+      page.getByRole("heading", { name: "Trang này không tồn tại" }),
+    ).toBeVisible();
+  }
 });

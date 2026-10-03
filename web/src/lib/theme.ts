@@ -11,12 +11,15 @@ const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 const listeners = new Set<() => void>();
 let forcedLight = 0;
+let unsaved: ThemePreference | null = null;
 
 /**
  * readThemePreference returns the stored preference, or `light` when nothing
- * valid is stored or storage is unavailable.
+ * valid is stored or storage is unavailable. A choice that storage refused to
+ * keep is returned for as long as the page lives.
  */
 export function readThemePreference(): ThemePreference {
+  if (unsaved !== null) return unsaved;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === "dark" || stored === "system") return stored;
@@ -30,8 +33,9 @@ export function readThemePreference(): ThemePreference {
 export function writeThemePreference(preference: ThemePreference): void {
   try {
     localStorage.setItem(STORAGE_KEY, preference);
+    unsaved = null;
   } catch {
-    // The theme still applies for this page; it is only not remembered.
+    unsaved = preference;
   }
   apply();
 }

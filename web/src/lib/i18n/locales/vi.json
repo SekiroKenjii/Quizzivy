@@ -9,6 +9,8 @@
     "close": "Đóng",
     "back": "Quay lại",
     "signOut": "Đăng xuất",
+    "darkMode": "Chế độ tối",
+    "lightMode": "Chế độ sáng",
     "language": "Ngôn ngữ",
     "comingSoon": "Phần này sẽ được xây dựng ở giai đoạn sau.",
     "save": "Lưu",
@@ -114,9 +116,18 @@
     "grading": "Chờ chấm"
   },
   "student": {
+    "shell": {
+      "home": "Trang chủ",
+      "learn": "Học tập",
+      "grades": "Điểm số",
+      "me": "Tôi",
+      "homeLink": "Trang chủ Quizzivy",
+      "test": "Bài kiểm tra",
+      "dueSoon_one": "{{count}} bài đến hạn trong 7 ngày",
+      "dueSoon_other": "{{count}} bài đến hạn trong 7 ngày"
+    },
     "myAssignments": "Bài của tôi",
     "myClasses": "Lớp của tôi",
-    "assignmentDetail": "Chi tiết bài",
     "greeting": "Chào {{name}}",
     "greetingPlain": "Chào {{name}}",
     "dueToday_one": "Bạn có {{count}} bài đến hạn hôm nay.",

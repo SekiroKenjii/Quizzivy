@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http } from "msw";
+import { focusManager } from "@tanstack/react-query";
 import StudentHomePage from "@/features/assignments/pages/StudentHomePage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
@@ -350,5 +351,29 @@ describe("assignment discovery", () => {
     await user.click(screen.getAllByRole("button", { name: "Xóa bộ lọc" })[0]!);
     expect(await screen.findByText("Unit 5 — Present perfect")).toBeInTheDocument();
     expect(router.state.location.search).toBe("");
+  });
+});
+
+describe("a refetch that fails after the lists loaded", () => {
+  afterEach(() => focusManager.setFocused());
+
+  it("keeps the lists on screen and says nothing failed to load", async () => {
+    home({ dueNow: [card()] });
+    await screen.findByText("Unit 5 — Present perfect");
+
+    let failed = 0;
+    server.use(
+      http.get(`${BASE}/app/assignments`, () => {
+        failed += 1;
+        return new Response(null, { status: 500 });
+      }),
+    );
+    act(() => focusManager.setFocused(false));
+    act(() => focusManager.setFocused(true));
+    await waitFor(() => expect(failed).toBe(1));
+    await act(() => vi.advanceTimersByTimeAsync(50));
+
+    expect(screen.getByText("Unit 5 — Present perfect")).toBeInTheDocument();
+    expect(screen.queryByText("Không tải được. Hãy thử lại.")).toBeNull();
   });
 });

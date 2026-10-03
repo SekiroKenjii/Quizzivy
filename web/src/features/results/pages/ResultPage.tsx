@@ -45,7 +45,7 @@ export default function ResultPage() {
   const { t } = useTranslation();
   const { attemptId = "" } = useParams<{ attemptId: string }>();
   const shell = useDetailShell();
-  const wide = useMediaQuery("(min-width: 1024px)");
+  const wide = useMediaQuery("(min-width: 768px)");
   const [chip, setChip] = useState<Chip>("all");
   const target = useRef<string | null>(null);
   const [focusRequest, requestFocus] = useReducer((n: number) => n + 1, 0);

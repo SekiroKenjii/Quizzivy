@@ -160,9 +160,9 @@ const adminTree: RouteObject = {
 };
 
 /**
- * One student layout (S-13): a detail screen declares `handle.detail`, which
- * below 1024px swaps the nav bar for the back arrow and, from 1024px, changes
- * nothing -- the page draws its own way back.
+ * One student layout: a detail screen declares `handle.detail`, which below
+ * 768px swaps the logo for a back arrow and that title and hides the tab bar.
+ * From 768px the top bar is unchanged and the page draws its own way back.
  */
 const studentTree: RouteObject = {
   path: "app",
@@ -181,17 +181,17 @@ const studentTree: RouteObject = {
         },
         {
           path: "assignments/:id",
-          handle: { detail: true, titleKey: "student.assignmentDetail" },
+          handle: { detail: { titleKey: "student.shell.test", back: "/app" } },
           lazy: page(() => import("@/features/assignments/pages/AssignmentIntroPage")),
         },
         {
           path: "settings/:section?",
-          handle: { detail: true, titleKey: "nav.settings" },
+          handle: { detail: { titleKey: "nav.settings", back: "/app" } },
           lazy: page(() => import("@/features/auth/pages/StudentSettingsPage")),
         },
         {
           path: "attempts/:attemptId/result",
-          handle: { detail: true, titleKey: "result.title" },
+          handle: { detail: { titleKey: "result.title", back: "/app" } },
           lazy: page(() => import("@/features/results/pages/ResultPage")),
         },
       ],
