@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/shared/answered"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,26 +20,7 @@ const targeted = `
 	                   JOIN app.class_members m ON m.class_id = ac.class_id
 	                  WHERE ac.assignment_id = a.id AND m.user_id = $1::uuid)))`
 
-const ecmaScriptWhitespace = `E'\u0009\u000A\u000B\u000C\u000D\u0020\u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF'`
-
-const answerSaysSomething = `
-	CASE ans.payload->>'type'
-	  WHEN 'choice' THEN
-	       CASE WHEN jsonb_typeof(ans.payload->'optionIds') = 'array'
-	            THEN jsonb_array_length(ans.payload->'optionIds') > 0
-	            ELSE false END
-	  WHEN 'true_false' THEN coalesce(jsonb_typeof(ans.payload->'value') = 'boolean', false)
-	  WHEN 'text' THEN btrim(coalesce(ans.payload->>'value', ''), ` + ecmaScriptWhitespace + `) <> ''
-	  WHEN 'fill_blank' THEN
-	       EXISTS (SELECT 1 FROM app.test_version_blanks b
-	                WHERE b.test_version_question_id = ans.question_id)
-	   AND NOT EXISTS (SELECT 1 FROM app.test_version_blanks b
-	                    WHERE b.test_version_question_id = ans.question_id
-	                      AND btrim(coalesce(ans.payload->'values'->>b.id::text, ''), ` + ecmaScriptWhitespace + `) = '')
-	  ELSE false
-	END`
-
-const studentCardColumns = `
+var studentCardColumns = `
 	SELECT a.id::text, t.title,
 	       (SELECT CASE WHEN count(*) = 1 THEN min(c.name) END
 	          FROM app.assignment_classes ac
@@ -76,7 +58,7 @@ const studentCardColumns = `
 	           AND at.status = 'in_progress' AND at.deadline_at > now()
 	         ORDER BY at.deadline_at DESC LIMIT 1),
 	       (SELECT (SELECT count(*) FROM app.attempt_answers ans
-	                 WHERE ans.attempt_id = at.id AND ` + answerSaysSomething + `)
+	                 WHERE ans.attempt_id = at.id AND ` + answered.SaysSomething("ans") + `)
 	          FROM app.attempts at
 	         WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
 	           AND at.status = 'in_progress' AND at.deadline_at > now()

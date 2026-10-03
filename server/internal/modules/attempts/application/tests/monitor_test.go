@@ -183,6 +183,50 @@ func TestARowShowsTheAttemptThatStillCountsAndReadsProgressFromTheAnswers(t *tes
 	}
 }
 
+func TestTheMonitorCountsOnlyAnswersThatSaySomething(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	var picked string
+	if err := pool.QueryRow(ctx, `
+		SELECT id::text FROM app.test_version_options
+		 WHERE test_version_question_id = $1::uuid AND is_correct`, w.listening).Scan(&picked); err != nil {
+		t.Fatal(err)
+	}
+	in := domain.SaveInput{
+		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
+		Answers: []domain.Answer{
+			{QuestionID: w.choice, Payload: []byte(`{"type":"choice","optionIds":[]}`)},
+			{QuestionID: w.essay, Payload: []byte(`{"type":"text","value":"   "}`)},
+			{QuestionID: w.listening, Payload: []byte(`{"type":"choice","optionIds":["` + picked + `"]}`)},
+		},
+	}
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: in}); err != nil {
+		t.Fatalf("save answers: %v", err)
+	}
+	if got := answerCount(t, pool, session.Attempt.ID); got != 3 {
+		t.Fatalf("%d answer rows saved, want 3: a cleared answer is still a row", got)
+	}
+
+	monitor, err := svc.Queries.Monitor.Handle(ctx, query.Monitor{Scope: everyone, AssignmentID: w.assignment})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var answered *int
+	for _, r := range monitor.Rows {
+		if r.StudentID == w.student {
+			answered = r.AnsweredCount
+		}
+	}
+	if answered == nil {
+		t.Fatal("the student who started has no answered count on the monitor")
+	}
+	if *answered != 1 {
+		t.Errorf("the monitor counts %d answered, want 1: an empty choice and a blank text say nothing", *answered)
+	}
+}
+
 func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)

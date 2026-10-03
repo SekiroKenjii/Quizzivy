@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/answered"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/visibility"
 	"sort"
@@ -91,7 +92,7 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 		       at.student_id::text, at.id::text, at.attempt_no, at.status::text,
 		       at.started_at, at.deadline_at, at.submitted_at,
 		       at.score_earned, at.score_total, at.focus_loss_count, at.flagged,
-		       (SELECT count(*) FROM app.attempt_answers aa WHERE aa.attempt_id = at.id),
+		       (SELECT count(*) FROM app.attempt_answers aa WHERE aa.attempt_id = at.id AND `+answered.SaysSomething("aa")+`),
 		       (SELECT count(*) FROM app.attempt_answers aa
 		         WHERE aa.attempt_id = at.id AND aa.requires_manual AND aa.manual_score IS NULL),
 		       EXISTS (
@@ -114,7 +115,7 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 	for found.Next() {
 		var (
 			studentID, id, status   string
-			no, focusLoss, answered int
+			no, focusLoss, progress int
 			pending                 int
 			started, deadline       time.Time
 			submitted               *time.Time
@@ -122,7 +123,7 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 			flagged, overLimit      bool
 		)
 		if err := found.Scan(&studentID, &id, &no, &status, &started, &deadline, &submitted,
-			&earned, &total, &focusLoss, &flagged, &answered, &pending, &overLimit); err != nil {
+			&earned, &total, &focusLoss, &flagged, &progress, &pending, &overLimit); err != nil {
 			return fmt.Errorf("attempts: scan monitor attempt: %w", err)
 		}
 		i, ok := at[studentID]
@@ -136,7 +137,7 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 		row.StartedAt = &started
 		row.DeadlineAt = &deadline
 		row.SubmittedAt = submitted
-		row.AnsweredCount = &answered
+		row.AnsweredCount = &progress
 		row.FocusLossCount = &focusLoss
 		row.Flagged = flagged
 		row.AudioOverLimit = overLimit

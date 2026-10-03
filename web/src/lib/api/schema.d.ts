@@ -192,6 +192,11 @@ export interface paths {
          *     access token must not be able to strand a live refresh family: the one
          *     moment a user most wants to log out is the moment their session has
          *     gone strange.
+         *
+         *     During a maintenance window the request is answered `503 MAINTENANCE`
+         *     like any other; when the request carried the refresh cookie, that
+         *     answer still clears the refresh and docs cookies; the family is not
+         *     revoked.
          */
         post: operations["logout"];
         delete?: never;
@@ -3850,7 +3855,7 @@ export interface components {
             deadlineAt?: string | null;
             /** Format: date-time */
             submittedAt?: string | null;
-            /** @description Questions with a saved answer, against the response's `questionCount` (G-02's progress column). */
+            /** @description Questions whose saved answer says something, by the rule of `StudentAssignmentCard.liveAnsweredCount`, against the response's `questionCount` (G-02's progress column). */
             answeredCount?: number | null;
             score?: components["schemas"]["AttemptScore"] | null;
             focusLossCount?: number | null;

@@ -59,6 +59,10 @@ the "one package per feature" layout AGENTS.md described until then.
   their own statements, and callers lift them under `scope.all`. Like
   `shared/audit`, it is SQL in the kernel, because a port cannot splice a
   predicate into another module's list or aggregate.
+- **The answered rule in the kernel.** `shared/answered.SaysSomething` is the
+  one SQL definition of a saved answer that says something. assignments (the
+  student's card) and attempts (the teacher's monitor) splice it, so the two
+  counts cannot drift.
 - **Access in the kernel.** `shared/access` is the authorization model every
   layer may use, and it imports only the standard library: the catalogue as
   `Key`s, with the pseudo-keys `self`, `workspace.teacher` and
