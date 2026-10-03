@@ -54,13 +54,13 @@ func (s *GroupsPostgres) Delete(ctx context.Context, in domain.GroupMutation) er
 		return err
 	}
 	if err := clearGroupMaterials(ctx, tx, in.ID); err != nil {
-		return err
+		return referenceError(err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM app.questions WHERE context_group_id=$1`, in.ID); err != nil {
-		return err
+		return referenceError(err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM app.question_groups WHERE id=$1`, in.ID); err != nil {
-		return err
+		return referenceError(err)
 	}
 	if err := recordGroupMutation(ctx, tx, in, "", "question_group.deleted"); err != nil {
 		return err
@@ -86,16 +86,16 @@ func (s *GroupsPostgres) RemoveFromSection(ctx context.Context, in domain.GroupM
 		return err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM app.test_section_units WHERE group_id=$1`, in.ID); err != nil {
-		return err
+		return referenceError(err)
 	}
 	if err := clearGroupMaterials(ctx, tx, in.ID); err != nil {
-		return err
+		return referenceError(err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM app.questions WHERE context_group_id=$1`, in.ID); err != nil {
-		return err
+		return referenceError(err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM app.question_groups WHERE id=$1`, in.ID); err != nil {
-		return err
+		return referenceError(err)
 	}
 	if _, err := tx.Exec(ctx, `SET CONSTRAINTS app.test_section_units_ordinal_key DEFERRED`); err != nil {
 		return err

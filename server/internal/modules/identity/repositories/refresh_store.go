@@ -11,7 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Rotate consumes one refresh token and issues its successor, atomically.
+// Rotate consumes one refresh token and issues its successor, atomically. It
+// locks the token's owner before the token, the order in which a password
+// reset, a disable and a password change write, so a rotation never overlaps
+// one of them: a rotation behind a revocation finds its token revoked, and a
+// revocation behind a rotation sees the successor.
 func (s *Users) Rotate(ctx context.Context, tokenHash []byte, next domain.RefreshTokenRecord, now time.Time) (domain.RotateResult, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -19,12 +23,23 @@ func (s *Users) Rotate(ctx context.Context, tokenHash []byte, next domain.Refres
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	owner, err := lockTokenOwner(ctx, tx, tokenHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.RotateResult{Outcome: domain.RotateUnknown}, nil
+	}
+	if err != nil {
+		return domain.RotateResult{}, fmt.Errorf("lock token owner: %w", err)
+	}
+
 	claimed, err := claimToken(ctx, tx, tokenHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.RotateResult{Outcome: domain.RotateUnknown}, nil
 	}
 	if err != nil {
 		return domain.RotateResult{}, fmt.Errorf("claim refresh token: %w", err)
+	}
+	if claimed.userID != owner {
+		return domain.RotateResult{}, errors.New("refresh token owner changed during rotation")
 	}
 
 	switch {
@@ -53,6 +68,20 @@ func (s *Users) Rotate(ctx context.Context, tokenHash []byte, next domain.Refres
 		return domain.RotateResult{}, fmt.Errorf("commit rotation: %w", err)
 	}
 	return domain.RotateResult{Outcome: domain.RotateOK, User: user, FamilyID: claimed.familyID}, nil
+}
+
+func lockTokenOwner(ctx context.Context, tx pgx.Tx, tokenHash []byte) (string, error) {
+	var owner string
+	if err := tx.QueryRow(ctx,
+		`SELECT user_id::text FROM app.refresh_tokens WHERE token_hash = $1`, tokenHash).Scan(&owner); err != nil {
+		return "", err
+	}
+	var locked bool
+	if err := tx.QueryRow(ctx,
+		`SELECT true FROM app.users WHERE id = $1::uuid FOR SHARE`, owner).Scan(&locked); err != nil {
+		return "", err
+	}
+	return owner, nil
 }
 
 type claimedToken struct {

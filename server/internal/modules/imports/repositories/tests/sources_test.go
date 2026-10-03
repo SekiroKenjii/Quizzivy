@@ -27,6 +27,14 @@ type harness struct {
 
 var everyone = access.Scope{All: true}
 
+const fixtureImports = `SELECT id FROM app.word_imports WHERE created_by=$1
+	UNION SELECT import_id FROM app.word_import_source_sets WHERE created_by=$1
+	UNION SELECT import_id FROM app.word_import_sources WHERE uploaded_by=$1
+	UNION SELECT import_id FROM app.word_import_runs WHERE requested_by=$1
+	UNION SELECT import_id FROM app.word_import_run_events WHERE actor_id=$1
+	UNION SELECT import_id FROM app.word_import_drafts WHERE edited_by=$1
+	UNION SELECT import_id FROM app.word_import_commits WHERE committed_by=$1`
+
 func setup(t *testing.T) harness {
 	t.Helper()
 	ctx := context.Background()
@@ -36,7 +44,7 @@ func setup(t *testing.T) harness {
 	}
 	t.Cleanup(pool.Close)
 	var id string
-	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role_id) VALUES($1,'Import teacher',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&id); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role_id) VALUES($1,'Import teacher',(SELECT id FROM app.roles WHERE builtin_key = 'teacher')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	connection := pool
@@ -49,17 +57,18 @@ func setup(t *testing.T) harness {
 	}
 	t.Cleanup(func() {
 		for _, sql := range []string{
-			`UPDATE app.word_imports SET source_revision=NULL WHERE created_by=$1`,
-			`DELETE FROM app.word_import_commits WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
-			`DELETE FROM app.word_import_drafts WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
-			`DELETE FROM app.word_import_run_events WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
-			`DELETE FROM app.word_import_artifacts WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
-			`DELETE FROM app.word_import_artifact_sets WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
-			`DELETE FROM app.word_import_runs WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
-			`DELETE FROM app.word_import_source_set_items WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
-			`DELETE FROM app.word_import_sources WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
-			`DELETE FROM app.word_import_source_sets WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
+			`UPDATE app.word_imports SET source_revision=NULL WHERE id IN (` + fixtureImports + `)`,
+			`DELETE FROM app.word_import_commits WHERE import_id IN (` + fixtureImports + `)`,
+			`DELETE FROM app.word_import_drafts WHERE import_id IN (` + fixtureImports + `)`,
+			`DELETE FROM app.word_import_run_events WHERE import_id IN (` + fixtureImports + `)`,
+			`DELETE FROM app.word_import_artifacts WHERE import_id IN (` + fixtureImports + `)`,
+			`DELETE FROM app.word_import_artifact_sets WHERE import_id IN (` + fixtureImports + `)`,
+			`DELETE FROM app.word_import_runs WHERE import_id IN (` + fixtureImports + `)`,
+			`DELETE FROM app.word_import_source_set_items WHERE import_id IN (` + fixtureImports + `)`,
+			`DELETE FROM app.word_import_sources WHERE import_id IN (` + fixtureImports + `)`,
+			`DELETE FROM app.word_import_source_sets WHERE import_id IN (` + fixtureImports + `)`,
 			`DELETE FROM app.word_imports WHERE created_by=$1`,
+			`DELETE FROM app.users WHERE id=$1`,
 		} {
 			if _, err := pool.Exec(ctx, sql, id); err != nil {
 				t.Errorf("fixture cleanup: %v", err)

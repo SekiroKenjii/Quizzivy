@@ -86,7 +86,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		},
 	})
 
-	gated := routedOnly(mux, httpx.Maintenance(deps.Maintenance)(handler), handler)
+	gated := routedOnly(mux, httpx.Maintenance(deps.Maintenance, deps.Modules.Identity.ClearSessionOnRefusedLogout)(handler), handler)
 	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(legacyAdmin(logger)(gated))))), nil
 }
 

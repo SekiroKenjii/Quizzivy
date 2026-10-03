@@ -23,7 +23,7 @@ function localReferences(html) {
   const literal = /(sample\s*:\s*)?['"]([^'"{}\n]+?\.(?:svg|dc\.html|js))(?:#[^'"]*)?['"]/g;
   for (const pattern of [attribute, literal]) {
     for (const [, fixture, target] of html.matchAll(pattern)) {
-      if (fixture || /^(?:[a-z]+:|\/\/|#)/i.test(target)) continue;
+      if (fixture || /^(?:[a-z]+:|\/\/|#)/i.test(target) || /['$]/.test(target)) continue;
       found.add(target.split('#')[0].replace(/^\.\//, ''));
     }
   }
