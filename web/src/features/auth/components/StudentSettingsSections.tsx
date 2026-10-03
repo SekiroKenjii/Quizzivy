@@ -181,7 +181,7 @@ export function StudentProfileSection() {
             value={i18n.language}
             onValueChange={(locale) => setLocale(locale as Locale)}
           >
-            <SelectTrigger id={LANGUAGE} size="lg" className="w-full">
+            <SelectTrigger id={LANGUAGE} size="lg" className="w-full pr-[11px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
