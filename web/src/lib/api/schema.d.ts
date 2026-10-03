@@ -1746,6 +1746,10 @@ export interface paths {
          *     `min(now + durationMinutes, closesAt)` and is authoritative. The client
          *     derives remaining time from it plus the `serverTime` offset, never from
          *     the device clock.
+         *
+         *     A caller that means to continue a known attempt sends `resume`; a
+         *     Continue button must, so that an attempt whose time ran out while the
+         *     page was open is not answered with a new one.
          */
         post: operations["startOrResumeAttempt"];
         delete?: never;
@@ -7793,7 +7797,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The attempt the caller means to continue. With it the operation never starts an attempt: when this attempt is no longer the live one it answers `ATTEMPT_CLOSED`. */
+                    resume?: components["schemas"]["Uuid"];
+                };
+            };
+        };
         responses: {
             /** @description Created, or resumed. */
             200: {
@@ -7806,7 +7817,10 @@ export interface operations {
             };
             403: components["responses"]["Forbidden"];
             /**
-             * @description `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
+             * @description `ATTEMPT_CLOSED` — `resume` named an attempt that is no longer live;
+             *     nothing was started.
+             *
+             *     `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
              *
              *     `MAINTENANCE_SCHEDULED` — a new attempt would run into a maintenance
              *     window. `details.startsAt` and `details.endsAt` name it. Resuming an
