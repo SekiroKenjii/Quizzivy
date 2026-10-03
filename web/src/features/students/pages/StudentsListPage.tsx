@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { NewStudentDialog } from "@/features/students/components/NewStudentDialog";
+import { useCan } from "@/features/auth/permissions";
 import { StudentDrawer } from "@/features/students/components/StudentDrawer";
 import {
   getStudent,
@@ -48,6 +49,7 @@ const PAGE_SIZE = 20;
 export default function StudentsListPage() {
   const { t } = useTranslation();
   const bulk = useBulkSelection<Student>();
+  const canManageUsers = useCan("people.users.manage");
   const queryClient = useQueryClient();
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["admin-students"] });
@@ -147,25 +149,27 @@ export default function StudentsListPage() {
         </label>
       </div>
 
-      <BulkActions
-        selected={[...bulk.selected.values()]}
-        name={(item) => item.fullName}
-        actions={[
-          {
-            label: t("common.disableSelected"),
-            description: t("common.disableSelectedBody"),
-            run: (item) => updateStudent(item.id, { disabled: true }),
-          },
-          {
-            label: t("common.deletePermanently"),
-            description: t("common.deleteInactiveBody"),
-            run: (item) => deleteStudent(item.id),
-          },
-        ]}
-        onRemoved={bulk.remove}
-        onClear={bulk.clear}
-        onSettled={invalidate}
-      />
+      {canManageUsers ? (
+        <BulkActions
+          selected={[...bulk.selected.values()]}
+          name={(item) => item.fullName}
+          actions={[
+            {
+              label: t("common.disableSelected"),
+              description: t("common.disableSelectedBody"),
+              run: (item) => updateStudent(item.id, { disabled: true }),
+            },
+            {
+              label: t("common.deletePermanently"),
+              description: t("common.deleteInactiveBody"),
+              run: (item) => deleteStudent(item.id),
+            },
+          ]}
+          onRemoved={bulk.remove}
+          onClear={bulk.clear}
+          onSettled={invalidate}
+        />
+      ) : null}
       <QueryStates
         query={students}
         skeleton={<ListSkeleton />}
@@ -189,12 +193,18 @@ export default function StudentsListPage() {
             <>
               <StudentTable
                 items={items}
-                selectAll={<BulkSelectAll items={items} selection={bulk} />}
-                selectRow={(item) => (
-                  <BulkSelectRow item={item} name={item.fullName} selection={bulk} />
-                )}
+                selectAll={
+                  canManageUsers ? (
+                    <BulkSelectAll items={items} selection={bulk} />
+                  ) : null
+                }
+                selectRow={(item) =>
+                  canManageUsers ? (
+                    <BulkSelectRow item={item} name={item.fullName} selection={bulk} />
+                  ) : null
+                }
                 deleteRow={(item) =>
-                  item.disabledAt ? (
+                  canManageUsers && item.disabledAt ? (
                     <DeleteItemButton
                       name={item.fullName}
                       onDelete={() => deleteStudent(item.id)}
