@@ -1,0 +1,27 @@
+name: Record a pass
+description: >-
+  Uploads the marker that lets a later run skip this job while the files it
+  reads are unchanged. It is the last step of a job, so it runs only when every
+  step before it succeeded.
+
+inputs:
+  marker:
+    description: The marker name scripts/ci/plan.mjs gave this job.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        MARKER: ${{ inputs.marker }}
+      run: |
+        mkdir -p "$RUNNER_TEMP/ci-pass"
+        printf '%s\n%s\n' "$MARKER" "$GITHUB_SHA" > "$RUNNER_TEMP/ci-pass/$MARKER.txt"
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.marker }}
+        path: ${{ runner.temp }}/ci-pass/${{ inputs.marker }}.txt
+        retention-days: 30
+        overwrite: true

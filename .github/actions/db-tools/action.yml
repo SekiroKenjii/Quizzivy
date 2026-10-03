@@ -1,0 +1,33 @@
+name: Database tools
+description: >-
+  Installs psql 18, which matches the postgres:18 service, and the goose
+  release the Makefile's migrate targets expect on PATH.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        sudo install -d /usr/share/postgresql-common/pgdg
+        sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+          https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
+          https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+          | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq postgresql-client-18
+
+    # The release binary, checked against the digest GitHub publishes for it.
+    # `go run …/goose@version` compiled goose and every driver it ships on each
+    # run, which took longer than the migrations.
+    - shell: bash
+      env:
+        GOOSE_VERSION: v3.27.3
+        GOOSE_SHA256: ca18112e2438b3ad608af9a5938beafd01fa36a4a19a3edbe4f29226ca5c8533
+      run: |
+        mkdir -p "$RUNNER_TEMP/bin"
+        curl -fsSL -o "$RUNNER_TEMP/bin/goose" \
+          "https://github.com/pressly/goose/releases/download/$GOOSE_VERSION/goose_linux_x86_64"
+        echo "$GOOSE_SHA256  $RUNNER_TEMP/bin/goose" | sha256sum --check --quiet -
+        chmod +x "$RUNNER_TEMP/bin/goose"
+        echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"

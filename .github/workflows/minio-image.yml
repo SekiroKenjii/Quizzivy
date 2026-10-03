@@ -1,0 +1,57 @@
+name: MinIO image
+
+# CI's MinIO is built from source at pinned commits (docker/minio/README.md),
+# which takes about four minutes. This publishes that build once per version of
+# docker/minio, under a tag that is a hash of the directory, so CI pulls it in
+# seconds. A pull request that changes the build publishes its own tag; until
+# it has, .github/actions/minio builds from source.
+on:
+  push:
+    branches: [main, develop, "work/**"]
+    paths:
+      - docker/minio/**
+      - scripts/ci/minio-image.sh
+      - .github/workflows/minio-image.yml
+  pull_request:
+    paths:
+      - docker/minio/**
+      - scripts/ci/minio-image.sh
+      - .github/workflows/minio-image.yml
+
+concurrency:
+  group: minio-image-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Publish
+    # A fork's token cannot write packages, so its pull request builds from
+    # source in CI instead.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            docker/minio
+            scripts/ci
+
+      - name: Build and push unless this version is published
+        env:
+          TOKEN: ${{ github.token }}
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          image="$(scripts/ci/minio-image.sh)"
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          if docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "$image is already published"
+            exit 0
+          fi
+          docker build --label "org.opencontainers.image.source=$SOURCE" --tag "$image" docker/minio
+          docker push "$image"
+          echo "published $image" >> "$GITHUB_STEP_SUMMARY"
