@@ -224,7 +224,6 @@
       "passwordUpdated": "Password updated. Other devices have been signed out.",
       "passwordMin": "At least 8 characters.",
       "strength": {
-        "weak": "Weak",
         "okay": "Okay",
         "strong": "Strong",
         "veryStrong": "Very strong"

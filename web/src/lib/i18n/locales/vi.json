@@ -224,7 +224,6 @@
       "passwordUpdated": "Đã cập nhật mật khẩu. Các thiết bị khác đã được đăng xuất.",
       "passwordMin": "Ít nhất 8 ký tự.",
       "strength": {
-        "weak": "Yếu",
         "okay": "Tạm được",
         "strong": "Mạnh",
         "veryStrong": "Rất mạnh"

@@ -68,7 +68,7 @@ const THEME = "student-settings-theme";
 const LARGER = "student-settings-larger";
 
 const BARS = [0, 1, 2, 3] as const;
-const STRENGTH = ["weak", "weak", "okay", "strong", "veryStrong"] as const;
+const STRENGTH = ["okay", "strong", "veryStrong"] as const;
 const THEMES: readonly ThemePreference[] = ["light", "dark", "system"];
 
 /**
@@ -266,7 +266,7 @@ function meterFill(score: number): string {
 function meterHint(password: string, t: TFunction): string {
   const rules = passwordRules(password);
   if (!rules.length) return t("student.settings.passwordMin");
-  const strength = t(`student.settings.strength.${STRENGTH[meterScore(password)]}`);
+  const strength = t(`student.settings.strength.${STRENGTH[meterScore(password) - 2]}`);
   return rules.numberOrSymbol
     ? t("student.settings.strengthOnly", { strength })
     : t("student.settings.strengthAdvice", { strength });
