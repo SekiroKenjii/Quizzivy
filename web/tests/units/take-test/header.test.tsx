@@ -525,10 +525,10 @@ describe("the header on a phone", () => {
     expect(timer()).toHaveTextContent("38:12");
     expect(banner().queryByText(TITLE)).toBeNull();
     expect(screen.queryByText(SAVED)).toBeNull();
-    expect(strip()).toBeNull();
+    expect(strip()).toBeEmptyDOMElement();
   });
 
-  it("shows the strip only while an answer is unsaved", async () => {
+  it("shows the save line in the strip only while an answer is unsaved", async () => {
     await open();
     const save = heldSave();
 
@@ -540,8 +540,38 @@ describe("the header on a phone", () => {
     expect(strip()).toHaveTextContent(SAVING);
 
     await save.succeed();
-    expect(strip()).toBeNull();
+    expect(strip()).toBeEmptyDOMElement();
     expect(screen.queryByText(SAVED)).toBeNull();
+  });
+
+  it("keeps the strip's row in place, saved or not, so the paper under it never moves", async () => {
+    await open();
+    const row = strip();
+    const paper = screen.getByRole("main").parentElement;
+    expect(row).toHaveClass("min-h-[35px]", "flex-none", "border-b", "py-2");
+    expect(row?.previousElementSibling).toBe(screen.getByRole("banner"));
+    expect(row?.nextElementSibling).toBe(paper);
+
+    const save = heldSave();
+    type();
+    expect(strip()).toBe(row);
+    expect(row?.nextElementSibling).toBe(paper);
+
+    await pass(FLUSH_DEBOUNCE_MS);
+    await save.succeed();
+    expect(strip()).toBe(row);
+    expect(row).toBeEmptyDOMElement();
+    expect(row?.nextElementSibling).toBe(paper);
+  });
+
+  it("reserves the same row on the review", async () => {
+    await open();
+    fireEvent.click(banner().getByRole("button", { name: "Nộp bài" }));
+    expect(
+      screen.getByRole("heading", { name: "Xem lại trước khi nộp" }),
+    ).toBeInTheDocument();
+    expect(strip()).toBeEmptyDOMElement();
+    expect(strip()?.previousElementSibling).toBe(screen.getByRole("banner"));
   });
 
   it("says in the strip that a save failed or the device is offline, and announces it", async () => {
@@ -563,7 +593,7 @@ describe("the header on a phone", () => {
     connection(true);
     vi.mocked(saveAnswers).mockImplementation(async () => reply());
     await pass(30_000);
-    expect(strip()).toBeNull();
+    expect(strip()).toBeEmptyDOMElement();
     expect(announced()).toEqual([]);
   });
 
