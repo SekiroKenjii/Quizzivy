@@ -67,6 +67,19 @@ pull request builds its own on its first run, until a push to the base branch
 runs a job for real or the next push to `main` does. That costs the Go jobs
 some tens of seconds and no result.
 
+## How long it takes
+
+Measured on 2026-10-03 on GitHub's hosted runners. The old workflow took
+between 7 min 40 s and 10 min 33 s for every run.
+
+| Run | Time |
+|---|---|
+| Every job runs | 4 min 39 s |
+| Every job runs and MinIO is built from source, the first run after `docker/minio` changes | 8 min 43 s |
+
+E2E (live API) is the longest job, a little over four minutes; a faster run
+starts there.
+
 ## When a job needs a file outside its set
 
 Add the path to that set's `include` in `scripts/ci/plan.mjs`, in the same pull
@@ -106,10 +119,11 @@ the pull request's run tests the merge; the branch rules read that one.
 
 ## Pull requests from forks
 
-A fork's pull request runs the workflow and the scripts from its own merge
-commit, so it can make its own **CI result** green. Read what it changes under
-`.github/` and `scripts/ci/` before merging. Its markers are never proof for
-another run, and its token cannot write packages.
+A fork's pull request runs the workflow, the scripts and the tests from its
+own merge commit, so its green **CI result** says only what its own files
+chose to check. Read a fork's pull request before merging it, whatever CI
+says. Its markers are never proof for another run, and its token cannot write
+packages.
 
 ## MinIO
 
