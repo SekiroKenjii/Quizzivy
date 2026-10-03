@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { LoaderCircle } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import { homePathFor } from "@/features/auth/home";
 import { learnsOnly } from "@/features/auth/permissions";
+import { myClassesQuery } from "@/features/classes/api";
 import { joinClass } from "@/features/join/api";
 import { clean, normalize } from "@/features/join/code";
 import {
@@ -204,18 +205,22 @@ function FoundClass({ context }: Readonly<{ context: JoinContext }>) {
 function useEnrol() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   function finish(code: string, outcome: JoinOutcome) {
     clearJoinContext();
     void navigate(`/join/${code}`, { replace: true, state: joinOutcomeState(outcome) });
   }
   return useMutation({
     mutationFn: (context: JoinContext) => joinClass(context.code),
-    onSuccess: (joined, context) =>
+    onSuccess: (joined, context) => {
+      void queryClient.invalidateQueries({ queryKey: myClassesQuery.queryKey });
+      void queryClient.invalidateQueries({ queryKey: ["my-assignments"] });
       finish(context.code, {
         kind: "joined",
         className: joined.name,
         teacherName: context.teacherName,
-      }),
+      });
+    },
     onError: (cause, context) =>
       finish(
         context.code,
