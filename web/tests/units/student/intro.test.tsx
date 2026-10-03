@@ -56,6 +56,32 @@ function refuse(code: string, message: string, status: 403 | 409 = 409) {
   return calls;
 }
 
+function listen(status: 200 | 409 = 200) {
+  const sent: unknown[] = [];
+  server.use(
+    http.post(START, async ({ request }) => {
+      const text = await request.text();
+      sent.push(text === "" ? null : JSON.parse(text));
+      if (status === 409) {
+        return contractJson("/app/assignments/{id}/attempts", "post", 409, {
+          error: {
+            code: "ATTEMPT_CLOSED",
+            message: "Bài làm này đã kết thúc.",
+            requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+          },
+        });
+      }
+      return contractJson(
+        "/app/assignments/{id}/attempts",
+        "post",
+        200,
+        attemptSession(),
+      );
+    }),
+  );
+  return sent;
+}
+
 function takeAway(status: 403 | 404 = 403) {
   server.use(
     http.get(DETAIL, () =>
@@ -756,6 +782,21 @@ describe("Start now?", () => {
     expect(calls).toEqual(["start"]);
   });
 
+  it("Start sends no attempt to resume", async () => {
+    const user = userEvent.setup();
+    const sent = listen();
+    const router = show({
+      attemptsUsed: 1,
+      lastAttemptId: ATTEMPT,
+      lastSubmittedAt: "2026-08-29T09:00:00Z",
+    });
+    await user.click(confirm(await ask(user)));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
+    );
+    expect(sent).toEqual([null]);
+  });
+
   it("does not touch fullscreen when the policy does not ask for it", async () => {
     const user = userEvent.setup();
     mockStart();
@@ -1063,6 +1104,71 @@ describe("Continue test", () => {
       expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
     );
     expect(calls).toEqual(["start"]);
+  });
+
+  it("Continue names the live attempt", async () => {
+    const sent = listen();
+    const router = live();
+    fireEvent.click(await screen.findByRole("button", { name: "Tiếp tục làm bài" }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
+    );
+    expect(sent).toEqual([{ resume: ATTEMPT }]);
+  });
+
+  it("an ended attempt turns Continue into Start", async () => {
+    const user = userEvent.setup();
+    const sent = listen(409);
+    const router = live();
+    const resume = await screen.findByRole("button", { name: "Tiếp tục làm bài" });
+    serve({
+      attemptsUsed: 1,
+      lastAttemptId: ATTEMPT,
+      lastSubmittedAt: "2026-08-29T09:59:00Z",
+    });
+    await user.click(resume);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Bài làm này đã kết thúc.",
+    );
+    expect(await startButton()).toHaveAccessibleDescription("Bài làm này đã kết thúc.");
+    expect(screen.queryByRole("button", { name: "Tiếp tục làm bài" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect((await facts())[2]).toEqual(["Lượt làm", "1/2"]);
+    expect(router.state.location.pathname).toBe(`/app/assignments/${ASSIGNMENT}`);
+    expect(sent).toEqual([{ resume: ATTEMPT }]);
+  });
+
+  it("says there is no attempt left when the ended one was the last", async () => {
+    const user = userEvent.setup();
+    listen(409);
+    live({ maxAttempts: 1 });
+    const resume = await screen.findByRole("button", { name: "Tiếp tục làm bài" });
+    serve({
+      attemptsUsed: 1,
+      maxAttempts: 1,
+      lastAttemptId: ATTEMPT,
+      lastSubmittedAt: "2026-08-29T09:59:00Z",
+    });
+    await user.click(resume);
+    await waitFor(() => expect(screen.queryByRole("button")).toBeNull());
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Bạn đã dùng hết số lượt làm bài.",
+    );
+  });
+
+  it("has Home read its lists again once the attempt has ended", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["my-assignments"], {
+      dueNow: [],
+      upcoming: [],
+      completed: [],
+    });
+    listen(409);
+    show({ hasLiveAttempt: true, lastAttemptId: ATTEMPT }, client);
+    await user.click(await screen.findByRole("button", { name: "Tiếp tục làm bài" }));
+    await screen.findByRole("alert");
+    expect(client.getQueryState(["my-assignments"])?.isInvalidated).toBe(true);
   });
 
   it("says when the attempt ends", async () => {

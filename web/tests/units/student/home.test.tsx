@@ -11,7 +11,15 @@ import { useAuthStore } from "@/stores/auth";
 import { viewport } from "@tests/support/viewport";
 import { Toaster, toast } from "@/components/ui/sonner";
 import { sampleClass } from "@tests/support/fixtures";
-import { ASSIGNMENT, ATTEMPT, BASE, card, mockStart, renderAt } from "./support";
+import {
+  ASSIGNMENT,
+  ATTEMPT,
+  BASE,
+  attemptSession,
+  card,
+  mockStart,
+  renderAt,
+} from "./support";
 
 const flags = vi.hoisted(() => ({
   notifications: false,
@@ -82,6 +90,32 @@ function live(over: Record<string, unknown> = {}) {
     liveDeadlineAt: "2026-08-29T10:38:12Z",
     ...over,
   });
+}
+
+function mockContinue(status: 200 | 409 = 200) {
+  const sent: unknown[] = [];
+  server.use(
+    http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, async ({ request }) => {
+      const text = await request.text();
+      sent.push(text === "" ? null : JSON.parse(text));
+      if (status === 409) {
+        return contractJson("/app/assignments/{id}/attempts", "post", 409, {
+          error: {
+            code: "ATTEMPT_CLOSED",
+            message: "Bài làm này đã kết thúc.",
+            requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+          },
+        });
+      }
+      return contractJson(
+        "/app/assignments/{id}/attempts",
+        "post",
+        200,
+        attemptSession(),
+      );
+    }),
+  );
+  return sent;
 }
 
 function done(n: number, over: Record<string, unknown> = {}) {
@@ -221,6 +255,43 @@ describe("the resume card", () => {
       expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
     );
     expect(calls).toEqual(["start"]);
+  });
+
+  it("continues the attempt the card was drawn for", async () => {
+    const user = userEvent.setup();
+    const sent = mockContinue();
+    const router = home({ dueNow: [live()] });
+    await user.click(await screen.findByRole("button", { name: "Tiếp tục làm bài" }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
+    );
+    expect(sent).toEqual([{ resume: ATTEMPT }]);
+  });
+
+  it("says the attempt has ended and starts nothing", async () => {
+    const user = userEvent.setup();
+    const sent = mockContinue(409);
+    const router = home({ dueNow: [live()] });
+    const resume = await screen.findByRole("button", { name: "Tiếp tục làm bài" });
+    serve({
+      dueNow: [
+        card({
+          attemptsUsed: 1,
+          lastAttemptId: ATTEMPT,
+          lastSubmittedAt: "2026-08-29T09:59:00Z",
+        }),
+      ],
+    });
+    await user.click(resume);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Bài làm này đã kết thúc.",
+    );
+    await waitFor(() => expect(asked).toBe(2));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Tiếp tục làm bài" })).toBeNull(),
+    );
+    expect(router.state.location.pathname).toBe("/app");
+    expect(sent).toEqual([{ resume: ATTEMPT }]);
   });
 
   it("says why it could not resume, and the reason outlives the card", async () => {
