@@ -146,6 +146,20 @@ describe("the greeting and the line under it", () => {
     ).toBeInTheDocument();
   });
 
+  it("counts a paper that opens and closes later today", async () => {
+    home({
+      upcoming: [
+        scheduled({
+          opensAt: "2026-08-29T12:00:00Z",
+          closesAt: "2026-08-29T14:00:00Z",
+        }),
+      ],
+    });
+    expect(
+      await screen.findByText("Bạn có 1 bài đến hạn hôm nay."),
+    ).toBeInTheDocument();
+  });
+
   it("says nothing is due when only results are left", async () => {
     home({ completed: [done(1)] });
     expect(
@@ -192,6 +206,7 @@ describe("the resume card", () => {
       "Bạn đã dùng hết số lượt làm bài.",
     );
     expect(resume).toBeEnabled();
+    await waitFor(() => expect(asked).toBe(2));
   });
 
   it("reads nothing answered when the count did not come", async () => {
@@ -253,6 +268,26 @@ describe("the resume card", () => {
     expect(row("Later")).toHaveAttribute("href", `/app/assignments/${card().id}`);
     expect(within(row("Later")).getByText("Đang làm")).toBeInTheDocument();
     expect(screen.getByText("2 bài")).toBeInTheDocument();
+  });
+});
+
+describe("a tab left open", () => {
+  it("moves a paper to due tomorrow when its last 24 hours begin", async () => {
+    home({ dueNow: [card({ closesAt: "2026-08-30T10:00:45Z" })] });
+    const link = within(await screen.findByRole("link", { name: /Unit 5/ }));
+    expect(link.getByText("Đang mở")).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(61_000));
+    expect(link.getByText("Hạn ngày mai")).toBeInTheDocument();
+    expect(asked).toBe(1);
+  });
+
+  it("greets for the evening once it is evening", async () => {
+    vi.setSystemTime(new Date("2026-08-29T10:59:30Z"));
+    home({ completed: [done(1)] });
+    const heading = await screen.findByRole("heading", { level: 1 });
+    expect(heading).toHaveTextContent("Chào buổi chiều, An");
+    await act(() => vi.advanceTimersByTimeAsync(61_000));
+    expect(heading).toHaveTextContent("Chào buổi tối, An");
   });
 });
 

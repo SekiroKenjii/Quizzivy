@@ -57,8 +57,9 @@ export interface ResultRow {
 
 /**
  * HomeSub is the sentence under the greeting: about the live attempt, else
- * the papers closing today, else the next paper, else that nothing is due.
- * `none` is a student with nothing assigned, who gets the empty state instead.
+ * the papers closing today, open or still to open, else the next paper, else
+ * that nothing is due. `none` is a Home with nothing to draw, which gets the
+ * empty state instead.
  */
 export type HomeSub =
   | { readonly kind: "live"; readonly closes: string }
@@ -103,7 +104,7 @@ function row(card: StudentAssignmentCard, now: Date): ComingUpRow | null {
 }
 
 function submitted(card: StudentAssignmentCard): number {
-  return card.lastSubmittedAt == null ? -Infinity : Date.parse(card.lastSubmittedAt);
+  return card.lastSubmittedAt == null ? Infinity : Date.parse(card.lastSubmittedAt);
 }
 
 function outcome(card: StudentAssignmentCard): ResultOutcome {
@@ -111,13 +112,19 @@ function outcome(card: StudentAssignmentCard): ResultOutcome {
   return card.score.pendingManual > 0 ? "grading" : "score";
 }
 
+function closesToday(row: ComingUpRow, now: Date): boolean {
+  if (row.pill === "dueToday") return true;
+  return row.pill === "opens" && appDaysUntil(row.card.closesAt, now) === 0;
+}
+
 function sub(
   resume: StudentAssignmentCard | null,
   rows: readonly ComingUpRow[],
   empty: boolean,
+  now: Date,
 ): HomeSub {
   if (resume !== null) return { kind: "live", closes: liveCloses(resume) };
-  const today = rows.filter((r) => r.pill === "dueToday").length;
+  const today = rows.filter((r) => closesToday(r, now)).length;
   if (today > 0) return { kind: "dueToday", count: today };
   const next = rows[0];
   if (next !== undefined)
@@ -132,8 +139,10 @@ function sub(
  * holds every other paper still to do, in the order of the dates on their
  * tiles: a paper with an attempt left stays there after a first attempt, and a
  * paper whose window has closed on this clock is left out. Recent results are
- * the three papers submitted last, wherever the server lists them, so a
- * result shows while a retake remains.
+ * the three papers attempted last, wherever the server lists them, so a
+ * result shows while a retake remains. An attempt that ran out of time and
+ * that the server has not closed yet comes first: opening its result is what
+ * closes it.
  */
 export function homeView(lists: Lists, now: Date): HomeView {
   const live = lists.dueNow
@@ -149,14 +158,13 @@ export function homeView(lists: Lists, now: Date): HomeView {
         (r) => r.card.id,
       ),
     );
-  const results = [...lists.completed, ...lists.dueNow]
+  const results = [...lists.completed, ...lists.dueNow, ...lists.upcoming]
     .filter((card) => card.hasLiveAttempt !== true && card.lastAttemptId != null)
     .sort((a, b) => submitted(b) - submitted(a) || a.id.localeCompare(b.id))
     .slice(0, RESULTS)
     .map((card) => ({ card, outcome: outcome(card) }));
-  const empty =
-    lists.dueNow.length + lists.upcoming.length + lists.completed.length === 0;
-  return { resume, rows, results, sub: sub(resume, rows, empty) };
+  const empty = resume === null && rows.length === 0 && results.length === 0;
+  return { resume, rows, results, sub: sub(resume, rows, empty, now) };
 }
 
 /**

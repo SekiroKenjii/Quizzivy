@@ -13,6 +13,7 @@ import {
   formatTime,
   weekdayName,
 } from "@/lib/i18n/datetime";
+import { useMinute } from "@/hooks/useTick";
 import { useAuthStore } from "@/stores/auth";
 import { listMyAssignments } from "../api";
 import { ComingUp } from "../components/ComingUp";
@@ -51,8 +52,10 @@ function subLine(sub: HomeSub, now: Date, locale: Locale, t: TFunction): string 
  * StudentHomePage is the student's Home, as the design deck draws it: a
  * greeting for the time of day, one sentence about what is next, the attempt
  * in progress, the papers still to do and the latest results. Everything on
- * it is derived from the assignment lists the shell's badge also reads. A
- * list that has loaded stays on screen when a later refetch fails.
+ * it is derived from the assignment lists the shell's badge also reads, and
+ * from the clock: the page repaints each minute, so a tab left open does not
+ * keep yesterday's greeting and pills. A list that has loaded stays on screen
+ * when a later refetch fails.
  */
 export default function StudentHomePage() {
   const { t, i18n } = useTranslation();
@@ -66,6 +69,7 @@ export default function StudentHomePage() {
     queryKey: ["my-classes"],
     queryFn: ({ signal }) => fetchMyClasses(signal),
   });
+  useMinute(true);
   const now = new Date();
   const view = assignments.data === undefined ? null : homeView(assignments.data, now);
   const line = view === null ? null : subLine(view.sub, now, locale, t);

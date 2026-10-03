@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,11 +17,14 @@ import { HOME_PILL } from "./homeStyles";
  * ResumeCard is Home's way back into the attempt in progress. It says how
  * long is left, how much is answered and when the attempt closes, and its
  * button goes straight to the paper: the rules were read when the attempt
- * began. The minutes repaint as they pass; nothing is fetched to do so.
+ * began. The minutes repaint as they pass; nothing is fetched to do so. When
+ * the server refuses to resume, the lists are read again, so a card for an
+ * attempt that has ended does not stay.
  */
 export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const deadline = card.liveDeadlineAt ?? null;
@@ -51,6 +55,7 @@ export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) 
         cause instanceof ApiError ? cause.message : t("student.intro.startFailed"),
       );
       setBusy(false);
+      void queryClient.invalidateQueries({ queryKey: ["my-assignments"] });
     }
   };
 

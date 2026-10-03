@@ -212,22 +212,30 @@ describe("recent results", () => {
         done(1, { lastSubmittedAt: "2026-08-25T03:00:00Z" }),
         done(2, { lastSubmittedAt: "2026-08-28T03:00:00Z" }),
         done(3, { lastSubmittedAt: "2026-08-26T03:00:00Z" }),
-        done(4, { lastSubmittedAt: null }),
         done(5, { lastSubmittedAt: "2026-08-27T03:00:00Z" }),
       ],
     });
     expect(v.results.map((r) => r.card.id)).toEqual([id(2), id(5), id(3)]);
   });
 
-  it("put an attempt the server has not closed yet last, then order by id", () => {
+  it("put an attempt the server has not closed yet first, so its result can be opened", () => {
     const v = view({
       completed: [
+        done(3, { lastSubmittedAt: "2026-08-28T03:00:00Z" }),
+        done(4, { lastSubmittedAt: "2026-08-27T03:00:00Z" }),
+        done(5, { lastSubmittedAt: "2026-08-26T03:00:00Z" }),
         done(2, { lastSubmittedAt: null }),
         done(1, { lastSubmittedAt: null }),
-        done(3),
       ],
     });
-    expect(v.results.map((r) => r.card.id)).toEqual([id(3), id(1), id(2)]);
+    expect(v.results.map((r) => r.card.id)).toEqual([id(1), id(2), id(3)]);
+  });
+
+  it("include a submitted paper the teacher has since moved to open later", () => {
+    const moved = done(1, { status: "scheduled", opensAt: "2026-09-01T01:00:00Z" });
+    const v = view({ upcoming: [moved] });
+    expect(v.results.map((r) => r.card)).toEqual([moved]);
+    expect(v.rows.map((r) => r.pill)).toEqual([]);
   });
 
   it("include a paper with a retake left, and no paper being taken or never tried", () => {
@@ -332,8 +340,26 @@ describe("the line under the greeting", () => {
     ).toEqual({ kind: "next", title: "Sooner", moment: "2026-09-01T01:00:00Z" });
   });
 
+  it("counts a paper that opens and closes later today as due today", () => {
+    const window = { status: "scheduled", opensAt: "2026-08-29T11:00:00Z" } as const;
+    expect(
+      view({ upcoming: [paper(1, { ...window, closesAt: "2026-08-29T13:00:00Z" })] })
+        .sub,
+    ).toEqual({ kind: "dueToday", count: 1 });
+    expect(
+      view({ upcoming: [paper(1, { ...window, closesAt: "2026-08-29T17:00:00Z" })] })
+        .sub,
+    ).toEqual({ kind: "next", title: "Paper 1", moment: "2026-08-29T11:00:00Z" });
+  });
+
   it("says nothing is due when only results are left", () => {
     expect(view({ completed: [done(1)] }).sub).toEqual({ kind: "nothing" });
+  });
+
+  it("is absent when the only paper has closed on this clock, as a fresh fetch would say", () => {
+    expect(view({ dueNow: [paper(1, { closesAt: NOW.toISOString() })] }).sub).toEqual({
+      kind: "none",
+    });
   });
 
   it("is absent for a student with nothing assigned", () => {
