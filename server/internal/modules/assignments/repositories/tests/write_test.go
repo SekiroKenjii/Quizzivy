@@ -749,3 +749,24 @@ func TestADisabledStudentCannotBeAddedAsANewTarget(t *testing.T) {
 		t.Errorf("create: want a studentIds error, got %v", err)
 	}
 }
+
+func TestAnExistingTargetTheWriterDoesNotReachAnswersAsAMissingOne(t *testing.T) {
+	w := newReachWorld(t)
+	ctx := context.Background()
+	w.id(t, `INSERT INTO app.assignment_students (assignment_id, user_id) VALUES ($1, $2) RETURNING user_id::text`, w.shared, w.studentA)
+	const ghost = "00000000-0000-7000-8000-0000000000ab"
+
+	b := as(w.b, false)
+	b.ID = w.shared
+	answers := map[string]string{}
+	for _, id := range []string{w.studentA, ghost} {
+		_, err := w.store.Update(ctx, b, input(w.versionA, []string{w.classB}, []string{id}))
+		answers[id] = shape(err, id)
+	}
+	if !strings.Contains(answers[ghost], "targets.studentIds") {
+		t.Errorf("B naming a missing student answered %q, want a studentIds error", answers[ghost])
+	}
+	if answers[w.studentA] != answers[ghost] {
+		t.Errorf("B naming A's student, already a target, answered %q, a missing one %q", answers[w.studentA], answers[ghost])
+	}
+}
