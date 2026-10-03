@@ -60,8 +60,8 @@ func (JoinCodeManager) Equal(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
-// Hint is the last four characters, which is all that remains visible after the
-// one-time reveal.
+// Hint is the last four characters of a code, which is how a code is shown
+// wherever the full code is not read back.
 func (JoinCodeManager) Hint(normalized string) string {
 	if len(normalized) < HintLength {
 		return normalized
@@ -83,8 +83,8 @@ const Alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 // Length is the number of characters in a code, before grouping.
 const Length = 8
 
-// HintLength is how much of a code survives the one-time reveal, for the admin
-// to recognise which code is active (§13.3).
+// HintLength is how many trailing characters of a code its hint keeps, for a
+// teacher to recognise which code is active (§13.3).
 const HintLength = 4
 
 // CodeState is what decides whether a join code can still be redeemed.

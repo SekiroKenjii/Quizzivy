@@ -199,6 +199,7 @@ describe("the frame and the field", () => {
     lists();
     const { dialog } = await opened();
     expect(dialog.dataset["scale"]).toBe("deck");
+    expect(dialog).toHaveClass("top-[12%]", "min-[768px]:top-[50%]");
     expect(field()).toHaveClass("h-13", "text-xl", "rounded-[11px]");
     expect(field()).not.toHaveClass("h-[58px]");
   });
