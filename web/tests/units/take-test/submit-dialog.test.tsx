@@ -233,6 +233,7 @@ describe("the Submit dialog", () => {
 
     noDialog();
     expect(onQuestion(6)).toBeInTheDocument();
+    expect(onQuestion(6)).toHaveFocus();
     expect(onQuestion(1)).toBeNull();
     expect(submitAttempt).not.toHaveBeenCalled();
   });
