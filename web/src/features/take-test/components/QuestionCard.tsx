@@ -12,7 +12,7 @@ import type { StudentQuestion } from "../api";
  * The store-connected renderer: the one place a question is joined to the
  * answer being written into it. Under the answer, what it is worth (S-05) --
  * except for a short answer, whose body says so beside the word count, and
- * except from 1024px, where the meta line above the stem says it (S-08). A
+ * except from 768px, where the meta line above the stem says it. A
  * fill-blank closes with the rule it is matched by.
  */
 export function QuestionCard({
@@ -41,7 +41,9 @@ export function QuestionCard({
         action={action}
       />
       {question.type !== "short_answer" && (
-        <p className="text-muted-foreground text-xs lg:hidden">{worth(question, t)}</p>
+        <p className="text-muted-foreground text-xs min-[768px]:hidden">
+          {worth(question, t)}
+        </p>
       )}
       {question.type === "fill_blank" && (
         <Note icon={Info}>
