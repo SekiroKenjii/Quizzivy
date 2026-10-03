@@ -1,13 +1,27 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DeckScale } from "@/components/ui/deck-scale";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PasswordInput } from "@/components/shared/PasswordInput";
 import "@/lib/i18n";
@@ -122,5 +136,70 @@ describe("deck geometry applies only on a deck surface", () => {
       .map((c) => c.slice(SCOPE.length));
     expect(scoped).toContain("size-9");
     expect(scoped).not.toContain("size-8.5");
+  });
+});
+
+function OpenSelect() {
+  return (
+    <Select open value="45">
+      <SelectTrigger aria-label="Thời lượng">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="45">45 phút</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function OpenMenu() {
+  return (
+    <DropdownMenu open>
+      <DropdownMenuTrigger>Tài khoản</DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem>Cài đặt</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+describe("content that portals out of a deck surface stays on it", () => {
+  it("marks the surface itself", () => {
+    const { container } = render(<DeckScale className="shell">nội dung</DeckScale>);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.dataset["scale"]).toBe("deck");
+    expect(root.className).toBe("shell");
+  });
+
+  it("carries the scale onto a select's list, which renders under the body", () => {
+    const { container } = render(
+      <DeckScale>
+        <OpenSelect />
+      </DeckScale>,
+    );
+    const list = screen.getByRole("listbox");
+    expect(container.contains(list)).toBe(false);
+    expect(list.closest("[data-scale='deck']")).not.toBeNull();
+  });
+
+  it("carries the scale onto a menu, which renders under the body", () => {
+    const { container } = render(
+      <DeckScale>
+        <OpenMenu />
+      </DeckScale>,
+    );
+    const menu = screen.getByRole("menu");
+    expect(container.contains(menu)).toBe(false);
+    expect(menu.dataset["scale"]).toBe("deck");
+  });
+
+  it("leaves a select's list unmarked off a deck surface", () => {
+    render(<OpenSelect />);
+    expect(screen.getByRole("listbox").closest("[data-scale]")).toBeNull();
+  });
+
+  it("leaves a menu unmarked off a deck surface", () => {
+    render(<OpenMenu />);
+    expect(screen.getByRole("menu").closest("[data-scale]")).toBeNull();
   });
 });
