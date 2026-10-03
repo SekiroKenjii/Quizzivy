@@ -413,6 +413,14 @@ jobs:
         working-directory: server
         run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
 
+      # The two-teacher isolation suite uploads real images, audio and Word
+      # sources, so this tier needs the MinIO the live E2E job starts. Its
+      # harness defaults to the compose endpoint, credentials and buckets.
+      - name: Start MinIO
+        run: |
+          docker compose up -d --build --wait minio
+          docker compose run --rm minio-init
+
       - name: End-to-end tests
         working-directory: server
         run: go test -tags e2e ./tests/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-e2e.out
