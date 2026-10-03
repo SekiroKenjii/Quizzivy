@@ -295,7 +295,8 @@ function PasswordRow() {
     setFailure(null);
     try {
       await changePassword(values.currentPassword, values.newPassword);
-      setUser(await fetchCurrentUser());
+      const reread = await fetchCurrentUser().catch(() => null);
+      if (reread !== null) setUser(reread);
       form.reset();
       setOpen(false);
       notify.success(t("student.settings.passwordUpdated"));

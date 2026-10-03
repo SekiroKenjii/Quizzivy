@@ -761,6 +761,32 @@ describe("sign-in: the password", () => {
     expect(again.next).toHaveValue("");
   });
 
+  it("says the password changed although the user could not be read again", async () => {
+    const user = userEvent.setup();
+    const bodies = passwordAnswers();
+    const reads: string[] = [];
+    server.use(
+      http.get(`${BASE}/auth/me`, () => {
+        reads.push("me");
+        return Response.error();
+      }),
+    );
+    open("/app/settings/sign-in");
+    await screen.findByRole("region", { name: "Đăng nhập" });
+    const form = await openPasswordForm(user);
+
+    await user.type(form.current, "mat-khau-cu-1");
+    await user.type(form.next, "mat-khau-moi-2");
+    await user.click(form.submit);
+
+    await waitFor(() => expect(notify.success).toHaveBeenCalledOnce());
+    expect(bodies).toHaveLength(1);
+    expect(reads).toEqual(["me"]);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByLabelText("Mật khẩu mới")).toBeNull();
+    expect(useAuthStore.getState().user).toEqual(account());
+  });
+
   it("sends one request however often the form is submitted while it saves", async () => {
     const user = userEvent.setup();
     const gate = held();
