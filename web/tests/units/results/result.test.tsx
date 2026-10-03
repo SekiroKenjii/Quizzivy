@@ -974,6 +974,64 @@ describe("what counts as answered", () => {
   });
 });
 
+describe("content written in the rich editor", () => {
+  const written = (text: string) => ({
+    format: "semantic_v1" as const,
+    blocks: [
+      {
+        type: "paragraph" as const,
+        content: [{ type: "text" as const, text, marks: [] }],
+      },
+    ],
+  });
+
+  it("draws a rich fill-in's gap as a blank", async () => {
+    serve(
+      scored([
+        blank(1, "Điền [1]", "went", {
+          earned: 1,
+          promptContent: {
+            format: "semantic_v1",
+            blocks: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "Điền ", marks: [] },
+                  { type: "gap", id: "a", label: "1" },
+                ],
+              },
+            ],
+          },
+          blanks: [{ id: uuid("e", 1), gapId: "a", ordinal: 1, caseSensitive: false }],
+        }),
+      ]),
+    );
+    renderResult();
+    const article = (await screen.findByText(/Điền/)).closest("article")!;
+    expect(within(article).getByRole("img", { name: "chỗ trống" })).toHaveTextContent(
+      "___",
+    );
+    expect(article).not.toHaveTextContent("[1]");
+  });
+
+  it("draws a rich prompt and explanation as written, never as Markdown", async () => {
+    serve(
+      scored([
+        choice(1, AB, [0], {
+          prompt: "Chọn *một* đáp án.",
+          promptContent: written("Chọn *một* đáp án."),
+          earned: 0,
+          explanation: "Dùng _was_ với phân từ II.",
+          explanationContent: written("Dùng _was_ với phân từ II."),
+        }),
+      ]),
+    );
+    renderResult();
+    const article = (await screen.findByText("Chọn *một* đáp án.")).closest("article")!;
+    expect(within(article).getByText("Dùng _was_ với phân từ II.")).toBeVisible();
+  });
+});
+
 describe("the line above the title", () => {
   const body = () => scored([choice(1, AB, [0], { earned: 1 })]);
 
