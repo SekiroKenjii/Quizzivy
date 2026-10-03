@@ -67,6 +67,9 @@ func groupFailure(ctx context.Context, err error) (*groupResponse, error) {
 	case errors.Is(err, domain.ErrNotArchived):
 		code = openapi.RESOURCENOTARCHIVED
 		message = "Hãy lưu trữ nhóm trước khi xoá vĩnh viễn."
+	case errors.Is(err, domain.ErrReferenced):
+		code = openapi.RESOURCEREFERENCED
+		message = "Không thể xoá nhóm vì nhóm hoặc câu hỏi trong nhóm vẫn đang được dùng ở nơi khác."
 	case errors.Is(err, domain.ErrGroupConflict):
 	case errors.Is(err, questionsdomain.ErrMediaNotFound), errors.Is(err, mediadomain.ErrNotFound):
 		status = http.StatusUnprocessableEntity

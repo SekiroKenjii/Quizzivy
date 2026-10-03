@@ -28,9 +28,12 @@ the tip check is what keeps that from putting an earlier release back.
 | `web` | Cloudflare Pages `quizzivy-web` | `pnpm build` then `wrangler pages deploy` |
 
 The API goes first. The SPA is the half that calls the other, so the window
-between the two deploys is old-SPA-against-new-API rather than the reverse — and
-the OpenAPI contract only ever grows, so that direction is safe. The reverse is
-not: a new SPA calling an endpoint that has not shipped yet is a broken screen.
+between the two deploys is old-SPA-against-new-API rather than the reverse. That
+is safe while a release only adds to the contract. A release that tightens a
+request or adds a refusal (v0.7.0 did both) needs a server message an older tab
+can show as it is, and a line in the release notes for tabs loaded before the
+deploy. The reverse is never safe: a new SPA calling an endpoint that has not
+shipped yet is a broken screen.
 
 Migrations ride along with the API. `fly.toml`'s `release_command` applies them
 before the new version takes traffic and rolls the deploy back if they fail,

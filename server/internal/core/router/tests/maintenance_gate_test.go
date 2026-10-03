@@ -238,3 +238,74 @@ func TestTheGateSitsInsideCORSAndBeforeRateLimits(t *testing.T) {
 		}
 	}
 }
+
+func TestALogoutRefusedByAWindowStillClearsTheSessionCookies(t *testing.T) {
+	h := gatedRouter(t, underWay(), testIssuer(t))
+	rec := send(h, http.MethodPost, "/auth/logout", map[string]string{
+		"Origin": allowedOrigin,
+		"Cookie": "quizzivy_refresh=anything",
+	})
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503: the gate stays total", rec.Code)
+	}
+	var env maintenanceEnvelope
+	if err := json.NewDecoder(rec.Body).Decode(&env); err != nil {
+		t.Fatalf("not the error envelope: %v", err)
+	}
+	if env.Error.Code != "MAINTENANCE" {
+		t.Errorf("code = %q, want MAINTENANCE", env.Error.Code)
+	}
+
+	cleared := map[string]*http.Cookie{}
+	for _, c := range rec.Result().Cookies() {
+		cleared[c.Name] = c
+	}
+	refresh, ok := cleared["quizzivy_refresh"]
+	switch {
+	case !ok:
+		t.Fatalf("the 503 does not clear quizzivy_refresh; the next person on this device is signed in: %v", rec.Header().Values("Set-Cookie"))
+	case refresh.Value != "", refresh.Path != "/auth", refresh.MaxAge >= 0, !refresh.HttpOnly:
+		t.Errorf("quizzivy_refresh = %+v, want an empty HttpOnly cookie on /auth with a negative Max-Age", refresh)
+	}
+	docs, ok := cleared["quizzivy_docs"]
+	switch {
+	case !ok:
+		t.Fatalf("the 503 does not clear quizzivy_docs: %v", rec.Header().Values("Set-Cookie"))
+	case docs.Value != "", docs.Path != "/docs", docs.MaxAge >= 0:
+		t.Errorf("quizzivy_docs = %+v, want an empty cookie on /docs with a negative Max-Age", docs)
+	}
+}
+
+func TestOnlyALogoutThatPresentedASessionCarriesTheCookieClears(t *testing.T) {
+	h := gatedRouter(t, underWay(), testIssuer(t))
+	for _, tc := range []struct {
+		name, method, path string
+		header             map[string]string
+	}{
+		{"a refresh with the cookie", http.MethodPost, "/auth/refresh", map[string]string{"Origin": allowedOrigin, "Cookie": "quizzivy_refresh=anything"}},
+		{"a GET on the logout path with the cookie", http.MethodGet, "/auth/logout", map[string]string{"Origin": allowedOrigin, "Cookie": "quizzivy_refresh=anything"}},
+		{"a logout with no cookie", http.MethodPost, "/auth/logout", map[string]string{"Origin": "https://elsewhere.example"}},
+		{"a logout with an empty cookie", http.MethodPost, "/auth/logout", map[string]string{"Origin": "https://elsewhere.example", "Cookie": "quizzivy_refresh="}},
+	} {
+		rec := send(h, tc.method, tc.path, tc.header)
+		if rec.Code != http.StatusServiceUnavailable {
+			t.Errorf("%s = %d during a window, want 503", tc.name, rec.Code)
+		}
+		if got := rec.Header().Values("Set-Cookie"); len(got) != 0 {
+			t.Errorf("%s carries Set-Cookie %v, want none: the gate clears only what the handler would", tc.name, got)
+		}
+	}
+}
+
+func TestALogoutOutsideAWindowIsNotTouchedByTheGate(t *testing.T) {
+	window := underWay()
+	window.over.Store(true)
+	rec := send(gatedRouter(t, window, testIssuer(t)), http.MethodPost, "/auth/logout", map[string]string{
+		"Origin": allowedOrigin,
+		"Cookie": "quizzivy_refresh=anything",
+	})
+	if rec.Code == http.StatusServiceUnavailable {
+		t.Error("status = 503 outside a window, want the route's own answer")
+	}
+}
