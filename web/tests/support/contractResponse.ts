@@ -62,7 +62,7 @@ function hasJsonBody(path: string, method: string, status: number): boolean {
  * MSW's `HttpResponse.json`, with the body checked against the contract first.
  *
  * `path` and `method` are the OpenAPI path template and method, not the request
- * URL — `/admin/tests/{id}`, not `/admin/tests/abc`.
+ * URL — `/teacher/tests/{id}`, not `/teacher/tests/abc`.
  */
 export function contractJson(
   path: string,

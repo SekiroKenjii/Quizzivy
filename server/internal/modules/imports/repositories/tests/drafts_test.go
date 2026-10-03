@@ -34,7 +34,7 @@ func (h harness) processed(t *testing.T, title string) domain.Run {
 func (h harness) startReprocess(t *testing.T, importID string) domain.Run {
 	t.Helper()
 	ctx := context.Background()
-	current, err := h.repo.Get(ctx, importID)
+	current, err := h.repo.Get(ctx, everyone, importID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,22 +57,22 @@ func TestACompletedRunLeavesItsDraftUnderReview(t *testing.T) {
 	h := setup(t)
 	ctx := context.Background()
 	run := h.processed(t, "TEST 1")
-	stored, err := h.repo.Draft(ctx, run.ImportID)
+	stored, err := h.repo.Draft(ctx, everyone, run.ImportID)
 	if err != nil || stored.Revision != 1 || stored.Draft.Title != "TEST 1" || stored.Status != "needs_review" || stored.Reprocessed {
 		t.Fatalf("draft %+v err %v", stored, err)
 	}
-	current, err := h.repo.Get(ctx, run.ImportID)
+	current, err := h.repo.Get(ctx, everyone, run.ImportID)
 	if err != nil || current.DraftRevision != 1 || current.Run == nil || current.Run.Status != "succeeded" || current.Run.Stage != "ready" {
 		t.Fatalf("import %+v err %v", current, err)
 	}
-	listed, err := h.repo.List(ctx, domain.Filter{Search: current.Title})
+	listed, err := h.repo.List(ctx, domain.Filter{Scope: everyone, Search: current.Title})
 	if err != nil || len(listed.Items) == 0 || listed.Items[0].Run == nil {
 		t.Fatalf("history without progress: %+v %v", listed.Items, err)
 	}
-	if _, err := h.repo.Draft(ctx, h.create(t).ID); !errors.Is(err, domain.ErrNoDraft) {
+	if _, err := h.repo.Draft(ctx, everyone, h.create(t).ID); !errors.Is(err, domain.ErrNoDraft) {
 		t.Fatalf("unprocessed import: %v", err)
 	}
-	if _, err := h.repo.Draft(ctx, uuid.NewString()); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := h.repo.Draft(ctx, everyone, uuid.NewString()); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("missing import: %v", err)
 	}
 }
@@ -82,7 +82,7 @@ func TestReprocessingReplacesAnUntouchedDraftButNeverTeacherEdits(t *testing.T) 
 	ctx := context.Background()
 	run := h.processed(t, "first")
 	h.reprocess(t, run.ImportID, "second")
-	untouched, err := h.repo.Draft(ctx, run.ImportID)
+	untouched, err := h.repo.Draft(ctx, everyone, run.ImportID)
 	if err != nil || untouched.Draft.Title != "second" || untouched.Revision != 2 || untouched.Reprocessed {
 		t.Fatalf("untouched draft %+v err %v", untouched, err)
 	}
@@ -93,7 +93,7 @@ func TestReprocessingReplacesAnUntouchedDraftButNeverTeacherEdits(t *testing.T) 
 		t.Fatalf("save %+v err %v", saved, err)
 	}
 	h.reprocess(t, run.ImportID, "third")
-	kept, err := h.repo.Draft(ctx, run.ImportID)
+	kept, err := h.repo.Draft(ctx, everyone, run.ImportID)
 	if err != nil || kept.Draft.Title != "teacher title" || kept.Revision != 3 || !kept.Reprocessed {
 		t.Fatalf("teacher edit overwritten: %+v err %v", kept, err)
 	}
@@ -113,14 +113,14 @@ func TestStaleSavesAndClosedImportsAreRejected(t *testing.T) {
 	h := setup(t)
 	ctx := context.Background()
 	run := h.processed(t, "TEST 2")
-	stored, err := h.repo.Draft(ctx, run.ImportID)
+	stored, err := h.repo.Draft(ctx, everyone, run.ImportID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := h.repo.SaveDraft(ctx, domain.SaveDraft{ImportID: run.ImportID, ExpectedRevision: stored.Revision + 1, Draft: stored.Draft, Actor: h.actor}); !errors.Is(err, domain.ErrStale) {
 		t.Fatalf("stale save: %v", err)
 	}
-	current, err := h.repo.Get(ctx, run.ImportID)
+	current, err := h.repo.Get(ctx, everyone, run.ImportID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,14 +145,14 @@ func TestACommitIsRecordedOnceAndClosesTheImport(t *testing.T) {
 	if err := h.repo.RecordCommit(ctx, record); err != nil {
 		t.Fatal(err)
 	}
-	stored, err := h.repo.Commit(ctx, run.ImportID)
+	stored, err := h.repo.Commit(ctx, everyone, run.ImportID)
 	if err != nil || stored.RequestID != record.RequestID || stored.TestID != nil {
 		t.Fatalf("commit %+v err %v", stored, err)
 	}
 	if err := h.repo.RecordCommit(ctx, record); !errors.Is(err, domain.ErrConflict) {
 		t.Fatalf("second commit: %v", err)
 	}
-	current, err := h.repo.Get(ctx, run.ImportID)
+	current, err := h.repo.Get(ctx, everyone, run.ImportID)
 	if err != nil || current.Status != "committed" {
 		t.Fatalf("import %+v err %v", current, err)
 	}
@@ -183,7 +183,7 @@ func TestTheLatestRunCarriesItsStartAndTheTeachersKeyPaper(t *testing.T) {
 	if _, err := h.repo.Schedule(ctx, domain.Schedule{ImportID: v.ID, RequestID: uuid.NewString(), PipelineVersion: uuid.NewString(), ExpectedRevision: receipt.Import.Revision, SourceRevision: receipt.Import.SourceRevision, Actor: h.actor, MaxAttempts: 3, Profile: domain.RecognitionProfile{KeyPaper: 2}}); err != nil {
 		t.Fatal(err)
 	}
-	current, err := h.repo.Get(ctx, v.ID)
+	current, err := h.repo.Get(ctx, everyone, v.ID)
 	if err != nil || current.Run == nil || current.Run.Profile.KeyPaper != 2 || current.Run.CreatedAt.IsZero() || current.Run.CreatedAt.After(current.Run.UpdatedAt) {
 		t.Fatalf("run %+v err %v", current.Run, err)
 	}
@@ -197,11 +197,11 @@ func TestAFailedReprocessLeavesTheDraftUnderReview(t *testing.T) {
 	if err := h.repo.Fail(ctx, domain.RunFailure{Claim: claimed.Claim(), Code: "CONVERSION_FAILED"}); err != nil {
 		t.Fatal(err)
 	}
-	current, err := h.repo.Get(ctx, run.ImportID)
+	current, err := h.repo.Get(ctx, everyone, run.ImportID)
 	if err != nil || current.Status != "needs_review" || current.Run == nil || current.Run.Status != "failed" || current.Run.ErrorCode == nil || *current.Run.ErrorCode != "CONVERSION_FAILED" {
 		t.Fatalf("import %+v run %+v err %v", current, current.Run, err)
 	}
-	stored, err := h.repo.Draft(ctx, run.ImportID)
+	stored, err := h.repo.Draft(ctx, everyone, run.ImportID)
 	if err != nil || stored.Draft.Title != "kept" {
 		t.Fatalf("draft %+v err %v", stored, err)
 	}
@@ -219,7 +219,7 @@ func TestAFirstRunThatFailsFailsTheImport(t *testing.T) {
 	if err := h.repo.Fail(ctx, domain.RunFailure{Claim: claimed.Claim(), Code: "SOURCE_INVALID"}); err != nil {
 		t.Fatal(err)
 	}
-	current, err := h.repo.Get(ctx, claimed.ImportID)
+	current, err := h.repo.Get(ctx, everyone, claimed.ImportID)
 	if err != nil || current.Status != "failed" {
 		t.Fatalf("import %+v err %v", current, err)
 	}
@@ -230,7 +230,7 @@ func TestCancellingAReprocessStopsItAndCancellingAgainClosesTheImport(t *testing
 	ctx := context.Background()
 	run := h.processed(t, "kept")
 	h.startReprocess(t, run.ImportID)
-	current, err := h.repo.Get(ctx, run.ImportID)
+	current, err := h.repo.Get(ctx, everyone, run.ImportID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestCancellingAReprocessStopsItAndCancellingAgainClosesTheImport(t *testing
 	if err != nil || stopped.Status != "needs_review" || stopped.Run == nil || stopped.Run.Status != "cancelled" {
 		t.Fatalf("stopped %+v err %v", stopped, err)
 	}
-	if stored, err := h.repo.Draft(ctx, run.ImportID); err != nil || stored.Draft.Title != "kept" {
+	if stored, err := h.repo.Draft(ctx, everyone, run.ImportID); err != nil || stored.Draft.Title != "kept" {
 		t.Fatalf("draft %+v err %v", stored, err)
 	}
 	closed, err := h.repo.Cancel(ctx, domain.Cancel{ImportID: run.ImportID, ExpectedRevision: stopped.Revision, Actor: h.actor})

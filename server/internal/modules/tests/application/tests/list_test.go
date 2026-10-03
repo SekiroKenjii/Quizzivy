@@ -54,7 +54,7 @@ func TestTestsAreFilteredByTheirQuestionsTags(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	found, _, err := store.List(ctx, domain.ListInput{Tags: []string{tag}})
+	found, _, err := store.List(ctx, domain.ListInput{Tags: []string{tag}, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestTestsAreFilteredByTheirQuestionsTags(t *testing.T) {
 	}
 
 	// The rail must not offer a chip that returns nothing.
-	tagList, err := store.Tags(ctx, domain.ListInput{})
+	tagList, err := store.Tags(ctx, domain.ListInput{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}

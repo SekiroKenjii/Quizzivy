@@ -23,13 +23,13 @@ export interface OutlineDraft {
 export function getTest(id: string, signal?: AbortSignal) {
   return api(
     "get",
-    "/admin/tests/{id}",
+    "/teacher/tests/{id}",
     signal ? { path: { id }, signal } : { path: { id } },
   );
 }
 
 export function saveOutline(id: string, draft: OutlineDraft) {
-  return api("patch", "/admin/tests/{id}", { path: { id }, body: draft });
+  return api("patch", "/teacher/tests/{id}", { path: { id }, body: draft });
 }
 
 export interface ListTestsParams {
@@ -48,19 +48,19 @@ export function listTests(params: ListTestsParams = {}, signal?: AbortSignal) {
   if (params.q) query["q"] = params.q;
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
-  return api("get", "/admin/tests", signal ? { query, signal } : { query });
+  return api("get", "/teacher/tests", signal ? { query, signal } : { query });
 }
 
 export function createTest(title: string) {
-  return api("post", "/admin/tests", { body: { title } });
+  return api("post", "/teacher/tests", { body: { title } });
 }
 
 export function duplicateTest(id: string) {
-  return api("post", "/admin/tests/{id}/duplicate", { path: { id } });
+  return api("post", "/teacher/tests/{id}/duplicate", { path: { id } });
 }
 
 export function archiveTest(test: Test) {
-  return api("patch", "/admin/tests/{id}", {
+  return api("patch", "/teacher/tests/{id}", {
     path: { id: test.id },
     body: { expectedUpdatedAt: test.updatedAt, status: "archived" },
   });
@@ -68,7 +68,7 @@ export function archiveTest(test: Test) {
 
 /** A-03a: back as a draft. Publishing again is the publish endpoint's job, not this one's. */
 export function restoreTest(test: Test) {
-  return api("patch", "/admin/tests/{id}", {
+  return api("patch", "/teacher/tests/{id}", {
     path: { id: test.id },
     body: { expectedUpdatedAt: test.updatedAt, status: "draft" },
   });
@@ -77,7 +77,7 @@ export function restoreTest(test: Test) {
 export function listVersions(id: string, signal?: AbortSignal) {
   return api(
     "get",
-    "/admin/tests/{id}/versions",
+    "/teacher/tests/{id}/versions",
     signal ? { path: { id }, signal } : { path: { id } },
   );
 }
@@ -86,13 +86,13 @@ export function previewTest(id: string, version?: number, signal?: AbortSignal) 
   const query = version === undefined ? {} : { version };
   return api(
     "get",
-    "/admin/tests/{id}/preview",
+    "/teacher/tests/{id}/preview",
     signal ? { path: { id }, query, signal } : { path: { id }, query },
   );
 }
 
 export function publishTest(id: string) {
-  return api("post", "/admin/tests/{id}/publish", { path: { id } });
+  return api("post", "/teacher/tests/{id}/publish", { path: { id } });
 }
 
 export function toOutlineDraft(test: Test): Omit<OutlineDraft, "expectedUpdatedAt"> {
@@ -109,24 +109,24 @@ export function toOutlineDraft(test: Test): Omit<OutlineDraft, "expectedUpdatedA
 }
 
 export function deleteTest(id: string) {
-  return api("delete", "/admin/tests/{id}", { path: { id } });
+  return api("delete", "/teacher/tests/{id}", { path: { id } });
 }
 
 export function deleteTestVersion(id: string, version: number) {
-  return api("delete", "/admin/tests/{id}/versions/{version}", {
+  return api("delete", "/teacher/tests/{id}/versions/{version}", {
     path: { id, version },
   });
 }
 
 export function setCurrentTestVersion(test: Test, version: number) {
-  return api("post", "/admin/tests/{id}/versions/{version}/current", {
+  return api("post", "/teacher/tests/{id}/versions/{version}/current", {
     path: { id: test.id, version },
     body: { expectedUpdatedAt: test.updatedAt },
   });
 }
 
 export function createDraftFromTestVersion(test: Test, version: number) {
-  return api("post", "/admin/tests/{id}/versions/{version}/draft", {
+  return api("post", "/teacher/tests/{id}/versions/{version}/draft", {
     path: { id: test.id, version },
     body: { expectedUpdatedAt: test.updatedAt },
   });
@@ -154,7 +154,7 @@ export function saveMixedOutline(
   title: string,
   sections: MixedOutlineSection[],
 ) {
-  return api("patch", "/admin/tests/{id}", {
+  return api("patch", "/teacher/tests/{id}", {
     path: { id },
     body: {
       expectedUpdatedAt,

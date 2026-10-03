@@ -68,15 +68,15 @@ const question = {
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   server.use(
-    http.get(`${BASE}/admin/tests/:id`, () =>
-      contractJson("/admin/tests/{id}", "get", 200, test),
+    http.get(`${BASE}/teacher/tests/:id`, () =>
+      contractJson("/teacher/tests/{id}", "get", 200, test),
     ),
-    http.get(`${BASE}/admin/questions/:id`, () =>
-      contractJson("/admin/questions/{id}", "get", 200, question),
+    http.get(`${BASE}/teacher/questions/:id`, () =>
+      contractJson("/teacher/questions/{id}", "get", 200, question),
     ),
-    http.patch(`${BASE}/admin/tests/:id`, async () => {
+    http.patch(`${BASE}/teacher/tests/:id`, async () => {
       await new Promise((resolve) => setTimeout(resolve, 60_000));
-      return contractJson("/admin/tests/{id}", "patch", 200, test);
+      return contractJson("/teacher/tests/{id}", "patch", 200, test);
     }),
   );
 });

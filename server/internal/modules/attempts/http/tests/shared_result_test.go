@@ -37,7 +37,7 @@ func TestSharedResultAuthorizesAssetsAndCarriesOnlyReleasedTranscripts(t *testin
 		transport := attemptshttp.NewAttempts(app, media, nil, nil)
 		var failure error
 		handler := httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
-			return httpx.Principal{UserID: student.String(), Role: "student"}, nil
+			return httpx.Principal{UserID: student.String()}, nil
 		})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			response, err := transport.GetAttemptResult(r.Context(), openapi.GetAttemptResultRequestObject{Id: attempt})
 			if err != nil {

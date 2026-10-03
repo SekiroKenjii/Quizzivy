@@ -20,7 +20,7 @@ func (f fakeDB) Ping(context.Context) error { return f.err }
 func newTestRouter(t *testing.T, database router.DB) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := router.New(router.Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
+	h, err := router.New(router.Deps{Principals: newFakePrincipals(), DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
 	}
@@ -114,11 +114,11 @@ func TestEveryServiceRateLimitNamesARouteTheRouterServes(t *testing.T) {
 
 func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/admin/dashboard", nil)
+	req := httptest.NewRequest(http.MethodGet, "/teacher/dashboard", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	rec := httptest.NewRecorder()
@@ -156,15 +156,15 @@ func TestRateLimitAppliesPerRouteAndEmitsRetryAfter(t *testing.T) {
 		return rec
 	}
 
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= 120; i++ {
 		if rec := send(); rec.Code == http.StatusTooManyRequests {
-			t.Fatalf("request %d was limited; §6.5 allows 10 per minute", i)
+			t.Fatalf("request %d was limited; the budget is 120 a minute", i)
 		}
 	}
 
 	rec := send()
 	if rec.Code != http.StatusTooManyRequests {
-		t.Fatalf("11th request: status = %d, want 429", rec.Code)
+		t.Fatalf("121st request: status = %d, want 429", rec.Code)
 	}
 	if rec.Header().Get("Retry-After") == "" {
 		t.Error("§6.5 requires Retry-After on a 429")
@@ -174,7 +174,7 @@ func TestRateLimitAppliesPerRouteAndEmitsRetryAfter(t *testing.T) {
 func TestRateLimitKeysOnTheRouteTemplateNotTheURL(t *testing.T) {
 	handler := newTestRouter(t, fakeDB{})
 	for i := 0; i < 30; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/admin/tests", nil)
+		req := httptest.NewRequest(http.MethodGet, "/teacher/tests", nil)
 		req.RemoteAddr = "203.0.113.9:5555"
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
@@ -187,7 +187,7 @@ func TestRateLimitKeysOnTheRouteTemplateNotTheURL(t *testing.T) {
 func TestSeparateClientsGetSeparateBudgets(t *testing.T) {
 	handler := newTestRouter(t, fakeDB{})
 	exhaust := func(ip string) {
-		for i := 0; i < 11; i++ {
+		for i := 0; i < 121; i++ {
 			req := httptest.NewRequest(http.MethodPost, "/join/preview", nil)
 			req.RemoteAddr = ip + ":1111"
 			handler.ServeHTTP(httptest.NewRecorder(), req)

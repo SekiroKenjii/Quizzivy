@@ -9,6 +9,7 @@ import (
 	"os"
 	questionscommand "quizzivy/internal/modules/questions/application/command"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -47,7 +48,7 @@ func makeAuthor(t *testing.T, pool *pgxpool.Pool) string {
 
 	var id string
 	if err := pool.QueryRow(context.Background(),
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		email).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
@@ -66,10 +67,12 @@ func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	return application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 }
 
-func req(author string) domain.Request { return domain.Request{ActorID: author} }
+func req(author string) domain.Request {
+	return domain.Request{ActorID: author, Scope: access.Scope{UserID: author}}
+}
 
 func reqFor(id, author string) domain.Request {
-	return domain.Request{ID: id, ActorID: author}
+	return domain.Request{ID: id, ActorID: author, Scope: access.Scope{UserID: author}}
 }
 
 // newQuestion adds a bank question the outline can reference.
@@ -87,3 +90,7 @@ func newQuestion(t *testing.T, pool *pgxpool.Pool, author, prompt string) string
 	}
 	return q.ID
 }
+
+var everyone = access.Scope{All: true}
+
+var bothKeys = access.NewSet(access.ContentQuestionsWrite, access.ContentTestsWrite)

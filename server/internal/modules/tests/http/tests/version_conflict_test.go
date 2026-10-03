@@ -59,13 +59,13 @@ func TestVersionAndLegacyOutlineConflictsAreActionableHTTPResponses(t *testing.T
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			handler := httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
-				return httpx.Principal{UserID: uuid.NewString(), Role: "admin"}, nil
+				return httpx.Principal{UserID: uuid.NewString()}, nil
 			})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if err := tc.call(r.Context(), w); err != nil {
 					t.Fatal(err)
 				}
 			}))
-			req := httptest.NewRequest(http.MethodPost, "/admin/tests", nil)
+			req := httptest.NewRequest(http.MethodPost, "/teacher/tests", nil)
 			req.Header.Set("Authorization", "Bearer synthetic")
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, req)

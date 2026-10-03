@@ -41,37 +41,37 @@ func TestRichOptionsSurviveAuthoringVersionRestoreAndStudentDelivery(t *testing.
 		"options": []any{map[string]any{"text": "think", "content": richWord(), "isCorrect": true},
 			map[string]any{"text": "other", "isCorrect": false}},
 	}
-	question := teacher.must(http.StatusCreated, http.MethodPost, "/admin/questions", payload)
+	question := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions", payload)
 	assertRichWord(t, question)
-	assertRichWord(t, teacher.must(http.StatusOK, http.MethodGet, "/admin/questions/"+id(question), nil))
-	duplicate := teacher.must(http.StatusCreated, http.MethodPost, "/admin/questions/"+id(question)+"/duplicate", nil)
+	assertRichWord(t, teacher.must(http.StatusOK, http.MethodGet, "/teacher/questions/"+id(question), nil))
+	duplicate := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions/"+id(question)+"/duplicate", nil)
 	assertRichWord(t, duplicate)
 	if firstOption(t, duplicate)["id"] == firstOption(t, question)["id"] {
 		t.Fatal("duplicate reuses an option identity")
 	}
-	test := teacher.must(http.StatusCreated, http.MethodPost, "/admin/tests", map[string]any{"title": "Rich option flow " + nonce(t)})
-	teacher.must(http.StatusOK, http.MethodPatch, "/admin/tests/"+id(test), map[string]any{
+	test := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/tests", map[string]any{"title": "Rich option flow " + nonce(t)})
+	teacher.must(http.StatusOK, http.MethodPatch, "/teacher/tests/"+id(test), map[string]any{
 		"expectedUpdatedAt": test["updatedAt"],
 		"sections":          []any{map[string]any{"title": "Pronunciation", "questionIds": []string{id(question)}}},
 	})
-	version := teacher.must(http.StatusCreated, http.MethodPost, "/admin/tests/"+id(test)+"/publish", nil)
+	version := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/tests/"+id(test)+"/publish", nil)
 	options := payload["options"].([]any)
 	options[0].(map[string]any)["content"] = nil
 	options[0].(map[string]any)["text"] = "changed bank text"
-	teacher.must(http.StatusOK, http.MethodPatch, "/admin/questions/"+id(question), payload)
-	preview := teacher.must(http.StatusOK, http.MethodGet, "/admin/tests/"+id(test)+"/preview?version=1", nil)
+	teacher.must(http.StatusOK, http.MethodPatch, "/teacher/questions/"+id(question), payload)
+	preview := teacher.must(http.StatusOK, http.MethodGet, "/teacher/tests/"+id(test)+"/preview?version=1", nil)
 	assertRichWord(t, preview["questions"].([]any)[0].(map[string]any))
-	current := teacher.must(http.StatusOK, http.MethodGet, "/admin/tests/"+id(test), nil)
-	restored := teacher.must(http.StatusOK, http.MethodPost, "/admin/tests/"+id(test)+"/versions/1/draft", map[string]any{
+	current := teacher.must(http.StatusOK, http.MethodGet, "/teacher/tests/"+id(test), nil)
+	restored := teacher.must(http.StatusOK, http.MethodPost, "/teacher/tests/"+id(test)+"/versions/1/draft", map[string]any{
 		"expectedUpdatedAt": current["updatedAt"],
 	})
 	copiedID := restored["sections"].([]any)[0].(map[string]any)["questionIds"].([]any)[0].(string)
 	if copiedID == id(question) {
 		t.Fatal("restoration reused the bank question")
 	}
-	assertRichWord(t, teacher.must(http.StatusOK, http.MethodGet, "/admin/questions/"+copiedID, nil))
+	assertRichWord(t, teacher.must(http.StatusOK, http.MethodGet, "/teacher/questions/"+copiedID, nil))
 	classID := teacher.class("Rich class " + nonce(t))
-	created := teacher.must(http.StatusCreated, http.MethodPost, "/admin/students", map[string]any{
+	created := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "rich-student-" + nonce(t) + "@example.com", "fullName": "Học viên mẫu", "classIds": []string{classID},
 	})
 	student := w.browser()
@@ -90,7 +90,7 @@ func TestRichOptionsSurviveAuthoringVersionRestoreAndStudentDelivery(t *testing.
 	result := student.must(http.StatusOK, http.MethodGet, "/app/attempts/"+attemptID+"/result", nil)
 	assertRichWord(t, result["questions"].([]any)[0].(map[string]any))
 	assertNoAnswerFields(t, result)
-	review := teacher.must(http.StatusOK, http.MethodGet, "/admin/attempts/"+attemptID, nil)
+	review := teacher.must(http.StatusOK, http.MethodGet, "/teacher/attempts/"+attemptID, nil)
 	assertRichWord(t, review["questions"].([]any)[0].(map[string]any))
 }
 
@@ -121,7 +121,7 @@ func TestRichOptionRequestsRejectHiddenKeysAndDuplicateProperties(t *testing.T) 
 		`{"format":"semantic_v1","format":"semantic_v1","blocks":[{"type":"paragraph","content":[{"type":"text","text":"think","marks":[]}]}]}`,
 		`{"format":"semantic_v1","blocks":[{"type":"paragraph","content":[{"type":"text","text":"think","marks":[],"isCorrect":true}]}]}`,
 	} {
-		teacher.must(http.StatusBadRequest, http.MethodPost, "/admin/questions", map[string]any{
+		teacher.must(http.StatusBadRequest, http.MethodPost, "/teacher/questions", map[string]any{
 			"type": "single_choice", "prompt": "Invalid rich option", "points": 1,
 			"options": []any{map[string]any{"text": "think", "content": json.RawMessage(raw), "isCorrect": true},
 				map[string]any{"text": "other", "isCorrect": false}},
@@ -137,22 +137,22 @@ func TestLegacyEditsCannotSilentlyEraseOptionFormatting(t *testing.T) {
 	option := map[string]any{"text": "think", "content": richWord(), "isCorrect": true}
 	payload := map[string]any{"type": "single_choice", "prompt": "Original", "points": 1,
 		"options": []any{option, map[string]any{"text": "other", "isCorrect": false}}}
-	question := teacher.must(http.StatusCreated, http.MethodPost, "/admin/questions", payload)
+	question := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions", payload)
 	option["id"] = firstOption(t, question)["id"]
 	delete(option, "content")
-	question = teacher.must(http.StatusOK, http.MethodPatch, "/admin/questions/"+id(question), payload)
+	question = teacher.must(http.StatusOK, http.MethodPatch, "/teacher/questions/"+id(question), payload)
 	assertRichWord(t, question)
-	teacher.must(http.StatusBadRequest, http.MethodPatch, "/admin/questions/"+id(question), payload)
+	teacher.must(http.StatusBadRequest, http.MethodPatch, "/teacher/questions/"+id(question), payload)
 	option["id"] = firstOption(t, question)["id"]
 	option["text"], payload["prompt"] = "lost marks", "Should roll back"
-	teacher.must(http.StatusBadRequest, http.MethodPatch, "/admin/questions/"+id(question), payload)
-	unchanged := teacher.must(http.StatusOK, http.MethodGet, "/admin/questions/"+id(question), nil)
+	teacher.must(http.StatusBadRequest, http.MethodPatch, "/teacher/questions/"+id(question), payload)
+	unchanged := teacher.must(http.StatusOK, http.MethodGet, "/teacher/questions/"+id(question), nil)
 	assertRichWord(t, unchanged)
 	if unchanged["prompt"] != "Original" {
 		t.Fatal("failed update changed the question")
 	}
 	option["content"] = nil
-	cleared := teacher.must(http.StatusOK, http.MethodPatch, "/admin/questions/"+id(question), payload)
+	cleared := teacher.must(http.StatusOK, http.MethodPatch, "/teacher/questions/"+id(question), payload)
 	if firstOption(t, cleared)["content"] != nil || firstOption(t, cleared)["text"] != "lost marks" {
 		t.Fatal("explicit removal did not produce the requested plain option")
 	}

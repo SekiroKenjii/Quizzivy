@@ -45,9 +45,20 @@ function result(): AttemptResult {
 }
 
 function review(): AttemptReview {
+  const { id, email, fullName, role, hasPassword, mustChangePassword, createdAt } =
+    studentUser;
   return {
     attempt: { ...attempt, score: { earned: 1, total: 2, pendingManual: 1 } },
-    student: { ...studentUser, linkedProviders: [] },
+    student: {
+      id,
+      email,
+      fullName,
+      role,
+      hasPassword,
+      linkedProviders: [],
+      mustChangePassword,
+      createdAt,
+    },
     testTitle: "Đọc hiểu và nghe theo nhóm",
     maxAttempts: 1,
     teacherNote: null,
@@ -96,11 +107,11 @@ async function setup(page: Page, teacher: boolean) {
   await stubApi(page, {
     ...sessionAs(teacher ? adminUser : studentUser),
     [`GET /app/attempts/${attemptId}/result`]: { body: result() },
-    [`GET /admin/attempts/${attemptId}`]: { body: paper },
-    [`GET /admin/attempts/${attemptId}/events`]: {
+    [`GET /teacher/attempts/${attemptId}`]: { body: paper },
+    [`GET /teacher/attempts/${attemptId}/events`]: {
       body: { startedAt: attempt.startedAt, events: [], summary: paper.integrity },
     },
-    [`GET /admin/assignments/${attemptId}/answers`]: {
+    [`GET /teacher/assignments/${attemptId}/answers`]: {
       body: {
         question: paper.questions[1],
         questionNumber: 2,

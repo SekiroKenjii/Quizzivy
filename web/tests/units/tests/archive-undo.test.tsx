@@ -41,8 +41,8 @@ beforeEach(() => {
   archived = false;
   status = {};
   server.use(
-    http.get(`${BASE}/admin/tests`, () =>
-      contractJson("/admin/tests", "get", 200, {
+    http.get(`${BASE}/teacher/tests`, () =>
+      contractJson("/teacher/tests", "get", 200, {
         items: [
           archived
             ? test({ status: "archived", updatedAt: ARCHIVED_AT })
@@ -60,11 +60,11 @@ beforeEach(() => {
         tags: [],
       }),
     ),
-    http.patch(`${BASE}/admin/tests/:id`, async ({ request }) => {
+    http.patch(`${BASE}/teacher/tests/:id`, async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       patches.push(body);
       archived = body["status"] === "archived";
-      return contractJson("/admin/tests/{id}", "patch", 200, {
+      return contractJson("/teacher/tests/{id}", "patch", 200, {
         ...test({ status: body["status"], updatedAt: ARCHIVED_AT }),
       });
     }),

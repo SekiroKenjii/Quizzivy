@@ -4,6 +4,7 @@ package domain
 
 import (
 	"errors"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/paging"
 	"time"
@@ -78,9 +79,13 @@ type Receipt struct {
 	Import Import
 	Source Source
 }
+
+// Filter selects a page of the imports Scope created, or every one under
+// scope.all; a zero Scope matches nothing.
 type Filter struct {
 	Search, Status string
 	Page, Limit    int
+	Scope          access.Scope
 }
 type List struct {
 	Items []Import

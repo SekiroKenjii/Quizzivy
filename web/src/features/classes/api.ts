@@ -21,7 +21,7 @@ export function fetchClasses(params: ListClassesParams = {}, signal?: AbortSigna
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   if (params.status) query["status"] = params.status;
-  return api("get", "/admin/classes", signal ? { query, signal } : { query });
+  return api("get", "/teacher/classes", signal ? { query, signal } : { query });
 }
 
 export function createClass(body: {
@@ -29,7 +29,7 @@ export function createClass(body: {
   description: string | null;
   selfJoinEnabled: boolean;
 }) {
-  return api("post", "/admin/classes", { body });
+  return api("post", "/teacher/classes", { body });
 }
 
 /** G-08's "Đang mở" badge: live, self-join on, and a code that still admits. */
@@ -47,7 +47,7 @@ export function isJoinOpen(klass: Class, now = Date.now()): boolean {
 export function fetchClass(id: string, signal?: AbortSignal): Promise<Class> {
   return api(
     "get",
-    "/admin/classes/{id}",
+    "/teacher/classes/{id}",
     signal ? { path: { id }, signal } : { path: { id } },
   );
 }
@@ -63,7 +63,7 @@ export function fetchMembers(
   if (params.limit) query["limit"] = params.limit;
   return api(
     "get",
-    "/admin/classes/{id}/members",
+    "/teacher/classes/{id}/members",
     signal ? { path: { id }, query, signal } : { path: { id }, query },
   );
 }
@@ -76,7 +76,7 @@ export interface ClassEdit {
 }
 
 export function updateClass(id: string, body: ClassEdit) {
-  return api("patch", "/admin/classes/{id}", { path: { id }, body });
+  return api("patch", "/teacher/classes/{id}", { path: { id }, body });
 }
 
 /** G-06's expiry and use cap; an absent field means the server's own default, never "unlimited". */
@@ -86,21 +86,24 @@ export type JoinCodeOptions = NonNullable<
 
 /** The one call that ever returns a plaintext code (§13.3), never cached or stored. */
 export function rotateJoinCode(id: string, options: JoinCodeOptions = {}) {
-  return api("post", "/admin/classes/{id}/join-code", { path: { id }, body: options });
+  return api("post", "/teacher/classes/{id}/join-code", {
+    path: { id },
+    body: options,
+  });
 }
 
 export function revokeJoinCode(id: string) {
-  return api("delete", "/admin/classes/{id}/join-code", { path: { id } });
+  return api("delete", "/teacher/classes/{id}/join-code", { path: { id } });
 }
 
 export function removeMember(id: string, userId: string) {
-  return api("delete", "/admin/classes/{id}/members/{userId}", {
+  return api("delete", "/teacher/classes/{id}/members/{userId}", {
     path: { id, userId },
   });
 }
 
 export function addMember(classId: string, userId: string) {
-  return api("post", "/admin/classes/{id}/members", {
+  return api("post", "/teacher/classes/{id}/members", {
     path: { id: classId },
     body: { userId },
   });
@@ -112,5 +115,5 @@ export function fetchMyClasses(signal?: AbortSignal) {
 }
 
 export function deleteClass(id: string) {
-  return api("delete", "/admin/classes/{id}", { path: { id } });
+  return api("delete", "/teacher/classes/{id}", { path: { id } });
 }

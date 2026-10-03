@@ -17,5 +17,5 @@ func attempts(dbx db.Context) *attemptsapp.Application {
 }
 
 func attemptsTransport(app *attemptsapp.Application, media *mediaapp.Application, identity *identityapp.Application, logger *slog.Logger) attemptshttp.Attempts {
-	return attemptshttp.NewAttempts(app, adapters.AttemptsMedia(media), identity.Queries.GetStudent, logger)
+	return attemptshttp.NewAttempts(app, adapters.AttemptsMedia(media), identity.Queries.StudentAccount, logger)
 }

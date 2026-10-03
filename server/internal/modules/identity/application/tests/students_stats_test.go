@@ -14,6 +14,7 @@ import (
 	"quizzivy/internal/modules/identity/application"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/modules/identity/repositories"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/stats"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,6 +31,8 @@ type world struct {
 	points  string
 }
 
+var everyone = access.Scope{All: true}
+
 func seedWorld(t *testing.T, pool *pgxpool.Pool, totalPoints string) world {
 	t.Helper()
 	ctx := context.Background()
@@ -44,13 +47,13 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, totalPoints string) world {
 		}
 	}
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'GV','admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'GV',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"stat-a-"+id+"@example.com").Scan(&w.admin))
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học Viên Thống Kê','student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Học Viên Thống Kê',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"stat-s-"+id+"@example.com").Scan(&w.student))
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`, "Lop "+id).Scan(&w.class))
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`, "Lop "+id, w.admin).Scan(&w.class))
 	must(func() error {
 		_, err := pool.Exec(ctx,
 			`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
@@ -147,7 +150,7 @@ func (w world) attempt(t *testing.T, pool *pgxpool.Pool, a attempt) string {
 
 func statsOf(t *testing.T, store *application.Application, id string) stats.Student {
 	t.Helper()
-	got, err := store.Queries.GetStudent.Handle(context.Background(), query.GetStudent{ID: id})
+	got, err := store.Queries.GetStudent.Handle(context.Background(), query.GetStudent{Scope: everyone, ID: id})
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -292,7 +295,7 @@ func TestTheRosterAndFlagsComeBackWithTheRow(t *testing.T) {
 	a := w.assignment(t, pool)
 	w.attempt(t, pool, attempt{assignment: a, no: 1, status: "graded", earned: p("5.00"), total: p("10.00"), flagged: true})
 
-	got, err := store.Queries.GetStudent.Handle(context.Background(), query.GetStudent{ID: w.student})
+	got, err := store.Queries.GetStudent.Handle(context.Background(), query.GetStudent{Scope: everyone, ID: w.student})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,10 +317,10 @@ func TestAnAdminIsNotAStudent(t *testing.T) {
 	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 
-	if _, err := store.Queries.GetStudent.Handle(context.Background(), query.GetStudent{ID: w.admin}); err == nil {
+	if _, err := store.Queries.GetStudent.Handle(context.Background(), query.GetStudent{Scope: everyone, ID: w.admin}); err == nil {
 		t.Fatal("Get returned an admin account")
 	}
-	if _, err := store.Commands.ResetStudentPassword.Handle(context.Background(), command.ResetStudentPassword{Request: domain.WriteRequest{ActorID: w.admin}, ID: w.admin}); err == nil {
+	if _, err := store.Commands.ResetStudentPassword.Handle(context.Background(), command.ResetStudentPassword{Request: domain.WriteRequest{ActorID: w.admin, All: true}, ID: w.admin}); err == nil {
 		t.Fatal("ResetPassword accepted an admin id: that is account takeover")
 	}
 }
@@ -332,8 +335,8 @@ func TestFacetsCountTheFilteredSetNotTheWholeTable(t *testing.T) {
 
 	var other string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role)
-		 VALUES ($1,'Nguyễn Văn Khác','student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1,'Nguyễn Văn Khác',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"stat-other-"+nonce(t)+"@example.com").Scan(&other); err != nil {
 		t.Fatal(err)
 	}
@@ -341,11 +344,11 @@ func TestFacetsCountTheFilteredSetNotTheWholeTable(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = $1::uuid`, other)
 	})
 
-	all, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{}})
+	all, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{Scope: everyone}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	narrowed, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{Query: "Thống Kê"}})
+	narrowed, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{Scope: everyone, Query: "Thống Kê"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,7 +359,7 @@ func TestFacetsCountTheFilteredSetNotTheWholeTable(t *testing.T) {
 		t.Errorf("unfiltered total %d is not larger than the filtered %d", all.Total, narrowed.Total)
 	}
 
-	byClass, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{ClassID: w.class}})
+	byClass, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{Scope: everyone, ClassID: w.class}})
 	if err != nil {
 		t.Fatal(err)
 	}

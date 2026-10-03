@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/paging"
 	"time"
@@ -23,11 +24,14 @@ type Users interface {
 	Rename(ctx context.Context, in RenameRecord) (User, error)
 }
 
-// Students is the teacher's roster of student accounts.
+// Students is the roster of student accounts, each teacher reaching the
+// students visibility.StudentIDs gives them, or every one under scope.all.
+// Another teacher's student answers exactly as a missing one does.
 type Students interface {
 	Delete(ctx context.Context, req WriteRequest, id string, now time.Time) error
 	List(ctx context.Context, q StudentQuery) ([]Student, paging.Page, error)
-	Get(ctx context.Context, id string) (Student, error)
+	Get(ctx context.Context, scope access.Scope, id string) (Student, error)
+	Account(ctx context.Context, id string) (Account, error)
 	Facets(ctx context.Context, q StudentQuery) (StudentFacets, error)
 	Create(ctx context.Context, req WriteRequest, in NewStudent) (Student, error)
 	Update(ctx context.Context, req WriteRequest, in StudentPatch) (Student, error)

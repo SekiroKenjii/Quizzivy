@@ -1,6 +1,8 @@
 package config_test
 
 import (
+	"bytes"
+	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
@@ -15,22 +17,24 @@ func loadWith(t *testing.T, env map[string]string) (config.Config, error) {
 	t.Helper()
 	base := map[string]string{
 		"IMPORT_S3_BUCKET": "", "IMPORT_WORK_DIR": "", "IMPORT_ACTOR_COUNT": "", "IMPORT_GLOBAL_COUNT": "", "IMPORT_SOURCES_PER_ITEM": "", "IMPORT_ACTOR_MIB": "", "IMPORT_GLOBAL_MIB": "", "IMPORT_LEGACY_DOC": "", "IMPORT_PROCESSING_ENABLED": "", "IMPORT_WORKER_WAKE_URL": "",
-		"DATABASE_URL":          "postgres://u:p@localhost:5432/db?sslmode=disable",
-		"JWT_SIGNING_KEY":       strings.Repeat("k", 64),
-		"CORS_ALLOWED_ORIGINS":  "http://localhost:5173",
-		"CLIENT_IP_HEADER":      "CF-Connecting-IP",
-		"S3_ENDPOINT":           "",
-		"S3_BUCKET":             "",
-		"S3_ACCESS_KEY_ID":      "",
-		"S3_SECRET_ACCESS_KEY":  "",
-		"S3_FORCE_PATH_STYLE":   "",
-		"SIGNED_URL_TTL":        "",
-		"GOOGLE_CLIENT_ID":      "",
-		"GOOGLE_CLIENT_SECRET":  "",
-		"GOOGLE_REDIRECT_URI":   "",
-		"VITE_GOOGLE_CLIENT_ID": "",
-		"DOCS_PUBLIC":           "",
-		"APP_ENV":               "",
+		"DATABASE_URL":           "postgres://u:p@localhost:5432/db?sslmode=disable",
+		"JWT_SIGNING_KEY":        strings.Repeat("k", 64),
+		"JOIN_CODE_KEY":          base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0xa1}, 32)),
+		"JOIN_CODE_KEY_PREVIOUS": "",
+		"CORS_ALLOWED_ORIGINS":   "http://localhost:5173",
+		"CLIENT_IP_HEADER":       "CF-Connecting-IP",
+		"S3_ENDPOINT":            "",
+		"S3_BUCKET":              "",
+		"S3_ACCESS_KEY_ID":       "",
+		"S3_SECRET_ACCESS_KEY":   "",
+		"S3_FORCE_PATH_STYLE":    "",
+		"SIGNED_URL_TTL":         "",
+		"GOOGLE_CLIENT_ID":       "",
+		"GOOGLE_CLIENT_SECRET":   "",
+		"GOOGLE_REDIRECT_URI":    "",
+		"VITE_GOOGLE_CLIENT_ID":  "",
+		"DOCS_PUBLIC":            "",
+		"APP_ENV":                "",
 	}
 	for k, v := range env {
 		base[k] = v
@@ -180,5 +184,51 @@ func TestTheDocsStayGatedUnlessOptedIn(t *testing.T) {
 	}
 	if _, err := loadWith(t, map[string]string{"DOCS_PUBLIC": "sometimes"}); err == nil {
 		t.Fatal("an unparseable DOCS_PUBLIC was accepted")
+	}
+}
+
+func TestTheJoinCodeKeyIsRequiredAsThirtyTwoBase64Bytes(t *testing.T) {
+	short := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 31))
+	long := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 33))
+	current := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0xa1}, 32))
+	urlSafe := base64.URLEncoding.EncodeToString(bytes.Repeat([]byte{0xfb}, 32))
+	for label, env := range map[string]map[string]string{
+		"a missing key":                   {"JOIN_CODE_KEY": ""},
+		"a short key":                     {"JOIN_CODE_KEY": short},
+		"a long key":                      {"JOIN_CODE_KEY": long},
+		"an undecodable key":              {"JOIN_CODE_KEY": "secret-value-not-base64!!"},
+		"a URL-safe key":                  {"JOIN_CODE_KEY": urlSafe},
+		"a short previous key":            {"JOIN_CODE_KEY_PREVIOUS": short},
+		"an undecodable previous key":     {"JOIN_CODE_KEY_PREVIOUS": "secret-value-not-base64!!"},
+		"a previous key equal to the key": {"JOIN_CODE_KEY_PREVIOUS": current},
+	} {
+		_, err := loadWith(t, env)
+		if err == nil {
+			t.Errorf("%s was accepted", label)
+			continue
+		}
+		for _, v := range env {
+			if v != "" && strings.Contains(err.Error(), v) {
+				t.Errorf("%s: the error repeats the value: %v", label, err)
+			}
+		}
+		if label == "a missing key" && !strings.Contains(err.Error(), "openssl rand -base64 32") {
+			t.Errorf("the missing-key error does not say how to make one: %v", err)
+		}
+	}
+}
+
+func TestTheJoinCodeKeysAreDecoded(t *testing.T) {
+	previous := bytes.Repeat([]byte{0xb2}, 32)
+	cfg, err := loadWith(t, map[string]string{"JOIN_CODE_KEY_PREVIOUS": " " + base64.StdEncoding.EncodeToString(previous) + "\n"})
+	if err != nil || !bytes.Equal(cfg.JoinCodeKeyPrevious, previous) {
+		t.Fatalf("a pasted key with a trailing newline: %x (%v)", cfg.JoinCodeKeyPrevious, err)
+	}
+	if !bytes.Equal(cfg.JoinCodeKey, bytes.Repeat([]byte{0xa1}, 32)) || !bytes.Equal(cfg.JoinCodeKeyPrevious, previous) {
+		t.Errorf("keys decoded as %x and %x", cfg.JoinCodeKey, cfg.JoinCodeKeyPrevious)
+	}
+	cfg, err = loadWith(t, nil)
+	if err != nil || cfg.JoinCodeKeyPrevious != nil {
+		t.Errorf("no previous key: %x (%v)", cfg.JoinCodeKeyPrevious, err)
 	}
 }

@@ -162,8 +162,8 @@ describe("resolving findings in the review", () => {
       ],
     );
     server.use(
-      http.get(`${BASE}/admin/imports/:id/review`, () =>
-        contractJson("/admin/imports/{id}/review", "get", 200, draft),
+      http.get(`${BASE}/teacher/imports/:id/review`, () =>
+        contractJson("/teacher/imports/{id}/review", "get", 200, draft),
       ),
     );
     await renderReview();

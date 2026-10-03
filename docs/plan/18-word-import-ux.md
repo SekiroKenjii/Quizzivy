@@ -39,7 +39,7 @@ and history clearly; the dedicated review route can collapse global navigation
 while preserving a labeled way back. A direct URL must resolve to a helpful state
 for processing, failed, cancelled, stale or committed imports.
 
-These entries follow `GET /admin/imports/capabilities`:
+These entries follow `GET /teacher/imports/capabilities`:
 
 - **Intake off.** The tests list shows neither entry, and every `/admin/imports`
   route explains that import is not enabled.

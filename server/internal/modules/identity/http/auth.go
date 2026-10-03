@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/access"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -38,7 +39,7 @@ func (h Identity) Login(ctx context.Context, request openapi.LoginRequestObject)
 		Body: openapi.AuthSuccess{
 			AccessToken: session.AccessToken,
 			ExpiresIn:   session.ExpiresIn,
-			User:        toAPIUser(session.User),
+			User:        toCurrentUser(session.User, session.Permissions),
 		},
 		Headers: openapi.Login200ResponseHeaders{
 			SetCookie: httpapi.Ptr(refreshCookie(session.RefreshToken, h.refreshTTL, h.cookieSecure).String()),
@@ -108,12 +109,20 @@ func (h Identity) Logout(ctx context.Context, _ openapi.LogoutRequestObject) (op
 	return clearedSession{clearRefreshCookie(h.cookieSecure), clearDocsCookie()}, nil
 }
 
-func toAPIUser(u domain.User) openapi.User {
-	providers := make([]openapi.UserLinkedProviders, 0, len(u.LinkedProviders))
+func toCurrentUser(u domain.User, permissions access.Set) openapi.CurrentUser {
+	providers := make([]openapi.CurrentUserLinkedProviders, 0, len(u.LinkedProviders))
 	for _, p := range u.LinkedProviders {
-		providers = append(providers, openapi.UserLinkedProviders(p))
+		providers = append(providers, openapi.CurrentUserLinkedProviders(p))
 	}
-	return openapi.User{
+	keys := make([]openapi.PermissionKey, 0, permissions.Len())
+	for _, k := range permissions.Keys() {
+		keys = append(keys, openapi.PermissionKey(k))
+	}
+	workspaces := make([]openapi.Workspace, 0, 3)
+	for _, w := range access.Workspaces(permissions) {
+		workspaces = append(workspaces, openapi.Workspace(w))
+	}
+	return openapi.CurrentUser{
 		Id:                 httpapi.ParseUUID(u.ID),
 		Email:              openapi_types.Email(u.Email),
 		FullName:           u.FullName,
@@ -122,5 +131,7 @@ func toAPIUser(u domain.User) openapi.User {
 		LinkedProviders:    providers,
 		MustChangePassword: u.MustChangePassword,
 		CreatedAt:          u.CreatedAt,
+		Permissions:        keys,
+		Workspaces:         workspaces,
 	}
 }

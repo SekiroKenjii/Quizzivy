@@ -10,7 +10,9 @@ import (
 	"quizzivy/internal/platform/httpx"
 )
 
-func (h Identity) DeleteStudent(ctx context.Context, request openapi.DeleteStudentRequestObject) (openapi.DeleteStudentResponseObject, error) {
+// DeleteUser implements DELETE /admin/users/{id}. In R2 its target is still
+// only a disabled student account (T-R2.13 keeps it strict).
+func (h Identity) DeleteUser(ctx context.Context, request openapi.DeleteUserRequestObject) (openapi.DeleteUserResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
@@ -21,13 +23,22 @@ func (h Identity) DeleteStudent(ctx context.Context, request openapi.DeleteStude
 	_, err := h.app.Commands.DeleteStudent.Handle(ctx, command.DeleteStudent{Request: req, ID: request.Id.String()})
 	switch {
 	case err == nil:
-		return openapi.DeleteStudent204Response{}, nil
+		return openapi.DeleteUser204Response{}, nil
 	case errors.Is(err, domain.ErrStudentNotFound):
-		return openapi.DeleteStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, "Không tìm thấy dữ liệu."))}, nil
+		return openapi.DeleteUser404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, "Không tìm thấy dữ liệu."))}, nil
 	case errors.Is(err, domain.ErrNotArchived):
-		return openapi.DeleteStudent409JSONResponse(httpapi.Error(ctx, openapi.RESOURCENOTARCHIVED, "Cần lưu trữ, vô hiệu hoá hoặc đóng mục này trước khi xoá vĩnh viễn.")), nil
+		return openapi.DeleteUser409JSONResponse(httpapi.Error(ctx, openapi.RESOURCENOTARCHIVED, "Cần lưu trữ, vô hiệu hoá hoặc đóng mục này trước khi xoá vĩnh viễn.")), nil
+	case errors.Is(err, domain.ErrForbidden):
+		return openapi.DeleteUser403JSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, msgStudentForbidden)), nil
 	case errors.Is(err, domain.ErrReferenced):
-		return openapi.DeleteStudent409JSONResponse(httpapi.Error(ctx, openapi.RESOURCEREFERENCED, "Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.")), nil
+		by := domain.ReferencedByOther
+		var refused *domain.ReferencedError
+		if errors.As(err, &refused) {
+			by = refused.By
+		}
+		return openapi.DeleteUser409JSONResponse(httpapi.ErrorWithDetails(ctx, openapi.RESOURCEREFERENCED,
+			"Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.",
+			map[string]interface{}{"referencedBy": openapi.ReferencedBy(by)})), nil
 	default:
 		return nil, err
 	}

@@ -4,10 +4,13 @@ import (
 	"context"
 	"quizzivy/internal/modules/classes/application/internal/support"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/access"
 )
 
+// Facets counts the classes Scope reaches that match Query.
 type Facets struct {
 	Query string
+	Scope access.Scope
 }
 
 type FacetsHandler struct {
@@ -15,5 +18,5 @@ type FacetsHandler struct {
 }
 
 func (s FacetsHandler) Handle(ctx context.Context, q Facets) (domain.Facets, error) {
-	return s.Repo.Facets(ctx, q.Query)
+	return s.Repo.Facets(ctx, q.Scope, q.Query)
 }

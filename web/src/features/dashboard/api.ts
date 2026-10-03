@@ -6,7 +6,7 @@ export type Assignment = components["schemas"]["Assignment"];
 export type AssignmentStatus = components["schemas"]["AssignmentStatus"];
 
 export function getDashboard(signal?: AbortSignal) {
-  return api("get", "/admin/dashboard", signal ? { signal } : {});
+  return api("get", "/teacher/dashboard", signal ? { signal } : {});
 }
 
 export function listAssignments(
@@ -16,7 +16,7 @@ export function listAssignments(
   const query: Record<string, unknown> = {};
   if (params.status) query["status"] = params.status;
   if (params.limit) query["limit"] = params.limit;
-  return api("get", "/admin/assignments", signal ? { query, signal } : { query });
+  return api("get", "/teacher/assignments", signal ? { query, signal } : { query });
 }
 
 /** listDashboardAssignments filters each status on the server before pagination. */

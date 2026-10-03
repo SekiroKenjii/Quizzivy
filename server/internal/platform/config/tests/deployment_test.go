@@ -21,6 +21,7 @@ import (
 var configuredBy = []string{
 	"API_PORT", "APP_ENV", "CLIENT_IP_HEADER", "CORS_ALLOWED_ORIGINS", "DATABASE_URL",
 	"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI", "JWT_SIGNING_KEY",
+	"JOIN_CODE_KEY", "JOIN_CODE_KEY_PREVIOUS",
 	"MAX_CONCURRENT_PASSWORD_HASHES", "REFRESH_COOKIE_SECURE", "S3_ACCESS_KEY_ID",
 	"S3_BUCKET", "S3_ENDPOINT", "S3_FORCE_PATH_STYLE", "S3_REGION",
 	"S3_SECRET_ACCESS_KEY", "VITE_GOOGLE_CLIENT_ID", "DOCS_PUBLIC",
@@ -36,6 +37,7 @@ var configuredBy = []string{
 var flySecrets = map[string]string{
 	"DATABASE_URL":         "postgres://quizzivy_app:pw@example.neon.tech/quizzivy?sslmode=require",
 	"JWT_SIGNING_KEY":      "0123456789abcdef0123456789abcdef0123456789abcdef",
+	"JOIN_CODE_KEY":        "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
 	"GOOGLE_CLIENT_SECRET": "placeholder-secret",
 	"S3_ENDPOINT":          "https://account.r2.cloudflarestorage.com",
 	"S3_BUCKET":            "quizzivy-media",

@@ -9,7 +9,7 @@ import (
 
 // Copy materializes a coherent observed revision with new editable identities; subsequent source changes cannot alter the result.
 func (s *GroupsPostgres) Copy(ctx context.Context, in domain.CopyGroupInput) (domain.StoredGroup, error) {
-	source, err := s.Get(ctx, in.SourceID)
+	source, err := s.Get(ctx, in.Scope, in.SourceID)
 	if err != nil {
 		return domain.StoredGroup{}, err
 	}
@@ -23,6 +23,7 @@ func (s *GroupsPostgres) Copy(ctx context.Context, in domain.CopyGroupInput) (do
 	return s.Create(ctx, domain.CreateGroupInput{
 		Bundle: bundle, OwnerSectionID: in.OwnerSectionID, ExpectedTestUpdatedAt: in.ExpectedTestUpdatedAt,
 		ActorID: in.ActorID, Now: in.Now, IP: in.IP, UserAgent: in.UserAgent,
+		Scope: in.Scope, Grants: in.Grants,
 	})
 }
 

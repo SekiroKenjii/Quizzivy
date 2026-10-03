@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	questionsdomain "quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/shared/access"
 )
 
 // PublishManager holds the rules a draft must pass to become a version, and the totals frozen with it.
@@ -101,6 +102,7 @@ type PublishRequest struct {
 	ActorID   string
 	IP        string
 	UserAgent string
+	Scope     access.Scope
 }
 
 func (e *PublishValidationError) Error() string {

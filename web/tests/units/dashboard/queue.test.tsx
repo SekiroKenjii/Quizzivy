@@ -15,8 +15,8 @@ let creations = 0;
 beforeEach(() => {
   creations = 0;
   server.use(
-    http.get(`${BASE}/admin/dashboard`, () =>
-      contractJson("/admin/dashboard", "get", 200, {
+    http.get(`${BASE}/teacher/dashboard`, () =>
+      contractJson("/teacher/dashboard", "get", 200, {
         openAssignments: 0,
         awaitingGrading: 7,
         activeStudents: 23,
@@ -24,8 +24,8 @@ beforeEach(() => {
         recentAttempts: [],
       }),
     ),
-    http.get(`${BASE}/admin/assignments`, () =>
-      contractJson("/admin/assignments", "get", 200, {
+    http.get(`${BASE}/teacher/assignments`, () =>
+      contractJson("/teacher/assignments", "get", 200, {
         items: [],
         page: 1,
         pageSize: 10,
@@ -33,9 +33,9 @@ beforeEach(() => {
         facets: { all: 0, draft: 0, scheduled: 0, open: 0, closed: 0 },
       }),
     ),
-    http.post(`${BASE}/admin/tests`, () => {
+    http.post(`${BASE}/teacher/tests`, () => {
       creations += 1;
-      return contractJson("/admin/tests", "post", 201, {
+      return contractJson("/teacher/tests", "post", 201, {
         id: "018f0000-0000-7000-8000-0000000000a1",
         title: "Đề thi chưa đặt tên",
         description: null,

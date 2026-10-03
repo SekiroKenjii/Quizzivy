@@ -45,10 +45,10 @@ function question(url: string) {
 beforeEach(() => {
   fetches = 0;
   server.use(
-    http.get(`${BASE}/admin/questions/:id`, () => {
+    http.get(`${BASE}/teacher/questions/:id`, () => {
       fetches += 1;
       return contractJson(
-        "/admin/questions/{id}",
+        "/teacher/questions/{id}",
         "get",
         200,
         question(`https://example.test/a.mp3?sig=${fetches}`),

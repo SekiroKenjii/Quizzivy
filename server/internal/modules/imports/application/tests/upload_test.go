@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/imports/application/command"
 	"quizzivy/internal/modules/imports/application/query"
 	"quizzivy/internal/modules/imports/domain"
+	"quizzivy/internal/shared/access"
 	"slices"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ type repository struct {
 	closed             bool
 }
 
-func (r *repository) Get(context.Context, string) (domain.Import, error) {
+func (r *repository) Get(context.Context, access.Scope, string) (domain.Import, error) {
 	return domain.Import{ID: "import"}, nil
 }
 func (r *repository) Reserve(_ context.Context, in domain.Reserve, _ domain.Quotas) (domain.Source, error) {

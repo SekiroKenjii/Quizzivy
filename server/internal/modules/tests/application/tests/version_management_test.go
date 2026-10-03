@@ -14,7 +14,7 @@ import (
 
 func versionRequest(t *testing.T, b *builder, id string, version int) domain.VersionRequest {
 	t.Helper()
-	current, err := b.tests.Queries.Get.Handle(context.Background(), query.Get{ID: id})
+	current, err := b.tests.Queries.Get.Handle(context.Background(), query.Get{ID: id, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestPermanentTestDeletionRequiresArchive(t *testing.T) {
 	if _, err := b.tests.Commands.Delete.Handle(ctx, command.Delete{Request: reqFor(draft.ID, b.author)}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := b.tests.Queries.Get.Handle(ctx, query.Get{ID: draft.ID}); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := b.tests.Queries.Get.Handle(ctx, query.Get{ID: draft.ID, Scope: everyone}); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("deleted test still accessible: %v", err)
 	}
 }
@@ -139,7 +139,7 @@ func TestAssignedVersionsCannotBeDeletedWithTheirParent(t *testing.T) {
 	if _, err := b.tests.Commands.Delete.Handle(ctx, command.Delete{Request: request.Request}); !errors.Is(err, domain.ErrReferenced) {
 		t.Fatalf("assigned test deletion = %v", err)
 	}
-	versions, err := b.tests.Queries.ListVersions.Handle(ctx, query.ListVersions{TestID: draft.ID})
+	versions, err := b.tests.Queries.ListVersions.Handle(ctx, query.ListVersions{TestID: draft.ID, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestQuestionUsageListsCurrentOutlinesButExcludesFrozenSnapshots(t *testing.
 	beta := b.draft("Beta outline", questionID)
 	alpha := b.draft("Alpha outline", questionID)
 	ctx := context.Background()
-	question, err := b.qsvc.Queries.Get.Handle(ctx, questionsquery.Get{ID: questionID})
+	question, err := b.qsvc.Queries.Get.Handle(ctx, questionsquery.Get{Scope: everyone, ID: questionID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestQuestionUsageListsCurrentOutlinesButExcludesFrozenSnapshots(t *testing.
 	if _, err := b.publish(alpha.ID); err != nil {
 		t.Fatal(err)
 	}
-	current, err := b.tests.Queries.Get.Handle(ctx, query.Get{ID: alpha.ID})
+	current, err := b.tests.Queries.Get.Handle(ctx, query.Get{ID: alpha.ID, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestQuestionUsageListsCurrentOutlinesButExcludesFrozenSnapshots(t *testing.
 	if _, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: reqFor(alpha.ID, b.author), Input: domain.UpdateInput{ExpectedUpdatedAt: current.UpdatedAt, Sections: sections, SetSections: true}}); err != nil {
 		t.Fatal(err)
 	}
-	question, err = b.qsvc.Queries.Get.Handle(ctx, questionsquery.Get{ID: questionID})
+	question, err = b.qsvc.Queries.Get.Handle(ctx, questionsquery.Get{Scope: everyone, ID: questionID})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,0 +1,97 @@
+DELETE /admin/users/{id} people.users.manage
+DELETE /auth/google/link self
+DELETE /teacher/assignments/{id} teaching.assignments.write
+DELETE /teacher/classes/{id} teaching.classes.write
+DELETE /teacher/classes/{id}/join-code teaching.classes.write
+DELETE /teacher/classes/{id}/members/{userId} teaching.classes.write
+DELETE /teacher/media/{id} content.media.write
+DELETE /teacher/question-groups/{id} content.questions.write | content.tests.write
+DELETE /teacher/questions/{id} content.questions.write
+DELETE /teacher/tests/{id} content.tests.write
+DELETE /teacher/tests/{id}/versions/{version} content.tests.publish
+GET /app/assignments learning.take_tests
+GET /app/assignments/{id} learning.take_tests
+GET /app/attempts/{id} learning.take_tests
+GET /app/attempts/{id}/result learning.take_tests
+GET /app/classes learning.take_tests
+GET /app/media/{assetId}/url learning.take_tests
+GET /auth/me self
+GET /teacher/assignments workspace.teacher
+GET /teacher/assignments/{id} workspace.teacher
+GET /teacher/assignments/{id}/answers teaching.grading
+GET /teacher/assignments/{id}/attempts workspace.teacher
+GET /teacher/attempts teaching.grading | teaching.attempts.intervene
+GET /teacher/attempts/{id} teaching.grading | teaching.attempts.intervene
+GET /teacher/attempts/{id}/events teaching.grading | teaching.attempts.intervene
+GET /teacher/classes workspace.teacher
+GET /teacher/classes/{id} workspace.teacher
+GET /teacher/classes/{id}/join-code teaching.classes.write
+GET /teacher/classes/{id}/members people.students.read
+GET /teacher/dashboard workspace.teacher
+GET /teacher/imports content.tests.write
+GET /teacher/imports/capabilities content.tests.write
+GET /teacher/imports/limits content.tests.write
+GET /teacher/imports/{id} content.tests.write
+GET /teacher/imports/{id}/review content.tests.write
+GET /teacher/imports/{id}/source content.tests.write
+GET /teacher/imports/{id}/sources/{sourceId}/download content.tests.write
+GET /teacher/media workspace.teacher
+GET /teacher/question-groups workspace.teacher
+GET /teacher/question-groups/{id} workspace.teacher
+GET /teacher/questions workspace.teacher
+GET /teacher/questions/{id} workspace.teacher
+GET /teacher/students people.students.read
+GET /teacher/students/{id} people.students.read
+GET /teacher/tests workspace.teacher
+GET /teacher/tests/{id} workspace.teacher
+GET /teacher/tests/{id}/preview workspace.teacher
+GET /teacher/tests/{id}/versions workspace.teacher
+PATCH /app/attempts/{id}/answers learning.take_tests
+PATCH /auth/me self
+PATCH /teacher/assignments/{id} teaching.assignments.write
+PATCH /teacher/attempts/{id}/note teaching.grading
+PATCH /teacher/classes/{id} teaching.classes.write
+PATCH /teacher/question-groups/{id}/archive content.questions.write
+PATCH /teacher/questions/{id} content.questions.write | content.tests.write
+PATCH /teacher/students/{id} people.students.create
+PATCH /teacher/tests/{id} content.tests.write
+POST /admin/docs-session system.api_reference
+POST /app/assignments/{id}/attempts learning.take_tests
+POST /app/attempts/{id}/audio-play learning.take_tests
+POST /app/attempts/{id}/group-audio-play learning.take_tests
+POST /app/attempts/{id}/submit learning.take_tests
+POST /app/classes/join learning.take_tests
+POST /auth/change-password self
+POST /auth/google/link self
+POST /teacher/assignments teaching.assignments.write
+POST /teacher/assignments/{id}/reopen teaching.assignments.write
+POST /teacher/attempts/{id}/extend teaching.attempts.intervene
+POST /teacher/attempts/{id}/finish-grading teaching.grading
+POST /teacher/attempts/{id}/flag teaching.grading
+POST /teacher/attempts/{id}/grade teaching.grading
+POST /teacher/attempts/{id}/reset teaching.attempts.intervene
+POST /teacher/attempts/{id}/void teaching.attempts.intervene
+POST /teacher/classes teaching.classes.write
+POST /teacher/classes/{id}/join-code teaching.classes.write
+POST /teacher/classes/{id}/members teaching.classes.write
+POST /teacher/imports content.tests.write
+POST /teacher/imports/{id}/cancel content.tests.write
+POST /teacher/imports/{id}/commit content.tests.write
+POST /teacher/imports/{id}/process content.tests.write
+POST /teacher/imports/{id}/review/adopt content.tests.write
+POST /teacher/imports/{id}/sources content.tests.write
+POST /teacher/media content.media.write
+POST /teacher/question-groups content.questions.write | content.tests.write
+POST /teacher/question-groups/{id}/copy content.questions.write | content.tests.write
+POST /teacher/questions content.questions.write | content.tests.write
+POST /teacher/questions/tags content.questions.write
+POST /teacher/questions/{id}/duplicate content.questions.write | content.tests.write
+POST /teacher/students people.students.create
+POST /teacher/students/{id}/reset-password people.students.reset_password
+POST /teacher/tests content.tests.write
+POST /teacher/tests/{id}/duplicate content.tests.write
+POST /teacher/tests/{id}/publish content.tests.publish
+POST /teacher/tests/{id}/versions/{version}/current content.tests.publish
+POST /teacher/tests/{id}/versions/{version}/draft content.tests.write
+PUT /teacher/imports/{id}/review content.tests.write
+PUT /teacher/question-groups/{id} content.questions.write | content.tests.write

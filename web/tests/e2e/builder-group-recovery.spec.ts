@@ -54,7 +54,7 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
   };
   await stubApi(page, {
     ...sessionAs(adminUser),
-    "GET /admin/tests": {
+    "GET /teacher/tests": {
       body: {
         items: [draft],
         total: 1,
@@ -64,10 +64,10 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
         facets: { all: 1, draft: 1, published: 0, archived: 0 },
       },
     },
-    [`GET /admin/tests/${testId}`]: (route) => route.fulfill({ json: draft }),
-    [`GET /admin/question-groups/${groupId}`]: (route) =>
+    [`GET /teacher/tests/${testId}`]: (route) => route.fulfill({ json: draft }),
+    [`GET /teacher/question-groups/${groupId}`]: (route) =>
       route.fulfill({ json: stored }),
-    [`PUT /admin/question-groups/${groupId}`]: (route) => {
+    [`PUT /teacher/question-groups/${groupId}`]: (route) => {
       if (offline)
         return route.fulfill({
           status: 503,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
 
@@ -16,6 +17,8 @@ import (
 type Postgres struct{ db.Repository }
 
 func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
+
+var anyOwner = access.Scope{All: true}
 
 const questionColumns = `
 	       q.id::text, q.type::text, q.prompt, q.prompt_content, q.explanation_content,
@@ -58,29 +61,32 @@ func scanQuestion(row pgx.Row, extra ...any) (domain.Question, error) {
 	return q, nil
 }
 
-// Get returns one live question with its children.
-func (s *Postgres) Get(ctx context.Context, id string) (domain.Question, error) {
-	question, err := s.get(ctx, s.Conn(), id, false, nil)
+// Get returns one live bank question the scope reaches, with its children and
+// the tests the scope can read that use it. Another owner's question answers
+// ErrNotFound, exactly as a missing one does.
+func (s *Postgres) Get(ctx context.Context, scope access.Scope, id string) (domain.Question, error) {
+	question, err := s.get(ctx, s.Conn(), scope, id, false, nil)
 	if err != nil {
 		return domain.Question{}, err
 	}
-	question.UsedIn, err = s.questionUses(ctx, id)
+	question.UsedIn, err = s.questionUses(ctx, scope, id)
 	return question, err
 }
 
 // GetIncludingDeleted resolves a question by id whether or not it is deleted,
 // so a soft delete cannot break a published version snapshot.
 func (s *Postgres) GetIncludingDeleted(ctx context.Context, id string) (domain.Question, error) {
-	return s.get(ctx, s.Conn(), id, true, nil)
+	return s.get(ctx, s.Conn(), anyOwner, id, true, nil)
 }
 
-func (s *Postgres) get(ctx context.Context, q db.Querier, id string, includeDeleted bool, groupID *string) (domain.Question, error) {
+func (s *Postgres) get(ctx context.Context, q db.Querier, scope access.Scope, id string, includeDeleted bool, groupID *string) (domain.Question, error) {
 	filter := ` AND q.deleted_at IS NULL`
 	if includeDeleted {
 		filter = ``
 	}
 	question, err := scanQuestion(q.QueryRow(ctx,
-		`SELECT`+questionColumns+` FROM app.questions q WHERE q.id = $1 AND q.context_group_id IS NOT DISTINCT FROM $2::uuid`+filter, id, groupID))
+		`SELECT`+questionColumns+` FROM app.questions q WHERE q.id = $1 AND q.context_group_id IS NOT DISTINCT FROM $2::uuid
+		   AND ($3::boolean OR q.owner_id = $4::uuid)`+filter, id, groupID, scope.All, opt.String(scope.UserID)))
 	if err != nil {
 		return domain.Question{}, err
 	}
@@ -174,7 +180,7 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	groupID, ordinal, optionOrder := ownershipValues(ownership)
-	if err := prepareQuestionContent(ctx, tx, in.ID, &in.Input, update, groupID); err != nil {
+	if err := prepareQuestionContent(ctx, tx, &in, update, groupID); err != nil {
 		return domain.Question{}, err
 	}
 
@@ -219,16 +225,17 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			       (type, prompt, media_asset_id, media_asset_kind,
 			        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
 			        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
-			        id, context_group_id, context_ordinal, context_option_order)
+			        id, context_group_id, context_ordinal, context_option_order, owner_id)
 			VALUES ($1::app.question_type, $2, $3, $4::app.media_kind, $5, $6, $7,
 			        $8, $9::numeric, $10, $11, $12, $13, $14, $15,
-			        coalesce($16::uuid, uuidv7()), $17, $18, $19)
+			        coalesce($16::uuid, uuidv7()), $17, $18, $19,
+			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $20::uuid, $13))
 			RETURNING id::text`,
 			string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
 			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent),
-			createID, groupID, ordinal, optionOrder).Scan(&id)
+			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID)).Scan(&id)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Question{}, domain.ErrNotFound
@@ -260,7 +267,7 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 		return domain.Question{}, err
 	}
 
-	written, err := s.get(ctx, tx, id, false, groupID)
+	written, err := s.get(ctx, tx, anyOwner, id, false, groupID)
 	if err != nil {
 		return domain.Question{}, err
 	}
@@ -329,7 +336,10 @@ func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in domain.
 	return nil
 }
 
-// SoftDelete marks a question deleted and audits it.
+// SoftDelete marks a bank question deleted and audits it. The actor must own it
+// unless All is set; the owner is checked in the row lock, before the drafts
+// that would refuse the delete are read, so another owner's question answers
+// ErrNotFound and never the tests that use it.
 func (s *Postgres) SoftDelete(ctx context.Context, in domain.WriteInput) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -339,8 +349,9 @@ func (s *Postgres) SoftDelete(ctx context.Context, in domain.WriteInput) error {
 
 	var alreadyDeleted bool
 	err = tx.QueryRow(ctx,
-		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 AND context_group_id IS NULL FOR UPDATE`,
-		in.ID).Scan(&alreadyDeleted)
+		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 AND context_group_id IS NULL
+		   AND ($2::boolean OR owner_id = $3::uuid) FOR UPDATE`,
+		in.ID, in.All, opt.String(in.ActorID)).Scan(&alreadyDeleted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}
@@ -381,7 +392,8 @@ func (s *Postgres) SoftDelete(ctx context.Context, in domain.WriteInput) error {
 }
 
 // AddTags attaches tags to several bank questions at once (A-06's "Gắn thẻ").
-func (s *Postgres) AddTags(ctx context.Context, ids []string, tags []string) (int, error) {
+// Ids the scope does not reach are skipped, as missing and deleted ones are.
+func (s *Postgres) AddTags(ctx context.Context, scope access.Scope, ids []string, tags []string) (int, error) {
 	rows, err := s.Query(ctx, `
 		UPDATE app.questions q
 		   SET tags = (
@@ -393,7 +405,8 @@ func (s *Postgres) AddTags(ctx context.Context, ids []string, tags []string) (in
 		   AND q.deleted_at IS NULL
 		   AND q.context_group_id IS NULL
 		   AND NOT (q.tags @> $2::text[])
-		RETURNING q.id`, ids, tags)
+		   AND ($3::boolean OR q.owner_id = $4::uuid)
+		RETURNING q.id`, ids, tags, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return 0, fmt.Errorf("questions: add tags: %w", err)
 	}

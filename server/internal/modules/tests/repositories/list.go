@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
 	"strings"
 )
@@ -19,13 +21,19 @@ const titleSearch = `app.immutable_unaccent(lower(t.title))` +
 
 const tagCondition = `EXISTS (SELECT 1 FROM (` + draftQuestionRows + `) q WHERE q.tags && $%d::text[])`
 
+func scopedTests(scope access.Scope) ([]string, []any) {
+	if scope.All {
+		return []string{liveTests}, []any{}
+	}
+	return []string{liveTests, `t.owner_id = $1::uuid`}, []any{opt.String(scope.UserID)}
+}
+
 // List returns one page of live tests, newest first, and the paging that
 // goes with it (O-20: OFFSET, so the client can draw numbered pages).
 func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Test, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	var args []any
-	where := []string{liveTests}
+	where, args := scopedTests(in.Scope)
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
 		where = append(where, fmt.Sprintf(`t.status = $%d::app.test_status`, len(args)))
@@ -99,8 +107,7 @@ func (s *Postgres) attachSections(ctx context.Context, list []domain.Test) error
 // Tags returns every tag reachable through the current status and search, so
 // A-03's filter cannot offer a chip that returns nothing.
 func (s *Postgres) Tags(ctx context.Context, in domain.ListInput) ([]string, error) {
-	args := []any{}
-	where := []string{liveTests}
+	where, args := scopedTests(in.Scope)
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
 		where = append(where, fmt.Sprintf(`t.status = $%d::app.test_status`, len(args)))

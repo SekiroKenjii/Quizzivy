@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"quizzivy/internal/modules/tests/application/command"
+	"quizzivy/internal/shared/access"
 	"testing"
 
 	"quizzivy/internal/modules/tests/domain"
@@ -117,12 +118,12 @@ func TestPublishRejectsAnEmptySection(t *testing.T) {
 	b := newBuilder(t, pool, author)
 	ctx := context.Background()
 
-	created, err := b.tests.Commands.Create.Handle(ctx, command.Create{Request: domain.Request{ActorID: author}, Title: "Đề có phần rỗng", Description: nil})
+	created, err := b.tests.Commands.Create.Handle(ctx, command.Create{Request: domain.Request{ActorID: author, Scope: access.Scope{UserID: author}}, Title: "Đề có phần rỗng", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q := b.shortAnswer("Câu duy nhất", "1.00")
-	saved, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: created.ID, ActorID: author}, Input: domain.UpdateInput{
+	saved, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: created.ID, ActorID: author, Scope: access.Scope{UserID: author}}, Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt,
 		SetSections:       true,
 		Sections: []domain.SectionInput{
@@ -157,11 +158,11 @@ func TestPublishReportsEveryProblemAtOnce(t *testing.T) {
 		Type: questionsdomain.FillBlank, Prompt: "Điền {{1}}", Points: "1.00",
 		Blanks: []questionsdomain.BlankInput{{Ordinal: 1, AcceptedAnswers: []string{"x"}}},
 	})
-	created, err := b.tests.Commands.Create.Handle(ctx, command.Create{Request: domain.Request{ActorID: author}, Title: "Đề nhiều lỗi", Description: nil})
+	created, err := b.tests.Commands.Create.Handle(ctx, command.Create{Request: domain.Request{ActorID: author, Scope: access.Scope{UserID: author}}, Title: "Đề nhiều lỗi", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: created.ID, ActorID: author}, Input: domain.UpdateInput{
+	saved, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: created.ID, ActorID: author, Scope: access.Scope{UserID: author}}, Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt,
 		SetSections:       true,
 		Sections: []domain.SectionInput{
@@ -201,7 +202,7 @@ func TestPublishingATestWithNoSectionsIsRefused(t *testing.T) {
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
 
-	created, err := b.tests.Commands.Create.Handle(context.Background(), command.Create{Request: domain.Request{ActorID: author}, Title: "Đề rỗng", Description: nil})
+	created, err := b.tests.Commands.Create.Handle(context.Background(), command.Create{Request: domain.Request{ActorID: author, Scope: access.Scope{UserID: author}}, Title: "Đề rỗng", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}

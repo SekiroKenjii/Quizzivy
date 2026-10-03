@@ -15,9 +15,9 @@ let rendered: QueryClient;
 
 function serve(intakeEnabled: boolean, processingEnabled: boolean) {
   server.use(
-    http.get(`${BASE}/admin/imports/capabilities`, () => {
+    http.get(`${BASE}/teacher/imports/capabilities`, () => {
       checks += 1;
-      return contractJson("/admin/imports/capabilities", "get", 200, {
+      return contractJson("/teacher/imports/capabilities", "get", 200, {
         intakeEnabled,
         processingEnabled,
         retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
@@ -29,8 +29,8 @@ function serve(intakeEnabled: boolean, processingEnabled: boolean) {
 beforeEach(() => {
   checks = 0;
   server.use(
-    http.get(`${BASE}/admin/tests`, () =>
-      contractJson("/admin/tests", "get", 200, {
+    http.get(`${BASE}/teacher/tests`, () =>
+      contractJson("/teacher/tests", "get", 200, {
         items: [],
         page: 1,
         pageSize: 50,

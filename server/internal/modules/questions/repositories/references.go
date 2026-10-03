@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -58,13 +60,32 @@ func (s *Postgres) LockForDraftUse(ctx context.Context, tx pgx.Tx, questionID st
 	return LockForDraftUse(ctx, tx, questionID)
 }
 
-func (s *Postgres) questionUses(ctx context.Context, questionID string) ([]domain.TestRef, error) {
+// NotOwnedBy returns, in id order, the questions among questionIDs that
+// ownerID does not own. It takes no lock: callers run it after LockForDraftUse
+// has locked every one of them in the same transaction, so the answer holds
+// until they commit.
+func NotOwnedBy(ctx context.Context, q db.Querier, ownerID string, questionIDs []string) ([]string, error) {
+	rows, err := q.Query(ctx,
+		`SELECT id::text FROM app.questions
+		  WHERE id = ANY($1::uuid[]) AND owner_id IS DISTINCT FROM $2::uuid
+		  ORDER BY id`, questionIDs, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("questions: owners: %w", err)
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+
+func (s *Postgres) NotOwnedBy(ctx context.Context, tx pgx.Tx, ownerID string, questionIDs []string) ([]string, error) {
+	return NotOwnedBy(ctx, tx, ownerID, questionIDs)
+}
+
+func (s *Postgres) questionUses(ctx context.Context, scope access.Scope, questionID string) ([]domain.TestRef, error) {
 	rows, err := s.Query(ctx, `SELECT DISTINCT t.id::text, t.title
  FROM app.test_section_questions sq
  JOIN app.test_sections section ON section.id = sq.test_section_id
  JOIN app.tests t ON t.id = section.test_id
- WHERE sq.question_id = $1 AND t.deleted_at IS NULL
- ORDER BY t.title, t.id::text`, questionID)
+ WHERE sq.question_id = $1 AND t.deleted_at IS NULL AND ($2::boolean OR t.owner_id = $3::uuid)
+ ORDER BY t.title, t.id::text`, questionID, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return nil, err
 	}

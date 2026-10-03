@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -85,7 +86,7 @@ func draftGroupQuestion(q domain.GroupQuestion, ordinal int) domain.DraftQuestio
 }
 
 func appendDraftGroup(ctx context.Context, groups *GroupsPostgres, section *domain.DraftSection, id string) error {
-	stored, err := groups.Get(ctx, id)
+	stored, err := groups.Get(ctx, access.Scope{All: true}, id)
 	if err != nil {
 		return err
 	}

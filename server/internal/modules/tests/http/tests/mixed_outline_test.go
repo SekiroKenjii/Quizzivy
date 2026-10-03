@@ -33,7 +33,7 @@ func TestMixedOutlineTransportKeepsGroupOrderAndArchivedConflict(t *testing.T) {
 	})}}
 	transport := testshttp.NewTests(app, nil)
 	handler := httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
-		return httpx.Principal{UserID: uuid.NewString(), Role: "admin"}, nil
+		return httpx.Principal{UserID: uuid.NewString()}, nil
 	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		out, err := transport.UpdateTest(r.Context(), openapi.UpdateTestRequestObject{Id: uuid.New(), Body: &body})
 		if err != nil {
@@ -43,7 +43,7 @@ func TestMixedOutlineTransportKeepsGroupOrderAndArchivedConflict(t *testing.T) {
 			t.Fatal(err)
 		}
 	}))
-	req := httptest.NewRequest(http.MethodPatch, "/admin/tests", nil)
+	req := httptest.NewRequest(http.MethodPatch, "/teacher/tests", nil)
 	req.Header.Set("Authorization", "Bearer synthetic")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, req)

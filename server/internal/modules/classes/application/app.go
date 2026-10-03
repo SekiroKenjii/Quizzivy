@@ -36,7 +36,7 @@ type Commands struct {
 }
 
 type Queries struct {
-	ActiveCode cqrs.QueryHandler[query.ActiveCode, *domain.IssuedCode]
+	ActiveCode cqrs.QueryHandler[query.ActiveCode, domain.ActiveJoinCode]
 	Facets     cqrs.QueryHandler[query.Facets, domain.Facets]
 	Get        cqrs.QueryHandler[query.Get, domain.Class]
 	List       cqrs.QueryHandler[query.List, query.ListResult]
@@ -45,8 +45,10 @@ type Queries struct {
 	Preview    cqrs.QueryHandler[query.Preview, domain.PreviewResult]
 }
 
-func New(repo domain.Repository, stats stats.Source) *Application {
-	enrolment := support.NewEnrolment(repo)
+// New builds the module. keys seal new join codes and find every code, legacy
+// or keyed, under the current and previous key.
+func New(repo domain.Repository, stats stats.Source, keys domain.JoinCodeKeys) *Application {
+	enrolment := support.NewEnrolment(repo, keys)
 	service := support.NewService(repo, stats)
 	return &Application{
 		Commands: Commands{

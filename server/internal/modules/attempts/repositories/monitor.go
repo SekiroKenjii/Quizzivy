@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"sort"
 	"time"
 
@@ -13,13 +16,16 @@ import (
 
 // Monitor answers G-02 in two queries -- the roster and the attempts -- never
 // one per student (§13.8). The roster is the left side: a student who has not
-// started is a AttemptRecord, not an absence.
-func (s *Postgres) Monitor(ctx context.Context, assignmentID string, now time.Time) (domain.Monitor, error) {
+// started is a AttemptRecord, not an absence. It reads only an assignment the
+// scope reaches, and lists only the target classes the scope teaches and the
+// individual targets it reaches.
+func (s *Postgres) Monitor(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) (domain.Monitor, error) {
 	out := domain.Monitor{ServerTime: now}
 
 	rows, err := s.Query(ctx, `
 		WITH a AS (
-		  SELECT id, test_version_id FROM app.assignments WHERE id = $1::uuid
+		  SELECT id, test_version_id FROM app.assignments
+		   WHERE id = $1::uuid AND ($2::boolean OR id IN `+visibility.AssignmentIDs(3)+`)
 		), n AS (
 		  SELECT count(*) AS questions
 		    FROM a
@@ -29,17 +35,19 @@ func (s *Postgres) Monitor(ctx context.Context, assignmentID string, now time.Ti
 		  SELECT m.user_id
 		    FROM a
 		    JOIN app.assignment_classes ac ON ac.assignment_id = a.id
+		     AND ($2::boolean OR ac.class_id IN `+visibility.TaughtClassIDs(3)+`)
 		    JOIN app.class_members m ON m.class_id = ac.class_id
 		  UNION
 		  SELECT ast.user_id
 		    FROM a
 		    JOIN app.assignment_students ast ON ast.assignment_id = a.id
+		     AND ($2::boolean OR ast.user_id IN `+visibility.StudentIDs(3)+`)
 		)
 		SELECT u.id::text, u.full_name, n.questions
 		  FROM a, n
 		  LEFT JOIN roster ON true
 		  LEFT JOIN app.users u ON u.id = roster.user_id AND u.disabled_at IS NULL
-		 ORDER BY u.full_name, u.id`, assignmentID)
+		 ORDER BY u.full_name, u.id`, assignmentID, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return domain.Monitor{}, fmt.Errorf("attempts: monitor roster: %w", err)
 	}
@@ -171,11 +179,14 @@ func stateRank(state string) int {
 	}
 }
 
-func (s *Postgres) DueAttempts(ctx context.Context, assignmentID string, now time.Time) ([]string, error) {
+// DueAttempts lists the overdue live attempts on an assignment the scope
+// reaches, for the monitor to close before it reads.
+func (s *Postgres) DueAttempts(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) ([]string, error) {
 	rows, err := s.Query(ctx, `
 		SELECT id::text FROM app.attempts
-		 WHERE assignment_id = $1::uuid AND status = 'in_progress' AND deadline_at < $2`,
-		assignmentID, now)
+		 WHERE assignment_id = $1::uuid AND status = 'in_progress' AND deadline_at < $2
+		   AND ($3::boolean OR assignment_id IN `+visibility.AssignmentIDs(4)+`)`,
+		assignmentID, now, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return nil, fmt.Errorf("attempts: find due attempts: %w", err)
 	}

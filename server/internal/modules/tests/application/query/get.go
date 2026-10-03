@@ -4,10 +4,12 @@ import (
 	"context"
 	"quizzivy/internal/modules/tests/application/internal/support"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/access"
 )
 
 type Get struct {
-	ID string
+	ID    string
+	Scope access.Scope
 }
 
 type GetHandler struct {
@@ -15,5 +17,5 @@ type GetHandler struct {
 }
 
 func (s GetHandler) Handle(ctx context.Context, q Get) (domain.Test, error) {
-	return s.Repo.Get(ctx, q.ID)
+	return s.Repo.Get(ctx, q.Scope, q.ID)
 }

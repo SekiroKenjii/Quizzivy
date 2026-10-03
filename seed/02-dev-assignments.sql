@@ -1,8 +1,9 @@
 -- Development seed, part two: something for /admin to actually show.
 --
--- Self-contained on purpose — it builds its own published test and version
--- rather than attaching to whatever happens to be in the database, so running
--- it twice is a no-op and running it on a fresh machine works.
+-- Relies on 01: the Admin (…00a1), the student (…00a2) and the class (…00c1).
+-- It builds its own published test and version rather than attaching to
+-- whatever happens to be in the database, so running it twice is a no-op and
+-- running it on a fresh machine works.
 --
 -- Fixed uuids throughout, for the same reason.
 

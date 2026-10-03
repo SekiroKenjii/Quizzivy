@@ -9,12 +9,14 @@ import (
 	"strings"
 	"time"
 
+	classesdomain "quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 )
 
 // Usage is the line printed when a command or a flag is not understood.
 const Usage = "usage: maintenance <command> [flags]\n" +
-	"commands: retain-integrity, anonymize-student, window-schedule, window-list, window-cancel, window-end\n" +
+	"commands: retain-integrity, anonymize-student, window-schedule, window-list, window-cancel, window-end, rekey-join-codes\n" +
 	"every command takes -timeout <duration> (default 1m); writes are dry runs until -apply"
 
 // Command is one parsed invocation: what to run and how long it may take.
@@ -90,6 +92,26 @@ var commands = map[string]spec{
 		return func() (runner, error) {
 			return func(ctx context.Context, conn db.Conn) (any, error) {
 				return CancelWindow(ctx, conn, *window, *apply)
+			}, nil
+		}
+	},
+	"rekey-join-codes": func(fs *flag.FlagSet) func() (runner, error) {
+		apply := fs.Bool("apply", false, "re-key; omitted means dry run")
+		batch := fs.Int("batch", 500, "join codes re-keyed in one transaction (1..10000)")
+		return func() (runner, error) {
+			current, previous, err := config.JoinCodeKeys()
+			if err != nil {
+				return nil, err
+			}
+			if previous == nil {
+				return nil, errors.New("JOIN_CODE_KEY_PREVIOUS is required: rekey-join-codes moves codes from the previous key to JOIN_CODE_KEY")
+			}
+			keys, err := classesdomain.NewJoinCodeKeys(current, previous)
+			if err != nil {
+				return nil, err
+			}
+			return func(ctx context.Context, conn db.Conn) (any, error) {
+				return RekeyJoinCodes(ctx, conn, keys, *apply, *batch)
 			}, nil
 		}
 	},

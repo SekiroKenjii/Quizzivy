@@ -11,7 +11,7 @@ const testID = "01935000-0000-7000-8000-000000000008";
 async function setup(page: Page) {
   await stubApi(page, {
     ...sessionAs(adminUser),
-    [`GET /admin/tests/${testID}`]: {
+    [`GET /teacher/tests/${testID}`]: {
       body: {
         id: testID,
         title: "Đề kiểm tra ngữ liệu",
@@ -25,7 +25,7 @@ async function setup(page: Page) {
         updatedAt: "2026-09-24T00:00:00Z",
       },
     },
-    [`GET /admin/tests/${testID}/versions`]: {
+    [`GET /teacher/tests/${testID}/versions`]: {
       body: {
         items: [2, 1].map((version) => ({
           id: `01935000-0000-7000-8000-00000000000${version}`,
@@ -39,7 +39,7 @@ async function setup(page: Page) {
         })),
       },
     },
-    [`GET /admin/tests/${testID}/preview`]: (route) => {
+    [`GET /teacher/tests/${testID}/preview`]: (route) => {
       const version = Number(
         new URL(route.request().url()).searchParams.get("version") ?? 1,
       );

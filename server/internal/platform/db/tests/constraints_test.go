@@ -64,15 +64,38 @@ func withTx(t *testing.T, conn *sql.DB, fn func(tx *sql.Tx, f fixture)) {
 			t.Fatalf("fixture: %v", err)
 		}
 	}
-	must(&f.adminID,
-		`INSERT INTO app.users (email, full_name, role, password_hash)
-		 VALUES ($1, 'Thuong', 'admin', 'hash') RETURNING id`, "admin-"+tag+"@example.com")
-	// role defaults to 'student' (§13.3), so it is omitted rather than restated.
-	must(&f.studentID,
-		`INSERT INTO app.users (email, full_name) VALUES ($1, 'Học viên') RETURNING id`,
-		"student-"+tag+"@example.com")
-	must(&f.classID,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id`, "Lớp "+tag)
+	hasColumn := func(table, column string) bool {
+		t.Helper()
+		var exists bool
+		if err := tx.QueryRow(`SELECT EXISTS (SELECT 1 FROM pg_attribute
+			WHERE attrelid = ('app.' || $1)::regclass AND attname = $2 AND NOT attisdropped)`, table, column).Scan(&exists); err != nil {
+			t.Fatalf("fixture: %v", err)
+		}
+		return exists
+	}
+	if hasColumn("users", "role_id") {
+		must(&f.adminID,
+			`INSERT INTO app.users (email, full_name, role_id, password_hash)
+			 VALUES ($1, 'Thuong', (SELECT id FROM app.roles WHERE builtin_key = 'admin'), 'hash') RETURNING id`, "admin-"+tag+"@example.com")
+		must(&f.studentID,
+			`INSERT INTO app.users (email, full_name, role_id)
+			 VALUES ($1, 'Học viên', (SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id`,
+			"student-"+tag+"@example.com")
+	} else {
+		must(&f.adminID,
+			`INSERT INTO app.users (email, full_name, role, password_hash)
+			 VALUES ($1, 'Thuong', 'admin', 'hash') RETURNING id`, "admin-"+tag+"@example.com")
+		must(&f.studentID,
+			`INSERT INTO app.users (email, full_name) VALUES ($1, 'Học viên') RETURNING id`,
+			"student-"+tag+"@example.com")
+	}
+	if hasColumn("classes", "teacher_id") {
+		must(&f.classID,
+			`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id`, "Lớp "+tag, f.adminID)
+	} else {
+		must(&f.classID,
+			`INSERT INTO app.classes (name) VALUES ($1) RETURNING id`, "Lớp "+tag)
+	}
 
 	fn(tx, f)
 }
@@ -95,24 +118,24 @@ func rejectsWith(t *testing.T, tx *sql.Tx, wantConstraint, stmt string, args ...
 func TestMustChangePasswordRequiresAPassword(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, _ fixture) {
 		rejectsWith(t, tx, "users_must_change_needs_password",
-			`INSERT INTO app.users (email, full_name, must_change_password)
-			 VALUES ('google-only@example.com', 'Học viên', true)`)
+			`INSERT INTO app.users (email, full_name, must_change_password, role_id)
+			 VALUES ('google-only@example.com', 'Học viên', true, (SELECT id FROM app.roles WHERE builtin_key = 'student'))`)
 	})
 }
 
 func TestMustChangePasswordIsFineWithAPassword(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, _ fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.users (email, full_name, password_hash, must_change_password)
-			 VALUES ('has-password@example.com', 'Học viên', 'argon2id$...', true)`)
+			`INSERT INTO app.users (email, full_name, password_hash, must_change_password, role_id)
+			 VALUES ('has-password@example.com', 'Học viên', 'argon2id$...', true, (SELECT id FROM app.roles WHERE builtin_key = 'student'))`)
 	})
 }
 
 func TestEmailUniquenessIgnoresCase(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, _ fixture) {
-		mustExec(t, tx, `INSERT INTO app.users (email, full_name) VALUES ('Hoc.Vien@Example.com', 'A')`)
+		mustExec(t, tx, `INSERT INTO app.users (email, full_name, role_id) VALUES ('Hoc.Vien@Example.com', 'A', (SELECT id FROM app.roles WHERE builtin_key = 'student'))`)
 		rejectsWith(t, tx, "users_email_lower_key",
-			`INSERT INTO app.users (email, full_name) VALUES ('hoc.vien@example.com', 'B')`)
+			`INSERT INTO app.users (email, full_name, role_id) VALUES ('hoc.vien@example.com', 'B', (SELECT id FROM app.roles WHERE builtin_key = 'student'))`)
 	})
 }
 
@@ -216,6 +239,39 @@ func TestAnExpiredCodeStillOccupiesTheActiveSlot(t *testing.T) {
 			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
 			 VALUES ($1, sha256('fresh'::bytea), 'CD34', now() + interval '30 days', $2)`,
 			f.classID, f.adminID)
+	})
+}
+
+func TestAJoinCodeRowIsEitherLegacyOrFullySealed(t *testing.T) {
+	const insert = `INSERT INTO app.class_join_codes
+		       (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, code_ciphertext, key_id)
+		VALUES ($1, sha256(gen_random_uuid()::text::bytea), 'AB12', now() + interval '30 days', $2, $3, $4, $5)`
+	sealed := make([]byte, 36)
+	for name, c := range map[string]struct {
+		constraint string
+		scheme     int
+		ciphertext []byte
+		keyID      any
+	}{
+		"a keyed row without its ciphertext":  {"class_join_codes_scheme_consistent", 2, nil, 7},
+		"a keyed row without its key id":      {"class_join_codes_scheme_consistent", 2, sealed, nil},
+		"a legacy row with a ciphertext":      {"class_join_codes_scheme_consistent", 1, sealed, 7},
+		"a legacy row with only a ciphertext": {"class_join_codes_scheme_consistent", 1, sealed, nil},
+		"a legacy row with only a key id":     {"class_join_codes_scheme_consistent", 1, nil, 7},
+		"a ciphertext of the wrong length":    {"class_join_codes_ciphertext_length", 2, make([]byte, 35), 7},
+		"key id zero":                         {"class_join_codes_key_id_nonzero", 2, sealed, 0},
+		"an unknown scheme":                   {"class_join_codes_lookup_scheme_known", 3, nil, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				rejectsWith(t, tx, c.constraint, insert, f.classID, f.adminID, c.scheme, c.ciphertext, c.keyID)
+			})
+		})
+	}
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx, insert, f.classID, f.adminID, 2, sealed, 7)
+		mustExec(t, tx, `UPDATE app.class_join_codes SET revoked_at = now() WHERE class_id = $1`, f.classID)
+		mustExec(t, tx, insert, f.classID, f.adminID, 1, nil, nil)
 	})
 }
 

@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 
@@ -71,27 +72,27 @@ func TestPublishedGroupGraphSurvivesDraftEditsRemovalAndMediaDeletion(t *testing
 	tx, author, groups := groupTransaction(t)
 	testID, section, updated := snapshotDraft(t, tx, author)
 	asset := storedGroupAsset(t, tx, author, "audio")
-	first, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now()})
+	first, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.QueryRow(ctx, `SELECT updated_at FROM app.tests WHERE id=$1`, testID).Scan(&updated); err != nil {
 		t.Fatal(err)
 	}
-	second, err := groups.Copy(ctx, domain.CopyGroupInput{SourceID: first.Bundle.Group.ID, ExpectedSourceRevision: first.Revision, OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now()})
+	second, err := groups.Copy(ctx, domain.CopyGroupInput{SourceID: first.Bundle.Group.ID, ExpectedSourceRevision: first.Revision, OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
 	media := mediarepo.NewPostgres(db.NewContext(tx))
 	repo := repositories.NewPostgres(db.NewContext(tx), adapters.GroupQuestions{}, media).WithGroupQuestions(adapters.GroupQuestions{})
-	published, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author}, time.Now(), domain.Publishing.Validate)
+	published, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author, Scope: access.Scope{UserID: author}}, time.Now(), domain.Publishing.Validate)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if published.QuestionCount != 5 || published.TotalPoints != "3.00" {
 		t.Fatalf("group interactions missing from totals: %+v", published)
 	}
-	versions, err := repo.ListVersions(ctx, testID)
+	versions, err := repo.ListVersions(ctx, everyone, testID)
 	if err != nil || len(versions) != 1 || versions[0].AudioCount != 4 || versions[0].ManualCount != 1 {
 		t.Fatalf("group listening counts: %+v, %v", versions, err)
 	}
@@ -150,11 +151,11 @@ func TestPublishRejectsEmptyGroupAlongsideValidStandaloneQuestion(t *testing.T) 
 	tx, author, groups := groupTransaction(t)
 	testID, section, updated := snapshotDraft(t, tx, author)
 	group := domain.GroupBundle{Group: domain.QuestionGroup{ID: groupIdentity(t), Title: "Empty context"}}
-	if _, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: group, OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now()}); err != nil {
+	if _, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: group, OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys}); err != nil {
 		t.Fatal(err)
 	}
 	repo := repositories.NewPostgres(db.NewContext(tx), adapters.GroupQuestions{}, nil).WithGroupQuestions(adapters.GroupQuestions{})
-	_, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author}, time.Now(), domain.Publishing.Validate)
+	_, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author, Scope: access.Scope{UserID: author}}, time.Now(), domain.Publishing.Validate)
 	var invalid *domain.PublishValidationError
 	if !errors.As(err, &invalid) || len(invalid.Violations) != 1 || invalid.Violations[0].Rule != domain.GroupValid || invalid.Violations[0].GroupID != group.Group.ID {
 		t.Fatalf("empty group disappeared from publication: %+v, %v", invalid, err)

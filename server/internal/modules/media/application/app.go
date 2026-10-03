@@ -36,6 +36,7 @@ type Queries struct {
 	Get            cqrs.QueryHandler[query.Get, domain.Asset]
 	List           cqrs.QueryHandler[query.List, query.ListResult]
 	MintForStudent cqrs.QueryHandler[query.MintForStudent, model.SignedURLResult]
+	Readable       cqrs.QueryHandler[query.Readable, map[string]domain.Kind]
 	SignedURL      cqrs.QueryHandler[query.SignedURL, string]
 	TotalBytes     cqrs.QueryHandler[query.TotalBytes, int64]
 }
@@ -51,6 +52,7 @@ func New(repo domain.Repository, object ports.ObjectStore, probe ports.AudioProb
 			Get:            query.GetHandler{Service: service},
 			List:           query.ListHandler{Service: service},
 			MintForStudent: query.MintForStudentHandler{Service: service},
+			Readable:       query.ReadableHandler{Service: service},
 			SignedURL:      query.SignedURLHandler{Service: service},
 			TotalBytes:     query.TotalBytesHandler{Service: service},
 		},

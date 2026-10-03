@@ -57,7 +57,7 @@ func (s RefreshHandler) Handle(ctx context.Context, cmd Refresh) (model.RefreshR
 		return model.RefreshResult{}, domain.ErrRefreshRejected
 	}
 
-	access, err := s.Tokens.Issue(res.User.ID, res.User.Role)
+	access, err := s.Tokens.Issue(res.User.ID, res.User.Role, res.User.SessionEpoch)
 	if err != nil {
 		return model.RefreshResult{}, fmt.Errorf("issue access token: %w", err)
 	}

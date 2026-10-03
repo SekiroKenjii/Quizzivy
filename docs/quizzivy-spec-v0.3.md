@@ -1,7 +1,49 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.44 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.45 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.44**
+
+R2, "Access" (v0.8.0, `docs/plan/72-r2.md`):
+
+- §1.1 Roles are data, one per user. The personas are the Admin (the owner),
+  Teachers and Students; the Assistant role exists with no class staff yet.
+- §1.3 One organization with several teachers. Every class, test, question,
+  question group and media asset has an owner, and every Word import its
+  creator.
+- §5 Every operation that requires the bearer token declares `x-permission`,
+  which `RequirePermission` enforces on every request from a 10-second
+  principal cache; the seven open operations declare none. Another teacher's
+  id answers as a missing one does.
+- §5.2 The session epoch: disabling a student or resetting their password ends
+  their live sessions at once, and a disabled user is refused on the next
+  request.
+- §5.3 Sign-in returns `CurrentUser`.
+- §5.4 The web guards read the user's workspaces, not the role. The guards
+  that are not permissions: strict student targets, the subset rule,
+  disabling, shared students (`403 STUDENT_SHARED`) and the last Admin.
+- §5.5 The API reference needs `system.api_reference`, and its cookie carries
+  the session epoch.
+- §6.1 New join codes are stored encrypted under `JOIN_CODE_KEY` and read back
+  for their teacher. Codes issued before v0.8.0 stay hashed until R4. The key
+  and its rotation are described.
+- §6.4 The controls belong to the class's teacher, and to an Admin through
+  `scope.all`.
+- §6.5 Limits are sized for a classroom: 120/min and 600/h per address, 200/h
+  per code, and the login, refresh and logout budgets. Keyed bodies take at
+  most 8 KiB (`413`). Lookup is by a keyed hash.
+- §7 Adds `CurrentUser`, `PermissionKey` and `Workspace`; `Role` is legacy.
+- §13.2 `roles` is a table, not an enum. §13.3 adds `permissions`, `roles`,
+  `role_permissions`, `users.role_id`, `session_epoch` and `created_by`, the
+  owner columns and the join-code columns. §13.5 describes sealed join codes
+  and the read-only access tables. §13.7 allows reference data in a migration.
+- §15 Teaching operations move to `/teacher/*`, and the v0.7.0 `/admin/*`
+  paths answer through an alias until R3. `/admin/*` keeps `deleteUser` and
+  the docs session. Adds `PATCH /auth/me`, `getJoinCode`, the guards' 403s
+  and `RESOURCE_REFERENCED`'s `details.referencedBy`.
+- Word import: an import, its sources, review and commit belong to its
+  creator, and `scope.all` reaches every import.
 
 **Changes since v0.43**
 
@@ -332,12 +374,13 @@ Quizzivy is a web app supporting a private English-teaching practice. Students t
 
 ### 1.1 Personas
 
-| Persona | Role enum | Description |
+| Persona | Built-in role | Description |
 |---|---|---|
-| Teacher / owner | `admin` | Builds tests, manages students and classes, grades, reads results. **Desktop/tablet only.** Data-dense UI is fine. |
-| Student | `student` | Joins a class with a code, takes assigned tests, sees own results. Often on a phone. Needs a calm, focused UI. |
+| Owner | Admin | Runs the practice and teaches in it. Holds every permission ("Take tests" only when turned on) and reaches every teacher's data (`scope.all`). Works in the teacher console until R5 builds the Admin console. **Desktop/tablet only.** |
+| Teacher | Teacher | Builds tests, manages students and classes, grades, reads results, over the classes and content they own. **Desktop/tablet only.** Data-dense UI is fine. |
+| Student | Student | Joins a class with a code, takes assigned tests, sees own results. Often on a phone. Needs a calm, focused UI. |
 
-Roles are an enum (`admin`, `student`). Design guards and permission checks so a third role (`teacher`, limited admin) can be added later without restructuring.
+Roles are data (`app.roles`), one per user (`users.role_id`). The four built-in roles are Admin, Teacher, Assistant and Student; their grants from the permission catalogue are in `docs/plan/70-redesign-overview.md` §4.1, and §5 says how they are enforced. The Assistant role exists with the deck's grants; until the deck draws class staff, no class has an assistant and no role picker offers the role (D14, 70 §1). No screen creates a role or a staff account before R5.
 
 ### 1.2 Goals (v1)
 
@@ -350,13 +393,13 @@ Roles are an enum (`admin`, `student`). Design guards and permission checks so a
 
 - **Payments and subscriptions.**
 - **Open public sign-up.** Self-signup exists but is gated behind a class join code (§6). There is no "create an account" entry point without one.
-- **Multi-tenant / multiple schools.** Single teacher, single organization. No org/tenant scoping in the schema.
+- **Multi-tenant / multiple schools.** One organization with several teachers. Each class, test, question, question group and media asset has an owning teacher, and each Word import its creator (§5); the Admin reaches them all. No org/tenant scoping in the schema.
 - **Hard proctoring** — webcam, screen recording, screen-lock, remote inspection. §10 covers browser-signal monitoring only; see §10.5 on its limits.
 - **Audio transcoding, trimming, or waveform editing.** Upload, validate, serve. Nothing more (§11.2).
 - **Speaking/recording questions.** Students listen in v1; they do not record. That is a separate feature with its own storage, consent, and grading model.
 - **Rich analytics dashboards.** Per-test and per-student score tables only.
 - **Native mobile apps.** Responsive web only.
-- **Real-time collaborative authoring.** One admin edits at a time.
+- **Real-time collaborative authoring.** One person edits at a time.
 
 ---
 
@@ -428,11 +471,19 @@ The organisation's own details are build-time config: `VITE_ORG_NAME`, `VITE_ORG
 
 ## 5. Auth
 
+Signing in (§5.1–§5.3) says who a user is; the user's role (§1.1) says what they may do. The permission catalogue, the built-in grants, the Admin wildcard, the hidden keys and the pseudo-keys (`self`, `workspace.teacher`, `workspace.admin`) are in `docs/plan/70-redesign-overview.md` §4.1. `PermissionKey` in `api/openapi.yaml` equals the rows of `app.permissions`, and the server refuses to start when the database lacks a key it was built with.
+
+- **Enforcement.** Every operation that requires the bearer token declares `x-permission` in `api/openapi.yaml`: a key, a pseudo-key, or a list met by any one of its keys (70 §4.2). `httpx.RequirePermission` enforces it on every request, after `RequireAuth`; the path is not the gate. The server refuses to start when an operation declares nothing, declares a value outside the catalogue, or declares one that does not belong to its path tree (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*`, `/me/*`).
+- **Open operations** do not require the bearer token, declare no permission and pass untouched. There are seven: login, Google sign-in, refresh, logout, `POST /join/preview`, `GET /public/status` and the integrity beacon (`POST /app/attempts/:id/events`).
+- **Refusals.** No valid token, an unknown or disabled user, or a token older than the user's session epoch (§5.2) → `401 UNAUTHORIZED` with `WWW-Authenticate`, which the single-flight refresh settles. An unmet permission → `403 FORBIDDEN`, with no detail.
+- **The principal.** Each gated request resolves the caller's role, permissions, `disabled_at` and session epoch through an in-process cache that keeps a user for 10 seconds. A write on the same machine forgets the entry at once, so the change applies on that machine's next request and on any other within 10 seconds. Polling does not query the database on every request.
+- **Scope is separate from permission.** Repositories filter by `access.Scope`: another teacher's id answers as a missing one does, and their rows never appear in a list or a count. A student is visible to every teacher who reaches them: a member of a class the teacher teaches, an account the teacher created, or an individual target of an assignment the teacher created. `scope.all`, which only the Admin holds, lifts the filter.
+
 ### 5.1 Methods
 
 Two, both landing on the same `users` row keyed by verified email:
 
-1. **Email + password** — admin-created accounts, and the admin's own login.
+1. **Email + password** — student accounts created by staff (`people.students.create`), and staff sign-in.
 2. **Google Sign-In** — the primary path for students, and the **only** path for self-join (§6.3).
 
 A user may have both. Linking rule: a Google sign-in whose ID token carries `email_verified: true` matching an existing user links to that user. An **unverified** email is rejected outright — no link, no create. This closes an account-takeover path.
@@ -454,6 +505,8 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   - 503 `MAINTENANCE` → the maintenance overlay.
 - Every request sends `Accept-Language` set to the app's locale, so server messages match the UI rather than the browser.
 - Reuse detection: presenting an already-rotated token revokes the whole family and forces re-login.
+- **Session epoch.** `users.session_epoch` ends live sessions at once. Sign-in, Google sign-in and refresh put the user's current epoch in the access token (claim `sep`; a token without it reads as 0), and a token older than the user's epoch is refused (§5). In R2 two writes move it, each in the same transaction that revokes every refresh family the student has: disabling a student (`updateStudent` with `disabled: true`) and resetting a student's password (`resetStudentPassword`). Enabling the account again does not bring those sessions back. R5's sign-out-everywhere, role changes and set-password links move it too (70 §4.2).
+- **A disabled user is refused on the next request.** Every gated request reads `disabled_at` through the principal cache (§5): at once on the machine that made the change, within 10 seconds on any other. Refresh refuses a disabled user and revokes the family, so the client's refresh ends the session.
 
 ### 5.3 Google flow
 
@@ -465,17 +518,21 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
    - verified email matches a user → link identity, log in;
    - no match **and** a valid `joinCode` is present → create account + enroll (§6.3);
    - no match, no join code → `403 ACCOUNT_NOT_PROVISIONED`.
-5. Returns `{ accessToken, user }` and sets the refresh cookie.
+5. Returns `{ accessToken, user }`, where `user` is the `CurrentUser` (§7), and sets the refresh cookie.
 
 `VITE_GOOGLE_CLIENT_ID` is public config. The client secret lives only in the backend.
 
 ### 5.4 Guards and edge cases
 
-- `RequireAuth` → `/login?next=<path>` when unauthenticated.
-- `RequireRole` — `admin` on `/app/*` redirects to `/admin`; `student` on `/admin/*` gets a **403 page**, not a redirect (a redirect hides the misconfiguration).
+- `RequireSession` → `/login?next=<path>` when unauthenticated.
+- The web guards read the signed-in user's `workspaces` and `permissions` (`CurrentUser`, §7), never `role`, through `features/auth/permissions.ts` (`can` and `useCan`, `hasWorkspace` and `useWorkspace`). They decide what the SPA shows; the server enforces the permissions on every request (§5).
+  - `TeacherWorkspace` holds `/admin/*`, the teacher console until R4, for the `teacher` workspace. Anyone else gets a **403 page**, not a redirect (a redirect hides the misconfiguration).
+  - `StudentArea` holds `/app/*` for the `app` workspace. A user without it who has the `teacher` or `admin` workspace is redirected to `/admin`; a user with neither gets the 403 page.
+  - `homePathFor` sends the `teacher` or `admin` workspace to `/admin` and anyone else to `/app`. An Admin with "Take tests" turned on (R5) lands on `/admin` and may also open `/app`.
+  - `learnsOnly` (the student app is the user's only workspace) keeps v0.7.0's rules on `/join` and the Settings role label (§6.2).
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`.
-- Password reset in v1: admin sets a temporary password from the student detail page. No self-service email flow (§17.1).
+- Password reset in v1: a holder of `people.students.reset_password` sets a temporary password from the student detail page, under the shared-student rule below. No self-service email flow (§17.1).
 - New passwords have three rules:
   - at least 8 characters;
   - at least one number or symbol (`[\p{N}\p{P}\p{S}]`);
@@ -483,12 +540,19 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 
   The contract enforces the first two (`400 VALIDATION_FAILED`) and the server the third (`400 PASSWORD_UNCHANGED`). Existing passwords are never re-validated. `/change-password` shows the rules and a strength meter.
 - `/forgot-password` makes no request. It tells a Google user that no password is needed, and everyone else to ask the front desk (§4, when configured) or their teacher.
+- **Guards that are not permissions** (70 §4.3), enforced by the server. A guard on a student runs after the student is found in the caller's scope, so another teacher's student answers `404`, never `403`.
+  - **Strict student targets.** Every student read and write (the Students list and record, update, reset and delete, class membership, individual assignment targets, the dashboard's counts and `maintenance anonymize-student`) accepts only a role in `app.student_like_roles`: the built-in Student, or a custom role granted nothing but `learning.take_tests`. An Admin with "Take tests" turned on is never a student target.
+  - **The subset rule.** `updateStudent`, `resetStudentPassword` and `deleteUser` need the target's permissions, without `learning.take_tests`, to be a subset of the caller's (`access.CanActOn`); otherwise `403 FORBIDDEN`. 70 §4.3 lists the R5 operations it will also cover.
+  - **Disabling.** `updateStudent` with `disabled`, either value, also needs `people.users.manage`; otherwise `403 FORBIDDEN`.
+  - **Shared students.** A reset, or a new `email`, by a caller without `people.users.manage` needs a student no one else reaches: every class they are in, archived ones included, is the caller's; no other account created them; no other account's assignment targets them individually; and a student in no class was created by the caller. Otherwise `403 STUDENT_SHARED`, and nothing is written. Sending the address the student already has is not a change. A new address could take the account over through Google sign-in, which links by email (§5.1).
+  - **The last Admin.** The `users_last_admin` trigger refuses any demotion, disable or delete that would leave no active Admin, whatever the path. No R2 operation can reach an Admin account; `409 LAST_ADMIN` arrives with R5.
+  - The built-in Student role cannot lose `learning.take_tests`.
 
 ### 5.5 API reference session
 
-- `/docs` and `/docs/openapi.json` are served by the API beside the contract and are **admin only**. A browser navigating there sends no bearer token, so they check a separate cookie instead.
-- `POST /admin/docs-session` (admin, rate-limited like any credential-minting operation) sets `quizzivy_docs`: `Path=/docs; HttpOnly; Secure; SameSite=Strict; Max-Age=900`. Its value is a JWT for the `docs` audience, signed with a key derived from the access-token key: a docs token is never accepted as an access token, and an access token never opens the docs.
-- Missing, tampered or expired cookie → `401`; a role other than admin → `403`, both in the error envelope with no page or contract leaked. `POST /auth/logout` clears `quizzivy_docs` together with the refresh cookie, so signing out also ends an open docs session.
+- `/docs` and `/docs/openapi.json` are served by the API beside the contract and open only to a holder of `system.api_reference`, a hidden key only the Admin holds (70 §4.1). A browser navigating there sends no bearer token, so they check a separate cookie instead.
+- `POST /admin/docs-session` (`openDocsSession`, `x-permission: system.api_reference`, rate-limited like any credential-minting operation) sets `quizzivy_docs`: `Path=/docs; HttpOnly; Secure; SameSite=Strict; Max-Age=900`. Its value is a JWT for the `docs` audience that carries the caller's session epoch, signed with a key derived from the access-token key: a docs token is never accepted as an access token, and an access token never opens the docs.
+- The gate resolves the cookie's user through the same principal cache as the API (§5). A missing, tampered or expired cookie, an unknown or disabled user, or a cookie older than the user's session epoch → `401`; a role without `system.api_reference` → `403`, both in the error envelope with no page or contract leaked. `POST /auth/logout` clears `quizzivy_docs` together with the refresh cookie, so signing out also ends an open docs session.
 - The SPA's admin settings open the reference: the new tab is opened synchronously in the click, `opener` is cleared, and only then is the session requested and the tab pointed at `/docs`.
 - `DOCS_PUBLIC=true` skips only the cookie check, for local development. The server refuses to start with it when `APP_ENV=production`; SRI, the page's CSP and the rate limit apply everywhere.
 
@@ -504,6 +568,9 @@ A join code belongs to a class and is a **bearer secret**: whoever holds it can 
 - Generated from a CSPRNG. Never sequential, never derived from the class ID.
 - Per-code controls: `expires_at` (default 30 days), `max_uses` (default null = unlimited), `uses_count`, `revoked_at`.
 - One **active** code per class at a time. Rotating issues a new code and revokes the old one; previously enrolled students are unaffected.
+- Stored encrypted, so it can be read back for its teacher and for admins (D5), and found by a keyed hash (§6.5). A code issued from v0.8.0 on is sealed under the server's `JOIN_CODE_KEY`, which the database never holds (§13.3). A code issued before v0.8.0 is held only as its SHA-256: it still redeems but cannot be read back, and R4 rotates every such code.
+- The key is standard base64 of exactly 32 random bytes, kept as a Fly secret with an offline copy. The API refuses to start without it and never logs it. HKDF-SHA256 derives three values from it, each under its own label: the AES-256-GCM key, the HMAC-SHA256 lookup key and a 16-bit key id; a key whose id derives to 0 is refused.
+- Rotating the key: one deploy sets `JOIN_CODE_KEY_PREVIOUS` to the old key and `JOIN_CODE_KEY` to the new one, and codes under either key redeem and read back. `maintenance rekey-join-codes -apply` then re-seals every code under the old key with the new one, and the old key is unset (`docs/setup/operations.md`, "Join-code key"). A lost key leaves every code sealed under it unreadable and unredeemable: rotate every class's code.
 
 ### 6.2 Student flow
 
@@ -529,12 +596,14 @@ The preview exists so the student sees **which class they are joining** before a
 
 Self-signup with email + password requires a verified email, which requires transactional email infrastructure (provider, domain auth, deliverability, bounce handling) — a real dependency v1 does not have. Google hands us a verified email for free and is one tap on a phone, which is exactly the self-join case.
 
-So: **self-join requires Google.** Password accounts remain admin-created. If Thuong later wants password self-signup, add an email provider and a `email_verifications` table; the join flow itself does not change. This is a v1 scoping decision, not a permanent constraint (§17.1).
+So: **self-join requires Google.** Password accounts remain staff-created. If Thuong later wants password self-signup, add an email provider and a `email_verifications` table; the join flow itself does not change. This is a v1 scoping decision, not a permanent constraint (§17.1).
 
-### 6.4 Admin controls
+### 6.4 Teacher controls
 
-On `/admin/classes/:id`:
-- Show the active code, with copy button, QR code, expiry, and uses count.
+A class's code and members are managed by its teacher (`classes.teacher_id`), and by an Admin through `scope.all` (plan 70 §4.1). Another teacher's class answers 404, as a missing class does. The code operations and member changes need `teaching.classes.write`; the member list needs `people.students.read`.
+
+On `/admin/classes/:id` (R4 moves the screen to `/teacher/*`):
+- Show the active code, with copy button, QR code, expiry, and uses count. `getJoinCode` reads the code back in full (§6.1); until R4 the screen shows it once when issued and then as its hint.
 - **Rotate code** (confirm dialog: "Mã cũ sẽ ngừng hoạt động ngay").
 - **Disable self-join** toggle — revokes the code without issuing a new one.
 - Member list shows `joined_via` (`admin` / `join_code`) and `joined_at`, so the teacher can spot unexpected enrolments.
@@ -544,13 +613,19 @@ On `/admin/classes/:id`:
 
 A leaked code lets a stranger into the class. Mitigations, all required:
 
-- **Rate limit** `POST /join/preview` and `POST /auth/google` with a `joinCode`: per-IP (e.g. 10/min, 60/hour) and per-code (e.g. 30/hour). Return `429` with `Retry-After`. Without this, an 8-char code space is still worth probing at scale.
-- **Constant-time comparison** on code lookup; look up by a hash of the normalized code, not by plaintext equality.
+- **Rate limit** the sign-in and join operations, and return `429` with `Retry-After`. Without this, an 8-char code space is still worth probing at scale. The budgets let a class of 40 behind one school address make three tries at each step (T-R2.15):
+  - `POST /join/preview`, `POST /app/classes/join` and `POST /auth/google`: 120/min and 600/h per address; 200/h per code, from any address. Google sign-in counts a code only when the body carries a `joinCode`.
+  - `POST /auth/login`: 120/min and 600/h per address; 10/min per address and email; 20/h per email.
+  - `POST /auth/refresh` and `POST /auth/logout`: 120/min and 1,200/h per address.
+  - A code is counted after normalization, so respelling it buys no fresh allowance. Guessing stays at 600 codes an hour per address on each operation that checks one.
+- **Bounded bodies.** The four operations with a bucket keyed on a body field (login, Google sign-in, the preview and the in-app join) accept at most 8 KiB and answer `413` before any handler, so padding cannot hide the key from its bucket.
+- **Constant-time comparison** on code lookup; look up by a keyed hash (HMAC-SHA256) of the normalized code, not by plaintext equality. A code issued before v0.8.0 is found by its SHA-256 until R4 rotates it.
+- No audit row or log line carries a code, its ciphertext or its hash.
 - `POST /join/preview` returns **only** class name and teacher display name — never student names, never counts, never IDs. It is an unauthenticated endpoint.
 - Log every enrolment (`class_id`, `user_id`, `ip`, `user_agent`, `at`) to the audit table.
 - Expiry defaults to 30 days precisely so an abandoned code stops working on its own.
 
-**Deliberately not built:** an admin approval queue. For a single-teacher practice, rotate-and-remove is sufficient and one less state machine. Revisit if enrolment volume grows (§17.2).
+**Deliberately not built:** an approval queue. For a small practice, rotate-and-remove is sufficient and one less state machine. Revisit if enrolment volume grows (§17.2).
 
 ---
 
@@ -559,7 +634,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
 Mirrors §13. IDs are UUID strings; timestamps ISO 8601 UTC.
 
 ```ts
-type Role = 'admin' | 'student';
+type Role = 'admin' | 'student';        // legacy: 'student' for a student-like role (§5.4), 'admin' for any other; R3 removes it
 
 interface User {
   id; email; fullName; role: Role;
@@ -569,11 +644,19 @@ interface User {
   createdAt;
 }
 
+type PermissionKey = 'content.tests.write' | /* … */ 'system.leads';  // the 22 keys of 70 §4.1, in catalogue order
+type Workspace = 'teacher' | 'admin' | 'app';
+
+interface CurrentUser extends User {    // the signed-in user only; a payload about anyone else carries User
+  permissions: PermissionKey[];         // the role's effective keys, in catalogue order
+  workspaces: Workspace[];              // derived from permissions; the web guards read these (§5.4)
+}
+
 interface Class {
   id; name; description?;
   studentCount: number;
   selfJoinEnabled: boolean;
-  joinCode?: { code: string; expiresAt: string; maxUses: number | null; usesCount: number }; // admin only
+  joinCode?: { hint: string; expiresAt: string; maxUses: number | null; usesCount: number } | null; // teacher responses only; the code itself comes from getJoinCode (§6.4)
   createdAt;
 }
 
@@ -1189,7 +1272,7 @@ Two authorities govern all schema and query work. Where they conflict, the Postg
 - `timestamptz` everywhere; never bare `timestamp`. Store UTC, render `Asia/Ho_Chi_Minh`.
 - `text` over `varchar(n)` unless a real business constraint exists; enforce with `CHECK` when it does.
 - Scores: `numeric(8,2)`. Never `float`.
-- PG enums where the set is genuinely closed (`role`, `attempt_status`); lookup tables otherwise. Adding an enum value is easy, removing one is not.
+- PG enums where the set is genuinely closed (`attempt_status`); lookup tables otherwise, such as `roles` (R2), which custom roles keep open. Adding an enum value is easy, removing one is not.
 - Every FK has an explicit `ON DELETE`. Default `RESTRICT`; `CASCADE` only for true owned children.
 - Every FK column used in a join or filter gets an index — Postgres does not index FKs automatically.
 - `created_at timestamptz NOT NULL DEFAULT now()`; `updated_at` via trigger, not application code.
@@ -1213,10 +1296,13 @@ CREATE TABLE app.users (
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
   email         text NOT NULL,
   full_name     text NOT NULL,
-  role          app.user_role NOT NULL DEFAULT 'student',
+  role          app.user_role NOT NULL DEFAULT 'student',  -- legacy; R3 drops it
+  role_id       uuid NOT NULL REFERENCES app.roles(id) ON DELETE RESTRICT,
   password_hash text,                              -- NULL = Google-only account
   must_change_password boolean NOT NULL DEFAULT false,
   disabled_at   timestamptz,
+  session_epoch integer NOT NULL DEFAULT 0 CHECK (session_epoch >= 0),
+  created_by    uuid REFERENCES app.users(id) ON DELETE SET NULL,  -- NULL = unknown or self-joined
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
@@ -1234,6 +1320,43 @@ CREATE TABLE app.user_identities (
 CREATE INDEX ON app.user_identities (user_id);
 ```
 
+**Roles and permissions** (§5, plan 70 §4), from R2:
+
+```sql
+CREATE TABLE app.permissions (
+  key       text PRIMARY KEY,                      -- 'content.tests.write', ...
+  group_key text NOT NULL CHECK (group_key IN ('content','teaching','people','system')),
+  ordinal   smallint NOT NULL CHECK (ordinal > 0),
+  in_matrix boolean NOT NULL,                      -- false for the four hidden keys
+  UNIQUE (group_key, ordinal)
+);
+
+CREATE TABLE app.roles (
+  id          uuid PRIMARY KEY DEFAULT uuidv7(),
+  builtin_key text UNIQUE CHECK (builtin_key IN ('admin','teacher','assistant','student')),
+  name        text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 60),
+  description text NOT NULL DEFAULT '' CHECK (length(description) <= 300),
+  icon        text NOT NULL,                       -- one of the Edit role dialog's twelve
+  color       text NOT NULL,                       -- one of its seven card colours
+  copied_from uuid REFERENCES app.roles(id) ON DELETE SET NULL,
+  revision    bigint NOT NULL DEFAULT 1 CHECK (revision > 0),
+  created_by  uuid REFERENCES app.users(id) ON DELETE SET NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX roles_name_lower_key ON app.roles (lower(name));
+
+CREATE TABLE app.role_permissions (
+  role_id        uuid NOT NULL REFERENCES app.roles(id) ON DELETE CASCADE,
+  permission_key text NOT NULL REFERENCES app.permissions(key) ON DELETE RESTRICT,
+  PRIMARY KEY (role_id, permission_key)
+);
+```
+
+`permissions` is plan 70 §4.1's catalogue. A migration writes the catalogue, the four built-in roles and their grants (`docs/plan/20-data-model.md` D-21). A custom role has no `builtin_key`, and no role's `builtin_key` changes. The Admin stores no grant but `learning.take_tests`: it holds every other key as the wildcard. Triggers refuse a hidden key for any role and keep `learning.take_tests` on the built-in Student, and every grant change bumps the role's `revision`. The view `app.student_like_roles` is the one definition of a strict student target (§5.4): the built-in Student, or a custom role holding nothing but `learning.take_tests`.
+
+`users.role_id` replaces `users.role`. Until R3 both exist, and a trigger keeps them in step for the v0.7.0 binary; `role_id` is `NOT NULL … NOT VALID` until R3 validates it and drops `role` and `app.user_role`. The trigger `users_last_admin` refuses a demotion, disable or delete that would leave no active Admin. An access token carries the user's `session_epoch`, and a token below the stored value is refused; a disable and a staff password reset bump it (§5). `created_by` names the staff member who created the account; it is NULL for an account older than R2 and for a Google self-join. Details: `docs/plan/20-data-model.md` §29–§30.
+
 **Classes and join codes** (§6):
 
 ```sql
@@ -1242,22 +1365,28 @@ CREATE TABLE app.classes (
   name              text NOT NULL,
   description       text,
   self_join_enabled boolean NOT NULL DEFAULT true,
+  teacher_id        uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE app.class_join_codes (
-  id         uuid PRIMARY KEY DEFAULT uuidv7(),
-  class_id   uuid NOT NULL REFERENCES app.classes(id) ON DELETE CASCADE,
-  code_hash  bytea NOT NULL,                       -- sha256(normalized code); never plaintext
-  code_hint  text NOT NULL,                        -- last 4 chars, for admin display
-  expires_at timestamptz NOT NULL,
-  max_uses   integer CHECK (max_uses IS NULL OR max_uses > 0),
-  uses_count integer NOT NULL DEFAULT 0,
-  revoked_at timestamptz,
-  created_by uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (code_hash)
+  id              uuid PRIMARY KEY DEFAULT uuidv7(),
+  class_id        uuid NOT NULL REFERENCES app.classes(id) ON DELETE CASCADE,
+  code_hash       bytea NOT NULL,                  -- 1: sha256(normalized code); 2: HMAC-SHA256
+  code_ciphertext bytea CHECK (code_ciphertext IS NULL OR length(code_ciphertext) = 36),
+  key_id          smallint CHECK (key_id IS NULL OR key_id <> 0),
+  lookup_scheme   smallint NOT NULL DEFAULT 1 CHECK (lookup_scheme IN (1, 2)),
+  code_hint       text NOT NULL,                   -- last 4 chars, for the teacher's display
+  expires_at      timestamptz NOT NULL,
+  max_uses        integer CHECK (max_uses IS NULL OR max_uses > 0),
+  uses_count      integer NOT NULL DEFAULT 0,
+  revoked_at      timestamptz,
+  created_by      uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (code_hash),
+  CHECK ((lookup_scheme = 2) = (code_ciphertext IS NOT NULL)
+     AND (lookup_scheme = 2) = (key_id IS NOT NULL))
 );
 -- one active code per class
 CREATE UNIQUE INDEX class_join_codes_one_active
@@ -1274,7 +1403,7 @@ CREATE TABLE app.class_members (
 CREATE INDEX ON app.class_members (user_id);
 ```
 
-The plaintext code is shown to the admin **once at generation** and thereafter only as `code_hint`. If they lose it, they rotate. Storing it hashed means a database dump does not hand over class access.
+The code is stored encrypted, so it can be read back for its teacher and for admins (D5). A code issued from v0.8.0 on is a scheme-2 row: `code_ciphertext` holds a 12-byte nonce, the 8-byte code and a 16-byte AES-256-GCM tag, sealed under `JOIN_CODE_KEY` with the class and code ids as additional data; `key_id` is the 16-bit id derived from that key; and `code_hash` is the HMAC-SHA256 of the normalized code under a lookup key derived from it. The key never reaches the database, so a dump does not hand over class access. A code issued before v0.8.0 is a scheme-1 row: its SHA-256 and no ciphertext. It still redeems, cannot be read back, and R4 rotates it (D5). `code_hash` stays the only lookup path (§6.5). Key derivation and rotation: §6.1 and `docs/plan/20-data-model.md` §33.
 
 **Media** (§11):
 
@@ -1289,6 +1418,7 @@ CREATE TABLE app.media_assets (
   original_filename text NOT NULL,
   checksum_sha256   bytea NOT NULL,                -- dedupe identical re-uploads
   uploaded_by       uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  owner_id          uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   created_at        timestamptz NOT NULL DEFAULT now(),
   deleted_at        timestamptz,
   CHECK (kind <> 'audio' OR duration_ms IS NOT NULL)
@@ -1332,6 +1462,7 @@ CREATE TABLE app.questions (
   sample_answer   text,                            -- OQ-4; admin-only, never in a student payload
   tags            text[] NOT NULL DEFAULT '{}',
   created_by      uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  owner_id        uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),
   deleted_at      timestamptz
@@ -1355,7 +1486,7 @@ CREATE TABLE app.question_options (
 **Tests and versioning** — the load-bearing decision. On publish, snapshot resolved content into version tables so editing a test can never mutate an in-flight or historical attempt:
 
 ```
-tests(id, title, description, status, current_version, last_published_version, ...)
+tests(id, title, description, status, current_version, last_published_version, owner_id, ...)
 test_versions(id, test_id, version, published_at, total_points, UNIQUE(test_id, version))
 test_version_sections(id, test_version_id, ordinal, title, instructions)
 test_version_questions(id, test_version_section_id, ordinal, source_question_id,
@@ -1366,6 +1497,8 @@ test_version_blanks / test_version_blank_answers
 ```
 
 Snapshotting into **normalized rows** rather than one `jsonb` blob keeps per-question analytics a plain SQL query later. `source_question_id` preserves the bank link without coupling to it. `media_asset_id` points at the same immutable asset — the file is never copied.
+
+**Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Until R3 the owner columns are `NOT NULL … NOT VALID`, and triggers fill them for the v0.7.0 binary's inserts. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
 
 **Assignments and attempts:**
 
@@ -1441,10 +1574,10 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 ### 13.5 Security in the data layer
 
 - Refresh tokens stored as SHA-256 hashes: `token_hash`, `family_id`, `user_id`, `expires_at`, `revoked_at`, `replaced_by`, `user_agent`, `ip`.
-- Join codes stored as SHA-256 hashes (§13.3). Lookup by hash, compared in constant time.
+- Join codes sealed with AES-256-GCM under a key the database never holds, and found by an HMAC-SHA256 of the normalized code under a key derived from it (§13.3). Lookup by hash, compared in constant time. A code issued before v0.8.0 keeps its SHA-256 hash until R4 rotates it.
 - Passwords: Argon2id (bcrypt cost ≥ 12 if unavailable).
 - `sample_answer`, `transcript`, `is_correct`, and `accepted_answers` must never reach a student response. Enforce with explicit column lists — **no `SELECT *` in student-facing paths.** Add a test that asserts these keys are absent from `GET /app/attempts/:id`.
-- Least-privilege DB roles: the app connects with DML on `app` only, not as owner. Migrations run as a separate role.
+- Least-privilege DB roles: the app connects with DML on `app` only, not as owner. Migrations run as a separate role. The app role only reads `permissions`, `roles`, `role_permissions` and `student_like_roles`; R5 grants the role commands' writes. `users_last_admin` is the schema's first `SECURITY DEFINER` function: owned by the migrate role, with `search_path = pg_catalog, app, pg_temp` and EXECUTE revoked from PUBLIC (`docs/plan/20-data-model.md` §30).
 
 ### 13.6 PG18 features — use and skip
 
@@ -1465,7 +1598,7 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - Expand-contract for anything breaking: add nullable → backfill → start writing → `NOT NULL` → drop old. Never in one migration.
 - `CREATE INDEX CONCURRENTLY` runs outside a transaction — mark those `-- +goose NO TRANSACTION`.
 - Test every migration against a copy of real data before production. On Neon, a branch per migration, reset from parent between runs.
-- Seed data in `seed/`, never in migrations.
+- Seed data in `seed/`, never in migrations. The exception is reference data the app cannot run without: the permission catalogue and the built-in roles (`docs/plan/20-data-model.md` D-21).
 
 ### 13.8 Query discipline
 
@@ -1526,41 +1659,59 @@ GET    /public/status                   → {maintenance: {startsAt, endsAt, act
                                           same answer for everyone, Cache-Control public 30 s,
                                           120/min and 2,000/h per IP
 POST   /join/preview                    {joinCode} → {classId, className, teacherName}
-POST   /auth/login                      {email,password} → {accessToken,user}
-POST   /auth/google                     {code,codeVerifier,redirectUri,joinCode?} → {accessToken,user}
+POST   /auth/login                      {email,password} → {accessToken,user: CurrentUser}
+POST   /auth/google                     {code,codeVerifier,redirectUri,joinCode?} → {accessToken,user: CurrentUser}
 POST   /auth/refresh                    (cookie) → {accessToken}
 
 # authenticated
 POST   /auth/logout
-GET    /auth/me                         → User
+GET    /auth/me                         → CurrentUser
+PATCH  /auth/me                         {fullName} → CurrentUser
 POST   /auth/change-password            400 VALIDATION_FAILED on the rules (§5.4), 400 PASSWORD_UNCHANGED
-POST   /auth/google/link                link Google to current account
+POST   /auth/google/link                link Google to current account → CurrentUser
 DELETE /auth/google/link                rejected if it would leave no login method
 
+# teacher
+GET    /teacher/tests?status=&q=&cursor=
+POST   /teacher/tests | GET /:id | PATCH /:id
+POST   /teacher/tests/:id/publish       → new version
+POST   /teacher/tests/:id/duplicate
+GET    /teacher/questions?type=&tag=&q=&cursor=
+POST   /teacher/questions | PATCH /:id | DELETE /:id
+POST   /teacher/media                   multipart → MediaAsset (validates mime, size, duration)
+GET    /teacher/media?kind=&cursor=
+DELETE /teacher/media/:id               409 if referenced by a published version
+GET    /teacher/assignments | POST | GET /:id | PATCH /:id
+GET    /teacher/assignments/:id/attempts  → rows incl. integrity + audio summary
+POST   /teacher/attempts/:id/extend     {minutes,reason}
+POST   /teacher/attempts/:id/reset      {reason}
+POST   /teacher/attempts/:id/void       {reason}
+GET    /teacher/attempts/:id | GET /teacher/attempts/:id/events
+POST   /teacher/attempts/:id/grade      {items:[{questionId,points,comment}]}
+POST   /teacher/attempts/:id/finish-grading
+GET    /teacher/students | POST | GET /:id
+PATCH  /teacher/students/:id            403 FORBIDDEN when disabled is sent without
+                                          people.users.manage or the subset rule refuses; 403 STUDENT_SHARED
+                                          for a new email when someone else also reaches the student (§5.4)
+POST   /teacher/students/:id/reset-password
+                                          403 STUDENT_SHARED when someone else also reaches the student,
+                                          403 FORBIDDEN when the subset rule refuses (§5.4)
+GET    /teacher/classes | POST | GET /:id | PATCH /:id
+DELETE /teacher/classes/:id             archived only, else 409 RESOURCE_NOT_ARCHIVED;
+                                          409 RESOURCE_REFERENCED {referencedBy}
+POST   /teacher/classes/:id/members | DELETE /teacher/classes/:id/members/:userId
+GET    /teacher/classes/:id/join-code   → {code, hint, legacy, expiresAt, maxUses, usesCount}
+                                          Cache-Control no-store; code null for a legacy code or one
+                                          sealed under a key the server no longer holds; 404 without
+                                          an active code
+POST   /teacher/classes/:id/join-code   rotate → {code}
+DELETE /teacher/classes/:id/join-code   revoke, disable self-join
+
 # admin
-GET    /admin/tests?status=&q=&cursor=
-POST   /admin/tests | GET /:id | PATCH /:id
-POST   /admin/tests/:id/publish         → new version
-POST   /admin/tests/:id/duplicate
-GET    /admin/questions?type=&tag=&q=&cursor=
-POST   /admin/questions | PATCH /:id | DELETE /:id
-POST   /admin/media                     multipart → MediaAsset (validates mime, size, duration)
-GET    /admin/media?kind=&cursor=
-DELETE /admin/media/:id                 409 if referenced by a published version
-GET    /admin/assignments | POST | GET /:id | PATCH /:id
-GET    /admin/assignments/:id/attempts  → rows incl. integrity + audio summary
-POST   /admin/attempts/:id/extend       {minutes,reason}
-POST   /admin/attempts/:id/reset        {reason}
-POST   /admin/attempts/:id/void         {reason}
-GET    /admin/attempts/:id | GET /admin/attempts/:id/events
-POST   /admin/attempts/:id/grade        {items:[{questionId,points,comment}]}
-POST   /admin/attempts/:id/finish-grading
-GET    /admin/students | POST | GET /:id | PATCH /:id
-POST   /admin/students/:id/reset-password
-GET    /admin/classes | POST | GET /:id | PATCH /:id
-POST   /admin/classes/:id/members | DELETE /admin/classes/:id/members/:userId
-POST   /admin/classes/:id/join-code     rotate → {code}  (plaintext returned once)
-DELETE /admin/classes/:id/join-code     revoke, disable self-join
+DELETE /admin/users/:id                 a disabled student only, else 409 RESOURCE_NOT_ARCHIVED;
+                                          403 FORBIDDEN when the subset rule refuses,
+                                          409 RESOURCE_REFERENCED {referencedBy}
+POST   /admin/docs-session              opens the API reference for fifteen minutes (§5.5)
 
 # student
 POST   /app/classes/join                {joinCode} → Class      (already-authed path)
@@ -1579,6 +1730,12 @@ POST   /app/attempts/:id/submit         idempotent; 409 if already closed; 409 D
 GET    /app/attempts/:id/result
 GET    /app/media/:assetId/url          → short-lived signed URL
 ```
+
+**Prefixes.** `/teacher/*` holds the teaching operations, `/admin/*` the platform's, `/app/*` the student's and `/auth/*` the caller's own session and account. Every operation that requires a bearer token declares its permission as `x-permission` (§5). Under `/teacher/*` and `/app/*`, an id the caller does not reach answers exactly as a missing one does. The v0.7.0 paths under `/admin/*` that moved still answer until R3: the server rewrites each to its new path (`DELETE /admin/students/:id` becomes `DELETE /admin/users/:id`) and logs `legacy_admin_path`.
+
+**`CurrentUser`** is `User`'s fields plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.
+
+`deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`) answer `RESOURCE_REFERENCED` without details.
 
 **During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it.
 
@@ -1615,10 +1772,14 @@ contract updates the relevant sections above and OpenAPI before implementation.
 The native source intake checkpoint is configured separately from learner media.
 `IMPORT_S3_BUCKET` names a separate private bucket; `IMPORT_WORK_DIR` is an absolute,
 private disk directory. Both are required to enable intake. The existing S3 endpoint
-and credentials are reused, with no public bucket or CDN fallback. Teacher scope is
-shared within this installation; creator and modifying actors are retained.
+and credentials are reused, with no public bucket or CDN fallback. An import, its
+sources, its review and its commit belong to its creator. `scope.all` reaches every
+import, and another creator's import answers as a missing one does. The test a
+commit creates, with its questions and groups, belongs to the import's creator; the
+committer stays their `created_by`, the audit actor and `committed_by` (T-R2.12f).
+Creator and modifying actors are retained.
 
-Availability is reported, not assumed. `GET /admin/imports/capabilities` answers on
+Availability is reported, not assumed. `GET /teacher/imports/capabilities` answers on
 every deployment:
 
 - `intakeEnabled` is true when the import store is configured.
@@ -1634,7 +1795,7 @@ where intake is off. Where processing is off, it withholds new imports, retries
 and reprocessing, and says why. Production runs both: O-24 was decided on 2026-09-25, and the
 import worker runs there as its own Fly process group.
 
-`/admin/imports` creates an empty record idempotently and lists history by status,
+`/teacher/imports` creates an empty record idempotently and lists history by status,
 title or current filename. A source upload accepts exactly one native `.docx`, with
 bounded package/content inspection, a maximum 25 MiB compressed body and the Word
 inspector's expansion/XML limits. `.doc` is accepted where `IMPORT_LEGACY_DOC` is
@@ -1785,7 +1946,7 @@ Thuong approved two ownership/recovery policies for this milestone:
 All original open questions are closed. These three sub-decisions were made while implementing the answers, and are the ones most likely to want changing.
 
 1. **Self-join is Google-only** (§6.3). Password self-signup needs verified email, which needs an email provider. If Thuong wants that in v1, add Resend/SES and an `email_verifications` table — the join flow itself is unchanged. *Decide before Phase 1.*
-2. **No admin approval queue for self-join** (§6.5). Rotate-and-remove is judged sufficient for a single-teacher practice. If enrolments become high-volume or a code leaks in practice, add a `pending` membership state. *Non-blocking.*
+2. **No admin approval queue for self-join** (§6.5). Rotate-and-remove is judged sufficient for a small practice. If enrolments become high-volume or a code leaks in practice, add a `pending` membership state. *Non-blocking.*
 3. **mp3 and m4a only** (§11.1). Covers every current browser with no transcoding. Adding `.ogg`/`.wav` means a transcoding pipeline or a Safari support matrix. *Decide before Phase 2.*
 
 ---

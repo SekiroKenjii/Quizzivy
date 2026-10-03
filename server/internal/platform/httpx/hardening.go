@@ -19,7 +19,7 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		h.Set("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'none'; object-src 'none'")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
-		if strings.HasPrefix(r.URL.Path, "/auth/") || strings.HasPrefix(r.URL.Path, "/app/") || strings.HasPrefix(r.URL.Path, "/admin/") {
+		if privateTree(r.URL.Path) {
 			h.Set("Cache-Control", "no-store")
 		}
 		next.ServeHTTP(w, r)
@@ -79,4 +79,15 @@ func requestBodyLimit(pattern string, fallback int64, limits map[string]int64) i
 		return configured
 	}
 	return fallback
+}
+
+var privateTrees = []string{"/auth/", "/app/", "/teacher/", "/admin/"}
+
+func privateTree(path string) bool {
+	for _, prefix := range privateTrees {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
 }

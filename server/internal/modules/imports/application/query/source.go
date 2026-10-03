@@ -4,9 +4,15 @@ import (
 	"context"
 	"quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/modules/imports/domain"
+	"quizzivy/internal/shared/access"
 )
 
-type SourceView struct{ ImportID, Role string }
+// SourceView reads one source's extracted text for an import Scope reaches;
+// another creator's answers ErrNotFound before any other refusal.
+type SourceView struct {
+	ImportID, Role string
+	Scope          access.Scope
+}
 
 // SourceViewResult is one source's extracted main-body evidence with its original filename.
 type SourceViewResult struct {
@@ -23,7 +29,7 @@ type SourceViewHandler struct {
 }
 
 func (h SourceViewHandler) Handle(ctx context.Context, in SourceView) (SourceViewResult, error) {
-	current, err := h.Repo.Get(ctx, in.ImportID)
+	current, err := h.Repo.Get(ctx, in.Scope, in.ImportID)
 	if err != nil {
 		return SourceViewResult{}, err
 	}

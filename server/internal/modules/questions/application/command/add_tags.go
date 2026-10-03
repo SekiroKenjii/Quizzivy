@@ -3,11 +3,15 @@ package command
 import (
 	"context"
 	"quizzivy/internal/modules/questions/application/internal/support"
+	"quizzivy/internal/shared/access"
 )
 
+// AddTags adds Tags to the bank questions among IDs that Scope reaches; any
+// other id is skipped exactly as a missing one is.
 type AddTags struct {
-	IDs  []string
-	Tags []string
+	IDs   []string
+	Tags  []string
+	Scope access.Scope
 }
 
 type AddTagsHandler struct {
@@ -15,5 +19,5 @@ type AddTagsHandler struct {
 }
 
 func (s AddTagsHandler) Handle(ctx context.Context, cmd AddTags) (int, error) {
-	return s.Repo.AddTags(ctx, cmd.IDs, cmd.Tags)
+	return s.Repo.AddTags(ctx, cmd.Scope, cmd.IDs, cmd.Tags)
 }

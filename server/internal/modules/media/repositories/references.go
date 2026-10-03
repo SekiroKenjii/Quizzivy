@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -102,6 +105,87 @@ func ReachableByStudent(ctx context.Context, q db.Querier, studentID, assetID st
 	return reachable, nil
 }
 
+const readableAssets = `
+	SELECT a.id::text, a.kind::text
+	  FROM app.media_assets a
+	 WHERE a.id = ANY($1::uuid[])
+	   AND a.deleted_at IS NULL
+	   AND ($2::boolean
+	    OR a.owner_id = $3::uuid
+	    OR EXISTS (SELECT 1 FROM app.questions q
+	                WHERE q.media_asset_id = a.id AND q.context_group_id IS NULL
+	                  AND q.deleted_at IS NULL AND q.owner_id = $3::uuid)
+	    OR EXISTS (SELECT 1
+	                 FROM app.question_groups g
+	                 LEFT JOIN app.test_sections s ON s.id = g.owner_section_id
+	                 LEFT JOIN app.tests t ON t.id = s.test_id AND t.deleted_at IS NULL
+	                WHERE g.id IN (SELECT group_id FROM app.group_stimulus_assets WHERE media_asset_id = a.id
+	                               UNION ALL
+	                               SELECT group_id FROM app.group_recordings WHERE media_asset_id = a.id
+	                               UNION ALL
+	                               SELECT context_group_id FROM app.questions
+	                                WHERE media_asset_id = a.id AND context_group_id IS NOT NULL)
+	                  AND CASE WHEN g.owner_section_id IS NULL THEN g.owner_id ELSE t.owner_id END = $3::uuid)
+	    OR EXISTS (SELECT 1
+	                 FROM app.test_version_sections vs
+	                 JOIN app.test_versions tv ON tv.id = vs.test_version_id
+	                 JOIN app.tests t ON t.id = tv.test_id
+	                WHERE vs.id IN (SELECT test_version_section_id FROM app.test_version_questions WHERE media_asset_id = a.id
+	                                UNION ALL
+	                                SELECT vg.test_version_section_id FROM app.test_version_group_assets va
+	                                  JOIN app.test_version_groups vg ON vg.id = va.group_id
+	                                 WHERE va.media_asset_id = a.id
+	                                UNION ALL
+	                                SELECT vg.test_version_section_id FROM app.test_version_group_recordings vr
+	                                  JOIN app.test_version_groups vg ON vg.id = vr.group_id
+	                                 WHERE vr.media_asset_id = a.id)
+	                  AND t.deleted_at IS NULL AND t.owner_id = $3::uuid))`
+
+// Readable is the one definition of which assets a staff scope may read, and
+// so bind or sign: its own, every asset under scope.all, and any asset already
+// used by one of its live bank questions, by a group it owns (a section group
+// through its live test), or by a published version of one of its live tests.
+// It returns the kind of each readable id, keyed by the id's canonical text; an
+// id it leaves out is missing, deleted or unreadable, and callers must answer
+// the three alike. A zero scope reads nothing. It takes no lock.
+func Readable(ctx context.Context, q db.Querier, scope access.Scope, assetIDs []string) (map[string]domain.Kind, error) {
+	rows, err := q.Query(ctx, readableAssets, assetIDs, scope.All, opt.String(scope.UserID))
+	if err != nil {
+		return nil, fmt.Errorf("media: readable assets: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[string]domain.Kind, len(assetIDs))
+	for rows.Next() {
+		var id, kind string
+		if err := rows.Scan(&id, &kind); err != nil {
+			return nil, fmt.Errorf("media: scan readable asset: %w", err)
+		}
+		out[id] = domain.Kind(kind)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("media: readable assets: %w", err)
+	}
+	return out, nil
+}
+
+// RequireReadable is Readable for a binding write inside its transaction: it
+// answers ErrNotFound unless the scope may read every one of assetIDs, so an
+// unreadable asset is refused exactly as a missing or deleted one is. Callers
+// run it after LockForVersionUse has locked each id and before writing any row
+// that names one, so a write never authorizes itself.
+func RequireReadable(ctx context.Context, q db.Querier, scope access.Scope, assetIDs []string) error {
+	readable, err := Readable(ctx, q, scope, assetIDs)
+	if err != nil {
+		return err
+	}
+	for _, id := range assetIDs {
+		if _, ok := readable[strings.ToLower(id)]; !ok {
+			return domain.ErrNotFound
+		}
+	}
+	return nil
+}
+
 func (s *Postgres) ReferencesFor(ctx context.Context, assetIDs []string) (map[string][]domain.TestRef, error) {
 	return ReferencesFor(ctx, s.Conn(), assetIDs)
 }
@@ -112,4 +196,12 @@ func (s *Postgres) ReachableByStudent(ctx context.Context, studentID, assetID st
 
 func (s *Postgres) LockForVersionUse(ctx context.Context, tx pgx.Tx, assetID string) error {
 	return LockForVersionUse(ctx, tx, assetID)
+}
+
+func (s *Postgres) Readable(ctx context.Context, scope access.Scope, assetIDs []string) (map[string]domain.Kind, error) {
+	return Readable(ctx, s.Conn(), scope, assetIDs)
+}
+
+func (s *Postgres) RequireReadable(ctx context.Context, tx pgx.Tx, scope access.Scope, assetIDs []string) error {
+	return RequireReadable(ctx, tx, scope, assetIDs)
 }

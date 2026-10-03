@@ -17,13 +17,13 @@ beforeEach(() => {
   grades = [];
   const paper = review();
   server.use(
-    http.get(`${BASE}/admin/attempts/${ATTEMPT_ID}`, () =>
-      contractJson("/admin/attempts/{id}", "get", 200, paper),
+    http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}`, () =>
+      contractJson("/teacher/attempts/{id}", "get", 200, paper),
     ),
-    http.get(`${BASE}/admin/assignments/${ASSIGNMENT_ID}/answers`, ({ request }) => {
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/answers`, ({ request }) => {
       const url = new URL(request.url);
       expect(url.searchParams.get("questionId")).toBe(ESSAY_ID);
-      return contractJson("/admin/assignments/{id}/answers", "get", 200, {
+      return contractJson("/teacher/assignments/{id}/answers", "get", 200, {
         question: paper.questions[1],
         questionNumber: 2,
         questionCount: 2,
@@ -50,9 +50,9 @@ beforeEach(() => {
         ],
       });
     }),
-    http.post(`${BASE}/admin/attempts/:id/grade`, async ({ params, request }) => {
+    http.post(`${BASE}/teacher/attempts/:id/grade`, async ({ params, request }) => {
       grades.push({ attemptId: String(params["id"]), body: await request.json() });
-      return contractJson("/admin/attempts/{id}/grade", "post", 200, {
+      return contractJson("/teacher/attempts/{id}/grade", "post", 200, {
         earned: 8,
         total: 10,
         pendingManual: 0,

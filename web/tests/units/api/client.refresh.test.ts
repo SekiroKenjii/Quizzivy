@@ -95,7 +95,7 @@ describe("single-flight refresh (R-06)", () => {
         : envelope("X", 401);
     };
 
-    await Promise.all([api("get", "/admin/classes"), api("get", "/admin/classes")]);
+    await Promise.all([api("get", "/teacher/classes"), api("get", "/teacher/classes")]);
 
     expect(refreshCalls()).toHaveLength(1);
     // First attempts used the stale token; retries must use the fresh one.
@@ -117,12 +117,12 @@ describe("single-flight refresh (R-06)", () => {
         ? json({ items: [], page: 1, pageSize: 50, total: 0 })
         : envelope("X", 401);
     };
-    await api("get", "/admin/classes");
+    await api("get", "/teacher/classes");
     expect(refreshCalls()).toHaveLength(1);
 
     // A new 401 much later is a genuinely new situation, not a stampede.
     refreshed = false;
-    await api("get", "/admin/classes");
+    await api("get", "/teacher/classes");
     expect(refreshCalls()).toHaveLength(2);
   });
 });
@@ -214,7 +214,7 @@ describe("§5.2: the access token never touches web storage", () => {
         : json({ items: [], page: 1, pageSize: 50, total: 0 });
 
     useAuthStore.getState().setAccessToken("initial-token");
-    await api("get", "/admin/classes");
+    await api("get", "/teacher/classes");
 
     const haystack = JSON.stringify({
       local: { ...localStorage },

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"quizzivy/internal/core/adapters"
+	importsapp "quizzivy/internal/modules/imports/application"
+	importscmd "quizzivy/internal/modules/imports/application/command"
 	importsdomain "quizzivy/internal/modules/imports/domain"
 	importsrepo "quizzivy/internal/modules/imports/repositories"
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -15,6 +17,7 @@ import (
 	testsapp "quizzivy/internal/modules/tests/application"
 	testsrepo "quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 	"sync"
 	"testing"
@@ -39,7 +42,7 @@ func commitSetup(t *testing.T) commitHarness {
 	}
 	t.Cleanup(pool.Close)
 	var id string
-	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role) VALUES($1,'Commit teacher','admin') RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&id); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role_id) VALUES($1,'Commit teacher',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanupCommits(t, pool, id) })
@@ -54,7 +57,7 @@ func commitSetup(t *testing.T) commitHarness {
 			return questionsapp.New(questionsrepo.NewPostgres(scoped), adapters.MediaKinds{})
 		},
 	}
-	return commitHarness{pool: pool, imports: importsrepo.NewPostgres(dbx), committer: committer, by: actor.Actor{ID: id}}
+	return commitHarness{pool: pool, imports: importsrepo.NewPostgres(dbx), committer: committer, by: actor.Actor{ID: id, Scope: access.Scope{UserID: id}}}
 }
 
 func cleanupCommits(t *testing.T, pool *pgxpool.Pool, userID string) {
@@ -171,7 +174,7 @@ func TestCommitCreatesOneTestWithItsSectionsGroupsAndBankQuestionsInOrder(t *tes
 	h := commitSetup(t)
 	ctx := context.Background()
 	importID := h.underReview(t)
-	testID, err := h.committer.Materialize(ctx, plan(t), h.by, h.record(importID, uuid.NewString()))
+	testID, err := h.committer.Materialize(ctx, plan(t), h.by.ID, h.by, h.record(importID, uuid.NewString()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,9 +195,70 @@ func TestCommitCreatesOneTestWithItsSectionsGroupsAndBankQuestionsInOrder(t *tes
 	if members != 1 || correct != 2 {
 		t.Fatalf("group members %d correct options %d", members, correct)
 	}
-	current, err := h.imports.Get(ctx, importID)
+	current, err := h.imports.Get(ctx, access.Scope{All: true}, importID)
 	if err != nil || current.Status != "committed" || current.TestID == nil || *current.TestID != testID {
 		t.Fatalf("import %+v err %v", current, err)
+	}
+}
+
+func TestACommittedImportBelongsToTheImporter(t *testing.T) {
+	h := commitSetup(t)
+	ctx := context.Background()
+	testID, err := h.committer.Materialize(ctx, plan(t), h.by.ID, h.by, h.record(h.underReview(t), uuid.NewString()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var test string
+	var questions, groups, others int
+	if err := h.pool.QueryRow(ctx, `SELECT owner_id::text,
+ (SELECT count(*) FROM app.questions WHERE created_by=$2),
+ (SELECT count(*) FROM app.question_groups g JOIN app.test_sections s ON s.id=g.owner_section_id WHERE s.test_id=$1),
+ (SELECT count(*) FROM app.questions WHERE created_by=$2 AND owner_id<>$2) + (SELECT count(*) FROM app.question_groups WHERE created_by=$2 AND owner_id<>$2)
+ FROM app.tests WHERE id=$1`, testID, h.by.ID).Scan(&test, &questions, &groups, &others); err != nil {
+		t.Fatal(err)
+	}
+	if test != h.by.ID || questions == 0 || groups == 0 || others != 0 {
+		t.Fatalf("test owner %s (want %s), %d questions and %d groups written, %d owned by someone else", test, h.by.ID, questions, groups, others)
+	}
+}
+
+func TestAnAdminsCommitOfATeachersImportBelongsToTheTeacher(t *testing.T) {
+	teacher, committer, other := commitSetup(t), commitSetup(t), commitSetup(t)
+	ctx := context.Background()
+	importID := teacher.underReview(t)
+	app := importsapp.New(importsapp.Dependencies{Repo: teacher.imports, Drafts: teacher.imports, Materializer: teacher.committer})
+
+	stranger := actor.Actor{ID: other.by.ID}
+	if _, err := app.Commands.Commit.Handle(ctx, importscmd.Commit{ImportID: importID, RequestID: uuid.NewString(), DraftRevision: 1, Actor: stranger}); !errors.Is(err, importsdomain.ErrNotFound) {
+		t.Fatalf("another teacher's commit: %v, want ErrNotFound", err)
+	}
+	if other.testsCreated(t) != 0 {
+		t.Fatal("another teacher's refused commit created a test")
+	}
+	if current, err := teacher.imports.Get(ctx, access.Scope{All: true}, importID); err != nil || current.Status != "needs_review" {
+		t.Fatalf("import %+v err %v", current, err)
+	}
+
+	admin := actor.Actor{ID: committer.by.ID, Scope: access.Scope{UserID: committer.by.ID, All: true}}
+	result, err := app.Commands.Commit.Handle(ctx, importscmd.Commit{ImportID: importID, RequestID: uuid.NewString(), DraftRevision: 1, Actor: admin})
+	if err != nil {
+		t.Fatalf("the Admin's commit: %v", err)
+	}
+	var owner, creator, committedBy string
+	var questions, groups, others int
+	if err := teacher.pool.QueryRow(ctx, `SELECT t.owner_id::text, t.created_by::text,
+ (SELECT c.committed_by::text FROM app.word_import_commits c WHERE c.import_id = $3),
+ (SELECT count(*) FROM app.questions WHERE created_by = $2),
+ (SELECT count(*) FROM app.question_groups g JOIN app.test_sections s ON s.id = g.owner_section_id WHERE s.test_id = $1),
+ (SELECT count(*) FROM app.questions WHERE created_by = $2 AND owner_id <> $4) + (SELECT count(*) FROM app.question_groups WHERE created_by = $2 AND owner_id <> $4)
+ FROM app.tests t WHERE t.id = $1`, result.TestID, admin.ID, importID, teacher.by.ID).Scan(&owner, &creator, &committedBy, &questions, &groups, &others); err != nil {
+		t.Fatal(err)
+	}
+	if owner != teacher.by.ID || creator != admin.ID || committedBy != admin.ID {
+		t.Errorf("the test is owned by %s and created by %s, committed by %s; want the teacher's, made and committed by the Admin", owner, creator, committedBy)
+	}
+	if questions == 0 || groups == 0 || others != 0 {
+		t.Errorf("%d questions and %d groups written, %d owned by someone other than the teacher", questions, groups, others)
 	}
 }
 
@@ -202,11 +266,11 @@ func TestAFailedCommitLeavesNoTestBehind(t *testing.T) {
 	h := commitSetup(t)
 	importID := h.underReview(t)
 	refused := errors.New("record refused")
-	_, err := h.committer.Materialize(context.Background(), plan(t), h.by, func(context.Context, importsdomain.CommitStore, string) error { return refused })
+	_, err := h.committer.Materialize(context.Background(), plan(t), h.by.ID, h.by, func(context.Context, importsdomain.CommitStore, string) error { return refused })
 	if !errors.Is(err, refused) || h.testsCreated(t) != 0 {
 		t.Fatalf("err %v tests %d", err, h.testsCreated(t))
 	}
-	if current, err := h.imports.Get(context.Background(), importID); err != nil || current.Status != "needs_review" {
+	if current, err := h.imports.Get(context.Background(), access.Scope{All: true}, importID); err != nil || current.Status != "needs_review" {
 		t.Fatalf("import %+v err %v", current, err)
 	}
 }
@@ -220,7 +284,7 @@ func TestConcurrentCommitsProduceExactlyOneTest(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, errs[i] = h.committer.Materialize(context.Background(), plan(t), h.by, h.record(importID, uuid.NewString()))
+			_, errs[i] = h.committer.Materialize(context.Background(), plan(t), h.by.ID, h.by, h.record(importID, uuid.NewString()))
 		}()
 	}
 	wg.Wait()

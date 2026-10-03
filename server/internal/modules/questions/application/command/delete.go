@@ -19,6 +19,7 @@ func (s DeleteHandler) Handle(ctx context.Context, cmd Delete) (cqrs.Nothing, er
 	return cqrs.Nothing{}, s.Repo.SoftDelete(ctx, domain.WriteInput{
 		ID:        cmd.Request.ID,
 		ActorID:   cmd.Request.ActorID,
+		All:       cmd.Request.All,
 		Now:       s.Now(),
 		IP:        cmd.Request.IP,
 		UserAgent: cmd.Request.UserAgent,

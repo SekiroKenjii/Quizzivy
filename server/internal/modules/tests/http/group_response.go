@@ -57,6 +57,10 @@ func groupFailure(ctx context.Context, err error) (*groupResponse, error) {
 		status = http.StatusNotFound
 		code = openapi.NOTFOUND
 		message = "Không tìm thấy nhóm câu hỏi."
+	case errors.Is(err, domain.ErrForbidden):
+		status = http.StatusForbidden
+		code = openapi.FORBIDDEN
+		message = "Bạn không có quyền sửa loại nhóm câu hỏi này."
 	case errors.Is(err, domain.ErrStaleWrite):
 		code = openapi.STALEWRITE
 		message = "Nhóm hoặc đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi lưu."

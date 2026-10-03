@@ -105,7 +105,7 @@ func indexOf(s, sub string) int {
 
 func TestGroupReplacementPreflightKeepsExactOriginBoundary(t *testing.T) {
 	for _, origin := range []string{allowed, "https://untrusted.example"} {
-		req := httptest.NewRequest(http.MethodOptions, "/admin/question-groups/019535d9-3df7-79fb-b466-fa907fa17f9f", nil)
+		req := httptest.NewRequest(http.MethodOptions, "/teacher/question-groups/019535d9-3df7-79fb-b466-fa907fa17f9f", nil)
 		req.Header.Set("Origin", origin)
 		req.Header.Set("Access-Control-Request-Method", http.MethodPut)
 		req.Header.Set("Access-Control-Request-Headers", "authorization,content-type")

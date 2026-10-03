@@ -63,14 +63,14 @@ function renderPage(byQuestion: boolean) {
 
 it("shows a teacher the group's material, transcript and attempt allowance while changing members", async () => {
   server.use(
-    http.get(`${BASE}/admin/attempts/${ATTEMPT_ID}`, () =>
-      contractJson("/admin/attempts/{id}", "get", 200, {
+    http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}`, () =>
+      contractJson("/teacher/attempts/{id}", "get", 200, {
         ...review(),
         sharedContext: { ...shared, audioPlays: { [group.recordings[0]!.id]: 4 } },
       }),
     ),
-    http.get(`${BASE}/admin/attempts/${ATTEMPT_ID}/events`, () =>
-      contractJson("/admin/attempts/{id}/events", "get", 200, {
+    http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}/events`, () =>
+      contractJson("/teacher/attempts/{id}/events", "get", 200, {
         startedAt: review().attempt.startedAt,
         events: [],
         summary: review().integrity,
@@ -92,8 +92,8 @@ it("shows a teacher the group's material, transcript and attempt allowance while
 
 it("keeps shared context in anonymous question grading without inventing a cross-attempt play total", async () => {
   server.use(
-    http.get(`${BASE}/admin/assignments/${ASSIGNMENT_ID}/answers`, () =>
-      contractJson("/admin/assignments/{id}/answers", "get", 200, {
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/answers`, () =>
+      contractJson("/teacher/assignments/{id}/answers", "get", 200, {
         question: review().questions[1],
         questionNumber: 2,
         questionCount: 2,

@@ -57,6 +57,30 @@ export const adminUser = {
   linkedProviders: [] as string[],
   mustChangePassword: false,
   createdAt: "2026-01-01T00:00:00Z",
+  permissions: [
+    "content.tests.write",
+    "content.tests.publish",
+    "content.questions.write",
+    "content.media.write",
+    "content.share",
+    "teaching.classes.write",
+    "teaching.assignments.write",
+    "teaching.grading",
+    "teaching.attempts.intervene",
+    "teaching.attendance",
+    "people.students.read",
+    "people.students.create",
+    "people.students.reset_password",
+    "people.users.manage",
+    "people.roles.manage",
+    "system.audit.read",
+    "system.settings.write",
+    "scope.all",
+    "system.api_reference",
+    "system.data_export",
+    "system.leads",
+  ],
+  workspaces: ["teacher", "admin"],
 };
 
 export const studentUser = {
@@ -65,6 +89,8 @@ export const studentUser = {
   email: "hocvien@example.com",
   fullName: "Nguyễn Văn An",
   role: "student" as const,
+  permissions: ["learning.take_tests"],
+  workspaces: ["app"],
 };
 
 /**

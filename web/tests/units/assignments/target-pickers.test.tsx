@@ -34,7 +34,7 @@ beforeEach(() => {
   requests.length = 0;
   // Forty-five classes, twenty a page, searchable by name.
   server.use(
-    http.get(`${BASE}/admin/classes`, ({ request }) => {
+    http.get(`${BASE}/teacher/classes`, ({ request }) => {
       const url = new URL(request.url);
       requests.push(url);
       const page = Number(url.searchParams.get("page") ?? "1");
@@ -42,7 +42,7 @@ beforeEach(() => {
       const all = Array.from({ length: 45 }, (_, i) => klass(i + 1)).filter((c) =>
         c.name.includes(q),
       );
-      return contractJson("/admin/classes", "get", 200, {
+      return contractJson("/teacher/classes", "get", 200, {
         facets: { all: 0, joinable: 0, archived: 0, students: 0 },
         items: all.slice((page - 1) * 20, page * 20),
         page,

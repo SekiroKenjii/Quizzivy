@@ -19,31 +19,31 @@ beforeEach(() => {
   notes = [];
   const paper = review();
   server.use(
-    http.get(`${BASE}/admin/attempts/${ATTEMPT_ID}`, () =>
-      contractJson("/admin/attempts/{id}", "get", 200, {
+    http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}`, () =>
+      contractJson("/teacher/attempts/{id}", "get", 200, {
         ...paper,
         teacherNote: "đã hỏi Minh",
       }),
     ),
-    http.get(`${BASE}/admin/attempts/${ATTEMPT_ID}/events`, () =>
-      contractJson("/admin/attempts/{id}/events", "get", 200, {
+    http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}/events`, () =>
+      contractJson("/teacher/attempts/{id}/events", "get", 200, {
         startedAt: paper.attempt.startedAt,
         events: [],
         summary: paper.integrity,
       }),
     ),
-    http.post(`${BASE}/admin/attempts/${ATTEMPT_ID}/flag`, async ({ request }) => {
+    http.post(`${BASE}/teacher/attempts/${ATTEMPT_ID}/flag`, async ({ request }) => {
       const body = (await request.json()) as { flagged: boolean };
       flags.push(body);
-      return contractJson("/admin/attempts/{id}/flag", "post", 200, {
+      return contractJson("/teacher/attempts/{id}/flag", "post", 200, {
         ...paper.attempt,
         integrity: { ...paper.attempt.integrity, flagged: body.flagged },
       });
     }),
-    http.patch(`${BASE}/admin/attempts/${ATTEMPT_ID}/note`, async ({ request }) => {
+    http.patch(`${BASE}/teacher/attempts/${ATTEMPT_ID}/note`, async ({ request }) => {
       const body = (await request.json()) as { note: string | null };
       notes.push(body);
-      return contractJson("/admin/attempts/{id}/note", "patch", 200, body);
+      return contractJson("/teacher/attempts/{id}/note", "patch", 200, body);
     }),
   );
 });

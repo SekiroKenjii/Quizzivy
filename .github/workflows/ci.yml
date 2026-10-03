@@ -198,6 +198,8 @@ jobs:
       API_PORT: "8080"
       CORS_ALLOWED_ORIGINS: http://localhost:4173
       JWT_SIGNING_KEY: e2e-live-signing-key-not-a-secret-32b
+      # base64 of "e2e-live-join-code-key-not-secre", 32 bytes. Throwaway.
+      JOIN_CODE_KEY: ZTJlLWxpdmUtam9pbi1jb2RlLWtleS1ub3Qtc2VjcmU=
       S3_ENDPOINT: http://localhost:9000
       S3_REGION: us-east-1
       S3_BUCKET: quizzivy-media
@@ -410,6 +412,14 @@ jobs:
       - name: Integration tests
         working-directory: server
         run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
+
+      # The two-teacher isolation suite uploads real images, audio and Word
+      # sources, so this tier needs the MinIO the live E2E job starts. Its
+      # harness defaults to the compose endpoint, credentials and buckets.
+      - name: Start MinIO
+        run: |
+          docker compose up -d --build --wait minio
+          docker compose run --rm minio-init
 
       - name: End-to-end tests
         working-directory: server

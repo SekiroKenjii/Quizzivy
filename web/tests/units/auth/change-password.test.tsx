@@ -23,6 +23,8 @@ const USER = {
   linkedProviders: [],
   mustChangePassword: true,
   createdAt: "2026-01-01T00:00:00Z",
+  permissions: ["learning.take_tests" as const],
+  workspaces: ["app" as const],
 };
 
 let bodies: unknown[] = [];

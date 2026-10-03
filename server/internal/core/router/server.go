@@ -44,6 +44,8 @@ type Deps struct {
 	DocsPublic bool
 	// Maintenance is what the maintenance gate asks; nil means no gate.
 	Maintenance httpx.MaintenanceSource
+	// Principals resolves who a request acts as; New refuses a nil one.
+	Principals httpx.PrincipalResolver
 }
 
 var _ openapi.StrictServerInterface = (*Server)(nil)

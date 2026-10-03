@@ -15,13 +15,13 @@ let voided: unknown = null;
 
 function serve() {
   server.use(
-    http.get(`${BASE}/admin/assignments/${ASSIGNMENT_ID}/attempts`, () => {
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/attempts`, () => {
       fetches += 1;
-      return contractJson("/admin/assignments/{id}/attempts", "get", 200, monitor());
+      return contractJson("/teacher/assignments/{id}/attempts", "get", 200, monitor());
     }),
-    http.post(`${BASE}/admin/attempts/${ATTEMPT_ID}/void`, async ({ request }) => {
+    http.post(`${BASE}/teacher/attempts/${ATTEMPT_ID}/void`, async ({ request }) => {
       voided = await request.json();
-      return contractJson("/admin/attempts/{id}/void", "post", 200, {
+      return contractJson("/teacher/attempts/{id}/void", "post", 200, {
         id: ATTEMPT_ID,
         assignmentId: ASSIGNMENT_ID,
         studentId: monitor().rows[0]!.studentId,

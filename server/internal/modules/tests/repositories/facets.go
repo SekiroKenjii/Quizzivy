@@ -10,8 +10,7 @@ import (
 
 // Facets counts tests per status for the given search.
 func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.StatusFacets, error) {
-	args := []any{}
-	where := []string{liveTests}
+	where, args := scopedTests(in.Scope)
 	if q := strings.TrimSpace(in.Query); q != "" {
 		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(titleSearch, len(args)))

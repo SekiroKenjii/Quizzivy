@@ -3,6 +3,7 @@ package support
 import (
 	"context"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/stats"
 	"time"
 )
@@ -18,12 +19,12 @@ func NewService(repo domain.Repository, stats stats.Source) *Service {
 	return &Service{Repo: repo, Stats: stats, Now: time.Now}
 }
 
-func (s *Service) AttachStats(ctx context.Context, members []domain.Member) error {
+func (s *Service) AttachStats(ctx context.Context, scope access.Scope, members []domain.Member) error {
 	ids := make([]string, len(members))
 	for i, m := range members {
 		ids[i] = m.UserID
 	}
-	byStudent, err := s.Stats.StudentStats(ctx, ids)
+	byStudent, err := s.Stats.StudentStats(ctx, scope, ids)
 	if err != nil {
 		return err
 	}

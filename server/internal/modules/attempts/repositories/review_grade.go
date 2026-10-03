@@ -5,19 +5,23 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// Grade writes manual marks for a closed attempt and returns the live score.
-func (s *Reviews) Grade(ctx context.Context, attemptID, graderID string, items []domain.GradeItem) (domain.Score, error) {
+// Grade writes manual marks for a closed attempt on an assignment the scope
+// reaches and returns the live score.
+func (s *Reviews) Grade(ctx context.Context, scope access.Scope, attemptID, graderID string, items []domain.GradeItem) (domain.Score, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Score{}, fmt.Errorf("review: begin grade: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	versionID, err := lockGradable(ctx, tx, attemptID)
+	versionID, err := lockGradable(ctx, tx, scope, attemptID)
 	if err != nil {
 		return domain.Score{}, err
 	}
@@ -53,16 +57,17 @@ func (s *Reviews) Grade(ctx context.Context, attemptID, graderID string, items [
 	return score, nil
 }
 
-// Finish declares the paper graded. Re-enterable: a graded attempt can be
-// marked again and finished again, and the score is recomputed each time.
-func (s *Reviews) Finish(ctx context.Context, attemptID string) (domain.Attempt, error) {
+// Finish declares a paper of an assignment the scope reaches graded.
+// Re-enterable: a graded attempt can be marked again and finished again, and
+// the score is recomputed each time.
+func (s *Reviews) Finish(ctx context.Context, scope access.Scope, attemptID string) (domain.Attempt, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Attempt{}, fmt.Errorf("review: begin finish: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := lockGradable(ctx, tx, attemptID); err != nil {
+	if _, err := lockGradable(ctx, tx, scope, attemptID); err != nil {
 		return domain.Attempt{}, err
 	}
 	score, err := recomputeScore(ctx, tx, attemptID)
@@ -92,12 +97,13 @@ func (s *Reviews) Finish(ctx context.Context, attemptID string) (domain.Attempt,
 	return a, nil
 }
 
-func lockGradable(ctx context.Context, tx pgx.Tx, attemptID string) (string, error) {
+func lockGradable(ctx context.Context, tx pgx.Tx, scope access.Scope, attemptID string) (string, error) {
 	var status domain.Status
 	var versionID string
 	err := tx.QueryRow(ctx, `
 		SELECT status, test_version_id::text FROM app.attempts
-		 WHERE id = $1::uuid FOR UPDATE`, attemptID).Scan(&status, &versionID)
+		 WHERE id = $1::uuid AND ($2::boolean OR assignment_id IN `+visibility.AssignmentIDs(3)+`) FOR UPDATE`,
+		attemptID, scope.All, opt.String(scope.UserID)).Scan(&status, &versionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", domain.ErrPaperNotFound
 	}

@@ -5,13 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
+var anyAssignment = access.Scope{All: true}
+
+// Create assigns a version of a test the actor owns to classes the actor
+// teaches and students the actor reaches, or to anything under scope.all. A
+// version, class or student outside that answers exactly as a missing one.
 func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.WriteInput) (domain.Assignment, error) {
 	if err := in.Validate(); err != nil {
 		return domain.Assignment{}, err
@@ -23,14 +30,14 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	testID, err := publishedTestFor(ctx, tx, in.TestVersionID)
+	testID, err := publishedTestFor(ctx, tx, req.Scope(), in.TestVersionID)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
 	if err := checkOptionShuffle(ctx, tx, in); err != nil {
 		return domain.Assignment{}, err
 	}
-	if err := checkTargets(ctx, tx, in); err != nil {
+	if err := checkTargets(ctx, tx, req.Scope(), in); err != nil {
 		return domain.Assignment{}, err
 	}
 
@@ -70,7 +77,7 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 		return domain.Assignment{}, err
 	}
 
-	created, err := s.get(ctx, tx, id)
+	created, err := s.get(ctx, tx, req.Scope(), id, false)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
@@ -97,6 +104,11 @@ func versionStillFree(ctx context.Context, tx pgx.Tx, assignmentID, next, curren
 	return nil
 }
 
+// Update rewrites an assignment the actor reaches. A new version must belong
+// to a test the actor owns; the version already assigned needs no such check,
+// so a teacher reaching the assignment through a class can still close it. The
+// targets are replaced within the actor's reach: classes and students the
+// actor cannot see are kept as they are.
 func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.WriteInput) (domain.Assignment, error) {
 	if err := in.Validate(); err != nil {
 		return domain.Assignment{}, err
@@ -108,11 +120,15 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	current, err := lockForUpdate(ctx, tx, req.ID)
+	current, err := lockForUpdate(ctx, tx, req.Scope(), req.ID)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
-	testID, err := publishedTestFor(ctx, tx, in.TestVersionID)
+	versionReader := req.Scope()
+	if in.TestVersionID == current.versionID {
+		versionReader = anyAssignment
+	}
+	testID, err := publishedTestFor(ctx, tx, versionReader, in.TestVersionID)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
@@ -122,7 +138,7 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 	if err := checkOptionShuffle(ctx, tx, in); err != nil {
 		return domain.Assignment{}, err
 	}
-	if err := checkTargets(ctx, tx, in); err != nil {
+	if err := checkTargets(ctx, tx, req.Scope(), in); err != nil {
 		return domain.Assignment{}, err
 	}
 
@@ -153,7 +169,7 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		in.Integrity.MinAwayMs, domain.Schedule.NextPublishedAt(current.publishedAt, in)); err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: update: %w", err)
 	}
-	if err := replaceTargets(ctx, tx, req.ID, in); err != nil {
+	if err := replaceTargets(ctx, tx, req.Scope(), req.ID, in); err != nil {
 		return domain.Assignment{}, err
 	}
 	if err := audit.Write(ctx, tx, audit.Entry{
@@ -168,7 +184,7 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		return domain.Assignment{}, err
 	}
 
-	saved, err := s.get(ctx, tx, req.ID)
+	saved, err := s.get(ctx, tx, req.Scope(), req.ID, false)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
@@ -184,11 +200,12 @@ type lockedRow struct {
 	closedAt, publishedAt *time.Time
 }
 
-func lockForUpdate(ctx context.Context, tx pgx.Tx, id string) (lockedRow, error) {
+func lockForUpdate(ctx context.Context, tx pgx.Tx, scope access.Scope, id string) (lockedRow, error) {
 	var row lockedRow
 	err := tx.QueryRow(ctx, `
 		SELECT test_version_id::text, closed_at, published_at FROM app.assignments
-		 WHERE id = $1::uuid FOR UPDATE`, id).
+		 WHERE id = $1::uuid AND ($2::boolean OR id IN `+visibility.AssignmentIDs(3)+`) FOR UPDATE`,
+		id, scope.All, opt.String(scope.UserID)).
 		Scan(&row.versionID, &row.closedAt, &row.publishedAt)
 	switch {
 	case err == nil:
@@ -200,15 +217,17 @@ func lockForUpdate(ctx context.Context, tx pgx.Tx, id string) (lockedRow, error)
 	}
 }
 
-// replaceTargets swaps the roster wholesale: an update replaces targets rather
-// than adding to them.
-func replaceTargets(ctx context.Context, tx pgx.Tx, id string, in domain.WriteInput) error {
+func replaceTargets(ctx context.Context, tx pgx.Tx, scope access.Scope, id string, in domain.WriteInput) error {
 	if _, err := tx.Exec(ctx,
-		`DELETE FROM app.assignment_classes WHERE assignment_id = $1::uuid`, id); err != nil {
+		`DELETE FROM app.assignment_classes ac WHERE ac.assignment_id = $1::uuid
+		    AND ($2::boolean OR ac.class_id IN `+visibility.TaughtClassIDs(3)+`)`,
+		id, scope.All, opt.String(scope.UserID)); err != nil {
 		return fmt.Errorf("assignments: clear class targets: %w", err)
 	}
 	if _, err := tx.Exec(ctx,
-		`DELETE FROM app.assignment_students WHERE assignment_id = $1::uuid`, id); err != nil {
+		`DELETE FROM app.assignment_students t WHERE t.assignment_id = $1::uuid
+		    AND ($2::boolean OR t.user_id IN `+visibility.StudentIDs(3)+`)`,
+		id, scope.All, opt.String(scope.UserID)); err != nil {
 		return fmt.Errorf("assignments: clear student targets: %w", err)
 	}
 	return writeTargets(ctx, tx, id, in)
@@ -227,18 +246,15 @@ func updateAction(in domain.WriteInput, current lockedRow) string {
 	}
 }
 
-// publishedTestFor resolves the version's test and proves it is assignable.
-//
-// It returns the test id because app.assignments carries both, and the D-17
-// composite FK rejects any pairing the caller invents.
-func publishedTestFor(ctx context.Context, tx pgx.Tx, versionID string) (string, error) {
+func publishedTestFor(ctx context.Context, tx pgx.Tx, scope access.Scope, versionID string) (string, error) {
 	var testID string
 	err := tx.QueryRow(ctx, `
 		SELECT v.test_id::text
 		  FROM app.test_versions v
 		  JOIN app.tests t ON t.id = v.test_id
-		 WHERE v.id = $1::uuid AND t.deleted_at IS NULL AND t.status = 'published'`,
-		versionID).Scan(&testID)
+		 WHERE v.id = $1::uuid AND t.deleted_at IS NULL AND t.status = 'published'
+		   AND ($2::boolean OR t.owner_id = $3::uuid)`,
+		versionID, scope.All, opt.String(scope.UserID)).Scan(&testID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", domain.ErrTestNotPublished
 	}
@@ -267,16 +283,12 @@ func checkOptionShuffle(ctx context.Context, tx pgx.Tx, in domain.WriteInput) er
 	return nil
 }
 
-// checkTargets rejects ids that name nothing, rather than letting the FK fail.
-//
-// A foreign-key violation would surface as a 500 with no indication of which of
-// forty ids was wrong.
-func checkTargets(ctx context.Context, tx pgx.Tx, in domain.WriteInput) error {
+func checkTargets(ctx context.Context, tx pgx.Tx, scope access.Scope, in domain.WriteInput) error {
 	var fields []domain.FieldError
 
 	if len(in.ClassIDs) > 0 {
-		missing, err := missingIDs(ctx, tx,
-			`SELECT id::text FROM app.classes WHERE id = ANY($1::uuid[])`, in.ClassIDs)
+		missing, err := missingIDs(ctx, tx, scope,
+			`SELECT id::text FROM app.classes WHERE id = ANY($1::uuid[]) AND ($2::boolean OR id IN `+visibility.TaughtClassIDs(3)+`)`, in.ClassIDs)
 		if err != nil {
 			return err
 		}
@@ -286,9 +298,11 @@ func checkTargets(ctx context.Context, tx pgx.Tx, in domain.WriteInput) error {
 	}
 
 	if len(in.StudentIDs) > 0 {
-		missing, err := missingIDs(ctx, tx,
-			`SELECT id::text FROM app.users
-			  WHERE id = ANY($1::uuid[]) AND role = 'student' AND disabled_at IS NULL`,
+		missing, err := missingIDs(ctx, tx, scope,
+			`SELECT u.id::text FROM app.users u
+			  WHERE u.id = ANY($1::uuid[]) AND u.disabled_at IS NULL
+			    AND u.role_id IN (SELECT r.id FROM app.student_like_roles r)
+			    AND ($2::boolean OR u.id IN `+visibility.StudentIDs(3)+`)`,
 			in.StudentIDs)
 		if err != nil {
 			return err
@@ -304,8 +318,8 @@ func checkTargets(ctx context.Context, tx pgx.Tx, in domain.WriteInput) error {
 	return nil
 }
 
-func missingIDs(ctx context.Context, tx pgx.Tx, query string, want []string) ([]string, error) {
-	rows, err := tx.Query(ctx, query, want)
+func missingIDs(ctx context.Context, tx pgx.Tx, scope access.Scope, query string, want []string) ([]string, error) {
+	rows, err := tx.Query(ctx, query, want, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return nil, fmt.Errorf("assignments: check targets: %w", err)
 	}

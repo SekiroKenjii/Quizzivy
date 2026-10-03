@@ -9,12 +9,17 @@ import (
 	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/access"
 )
 
 const docsCookieName = "quizzivy_docs"
 
+const legacyAdminRole = "admin"
+
 // OpenDocsSession sets the caller's fifteen-minute docs session cookie, which
-// RequireDocsSession accepts on /docs; the /admin/ prefix makes it admin only.
+// RequireDocsSession accepts on /docs. The operation requires
+// system.api_reference, which only the Admin holds, and the cookie carries the
+// caller's session epoch.
 func (h Identity) OpenDocsSession(ctx context.Context, _ openapi.OpenDocsSessionRequestObject) (openapi.OpenDocsSessionResponseObject, error) {
 	if h.docs == nil {
 		return nil, httpx.ErrNotImplemented
@@ -23,7 +28,7 @@ func (h Identity) OpenDocsSession(ctx context.Context, _ openapi.OpenDocsSession
 	if !ok {
 		return nil, errors.New("docs session requested without an authenticated principal")
 	}
-	raw, err := h.docs.Issue(principal.UserID, principal.Role)
+	raw, err := h.docs.Issue(principal.UserID, legacyAdminRole, principal.Epoch)
 	if err != nil {
 		return nil, err
 	}
@@ -50,14 +55,16 @@ func docsCookie(raw string) *http.Cookie {
 	}
 }
 
-// RequireDocsSession admits a request to the API reference only with an admin's
-// docs session cookie: 401 without a valid one, 403 for any other role. The
+// RequireDocsSession admits a request to the API reference only with the docs
+// session cookie of a user who still holds system.api_reference: 401 without
+// a valid cookie, for an unknown or disabled user, or for a cookie older than
+// the user's session epoch; 403 when the user's role lacks the key. The
 // Authorization header is never consulted.
-func RequireDocsSession(docs *token.Issuer) func(http.Handler) http.Handler {
+func RequireDocsSession(docs *token.Issuer, resolver httpx.PrincipalResolver) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(docsCookieName)
-			if err != nil || cookie.Value == "" || docs == nil {
+			if err != nil || cookie.Value == "" || docs == nil || resolver == nil {
 				writeDocsUnauthenticated(w, r)
 				return
 			}
@@ -66,12 +73,20 @@ func RequireDocsSession(docs *token.Issuer) func(http.Handler) http.Handler {
 				writeDocsUnauthenticated(w, r)
 				return
 			}
-			if claims.Role != httpx.RoleAdmin {
+			resolved, err := resolver.Resolve(r.Context(), claims.Subject)
+			switch {
+			case errors.Is(err, httpx.ErrUnknownPrincipal):
+				writeDocsUnauthenticated(w, r)
+			case err != nil:
+				httpx.WriteError(w, r, http.StatusInternalServerError, httpx.CodeInternal, "Đã xảy ra lỗi. Vui lòng thử lại.")
+			case resolved.Disabled, claims.Epoch < resolved.Epoch:
+				writeDocsUnauthenticated(w, r)
+			case !resolved.Permissions.Has(access.SystemAPIReference):
 				httpx.WriteError(w, r, http.StatusForbidden, httpx.CodeForbidden,
 					"Bạn không có quyền xem tài liệu API.")
-				return
+			default:
+				next.ServeHTTP(w, r)
 			}
-			next.ServeHTTP(w, r)
 		})
 	}
 }

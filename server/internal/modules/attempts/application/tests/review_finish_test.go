@@ -17,7 +17,7 @@ func TestFinishingWithAnUngradedShortAnswerIsRefused(t *testing.T) {
 	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 
-	if _, err := store.Finish(ctx, p.attempt); !errors.Is(err, domain.ErrGradingIncomplete) {
+	if _, err := store.Finish(ctx, everyone, p.attempt); !errors.Is(err, domain.ErrGradingIncomplete) {
 		t.Fatalf("finish with the essay unread: %v, want ErrGradingIncomplete", err)
 	}
 	var status string
@@ -35,10 +35,10 @@ func TestFinishingRecomputesTheScoreAndIsReEnterable(t *testing.T) {
 	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 
-	if _, err := store.Grade(ctx, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 2.5}}); err != nil {
+	if _, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 2.5}}); err != nil {
 		t.Fatal(err)
 	}
-	graded, err := store.Finish(ctx, p.attempt)
+	graded, err := store.Finish(ctx, everyone, p.attempt)
 	if err != nil {
 		t.Fatalf("finish: %v", err)
 	}
@@ -54,10 +54,10 @@ func TestFinishingRecomputesTheScoreAndIsReEnterable(t *testing.T) {
 	}
 
 	// Second thoughts: the mark changes and so does the total.
-	if _, err := store.Grade(ctx, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 5}}); err != nil {
+	if _, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 5}}); err != nil {
 		t.Fatalf("regrade after finish: %v", err)
 	}
-	if _, err := store.Finish(ctx, p.attempt); err != nil {
+	if _, err := store.Finish(ctx, everyone, p.attempt); err != nil {
 		t.Fatalf("finish again: %v", err)
 	}
 	if err := pool.QueryRow(ctx, `SELECT score_earned FROM app.attempts WHERE id = $1::uuid`, p.attempt).Scan(&earned); err != nil {

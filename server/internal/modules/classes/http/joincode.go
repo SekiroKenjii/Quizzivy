@@ -11,22 +11,59 @@ import (
 	"quizzivy/internal/platform/httpx"
 )
 
-// RotateJoinCode implements POST /admin/classes/{id}/join-code (§6.1).
+const msgNoActiveCode = "Lớp này chưa có mã tham gia."
+
+// GetJoinCode implements GET /teacher/classes/{id}/join-code (D5): the active
+// code of a class the caller reaches, never cached. Another teacher's class
+// answers 404 exactly as a missing one does.
+func (h Classes) GetJoinCode(ctx context.Context, request openapi.GetJoinCodeRequestObject) (openapi.GetJoinCodeResponseObject, error) {
+	if h.app == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	active, err := h.app.Queries.ActiveCode.Handle(ctx, query.ActiveCode{Scope: httpapi.ScopeFromContext(ctx), ClassID: request.Id.String()})
+	switch {
+	case errors.Is(err, domain.ErrClassNotFound):
+		return openapi.GetJoinCode404JSONResponse{
+			NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
+		}, nil
+	case errors.Is(err, domain.ErrNoActiveCode):
+		return openapi.GetJoinCode404JSONResponse{
+			NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgNoActiveCode)),
+		}, nil
+	case err != nil:
+		return nil, err
+	}
+	noStore := "no-store"
+	out := openapi.JoinCode{
+		Hint:      active.Hint,
+		Legacy:    active.Legacy,
+		ExpiresAt: active.ExpiresAt,
+		MaxUses:   active.MaxUses,
+		UsesCount: active.UsesCount,
+	}
+	if active.Code != "" {
+		grouped := domain.JoinCodes.Format(active.Code)
+		out.Code = &grouped
+	}
+	return openapi.GetJoinCode200JSONResponse{Body: out, Headers: openapi.GetJoinCode200ResponseHeaders{CacheControl: &noStore}}, nil
+}
+
+// RotateJoinCode implements POST /teacher/classes/{id}/join-code (§6.1).
 func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinCodeRequestObject) (openapi.RotateJoinCodeResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	principal, ok := httpx.PrincipalFromContext(ctx)
+	who, ok := httpapi.ActorFromContext(ctx)
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	meta := httpx.RequestMetaFromContext(ctx)
 	req := domain.RotateRequest{
 		ClassID:     request.Id.String(),
-		ActorUserID: principal.UserID,
-		IP:          meta.IP,
-		UserAgent:   meta.UserAgent,
+		ActorUserID: who.ID,
+		All:         who.Scope.All,
+		IP:          who.IP,
+		UserAgent:   who.UserAgent,
 	}
 	if request.Body != nil {
 		req.ExpiresInDays = request.Body.ExpiresInDays
@@ -37,7 +74,7 @@ func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinC
 	if err != nil {
 		if errors.Is(err, domain.ErrClassNotFound) {
 			return openapi.RotateJoinCode404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, "Không tìm thấy lớp học.")),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
 			}, nil
 		}
 		return nil, err
@@ -50,27 +87,27 @@ func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinC
 	}, nil
 }
 
-// RevokeJoinCode implements DELETE /admin/classes/{id}/join-code (§6.4).
+// RevokeJoinCode implements DELETE /teacher/classes/{id}/join-code (§6.4).
 func (h Classes) RevokeJoinCode(ctx context.Context, request openapi.RevokeJoinCodeRequestObject) (openapi.RevokeJoinCodeResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	principal, ok := httpx.PrincipalFromContext(ctx)
+	who, ok := httpapi.ActorFromContext(ctx)
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	meta := httpx.RequestMetaFromContext(ctx)
 	_, err := h.app.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{
 		ClassID:     request.Id.String(),
-		ActorUserID: principal.UserID,
-		IP:          meta.IP,
-		UserAgent:   meta.UserAgent,
+		ActorUserID: who.ID,
+		All:         who.Scope.All,
+		IP:          who.IP,
+		UserAgent:   who.UserAgent,
 	}})
 	if err != nil {
 		if errors.Is(err, domain.ErrClassNotFound) {
 			return openapi.RevokeJoinCode404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, "Không tìm thấy lớp học.")),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
 			}, nil
 		}
 		return nil, err

@@ -1,24 +1,40 @@
 package domain
 
 import (
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/validation"
 	"time"
 )
 
+// ListInput selects a page of the assignments Scope reaches
+// (visibility.AssignmentIDs), or every one under scope.all; a zero Scope
+// matches nothing, and so does a ClassID of a class the scope does not teach.
 type ListInput struct {
 	Status *Status
 	// ClassID narrows the list to assignments that target the class (G-12).
 	ClassID *string
 	Page    int
 	Limit   int
+	Scope   access.Scope
 }
 
-// Request is the actor behind a write, for the audit row.
+// Request is the actor behind a write, for the audit row and for reach. A
+// write touches only assignments ActorID reaches, and names only versions of
+// tests ActorID owns, classes ActorID teaches and students ActorID reaches,
+// unless All, the actor's scope.all, is set; anything else answers exactly as
+// a missing id does.
 type Request struct {
 	ID        string
 	ActorID   string
+	All       bool
 	IP        string
 	UserAgent string
+}
+
+// Scope is the scope the request reads and writes under: ActorID's own, or
+// everyone's with All.
+func (r Request) Scope() access.Scope {
+	return access.Scope{UserID: r.ActorID, All: r.All}
 }
 
 type WriteInput struct {

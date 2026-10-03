@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
 	"strings"
 )
@@ -25,9 +27,16 @@ const searchCondition = `(
 		OR ` + TrigramExpression + ` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'
 	)`
 
-func appendFilters(in domain.ListInput, opts filterOpts) ([]any, []string) {
-	var args []any
+func bankRows(scope access.Scope) ([]any, []string) {
 	where := []string{`q.deleted_at IS NULL`, `q.context_group_id IS NULL`}
+	if scope.All {
+		return nil, where
+	}
+	return []any{opt.String(scope.UserID)}, append(where, `q.owner_id = $1::uuid`)
+}
+
+func appendFilters(in domain.ListInput, opts filterOpts) ([]any, []string) {
+	args, where := bankRows(in.Scope)
 
 	if opts.types && len(in.Types) > 0 {
 		types := make([]string, len(in.Types))

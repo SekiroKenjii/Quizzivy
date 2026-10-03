@@ -29,35 +29,35 @@ beforeEach(() => {
   calls = [];
   current = wordImport();
   server.use(
-    http.get(`${BASE}/admin/imports/limits`, () =>
-      contractJson("/admin/imports/limits", "get", 200, {
+    http.get(`${BASE}/teacher/imports/limits`, () =>
+      contractJson("/teacher/imports/limits", "get", 200, {
         maxBytes: 25 * 1024 * 1024,
         formats: ["docx"],
       }),
     ),
     capabilities(),
-    http.get(`${BASE}/admin/imports/:id`, () =>
-      contractJson("/admin/imports/{id}", "get", 200, current),
+    http.get(`${BASE}/teacher/imports/:id`, () =>
+      contractJson("/teacher/imports/{id}", "get", 200, current),
     ),
-    http.post(`${BASE}/admin/imports/:id/cancel`, async ({ request }) => {
+    http.post(`${BASE}/teacher/imports/:id/cancel`, async ({ request }) => {
       calls.push({ path: "cancel", body: await request.json() });
       current = wordImport({
         ...current,
         status: "cancelled",
         revision: current.revision + 1,
       });
-      return contractJson("/admin/imports/{id}/cancel", "post", 200, current);
+      return contractJson("/teacher/imports/{id}/cancel", "post", 200, current);
     }),
-    http.post(`${BASE}/admin/imports/:id/process`, async ({ request }) => {
+    http.post(`${BASE}/teacher/imports/:id/process`, async ({ request }) => {
       calls.push({ path: "process", body: await request.json() });
       current = wordImport({
         ...current,
         status: "queued",
         revision: current.revision + 1,
       });
-      return contractJson("/admin/imports/{id}/process", "post", 202, current);
+      return contractJson("/teacher/imports/{id}/process", "post", 202, current);
     }),
-    http.post(`${BASE}/admin/imports/:id/sources`, ({ request }) => {
+    http.post(`${BASE}/teacher/imports/:id/sources`, ({ request }) => {
       const url = new URL(request.url);
       calls.push({ path: "sources", body: Object.fromEntries(url.searchParams) });
       current = wordImport({
@@ -65,7 +65,7 @@ beforeEach(() => {
         status: "awaiting_sources",
         revision: current.revision + 1,
       });
-      return contractJson("/admin/imports/{id}/sources", "post", 201, {
+      return contractJson("/teacher/imports/{id}/sources", "post", 201, {
         import: current,
         source: source("exam", { filename: "de-thi-sach.docx" }),
         sourceRevision: 3,
@@ -299,7 +299,7 @@ describe("sending files from the detail page", () => {
   it("keeps the intake when a replacement upload moves a failed import back to awaiting files", async () => {
     let refuse = true;
     server.use(
-      http.post(`${BASE}/admin/imports/:id/process`, async ({ request }) => {
+      http.post(`${BASE}/teacher/imports/:id/process`, async ({ request }) => {
         calls.push({ path: "process", body: await request.json() });
         if (refuse) {
           refuse = false;
@@ -310,7 +310,7 @@ describe("sending files from the detail page", () => {
           status: "queued",
           revision: current.revision + 1,
         });
-        return contractJson("/admin/imports/{id}/process", "post", 202, current);
+        return contractJson("/teacher/imports/{id}/process", "post", 202, current);
       }),
     );
     current = wordImport({
@@ -340,7 +340,7 @@ describe("sending files from the detail page", () => {
 
   it("closes an import at the revision its last upload produced", async () => {
     server.use(
-      http.post(`${BASE}/admin/imports/:id/process`, async ({ request }) => {
+      http.post(`${BASE}/teacher/imports/:id/process`, async ({ request }) => {
         calls.push({ path: "process", body: await request.json() });
         return unavailable();
       }),
@@ -368,13 +368,13 @@ describe("sending files from the detail page", () => {
   it("re-reads the import after a conflict and starts it at the newer revision", async () => {
     let conflict = true;
     server.use(
-      http.post(`${BASE}/admin/imports/:id/process`, async ({ request }) => {
+      http.post(`${BASE}/teacher/imports/:id/process`, async ({ request }) => {
         calls.push({ path: "process", body: await request.json() });
         if (conflict) {
           conflict = false;
           current = wordImport({ ...current, revision: current.revision + 2 });
           return contractJson(
-            "/admin/imports/{id}/process",
+            "/teacher/imports/{id}/process",
             "post",
             409,
             errorBody(
@@ -388,7 +388,7 @@ describe("sending files from the detail page", () => {
           status: "queued",
           revision: current.revision + 1,
         });
-        return contractJson("/admin/imports/{id}/process", "post", 202, current);
+        return contractJson("/teacher/imports/{id}/process", "post", 202, current);
       }),
     );
     current = wordImport({ status: "awaiting_sources", sources: [source("exam")] });
@@ -456,17 +456,17 @@ describe("an import while processing is switched off", () => {
   it("switches to the processing-off state when a retry is refused for it", async () => {
     let processing = true;
     server.use(
-      http.get(`${BASE}/admin/imports/capabilities`, () =>
-        contractJson("/admin/imports/capabilities", "get", 200, {
+      http.get(`${BASE}/teacher/imports/capabilities`, () =>
+        contractJson("/teacher/imports/capabilities", "get", 200, {
           intakeEnabled: true,
           processingEnabled: processing,
           retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
         }),
       ),
-      http.post(`${BASE}/admin/imports/:id/process`, () => {
+      http.post(`${BASE}/teacher/imports/:id/process`, () => {
         processing = false;
         return contractJson(
-          "/admin/imports/{id}/process",
+          "/teacher/imports/{id}/process",
           "post",
           503,
           errorBody(

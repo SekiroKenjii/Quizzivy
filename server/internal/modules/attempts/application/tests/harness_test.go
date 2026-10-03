@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/attempts/application"
 	"quizzivy/internal/modules/attempts/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 
@@ -25,6 +26,8 @@ const (
 	secretBlankAnswer  = "DAP-AN-CHO-TRONG-KHONG-DANH-CHO-HOC-VIEN"
 	secretTranscript   = "LOI-THOAI-KHONG-DANH-CHO-HOC-VIEN"
 )
+
+var everyone = access.Scope{All: true}
 
 func newPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -119,13 +122,13 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		role string
 	}{{&w.admin, "a", "admin"}, {&w.student, "s", "student"}, {&w.outsider, "o", "student"}} {
 		must(pool.QueryRow(ctx,
-			`INSERT INTO app.users (email, full_name, role)
-			 VALUES ($1, 'Người dùng', $2::app.user_role) RETURNING id::text`,
+			`INSERT INTO app.users (email, full_name, role_id)
+			 VALUES ($1, 'Người dùng', (SELECT id FROM app.roles WHERE builtin_key = $2::text)) RETURNING id::text`,
 			"att-"+u.tag+"-"+id+"@example.com", u.role).Scan(u.into))
 	}
 
-	must(pool.QueryRow(ctx, `INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-		"Lớp "+id).Scan(&w.class))
+	must(pool.QueryRow(ctx, `INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+		"Lớp "+id, w.admin).Scan(&w.class))
 	exec(`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
 	      VALUES ($1::uuid,$2::uuid,'admin',$3::uuid)`, w.class, w.student, w.admin)
 

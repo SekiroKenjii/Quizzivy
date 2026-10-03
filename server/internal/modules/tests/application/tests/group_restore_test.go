@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 )
@@ -19,13 +20,13 @@ func TestRestoreVersionReplacesWholeGroupAndRemapsBothGapEnds(t *testing.T) {
 	tx, author, groups := groupTransaction(t)
 	testID, section, updated := snapshotDraft(t, tx, author)
 	asset := storedGroupAsset(t, tx, author, "audio")
-	original, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now()})
+	original, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
 	media := mediarepo.NewPostgres(db.NewContext(tx))
 	repo := repositories.NewPostgres(db.NewContext(tx), adapters.GroupQuestions{}, media).WithGroupQuestions(adapters.GroupQuestions{})
-	published, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author}, time.Now(), domain.Publishing.Validate)
+	published, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author, Scope: access.Scope{UserID: author}}, time.Now(), domain.Publishing.Validate)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +41,7 @@ func TestRestoreVersionReplacesWholeGroupAndRemapsBothGapEnds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := domain.VersionRequest{Request: domain.Request{ID: testID, ActorID: author}, Version: 1}
+	req := domain.VersionRequest{Request: domain.Request{ID: testID, ActorID: author, Scope: access.Scope{UserID: author}}, Version: 1}
 	if err := tx.QueryRow(ctx, `SELECT updated_at FROM app.tests WHERE id=$1`, testID).Scan(&req.ExpectedUpdatedAt); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +49,7 @@ func TestRestoreVersionReplacesWholeGroupAndRemapsBothGapEnds(t *testing.T) {
 	if _, err := missingPort.CreateDraftFromVersion(ctx, req, time.Now()); err == nil {
 		t.Fatal("restore without group writer silently detached members")
 	}
-	preserved, err := groups.Get(ctx, changed.Bundle.Group.ID)
+	preserved, err := groups.Get(ctx, everyone, changed.Bundle.Group.ID)
 	if err != nil || preserved.Revision != changed.Revision {
 		t.Fatalf("failed restore deleted current draft: %+v, %v", preserved, err)
 	}
@@ -66,10 +67,10 @@ func TestRestoreVersionReplacesWholeGroupAndRemapsBothGapEnds(t *testing.T) {
 		if id == previous {
 			t.Fatal("restore reused the editable source group")
 		}
-		if _, err := groups.Get(ctx, previous); !errors.Is(err, domain.ErrNotFound) {
+		if _, err := groups.Get(ctx, everyone, previous); !errors.Is(err, domain.ErrNotFound) {
 			t.Fatalf("restore stranded old owned graph: %v", err)
 		}
-		copy, err := groups.Get(ctx, id)
+		copy, err := groups.Get(ctx, everyone, id)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -87,7 +88,7 @@ func TestRestoreVersionReplacesWholeGroupAndRemapsBothGapEnds(t *testing.T) {
 	if after := frozenGroupDigest(t, tx, published.ID); after != before {
 		t.Fatal("restoring changed published context")
 	}
-	republished, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author}, time.Now(), domain.Publishing.Validate)
+	republished, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author, Scope: access.Scope{UserID: author}}, time.Now(), domain.Publishing.Validate)
 	if err != nil || republished.QuestionCount != published.QuestionCount || republished.TotalPoints != published.TotalPoints {
 		t.Fatalf("restored graph did not republish coherently: %+v, %v", republished, err)
 	}

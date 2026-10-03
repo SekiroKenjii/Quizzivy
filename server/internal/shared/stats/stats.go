@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"quizzivy/internal/shared/access"
 	"time"
 )
 
@@ -16,7 +17,9 @@ type Student struct {
 	LastAttemptAt  *time.Time
 }
 
-// Source answers the figures for a set of students in one query; the attempts module provides it.
+// Source answers the figures for a set of students in one query, over only
+// the assignments the scope reaches (visibility.AssignmentIDs), or every one
+// under scope.all; a zero scope reaches none. The attempts module provides it.
 type Source interface {
-	StudentStats(ctx context.Context, ids []string) (map[string]Student, error)
+	StudentStats(ctx context.Context, scope access.Scope, ids []string) (map[string]Student, error)
 }

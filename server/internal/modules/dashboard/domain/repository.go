@@ -2,11 +2,15 @@ package domain
 
 import (
 	"context"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/paging"
 )
 
-// Repository reads the dashboard's aggregates.
+// Repository reads the dashboard's aggregates over what a scope reaches:
+// the assignments visibility.AssignmentIDs gives, the papers
+// visibility.Papers shows and the classes the scope teaches, or every row
+// under scope.all. A zero scope reads nothing.
 type Repository interface {
-	Summary(ctx context.Context) (Summary, error)
+	Summary(ctx context.Context, scope access.Scope) (Summary, error)
 	List(ctx context.Context, q ListQuery) ([]Recent, paging.Page, error)
 }

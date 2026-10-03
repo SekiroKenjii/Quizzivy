@@ -30,9 +30,9 @@ func seedPaper(t *testing.T, pool *pgxpool.Pool, status string) paper {
 		}
 	}
 
-	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin') RETURNING id::text`,
+	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"rev-a-"+id+"@example.com").Scan(&p.admin))
-	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role) VALUES ($1,'Nguyễn Đức Minh','student') RETURNING id::text`,
+	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Nguyễn Đức Minh',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"rev-s-"+id+"@example.com").Scan(&p.student))
 
 	var versionID, sectionID, assignmentID string

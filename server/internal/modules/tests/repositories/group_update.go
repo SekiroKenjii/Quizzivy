@@ -52,7 +52,7 @@ func (s *GroupsPostgres) replaceGroupGraph(ctx context.Context, tx pgx.Tx, in do
 	if err != nil {
 		return err
 	}
-	if err := s.lockGroupAssets(ctx, tx, in.Bundle); err != nil {
+	if err := s.lockGroupAssets(ctx, tx, in.Scope, in.Bundle); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `SET CONSTRAINTS app.questions_context_ordinal_key DEFERRED`); err != nil {

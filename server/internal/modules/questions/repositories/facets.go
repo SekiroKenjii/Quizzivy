@@ -65,13 +65,14 @@ func (s *Postgres) Tags(ctx context.Context, in domain.ListInput) ([]string, err
 	return out, rows.Err()
 }
 
-// Counts returns the bank's size and how much of it the current filters match --
-// A-06's "180 câu · đang lọc 41".
+// Counts returns the size of the bank the input's scope reaches and how much of
+// it the current filters match -- A-06's "180 câu · đang lọc 41".
 func (s *Postgres) Counts(ctx context.Context, in domain.ListInput) (total int, filtered int, err error) {
 	args, where := appendFilters(in, allFilters())
+	_, bank := bankRows(in.Scope)
 
 	if err := s.QueryRow(ctx, `
-		SELECT (SELECT count(*) FROM app.questions q WHERE q.deleted_at IS NULL AND q.context_group_id IS NULL),
+		SELECT (SELECT count(*) FROM app.questions q WHERE `+strings.Join(bank, " AND ")+`),
 		       (SELECT count(*) FROM app.questions q WHERE `+strings.Join(where, " AND ")+`)`,
 		args...).Scan(&total, &filtered); err != nil {
 		return 0, 0, fmt.Errorf("questions: counts: %w", err)

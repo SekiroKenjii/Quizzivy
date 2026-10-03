@@ -6,14 +6,19 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+
+	"quizzivy/internal/shared/access"
 )
 
 const principalKey ctxKey = 2
 
-// Principal is the authenticated caller, as asserted by a verified access token.
+// Principal is the authenticated caller: the user a verified access token names
+// and the session epoch it carries, and, once RequirePermission has resolved
+// the user, what the user may do.
 type Principal struct {
 	UserID string
-	Role   string
+	Epoch  int
+	Access access.Principal
 }
 
 // RequireAuth enforces bearer authentication on every generated route that the
@@ -107,42 +112,4 @@ func requiresScheme(opSecurity *openapi3.SecurityRequirements, global openapi3.S
 		}
 	}
 	return true
-}
-
-// RoleAdmin is the app.user_role value the /admin tree requires.
-const RoleAdmin = "admin"
-
-// AdminPathPrefix is spec §3's teacher route tree.
-const AdminPathPrefix = "/admin/"
-
-// RequireRole gates the /admin/ tree on the admin role.
-func RequireRole(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !IsAdminPattern(r.Pattern) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		principal, ok := PrincipalFromContext(r.Context())
-		if !ok {
-			writeUnauthenticated(w, r)
-			return
-		}
-		if principal.Role != RoleAdmin {
-			WriteError(w, r, http.StatusForbidden, CodeForbidden,
-				"Bạn không có quyền truy cập chức năng này.")
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// IsAdminPattern reports whether a mux pattern -- "GET /admin/classes/{id}" --
-// addresses the admin tree.
-func IsAdminPattern(pattern string) bool {
-	_, path, found := strings.Cut(pattern, " ")
-	if !found {
-		path = pattern
-	}
-	return strings.HasPrefix(path, AdminPathPrefix)
 }

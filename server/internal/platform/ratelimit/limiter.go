@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"math"
+	"slices"
 	"sync"
 	"time"
 )
@@ -107,6 +108,10 @@ func (l *Limiter) evictOldestLocked() {
 	}
 	delete(l.buckets, oldestKey)
 }
+
+// Rules returns a copy of the limiter's rules, for checks against the
+// contract.
+func (l *Limiter) Rules() []Rule { return slices.Clone(l.rules) }
 
 // Len reports how many keys are tracked. Tests and metrics.
 func (l *Limiter) Len() int {

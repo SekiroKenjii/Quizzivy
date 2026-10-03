@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"strings"
 	"testing"
 	"time"
@@ -22,16 +23,16 @@ func TestGroupPreviewKeepsFrozenContextAndDefaultVersion(t *testing.T) {
 	testID, section, updated := snapshotDraft(t, tx, author)
 	asset := storedGroupAsset(t, tx, author, "audio")
 	source := storedGroupFixture(t, asset)
-	stored, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: source, OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now()})
+	stored, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: source, OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
 	media := mediarepo.NewPostgres(db.NewContext(tx))
 	repo := repositories.NewPostgres(db.NewContext(tx), adapters.GroupQuestions{}, media).WithGroupQuestions(adapters.GroupQuestions{})
-	if _, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author}, time.Now(), domain.Publishing.Validate); err != nil {
+	if _, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author, Scope: access.Scope{UserID: author}}, time.Now(), domain.Publishing.Validate); err != nil {
 		t.Fatal(err)
 	}
-	original, err := repo.Preview(ctx, testID, 0)
+	original, err := repo.Preview(ctx, everyone, testID, 0)
 	if err != nil || len(original.Groups) != 1 || len(original.Sections) != 1 || len(original.Questions) != 3 {
 		t.Fatalf("incomplete preview: %+v, %v", original, err)
 	}
@@ -68,21 +69,21 @@ func TestGroupPreviewKeepsFrozenContextAndDefaultVersion(t *testing.T) {
 	if _, err := groups.Update(ctx, domain.UpdateGroupInput{GroupMutation: mutation, Bundle: stored.Bundle}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author}, time.Now(), domain.Publishing.Validate); err != nil {
+	if _, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author, Scope: access.Scope{UserID: author}}, time.Now(), domain.Publishing.Validate); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE app.tests SET current_version=1 WHERE id=$1`, testID); err != nil {
 		t.Fatal(err)
 	}
-	current, err := repo.Preview(ctx, testID, 0)
+	current, err := repo.Preview(ctx, everyone, testID, 0)
 	if err != nil || current.Version != 1 || current.Groups[0].Title != source.Group.Title {
 		t.Fatalf("default preview uses latest instead: %+v, %v", current, err)
 	}
-	newer, err := repo.Preview(ctx, testID, 2)
+	newer, err := repo.Preview(ctx, everyone, testID, 2)
 	if err != nil || newer.Version != 2 || newer.Groups[0].Title != "Changed context" {
 		t.Fatalf("explicit version unavailable: %+v, %v", newer, err)
 	}
-	if _, err := repo.Preview(ctx, testID, 99); !errors.Is(err, domain.ErrNotPublished) {
+	if _, err := repo.Preview(ctx, everyone, testID, 99); !errors.Is(err, domain.ErrNotPublished) {
 		t.Fatalf("missing version: %v", err)
 	}
 }

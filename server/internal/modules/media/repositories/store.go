@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -25,8 +26,8 @@ func (s *Postgres) Insert(ctx context.Context, in domain.InsertInput) (domain.As
 	const q = `
 		INSERT INTO app.media_assets
 		       (id, kind, storage_key, mime_type, bytes, duration_ms,
-		        original_filename, checksum_sha256, uploaded_by, created_at)
-		VALUES ($1, $2::app.media_kind, $3, $4, $5, $6, $7, $8, $9, $10)
+		        original_filename, checksum_sha256, uploaded_by, created_at, owner_id)
+		VALUES ($1, $2::app.media_kind, $3, $4, $5, $6, $7, $8, $9, $10, $9)
 		RETURNING id::text, created_at`
 
 	var a domain.Asset
@@ -85,13 +86,16 @@ func (s *Postgres) Get(ctx context.Context, id string) (domain.Asset, error) {
 	return a, nil
 }
 
-// CountByChecksum powers the "you already uploaded this" warning [D-06]. It
-// never blocks a write: §11.1 says a re-upload creates a new row.
-func (s *Postgres) CountByChecksum(ctx context.Context, checksum []byte) (int, error) {
+// CountByChecksum powers the "you already uploaded this" warning [D-06], so it
+// counts only the owner's live assets: another teacher's upload of the same
+// bytes is not the caller's to know about. It never blocks a write: §11.1 says
+// a re-upload creates a new row.
+func (s *Postgres) CountByChecksum(ctx context.Context, ownerID string, checksum []byte) (int, error) {
 	var n int
 	err := s.QueryRow(ctx,
 		`SELECT count(*) FROM app.media_assets
-		  WHERE checksum_sha256 = $1 AND deleted_at IS NULL`, checksum).Scan(&n)
+		  WHERE checksum_sha256 = $1 AND owner_id = $2::uuid AND deleted_at IS NULL`,
+		checksum, opt.String(ownerID)).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("media: count by checksum: %w", err)
 	}

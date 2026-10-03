@@ -44,7 +44,7 @@ func (f *fakeJoin) app() *classesapp.Application {
 func joinRouter(t *testing.T, fake *fakeJoin) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := router.New(router.Deps{DB: fakeDB{}, Modules: router.Modules{Classes: classeshttp.NewClasses(fake.app())}, Tokens: testIssuer(t)}, logger,
+	h, err := router.New(router.Deps{Principals: newFakePrincipals(), DB: fakeDB{}, Modules: router.Modules{Classes: classeshttp.NewClasses(fake.app())}, Tokens: testIssuer(t)}, logger,
 		[]string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
@@ -139,18 +139,21 @@ func TestNoRefusalEchoesAnythingIdentifying(t *testing.T) {
 	}
 }
 
-func TestTheEleventhPreviewInAMinuteFromOneAddressIs429(t *testing.T) {
+func TestTheHundredAndTwentyFirstPreviewInAMinuteFromOneAddressIs429(t *testing.T) {
 	// §6.5. Without a limit, 40 bits of entropy is worth probing at scale.
 	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
 	handler := joinRouter(t, fake)
 
 	var last *httptest.ResponseRecorder
-	for i := range 11 {
+	for i := range 121 {
 		// A different code each time, so only the per-IP bucket can fire.
-		last = previewFrom(t, handler, "198.51.100.7", fmt.Sprintf("AAAA-BB%02d", i))
+		last = previewFrom(t, handler, "198.51.100.7", fmt.Sprintf("AAAA-B%03d", i))
+		if i < 120 && last.Code == http.StatusTooManyRequests {
+			t.Fatalf("request %d was limited; the budget is 120 a minute", i+1)
+		}
 	}
 	if last.Code != http.StatusTooManyRequests {
-		t.Fatalf("11th request status = %d, want 429", last.Code)
+		t.Fatalf("121st request status = %d, want 429", last.Code)
 	}
 	if last.Header().Get("Retry-After") == "" {
 		t.Error("429 without Retry-After: the client either gives up or retries immediately")
@@ -160,16 +163,19 @@ func TestTheEleventhPreviewInAMinuteFromOneAddressIs429(t *testing.T) {
 	}
 }
 
-func TestTheThirtyFirstAttemptOnOneCodeIs429EvenAcrossAddresses(t *testing.T) {
+func TestTheTwoHundredAndFirstAttemptOnOneCodeIs429EvenAcrossAddresses(t *testing.T) {
 	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
 	handler := joinRouter(t, fake)
 
 	var last *httptest.ResponseRecorder
-	for i := range 31 {
-		last = previewFrom(t, handler, fmt.Sprintf("198.51.100.%d", i+50), "K7M3-P9QR")
+	for i := range 201 {
+		last = previewFrom(t, handler, fmt.Sprintf("198.51.%d.%d", i/200, i%200+1), "K7M3-P9QR")
+		if i < 200 && last.Code == http.StatusTooManyRequests {
+			t.Fatalf("attempt %d was limited; the budget is 200 an hour per code", i+1)
+		}
 	}
 	if last.Code != http.StatusTooManyRequests {
-		t.Fatalf("31st request status = %d, want 429", last.Code)
+		t.Fatalf("201st request status = %d, want 429", last.Code)
 	}
 }
 
@@ -177,14 +183,14 @@ func TestRespellingACodeDoesNotBuyAFreshAllowance(t *testing.T) {
 	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
 	handler := joinRouter(t, fake)
 
-	spellings := []string{"K7M3-P9QR", "k7m3p9qr", "K7M3P9QR", "k7m3-p9qr", " K7M3 P9QR "}
+	spellings := []string{"K7M3-P9QR", "k7m3p9qr", "K7M3P9QR", "k7m3-p9qr", "K7M3 P9QR"}
 	var last *httptest.ResponseRecorder
-	for i := range 31 {
+	for i := range 201 {
 		// Every request from a different address, cycling through spellings.
-		last = previewFrom(t, handler, fmt.Sprintf("192.0.2.%d", i+1), spellings[i%len(spellings)])
+		last = previewFrom(t, handler, fmt.Sprintf("192.0.%d.%d", i/200+2, i%200+1), spellings[i%len(spellings)])
 	}
 	if last.Code != http.StatusTooManyRequests {
-		t.Fatalf("status = %d after 31 attempts across five spellings, want 429 -- "+
+		t.Fatalf("status = %d after 201 attempts across five spellings, want 429 -- "+
 			"respelling the code is buying a fresh bucket", last.Code)
 	}
 }

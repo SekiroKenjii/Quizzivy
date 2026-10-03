@@ -43,7 +43,7 @@ func TestSharedAudioTransportPreservesGestureIdentityAndSessionErrors(t *testing
 			})}}
 			transport := attemptshttp.NewAttempts(app, nil, nil, nil)
 			handler := httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
-				return httpx.Principal{UserID: student.String(), Role: "student"}, nil
+				return httpx.Principal{UserID: student.String()}, nil
 			})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				response, err := transport.RecordGroupAudioPlay(r.Context(), openapi.RecordGroupAudioPlayRequestObject{Id: attempt, Body: &openapi.GroupAudioPlayInput{SessionId: session, RecordingId: recording, PlayId: play}})
 				if err != nil {

@@ -4,10 +4,13 @@ import (
 	"context"
 	"quizzivy/internal/modules/media/application/internal/support"
 	"quizzivy/internal/modules/media/domain"
+	"quizzivy/internal/shared/access"
 )
 
+// TotalBytes sums the library List shows for the same Scope and Kind.
 type TotalBytes struct {
-	Kind *domain.Kind
+	Kind  *domain.Kind
+	Scope access.Scope
 }
 
 type TotalBytesHandler struct {
@@ -15,5 +18,5 @@ type TotalBytesHandler struct {
 }
 
 func (s TotalBytesHandler) Handle(ctx context.Context, q TotalBytes) (int64, error) {
-	return s.Repo.TotalBytes(ctx, q.Kind)
+	return s.Repo.TotalBytes(ctx, q.Scope, q.Kind)
 }

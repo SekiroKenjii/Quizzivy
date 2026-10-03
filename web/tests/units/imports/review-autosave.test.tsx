@@ -30,12 +30,12 @@ describe("the review's autosave", () => {
   it("never has two saves in flight and sends the revision the previous save returned", async () => {
     const first = deferred<void>();
     server.use(
-      http.put(`${BASE}/admin/imports/:id/review`, async ({ request }) => {
+      http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
         const body = (await request.json()) as SaveImportReview;
         state.puts.push(body);
         if (state.puts.length === 1) await first.promise;
         return contractJson(
-          "/admin/imports/{id}/review",
+          "/teacher/imports/{id}/review",
           "put",
           200,
           savedFrom(baseline(), body),
@@ -66,10 +66,10 @@ describe("the review's autosave", () => {
 
   it("stops on a stale write, says so, and offers a reload instead of overwriting", async () => {
     server.use(
-      http.put(`${BASE}/admin/imports/:id/review`, async ({ request }) => {
+      http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
         state.puts.push((await request.json()) as SaveImportReview);
         return contractJson(
-          "/admin/imports/{id}/review",
+          "/teacher/imports/{id}/review",
           "put",
           409,
           errorBody("STALE_WRITE", "Bản nhập đã được lưu ở nơi khác."),
@@ -95,10 +95,10 @@ describe("the review's autosave", () => {
 
   it("asks before a reload discards the edit a stale write left unsaved", async () => {
     server.use(
-      http.put(`${BASE}/admin/imports/:id/review`, async ({ request }) => {
+      http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
         state.puts.push((await request.json()) as SaveImportReview);
         return contractJson(
-          "/admin/imports/{id}/review",
+          "/teacher/imports/{id}/review",
           "put",
           409,
           errorBody("STALE_WRITE", "Bản nhập đã được lưu ở nơi khác."),
@@ -133,7 +133,7 @@ describe("the review's autosave", () => {
   it("shows a failed save with a retry that resends the latest edit", async () => {
     let fail = true;
     server.use(
-      http.put(`${BASE}/admin/imports/:id/review`, async ({ request }) => {
+      http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
         const body = (await request.json()) as SaveImportReview;
         state.puts.push(body);
         if (fail) {
@@ -141,7 +141,7 @@ describe("the review's autosave", () => {
           return new Response(null, { status: 503 });
         }
         return contractJson(
-          "/admin/imports/{id}/review",
+          "/teacher/imports/{id}/review",
           "put",
           200,
           savedFrom(baseline(), body),

@@ -21,6 +21,7 @@ func (s RevokeHandler) Handle(ctx context.Context, cmd Revoke) (cqrs.Nothing, er
 	return cqrs.Nothing{}, s.Repo.Revoke(ctx, domain.RevokeInput{
 		ClassID:     cmd.Request.ClassID,
 		ActorUserID: cmd.Request.ActorUserID,
+		All:         cmd.Request.All,
 		Now:         s.Now(),
 		IP:          opt.String(cmd.Request.IP),
 		UserAgent:   opt.String(cmd.Request.UserAgent),

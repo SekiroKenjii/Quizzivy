@@ -183,6 +183,65 @@ DROP INDEX CONCURRENTLY IF EXISTS app.tvq_section_identity_key;
 Deploy outside active assignment windows. The other new migrations hold brief
 ACCESS EXCLUSIVE locks on test-version tables while they validate new CHECKs.
 
+## Rolling out v0.8.0 (R2): forward only
+
+Before merging `release/0.8.0` into `main`:
+
+- Set `JOIN_CODE_KEY` as a Fly secret and keep its offline copy
+  (`operations.md` § Join-code key). The preflight fails the deploy without it,
+  and v0.8.0 refuses to start without it. Leave `JOIN_CODE_KEY_PREVIOUS`
+  unset.
+- Rehearse the migrations on a Neon branch of production
+  (`docs/plan/72-r2.md` § Release checklist).
+
+Deploy only when no assignment window has attempts in progress: scoping
+changes the attempt queries, and the files that add and backfill a column
+(`00056`, `00060`–`00063`, `00065`) hold ACCESS EXCLUSIVE on their table until
+they commit.
+
+While v0.7.0 and v0.8.0 machines overlap:
+
+- **Do not rotate join codes.** A code v0.8.0 issues is sealed and found by a
+  keyed hash, which a v0.7.0 machine cannot look up. Codes issued before the
+  deploy redeem on both.
+- **Do not reset student passwords or disable students.** Either moves the
+  student's session epoch, and v0.8.0 refuses a token older than it. A v0.7.0
+  machine issues tokens with no epoch, so a student it signs in stays signed
+  out until the old machine is gone.
+
+Tabs still open on v0.7.0 keep working: the `/admin` alias serves the old
+teaching paths and logs `legacy_admin_path`. R3 removes it.
+
+Roll forward, never back. The migrations are the expand half, so v0.7.0 would
+still boot on the new schema, but it cannot redeem a code v0.8.0 issued, and
+`00078`'s Down refuses while one is live. Recover from a v0.8.0 problem with a
+hotfix.
+
+## Interrupted index builds in v0.8.0 (R2)
+
+R2 (v0.8.0) builds eight indexes `CONCURRENTLY`, one per file: `00057` and
+`00071`–`00077`. An interrupted build leaves an INVALID index that the rerun's
+`CREATE INDEX CONCURRENTLY` would trip over. Find it, as `quizzivy_migrate`:
+
+```sql
+SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
+```
+
+Drop only the index that query names, then redeploy. The files before it are
+already recorded as applied, so dropping their valid indexes would lose them
+for good:
+
+```sql
+DROP INDEX CONCURRENTLY IF EXISTS app.users_role_id_active_idx;        -- 00057
+DROP INDEX CONCURRENTLY IF EXISTS app.classes_teacher_idx;             -- 00071
+DROP INDEX CONCURRENTLY IF EXISTS app.tests_owner_idx;                 -- 00072
+DROP INDEX CONCURRENTLY IF EXISTS app.questions_owner_bank_idx;        -- 00073
+DROP INDEX CONCURRENTLY IF EXISTS app.question_groups_owner_bank_idx;  -- 00074
+DROP INDEX CONCURRENTLY IF EXISTS app.media_assets_owner_idx;          -- 00075
+DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
+DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
+```
+
 ## Backups and operational verification
 
 See [operations](operations.md) for the recovery rehearsal, retention commands,

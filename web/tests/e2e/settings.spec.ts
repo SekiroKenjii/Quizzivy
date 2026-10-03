@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { anonymous, sessionAs, stubApi, studentUser } from "./support/api";
+import { adminUser, anonymous, sessionAs, stubApi, studentUser } from "./support/api";
 
 /**
  * §14's E2E 2a — the Phase 1 exit criterion §16 asks for, scoped to what Phase 1
@@ -69,7 +69,7 @@ test("unlinking is disabled, with a reason, when Google is the only way in", asy
 });
 
 test("a teacher's settings screen adds the profile block", async ({ page }) => {
-  await stubApi(page, sessionAs({ ...studentUser, role: "admin", fullName: "Thuong" }));
+  await stubApi(page, sessionAs(adminUser));
   await page.goto("/admin/settings");
 
   await expect(page.getByRole("heading", { name: "Hồ sơ" })).toBeVisible();

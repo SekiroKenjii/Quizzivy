@@ -143,7 +143,7 @@ func TestAStudentOutsideTheTargetsSeesNothing(t *testing.T) {
 
 	var outsider string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Ngoài lớp','student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Ngoài lớp',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"asg-o-"+nonce(t)+"@example.com").Scan(&outsider); err != nil {
 		t.Fatal(err)
 	}
@@ -479,8 +479,8 @@ func TestTheClassNameIsOmittedUnlessThereIsExactlyOne(t *testing.T) {
 
 	var second string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-		"Lớp hai "+nonce(t)).Scan(&second); err != nil {
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+		"Lớp hai "+nonce(t), w.admin).Scan(&second); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

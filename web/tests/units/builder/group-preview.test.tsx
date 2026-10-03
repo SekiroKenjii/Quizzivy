@@ -104,7 +104,7 @@ it("recovers failed signed images through the preview refresh action", async () 
 
 it("uses a preview fixture accepted by the generated API contract", () => {
   expect(() =>
-    contractJson("/admin/tests/{id}/preview", "get", 200, {
+    contractJson("/teacher/tests/{id}/preview", "get", 200, {
       version: 1,
       questions: previewQuestions,
       sections: [previewSection],
