@@ -1319,8 +1319,9 @@ components:
     StudentAssignmentDetail:
       type: object
       description: |
-        The intro screen's card: everything StudentAssignmentCard carries plus
-        the policies §10.2 states in plain Vietnamese before the student starts.
+        The intro screen's card: what StudentAssignmentCard carries, without
+        `classId` and `liveAnsweredCount`, plus the policies §10.2 states in
+        plain Vietnamese before the student starts.
       required:
         [id, testTitle, status, opensAt, closesAt, durationMinutes,
          attemptsUsed, maxAttempts, questionCount, totalPoints, review,
@@ -2181,10 +2182,16 @@ components:
         The post-submission view. Every revealing field is gated by the
         assignment's review policy and simply absent when the policy is off —
         the client has no fallback that could surface a suppressed value.
-      required: [id, type, prompt, points, answer]
+      required: [id, sectionId, type, prompt, points, answer]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
+        sectionId:
+          $ref: '#/components/schemas/Uuid'
+          description: >-
+            The part of the paper this question belongs to, one of the result's
+            `sections`. Present under every review policy: the paper already
+            showed the student which part a question was in.
         type: { $ref: '#/components/schemas/QuestionType' }
         promptContent:
           oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
@@ -3046,7 +3053,16 @@ components:
         liveDeadlineAt:
           type: [string, 'null']
           format: date-time
-          description: The live attempt's deadline. Null exactly when `hasLiveAttempt` is false.
+          description: The live attempt's deadline. Absent exactly when `hasLiveAttempt` is false.
+        liveAnsweredCount:
+          type: [integer, 'null']
+          minimum: 0
+          description: >-
+            How many of the live attempt's saved answers say something, by the
+            rule the engine's navigator uses: a choice with an option picked, a
+            true/false with a value, a text that is not blank, a fill-in with
+            every blank filled. An answer that exists only in the browser's
+            draft is not counted. Absent exactly when `hasLiveAttempt` is false.
         score:
           oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
           description: Only when the assignment's `review.showScore` is on.
@@ -6859,13 +6875,21 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [attempt, review, testTitle, maxAttempts, questions]
+                required: [attempt, review, testTitle, maxAttempts, sections, questions]
                 additionalProperties: false
                 properties:
                   attempt: { $ref: '#/components/schemas/Attempt' }
                   review: { $ref: '#/components/schemas/ReviewPolicy' }
                   testTitle: { type: string }
                   maxAttempts: { type: integer, minimum: 1, description: For "Lượt 1/2" under the score (S-09). }
+                  sections:
+                    type: array
+                    items: { $ref: '#/components/schemas/StudentSection' }
+                    description: >-
+                      The paper's parts in test order, as the attempt showed
+                      them. The page sums each part's `earned` from the
+                      questions whose `sectionId` names it; no review policy
+                      hides a part's title or membership.
                   questions: { type: array, items: { $ref: '#/components/schemas/ResultQuestion' } }
                   sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
         '403': { $ref: '#/components/responses/Forbidden' }

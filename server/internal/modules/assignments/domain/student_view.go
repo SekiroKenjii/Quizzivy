@@ -27,6 +27,10 @@ type StudentCard struct {
 	HasLiveAttempt bool
 	// LiveDeadlineAt is non-nil exactly when HasLiveAttempt is true.
 	LiveDeadlineAt *time.Time
+	// LiveAnsweredCount is how many of the live attempt's saved answers say
+	// something, by the rule the engine's navigator uses; non-nil exactly
+	// when HasLiveAttempt is true.
+	LiveAnsweredCount *int
 	// LastAttemptID is the most recent non-voided attempt, live or finished.
 	LastAttemptID *string
 	// LastSubmittedAt is nil while that attempt is still live.

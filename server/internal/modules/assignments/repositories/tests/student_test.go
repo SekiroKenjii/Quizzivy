@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"quizzivy/internal/platform/db"
+	"strings"
 	"testing"
 	"time"
 
@@ -559,6 +560,9 @@ func TestTheCardCarriesTheLiveDeadlineAndTheSubmissionTime(t *testing.T) {
 	if done.LiveDeadlineAt != nil {
 		t.Errorf("no attempt is live, but a deadline is offered: %v", done.LiveDeadlineAt)
 	}
+	if done.LiveAnsweredCount != nil {
+		t.Errorf("no attempt is live, but %d answers are counted", *done.LiveAnsweredCount)
+	}
 
 	resumable := only(t, sections.DueNow, live.ID)
 	if !resumable.HasLiveAttempt {
@@ -566,5 +570,184 @@ func TestTheCardCarriesTheLiveDeadlineAndTheSubmissionTime(t *testing.T) {
 	}
 	if resumable.LiveDeadlineAt == nil {
 		t.Error("a live attempt with no deadline to show")
+	}
+}
+
+func askInAttempt(t *testing.T, pool *pgxpool.Pool, attemptID, kind string, blanks int) (string, []string) {
+	t.Helper()
+	ctx := context.Background()
+	var question string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points)
+		SELECT sec.id, (SELECT max(q.ordinal) + 1 FROM app.test_version_questions q
+		                 WHERE q.test_version_section_id = sec.id),
+		       $2::app.question_type, 'Câu?', '1.00'
+		  FROM app.attempts at
+		  JOIN app.test_version_sections sec ON sec.test_version_id = at.test_version_id
+		 WHERE at.id = $1::uuid
+		 ORDER BY sec.ordinal DESC LIMIT 1
+		RETURNING id::text`, attemptID, kind).Scan(&question); err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]string, blanks)
+	for i := range ids {
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO app.test_version_blanks (test_version_question_id, ordinal)
+			VALUES ($1::uuid, $2) RETURNING id::text`, question, i+1).Scan(&ids[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return question, ids
+}
+
+func liveCount(t *testing.T, store *repositories.Postgres, w world, assignmentID string) *int {
+	t.Helper()
+	sections, err := store.ForStudent(context.Background(), w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := append(append(sections.DueNow, sections.Upcoming...), sections.Completed...)
+	return only(t, all, assignmentID).LiveAnsweredCount
+}
+
+func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+	a := createFor(t, store, w, legalInput(w))
+	attempt := sitAttempt(t, pool, w, a.ID, "in_progress", "0.00", false)
+
+	const b1, b2 = "\x00b1", "\x00b2"
+	cases := []struct {
+		name    string
+		kind    string
+		blanks  int
+		payload string
+		says    bool
+	}{
+		{"a choice with an option picked", "single_choice", 0, `{"type":"choice","optionIds":["0198a3f2-7c1e-7a40-8000-000000000001"]}`, true},
+		{"a choice with nothing picked", "multiple_choice", 0, `{"type":"choice","optionIds":[]}`, false},
+		{"true/false answered false", "true_false", 0, `{"type":"true_false","value":false}`, true},
+		{"true/false with no value", "true_false", 0, `{"type":"true_false","value":null}`, false},
+		{"a choice whose options are not a list", "single_choice", 0, `{"type":"choice","optionIds":"x"}`, false},
+		{"a text of spaces", "short_answer", 0, `{"type":"text","value":"   "}`, false},
+		{"a text of every space JavaScript trims", "short_answer", 0, `{"type":"text","value":"\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"}`, false},
+		{"a text of a space JavaScript keeps", "short_answer", 0, `{"type":"text","value":"\u200b"}`, true},
+		{"a text with words", "short_answer", 0, `{"type":"text","value":"I wake up at six."}`, true},
+		{"no blank typed into", "fill_blank", 2, `{"type":"fill_blank","values":{}}`, false},
+		{"blanks holding only spaces", "fill_blank", 2, `{"type":"fill_blank","values":{"` + b1 + `":" ","` + b2 + `":""}}`, false},
+		{"one blank of two", "fill_blank", 2, `{"type":"fill_blank","values":{"` + b1 + `":"went"}}`, false},
+		{"one blank and one of spaces", "fill_blank", 2, `{"type":"fill_blank","values":{"` + b1 + `":"went","` + b2 + `":"  "}}`, false},
+		{"one blank and one of the spaces JavaScript trims", "fill_blank", 2, `{"type":"fill_blank","values":{"` + b1 + `":"went","` + b2 + `":" \t"}}`, false},
+		{"every blank filled", "fill_blank", 2, `{"type":"fill_blank","values":{"` + b1 + `":"went","` + b2 + `":"has"}}`, true},
+		{"every blank filled beside a stale value", "fill_blank", 2, `{"type":"fill_blank","values":{"` + b1 + `":"went","` + b2 + `":"has","stale":"x"}}`, true},
+		{"only a stale value", "fill_blank", 2, `{"type":"fill_blank","values":{"stale":"x"}}`, false},
+		{"a fill-in whose question has no blanks", "fill_blank", 0, `{"type":"fill_blank","values":{}}`, false},
+		{"an answer of no known type", "short_answer", 0, `{"type":"essay","value":"words"}`, false},
+		{"an answer with no type", "short_answer", 0, `{"value":"words"}`, false},
+	}
+
+	got := liveCount(t, store, w, a.ID)
+	if got == nil || *got != 0 {
+		t.Fatalf("with only an empty choice saved the count is %v, want 0", got)
+	}
+	want := 0
+	for _, c := range cases {
+		question, blanks := askInAttempt(t, pool, attempt, c.kind, c.blanks)
+		payload := c.payload
+		for i, id := range blanks {
+			payload = strings.ReplaceAll(payload, []string{b1, b2}[i], id)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO app.attempt_answers (attempt_id, question_id, payload)
+			VALUES ($1::uuid, $2::uuid, $3::jsonb)`, attempt, question, payload); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if c.says {
+			want++
+		}
+		got := liveCount(t, store, w, a.ID)
+		if got == nil || *got != want {
+			t.Fatalf("%s: the count is %v, want %d", c.name, got, want)
+		}
+	}
+}
+
+func TestTheLiveCountIsAbsentWithoutALiveAttempt(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+
+	fresh := createFor(t, store, w, legalInput(w))
+	if got := liveCount(t, store, w, fresh.ID); got != nil {
+		t.Errorf("an assignment nobody started counts %d answers", *got)
+	}
+
+	attempt := sitAttempt(t, pool, w, fresh.ID, "in_progress", "0.00", false)
+	question, _ := askInAttempt(t, pool, attempt, "true_false", 0)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO app.attempt_answers (attempt_id, question_id, payload)
+		VALUES ($1::uuid, $2::uuid, '{"type":"true_false","value":true}')`, attempt, question); err != nil {
+		t.Fatal(err)
+	}
+	if got := liveCount(t, store, w, fresh.ID); got == nil || *got != 1 {
+		t.Fatalf("a live attempt with one answer counts %v, want 1", got)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.attempts SET started_at = now() - interval '2 hours',
+		                         deadline_at = now() - interval '1 hour' WHERE id = $1::uuid`, attempt); err != nil {
+		t.Fatal(err)
+	}
+	if got := liveCount(t, store, w, fresh.ID); got != nil {
+		t.Errorf("an attempt past its deadline still counts %d answers", *got)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.attempts SET status = 'submitted', submitted_at = now(), deadline_at = now() + interval '1 hour',
+		                         score_earned = 0, score_total = 10 WHERE id = $1::uuid`, attempt); err != nil {
+		t.Fatal(err)
+	}
+	if got := liveCount(t, store, w, fresh.ID); got != nil {
+		t.Errorf("a submitted attempt still counts %d answers", *got)
+	}
+}
+
+func TestTheLiveCountIsTheStudentsOwn(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+	a := createFor(t, store, w, legalInput(w))
+	classmate := w
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1, 'Bạn cùng lớp', (SELECT id FROM app.roles WHERE builtin_key = 'student'))
+		 RETURNING id::text`,
+		"asg-c-"+nonce(t)+"@example.com").Scan(&classmate.student); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pool.Exec(c, `DELETE FROM app.attempts WHERE student_id = $1::uuid`, classmate.student)
+		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = $1::uuid`, classmate.student)
+	})
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		 VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`,
+		w.class, classmate.student, w.admin); err != nil {
+		t.Fatal(err)
+	}
+	theirs := sitAttempt(t, pool, classmate, a.ID, "in_progress", "0.00", false)
+	question, _ := askInAttempt(t, pool, theirs, "true_false", 0)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO app.attempt_answers (attempt_id, question_id, payload)
+		VALUES ($1::uuid, $2::uuid, '{"type":"true_false","value":true}')`, theirs, question); err != nil {
+		t.Fatal(err)
+	}
+	if got := liveCount(t, store, w, a.ID); got != nil {
+		t.Errorf("a classmate's live attempt counts %d answers on this student's card", *got)
 	}
 }

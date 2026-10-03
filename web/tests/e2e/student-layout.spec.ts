@@ -136,9 +136,11 @@ test("result filters survive resizing, explain empty results and retain the full
       submittedAt: "2026-09-22T00:30:00Z",
       score: { earned: 1, total: 1, pendingManual: 0 },
     },
+    sections: [{ id: "section", title: "Phần 1", instructions: null }],
     questions: [
       {
         id: "question",
+        sectionId: "section",
         type: "short_answer",
         prompt: "Câu trả lời đã chấm",
         points: 1,

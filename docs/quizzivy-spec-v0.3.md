@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.45 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.46 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.45**
+
+R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), as each task lands:
+
+- §15 A student's assignment card carries `liveAnsweredCount`, and the result
+  carries the paper's `sections` with a `sectionId` on every question
+  (T-R3.4).
 
 **Changes since v0.44**
 
@@ -1716,7 +1724,8 @@ POST   /admin/docs-session              opens the API reference for fifteen minu
 # student
 POST   /app/classes/join                {joinCode} → Class      (already-authed path)
 GET    /app/classes
-GET    /app/assignments                 → {dueNow,upcoming,completed}
+GET    /app/assignments                 → {dueNow,upcoming,completed}; a card with a live attempt
+                                          carries liveAnsweredCount
 GET    /app/assignments/:id
 POST   /app/assignments/:id/attempts    → create or resume → Attempt + ordered questions + sessionId
                                           409 MAINTENANCE_SCHEDULED {startsAt, endsAt} for a start
@@ -1727,7 +1736,8 @@ POST   /app/attempts/:id/events         standalone flush (sendBeacon path)
 POST   /app/attempts/:id/audio-play     {questionId} → {plays, maxPlays}
 POST   /app/attempts/:id/submit         idempotent; 409 if already closed; 409 DEADLINE_NOT_REACHED
                                           {deadlineAt} for timer_expired more than 5 s early
-GET    /app/attempts/:id/result
+GET    /app/attempts/:id/result         → Attempt + review policy + sections + questions,
+                                          each question naming its sectionId
 GET    /app/media/:assetId/url          → short-lived signed URL
 ```
 
@@ -1738,6 +1748,10 @@ GET    /app/media/:assetId/url          → short-lived signed URL
 `deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`) answer `RESOURCE_REFERENCED` without details.
 
 **During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it.
+
+**`liveAnsweredCount`** on a student's assignment card is the number of the live attempt's saved answers that say something, by the rule the engine's navigator applies (`web/src/features/take-test/answered.ts`): a choice with an option picked, a true/false with a value, a text that is not blank, and a fill-in with every blank of the frozen question filled. Blank means empty after removing the whitespace JavaScript's `trim()` removes. An answer that exists only in the browser's draft is not counted. The field is absent when there is no live attempt.
+
+**The result's `sections`** are the paper's parts in test order, and every result question names its `sectionId`. Both are present under every review policy, because the attempt already showed the student its parts; the page sums a part's score from its questions' `earned`, which the policy still gates.
 
 List endpoints return `{ items, nextCursor }` (keyset, §13.8). Student payloads never include `isCorrect`, `sampleAnswer`, `acceptedAnswers`, or `transcript` (the last only per `showTranscriptAfterSubmit`, on the result endpoint).
 

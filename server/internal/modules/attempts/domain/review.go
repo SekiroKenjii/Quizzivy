@@ -14,7 +14,10 @@ type Result struct {
 	Review        ReviewPolicy
 	TestTitle     string
 	MaxAttempts   int
-	Questions     []ResultQuestion
+	// Sections are the paper's parts in test order, whatever the review
+	// policy: the attempt already showed them.
+	Sections  []Section
+	Questions []ResultQuestion
 }
 
 // Review is G-03's data in one read.

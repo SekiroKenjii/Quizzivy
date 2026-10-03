@@ -50,15 +50,40 @@ func TestAStudentJoinsByCodeSitsTheTestAndTheTeacherSeesIt(t *testing.T) {
 
 	session := student.must(http.StatusOK, http.MethodPost, "/app/assignments/"+id(assignment)+"/attempts", nil)
 	attempt := session["attempt"].(map[string]any)
-	if questions, _ := session["questions"].([]any); len(questions) != 1 {
+	questions, _ := session["questions"].([]any)
+	if len(questions) != 1 {
 		t.Fatalf("the paper has %d questions, want 1", len(questions))
+	}
+	resuming := student.must(http.StatusOK, http.MethodGet, "/app/assignments", nil)
+	live, _ := resuming["dueNow"].([]any)
+	if len(live) != 1 || live[0].(map[string]any)["liveAnsweredCount"] != float64(0) {
+		t.Fatalf("the card of a paper just started does not count 0 answers: %v", resuming)
 	}
 	submitted := student.must(http.StatusOK, http.MethodPost, "/app/attempts/"+id(attempt)+"/submit",
 		map[string]any{"sessionId": session["sessionId"], "reason": "manual"})
 	if submitted["status"] != "graded" && submitted["status"] != "submitted" {
 		t.Fatalf("after submitting the attempt is %v", submitted["status"])
 	}
-	student.must(http.StatusOK, http.MethodGet, "/app/attempts/"+id(attempt)+"/result", nil)
+	result := student.must(http.StatusOK, http.MethodGet, "/app/attempts/"+id(attempt)+"/result", nil)
+	parts, _ := result["sections"].([]any)
+	marked, _ := result["questions"].([]any)
+	if len(parts) != 1 || len(marked) != 1 {
+		t.Fatalf("the result has %d parts and %d questions, want 1 and 1", len(parts), len(marked))
+	}
+	part := parts[0].(map[string]any)["id"]
+	if part != questions[0].(map[string]any)["sectionId"] || marked[0].(map[string]any)["sectionId"] != part {
+		t.Fatalf("the result puts its question in %v of %v; the paper showed %v",
+			marked[0].(map[string]any)["sectionId"], parts, questions[0].(map[string]any)["sectionId"])
+	}
+	finished := student.must(http.StatusOK, http.MethodGet, "/app/assignments", nil)
+	for _, list := range []string{"dueNow", "completed"} {
+		cards, _ := finished[list].([]any)
+		for _, card := range cards {
+			if count, present := card.(map[string]any)["liveAnsweredCount"]; present {
+				t.Fatalf("a submitted paper still counts %v live answers: %v", count, card)
+			}
+		}
+	}
 
 	monitor := teacher.must(http.StatusOK, http.MethodGet, "/teacher/assignments/"+id(assignment)+"/attempts", nil)
 	rows, _ := monitor["rows"].([]any)

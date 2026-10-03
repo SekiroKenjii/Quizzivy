@@ -55,6 +55,7 @@ func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord) (doma
 	out := domain.Result{
 		Attempt: a.Attempt, Review: rules.Review,
 		TestTitle: rules.TestTitle, MaxAttempts: rules.MaxAttempts,
+		Sections:  sections,
 		Questions: make([]domain.ResultQuestion, len(base)),
 	}
 	pending := 0
