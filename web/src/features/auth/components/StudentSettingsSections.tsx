@@ -428,6 +428,7 @@ function GoogleRow() {
   const available = googleSignInAvailable();
   const problem = failure ?? google.error;
   const locked = pending || !hasPassword;
+  const sentence = !linked || !hasPassword;
 
   async function unlink() {
     setFailure(null);
@@ -445,11 +446,11 @@ function GoogleRow() {
 
   return (
     <div className="border-t first:border-t-0">
-      <div className={ROW}>
+      <div className={cn(ROW, sentence && "flex-wrap")}>
         <span className={TILE}>
           <GoogleMark className="size-4.5" />
         </span>
-        <span className="min-w-0 flex-1">
+        <span className={cn("min-w-0 flex-1", sentence && "basis-44")}>
           <span id={GOOGLE} className={ROW_TITLE}>
             {t("student.settings.google")}
           </span>
@@ -463,7 +464,11 @@ function GoogleRow() {
             variant="outline"
             aria-disabled={locked}
             aria-describedby={`${GOOGLE} ${GOOGLE}-status`}
-            className={cn(ROW_BUTTON, "aria-disabled:opacity-50")}
+            className={cn(
+              ROW_BUTTON,
+              "aria-disabled:opacity-50",
+              sentence && "ml-auto",
+            )}
             onClick={() => {
               if (!locked) void unlink();
             }}
@@ -476,7 +481,7 @@ function GoogleRow() {
             type="button"
             variant="outline"
             disabled={google.pending}
-            className={ROW_BUTTON}
+            className={cn(ROW_BUTTON, "ml-auto")}
             onClick={() =>
               void google.start({ mode: "link", next: window.location.pathname })
             }

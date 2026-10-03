@@ -1096,6 +1096,42 @@ describe("sign-in: Google", () => {
     expect(document.querySelector("script[src*='accounts.google.com']")).toBeNull();
   });
 
+  it.each<[string, Partial<User>, string | RegExp, string]>([
+    [
+      "not linked",
+      {},
+      "Chưa liên kết. Liên kết để đăng nhập bằng một chạm.",
+      "Liên kết Google",
+    ],
+    [
+      "the only way in",
+      { hasPassword: false, linkedProviders: ["google"] },
+      /Google đang là cách duy nhất để đăng nhập/,
+      "Bỏ liên kết",
+    ],
+  ])(
+    "lets the button drop under the sentence of an account that is %s",
+    async (_, over, sentence, action) => {
+      open("/app/settings/sign-in", over);
+      const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
+      const column = card.getByText(sentence).parentElement!;
+      expect(column).toHaveClass("min-w-0", "flex-1", "basis-44");
+      expect(column.parentElement).toHaveClass("flex-wrap");
+      expect(card.getByRole("button", { name: action })).toHaveClass("ml-auto");
+    },
+  );
+
+  it("keeps a linked account's row on the deck's one line", async () => {
+    open("/app/settings/sign-in", { linkedProviders: ["google"] });
+    const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
+    const column = card.getByText("Đã liên kết").parentElement!;
+    expect(column).not.toHaveClass("basis-44");
+    expect(column.parentElement).not.toHaveClass("flex-wrap");
+    expect(card.getByRole("button", { name: "Bỏ liên kết" })).not.toHaveClass(
+      "ml-auto",
+    );
+  });
+
   it("offers no link, and says why, where Google sign-in is not set up", async () => {
     google.available = false;
     open("/app/settings/sign-in");
