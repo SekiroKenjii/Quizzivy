@@ -83,3 +83,17 @@ func TestAStartWithoutABodyNamesNoAttempt(t *testing.T) {
 		t.Errorf("the command received %+v, want one naming no attempt", received)
 	}
 }
+
+func TestAStartWithAnEmptyBodyNamesNoAttempt(t *testing.T) {
+	response, received := refusedStart(t, &openapi.StartOrResumeAttemptJSONRequestBody{}, domain.ErrLimitReached)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status %d, want 409: %s", response.Code, response.Body.String())
+	}
+	if code := refusalCode(t, response); code != string(openapi.ATTEMPTLIMITREACHED) {
+		t.Errorf("code %q, want ATTEMPT_LIMIT_REACHED", code)
+	}
+	if len(received) != 1 || received[0].Resume != "" {
+		t.Errorf("the command received %+v, want one naming no attempt", received)
+	}
+}
