@@ -260,10 +260,12 @@ CREATE UNIQUE INDEX class_join_codes_one_active
   ON app.class_join_codes (class_id) WHERE revoked_at IS NULL;
 ```
 
-- `code_hash` is the only lookup path. `POST /join/preview` is
-  `WHERE code_hash = $1 AND revoked_at IS NULL AND expires_at > now()`, which the
-  `UNIQUE` serves. The plaintext code is never stored (§13.3), so a database dump
-  does not hand over class access.
+- `code_hash` is the only lookup path, through its `UNIQUE` index. A typed code
+  is looked up as `code_hash = ANY(candidates)`, and revocation, expiry and
+  uses are judged on the row found (§33). The plaintext code is never stored
+  (§13.3). From `00078` a new code is also sealed under a key the database
+  never holds (D-27), so a dump does not hand it over; a legacy row's SHA-256
+  still does, in 2^20 guesses, until R4 rotates it (§33).
 - **The exhaustion check is in the database**, not only in the handler. §6.5
   treats the code as a bearer secret; a `uses_count > max_uses` row is a silent
   policy failure and this makes it impossible.
@@ -404,7 +406,7 @@ CREATE INDEX media_assets_checksum_idx
 - `uploaded_by ON DELETE RESTRICT`: an asset referenced by a frozen test version
   must not lose its provenance.
 - `deleted_at` soft delete per §13.2 — history matters here because a published
-  version may reference the row. `DELETE /admin/media/:id` (§15) returns `409`
+  version may reference the row. `DELETE /teacher/media/:id` (§15) returns `409`
   when `test_version_questions` still references it; only unreferenced assets
   get a `deleted_at`. **R2 object lifecycle after soft delete is deliberately
   out of scope for v1** — the object stays. See `40-open-items.md`.
@@ -803,7 +805,7 @@ CREATE TABLE app.test_version_blank_answers (
 ```
 
 - **`tvq_media_idx` is load-bearing, not decorative.** It is the index behind
-  §15's `DELETE /admin/media/:id → 409 if referenced by a published version` and
+  §15's `DELETE /teacher/media/:id → 409 if referenced by a published version` and
   behind §8's "Delete blocked if referenced". Without it that check is a full
   scan of every version question on every delete attempt.
 - **`source_question_id ON DELETE SET NULL` [D-07]**, deviating from the
@@ -1237,6 +1239,10 @@ listed here matches the spec.
 | D-21 | Reference data the app cannot run without is written by a migration, not `seed/`: the permission catalogue (`permissions`), the four built-in `roles` and their grants (`role_permissions`) | §13.7 keeps seed data out of migrations, but a production database with no roles cannot sign anyone in; plan 70 §3 (T-R2.1) |
 | D-22 | `tests`, `questions`, `question_groups` and `media_assets` gain `owner_id` beside `created_by` / `uploaded_by`; `users` gains a nullable `created_by` | Ownership is who a row belongs to and provenance is who made it. R5's ownership transfer and R7's co-editing move the first and must not rewrite the second (T-R2.9) |
 | D-23 | `classes.teacher_id` is backfilled from the oldest active Admin, with no `classes.created_by` | `app.classes` never recorded a creator, and the oldest active Admin is who v0.7.0 shows as every class's teacher, so no teacher changes; a class's creator from R2 on is its `class.created` audit row (Thuong, 2026-09-28; T-R2.9) |
+| D-24 | Add the view `app.student_like_roles`, the one strict-student predicate: the built-in Student, or a custom role holding nothing but `learning.take_tests`; the other built-in roles are excluded by key | The Admin stores only its "Take tests" cell, so a predicate on grants alone would make it a student target; every student read and write, the legacy-role sync and the anonymiser use this one definition (plan 70 §4.3, T-R2.1) |
+| D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum, expand half: added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step until R3 drops the column and the enum | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
+| D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
+| D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
 
 ---
 
@@ -1301,11 +1307,11 @@ the file it adds.
 | `00052_allow_pdf_import_sources.sql` | PDF sources | Word D-10 |
 | `00053_create_maintenance_windows.sql` | `maintenance_windows`, read-only for the app role | R1 (T-R1.12) |
 | `00054_create_roles_and_permissions.sql` | `permissions`, `roles`, `role_permissions`, the built-in rows and their guard triggers; read-only for the app role | R2 (T-R2.1), D-21 |
-| `00055_create_student_like_roles_view.sql` | `student_like_roles`, the strict student predicate | R2 (T-R2.1) |
-| `00056_add_users_role_id.sql` | `users.role_id`, backfilled, `NOT NULL NOT VALID`, with the legacy-role sync trigger | R2 (T-R2.2) |
+| `00055_create_student_like_roles_view.sql` | `student_like_roles`, the strict student predicate | R2 (T-R2.1), D-24 |
+| `00056_add_users_role_id.sql` | `users.role_id`, backfilled, `NOT NULL NOT VALID`, with the legacy-role sync trigger | R2 (T-R2.2), D-25 |
 | `00057_index_users_role_id.sql` | `users_role_id_active_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.2) |
 | `00058_add_users_session_epoch.sql` | `users.session_epoch` | R2 (T-R2.2) |
-| `00059_add_users_last_admin_guard.sql` | the `users_last_admin` trigger, the schema's first `SECURITY DEFINER` function | R2 (T-R2.2) |
+| `00059_add_users_last_admin_guard.sql` | the `users_last_admin` trigger, the schema's first `SECURITY DEFINER` function | R2 (T-R2.2), D-26 |
 | `00060_add_tests_owner.sql` | `tests.owner_id`, backfilled from `created_by`, `NOT NULL NOT VALID`, with `app.fill_owner_from_created_by()` and its fill trigger | R2 (T-R2.9), D-22 |
 | `00061_add_questions_owner.sql` | `questions.owner_id`, the same way | R2 (T-R2.9), D-22 |
 | `00062_add_question_groups_owner.sql` | `question_groups.owner_id`, the same way | R2 (T-R2.9), D-22 |
@@ -1324,24 +1330,26 @@ the file it adds.
 | `00075_index_media_assets_owner.sql` | `media_assets_owner_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00076_index_users_created_by.sql` | `users_created_by_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00077_index_assignments_creator.sql` | `assignments_creator_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
-| `00078_add_join_code_encryption.sql` | `class_join_codes.code_ciphertext`, `key_id`, `lookup_scheme` and their four checks; Down refuses a live scheme-2 code | R2 (T-R2.14a), D5 |
+| `00078_add_join_code_encryption.sql` | `class_join_codes.code_ciphertext`, `key_id`, `lookup_scheme` and their four checks; Down refuses a live scheme-2 code | R2 (T-R2.14a), D5, D-27 |
 
 Notes on migration mechanics (§13.7):
 
 - Every file has a `-- +goose Down` that is actually correct. CI runs `up` then
   `down` then `up` against a clean `postgres:18` (T-0.17), so an unreversible
   migration is a red build on the day it is written.
-- **No `CREATE INDEX CONCURRENTLY` in any of these.** All 22 create empty tables,
-  where a plain `CREATE INDEX` is instant and transactional. `CONCURRENTLY`
-  becomes mandatory the first time an index is added to a populated table —
-  and that file gets `-- +goose NO TRANSACTION`, because
+- **No `CREATE INDEX CONCURRENTLY` in `00001`–`00022`.** They create empty
+  tables, where a plain `CREATE INDEX` is instant and transactional.
+  `CONCURRENTLY` becomes mandatory once an index is added to a populated table
+  (`00029`, `00036`, `00038`, `00057`, `00071`–`00077`), and each such file
+  gets `-- +goose NO TRANSACTION`, because
   [CREATE INDEX CONCURRENTLY cannot run inside a transaction block](https://www.postgresql.org/docs/18/sql-createindex.html)
   and leaves an `INVALID` index if it fails.
-- **`NOT NULL … NOT VALID` does not appear here.** Every column that should be
-  `NOT NULL` says so inline at `CREATE TABLE`, where it is free. The PG18
-  construct (§13.6) applies only to tightening an existing nullable column
-  against existing rows — realistically Phase 5 or later. T-0.16 verifies it
-  works so it is proven when needed rather than assumed.
+- **`NOT NULL … NOT VALID` only where a populated table gains a column.**
+  Every column of a new table says `NOT NULL` inline at `CREATE TABLE`, where
+  it is free. R2 is the first to need the PG18 construct (§13.6): `00056`,
+  `00060`–`00063` and `00065` backfill a new column, add `NOT NULL … NOT
+  VALID`, and leave validation to R3 (§30, §31). T-0.16 proved it before it
+  was needed.
 - **`00009` runs in Phase 1, not last.** It was originally scheduled for Phase 3
   on the reasoning that `GRANT … ON ALL TABLES` must follow the tables. That is
   backwards: it left `quizzivy_app` unable to read anything from the first table
@@ -1351,7 +1359,8 @@ Notes on migration mechanics (§13.7):
   it, so one early migration covers every table Phases 2–5 add. Custom types
   need their own `USAGE`; schema `USAGE` is not enough to reference
   `app.user_role` in a query.
-- Seed data lives in `seed/`, never in a migration (§13.7).
+- Seed data lives in `seed/`, never in a migration (§13.7). The exception is
+  reference data the app cannot run without (D-21).
 
 ## 14. Query discipline (§13.8)
 
@@ -1961,7 +1970,7 @@ writes them (D-21).
   DELETE on `roles` and never any write on `permissions`.
 
 `00055_create_student_like_roles_view.sql` adds `app.student_like_roles (id)`,
-the one definition of a strict student target (plan 70 §4.3): the built-in
+the one definition of a strict student target (plan 70 §4.3, D-24): the built-in
 Student, or a custom role holding nothing but `learning.take_tests`. Built-in
 roles other than Student are excluded by key, because the Admin stores only its
 "Take tests" cell and would otherwise match. A single-table view is
@@ -1971,7 +1980,7 @@ from `quizzivy_app`. `access.IsStudentLike` is the same predicate in Go.
 ## 30. A role per user, the session epoch and the last Admin (T-R2.2)
 
 The expand half of moving users from `users.role` to `users.role_id` (plan 70
-§3). R3 validates the constraint, drops the sync trigger, `users.role`,
+§3, D-25). R3 validates the constraint, drops the sync trigger, `users.role`,
 `users_role_active_idx` and `app.user_role`.
 
 - `00056_add_users_role_id.sql` adds `role_id uuid REFERENCES app.roles ON
@@ -2018,11 +2027,11 @@ The expand half of moving users from `users.role` to `users.role_id` (plan 70
   - No column list: the v0.7.0 binary demotes by writing `role`, and a column
     list matches the columns an UPDATE names, not those a BEFORE trigger sets.
     Naming `role` would also make R3's `DROP COLUMN role` depend on the trigger.
-- **The schema's first `SECURITY DEFINER` function.** The row lock needs UPDATE
-  privilege on `app.roles`, which `00054` revokes from `quizzivy_app`. Running
-  as the invoker, R5's demote and disable would fail with 42501 instead of the
-  guard. It is owned by `quizzivy_migrate` and hardened as the PostgreSQL docs
-  require for definer functions:
+- **The schema's first `SECURITY DEFINER` function (D-26).** The row lock
+  needs UPDATE privilege on `app.roles`, which `00054` revokes from
+  `quizzivy_app`. Running as the invoker, R5's demote and disable would fail
+  with 42501 instead of the guard. It is owned by `quizzivy_migrate` and
+  hardened as the PostgreSQL docs require for definer functions:
   - `search_path = pg_catalog, app, pg_temp`. An unlisted `pg_temp` is searched
     first for relations and types, so a session that can create temporary
     objects could otherwise plant a `pg_temp.uuid` domain whose CHECK runs as
@@ -2150,7 +2159,7 @@ plan (§14), and the indexes earn their place as teachers and rows grow.
 
 ## 33. Encrypted join codes (T-R2.14a)
 
-`00078` lets a join code be read back (D5) without letting a database dump
+`00078` lets a join code be read back (D5, D-27) without letting a database dump
 redeem one. Three columns join `app.class_join_codes`:
 
 | Column | Type | Meaning |
