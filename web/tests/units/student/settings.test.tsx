@@ -547,6 +547,36 @@ describe("profile", () => {
     expect(bodies).toHaveLength(1);
   });
 
+  it("takes no typing into the name while it saves", async () => {
+    const user = userEvent.setup();
+    const gate = held();
+    server.use(
+      http.patch(`${BASE}/auth/me`, async () => {
+        await gate.wait();
+        return contractJson(
+          "/auth/me",
+          "patch",
+          200,
+          account({ fullName: "Nguyễn Văn An B" }),
+        );
+      }),
+    );
+    open();
+    const name = await screen.findByLabelText("Họ và tên");
+
+    await user.type(name, " B{Enter}");
+    await screen.findByRole("button", { name: "Đang lưu…" });
+    await user.type(name, "ình");
+    expect(name).toHaveValue("Nguyễn Văn An B");
+    expect(name).toHaveFocus();
+
+    gate.release();
+    await waitFor(() => expect(notify.success).toHaveBeenCalledOnce());
+    await waitFor(() => expect(name).not.toHaveAttribute("readonly"));
+    await user.type(name, "ình");
+    expect(name).toHaveValue("Nguyễn Văn An Bình");
+  });
+
   it("switches the language at once, stores it, and is never an unsaved change", async () => {
     const user = userEvent.setup();
     open();

@@ -137,6 +137,7 @@ export function StudentProfileSection() {
             id={NAME}
             size="lg"
             autoComplete="name"
+            readOnly={isSubmitting}
             aria-invalid={nameError ? true : undefined}
             aria-describedby={`${NAME}-note`}
             {...form.register("fullName", { onChange: () => setFailure(null) })}
