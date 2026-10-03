@@ -70,10 +70,10 @@ some tens of seconds and no result.
 
 ## How long it takes
 
-Measured on GitHub's hosted runners: the first and third rows on 2026-10-04,
-after the server job began building the import converter's image and running
-its tests; the second on 2026-10-03. The old workflow took between 7 min 40 s
-and 10 min 33 s for every run.
+Measured on GitHub's hosted runners: the first row on 2026-10-04, after the
+server job began building the import converter's image and running its tests;
+the other two on 2026-10-03, before it did. The old workflow took between
+7 min 40 s and 10 min 33 s for every run.
 
 | Run | Time |
 |---|---|
