@@ -362,7 +362,7 @@ function Paper({
   if (readingFor !== null && readingFor !== question.id) setReadingFor(null);
   const reading = !wide && passage !== undefined && readingFor === question.id;
   const sheet = useRef<HTMLDivElement>(null);
-  const onSheetScroll = useKeptScroll(sheet, reading);
+  const onSheetScroll = useKeptScroll(sheet, reading, question.id);
   const landOn = useLanding(question.id, sheet, answerPanel);
 
   const jumpToGap = useCallback(

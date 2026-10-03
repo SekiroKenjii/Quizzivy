@@ -192,6 +192,35 @@ it("starts each question at the top of its pane and keeps the passage where it w
   );
 });
 
+it("opens a gap's question at the top of its pane, not where the last question was left", async () => {
+  viewport("phone");
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText(previewQuestions[1]!.prompt);
+  const sheet = screen
+    .getByText(previewQuestions[1]!.prompt)
+    .closest(".overflow-y-auto")!;
+  sheet.scrollTop = 180;
+  fireEvent.scroll(sheet);
+  await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
+  sheet.scrollTop = 0;
+  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+  expect(sheet.scrollTop).toBe(0);
+});
+
+it("opens a gap's question at the top of its pane beside the passage too", async () => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText(previewQuestions[1]!.prompt);
+  const sheet = screen
+    .getByText(previewQuestions[1]!.prompt)
+    .closest(".overflow-y-auto")!;
+  sheet.scrollTop = 180;
+  fireEvent.scroll(sheet);
+  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+  expect(sheet.scrollTop).toBe(0);
+});
+
 it("jumps from a material gap to its question and preserves the prior answer", async () => {
   const user = userEvent.setup();
   mount();

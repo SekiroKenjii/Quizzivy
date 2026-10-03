@@ -543,6 +543,19 @@ describe("the panes below 768", () => {
     expect(questionPane()).toBeVisible();
   });
 
+  it("keeps the student's place in the question while the passage is showing", async () => {
+    const user = userEvent.setup();
+    await open(deckPassageSession(NOW));
+    const pane = sheet().parentElement!;
+    pane.scrollTop = 160;
+    fireEvent.scroll(pane);
+
+    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
+    pane.scrollTop = 0;
+    await user.click(within(switcher()!).getByRole("button", { name: "Câu 1" }));
+    expect(pane.scrollTop).toBe(160);
+  });
+
   it("has no switcher when the question has no passage", async () => {
     await open(deckSession(NOW));
     expect(switcher()).toBeNull();

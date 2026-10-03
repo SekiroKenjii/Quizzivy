@@ -30,17 +30,24 @@ export function questionShowing(questionId: string): boolean {
  * useKeptScroll keeps a pane's scroll position while the pane is hidden. A
  * hidden element has no scroll box, so the browser forgets where it was; the
  * hook remembers the last position scrolled to and puts it back when the pane
- * shows again. Pass the scrolling element's ref and give that element the
- * returned `onScroll`.
+ * shows again. The position belongs to `owner`: when the owner changes, the
+ * pane starts at the top. Pass the scrolling element's ref and give that
+ * element the returned `onScroll`.
  */
 export function useKeptScroll<T extends HTMLElement>(
   paneRef: RefObject<T | null>,
   hidden: boolean,
+  owner?: string,
 ) {
   const top = useRef(0);
+  const kept = useRef(owner);
   useLayoutEffect(() => {
+    if (kept.current !== owner) {
+      kept.current = owner;
+      top.current = 0;
+    }
     if (!hidden && paneRef.current) paneRef.current.scrollTop = top.current;
-  }, [hidden, paneRef]);
+  }, [hidden, owner, paneRef]);
   return useCallback((event: UIEvent<T>) => {
     top.current = event.currentTarget.scrollTop;
   }, []);
