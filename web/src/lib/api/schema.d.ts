@@ -2692,8 +2692,9 @@ export interface components {
             usedIn?: components["schemas"]["ReferencingTest"][];
         };
         /**
-         * @description The intro screen's card: everything StudentAssignmentCard carries plus
-         *     the policies §10.2 states in plain Vietnamese before the student starts.
+         * @description The intro screen's card: what StudentAssignmentCard carries, without
+         *     `classId` and `liveAnsweredCount`, plus the policies §10.2 states in
+         *     plain Vietnamese before the student starts.
          */
         StudentAssignmentDetail: {
             id: components["schemas"]["Uuid"];
@@ -3925,10 +3926,10 @@ export interface components {
             hasLiveAttempt?: boolean;
             /**
              * Format: date-time
-             * @description The live attempt's deadline. Null exactly when `hasLiveAttempt` is false.
+             * @description The live attempt's deadline. Absent exactly when `hasLiveAttempt` is false.
              */
             liveDeadlineAt?: string | null;
-            /** @description How many of the live attempt's saved answers say something, by the rule the engine's navigator uses: a choice with an option picked, a true/false with a value, a text that is not blank, a fill-in with every blank filled. An answer that exists only in the browser's draft is not counted. Null exactly when `hasLiveAttempt` is false. */
+            /** @description How many of the live attempt's saved answers say something, by the rule the engine's navigator uses: a choice with an option picked, a true/false with a value, a text that is not blank, a fill-in with every blank filled. An answer that exists only in the browser's draft is not counted. Absent exactly when `hasLiveAttempt` is false. */
             liveAnsweredCount?: number | null;
             /** @description Only when the assignment's `review.showScore` is on. */
             score?: components["schemas"]["AttemptScore"] | null;
