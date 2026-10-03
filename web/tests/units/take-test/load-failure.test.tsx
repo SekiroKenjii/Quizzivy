@@ -64,7 +64,9 @@ describe("when the paper does not load", () => {
 
     await user.click(screen.getByRole("button", { name: "Thử lại" }));
     await waitFor(() => expect(getAttempt).toHaveBeenCalledTimes(2));
-    expect(await screen.findByRole("button", { name: "Thoát" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Thoát khỏi bài làm" }),
+    ).toBeInTheDocument();
   });
 
   it("always leaves a way home", async () => {

@@ -66,7 +66,6 @@ export function ReviewScreen({
     <div className="flex min-h-0 flex-1 flex-col">
       <EngineHeader
         wide={wide}
-        progress={1}
         status={status}
         leading={
           <Button
