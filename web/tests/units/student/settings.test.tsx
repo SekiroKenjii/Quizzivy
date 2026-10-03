@@ -1220,3 +1220,83 @@ describe("what is typed survives", () => {
     expect(name).toHaveValue("Nguyễn Văn An Bình");
   });
 });
+
+describe("in English", () => {
+  it("writes the deck's words", async () => {
+    const user = userEvent.setup();
+    setLocale("en");
+    passwordAnswers();
+    server.use(
+      http.delete(
+        `${BASE}/auth/google/link`,
+        () => new Response(null, { status: 204 }),
+      ),
+    );
+    meServes(account({ linkedProviders: [] }));
+    open("/app/settings", { linkedProviders: ["google"] });
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Settings" }),
+    ).toBeInTheDocument();
+    const sections = within(screen.getByRole("group", { name: "Settings section" }));
+    expect(sections.getAllByRole("button").map((button) => button.textContent)).toEqual(
+      ["Profile", "Sign-in", "Appearance"],
+    );
+
+    const name = screen.getByLabelText("Full name");
+    expect(name).toHaveAccessibleDescription("Your teacher sees this name.");
+    expect(screen.getByLabelText("Email")).toHaveAccessibleDescription(
+      "Ask your teacher to change your email.",
+    );
+    await user.type(name, " B");
+    expect(screen.getByText("You have unsaved changes.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+
+    await user.click(sections.getByRole("button", { name: "Sign-in" }));
+    const card = within(screen.getByRole("region", { name: "Sign-in" }));
+    expect(card.getByRole("button", { name: "Unlink" })).toHaveAccessibleDescription(
+      "Google Linked",
+    );
+    await user.click(card.getByRole("button", { name: "Change" }));
+    const next = card.getByLabelText("New password");
+    expect(next).toHaveAccessibleDescription("At least 8 characters.");
+    await user.type(next, "abcdefgh");
+    expect(next).toHaveAccessibleDescription(
+      "Okay. Add a number or symbol to make it stronger.",
+    );
+    await user.type(next, "1");
+    expect(next).toHaveAccessibleDescription("Strong.");
+    await user.type(next, "234");
+    expect(next).toHaveAccessibleDescription("Very strong.");
+    expect(card.getByRole("button", { name: "Update password" })).toBeInTheDocument();
+
+    await user.click(card.getByRole("button", { name: "Unlink" }));
+    await waitFor(() =>
+      expect(notify.success).toHaveBeenCalledWith(
+        "Google unlinked. Use your password to sign in.",
+      ),
+    );
+    expect(
+      card.getByText("Not linked. Link it to sign in with one tap."),
+    ).toBeInTheDocument();
+    expect(card.getByRole("button", { name: "Link Google" })).toBeInTheDocument();
+
+    await user.type(card.getByLabelText("Current password"), "old-password-1");
+    await user.click(card.getByRole("button", { name: "Update password" }));
+    await waitFor(() =>
+      expect(notify.success).toHaveBeenCalledWith(
+        "Password updated. Other devices have been signed out.",
+      ),
+    );
+
+    await user.click(sections.getByRole("button", { name: "Appearance" }));
+    const themes = within(screen.getByRole("group", { name: "Theme" }));
+    expect(themes.getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Light",
+      "Dark",
+      "Device",
+    ]);
+    expect(
+      screen.getByRole("switch", { name: "Larger text in tests" }),
+    ).toHaveAccessibleDescription("Reading passages and questions at 18px");
+  });
+});
