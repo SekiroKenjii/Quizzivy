@@ -66,7 +66,9 @@ function Away({ sentence, detail }: Readonly<{ sentence: string; detail?: string
  * sentence and a way Home. A result that is not the student's, or does not
  * exist, says it was not found, with a way Home and no retry. Anything else
  * says the paper is safe and offers to try again, with the request id to
- * quote.
+ * quote. Where the card is too narrow for the label, the id and Copy on one
+ * line, the id takes a line of its own under the other two, as it does in
+ * LoadError.
  */
 export function ResultFailure({
   error,
@@ -84,7 +86,7 @@ export function ResultFailure({
         aria-hidden="true"
         className="text-muted-fg mt-0.5 size-4.5 flex-none"
       />
-      <div className="min-w-0 flex-1 text-base">
+      <div className="@container/load-error min-w-0 flex-1 text-base">
         <p className="font-medium">{t("result.loadFailed")}</p>
         <p className="text-muted-fg">{t("result.loadFailedBody")}</p>
         <div className="mt-3">
@@ -94,9 +96,11 @@ export function ResultFailure({
           </Button>
         </div>
         {requestId !== undefined && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-muted-fg text-xs">{t("common.requestId")}</span>
-            <code className="rounded-sm border px-1.5 py-0.5 font-mono text-xs break-all">
+          <div className="mt-3 flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+            <span className="text-muted-fg shrink-0 text-xs whitespace-nowrap">
+              {t("common.requestId")}
+            </span>
+            <code className="order-last min-w-0 basis-full rounded-sm border px-1.5 py-0.5 font-mono text-xs break-all @md/load-error:order-none @md/load-error:basis-auto">
               {requestId}
             </code>
             <Button

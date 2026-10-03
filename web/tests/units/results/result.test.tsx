@@ -1353,6 +1353,35 @@ describe("before and instead of a result", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("lets the request id drop under its label and Copy, and keeps the label whole", async () => {
+    refuse(500, "INTERNAL", "Lỗi máy chủ.");
+    renderResult();
+    const alert = await screen.findByRole("alert");
+    const id = within(alert).getByText("018f0000-0000-7000-8000-00000000dd01");
+    expect(id).toHaveClass(
+      "order-last",
+      "basis-full",
+      "min-w-0",
+      "break-all",
+      "@md/load-error:order-none",
+      "@md/load-error:basis-auto",
+    );
+    expect(id.parentElement).toHaveClass("flex-wrap", "min-w-0", "max-w-full");
+    expect(id.parentElement!.parentElement).toHaveClass("@container/load-error");
+    expect(within(alert).getByText("Mã lỗi")).toHaveClass(
+      "whitespace-nowrap",
+      "shrink-0",
+    );
+    expect(within(alert).getByRole("button", { name: "Sao chép" })).toHaveClass(
+      "shrink-0",
+    );
+    expect([...id.parentElement!.children].map((child) => child.textContent)).toEqual([
+      "Mã lỗi",
+      "018f0000-0000-7000-8000-00000000dd01",
+      "Sao chép",
+    ]);
+  });
+
   it("reads again by itself when the network drops, twice at most", async () => {
     const body = scored([choice(1, AB, [0], { earned: 1 })]);
     let reads = 0;
