@@ -1031,7 +1031,7 @@
     "perAttempt": "{{count}} câu / bài",
     "gradingCost": "{{students}} học viên × {{each}} câu tự luận = {{total}} câu bạn sẽ phải chấm.",
     "studentWillRead": "Học viên sẽ đọc",
-    "rulesExact": "Đúng những câu này sẽ hiện ở màn hình trước khi làm bài.",
+    "rulesExact": "Học viên đọc những câu này trước khi làm bài; câu về ngày giờ được viết theo ngày học viên đọc.",
     "assign": "Giao bài",
     "readyHint": "Chọn một đề và ít nhất một lớp hoặc học viên.",
     "rules": {

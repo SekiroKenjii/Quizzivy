@@ -87,8 +87,8 @@ function score(review: ReviewPolicy, t: TFunction): string {
  * after submitting. A sentence appears only when its policy asks for it,
  * except the timer and leaving, which always apply: leaving is recorded even
  * when it has no limit. The teacher's preview and the student's intro call
- * this one function, so the two cannot differ. `now` decides whether a date
- * is today.
+ * this one function, each with its own inputs, so a sentence cannot differ
+ * between them for the same input. `now` decides whether a date is today.
  */
 export function studentRules(
   input: RulesInput,

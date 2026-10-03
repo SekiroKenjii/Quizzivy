@@ -7,8 +7,8 @@ import { fromDateTimeInput } from "@/lib/i18n/datetime";
 /**
  * StudentRulesPreview is the teacher's "what students will read" panel: the
  * sentences the student's intro will show for the switches and dates on the
- * form, from the same generator. A date that is not filled in yet leaves the
- * availability sentence out.
+ * form, from the same generator. A window that is not filled in, is reversed
+ * or has already closed leaves the availability sentence out.
  */
 export function StudentRulesPreview({
   draft,
@@ -24,7 +24,8 @@ export function StudentRulesPreview({
   const now = new Date();
   const opensAt = fromDateTimeInput(draft.opensAt);
   const closesAt = fromDateTimeInput(draft.closesAt);
-  const dated = !Number.isNaN(opensAt.getTime()) && !Number.isNaN(closesAt.getTime());
+  const dated =
+    closesAt.getTime() > opensAt.getTime() && closesAt.getTime() > now.getTime();
   const rules = studentRules(
     {
       review: draft.review,

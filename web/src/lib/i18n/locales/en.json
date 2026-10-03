@@ -1031,7 +1031,7 @@
     "perAttempt": "{{count}} per attempt",
     "gradingCost": "{{students}} students × {{each}} written questions = {{total}} answers to mark.",
     "studentWillRead": "Students will read",
-    "rulesExact": "Exactly these sentences appear before the test starts.",
+    "rulesExact": "Students read these sentences before the test starts; the date line is worded for the day they read it.",
     "assign": "Assign",
     "readyHint": "Choose a test and at least one class or student.",
     "rules": {
