@@ -1,16 +1,18 @@
 name: CI
 
 # How this workflow decides what to run is in docs/setup/ci.md. In short: Plan
-# hashes the files each job reads, and a job is skipped when a marker shows
-# that the same files already passed it. Every job checks out only those
-# files, so the hash covers everything the job can see.
+# hashes the files each job reads, and a job is skipped when its newest marker
+# for that hash is a pass. Every job checks out only those files, so the hash
+# covers everything the job can see. Each job ends by recording its outcome.
 on:
   pull_request:
   push:
     branches: [main, develop, "work/**"]
 
 # A newer push supersedes an in-flight run on the same pull request. On a
-# branch every commit's result is kept.
+# branch a run in progress is never cancelled, but runs go one at a time and
+# only the newest waiting one is kept: a push that arrives while another
+# waits replaces it.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -74,9 +76,10 @@ jobs:
 
       - run: node scripts/check-design-deck.mjs
 
-      - uses: ./.github/actions/passed
+      - uses: ./.github/actions/record
+        if: always()
         with:
-          marker: ${{ fromJSON(env.JOB).markers[0] }}
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
 
   # --------------------------------------------------------------- contract
   # api/openapi.yaml is the single source of truth. This job lints it, asserts
@@ -109,9 +112,10 @@ jobs:
       - name: Lint the contract, regenerate and fail on drift
         run: make gen-check
 
-      - uses: ./.github/actions/passed
+      - uses: ./.github/actions/record
+        if: always()
         with:
-          marker: ${{ fromJSON(env.JOB).markers[0] }}
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
 
   # ------------------------------------------------------------ server lint
   server-lint:
@@ -163,9 +167,10 @@ jobs:
             echo "gofmt would change these files:"; echo "$unformatted"; exit 1
           fi
 
-      - uses: ./.github/actions/passed
+      - uses: ./.github/actions/record
+        if: always()
         with:
-          marker: ${{ fromJSON(env.JOB).markers[0] }}
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
 
   # ----------------------------------------------------------- server tests
   server-test:
@@ -281,9 +286,10 @@ jobs:
           retention-days: 30
           overwrite: true
 
-      - uses: ./.github/actions/passed
+      - uses: ./.github/actions/record
+        if: always()
         with:
-          marker: ${{ fromJSON(env.JOB).markers[0] }}
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
 
   # ------------------------------------------------------------- web checks
   web-check:
@@ -326,9 +332,10 @@ jobs:
         working-directory: web
         run: pnpm build
 
-      - uses: ./.github/actions/passed
+      - uses: ./.github/actions/record
+        if: always()
         with:
-          marker: ${{ fromJSON(env.JOB).markers[0] }}
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
 
   # --------------------------------------------------------- web unit tests
   # Split into shards because the suite is the longest single step on the web
@@ -360,9 +367,10 @@ jobs:
         working-directory: web
         run: pnpm test:unit --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-      - uses: ./.github/actions/passed
+      - uses: ./.github/actions/record
+        if: always()
         with:
-          marker: ${{ fromJSON(env.JOB).markers[strategy.job-index] }}
+          marker: ${{ fromJSON(env.JOB).outcomes[strategy.job-index][job.status] }}
 
   # -------------------------------------------------------------------- e2e
   e2e:
@@ -408,9 +416,10 @@ jobs:
           retention-days: 7
           overwrite: true
 
-      - uses: ./.github/actions/passed
+      - uses: ./.github/actions/record
+        if: always()
         with:
-          marker: ${{ fromJSON(env.JOB).markers[0] }}
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
 
   # --------------------------------------------------------------- e2e-live
   # The one browser suite that talks to a real API (§14), because its claims
@@ -537,16 +546,22 @@ jobs:
           retention-days: 7
           overwrite: true
 
-      - uses: ./.github/actions/passed
+      - uses: ./.github/actions/record
+        if: always()
         with:
-          marker: ${{ fromJSON(env.JOB).markers[0] }}
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
 
   # ----------------------------------------------------------------- result
   # The one check the branch rules require. always(): a job skipped by its `if`
   # counts as passed for a required check, so this must run and fail when a
   # needed job failed, was cancelled, or never started.
+  #
+  # Only a pull request's run reports it under the required name. The head of
+  # a pull request from main, develop or a work branch also has a push run,
+  # which tests the branch and not the merge; its green result must not stand
+  # in for the merge's.
   result:
-    name: CI result
+    name: ${{ github.event_name == 'pull_request' && 'CI result' || 'CI result (push)' }}
     needs: [plan, deck, contract, server-lint, server-test, web-check, web-unit, e2e, e2e-live]
     if: always()
     runs-on: ubuntu-latest

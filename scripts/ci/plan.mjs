@@ -115,15 +115,24 @@ export function hashOf(set, entries) {
   return digest.digest('hex').slice(0, 20);
 }
 
-/** markersOf names the artifacts that record a pass of a job on a hash, one per shard. */
-export function markersOf(job, hash) {
-  if (!job.shards) return [`ci-pass-${job.id}-${hash}`];
-  return Array.from({ length: job.shards }, (_, i) => `ci-pass-${job.id}-${i + 1}of${job.shards}-${hash}`);
+/**
+ * outcomesOf names the artifacts that record how a job ended on a hash, one
+ * pair per shard: `success` for a pass and `failure` for a failed run. The
+ * keys are the values of `job.status`, so a cancelled job has no name to
+ * record under.
+ */
+export function outcomesOf(job, hash) {
+  const legs = job.shards ? Array.from({ length: job.shards }, (_, i) => `${i + 1}of${job.shards}-`) : [''];
+  return legs.map((leg) => ({
+    success: `ci-pass-${job.id}-${leg}${hash}`,
+    failure: `ci-fail-${job.id}-${leg}${hash}`,
+  }));
 }
 
 /**
- * trusted reports whether an artifact can stand as proof: it has not expired
- * and the run that uploaded it was on a branch of this repository, not a fork.
+ * trusted reports whether an artifact can stand as evidence: it has not
+ * expired and the run that uploaded it was on a branch of this repository,
+ * not a fork.
  */
 export function trusted(artifact) {
   const run = artifact.workflow_run;
@@ -136,32 +145,53 @@ export function trusted(artifact) {
 }
 
 /**
- * isFresh reports whether a run must ignore earlier proof: a re-run of all
- * jobs asks for exactly that, and a push to main is what the deploy ships.
+ * newest returns the most recent trusted artifact of a listing as its run and
+ * the time it was uploaded, or null when the listing has none.
  */
-export function isFresh({ event, ref, attempt }) {
-  return attempt > 1 || (event === 'push' && ref === RELEASE_REF);
+export function newest(artifacts) {
+  let found = null;
+  for (const artifact of artifacts.filter(trusted)) {
+    const at = Date.parse(artifact.created_at);
+    if (Number.isFinite(at) && (found === null || at > found.at)) found = { run: artifact.workflow_run.id, at };
+  }
+  return found;
 }
 
 /**
- * plan decides, per job, whether it runs. A job is skipped only when every one
- * of its markers is found, which `lookup` answers with the run that uploaded
- * it, or null. A lookup that fails counts as no proof.
+ * isFresh reports whether a run must ignore earlier proof: a re-run of all
+ * jobs asks for exactly that, and a push to main is what the deploy ships.
+ * An attempt it cannot read as the first is treated as a re-run.
+ */
+export function isFresh({ event, ref, attempt }) {
+  return attempt !== 1 || (event === 'push' && ref === RELEASE_REF);
+}
+
+/** freshnessOf reads isFresh's inputs from the environment GitHub gives a run. */
+export function freshnessOf(env) {
+  return isFresh({ event: env.GITHUB_EVENT_NAME, ref: env.GITHUB_REF, attempt: Number(env.GITHUB_RUN_ATTEMPT) });
+}
+
+/**
+ * plan decides, per job, whether it runs. A job is skipped only when every
+ * shard has a pass that is newer than any failure recorded for the same hash,
+ * so the latest outcome on a set of files is the one that counts. `lookup`
+ * answers a marker name with the newest trusted artifact of that name, or
+ * null; a lookup that fails counts as no proof.
  */
 export async function plan({ entries, fresh, lookup }) {
   const jobs = {};
   for (const job of JOBS) {
     const set = SETS[job.set];
     const hash = hashOf(set, entries);
-    const markers = markersOf(job, hash);
-    const proofs = fresh ? [] : await Promise.all(markers.map((name) => lookup(name).catch(() => null)));
-    const proven = proofs.length === markers.length && proofs.every((run) => run !== null);
+    const outcomes = outcomesOf(job, hash);
+    const proofs = fresh ? [] : await Promise.all(outcomes.map((names) => standing(names, lookup)));
+    const proven = proofs.length === outcomes.length && proofs.every((run) => run !== null);
     jobs[job.id] = {
       run: !proven,
       set: job.set,
       hash,
-      markers,
-      shards: markers.map((_, i) => i + 1),
+      outcomes,
+      shards: outcomes.map((_, i) => i + 1),
       proof: proven ? proofs[0] : null,
       sparse: sparsePatterns(set).join('\n'),
     };
@@ -169,10 +199,24 @@ export async function plan({ entries, fresh, lookup }) {
   return { jobs };
 }
 
-function artifactLookup({ api, repository, token }) {
+async function standing(names, lookup) {
+  try {
+    const [pass, fail] = await Promise.all([lookup(names.success), lookup(names.failure)]);
+    return pass !== null && (fail === null || pass.at > fail.at) ? pass.run : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * artifactLookup answers a marker name from the repository's artifacts. It
+ * reads the newest hundred of that name, which is more than thirty days of
+ * runs on one hash can leave.
+ */
+export function artifactLookup({ api, repository, token, fetch: request = fetch }) {
   return async (name) => {
     const url = `${api}/repos/${repository}/actions/artifacts?per_page=100&name=${encodeURIComponent(name)}`;
-    const response = await fetch(url, {
+    const response = await request(url, {
       headers: {
         accept: 'application/vnd.github+json',
         authorization: `Bearer ${token}`,
@@ -180,8 +224,7 @@ function artifactLookup({ api, repository, token }) {
       },
     });
     if (!response.ok) throw new Error(`${response.status} listing ${name}`);
-    const found = (await response.json()).artifacts.find(trusted);
-    return found ? found.workflow_run.id : null;
+    return newest((await response.json()).artifacts);
   };
 }
 
@@ -195,7 +238,9 @@ function summaryOf(result, { fresh, server, repository }) {
   return [
     '### CI plan',
     '',
-    fresh ? 'Every job runs: earlier passes are not used for this run.' : 'A job is skipped when the same files already passed it.',
+    fresh
+      ? 'Every job runs: earlier passes are not used for this run.'
+      : 'A job is skipped when the same files passed it and have not failed it since.',
     '',
     '| Job | Reads | Hash | Decision |',
     '|---|---|---|---|',
@@ -207,7 +252,7 @@ function summaryOf(result, { fresh, server, repository }) {
 async function main() {
   const env = process.env;
   const entries = parseTree(execFileSync('git', ['ls-tree', '-r', '-z', 'HEAD'], { encoding: 'utf8', maxBuffer: 1 << 28 }));
-  const fresh = isFresh({ event: env.GITHUB_EVENT_NAME, ref: env.GITHUB_REF, attempt: Number(env.GITHUB_RUN_ATTEMPT ?? 1) });
+  const fresh = freshnessOf(env);
   const lookup = artifactLookup({ api: env.GITHUB_API_URL, repository: env.GITHUB_REPOSITORY, token: env.GITHUB_TOKEN });
   const result = await plan({ entries, fresh, lookup });
   const summary = summaryOf(result, { fresh, server: env.GITHUB_SERVER_URL, repository: env.GITHUB_REPOSITORY });

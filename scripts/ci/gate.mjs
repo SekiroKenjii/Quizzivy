@@ -4,8 +4,9 @@ import { fileURLToPath } from 'node:url';
 /**
  * verdict compares what each job did with what the plan asked of it and
  * returns the reasons the run is not green. A planned job must have succeeded,
- * a job the plan skipped must have been skipped, and the two lists must name
- * the same jobs, so a job added to the workflow without a plan entry fails.
+ * a job the plan skipped must have been skipped, and the jobs the gate waits
+ * for must be the plan's. It sees only those two lists; plan.test.mjs holds
+ * the workflow's own job list to them.
  */
 export function verdict(needs, planned) {
   if (needs.plan?.result !== 'success' || !planned) {
