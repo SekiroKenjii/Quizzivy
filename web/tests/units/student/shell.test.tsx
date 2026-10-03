@@ -539,33 +539,17 @@ describe("the intro", () => {
 });
 
 describe("classes", () => {
-  it("links each class to its assignments and exposes one join action", async () => {
-    serveStudent({
-      dueNow: [card({ classId: CLASS.id, className: CLASS.name })],
-      completed: [
-        card({
-          id: "018f0000-0000-7000-8000-0000000000d3",
-          status: "closed",
-          classId: CLASS.id,
-          className: CLASS.name,
-          lastSubmittedAt: "2026-08-26T13:14:00Z",
-        }),
-      ],
-    });
+  it("draws each class with what comes next and one join action", async () => {
+    serveStudent({ dueNow: [card({ classId: CLASS.id, className: CLASS.name })] });
     shell("/app/classes", <StudentClassesPage />);
-    await screen.findByText("IELTS Foundation");
-    expect(screen.getByText("Bạn đang ở trong 1 lớp.")).toBeInTheDocument();
-    expect(await screen.findByText("1 bài đang mở")).toBeInTheDocument();
-    expect(screen.getByText("1 bài đã nộp")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "IELTS Foundation" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/^Unit 5 — Present perfect · /)).toBeInTheDocument();
 
-    expect(screen.getByRole("link", { name: "Tham gia lớp" })).toHaveAttribute(
-      "href",
-      "/join",
-    );
-    expect(screen.getByRole("link", { name: "Xem bài của lớp" })).toHaveAttribute(
-      "href",
-      `/app?classId=${CLASS.id}`,
-    );
+    const main = within(screen.getByRole("main"));
+    expect(main.getByRole("button", { name: "Tham gia lớp" })).toBeInTheDocument();
+    expect(main.queryAllByRole("link")).toEqual([]);
     expect(screen.queryByRole("complementary")).toBeNull();
   });
 });

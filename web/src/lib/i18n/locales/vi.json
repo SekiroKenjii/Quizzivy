@@ -159,6 +159,18 @@
       "submitted": "Đã nộp",
       "justNow": "Vừa xong"
     },
+    "classes": {
+      "subtitle": "Giáo viên của bạn và bài tiếp theo ở từng lớp.",
+      "teacher": "Giáo viên",
+      "next": "Tiếp theo",
+      "nextNone": "Chưa có bài nào được giao",
+      "nextLive": "{{title}} · đang làm",
+      "nextClosesToday": "{{title}} · đóng lúc {{time}} hôm nay",
+      "nextDue": "{{title}} · hạn {{date}}",
+      "nextOpensToday": "{{title}} · mở lúc {{time}} hôm nay",
+      "nextOpens": "{{title}} · mở {{date}}",
+      "nextUnknown": "Chưa tải được bài của lớp"
+    },
     "myAssignments": "Bài của tôi",
     "myClasses": "Lớp của tôi",
     "dueToday_one": "Bạn có {{count}} bài đến hạn hôm nay.",
@@ -172,8 +184,6 @@
     "noAssignmentsHint": "Khi giáo viên giao bài, bài sẽ hiện ở đây.",
     "noClasses": "Bạn chưa tham gia lớp nào.",
     "joinClass": "Tham gia lớp",
-    "taughtBySince": "{{teacher}} · tham gia {{date}}",
-    "joinedOn": "Tham gia {{date}}",
     "loadFailed": "Không tải được. Hãy thử lại.",
     "intro": {
       "duration": "Thời lượng",
@@ -203,16 +213,7 @@
     },
     "questions_one": "{{count}} câu",
     "questions_other": "{{count}} câu",
-    "inClasses_one": "Bạn đang ở trong {{count}} lớp.",
-    "inClasses_other": "Bạn đang ở trong {{count}} lớp.",
-    "classOpen_one": "{{count}} bài đang mở",
-    "classOpen_other": "{{count}} bài đang mở",
-    "classOpenNone": "Không có bài đang mở",
-    "classSubmitted_one": "{{count}} bài đã nộp",
-    "classSubmitted_other": "{{count}} bài đã nộp",
-    "classesNav": "Lớp",
-    "viewClassAssignments": "Xem bài của lớp",
-    "assignmentCountsFailed": "Chưa tải được số bài của các lớp. Bạn vẫn có thể mở danh sách bài."
+    "classesNav": "Lớp"
   },
   "changePassword": {
     "title": "Chọn mật khẩu của bạn",

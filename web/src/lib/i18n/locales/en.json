@@ -159,8 +159,20 @@
       "submitted": "Submitted",
       "justNow": "Just now"
     },
+    "classes": {
+      "subtitle": "Your teachers and what's next in each class.",
+      "teacher": "Teacher",
+      "next": "Next",
+      "nextNone": "Nothing assigned yet",
+      "nextLive": "{{title}} · in progress",
+      "nextClosesToday": "{{title}} closes today at {{time}}",
+      "nextDue": "{{title}} · due {{date}}",
+      "nextOpensToday": "{{title}} · opens today at {{time}}",
+      "nextOpens": "{{title}} · opens {{date}}",
+      "nextUnknown": "Could not load this class's tests"
+    },
     "myAssignments": "My assignments",
-    "myClasses": "My classes",
+    "myClasses": "Classes",
     "dueToday_one": "You have {{count}} test due today.",
     "dueToday_other": "You have {{count}} tests due today.",
     "resume": "Continue test",
@@ -172,8 +184,6 @@
     "noAssignmentsHint": "When your teacher assigns a test, it will appear here.",
     "noClasses": "You have not joined a class yet.",
     "joinClass": "Join a class",
-    "taughtBySince": "{{teacher}} · joined {{date}}",
-    "joinedOn": "Joined {{date}}",
     "loadFailed": "Could not load. Please try again.",
     "intro": {
       "duration": "Duration",
@@ -203,16 +213,7 @@
     },
     "questions_one": "{{count}} question",
     "questions_other": "{{count}} questions",
-    "inClasses_one": "You are in {{count}} class.",
-    "inClasses_other": "You are in {{count}} classes.",
-    "classOpen_one": "{{count}} open paper",
-    "classOpen_other": "{{count}} open papers",
-    "classOpenNone": "No open papers",
-    "classSubmitted_one": "{{count}} paper submitted",
-    "classSubmitted_other": "{{count}} papers submitted",
-    "classesNav": "Classes",
-    "viewClassAssignments": "View class assignments",
-    "assignmentCountsFailed": "Assignment counts could not be loaded. You can still open the assignments."
+    "classesNav": "Classes"
   },
   "changePassword": {
     "title": "Choose your password",
