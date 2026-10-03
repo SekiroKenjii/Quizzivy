@@ -2709,7 +2709,7 @@ export interface components {
         };
         /**
          * @description The intro screen's card: what StudentAssignmentCard carries, without
-         *     `classId` and `liveAnsweredCount`, plus the policies §10.2 states in
+         *     `classId`, `classIds` and `liveAnsweredCount`, plus the policies §10.2 states in
          *     plain Vietnamese before the student starts.
          */
         StudentAssignmentDetail: {
@@ -3914,13 +3914,15 @@ export interface components {
         StudentAssignmentCard: {
             id: components["schemas"]["Uuid"];
             testTitle: string;
-            /** @description The class this assignment reached the student through. Null unless exactly one targeted class contains them. */
+            /** @description The class this assignment reached the student through. Null unless exactly one targeted class that is not archived contains them. */
             className?: string | null;
             /**
              * Format: uuid
              * @description The id behind `className`, so S-17 can count a class's papers. Null when `className` is.
              */
             classId?: string | null;
+            /** @description Every class this assignment targets that contains the student and is not archived, so each class card can name its next paper. Empty for a student targeted only by name. */
+            classIds?: components["schemas"]["Uuid"][];
             status: components["schemas"]["AssignmentStatus"];
             opensAt: components["schemas"]["Timestamp"];
             closesAt: components["schemas"]["Timestamp"];

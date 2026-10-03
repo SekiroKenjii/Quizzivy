@@ -167,12 +167,15 @@ export function homeView(lists: Lists, now: Date): HomeView {
   return { resume, rows, results, sub: sub(resume, rows, empty, now) };
 }
 
+function classesOf(card: StudentAssignmentCard): readonly string[] {
+  return card.classIds ?? (card.classId == null ? [] : [card.classId]);
+}
+
 /**
  * nextByClass is the paper each class's card names as next, in Home's order:
  * the attempt on the resume card, then every other paper still to do by the
- * date on its tile. A paper counts for a class only when the server attributes
- * it to that one class; a paper shared by two of the student's classes names
- * none, and so is on no card.
+ * date on its tile. A paper counts for every class of the student's it was
+ * given to, so one shared by two classes can be next on both cards.
  */
 export function nextByClass(lists: Lists, now: Date): ReadonlyMap<string, ComingUpRow> {
   const { resume, rows } = homeView(lists, now);
@@ -182,8 +185,9 @@ export function nextByClass(lists: Lists, now: Date): ReadonlyMap<string, Coming
       : [{ card: resume, pill: "inProgress", moment: liveCloses(resume) }];
   const next = new Map<string, ComingUpRow>();
   for (const candidate of [...first, ...rows]) {
-    const classId = candidate.card.classId;
-    if (classId != null && !next.has(classId)) next.set(classId, candidate);
+    for (const classId of classesOf(candidate.card)) {
+      if (!next.has(classId)) next.set(classId, candidate);
+    }
   }
   return next;
 }

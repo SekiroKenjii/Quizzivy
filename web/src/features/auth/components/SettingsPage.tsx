@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useParams } from "react-router";
 import { Shield, SlidersHorizontal, UserRound } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { SignOutButton } from "@/features/auth/SignOutButton";
-import { learnsOnly } from "@/features/auth/permissions";
+import { learnsOnly, useCan } from "@/features/auth/permissions";
 import { formatDate } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -29,6 +29,7 @@ export function SettingsPage({
   const { section } = useParams();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const canReadDocs = useCan("system.api_reference");
   const active = sections.some((item) => item.id === section) ? section : "profile";
   const path = (id: string) => (id === "profile" ? base : `${base}/${id}`);
   return (
@@ -107,7 +108,7 @@ export function SettingsPage({
           </div>
           <div hidden={active !== "preferences"} className="settings-panel space-y-8">
             <LanguageSection />
-            {base === "/admin/settings" ? <ApiDocsSection /> : null}
+            {base === "/admin/settings" && canReadDocs ? <ApiDocsSection /> : null}
           </div>
           <div className="mt-8 border-t pt-5">
             <SignOutButton variant="outline" className="w-full sm:w-auto" />
