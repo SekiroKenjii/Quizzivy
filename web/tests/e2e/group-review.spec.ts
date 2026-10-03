@@ -35,6 +35,9 @@ function result(): AttemptResult {
     maxAttempts: 1,
     review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
     sharedContext,
+    sections: [...new Set(questions.map((question) => question.sectionId))].map(
+      (id, index) => ({ id, title: `Phần ${index + 1}`, instructions: null }),
+    ),
     questions: questions.map((question, index) => ({
       ...question,
       answer: { type: "choice", optionIds: [question.options![0]!.id] },

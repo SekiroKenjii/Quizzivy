@@ -119,14 +119,7 @@ func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in 
 		return openapi.AttemptSession{}, err
 	}
 
-	sections := make([]openapi.StudentSection, len(in.Sections))
-	for i, sec := range in.Sections {
-		sections[i] = openapi.StudentSection{
-			Id:           httpapi.ParseUUID(sec.ID),
-			Title:        sec.Title,
-			Instructions: sec.Instructions,
-		}
-	}
+	sections := toAPISections(in.Sections)
 
 	return openapi.AttemptSession{
 		RemainingAttempts: &in.RemainingAttempts,
@@ -225,6 +218,18 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 		Url:              signed.URL,
 	}
 	return out, nil
+}
+
+func toAPISections(in []domain.Section) []openapi.StudentSection {
+	sections := make([]openapi.StudentSection, len(in))
+	for i, sec := range in {
+		sections[i] = openapi.StudentSection{
+			Id:           httpapi.ParseUUID(sec.ID),
+			Title:        sec.Title,
+			Instructions: sec.Instructions,
+		}
+	}
+	return sections
 }
 
 func toAPIAnswers(stored map[string][]byte) (map[string]openapi.Answer, error) {

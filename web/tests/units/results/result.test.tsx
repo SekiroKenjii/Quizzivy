@@ -16,12 +16,14 @@ const BASE = "http://localhost:8080";
 const ATTEMPT_ID = "018f0000-0000-7000-8000-0000000000a7";
 const OPTION_A = "018f0000-0000-7000-8000-00000000bb01";
 const OPTION_B = "018f0000-0000-7000-8000-00000000bb02";
+const SECTION = "018f0000-0000-7000-8000-0000000000c1";
 type Review = components["schemas"]["ReviewPolicy"];
 type Question = components["schemas"]["ResultQuestion"];
 
 function result(review: Review, transcript: boolean) {
   const choice: Question = {
     id: "018f0000-0000-7000-8000-00000000aa01",
+    sectionId: SECTION,
     type: "single_choice",
     prompt: "The letter ____ yesterday.",
     points: 1,
@@ -39,6 +41,7 @@ function result(review: Review, transcript: boolean) {
   };
   const listening: Question = {
     id: "018f0000-0000-7000-8000-00000000aa03",
+    sectionId: SECTION,
     type: "single_choice",
     prompt: "Người phụ nữ đề nghị làm gì?",
     points: 1,
@@ -82,6 +85,7 @@ function result(review: Review, transcript: boolean) {
     review,
     testTitle: "Unit 4 — Passive voice",
     maxAttempts: 2,
+    sections: [{ id: SECTION, title: "Phần 1", instructions: null }],
     questions: [choice, listening],
   };
 }

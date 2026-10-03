@@ -39,6 +39,9 @@ describe("answered", () => {
 
   it("needs text, whitespace not counting", () => {
     expect(answered(question(), { type: "text", value: "   " })).toBe(false);
+    expect(
+      answered(question(), { type: "text", value: "\u00a0\u3000\ufeff\t\n" }),
+    ).toBe(false);
     expect(answered(question(), { type: "text", value: "I wake up at six." })).toBe(
       true,
     );
@@ -47,6 +50,11 @@ describe("answered", () => {
 
 /** Per-blank grading (O-17): one blank of four scores a quarter, not nothing. */
 describe("answered, for a fill_blank", () => {
+  it("is false for a question that has no blanks", () => {
+    const none = question({ type: "fill_blank" });
+    expect(answered(none, { type: "fill_blank", values: {} })).toBe(false);
+  });
+
   it("is false when no blank has been typed into", () => {
     expect(answered(twoBlanks, { type: "fill_blank", values: {} })).toBe(false);
     expect(
