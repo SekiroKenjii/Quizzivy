@@ -35,13 +35,28 @@ describe("answered", () => {
 
   it("needs a real pick for true/false", () => {
     expect(answered(question(), { type: "true_false", value: false })).toBe(true);
+    expect(answered(question(), { type: "true_false", value: null } as never)).toBe(
+      false,
+    );
+  });
+
+  it("is not answered by a type it does not know", () => {
+    expect(
+      answered(question(), { type: "essay", value: "words" } as never),
+    ).toBeFalsy();
+    expect(answered(question(), { value: "words" } as never)).toBeFalsy();
   });
 
   it("needs text, whitespace not counting", () => {
     expect(answered(question(), { type: "text", value: "   " })).toBe(false);
     expect(
-      answered(question(), { type: "text", value: "\u00a0\u3000\ufeff\t\n" }),
+      answered(question(), {
+        type: "text",
+        value:
+          "\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff",
+      }),
     ).toBe(false);
+    expect(answered(question(), { type: "text", value: "\u200b" })).toBe(true);
     expect(answered(question(), { type: "text", value: "I wake up at six." })).toBe(
       true,
     );
@@ -68,6 +83,9 @@ describe("answered, for a fill_blank", () => {
     );
     expect(
       answered(twoBlanks, { type: "fill_blank", values: { b1: "went", b2: "  " } }),
+    ).toBe(false);
+    expect(
+      answered(twoBlanks, { type: "fill_blank", values: { b1: "went", b2: " \t" } }),
     ).toBe(false);
   });
 
