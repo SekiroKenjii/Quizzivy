@@ -463,7 +463,11 @@ components:
       type: string
       description: |
         Stable, machine-readable. **The only thing clients branch on.** Copy is
-        driven by `message`, never reconstructed from this.
+        driven by `message`, never reconstructed from this, with two exceptions
+        the web app words itself, as the design deck draws them:
+        `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
+        the change-password forms. The server still sends a localised `message`
+        for both, for any other client.
       enum:
         # auth
         - INVALID_CREDENTIALS
@@ -549,7 +553,8 @@ components:
           type: string
           description: |
             Already localized server-side from `Accept-Language`, `vi` by
-            default. Display it; do not build copy from `code`.
+            default. Display it; do not build copy from `code`, except for the
+            two codes the `ErrorCode` description names.
           examples: ['Mã lớp không hợp lệ.']
         details:
           type: object
@@ -2955,7 +2960,10 @@ components:
         answeredCount:
           type: [integer, 'null']
           minimum: 0
-          description: Questions with a saved answer, against the response's `questionCount` (G-02's progress column).
+          description: >-
+            Questions whose saved answer says something, by the rule of
+            `StudentAssignmentCard.liveAnsweredCount`, against the response's
+            `questionCount` (G-02's progress column).
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
         focusLossCount: { type: [integer, 'null'] }
         flagged: { type: boolean }
@@ -3230,7 +3238,7 @@ paths:
                   maxLength: 9
                   description: |
                     Accepted with or without the dash and in any case; normalized
-                    before hashing. Alphabet excludes `0/O` and `1/I/L` (§6.1).
+                    before lookup. The alphabet excludes `0`, `O`, `1` and `I` (§6.1).
                   examples: ['K7M3-P9QR', 'k7m3p9qr']
       responses:
         '200':
@@ -3568,6 +3576,11 @@ paths:
         access token must not be able to strand a live refresh family: the one
         moment a user most wants to log out is the moment their session has
         gone strange.
+
+        During a maintenance window the request is answered `503 MAINTENANCE`
+        like any other; when the request carried the refresh cookie, that
+        answer still clears the refresh and docs cookies; the family is not
+        revoked.
       tags: [auth]
       summary: Revoke the refresh family and clear the cookie
       security:
@@ -6542,6 +6555,7 @@ paths:
       operationId: startOrResumeAttempt
       x-resource:
         - { in: path, name: id, kind: assignment }
+        - { in: body, name: /resume, kind: attempt }
       x-permission: learning.take_tests
       tags: [take-test]
       summary: Create or resume an attempt
@@ -6559,6 +6573,23 @@ paths:
         `min(now + durationMinutes, closesAt)` and is authoritative. The client
         derives remaining time from it plus the `serverTime` offset, never from
         the device clock.
+
+        A caller that means to continue a known attempt sends `resume`; a
+        Continue button must, so that an attempt whose time ran out while the
+        page was open is not answered with a new one.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                resume:
+                  $ref: '#/components/schemas/Uuid'
+                  description: >-
+                    The attempt the caller means to continue. With it the
+                    operation never starts an attempt: when this attempt is no
+                    longer the live one it answers `ATTEMPT_CLOSED`.
       responses:
         '200':
           description: Created, or resumed.
@@ -6568,6 +6599,9 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: |
+            `ATTEMPT_CLOSED` — `resume` named an attempt that is no longer live;
+            nothing was started.
+
             `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
 
             `MAINTENANCE_SCHEDULED` — a new attempt would run into a maintenance

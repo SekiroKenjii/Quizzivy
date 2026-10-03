@@ -37,7 +37,7 @@ import {
   formatTime,
   weekdayName,
 } from "@/lib/i18n/datetime";
-import { getMyAssignment, type StudentAssignmentDetail } from "../api";
+import { continueAttempt, getMyAssignment, type StudentAssignmentDetail } from "../api";
 import { studentRules, type RuleKind } from "../studentRules";
 
 const COLUMN = "mx-auto flex w-full max-w-180 flex-col gap-4.5";
@@ -322,7 +322,9 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
     setBusy(true);
     setError(null);
     try {
-      const session = await startOrResumeAttempt(a.id);
+      const session = await (live && a.lastAttemptId != null
+        ? continueAttempt(a.id, a.lastAttemptId)
+        : startOrResumeAttempt(a.id));
       await navigate(`/app/attempts/${session.attempt.id}`);
       queryClient.removeQueries({ queryKey: ["my-assignment", a.id] });
     } catch (cause) {
@@ -330,6 +332,8 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
       setOpen(false);
       setBusy(false);
       void queryClient.invalidateQueries({ queryKey: ["my-assignment", a.id] });
+      if (cause instanceof ApiError && cause.code === "ATTEMPT_CLOSED")
+        void queryClient.invalidateQueries({ queryKey: ["my-assignments"] });
     }
   };
 

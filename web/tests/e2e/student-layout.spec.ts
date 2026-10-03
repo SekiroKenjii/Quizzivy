@@ -114,8 +114,10 @@ test("unsaved settings survive crossing the desktop breakpoint and password visi
   await page.setViewportSize({ width: 320, height: 900 });
   await expect(name).toHaveValue("Tên đang chỉnh sửa");
   await fits(page);
-  await page.getByRole("combobox", { name: "Mục cài đặt" }).selectOption("security");
-  await expect(page).toHaveURL(/settings\/security$/);
+  const sections = page.getByRole("group", { name: "Mục cài đặt" });
+  await sections.getByRole("button", { name: "Đăng nhập" }).click();
+  await expect(page).toHaveURL(/settings\/sign-in$/);
+  await page.getByRole("button", { name: "Đổi", exact: true }).click();
   const password = page.getByLabel("Mật khẩu mới", { exact: true });
   await password.fill("Test-only-password");
   await page.getByRole("button", { name: "Hiện mật khẩu" }).last().click();
@@ -124,9 +126,10 @@ test("unsaved settings survive crossing the desktop breakpoint and password visi
   await expect(password).toHaveAttribute("type", "password");
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(password).toHaveValue("Test-only-password");
-  await page.getByRole("link", { name: "Hồ sơ", exact: true }).click();
+  await sections.getByRole("button", { name: "Hồ sơ" }).click();
   await expect(name).toHaveValue("Tên đang chỉnh sửa");
-  await page.getByRole("link", { name: "Bảo mật", exact: true }).click();
+  await expect(page.getByText("Bạn có thay đổi chưa lưu.")).toBeVisible();
+  await sections.getByRole("button", { name: "Đăng nhập" }).click();
   await expect(password).toHaveValue("Test-only-password");
   await page.screenshot({ path: info.outputPath("settings-1440.png"), fullPage: true });
 });
@@ -175,10 +178,13 @@ test("result filters survive resizing, explain empty results and retain the full
   await page.setViewportSize({ width: 800, height: 900 });
   await expect(page.getByRole("link", { name: "Quay lại" })).toHaveCount(0);
   await expect(
-    page.getByRole("main").getByRole("link", { name: "Bài của tôi" }),
+    page.getByRole("main").getByRole("link", { name: "Trang chủ" }),
   ).toHaveAttribute("href", "/app");
   await page.setViewportSize({ width: 320, height: 900 });
   await expect(wrong).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("banner").getByText("Kết quả", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(result.testTitle);
   await expect(page.getByText("Không có câu sai trong bài này.")).toBeVisible();
   await fits(page);
@@ -195,7 +201,10 @@ test("English student controls fit a 320px phone", async ({ page }) => {
   await expect(page.getByText("In progress", { exact: true })).toBeVisible();
   await fits(page);
   await page.goto("/app/settings");
-  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  await expect(
+    page.getByRole("banner").getByText("Settings", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("group", { name: "Settings section" })).toBeVisible();
   await fits(page);
 });
 

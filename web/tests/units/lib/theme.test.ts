@@ -5,6 +5,7 @@ import {
   readThemePreference,
   useForcedLightTheme,
   useResolvedTheme,
+  useThemePreference,
   writeThemePreference,
 } from "@/lib/theme";
 
@@ -78,6 +79,19 @@ describe("theme preference", () => {
     expect(isDark()).toBe(true);
     expect(result.current).toBe("dark");
     act(() => deviceTurns(false));
+    expect(result.current).toBe("light");
+  });
+
+  it("reports the preference itself, device included, to a mounted reader", () => {
+    const { result } = renderHook(() => useThemePreference());
+    expect(result.current).toBe("light");
+    act(() => deviceTurns(true));
+    act(() => writeThemePreference("system"));
+    expect(result.current).toBe("system");
+    act(() => writeThemePreference("dark"));
+    expect(result.current).toBe("dark");
+    expect(isDark()).toBe(true);
+    act(() => writeThemePreference("light"));
     expect(result.current).toBe("light");
   });
 

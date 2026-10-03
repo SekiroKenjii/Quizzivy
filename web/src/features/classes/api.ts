@@ -85,7 +85,7 @@ export type JoinCodeOptions = NonNullable<
   operations["rotateJoinCode"]["requestBody"]
 >["content"]["application/json"];
 
-/** The one call that ever returns a plaintext code (§13.3), never cached or stored. */
+/** rotateJoinCode issues a new code and returns it in full; the code is never cached or stored (§13.3). */
 export function rotateJoinCode(id: string, options: JoinCodeOptions = {}) {
   return api("post", "/teacher/classes/{id}/join-code", {
     path: { id },

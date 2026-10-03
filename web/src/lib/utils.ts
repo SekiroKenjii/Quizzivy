@@ -23,7 +23,7 @@ const twMerge = extendTailwindMerge({
         "input",
       ],
       radius: ["seg", "ctl"],
-      shadow: ["card", "float"],
+      shadow: ["card", "float", "thumb"],
     },
   },
 });

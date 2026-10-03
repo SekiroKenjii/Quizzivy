@@ -208,7 +208,42 @@
     },
     "questions_one": "{{count}} question",
     "questions_other": "{{count}} questions",
-    "classesNav": "Classes"
+    "classesNav": "Classes",
+    "settings": {
+      "sections": {
+        "profile": "Profile",
+        "signIn": "Sign-in",
+        "appearance": "Appearance"
+      },
+      "nameHint": "Your teacher sees this name.",
+      "emailHint": "Ask your teacher to change your email.",
+      "unsaved": "You have unsaved changes.",
+      "discard": "Discard",
+      "change": "Change",
+      "updatePassword": "Update password",
+      "passwordUpdated": "Password updated. Other devices have been signed out.",
+      "passwordMin": "At least 8 characters.",
+      "strength": {
+        "okay": "Okay",
+        "strong": "Strong",
+        "veryStrong": "Very strong"
+      },
+      "strengthAdvice": "{{strength}}. Add a number or symbol to make it stronger.",
+      "strengthOnly": "{{strength}}.",
+      "google": "Google",
+      "googleLinked": "Linked",
+      "googleNotLinked": "Not linked. Link it to sign in with one tap.",
+      "unlink": "Unlink",
+      "googleUnlinked": "Google unlinked. Use your password to sign in.",
+      "theme": "Theme",
+      "themes": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "Device"
+      },
+      "largerText": "Larger text in tests",
+      "largerTextHint": "Reading passages and questions at 18px"
+    }
   },
   "changePassword": {
     "title": "Choose your password",
@@ -1653,63 +1688,80 @@
   "result": {
     "title": "Result",
     "notReady": "The result isn't ready yet.",
-    "pendingTitle_one": "{{count}} question is still being graded",
-    "pendingTitle_other": "{{count}} questions are still being graded",
-    "pendingBody": "The final score appears once grading is done.",
-    "hiddenTitle": "Your teacher hasn't released scores",
-    "hiddenBody": "Your paper was submitted at {{time}} · {{date}}. When your teacher opens the review, your score appears here.",
-    "yourPaper": "Your paper",
-    "answeredWithKey": "You answered {{answered}}/{{total}} questions. You can review the questions, your answers and the correct answers below.",
-    "answeredNoKey": "You answered {{answered}}/{{total}} questions. You can review the questions and your answers, but not the correct answers yet.",
-    "filter": "Filter questions",
-    "chips": {
-      "all": "All {{count}}",
-      "wrong": "Wrong {{count}}",
-      "pending": "To grade {{count}}"
+    "notFound": "This result was not found, or it is not yours.",
+    "loadFailed": "Couldn't load the result",
+    "loadFailedBody": "Your paper was submitted and is safe. Check your connection and try again.",
+    "meta": {
+      "submitted": "Submitted {{when}}",
+      "submittedIn": "{{class}} · submitted {{when}}",
+      "submittedNow": "Submitted just now",
+      "submittedNowIn": "{{class}} · submitted just now",
+      "attempt": "attempt {{n}} of {{total}}"
     },
-    "noKey": "Your teacher isn't showing correct answers for this test.",
-    "noExplanations": "Your teacher isn't showing explanations for this test.",
-    "provisional": "Provisional score",
-    "yourScore": "Your score",
-    "excludesPending": "excluding {{points}} points still being graded",
-    "percent": "{{percent}}% achieved",
-    "submittedMeta": "Submitted {{time}} · {{date}} · Attempt {{n}}/{{total}}",
-    "pointsPending": "— / {{total}} pts",
-    "pointsOf": "{{earned}}/{{total}} pts",
-    "listening": "Listening",
+    "ring": {
+      "of": "of {{total}}",
+      "soFar": "of {{total}} so far",
+      "grading": "grading",
+      "withheld": "Score not released"
+    },
+    "summary": {
+      "graded": "You answered {{correct}} of {{total}} correctly.",
+      "gradedKey": "You answered {{correct}} of {{total}} correctly. Correct answers are shown below.",
+      "auto_one": "{{count}} question was marked automatically.",
+      "auto_other": "{{count}} questions were marked automatically.",
+      "teacher_one": "Your teacher will grade the {{count}} written answer.",
+      "teacher_other": "Your teacher will grade the {{count}} written answers.",
+      "pending": "Your teacher is grading your written answers. Your score appears here when grading is finished.",
+      "pendingNotify": "Your teacher is grading your written answers. You will get a notification when your score is ready.",
+      "withheld": "You answered {{answered}} of {{total}} questions. Your teacher has not released the score."
+    },
+    "tiles": {
+      "auto": "Marked automatically",
+      "waiting": "Waiting for teacher",
+      "time": "Time used",
+      "score": "{{earned}} / {{total}}",
+      "answers_one": "{{count}} answer",
+      "answers_other": "{{count}} answers",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min"
+    },
+    "yourAnswers": "Your answers",
+    "filter": "Filter questions",
+    "filters": {
+      "all": "All",
+      "wrong": "Wrong",
+      "waiting": "Waiting"
+    },
+    "lock": {
+      "score": "Your teacher has not released the score for this test.",
+      "answers": "Your teacher is not showing correct answers for this test.",
+      "explanations": "Your teacher is not showing explanations for this test.",
+      "scoreAnswers": "Your teacher is not showing the score or correct answers for this test.",
+      "scoreExplanations": "Your teacher is not showing the score or explanations for this test.",
+      "answersExplanations": "Your teacher is not showing correct answers or explanations for this test.",
+      "all": "Your teacher is not showing the score, correct answers or explanations for this test."
+    },
+    "empty": {
+      "wrong": "There are no incorrect answers in this paper."
+    },
+    "showAll": "View all questions",
     "verdict": {
       "correct": "Correct",
       "wrong": "Wrong",
-      "partial": "Partly correct",
-      "pending": "To grade",
-      "graded": "Graded"
+      "partial": "Partly correct"
     },
+    "points": "{{earned}} / {{total}}",
+    "waiting": "Waiting",
+    "youAnswered": "You answered",
+    "correctAnswer": "Correct answer",
+    "noAnswer": "No answer",
+    "true": "True",
+    "false": "False",
+    "blank": "blank",
     "replayFreely": "Replay freely after submitting",
     "showTranscript": "Show transcript",
     "noTranscript": "The transcript isn't shown.",
-    "teacherComment": "Teacher's comment",
-    "unanswered": "You didn't answer this question.",
-    "correctAnswerIs": "Correct answer: {{answers}}",
-    "youChose": "your choice",
-    "correctOption": "correct answer",
-    "loadFailed": "Couldn't load the result",
-    "loadFailedBody": "Your paper was submitted and is safe. Check your connection and try again.",
-    "panel": "Result",
-    "rows": {
-      "correct": "Correct",
-      "wrong": "Wrong",
-      "pending": "Awaiting grading",
-      "submittedAt": "Submitted",
-      "moment": "{{time}} · {{date}}",
-      "attempt": "Attempt",
-      "attemptOf": "{{n}} / {{total}}"
-    },
-    "showAll": "View all questions",
-    "empty": {
-      "all": "No questions to show yet.",
-      "wrong": "There are no incorrect answers in this paper.",
-      "pending": "No questions are awaiting grading."
-    }
+    "teacherComment": "Teacher's comment"
   },
   "queue": {
     "summary": {
