@@ -671,9 +671,8 @@ describe("the deck's three variants", () => {
     expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/app");
   });
 
-  it("writes the just-submitted and pending variants in the deck's English", async () => {
+  it("writes the just-submitted variant in the deck's English", async () => {
     await i18n.changeLanguage("en");
-    flags.notifications = true;
     serve(justSubmitted(new Date(Date.now() - 20_000).toISOString()), [
       assignmentCard({ className: "IELTS 6.5 Evening" }),
     ]);
@@ -699,6 +698,96 @@ describe("the deck's three variants", () => {
     ).toEqual(["All", "Wrong", "Waiting"]);
     expect(screen.getAllByText("No answer")).toHaveLength(3);
     expect(screen.getAllByText("Waiting")).toHaveLength(3);
+  });
+
+  describe("in English", () => {
+    it.each([
+      [false, true, true, "Your teacher has not released the score for this test."],
+      [true, false, true, "Your teacher is not showing correct answers for this test."],
+      [true, true, false, "Your teacher is not showing explanations for this test."],
+      [
+        false,
+        false,
+        true,
+        "Your teacher is not showing the score or correct answers for this test.",
+      ],
+      [
+        false,
+        true,
+        false,
+        "Your teacher is not showing the score or explanations for this test.",
+      ],
+      [
+        true,
+        false,
+        false,
+        "Your teacher is not showing correct answers or explanations for this test.",
+      ],
+      [
+        false,
+        false,
+        false,
+        "Your teacher is not showing the score, correct answers or explanations for this test.",
+      ],
+    ])(
+      "names what showScore=%s showCorrectAnswers=%s showExplanations=%s hides",
+      async (showScore, showCorrectAnswers, showExplanations, line) => {
+        await i18n.changeLanguage("en");
+        serve(passive({ showScore, showCorrectAnswers, showExplanations }, false));
+        renderResult();
+        expect(await screen.findByText(line)).toBeVisible();
+      },
+    );
+
+    it.each([
+      [
+        false,
+        "Your teacher is grading your written answers. Your score appears here when grading is finished.",
+      ],
+      [
+        true,
+        "Your teacher is grading your written answers. You will get a notification when your score is ready.",
+      ],
+    ])("writes the pending sentence with notifications=%s", async (on, line) => {
+      await i18n.changeLanguage("en");
+      flags.notifications = on;
+      serve(grading());
+      renderResult();
+      expect(await screen.findByText(line)).toBeVisible();
+      expect(within(ring()).getByText("grading")).toBeVisible();
+    });
+
+    it("writes the withheld sentence", async () => {
+      await i18n.changeLanguage("en");
+      serve(passive(CLOSED, false));
+      renderResult();
+      expect(
+        await screen.findByText(
+          "You answered 2 of 2 questions. Your teacher has not released the score.",
+        ),
+      ).toBeVisible();
+      expect(within(ring()).getByText("Score not released")).toBeInTheDocument();
+    });
+
+    it("writes one marked answer and one waiting answer in the singular", async () => {
+      await i18n.changeLanguage("en");
+      serve(
+        scored(
+          [
+            choice(1, AB, [0], { earned: 1 }),
+            essay(2, "Viết một câu bị động.", "The letter was written."),
+          ],
+          { review: SCORE_ONLY },
+        ),
+      );
+      renderResult();
+      expect(
+        await screen.findByText(
+          "1 question was marked automatically. Your teacher will grade the 1 written answer.",
+        ),
+      ).toBeVisible();
+      expect(tiles()[1]!.slice(0, 2)).toEqual(["Waiting for teacher", "1 answer"]);
+    });
   });
 });
 
