@@ -190,7 +190,7 @@ export function NavigatorSheet({
 }
 
 /**
- * From 768px the same navigator stands beside the paper (S-08). On the
+ * From 768px the same navigator stands beside the paper. On the
  * review it keeps its dots and loses its button: that page is the button (S-15).
  */
 export function NavigatorRail({

@@ -268,7 +268,7 @@ describe("review and submit", () => {
   });
 });
 
-describe("from 768px (S-08, S-15)", () => {
+describe("from 768px", () => {
   const listening = paper({
     sections: [
       { id: "s1", title: "Phần 1 · Ngữ pháp", instructions: null },
