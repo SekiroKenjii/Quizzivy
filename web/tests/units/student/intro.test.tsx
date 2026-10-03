@@ -232,7 +232,7 @@ describe("before you start, per policy", () => {
     expect((await rules()).join(" ")).not.toMatch(/nghe/);
   });
 
-  it("says nothing of the score when the review hides it", async () => {
+  it("says nothing of what is seen after submitting when the review hides the score", async () => {
     show({
       review: { showScore: false, showCorrectAnswers: true, showExplanations: true },
     });
