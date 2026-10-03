@@ -375,7 +375,10 @@ describe("the timer", () => {
     await open(5 * MINUTE + 2_000);
     const heard: string[] = [];
     const listen = () => {
-      const now = announced().join("|");
+      const now = [...document.querySelectorAll('[role="status"]')]
+        .map((region) => region.textContent)
+        .filter((said) => said !== "")
+        .join("|");
       if (heard.at(-1) !== now) heard.push(now);
     };
 
