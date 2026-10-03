@@ -30,16 +30,14 @@ test("E2E 9: GET /app/attempts/:id contains no part of the grading key", async (
   await signInAsStudent(page);
   const attemptId = await freshAttempt(page, ASSIGNMENT.payload);
 
-  const [response] = await Promise.all([
+  await page.reload({ waitUntil: "commit" });
+  const response = await page.waitForResponse(
     // The API's response, not the SPA document that shares the path.
-    page.waitForResponse(
-      (r) =>
-        r.request().method() === "GET" &&
-        new URL(r.url()).origin === "http://localhost:8080" &&
-        new URL(r.url()).pathname === `/app/attempts/${attemptId}`,
-    ),
-    page.reload(),
-  ]);
+    (r) =>
+      r.request().method() === "GET" &&
+      new URL(r.url()).origin === "http://localhost:8080" &&
+      new URL(r.url()).pathname === `/app/attempts/${attemptId}`,
+  );
   expect(response.status()).toBe(200);
   const body: unknown = await response.json();
 
