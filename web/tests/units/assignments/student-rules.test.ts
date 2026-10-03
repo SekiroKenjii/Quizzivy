@@ -303,6 +303,11 @@ describe("when the test is available", () => {
     ]);
   });
 
+  it("says today of a window that opened on an earlier day and closes today", () => {
+    const window = { ...WINDOW, opensAt: "2026-08-27T01:00:00Z" };
+    expect(only("availability", { window })).toEqual(["Bài mở đến 21:00 hôm nay."]);
+  });
+
   it("gives the opening and the close of a test that has not opened", () => {
     const window = {
       opensAt: "2026-09-28T01:00:00Z",
@@ -409,6 +414,21 @@ describe("the timer, fullscreen and audio", () => {
       "Bài có câu nghe; bạn nghe lại được không giới hạn.",
     ]);
     expect(only("audio", {})).toEqual([]);
+  });
+
+  it("puts the audio sentences between leaving and the score", () => {
+    const integrity = { ...INTEGRITY, requireFullscreen: true };
+    const list = rules({ integrity, audio: { maxPlays: 2, shared: true } });
+    expect(list.map((rule) => rule.id)).toEqual([
+      "availability",
+      "timer",
+      "fullscreen",
+      "copy",
+      "leaving",
+      "audio",
+      "audio-shared",
+      "score",
+    ]);
   });
 
   it("adds the shared-recording sentence under its own id", () => {

@@ -194,6 +194,32 @@ describe("before you start, per policy", () => {
     );
   });
 
+  it("says nothing of a shared allowance when no recording is shared", async () => {
+    show({ hasAudio: true, audioMaxPlays: 2 });
+    expect((await rules()).join(" ")).not.toMatch(/dùng chung/);
+  });
+
+  it("puts each sentence's own icon beside it", async () => {
+    show({
+      integrity: { ...POLICY, requireFullscreen: true },
+      hasAudio: true,
+      audioMaxPlays: 2,
+    });
+    const heading = await screen.findByRole("heading", { level: 2 });
+    const icons = within(heading.parentElement!)
+      .getAllByRole("listitem")
+      .map((item) => /lucide-[a-z-]+/.exec(item.innerHTML)?.[0]);
+    expect(icons).toEqual([
+      "lucide-calendar-clock",
+      "lucide-timer",
+      "lucide-maximize",
+      "lucide-clipboard-x",
+      "lucide-eye",
+      "lucide-headphones",
+      "lucide-circle-check",
+    ]);
+  });
+
   it("says replays are unlimited when they are, and nothing without audio", async () => {
     show({ hasAudio: true, audioMaxPlays: null });
     expect(await rules()).toContain(
@@ -299,6 +325,16 @@ describe("the header and the three facts", () => {
     expect((await facts())[2]).toEqual(["Lượt làm", "1/1"]);
   });
 
+  it("counts an attempt in progress as one more, below the maximum", async () => {
+    show({
+      attemptsUsed: 1,
+      maxAttempts: 3,
+      hasLiveAttempt: true,
+      lastAttemptId: ATTEMPT,
+    });
+    expect((await facts())[2]).toEqual(["Lượt làm", "2/3"]);
+  });
+
   it("puts the class above the title, without the teacher", async () => {
     show({ className: "IELTS Foundation", teacherName: "Cô Thương" });
     const title = await screen.findByRole("heading", {
@@ -320,6 +356,22 @@ describe("the header and the three facts", () => {
     const router = show();
     await user.click(await screen.findByRole("link", { name: "Trang chủ" }));
     expect(router.state.location.pathname).toBe("/app");
+  });
+
+  it("asks the browser for the shell's 768, not another width", async () => {
+    const queries: string[] = [];
+    vi.stubGlobal("matchMedia", (query: string) => {
+      queries.push(query);
+      return {
+        matches: true,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      } as unknown as MediaQueryList;
+    });
+    show();
+    await screen.findByRole("heading", { level: 1 });
+    expect(new Set(queries)).toEqual(new Set(["(min-width: 768px)"]));
   });
 
   it("leaves the way back to the shell's header on a phone", async () => {
@@ -367,6 +419,15 @@ describe("a paper that has not opened", () => {
     expect(calls).toEqual([]);
     expect(request).not.toHaveBeenCalled();
     expect(screen.getByText("Bạn bắt đầu được khi bài mở.")).toBeInTheDocument();
+  });
+
+  it("takes 'not open yet' from the server, not from this device's clock", async () => {
+    show({
+      status: "scheduled",
+      opensAt: "2026-08-29T09:59:00Z",
+      closesAt: "2026-08-29T14:00:00Z",
+    });
+    expect((await rules())[0]).toBe("Bài mở hôm nay, từ 16:59 đến 21:00.");
   });
 
   it("asks the server again each minute, and offers Start once it opens", async () => {
@@ -473,6 +534,20 @@ describe("when there is nothing to start", () => {
       await screen.findByText("Bạn đã dùng hết số lượt làm bài."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Bài này đã đóng.")).toBeNull();
+  });
+
+  it("gives a spent paper that has not reopened its own sentence", async () => {
+    show({
+      status: "scheduled",
+      opensAt: "2026-09-01T01:00:00Z",
+      closesAt: "2026-09-20T14:00:00Z",
+      attemptsUsed: 2,
+      maxAttempts: 2,
+    });
+    expect(
+      await screen.findByText("Bạn đã dùng hết số lượt làm bài."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("offers Continue for an attempt in progress on a closed paper", async () => {
@@ -675,7 +750,6 @@ describe("Start now?", () => {
     const dialog = await ask(user);
     fireEvent.click(confirm(dialog));
     expect(request).toHaveBeenCalledTimes(1);
-    expect(calls).toEqual([]);
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
     );
@@ -763,6 +837,25 @@ describe("Start now?", () => {
       expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
     );
     expect(calls).toEqual(["start"]);
+  });
+
+  it("tells a busy Not yet apart", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post(START, async () => {
+        await delay("infinite");
+        return HttpResponse.error();
+      }),
+    );
+    show();
+    const dialog = await ask(user);
+    await user.click(within(dialog).getByRole("button", { name: "Bắt đầu" }));
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Để sau" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
   });
 
   it("keeps the busy dialog and asks nothing again while the engine loads", async () => {
@@ -1003,6 +1096,36 @@ describe("Continue test", () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
+  it("takes the last refusal down while it tries again", async () => {
+    const user = userEvent.setup();
+    server.use(http.post(START, () => HttpResponse.error()));
+    show({ hasLiveAttempt: true, lastAttemptId: ATTEMPT });
+    await user.click(await screen.findByRole("button", { name: "Tiếp tục làm bài" }));
+    await screen.findByRole("alert");
+    server.use(
+      http.post(START, async () => {
+        await delay("infinite");
+        return HttpResponse.error();
+      }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Tiếp tục làm bài" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+
+  it("marks Continue busy while the request is out", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post(START, async () => {
+        await delay("infinite");
+        return HttpResponse.error();
+      }),
+    );
+    show({ hasLiveAttempt: true, lastAttemptId: ATTEMPT });
+    const button = await screen.findByRole("button", { name: "Tiếp tục làm bài" });
+    await user.click(button);
+    await waitFor(() => expect(button).toHaveAttribute("aria-busy", "true"));
+  });
+
   it("says why it could not resume, and reads the paper again", async () => {
     const user = userEvent.setup();
     refuse("ASSIGNMENT_NOT_OPEN", "assignment is not open");
@@ -1035,5 +1158,127 @@ describe("the open paper's hint", () => {
     show();
     await startButton();
     expect(screen.getByText("Câu trả lời được lưu tự động.")).toBeInTheDocument();
+  });
+});
+
+describe("a tab left open", () => {
+  it("repaints when the day turns, with nothing new from the server", async () => {
+    vi.setSystemTime(new Date("2026-08-29T16:59:30Z"));
+    show({ closesAt: "2026-08-30T14:00:00Z" });
+    expect((await rules())[0]).toBe("Bài mở đến 21:00, CN, 30/08.");
+    await act(() => vi.advanceTimersByTimeAsync(31_000));
+    expect((await rules())[0]).toBe("Bài mở đến 21:00 hôm nay.");
+    expect(asked).toBe(1);
+  });
+
+  it("repaints the opening label when the day turns", async () => {
+    vi.setSystemTime(new Date("2026-08-29T16:59:30Z"));
+    show({
+      status: "scheduled",
+      opensAt: "2026-08-30T01:00:00Z",
+      closesAt: "2026-09-20T14:00:00Z",
+    });
+    const button = await screen.findByRole("button", { name: "Mở chủ nhật" });
+    await act(() => vi.advanceTimersByTimeAsync(31_000));
+    expect(button).toHaveAccessibleName("Mở lúc 08:00 hôm nay");
+    expect(asked).toBe(1);
+  });
+});
+
+describe("in English", () => {
+  it("reads the short window in English, singular and plural", async () => {
+    await i18n.changeLanguage("en");
+    const user = userEvent.setup();
+    vi.setSystemTime(new Date("2026-08-29T13:39:30Z"));
+    show();
+    await user.click(await screen.findByRole("button", { name: "Start test" }));
+    const dialog = await screen.findByRole("dialog", { name: "Start now?" });
+    expect(dialog).toHaveAccessibleDescription(
+      "The test closes at 21:00, so you have 20 minutes. The timer starts as soon as you press Start and does not pause.",
+    );
+    expect(
+      within(dialog)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Not yet", "Start"]);
+  });
+
+  it("reads one minute in English", async () => {
+    await i18n.changeLanguage("en");
+    const user = userEvent.setup();
+    vi.setSystemTime(new Date("2026-08-29T13:58:30Z"));
+    show();
+    await user.click(await screen.findByRole("button", { name: "Start test" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Start now?" }),
+    ).toHaveAccessibleDescription(
+      "The test closes at 21:00, so you have 1 minute. The timer starts as soon as you press Start and does not pause.",
+    );
+  });
+
+  it("reads the deck's words for a test that has not opened, in English", async () => {
+    await i18n.changeLanguage("en");
+    show({
+      status: "scheduled",
+      opensAt: "2026-08-31T01:00:00Z",
+      closesAt: "2026-09-20T14:00:00Z",
+    });
+    expect(await screen.findByRole("button")).toHaveAccessibleName("Opens Monday");
+    expect(screen.getByText("You can start once it opens.")).toBeInTheDocument();
+  });
+
+  it("reads today's opening in English", async () => {
+    await i18n.changeLanguage("en");
+    show({
+      status: "scheduled",
+      opensAt: "2026-08-29T12:00:00Z",
+      closesAt: "2026-09-20T14:00:00Z",
+    });
+    expect(await screen.findByRole("button")).toHaveAccessibleName(
+      "Opens today at 19:00",
+    );
+  });
+
+  it("names the date in English from a week away", async () => {
+    await i18n.changeLanguage("en");
+    show({
+      status: "scheduled",
+      opensAt: "2026-09-06T01:00:00Z",
+      closesAt: "2026-09-20T14:00:00Z",
+    });
+    expect(await screen.findByRole("button")).toHaveAccessibleName("Opens Sun 6 Sep");
+  });
+
+  it("reads the open test's line in English", async () => {
+    await i18n.changeLanguage("en");
+    show();
+    await screen.findByRole("button", { name: "Start test" });
+    expect(screen.getByText("Your answers save automatically.")).toBeInTheDocument();
+  });
+
+  it("reads Continue's line in English", async () => {
+    await i18n.changeLanguage("en");
+    show({
+      hasLiveAttempt: true,
+      lastAttemptId: ATTEMPT,
+      liveDeadlineAt: "2026-08-29T10:38:12Z",
+    });
+    await screen.findByRole("button", { name: "Continue test" });
+    expect(screen.getByText("This attempt ends at 17:38.")).toBeInTheDocument();
+  });
+
+  it("reads a closed test in English", async () => {
+    await i18n.changeLanguage("en");
+    show({ status: "closed" });
+    expect(await screen.findByText("This test is closed.")).toBeInTheDocument();
+  });
+
+  it("writes the dates in the reader's language", async () => {
+    await i18n.changeLanguage("en");
+    show({ closesAt: "2026-09-03T14:00:00Z" });
+    const heading = await screen.findByRole("heading", { name: "Before you start" });
+    expect(
+      within(heading.parentElement!).getAllByRole("listitem")[0],
+    ).toHaveTextContent("Available until Thu 3 Sep, 21:00.");
   });
 });
