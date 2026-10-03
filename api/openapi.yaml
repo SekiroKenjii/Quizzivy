@@ -1319,8 +1319,9 @@ components:
     StudentAssignmentDetail:
       type: object
       description: |
-        The intro screen's card: everything StudentAssignmentCard carries plus
-        the policies §10.2 states in plain Vietnamese before the student starts.
+        The intro screen's card: what StudentAssignmentCard carries, without
+        `classId` and `liveAnsweredCount`, plus the policies §10.2 states in
+        plain Vietnamese before the student starts.
       required:
         [id, testTitle, status, opensAt, closesAt, durationMinutes,
          attemptsUsed, maxAttempts, questionCount, totalPoints, review,
@@ -3052,7 +3053,7 @@ components:
         liveDeadlineAt:
           type: [string, 'null']
           format: date-time
-          description: The live attempt's deadline. Null exactly when `hasLiveAttempt` is false.
+          description: The live attempt's deadline. Absent exactly when `hasLiveAttempt` is false.
         liveAnsweredCount:
           type: [integer, 'null']
           minimum: 0
@@ -3061,7 +3062,7 @@ components:
             rule the engine's navigator uses: a choice with an option picked, a
             true/false with a value, a text that is not blank, a fill-in with
             every blank filled. An answer that exists only in the browser's
-            draft is not counted. Null exactly when `hasLiveAttempt` is false.
+            draft is not counted. Absent exactly when `hasLiveAttempt` is false.
         score:
           oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
           description: Only when the assignment's `review.showScore` is on.
