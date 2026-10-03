@@ -22,6 +22,12 @@ pnpm e2e               # Playwright
 `*.spec.ts`, and picking up Playwright specs fails with a confusing "two
 different versions of @playwright/test".
 
+## Local runs
+
+Outside CI the suite runs with three workers and a 15-second test limit
+(`vite.config.ts`). CI keeps vitest's defaults, so a test that is too slow still
+fails there. Pass `--maxWorkers=<n>` to use more workers on an idle machine.
+
 ## Where a new test goes
 
 Ask what it would take to make it fail for a reason unrelated to the thing it
