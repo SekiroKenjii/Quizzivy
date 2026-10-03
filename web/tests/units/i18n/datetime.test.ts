@@ -28,7 +28,7 @@ describe("the one set of formatters", () => {
     expect(sameAppDay(instant, "2026-09-06T16:30:00Z")).toBe(false);
   });
 
-  it("counts down the same way on the paper and on the card", () => {
+  it("counts down the same way on the paper and in the teacher's monitor", () => {
     expect(countdown(90 * 60_000)).toBe("1:30:00");
     expect(countdown(44 * 60_000 + 58_000)).toBe("44:58");
     expect(countdown(-5_000)).toBe("00:00");

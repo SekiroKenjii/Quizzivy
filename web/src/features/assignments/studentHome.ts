@@ -2,7 +2,9 @@ import { appDaysUntil, appHour } from "@/lib/i18n/datetime";
 import type { StudentAssignmentCard } from "./api";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const RESULTS = 3;
+
+/** RECENT_RESULTS is how many results Home shows once Grades lists them all. */
+export const RECENT_RESULTS = 3;
 
 /** GreetingPeriod is the part of the day Home greets the student in. */
 export type GreetingPeriod = "morning" | "afternoon" | "evening";
@@ -134,15 +136,14 @@ function sub(
 
 /**
  * homeView turns the student's three lists into what Home draws at `now`.
- *
  * The resume card is the live attempt whose deadline comes first. Coming up
  * holds every other paper still to do, in the order of the dates on their
  * tiles: a paper with an attempt left stays there after a first attempt, and a
- * paper whose window has closed on this clock is left out. Recent results are
- * the three papers attempted last, wherever the server lists them, so a
- * result shows while a retake remains. An attempt that ran out of time and
- * that the server has not closed yet comes first: opening its result is what
- * closes it.
+ * paper whose window has closed on this clock is left out. The results are
+ * every paper with a finished attempt, the one submitted last first, wherever
+ * the server lists them, so a result shows while a retake remains; the page
+ * decides how many to draw. An attempt that ran out of time and that the
+ * server has not closed yet comes first: opening its result is what closes it.
  */
 export function homeView(lists: Lists, now: Date): HomeView {
   const live = lists.dueNow
@@ -161,7 +162,6 @@ export function homeView(lists: Lists, now: Date): HomeView {
   const results = [...lists.completed, ...lists.dueNow, ...lists.upcoming]
     .filter((card) => card.hasLiveAttempt !== true && card.lastAttemptId != null)
     .sort((a, b) => submitted(b) - submitted(a) || a.id.localeCompare(b.id))
-    .slice(0, RESULTS)
     .map((card) => ({ card, outcome: outcome(card) }));
   const empty = resume === null && rows.length === 0 && results.length === 0;
   return { resume, rows, results, sub: sub(resume, rows, empty, now) };

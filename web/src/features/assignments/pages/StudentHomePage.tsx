@@ -13,6 +13,7 @@ import {
   formatTime,
   weekdayName,
 } from "@/lib/i18n/datetime";
+import { modules } from "@/app/modules";
 import { useMinute } from "@/hooks/useTick";
 import { useAuthStore } from "@/stores/auth";
 import { listMyAssignments } from "../api";
@@ -20,7 +21,7 @@ import { ComingUp } from "../components/ComingUp";
 import { HomeSkeleton } from "../components/HomeSkeleton";
 import { RecentResults } from "../components/RecentResults";
 import { ResumeCard } from "../components/ResumeCard";
-import { greetingPeriod, homeView, type HomeSub } from "../studentHome";
+import { greetingPeriod, homeView, RECENT_RESULTS, type HomeSub } from "../studentHome";
 import { givenName } from "../studentTime";
 
 function subLine(sub: HomeSub, now: Date, locale: Locale, t: TFunction): string | null {
@@ -55,7 +56,8 @@ function subLine(sub: HomeSub, now: Date, locale: Locale, t: TFunction): string 
  * it is derived from the assignment lists the shell's badge also reads, and
  * from the clock: the page repaints each minute, so a tab left open does not
  * keep yesterday's greeting and pills. A list that has loaded stays on screen
- * when a later refetch fails.
+ * when a later refetch fails. Until Grades ships, every result is listed, not
+ * the deck's three: Home is then the only screen that links to one.
  */
 export default function StudentHomePage() {
   const { t, i18n } = useTranslation();
@@ -74,6 +76,7 @@ export default function StudentHomePage() {
   const view = assignments.data === undefined ? null : homeView(assignments.data, now);
   const line = view === null ? null : subLine(view.sub, now, locale, t);
   const nothing = view?.sub.kind === "none";
+  const results = view?.results.slice(0, modules.grades ? RECENT_RESULTS : undefined);
 
   return (
     <div className="mx-auto flex w-full max-w-240 flex-col gap-6">
@@ -114,8 +117,8 @@ export default function StudentHomePage() {
         <ResumeCard key={view.resume.id} card={view.resume} />
       )}
       {view !== null && view.rows.length > 0 && <ComingUp rows={view.rows} now={now} />}
-      {view !== null && view.results.length > 0 && (
-        <RecentResults results={view.results} />
+      {results !== undefined && results.length > 0 && (
+        <RecentResults results={results} />
       )}
     </div>
   );

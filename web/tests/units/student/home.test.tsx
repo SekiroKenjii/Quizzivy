@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { delay, http } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { focusManager } from "@tanstack/react-query";
 import StudentHomePage from "@/features/assignments/pages/StudentHomePage";
 import i18n from "@/lib/i18n";
@@ -9,7 +9,17 @@ import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { useAuthStore } from "@/stores/auth";
 import { viewport } from "@tests/support/viewport";
-import { ATTEMPT, BASE, card, mockStart, renderAt } from "./support";
+import { Toaster, toast } from "@/components/ui/sonner";
+import { ASSIGNMENT, ATTEMPT, BASE, card, mockStart, renderAt } from "./support";
+
+const flags = vi.hoisted(() => ({
+  notifications: false,
+  messages: false,
+  schedule: false,
+  grades: false,
+  learn: false,
+}));
+vi.mock("@/app/modules", () => ({ modules: flags }));
 
 const SAMPLE_CLASS = {
   id: "018f0000-0000-7000-8000-0000000000c1",
@@ -45,7 +55,15 @@ function serve(lists: Lists, classes: unknown[] = [SAMPLE_CLASS]) {
 
 function show() {
   return renderAt("/app", [
-    { path: "/app", element: <StudentHomePage /> },
+    {
+      path: "/app",
+      element: (
+        <>
+          <StudentHomePage />
+          <Toaster />
+        </>
+      ),
+    },
     { path: "/app/assignments/:id", element: <p>intro page</p> },
     { path: "/app/attempts/:id/result", element: <p>result page</p> },
   ]);
@@ -106,6 +124,10 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
 });
 afterEach(async () => {
+  act(() => {
+    toast.dismiss();
+  });
+  flags.grades = false;
   vi.useRealTimers();
   vi.unstubAllGlobals();
   focusManager.setFocused();
@@ -138,6 +160,8 @@ describe("the greeting and the line under it", () => {
   it.each([
     ["2026-09-01T01:00:00Z", "Listening practice 03, thứ ba."],
     ["2026-08-29T12:00:00Z", "Listening practice 03, mở lúc 19:00 hôm nay."],
+    ["2026-08-29T17:00:00Z", "Listening practice 03, chủ nhật."],
+    ["2026-09-04T16:59:00Z", "Listening practice 03, thứ sáu."],
     ["2026-09-04T17:00:00Z", "Listening practice 03, 05/09."],
   ])("names the next paper, opening at %s", async (opensAt, tail) => {
     home({ upcoming: [scheduled({ opensAt })] });
@@ -175,7 +199,9 @@ describe("the resume card", () => {
         live({ className: "IELTS Foundation", questionCount: 8, liveAnsweredCount: 3 }),
       ],
     });
-    expect(await screen.findByText("Đang làm · còn 38 phút")).toBeInTheDocument();
+    expect(await screen.findByText("Đang làm · còn 38 phút")).toHaveClass(
+      "bg-info-soft",
+    );
     expect(
       screen.getByRole("heading", { level: 2, name: "Unit 5 — Present perfect" }),
     ).toBeInTheDocument();
@@ -196,17 +222,86 @@ describe("the resume card", () => {
     expect(calls).toEqual(["start"]);
   });
 
-  it("says why it could not resume and lets the student try again", async () => {
+  it("says why it could not resume, and the reason outlives the card", async () => {
     const user = userEvent.setup();
     mockStart(409);
     home({ dueNow: [live()] });
     const resume = await screen.findByRole("button", { name: "Tiếp tục làm bài" });
+    serve({ completed: [done(1, { id: card().id, lastAttemptId: ATTEMPT })] });
     await user.click(resume);
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    await waitFor(() => expect(asked).toBe(2));
+    await screen.findByRole("heading", { level: 2, name: "Kết quả gần đây" });
+    expect(screen.queryByRole("button", { name: "Tiếp tục làm bài" })).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent(
       "Bạn đã dùng hết số lượt làm bài.",
     );
-    expect(resume).toBeEnabled();
+  });
+
+  it("lets the student try again when the server could not be reached", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, () =>
+        HttpResponse.error(),
+      ),
+    );
+    home({ dueNow: [live()] });
+    const resume = await screen.findByRole("button", { name: "Tiếp tục làm bài" });
+    await user.click(resume);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không bắt đầu được. Hãy thử lại.",
+    );
     await waitFor(() => expect(asked).toBe(2));
+    expect(resume).toBeEnabled();
+  });
+
+  it("holds the button while the resume is on its way", async () => {
+    const user = userEvent.setup();
+    let started = 0;
+    server.use(
+      http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, async () => {
+        started += 1;
+        await delay("infinite");
+        return new Response(null, { status: 500 });
+      }),
+    );
+    home({ dueNow: [live()] });
+    const resume = await screen.findByRole("button", { name: "Tiếp tục làm bài" });
+    await user.click(resume);
+    await waitFor(() => expect(started).toBe(1));
+    expect(resume).toBeDisabled();
+  });
+
+  it("puts the attempt in progress above what is coming up", async () => {
+    home({
+      dueNow: [
+        live({ testTitle: "Taking" }),
+        card({ id: id(2), testTitle: "Waiting" }),
+      ],
+      completed: [done(3)],
+    });
+    await screen.findByRole("heading", { level: 2, name: "Taking" });
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
+    ).toEqual(["Taking", "Sắp tới", "Kết quả gần đây"]);
+  });
+
+  it("drops a minute when the time left crosses it, not when the clock's minute turns", async () => {
+    home({ dueNow: [live({ liveDeadlineAt: "2026-08-29T10:22:14Z" })] });
+    expect(await screen.findByText("Đang làm · còn 22 phút")).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(20_000));
+    expect(screen.getByText("Đang làm · còn 21 phút")).toBeInTheDocument();
+  });
+
+  it("says no time on the card, and the window's close, when no deadline came", async () => {
+    home({ dueNow: [live({ liveDeadlineAt: null })] });
+    expect(await screen.findByText("Đang làm")).toBeInTheDocument();
+    expect(screen.getByText(/ · đóng 21:00 hôm nay$/)).toBeInTheDocument();
+  });
+
+  it("rounds the bar to the nearest percent", async () => {
+    home({ dueNow: [live({ questionCount: 3, liveAnsweredCount: 1 })] });
+    const meta = await screen.findByText(/^1\/3 câu đã trả lời · /);
+    expect(meta.nextElementSibling?.firstElementChild).toHaveStyle({ width: "33%" });
   });
 
   it("reads nothing answered when the count did not come", async () => {
@@ -266,7 +361,8 @@ describe("the resume card", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Tiếp tục làm bài" })).toHaveLength(1);
     expect(row("Later")).toHaveAttribute("href", `/app/assignments/${card().id}`);
-    expect(within(row("Later")).getByText("Đang làm")).toBeInTheDocument();
+    expect(within(row("Later")).getByText("Đang làm")).toHaveClass("bg-info-soft");
+    expect(row("Later").querySelector("[aria-hidden='true']")).toHaveClass("bg-muted");
     expect(screen.getByText("2 bài")).toBeInTheDocument();
   });
 });
@@ -326,19 +422,23 @@ describe("coming up", () => {
   });
 
   it.each([
-    ["2026-08-29T14:00:00Z", "Hạn hôm nay", "bg-warning-soft"],
-    ["2026-08-30T09:59:00Z", "Hạn ngày mai", "bg-warning-soft"],
-    ["2026-08-30T10:01:00Z", "Đang mở", "bg-muted"],
-  ])("reads a paper closing at %s as %s", async (closesAt, pill, tile) => {
+    ["2026-08-29T14:00:00Z", "Hạn hôm nay", "warning", "bg-warning-soft"],
+    ["2026-08-30T09:59:00Z", "Hạn ngày mai", "warning", "bg-warning-soft"],
+    ["2026-08-30T10:01:00Z", "Đang mở", "success", "bg-muted"],
+  ])("reads a paper closing at %s as %s", async (closesAt, pill, tone, tile) => {
     home({ dueNow: [card({ closesAt })] });
     const link = await screen.findByRole("link", { name: /Unit 5/ });
-    expect(within(link).getByText(pill)).toBeInTheDocument();
+    expect(within(link).getByText(pill)).toHaveClass(
+      `in-data-[scale=deck]:bg-${tone}-soft`,
+    );
     expect(link.querySelector("[aria-hidden='true']")).toHaveClass(tile);
   });
 
   it.each([
     ["2026-09-01T01:00:00Z", "Mở T3", "T3", "1"],
     ["2026-08-29T12:00:00Z", "Mở 19:00", "T7", "29"],
+    ["2026-08-29T17:00:00Z", "Mở CN", "CN", "30"],
+    ["2026-09-04T16:59:00Z", "Mở T6", "T6", "4"],
     ["2026-09-04T17:00:00Z", "Mở 05/09", "T7", "5"],
   ])("says a paper opening at %s %s", async (opensAt, pill, weekday, day) => {
     home({ upcoming: [scheduled({ opensAt })] });
@@ -380,23 +480,38 @@ describe("coming up", () => {
 });
 
 describe("recent results", () => {
-  it("shows the three submitted last, newest first, with a score", async () => {
-    home({
-      completed: [
-        done(1, { lastSubmittedAt: "2026-08-25T03:00:00Z" }),
-        done(2, {
-          lastSubmittedAt: "2026-08-28T03:00:00Z",
-          score: { earned: 27, total: 30, pendingManual: 0 },
-        }),
-        done(3, { lastSubmittedAt: "2026-08-26T03:00:00Z" }),
-        done(4, { lastSubmittedAt: "2026-08-27T03:00:00Z" }),
-      ],
-    });
+  const FOUR = [
+    done(1, { lastSubmittedAt: "2026-08-25T03:00:00Z" }),
+    done(2, {
+      lastSubmittedAt: "2026-08-28T03:00:00Z",
+      score: { earned: 27, total: 30, pendingManual: 0 },
+    }),
+    done(3, { lastSubmittedAt: "2026-08-26T03:00:00Z" }),
+    done(4, { lastSubmittedAt: "2026-08-27T03:00:00Z" }),
+  ];
+
+  it("lists every result, newest first, while no other screen links to one", async () => {
+    home({ completed: FOUR });
     expect(
       await screen.findByRole("heading", { level: 2, name: "Kết quả gần đây" }),
     ).toBeInTheDocument();
-    expect(titles(/Paper \d/)).toEqual(["Paper 2", "Paper 4", "Paper 3"]);
+    expect(titles(/Paper \d/)).toEqual(["Paper 2", "Paper 4", "Paper 3", "Paper 1"]);
     expect(within(row("Paper 2")).getByText("27 / 30")).toBeInTheDocument();
+  });
+
+  it("shows the three submitted last once Grades lists them all", async () => {
+    flags.grades = true;
+    home({ completed: FOUR });
+    await screen.findByRole("heading", { level: 2, name: "Kết quả gần đây" });
+    expect(titles(/Paper \d/)).toEqual(["Paper 2", "Paper 4", "Paper 3"]);
+  });
+
+  it("keeps the decimals a score has", async () => {
+    home({
+      completed: [done(1, { score: { earned: 7.5, total: 10, pendingManual: 0 } })],
+    });
+    const link = within(await screen.findByRole("link", { name: /Paper 1/ }));
+    expect(link.getByText("7,5 / 10")).toBeInTheDocument();
   });
 
   it("says a paper is being graded and keeps the part score to itself", async () => {
@@ -542,6 +657,24 @@ describe("the states the deck does not draw", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
+  it("draws no skeleton beside a paper while the classes are still loading", async () => {
+    serve({ dueNow: [card()] });
+    server.use(http.get(`${BASE}/app/classes`, () => delay("infinite")));
+    show();
+    await screen.findByRole("link", { name: /Unit 5/ });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("draws no skeleton while a later refetch is in flight", async () => {
+    home({ dueNow: [card()] });
+    await screen.findByRole("link", { name: /Unit 5/ });
+    server.use(http.get(`${BASE}/app/assignments`, () => delay("infinite")));
+    act(() => focusManager.setFocused(false));
+    act(() => focusManager.setFocused(true));
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("keeps the lists on screen when a later refetch fails", async () => {
     home({ dueNow: [card()] });
     await screen.findByRole("link", { name: /Unit 5/ });
@@ -609,6 +742,22 @@ describe("in English", () => {
     expect(within(row("Paper 5")).getByText("27 / 30")).toBeInTheDocument();
     expect(within(row("Paper 5")).getByText("Wed 26 Aug")).toBeInTheDocument();
     expect(within(row("Paper 6")).getByText("Being graded")).toBeInTheDocument();
+  });
+
+  it("writes the weekday and the date of an opening", async () => {
+    await i18n.changeLanguage("en");
+    home({
+      upcoming: [
+        scheduled(),
+        scheduled({ id: id(5), testTitle: "Far", opensAt: "2026-09-04T17:00:00Z" }),
+      ],
+    });
+    expect(
+      await screen.findByText(
+        "Nothing due today. Next up: Listening practice 03 on Tuesday.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(row("Far")).getByText("Opens 5 Sep")).toBeInTheDocument();
   });
 
   it("counts one test as one", async () => {

@@ -88,7 +88,9 @@ export function ComingUp({
                   <span className="text-body block leading-[1.35] font-medium break-words">
                     {card.testTitle}
                   </span>
-                  <span className="text-muted-fg block text-sm leading-4">{meta}</span>
+                  <span className="text-muted-fg block text-sm leading-4 break-words">
+                    {meta}
+                  </span>
                 </span>
                 <Badge
                   variant={TONE[pill].variant}

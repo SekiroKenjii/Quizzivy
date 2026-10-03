@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { useTick } from "@/hooks/useTick";
 import { ApiError } from "@/lib/api/errors";
+import { notify } from "@/lib/toast";
 import { clockTime, formatTime, sameAppDay } from "@/lib/i18n/datetime";
 import type { StudentAssignmentCard } from "../api";
 import { minutesLeft } from "../studentHome";
@@ -19,14 +20,14 @@ import { HOME_PILL } from "./homeStyles";
  * button goes straight to the paper: the rules were read when the attempt
  * began. The minutes repaint as they pass; nothing is fetched to do so. When
  * the server refuses to resume, the lists are read again, so a card for an
- * attempt that has ended does not stay.
+ * attempt that has ended does not stay; the reason is a toast, because it has
+ * to outlive the card.
  */
 export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const deadline = card.liveDeadlineAt ?? null;
   useTick(deadline !== null);
   const now = new Date();
@@ -46,12 +47,11 @@ export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) 
 
   const resume = async () => {
     setBusy(true);
-    setError(null);
     try {
       const session = await startOrResumeAttempt(card.id);
       await navigate(`/app/attempts/${session.attempt.id}`);
     } catch (cause) {
-      setError(
+      notify.error(
         cause instanceof ApiError ? cause.message : t("student.intro.startFailed"),
       );
       setBusy(false);
@@ -78,11 +78,6 @@ export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) 
         >
           <span className="bg-brand block h-full" style={{ width: `${share}%` }} />
         </div>
-        {error !== null && (
-          <p role="alert" className="text-danger-ink text-sm">
-            {error}
-          </p>
-        )}
       </div>
       <Button
         size="xl"

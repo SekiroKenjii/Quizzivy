@@ -98,6 +98,10 @@ describe("the pill on an open paper", () => {
     expect(row?.moment).toBe("2026-08-31T15:00:00Z");
   });
 
+  it("reads as open when the server says so, though its opening is ahead on this clock", () => {
+    expect(pillOf(paper(1, { opensAt: "2026-08-29T10:05:00Z" }))).toEqual(["open"]);
+  });
+
   it("keeps a paper with an attempt left as still to do", () => {
     expect(
       pillOf(
@@ -130,6 +134,12 @@ describe("the pill on a paper not yet open", () => {
     expect(
       pillOf(paper(1, { ...scheduled, opensAt: "2026-08-29T10:00:00.001Z" })),
     ).toEqual(["opens"]);
+  });
+
+  it("is open at the millisecond it opens", () => {
+    expect(
+      pillOf(paper(1, { status: "scheduled", opensAt: NOW.toISOString() })),
+    ).toEqual(["open"]);
   });
 });
 
@@ -168,7 +178,20 @@ describe("the resume card", () => {
     expect(view({ dueNow: [paper(1)] }).resume).toBeNull();
   });
 
-  it("keeps a second live attempt in progress whatever its deadline", () => {
+  it("keeps a second live attempt whose window has closed on this clock", () => {
+    const v = view({
+      dueNow: [
+        live(1, { liveDeadlineAt: "2026-08-29T09:50:00Z" }),
+        live(2, {
+          liveDeadlineAt: "2026-08-29T09:55:00Z",
+          closesAt: "2026-08-29T09:55:00Z",
+        }),
+      ],
+    });
+    expect(v.rows.map((r) => r.pill)).toEqual(["inProgress"]);
+  });
+
+  it("keeps a second live attempt in progress when its deadline is within the day", () => {
     const v = view({
       dueNow: [
         live(1, { liveDeadlineAt: "2026-08-29T10:15:00Z" }),
@@ -206,7 +229,7 @@ describe("coming up", () => {
 });
 
 describe("recent results", () => {
-  it("are the three submitted last, newest first", () => {
+  it("are every finished paper, the one submitted last first", () => {
     const v = view({
       completed: [
         done(1, { lastSubmittedAt: "2026-08-25T03:00:00Z" }),
@@ -215,7 +238,7 @@ describe("recent results", () => {
         done(5, { lastSubmittedAt: "2026-08-27T03:00:00Z" }),
       ],
     });
-    expect(v.results.map((r) => r.card.id)).toEqual([id(2), id(5), id(3)]);
+    expect(v.results.map((r) => r.card.id)).toEqual([id(2), id(5), id(3), id(1)]);
   });
 
   it("put an attempt the server has not closed yet first, so its result can be opened", () => {
@@ -223,12 +246,11 @@ describe("recent results", () => {
       completed: [
         done(3, { lastSubmittedAt: "2026-08-28T03:00:00Z" }),
         done(4, { lastSubmittedAt: "2026-08-27T03:00:00Z" }),
-        done(5, { lastSubmittedAt: "2026-08-26T03:00:00Z" }),
         done(2, { lastSubmittedAt: null }),
         done(1, { lastSubmittedAt: null }),
       ],
     });
-    expect(v.results.map((r) => r.card.id)).toEqual([id(1), id(2), id(3)]);
+    expect(v.results.map((r) => r.card.id)).toEqual([id(1), id(2), id(3), id(4)]);
   });
 
   it("include a submitted paper the teacher has since moved to open later", () => {
@@ -311,6 +333,12 @@ describe("the line under the greeting", () => {
       kind: "live",
       closes: "2026-08-29T10:38:12Z",
     });
+  });
+
+  it("is about the live attempt even when another paper closes today", () => {
+    expect(
+      view({ dueNow: [live(1), paper(2, { closesAt: "2026-08-29T14:00:00Z" })] }).sub,
+    ).toEqual({ kind: "live", closes: "2026-08-29T10:38:12Z" });
   });
 
   it("counts the papers closing today when nothing is live", () => {
