@@ -338,7 +338,7 @@ describe.each(["desktop", "phone"] as const)("over the engine on a %s", (width) 
     const recorded = pendingEvents().length;
     leaveAndReturn();
     expect(pendingEvents()).toHaveLength(recorded);
-    expect(screen.queryByText("Bạn vừa rời khỏi trang làm bài")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
 
     const later = new Date(deadline + 10 * MINUTE).toISOString();
     saves(() =>
@@ -389,7 +389,7 @@ describe.each(["desktop", "phone"] as const)("over the engine on a %s", (width) 
 
     leaveAndReturn();
     expect(pendingEvents()).toEqual([]);
-    expect(screen.queryByText("Bạn vừa rời khỏi trang làm bài")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   it("counts a departure again once the overlay is gone", async () => {

@@ -25,15 +25,17 @@ import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navi
 import { GroupContext, GroupListening } from "../components/GroupContext";
 import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
 import { QuestionCard } from "../components/QuestionCard";
-import { ReviewScreen } from "../components/ReviewScreen";
 import { SaveStrip } from "../components/SaveState";
 import { SectionInstructions } from "../components/SectionInstructions";
+import { SubmitDialog } from "../components/SubmitDialog";
 import { SubmittedScreen } from "../components/SubmittedScreen";
 import { clearSession } from "@/features/integrity/buffer";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
+import { exitFullscreen } from "@/features/integrity/fullscreen";
 import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
 import { StrikeIndicator } from "@/features/integrity/components/StrikeIndicator";
 import { strikeState } from "@/features/integrity/strikes";
+import { useClipboardNotice } from "@/features/integrity/useClipboardNotice";
 import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { answered } from "../answered";
 import { getAttempt, type Answer, type StudentQuestion } from "../api";
@@ -49,12 +51,16 @@ import { useTakeTestStore } from "../store";
 import { useLeave } from "../useLeave";
 
 /**
- * TakeTestPage is the engine, one question at a time, with two other views of
- * the same attempt: the navigator (a sheet in thumb range, a rail from 768px)
- * and the review before submitting. The header is the deck's at every width.
- * From 768px there is no sticky footer and the two buttons sit under the
- * answer at their own width; below it a strip under the header says when a
- * save has failed or the device is offline, and is otherwise absent.
+ * TakeTestPage is the engine, one question at a time, with the navigator
+ * beside it (a sheet in thumb range, a rail from 768px) and the deck's Submit
+ * dialog over it, which is the only way to hand the paper in. The header is
+ * the deck's at every width. From 768px there is no sticky footer and the two
+ * buttons sit under the answer at their own width; below it a strip under the
+ * header says when a save has failed or the device is offline, and is
+ * otherwise absent. Once the attempt is submitted, by the student, the timer
+ * or an auto-submit, the page shows the submitted screen and leaves the
+ * fullscreen the assignment asked for. From then on no fullscreen change is
+ * recorded, so that exit is never noted as the student's.
  */
 export default function TakeTestPage() {
   const { t } = useTranslation();
@@ -65,7 +71,7 @@ export default function TakeTestPage() {
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [loadError, setLoadError] = useState<unknown>(null);
   const [index, setIndex] = useState(0);
-  const [view, setView] = useState<"question" | "review">("question");
+  const [submitAsked, setSubmitAsked] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
   const questions = useTakeTestStore((s) => s.questions);
@@ -92,17 +98,31 @@ export default function TakeTestPage() {
     [sections, questions],
   );
   const question = questions[Math.min(index, questions.length - 1)];
+  const ended = submitState === "done";
 
-  // Every §10 listener, in one place.
-  const { strikes, lastAwayMs, fullscreen } = useIntegrityMonitor({
+  const { strikes, fullscreen } = useIntegrityMonitor({
     attemptId: attemptId ?? null,
     sessionId,
     beaconToken,
-    policy: integrity,
-    questionId: view === "question" ? (question?.id ?? null) : null,
+    policy:
+      ended && integrity !== null
+        ? { ...integrity, requireFullscreen: false }
+        : integrity,
+    questionId: question?.id ?? null,
   });
 
   const autoSubmitting = useIntegrityAutoSubmit(focusLossCount + strikes);
+  useClipboardNotice(
+    attemptId !== undefined && sessionId !== null && integrity?.blockCopyPaste === true,
+  );
+
+  const sealed = lock === "superseded" || lock === "closed";
+  if (sealed && submitAsked) setSubmitAsked(false);
+
+  const asksFullscreen = integrity?.requireFullscreen === true;
+  useEffect(() => {
+    if (ended && asksFullscreen) void exitFullscreen();
+  }, [ended, asksFullscreen]);
 
   useEffect(() => {
     if (attemptId === undefined) return;
@@ -131,13 +151,7 @@ export default function TakeTestPage() {
   );
 
   const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
-    if (
-      view !== "question" ||
-      navOpen ||
-      lock !== null ||
-      submitState !== "idle" ||
-      question === undefined
-    )
+    if (navOpen || lock !== null || submitState !== "idle" || question === undefined)
       return;
     if (
       event.defaultPrevented ||
@@ -157,7 +171,7 @@ export default function TakeTestPage() {
     switch (event.key) {
       case "ArrowRight":
         event.preventDefault();
-        if (index === questions.length - 1) setView("review");
+        if (index === questions.length - 1) setSubmitAsked(true);
         else setIndex(index + 1);
         return;
       case "ArrowLeft":
@@ -192,7 +206,7 @@ export default function TakeTestPage() {
   const jump = useCallback((i: number) => {
     setIndex(i);
     setNavOpen(false);
-    setView("question");
+    setSubmitAsked(false);
   }, []);
 
   if (status === "loading") {
@@ -246,31 +260,12 @@ export default function TakeTestPage() {
     ? strikeState(integrity, focusLossCount + strikes)
     : null;
   const strikeDialog = strikeStatus !== null && (
-    <StrikeDialog state={strikeStatus} strikes={strikes} lastAwayMs={lastAwayMs} />
+    <StrikeDialog state={strikeStatus} strikes={strikes} />
   );
   const strikeIndicator =
     strikeStatus === null || strikeStatus.limit === null ? null : (
       <StrikeIndicator state={strikeStatus} />
     );
-
-  const leaveDialog = <LeaveDialog leave={leave} />;
-
-  if (view === "review") {
-    return (
-      <>
-        <ReviewScreen
-          wide={wide}
-          dots={dots}
-          groups={groups}
-          status={strikeIndicator}
-          onBack={() => setView("question")}
-          onJump={jump}
-        />
-        {strikeDialog}
-        {leaveDialog}
-      </>
-    );
-  }
 
   return (
     <>
@@ -290,11 +285,17 @@ export default function TakeTestPage() {
         onLeave={leave.ask}
         onMove={setIndex}
         onJump={jump}
-        onReview={() => setView("review")}
+        onReview={() => setSubmitAsked(true)}
         onReload={reload}
       />
+      <SubmitDialog
+        open={submitAsked}
+        dots={dots}
+        onClose={() => setSubmitAsked(false)}
+        onGo={jump}
+      />
       {strikeDialog}
-      {leaveDialog}
+      <LeaveDialog leave={leave} />
     </>
   );
 }

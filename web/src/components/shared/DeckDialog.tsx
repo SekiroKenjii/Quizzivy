@@ -22,7 +22,8 @@ const TOP =
  * top below 768, for a dialog with a field, which the phone keyboard would
  * otherwise cover. It is controlled, so it remembers what opened it: on close,
  * focus goes back to that control, or to the `<main>` it was in when the
- * control has gone. Esc and the backdrop close it through `onOpenChange`.
+ * control has gone, unless the page has already put focus somewhere else. Esc
+ * and the backdrop close it through `onOpenChange`.
  */
 export function DeckDialog({
   open,
@@ -57,7 +58,8 @@ export function DeckDialog({
           const target = opener.current?.isConnected ? opener.current : page.current;
           opener.current = null;
           page.current = null;
-          target?.focus();
+          const active = document.activeElement;
+          if (active === null || active === document.body) target?.focus();
         }}
       >
         <div>

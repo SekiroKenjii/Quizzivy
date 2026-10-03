@@ -189,19 +189,23 @@ describe("the header at 1280", () => {
     for (const digit of digits) expect(digit).toHaveClass("inline-block", "w-[1ch]");
   });
 
-  it("opens the review from Submit, where the header keeps the way back and no second Submit", async () => {
+  it("opens the Submit dialog from Submit, over a header that stays the paper's", async () => {
     await open();
     fireEvent.click(banner().getByRole("button", { name: "Nộp bài" }));
+    await pass(0);
 
     expect(
-      screen.getByRole("heading", { name: "Xem lại trước khi nộp" }),
+      screen.getByRole("dialog", { name: "Nộp bài khi còn 2 câu chưa trả lời?" }),
     ).toBeInTheDocument();
-    expect(banner().getByRole("button", { name: "Quay lại bài" })).toBeInTheDocument();
-    expect(banner().queryByRole("button", { name: "Nộp bài" })).toBeNull();
-    expect(banner().queryByRole("button", { name: "Thoát khỏi bài làm" })).toBeNull();
-    expect(screen.getAllByRole("button", { name: "Nộp bài" })).toHaveLength(1);
-    expect(timer()).toBeInTheDocument();
-    expect(banner().getByText(SAVED)).toBeInTheDocument();
+    const under = within(screen.getByRole("banner", { hidden: true }));
+    expect(
+      under
+        .getAllByRole("button", { hidden: true })
+        .map((control) => control.getAttribute("aria-label") ?? control.textContent),
+    ).toEqual(["Thoát khỏi bài làm", "Nộp bài"]);
+    expect(screen.getByRole("timer", { hidden: true })).toHaveTextContent("38:12");
+    expect(under.getByText(SAVED)).toBeInTheDocument();
+    expect(screen.getByRole("main", { hidden: true })).toBeInTheDocument();
   });
 
   it("says Saving from the keystroke until the server confirms, however long that takes", async () => {
@@ -286,24 +290,6 @@ describe("the header at 1280", () => {
     expect(banner().getByText("Còn 2 lần rời trang")).toBeInTheDocument();
     expect(banner().getByText(SAVED)).toBeInTheDocument();
     expect(strip()).toBeNull();
-  });
-
-  it("keeps the strike count in the review's header", async () => {
-    await open(DECK_LEFT, {
-      integrity: {
-        requireFullscreen: false,
-        blockCopyPaste: true,
-        maxFocusLoss: 2,
-        onLimitExceeded: "flag",
-        minAwayMs: 3000,
-      },
-    });
-    fireEvent.click(banner().getByRole("button", { name: "Nộp bài" }));
-
-    expect(
-      screen.getByRole("heading", { name: "Xem lại trước khi nộp" }),
-    ).toBeInTheDocument();
-    expect(banner().getByText("Còn 2 lần rời trang")).toBeInTheDocument();
   });
 
   it("draws no strike count when departures are not counted", async () => {
@@ -644,24 +630,7 @@ describe("the header on a phone", () => {
     expect(announced()).toEqual([]);
   });
 
-  it("draws no strip on the review either, until a save fails there", async () => {
-    await open();
-    fireEvent.click(banner().getByRole("button", { name: "Nộp bài" }));
-    expect(
-      screen.getByRole("heading", { name: "Xem lại trước khi nộp" }),
-    ).toBeInTheDocument();
-    expect(strip()).toBeNull();
-
-    vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("boom"));
-    type();
-    expect(strip()).toBeNull();
-    await pass(FLUSH_DEBOUNCE_MS);
-    expect(strip()).toHaveTextContent(FAILED);
-    expect(strip()?.previousElementSibling).toBe(screen.getByRole("banner"));
-    expect(announced()).toEqual([FAILED]);
-  });
-
-  it("keeps the lock message strip as it was", async () => {
+  it("says why a paper is locked in the bar under the header, and draws no save strip", async () => {
     await open();
     vi.mocked(saveAnswers).mockRejectedValueOnce(
       new ApiError({ status: 409, code: "SESSION_SUPERSEDED", message: "elsewhere" }),
@@ -672,7 +641,10 @@ describe("the header on a phone", () => {
     const message = screen.getByText(
       "Bài này đang mở ở thiết bị khác. Bạn không thể sửa ở đây nữa.",
     );
-    expect(message.parentElement).toHaveClass("bg-warning/10", "border-b");
+    expect(message.parentElement).toHaveClass("bg-warning-soft", "border-b");
+    expect(message.parentElement?.previousElementSibling).toBe(
+      screen.getByRole("banner"),
+    );
     expect(strip()).toBeNull();
     expect(screen.queryByText(FAILED)).toBeNull();
   });
@@ -707,31 +679,6 @@ describe("the header on a phone", () => {
     expect(strip()).toBe(row);
     expect(strip()).toHaveTextContent("Còn 2 lần rời trang");
     expect(strip()).not.toHaveTextContent(FAILED);
-  });
-
-  it("keeps the strip on the review: the strike count, and the save line when a save fails", async () => {
-    await open(DECK_LEFT, {
-      integrity: {
-        requireFullscreen: false,
-        blockCopyPaste: true,
-        maxFocusLoss: 2,
-        onLimitExceeded: "flag",
-        minAwayMs: 3000,
-      },
-    });
-    fireEvent.click(banner().getByRole("button", { name: "Nộp bài" }));
-
-    expect(
-      screen.getByRole("heading", { name: "Xem lại trước khi nộp" }),
-    ).toBeInTheDocument();
-    expect(strip()).toHaveTextContent("Còn 2 lần rời trang");
-
-    vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("boom"));
-    type();
-    expect(strip()).not.toHaveTextContent(SAVING);
-    await pass(FLUSH_DEBOUNCE_MS);
-    expect(strip()).toHaveTextContent(FAILED);
-    expect(strip()).toHaveTextContent("Còn 2 lần rời trang");
   });
 
   it("has no header once the paper is submitted", async () => {

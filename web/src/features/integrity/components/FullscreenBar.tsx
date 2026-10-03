@@ -1,32 +1,43 @@
 import { useTranslation } from "react-i18next";
+import { Maximize } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NoticeBar } from "@/features/take-test/components/NoticeBar";
 import { enterFullscreen, fullscreenSupported } from "../fullscreen";
 
 /**
- * Fullscreen exit is not one of S-07's dialogs. It is this inline bar, because
+ * FullscreenBar is the bar under the engine's header while an assignment that
+ * asks for fullscreen is not in it. It is a bar and never a dialog, because
  * Esc must always work and a modal over an exited fullscreen is a trap
- * (§10.2). The paper below stays writable; the bar only offers the way back.
+ * (§10.2): the paper below stays writable and the bar only offers the way
+ * back, in the warning tone with the deck's small bordered button, which
+ * keeps the 44px floor below 1024. The click itself asks for fullscreen, since
+ * a browser grants it only inside a gesture. A browser with no fullscreen gets
+ * one muted sentence and no button.
  */
 export function FullscreenBar() {
   const { t } = useTranslation();
-  const supported = fullscreenSupported();
 
+  if (!fullscreenSupported()) {
+    return (
+      <NoticeBar icon={Maximize} tone="muted">
+        {t("integrity.fullscreenUnsupported")}
+      </NoticeBar>
+    );
+  }
   return (
-    <div className="bg-muted/30 border-b px-4 py-2">
-      <div className="mx-auto flex w-full max-w-[720px] items-center gap-3">
-        <p className="text-muted-foreground flex-1 text-xs leading-relaxed">
-          {t(
-            supported
-              ? "integrity.fullscreenExited"
-              : "integrity.fullscreenUnsupported",
-          )}
-        </p>
-        {supported && (
-          <Button variant="outline" size="sm" onClick={() => void enterFullscreen()}>
-            {t("integrity.fullscreenReturn")}
-          </Button>
-        )}
-      </div>
-    </div>
+    <NoticeBar
+      icon={Maximize}
+      action={
+        <Button
+          variant="outline"
+          className="text-fg in-data-[scale=deck]:text-meta h-8 flex-none shadow-none in-data-[scale=deck]:px-2.5"
+          onClick={() => void enterFullscreen()}
+        >
+          {t("integrity.fullscreenReturn")}
+        </Button>
+      }
+    >
+      {t("integrity.fullscreenExited")}
+    </NoticeBar>
   );
 }
