@@ -41,8 +41,8 @@ type MyClass struct {
 	JoinedAt    time.Time
 }
 
-// JoinCodeInfo is metadata about the ACTIVE code -- never the code itself.
-// The plaintext exists once, in the response that created it (§13.3).
+// JoinCodeInfo is the metadata of a class's active join code, without the
+// code; getJoinCode reads the code itself (§13.3).
 type JoinCodeInfo struct {
 	Hint      string
 	ExpiresAt time.Time
