@@ -76,6 +76,7 @@ between 7 min 40 s and 10 min 33 s for every run.
 |---|---|
 | Every job runs | 4 min 39 s |
 | Every job runs and MinIO is built from source, the first run after `docker/minio` changes | 8 min 43 s |
+| No job has anything new to run | 18 s |
 
 E2E (live API) is the longest job, a little over four minutes; a faster run
 starts there.

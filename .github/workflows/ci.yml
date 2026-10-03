@@ -339,9 +339,11 @@ jobs:
 
   # --------------------------------------------------------- web unit tests
   # Split into shards because the suite is the longest single step on the web
-  # side. scripts/ci/plan.mjs sets the number of shards.
+  # side. scripts/ci/plan.mjs sets the number of shards. The name carries no
+  # expression: GitHub appends the shard itself, and a skipped job would show
+  # an expression unexpanded.
   web-unit:
-    name: Web unit (${{ matrix.shard }}/${{ strategy.job-total }})
+    name: Web unit
     needs: plan
     if: fromJSON(needs.plan.outputs.plan).jobs['web-unit'].run
     runs-on: ubuntu-latest
