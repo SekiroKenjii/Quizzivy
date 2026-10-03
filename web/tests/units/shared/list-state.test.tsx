@@ -50,4 +50,23 @@ describe("F-08's list states", () => {
     );
     expect(screen.queryByText("Mã lỗi")).toBeNull();
   });
+
+  it("lets the request id row wrap and keeps the label whole", () => {
+    const requestId = "019535d9-3df7-79fb-b466-fa907fa17f9e";
+    const error = new ApiError({
+      status: 500,
+      code: "UNKNOWN",
+      message: "boom",
+      requestId,
+    });
+    render(
+      <LoadError error={error} onRetry={() => {}}>
+        Không tải được.
+      </LoadError>,
+    );
+    const id = screen.getByText(requestId);
+    expect(id).toHaveClass("break-all", "min-w-0");
+    expect(id.parentElement).toHaveClass("flex-wrap");
+    expect(screen.getByText("Mã lỗi")).toHaveClass("whitespace-nowrap");
+  });
 });
