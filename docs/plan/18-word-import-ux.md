@@ -98,6 +98,32 @@ turns out to be a scan, locked, broken or too long fails processing with its own
 message and asks for another file (plan 17 §1.39). Replacing a rejected file preserves the other valid
 inputs. A partially uploaded companion key never appears as fully received.
 
+### 4.1 Pasted text (decided 2026-10-03, built in R4)
+
+The same page also takes a test pasted as text in place of the exam file. A
+"Source" switch chooses between uploading a file and pasting. The paste mode
+has a plain text box with a character count against the server's limit, a
+quick count of what was found so far, and no answer-key slot. The layout, copy
+and tests are in `74-r4.md` T-R4.57, the source and its recognition rules in
+T-R4.55 and T-R4.56, and the scope in `17-word-import.md` §1.41.
+
+What the teacher is told holds on every screen:
+
+- **Plain text only.** No screen says formatting was kept, because none is.
+  The source is named by a localized "Pasted text" label taken from its
+  format, never from a stored file name.
+- **The page states the conventions the recognizer reads**, and no others:
+  put a heading on each part, number each question, put each option on its
+  own line, and mark the answer with `*` after the correct option, an
+  "Answer: B" line or one "Answer key: 1-B 2-C" line.
+- **The quick count follows the server's rules** for text sources, so it
+  cannot contradict the review. It is a hint; the full check runs in
+  processing.
+- **Later screens name the text, not a file.** Processing checks the text
+  rather than the files, review shows the one source as pasted, and the
+  original downloads as a `.txt`. A failed pasted import offers a new import,
+  which opens the paste mode again.
+
 ## 5. Screen WU-03 — durable processing
 
 Compact real stages: “Kiểm tra tệp” → “Đọc nội dung” → “Nhận diện cấu trúc” →

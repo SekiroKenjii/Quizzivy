@@ -146,13 +146,14 @@ integration test asserts they are equal. Labels and defaults are the deck's
   `workspace.admin` (holds `people.users.manage`, `people.roles.manage`, `system.audit.read`,
   `system.settings.write` or `scope.all`).
 - **Capabilities the matrix does not draw** (DG-50) map as follows until the deck draws rows:
-  imports → `content.tests.write`; question sets → `content.questions.write`; word lists →
-  `content.questions.write`; courses and lessons → `content.tests.write`; class sessions and
-  calendar → view `workspace.teacher`, edit `teaching.classes.write`; messages → staff
-  `workspace.teacher`, students `learning.take_tests`; announcements → `teaching.classes.write`;
-  gradebook and exports → `teaching.grading`; reports → `people.students.read`; terms →
-  `system.settings.write`; data export → `system.data_export`; leads → `system.leads`; API
-  reference → `system.api_reference`; assigning a word list or course to classes →
+  imports, from a file or from pasted text → `content.tests.write`; question sets →
+  `content.questions.write`; word lists → `content.questions.write`; courses and lessons →
+  `content.tests.write`; class sessions and calendar → view `workspace.teacher`, edit
+  `teaching.classes.write`; messages → staff `workspace.teacher`, students
+  `learning.take_tests`; announcements → `teaching.classes.write`; gradebook and exports →
+  `teaching.grading`; reports → `people.students.read`; terms → `system.settings.write`; data
+  export → `system.data_export`; leads → `system.leads`; API reference →
+  `system.api_reference`; assigning a word list or course to classes →
   `teaching.assignments.write`; word-list stats and course progress → `people.students.read`;
   attendance session lists → `teaching.attendance`.
 - **One role per user.** Built-in roles carry an immutable `builtin_key` (admin, teacher,
@@ -329,7 +330,9 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
   test from this file", "Delete import" and "Process again" after a cancel. R4 gates them all.
   Default: built, as D1 requires, in R6 beside T-R6.13; `76-r6.md` gains their backend and UI
   tasks when Thuong confirms. The alternative is an approved post-1.0 exception in §2, with
-  DG-67's "Needed by" moved to it.
+  DG-67's "Needed by" moved to it. Pasting a test, which the deck draws since 2026-10-03, is not
+  one of them: R4 builds it (`74-r4.md` T-R4.55–T-R4.57). The answer conventions its page
+  states are fixed recognizer rules for text sources, not the gated source-conventions control.
 - **Class staff (D14, DG-04).** §2 rule 9. Default: class staff lands in the first release that
   starts after the deck draws DG-04; if DG-04 is still open at T-R11.14, v1.0 ships with
   Assistant hidden from role pickers and class staff on the post-1.0 list. Thuong confirms the

@@ -31,7 +31,7 @@ relative name.
 | `Quizzivy Splash.dc.html` | Everyone | App boot | Loading steps, skeleton hand-off per shell, slow, offline, new version, session expired; en + vi copy |
 | `Quizzivy System pages.dc.html` | Everyone | `*`, `/403`, error boundary, maintenance | 404, no access, unexpected error, maintenance |
 | `Quizzivy Student.dc.html` | Student | `/app/*` | Home, classes, join dialog, test intro, take test, result, learn, course, lesson, flashcards, grades, messages, this week, settings |
-| `Quizzivy Teacher.dc.html` | Teacher (and Admin) | `/teacher/*` | Dashboard, calendar, messages, assignments, grading, classes, students, attendance, tests, shared with me, question bank, media, courses, vocabulary, gradebook, reports, imports, settings |
+| `Quizzivy Teacher.dc.html` | Teacher (and Admin) | `/teacher/*` | Dashboard, calendar, messages, assignments, grading, classes, students, attendance, tests, shared with me, question bank, media, courses, vocabulary, gradebook, reports, imports (a Word or PDF file, or pasted text), settings |
 | `Quizzivy Admin.dc.html` | Admin | `/admin/*` | Overview, users, roles and permissions, all classes, audit log, API reference, system settings |
 
 Supporting files: `support.js` is the Claude Design canvas runtime (nothing in it is product
@@ -56,7 +56,14 @@ Each `.dc.html` is one `<x-dc>` template followed by one `<script type="text/x-d
 
 **Prototype chrome never ships:** the floating screen-switcher pills, the demo accounts box and
 the "Try T6NB-4WLQ" hint on Sign in, the canvas theme buttons, the `frame: mobile` prop, the
-Teacher page's "Coming next" screen, `RULES_UNUSED`, and the Word-import "Use a sample" slot.
+Teacher page's "Coming next" screen, `RULES_UNUSED`, and the import page's "Use a sample" buttons
+(one in each file slot and one in the paste box, which loads `WI_PZ_SAMPLE`).
+
+A pasted import's numbers are demo data, not behaviour: fixture row `i9` ("Pasted text", 1,186
+characters), the counts the prototype copies from its own quick count (`WI_detect`) into the
+history row, the stages and the Ready card after Start, beside a hard-coded "1 to confirm" and
+"1 note", and the fixed date of the fallback title ("Pasted test · 2 Oct"). The product reads the
+counts from the server's review summary and puts the day of the import in the fallback title.
 
 ## Where the product departs from the deck
 
@@ -77,6 +84,19 @@ Decided with Thuong on 2026-09-26. The design team has these as requests
 - **Media replace and delete follow the publish snapshot:** a replaced file reaches drafts and
   bank questions only, and a file in use cannot be deleted. The deck's copy says otherwise.
 
+Decided on 2026-10-03, with the second import (DG-12 to DG-19 in `docs/design/gaps.md`):
+
+- **A pasted test is plain text.** The paste box keeps no formatting, so its kind pill has one
+  state and the "Formatting kept from …" lines do not ship.
+- **The paste box's quick count follows the server's recognition rules,** not the prototype's
+  `WI_detect`, so the page and the review cannot disagree.
+- **Status filters are a group of toggle buttons with counts,** not a `tablist`, and the counts
+  follow the search (in the audit log, the date range as well).
+- **The Imports history switches between its grid and its cards by a container query** at 960px
+  of the list's own width, not by the deck's viewport arithmetic.
+- **The To review chips and the Ready card's pill read "{n} need action" for every import,**
+  pasted or not (DG-14).
+
 ## Updating the deck
 
 A new export from Claude Design (project `49cb45cb-7a21-441e-bb39-4261e0f38372`) replaces the
@@ -94,8 +114,8 @@ files in `deck/` byte for byte:
 
 - `screenshots/` holds Claude Design's own before-and-after captures at about 924px, several of
   them broken intermediate renders. They are not a reference.
-- `uploads/` holds eight red-pen markups on an earlier revision. All eight are resolved in the
-  deck as imported:
+- `uploads/` holds ten red-pen markups on earlier revisions. All ten are resolved in the deck as
+  imported:
 
   | Markup | Resolved as |
   |---|---|
@@ -107,6 +127,8 @@ files in `deck/` byte for byte:
   | Test builder under a very long title | Marquee titles, points never wrap, "Drag questions here" in an empty group |
   | New assignment stepper: truncated summaries | Four steps (test, students, schedule, rules) with marquee summaries |
   | Test builder title row: badges drifted right | Status and save state sit beside the title |
+  | Imports history: the action column and the row menu clipped at the card's right edge | No sideways scroll: a grid from 960px of content width, stacked cards below |
+  | Imports history: a cramped row of search and six filter chips | Segmented status tabs with counts on the left, the search on the right |
 
 ## Log
 
@@ -115,6 +137,15 @@ files in `deck/` byte for byte:
   day; the 18:06 export differs by a few hundred bytes in the Admin and Student pages and about
   3 KB in the Teacher page, so each release re-reads its screens from this deck, not from the
   inventories.
+- 2026-10-03 — Second import, from Thuong's 09:55 export. Two pages changed: Teacher (sha256
+  `12767a0c…`) and Admin (`72d4837a…`); the other thirteen files are byte-identical. Teacher:
+  "Paste a test" (a button on the Tests list and on the Imports history, the Source switch
+  "Upload a file | Paste text" on the import page, and the pasted variants of processing, the
+  Ready card and the review's source pane); the Imports history no longer scrolls sideways (a
+  grid from 960px of content width, stacked cards below), and its status filters are segmented
+  tabs with counts, with the search on the right. Admin: the Audit log filters are the same
+  segmented tabs with counts. The decisions taken with this import are DG-12 to DG-19 in
+  `gaps.md`.
 
 ## The brand
 
