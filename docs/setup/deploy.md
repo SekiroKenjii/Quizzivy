@@ -11,7 +11,12 @@ feature/*  →  develop  →  release/x.y  →  main  →  CI  →  Deploy
 
 `.github/workflows/deploy.yml` runs on `workflow_run` after **CI** concludes on
 `main`, not on the push itself. That ordering is the point: a merge that breaks
-something is not deployed while its own test run is still red.
+something is not deployed while its own test run is still red. CI runs every
+job on a push to `main`, whatever passed before (`docs/setup/ci.md`).
+
+Only the CI run of a **push** deploys. The back-merge pull request from `main`
+to `develop` has `main` as its head branch too, and until v0.8.0 its CI run
+deployed the same commit a second time.
 
 ## What it does
 
