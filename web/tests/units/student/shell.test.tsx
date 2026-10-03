@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { focusManager } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { http } from "msw";
 import StudentLayout from "@/layouts/StudentLayout";
 import StudentHomePage from "@/features/assignments/pages/StudentHomePage";
@@ -184,6 +186,27 @@ describe("the shell from 768", () => {
     await screen.findByText("các lớp");
     expect(main.scrollTop).toBe(0);
   });
+
+  it("stays where it is when a page moves between its own sections", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    serveStudent({});
+    renderAt("/app/settings", [
+      {
+        element: <StudentLayout />,
+        children: [
+          {
+            path: "/app/settings/:section?",
+            handle: SETTINGS,
+            element: <Link to="/app/settings/security">mục bảo mật</Link>,
+          },
+        ],
+      },
+    ]);
+    const main = await screen.findByRole("main");
+    main.scrollTop = 240;
+    await user.click(screen.getByRole("link", { name: "mục bảo mật" }));
+    expect(main.scrollTop).toBe(240);
+  });
 });
 
 describe("the splash hand-off", () => {
@@ -204,6 +227,32 @@ describe("the splash hand-off", () => {
     expect(
       skeletonFor("/app/attempts/018f0000-0000-7000-8000-0000000000e1/result"),
     ).not.toBeNull();
+  });
+});
+
+describe("what the shell asks the server", () => {
+  it("reads the lists once, never on a timer, and again when the tab comes back stale", async () => {
+    let asked = 0;
+    server.use(
+      http.get(`${BASE}/app/assignments`, () => {
+        asked += 1;
+        return contractJson("/app/assignments", "get", 200, {
+          dueNow: [],
+          upcoming: [],
+          completed: [],
+        });
+      }),
+    );
+    shell("/app", <p>trang</p>);
+    await waitFor(() => expect(asked).toBe(1));
+
+    await act(() => vi.advanceTimersByTimeAsync(5 * 60 * 1000));
+    expect(asked).toBe(1);
+
+    act(() => focusManager.setFocused(false));
+    act(() => focusManager.setFocused(true));
+    await waitFor(() => expect(asked).toBe(2));
+    focusManager.setFocused();
   });
 });
 

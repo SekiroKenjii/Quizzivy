@@ -275,3 +275,14 @@ test("the student console follows the dark theme", async ({ page }) => {
     page.getByRole("link", { name: "Trang chủ Quizzivy" }).locator("img"),
   ).toHaveAttribute("src", "/brand/quizzivy-mark-on-dark.svg");
 });
+
+test("a destination whose module has not shipped is not a page", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await student(page);
+  for (const path of ["/app/learn", "/app/grades", "/app/messages"]) {
+    await page.goto(path);
+    await expect(
+      page.getByRole("heading", { name: "Trang này không tồn tại" }),
+    ).toBeVisible();
+  }
+});

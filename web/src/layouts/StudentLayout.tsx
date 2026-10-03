@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useMatches } from "react-router";
+import { Link, NavLink, Outlet, useMatches } from "react-router";
 import {
   ArrowLeft,
   BookOpen,
@@ -46,21 +46,24 @@ interface Destination {
  * below that the destinations move to a bottom tab bar, and a detail route
  * swaps the logo for a back arrow and its title and hides the tab bar. One
  * outlet serves both, so a page keeps its state when the width crosses 768.
+ * `<main>` is the scroller and returns to the top when the route changes, not
+ * when a page moves between its own sections or filters.
  * A destination whose module has not shipped is absent (`app/modules`).
  */
 export default function StudentLayout() {
   const { t } = useTranslation();
   const wide = useMediaQuery("(min-width: 768px)");
-  const detail = useDetail();
+  const matches = useMatches();
+  const route = matches.at(-1)?.id;
+  const detail = detailOf(matches);
   const dueSoon = useDueSoonCount();
   const [own, setTitle] = useState<string | null>(null);
   const context = useMemo(() => ({ setTitle }) satisfies DetailShell, []);
   const main = useRef<HTMLElement>(null);
-  const { pathname } = useLocation();
 
   useEffect(() => {
     if (main.current) main.current.scrollTop = 0;
-  }, [pathname]);
+  }, [route]);
 
   const destinations: Destination[] = [
     { to: "/app", label: t("student.shell.home"), icon: House, count: dueSoon },
@@ -198,8 +201,7 @@ function DueSoon({
   );
 }
 
-function useDetail(): StudentDetail | null {
-  const matches = useMatches();
+function detailOf(matches: ReturnType<typeof useMatches>): StudentDetail | null {
   for (const match of [...matches].reverse()) {
     const handle = match.handle;
     if (typeof handle === "object" && handle !== null && "detail" in handle) {
