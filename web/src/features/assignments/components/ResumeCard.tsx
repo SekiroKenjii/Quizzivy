@@ -69,7 +69,7 @@ export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) 
         <p className="text-muted-fg text-ui leading-normal">{meta}</p>
         <div
           aria-hidden="true"
-          className="bg-muted mt-1.5 h-1.5 max-w-105 overflow-hidden rounded-md"
+          className="bg-muted mt-1.5 h-1.5 max-w-105 overflow-hidden rounded-full"
         >
           <span className="bg-brand block h-full" style={{ width: `${share}%` }} />
         </div>

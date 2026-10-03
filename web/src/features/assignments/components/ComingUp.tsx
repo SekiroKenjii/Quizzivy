@@ -46,7 +46,7 @@ export function ComingUp({
   return (
     <section aria-labelledby={heading} className="flex flex-col gap-2.5">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id={heading} className="text-title font-semibold">
+        <h2 id={heading} className="text-title leading-normal font-semibold">
           {t("student.home.comingUp")}
         </h2>
         <span className="text-muted-fg text-sm">
@@ -76,7 +76,7 @@ export function ComingUp({
                     urgent ? "bg-warning-soft text-warning-ink" : "bg-muted text-fg",
                   )}
                 >
-                  <span className="text-3xs font-semibold tracking-[0.04em] uppercase">
+                  <span className="text-3xs leading-3.5 font-semibold tracking-[0.04em] uppercase">
                     {weekdayShort(moment, locale)}
                   </span>
                   <span className="text-lg leading-[1.1] font-semibold">
@@ -88,7 +88,7 @@ export function ComingUp({
                   <span className="text-body block leading-[1.35] font-medium break-words">
                     {card.testTitle}
                   </span>
-                  <span className="text-muted-fg block text-sm">{meta}</span>
+                  <span className="text-muted-fg block text-sm leading-4">{meta}</span>
                 </span>
                 <Badge
                   variant={TONE[pill].variant}

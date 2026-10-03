@@ -15,7 +15,7 @@ function Outcome({ row, locale }: Readonly<{ row: ResultRow; locale: Locale }>) 
   const score = row.card.score;
   if (row.outcome === "grading")
     return (
-      <span className="bg-warning-soft text-warning-ink text-meta inline-flex flex-none items-center gap-[5px] rounded-full px-[9px] py-0.5 whitespace-nowrap">
+      <span className="bg-warning-soft text-warning-ink text-meta inline-flex flex-none items-center gap-[5px] rounded-full px-[9px] py-0.5 leading-4 whitespace-nowrap">
         <Hourglass aria-hidden="true" className="size-3" />
         {t("student.home.beingGraded")}
       </span>
@@ -23,7 +23,7 @@ function Outcome({ row, locale }: Readonly<{ row: ResultRow; locale: Locale }>) 
   if (row.outcome === "score" && score != null) {
     const n = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
     return (
-      <span className="text-title flex-none font-semibold whitespace-nowrap tabular-nums">
+      <span className="text-title flex-none leading-5 font-semibold whitespace-nowrap tabular-nums">
         {t("student.home.score", {
           earned: n.format(score.earned),
           total: n.format(score.total),
@@ -32,7 +32,7 @@ function Outcome({ row, locale }: Readonly<{ row: ResultRow; locale: Locale }>) 
     );
   }
   return (
-    <span className="text-muted-fg flex-none text-sm whitespace-nowrap">
+    <span className="text-muted-fg flex-none text-sm leading-4 whitespace-nowrap">
       {t("student.home.submitted")}
     </span>
   );
@@ -60,7 +60,7 @@ export function RecentResults({
   useTick(results.some((row) => justSubmitted(row.card, now)));
   return (
     <section aria-labelledby={heading} className="flex flex-col gap-2.5">
-      <h2 id={heading} className="text-title font-semibold">
+      <h2 id={heading} className="text-title leading-normal font-semibold">
         {t("student.home.recent")}
       </h2>
       <ul className={HOME_LIST}>
@@ -78,7 +78,9 @@ export function RecentResults({
                     {card.testTitle}
                   </span>
                   {date !== null && (
-                    <span className="text-muted-fg block text-sm">{date}</span>
+                    <span className="text-muted-fg block text-sm leading-4">
+                      {date}
+                    </span>
                   )}
                 </span>
                 <Outcome row={row} locale={locale} />

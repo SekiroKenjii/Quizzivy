@@ -1,9 +1,9 @@
 /**
- * HOME_PILL sizes a Badge to the pill Home draws: 24px high, 9px of padding
- * and 12.5px type, where the deck's status pill elsewhere is 22px.
+ * HOME_PILL sizes a Badge to the pill Home draws: 24px high, 9px of padding,
+ * 12.5px type and no border, where the deck's status pill elsewhere is 22px.
  */
 export const HOME_PILL =
-  "text-meta in-data-[scale=deck]:h-6 in-data-[scale=deck]:px-[9px]";
+  "border-0 text-meta in-data-[scale=deck]:h-6 in-data-[scale=deck]:px-[9px]";
 
 /**
  * HOME_LIST is the card Coming up and Recent results sit in. It does not clip
