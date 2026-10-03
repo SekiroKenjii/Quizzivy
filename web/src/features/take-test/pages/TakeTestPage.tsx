@@ -12,15 +12,15 @@ import {
 } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { useBlocker, useNavigate, useParams } from "react-router";
-import { ChevronLeft, ChevronRight, Flag, List, X } from "lucide-react";
+import { useNavigate, useParams } from "react-router";
+import { ChevronLeft, ChevronRight, Flag, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { LoadError } from "@/components/shared/ListState";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
-import { EngineHeader } from "../components/EngineHeader";
+import { EngineHeader, LeaveButton } from "../components/EngineHeader";
+import { LeaveDialog } from "../components/LeaveDialog";
 import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
 import { GroupContext } from "../components/GroupContext";
 import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
@@ -44,20 +44,22 @@ import {
   type SectionGroup,
 } from "../sections";
 import { useTakeTestStore } from "../store";
+import { useLeave } from "../useLeave";
 import { worth } from "../worth";
 
 /**
- * S-05's engine, one question at a time -- and S-06's two other views of the
- * same attempt: the navigator (a sheet in thumb range, a rail from 1024px)
- * and the review before submitting. From 1024px the chrome is S-08's: one
- * header row, no save strip, no sticky footer, the two buttons under the
- * answer at their own width.
+ * TakeTestPage is the engine, one question at a time, with two other views of
+ * the same attempt: the navigator (a sheet in thumb range, a rail from 768px)
+ * and the review before submitting. The header is the deck's at every width.
+ * From 768px there is no sticky footer and the two buttons sit under the
+ * answer at their own width; below it a strip under the header says when a
+ * save has failed or the device is offline, and is otherwise absent.
  */
 export default function TakeTestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { attemptId } = useParams<{ attemptId: string }>();
-  const wide = useMediaQuery("(min-width: 1024px)");
+  const wide = useMediaQuery("(min-width: 768px)");
 
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -81,28 +83,7 @@ export default function TakeTestPage() {
   const setAnswer = useTakeTestStore((s) => s.setAnswer);
   const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
   const reset = useTakeTestStore((s) => s.reset);
-  const flush = useTakeTestStore((s) => s.flush);
-  const dirty = useTakeTestStore((s) => s.dirty.size);
-  const flushing = useTakeTestStore((s) => s.flushInFlight);
-  const blocker = useBlocker(dirty > 0 && lock === null);
-  const blocked = blocker.state === "blocked";
-  const proceed = blocked ? blocker.proceed : undefined;
-  useEffect(() => {
-    if (proceed === undefined) return;
-    let active = true;
-    void flush().then((saved) => {
-      if (active && saved && useTakeTestStore.getState().dirty.size === 0) proceed();
-    });
-    return () => {
-      active = false;
-    };
-  }, [proceed, flush]);
-  useEffect(() => {
-    if (dirty === 0) return;
-    const beforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [dirty]);
+  const leave = useLeave();
 
   const [reloads, reload] = useReducer((n: number) => n + 1, 0);
   const groups = useMemo(
@@ -235,7 +216,7 @@ export default function TakeTestPage() {
   if (submitState === "done" && submittedAt !== null) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        {wide && <EngineHeader wide leading={null} progress={null} live={false} />}
+        {wide && <EngineHeader wide leading={null} live={false} />}
         <SubmittedScreen
           reason={submitReason ?? "manual"}
           submittedAt={submittedAt}
@@ -261,27 +242,11 @@ export default function TakeTestPage() {
     <StrikeDialog state={strikeStatus} strikes={strikes} lastAwayMs={lastAwayMs} />
   );
   const strikeIndicator =
-    strikeStatus === null ? null : <StrikeIndicator state={strikeStatus} />;
+    strikeStatus === null || strikeStatus.limit === null ? null : (
+      <StrikeIndicator state={strikeStatus} />
+    );
 
-  const leaveDialog = (
-    <ConfirmDialog
-      className="student-surface"
-      open={blocked}
-      onOpenChange={(open) => {
-        if (!open && blocked) blocker.reset();
-      }}
-      title={t("takeTest.leaveUnsavedTitle")}
-      description={t("takeTest.leaveUnsavedDescription")}
-      confirmLabel={t("takeTest.retrySave")}
-      cancelLabel={t("takeTest.keepWorking")}
-      pending={flushing}
-      onConfirm={() => {
-        void flush().then((saved) => {
-          if (saved && useTakeTestStore.getState().dirty.size === 0) proceed?.();
-        });
-      }}
-    />
-  );
+  const leaveDialog = <LeaveDialog leave={leave} />;
 
   if (view === "review") {
     return (
@@ -315,7 +280,7 @@ export default function TakeTestPage() {
         fullscreenBar={watching && integrity.requireFullscreen && !fullscreen}
         navOpen={navOpen}
         onNavOpen={setNavOpen}
-        onExit={() => void navigate("/app")}
+        onLeave={leave.ask}
         onMove={setIndex}
         onJump={jump}
         onReview={() => setView("review")}
@@ -341,7 +306,7 @@ function Paper({
   fullscreenBar,
   navOpen,
   onNavOpen,
-  onExit,
+  onLeave,
   onMove,
   onJump,
   onReview,
@@ -360,7 +325,7 @@ function Paper({
   fullscreenBar: boolean;
   navOpen: boolean;
   onNavOpen: (open: boolean) => void;
-  onExit: () => void;
+  onLeave: () => void;
   onMove: (index: number) => void;
   onJump: (index: number) => void;
   onReview: () => void;
@@ -480,20 +445,9 @@ function Paper({
     <div className="flex min-h-0 flex-1 flex-col">
       <EngineHeader
         wide={wide}
-        counter={{ n: index + 1, total }}
-        progress={(index + 1) / total}
         status={status}
-        leading={
-          <Button
-            variant="ghost"
-            size="xs"
-            className="text-muted-foreground h-11 px-1 lg:h-7"
-            onClick={onExit}
-          >
-            <X aria-hidden="true" />
-            {t("takeTest.exit")}
-          </Button>
-        }
+        leading={<LeaveButton onClick={onLeave} />}
+        onSubmit={lock === "superseded" || lock === "closed" ? undefined : onReview}
       />
       <SaveStrip wide={wide} indicator={status} />
       {fullscreenBar && <FullscreenBar />}

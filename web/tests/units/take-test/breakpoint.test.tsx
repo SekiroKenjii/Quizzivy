@@ -96,10 +96,35 @@ it("keeps the answer focused when the window crosses the wide breakpoint", async
   await user.type(answer, "We went");
   expect(answer).toHaveFocus();
 
-  resize(800);
+  resize(600);
+  expect(screen.getByRole("contentinfo")).toBeInTheDocument();
   expect(screen.getByRole("textbox")).toHaveFocus();
 
   resize(1280);
+  expect(screen.queryByRole("contentinfo")).toBeNull();
   expect(screen.getByRole("textbox")).toHaveFocus();
   expect(screen.getByRole("textbox")).toHaveValue("We went");
+});
+
+it("is the wide engine from 768px and the phone engine below it", async () => {
+  const resize = resizableViewport(768);
+  mount();
+  await screen.findByText("Describe your weekend");
+  const rail = () => screen.queryByRole("complementary", { name: "Danh sách câu" });
+  expect(rail()).toBeInTheDocument();
+  expect(rail()).not.toHaveClass("hidden");
+  expect(screen.queryByRole("contentinfo")).toBeNull();
+  expect(screen.getByText(/^Câu 1 \/ 2 · /)).toBeInTheDocument();
+  expect(screen.getByText("1 điểm · giáo viên chấm tay")).toHaveClass(
+    "min-[768px]:hidden",
+  );
+
+  resize(767);
+  expect(rail()).toBeNull();
+  expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+  expect(screen.queryByText(/^Câu 1 \/ 2 · /)).toBeNull();
+
+  resize(1023);
+  expect(rail()).toBeInTheDocument();
+  expect(screen.queryByRole("contentinfo")).toBeNull();
 });
