@@ -335,7 +335,6 @@ function Paper({
   const flagged = useTakeTestStore((s) => s.flags.has(question.id));
   const lock = useTakeTestStore((s) => s.lock);
   const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
-  const last = index >= total - 1;
   const choice = (question.options?.length ?? 0) > 0;
   const paper = useRef<HTMLElement>(null);
   const answerPanel = useRef<HTMLDivElement>(null);
@@ -381,18 +380,11 @@ function Paper({
 
   const jumpToGap = useCallback(
     (gap: MaterialGap) => {
-      const number = numbers.get(gap.questionId);
-      if (number === undefined) return;
-      const targetQuestion = questions[number - 1];
-      const blank =
-        gap.kind === "blank"
-          ? targetQuestion?.blanks?.find((item) => item.gapId === gap.blankGapId)
-          : undefined;
-      focusTarget.current = blank
-        ? `answer-blank-${blank.id}`
-        : `answer-question-${gap.questionId}`;
+      const landing = gapLanding(gap, questions, numbers);
+      if (landing === null) return;
+      focusTarget.current = landing.target;
       requestFocus();
-      onJump(number - 1);
+      onJump(landing.index);
     },
     [numbers, questions, onJump],
   );
@@ -412,33 +404,19 @@ function Paper({
     </Button>
   );
   const previous = (
-    <Button
-      variant="outline"
-      size={wide ? "default" : "icon"}
-      className={wide ? undefined : "size-11"}
-      aria-label={wide ? undefined : t("takeTest.previous")}
+    <PreviousButton
+      wide={wide}
       disabled={index === 0}
       onClick={() => onMove(Math.max(0, index - 1))}
-    >
-      <ChevronLeft aria-hidden="true" />
-      {wide && t("takeTest.previous")}
-    </Button>
+    />
   );
-  const next = last ? (
-    <Button
-      className={wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal"}
-      onClick={onReview}
-    >
-      {t("takeTest.reviewAndSubmit")}
-    </Button>
-  ) : (
-    <Button
-      className={wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal"}
-      onClick={() => onMove(index + 1)}
-    >
-      {t("takeTest.next")}
-      <ChevronRight aria-hidden="true" />
-    </Button>
+  const next = (
+    <NextButton
+      wide={wide}
+      last={index >= total - 1}
+      onNext={() => onMove(index + 1)}
+      onReview={onReview}
+    />
   );
 
   return (
@@ -507,20 +485,7 @@ function Paper({
                   <div className="flex flex-wrap items-center gap-2 pt-2">
                     {previous}
                     {next}
-                    <p className="text-muted-foreground ml-3 flex items-center gap-1 text-xs">
-                      {t("takeTest.shortcuts")}
-                      {choice && (
-                        <>
-                          {" "}
-                          <Kbd>{KEY.a}</Kbd>
-                          {KEY.dash}
-                          <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
-                        </>
-                      )}{" "}
-                      <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd>{" "}
-                      {t("takeTest.shortcutMove")} {KEY.dot} <Kbd>{KEY.f}</Kbd>{" "}
-                      {t("takeTest.shortcutFlag")}
-                    </p>
+                    <Shortcuts choice={choice} />
                   </div>
                 )}
               </div>
@@ -570,6 +535,91 @@ function Paper({
         }}
       />
     </div>
+  );
+}
+
+function PreviousButton({
+  wide,
+  disabled,
+  onClick,
+}: Readonly<{ wide: boolean; disabled: boolean; onClick: () => void }>) {
+  const { t } = useTranslation();
+  return (
+    <Button
+      variant="outline"
+      size={wide ? "default" : "icon"}
+      className={wide ? undefined : "size-11"}
+      aria-label={wide ? undefined : t("takeTest.previous")}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <ChevronLeft aria-hidden="true" />
+      {wide && t("takeTest.previous")}
+    </Button>
+  );
+}
+
+function NextButton({
+  wide,
+  last,
+  onNext,
+  onReview,
+}: Readonly<{
+  wide: boolean;
+  last: boolean;
+  onNext: () => void;
+  onReview: () => void;
+}>) {
+  const { t } = useTranslation();
+  const className = wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal";
+  if (last) {
+    return (
+      <Button className={className} onClick={onReview}>
+        {t("takeTest.reviewAndSubmit")}
+      </Button>
+    );
+  }
+  return (
+    <Button className={className} onClick={onNext}>
+      {t("takeTest.next")}
+      <ChevronRight aria-hidden="true" />
+    </Button>
+  );
+}
+
+function gapLanding(
+  gap: MaterialGap,
+  questions: StudentQuestion[],
+  numbers: ReadonlyMap<string, number>,
+): { index: number; target: string } | null {
+  const number = numbers.get(gap.questionId);
+  if (number === undefined) return null;
+  const blank =
+    gap.kind === "blank"
+      ? questions[number - 1]?.blanks?.find((item) => item.gapId === gap.blankGapId)
+      : undefined;
+  return {
+    index: number - 1,
+    target: blank ? `answer-blank-${blank.id}` : `answer-question-${gap.questionId}`,
+  };
+}
+
+function Shortcuts({ choice }: Readonly<{ choice: boolean }>) {
+  const { t } = useTranslation();
+  return (
+    <p className="text-muted-foreground ml-3 flex items-center gap-1 text-xs">
+      {t("takeTest.shortcuts")}
+      {choice && (
+        <>
+          {" "}
+          <Kbd>{KEY.a}</Kbd>
+          {KEY.dash}
+          <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
+        </>
+      )}{" "}
+      <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd> {t("takeTest.shortcutMove")}{" "}
+      {KEY.dot} <Kbd>{KEY.f}</Kbd> {t("takeTest.shortcutFlag")}
+    </p>
   );
 }
 
