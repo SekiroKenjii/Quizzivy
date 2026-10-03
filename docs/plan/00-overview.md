@@ -338,7 +338,8 @@ non-2xx response body is:
 - `code` — `SCREAMING_SNAKE`, stable, the only thing clients branch on. Enumerated
   in `api/openapi.yaml`.
 - `message` — already localized server-side via `Accept-Language`, `vi` default.
-  Clients display it; they do not construct copy from `code`.
+  Clients display it; they do not construct copy from `code`, except for the two
+  codes the contract's `ErrorCode` description names (#183).
 - `details` — optional, shape depends on `code`. Field-level validation errors
   land here for react-hook-form.
 - `requestId` — the copyable error ID §9's global error boundary shows.

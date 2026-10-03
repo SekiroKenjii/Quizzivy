@@ -553,7 +553,8 @@ components:
           type: string
           description: |
             Already localized server-side from `Accept-Language`, `vi` by
-            default. Display it; do not build copy from `code`.
+            default. Display it; do not build copy from `code`, except for the
+            two codes the `ErrorCode` description names.
           examples: ['Mã lớp không hợp lệ.']
         details:
           type: object
