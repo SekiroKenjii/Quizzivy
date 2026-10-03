@@ -116,9 +116,18 @@
     "grading": "To grade"
   },
   "student": {
+    "shell": {
+      "home": "Home",
+      "learn": "Learn",
+      "grades": "Grades",
+      "me": "Me",
+      "homeLink": "Quizzivy home",
+      "test": "Test",
+      "dueSoon_one": "{{count}} test due within 7 days",
+      "dueSoon_other": "{{count}} tests due within 7 days"
+    },
     "myAssignments": "My assignments",
     "myClasses": "My classes",
-    "assignmentDetail": "Assignment",
     "greeting": "Hi {{name}}",
     "greetingPlain": "Hi {{name}}",
     "dueToday_one": "You have {{count}} assignment due today.",

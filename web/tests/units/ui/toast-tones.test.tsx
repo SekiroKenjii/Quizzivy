@@ -22,6 +22,21 @@ async function show(fire: () => void) {
   );
 }
 
+describe("where the toast sits", () => {
+  it("keeps 16px from every edge and lets a shell lift it from the bottom, at every width", async () => {
+    const card = await show(() => notify.success("Đã lưu thay đổi"));
+    const list = card.closest("[data-sonner-toaster]") as HTMLElement;
+    for (const prefix of ["--offset", "--mobile-offset"]) {
+      expect(list.style.getPropertyValue(`${prefix}-bottom`)).toBe(
+        "var(--toast-bottom, 16px)",
+      );
+      expect(list.style.getPropertyValue(`${prefix}-right`)).toBe("16px");
+      expect(list.style.getPropertyValue(`${prefix}-left`)).toBe("16px");
+      expect(list.style.getPropertyValue(`${prefix}-top`)).toBe("16px");
+    }
+  });
+});
+
 describe("toast tones", () => {
   it.each([
     ["success", "text-success"],

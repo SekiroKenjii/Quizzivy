@@ -5,8 +5,11 @@ import { Toaster as Sonner, toast } from "sonner";
 /**
  * Toaster is the deck's toast: a card at the bottom right, one at a time, with
  * an icon in the tone's colour. Plain `toast()` calls keep a neutral card; the
- * tones come from `notify` in lib/toast.ts.
+ * tones come from `notify` in lib/toast.ts. It sits 16px from the edges, and
+ * a shell with a bar along the bottom lifts it by setting `--toast-bottom`.
  */
+const EDGE = { top: 16, right: 16, bottom: "var(--toast-bottom, 16px)", left: 16 };
+
 function Toaster() {
   const { t } = useTranslation();
   return (
@@ -14,7 +17,8 @@ function Toaster() {
       position="bottom-right"
       duration={4000}
       gap={8}
-      offset={16}
+      offset={EDGE}
+      mobileOffset={EDGE}
       visibleToasts={1}
       containerAriaLabel={t("toast.region")}
       icons={{

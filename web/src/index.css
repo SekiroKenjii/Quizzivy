@@ -293,6 +293,12 @@
   }
 }
 
+/* The student's tab bar is 65px; the deck puts a toast 84px from the bottom
+   while it shows. */
+:root:has([data-slot="student-tabs"]) {
+  --toast-bottom: 84px;
+}
+
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;

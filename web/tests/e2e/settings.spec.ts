@@ -94,15 +94,13 @@ test("signing out lives behind the student's name, and on the settings screen (S
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("settings is the bar's icon, and signing out sits at its foot (S-03, S-10)", async ({
-    page,
-  }) => {
+  test("settings is the Me tab, and signing out sits at its foot", async ({ page }) => {
     await stubApi(page, sessionAs(studentUser));
 
     await page.goto("/app");
     await expect(page.getByRole("button", { name: "Đăng xuất" })).toHaveCount(0);
 
-    await page.getByRole("link", { name: "Cài đặt" }).click();
+    await page.getByRole("link", { name: "Tôi", exact: true }).click();
     await expect(page).toHaveURL(/\/app\/settings$/);
     await expect(page.getByRole("heading", { name: "Cài đặt" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
