@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, History, List, Repeat, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -8,13 +8,6 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { fetchMyClasses } from "@/features/classes/api";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { ApiError } from "@/lib/api/errors";
@@ -30,17 +23,11 @@ import type { Locale } from "@/lib/i18n";
 import { listMyAssignments, type StudentAssignmentCard } from "../api";
 import { closesLine, givenName, scoreText, timeLeft } from "../studentTime";
 
-/** StudentHomePage groups every assignment by its next action and supports shareable filters. */
+/** StudentHomePage groups every assignment by its next action. */
 export default function StudentHomePage() {
   const { t, i18n } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const locale = i18n.language as Locale;
-  const [params, setParams] = useSearchParams();
-  const classId = params.get("classId") ?? "all";
-  const requested = params.get("view") ?? "all";
-  const view = ["open", "upcoming", "completed"].includes(requested)
-    ? requested
-    : "all";
   const assignments = useQuery({
     queryKey: ["my-assignments"],
     queryFn: ({ signal }) => listMyAssignments(signal),
@@ -55,22 +42,6 @@ export default function StudentHomePage() {
       {t("student.greetingPlain", { name })}
     </h1>
   );
-  const filter = (key: string, value: string) => {
-    setParams((old) => {
-      const next = new URLSearchParams(old);
-      if (value === "all") next.delete(key);
-      else next.set(key, value);
-      return next;
-    });
-  };
-  const clear = () =>
-    setParams((old) => {
-      const next = new URLSearchParams(old);
-      next.delete("classId");
-      next.delete("view");
-      return next;
-    });
-
   if (assignments.data === undefined)
     return (
       <div className="space-y-5">
@@ -90,10 +61,7 @@ export default function StudentHomePage() {
 
   const data = assignments.data;
   const all = [...data.dueNow, ...data.upcoming, ...data.completed];
-  const classNames = assignmentClasses(classes.data?.items ?? [], all);
-  const matches = (card: StudentAssignmentCard) =>
-    classId === "all" || card.classId === classId;
-  const dueNow = data.dueNow.filter(matches);
+  const dueNow = data.dueNow;
   const live = dueNow
     .filter((c) => c.hasLiveAttempt)
     .sort(
@@ -105,17 +73,10 @@ export default function StudentHomePage() {
   const due = dueNow
     .filter((c) => !c.hasLiveAttempt)
     .sort((a, b) => a.closesAt.localeCompare(b.closesAt) || a.id.localeCompare(b.id));
-  const upcoming = data.upcoming.filter(matches);
-  const completed = data.completed.filter(matches);
+  const upcoming = data.upcoming;
+  const completed = data.completed;
   const now = new Date();
   const dueToday = dueNow.filter((c) => sameAppDay(c.closesAt, now)).length;
-  const showOpen = view === "all" || view === "open";
-  const showUpcoming = view === "all" || view === "upcoming";
-  const showCompleted = view === "all" || view === "completed";
-  const visible =
-    (showOpen ? dueNow.length : 0) +
-    (showUpcoming ? upcoming.length : 0) +
-    (showCompleted ? completed.length : 0);
 
   return (
     <div className="space-y-6">
@@ -129,82 +90,9 @@ export default function StudentHomePage() {
           </p>
         )}
       </div>
-      {all.length > 0 && (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex flex-wrap items-end gap-3 lg:flex-1">
-            <div className="w-full min-w-0 space-y-1.5 sm:w-auto sm:max-w-xs sm:flex-1">
-              <label htmlFor="student-class-filter" className="text-sm">
-                {t("student.filterClass")}
-              </label>
-              <Select value={classId} onValueChange={(v) => filter("classId", v)}>
-                <SelectTrigger id="student-class-filter" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="student-surface">
-                  <SelectItem value="all">{t("student.allClasses")}</SelectItem>
-                  {[...classNames].map(([id, name]) => (
-                    <SelectItem key={id} value={id}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                  {classId !== "all" && !classNames.has(classId) && (
-                    <SelectItem value={classId}>{t("student.unknownClass")}</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            {(classId !== "all" || view !== "all") && (
-              <Button variant="ghost" onClick={clear}>
-                {t("student.clearFilters")}
-              </Button>
-            )}
-          </div>
-          <div
-            role="group"
-            aria-label={t("student.filterStatus")}
-            className="bg-muted/40 grid grid-cols-2 gap-1 rounded-lg border p-1 shadow-xs sm:inline-flex"
-          >
-            {[
-              {
-                value: "all",
-                count: dueNow.length + upcoming.length + completed.length,
-              },
-              { value: "open", count: dueNow.length },
-              { value: "upcoming", count: upcoming.length },
-              { value: "completed", count: completed.length },
-            ].map(({ value, count }) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={view === value}
-                onClick={() => filter("view", value)}
-                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 motion-reduce:transition-none ${view === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}
-              >
-                {t(`student.views.${value}`)}
-                <span className="bg-muted min-w-5 rounded px-1.5 text-xs tabular-nums">
-                  {count}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {visible === 0 && (
-        <EmptyState
-          {...(all.length === 0 ? { hint: t("student.noAssignmentsHint") } : {})}
-          action={
-            all.length > 0 ? (
-              <Button variant="outline" onClick={clear}>
-                {t("student.clearFilters")}
-              </Button>
-            ) : undefined
-          }
-        >
-          {t(
-            all.length === 0
-              ? "student.noAssignments"
-              : "student.noMatchingAssignments",
-          )}
+      {all.length === 0 && (
+        <EmptyState hint={t("student.noAssignmentsHint")}>
+          {t("student.noAssignments")}
         </EmptyState>
       )}
       {all.length === 0 && classes.data?.items.length === 0 && (
@@ -218,21 +106,21 @@ export default function StudentHomePage() {
           {t("student.noClasses")}
         </EmptyState>
       )}
-      {showOpen && live.length > 0 && (
+      {live.length > 0 && (
         <Section title={t("student.inProgress", { count: live.length })}>
           {live.map((card) => (
             <ResumeCard key={card.id} card={card} />
           ))}
         </Section>
       )}
-      {showOpen && due.length > 0 && (
+      {due.length > 0 && (
         <Section title={t("student.readyToStart", { count: due.length })}>
           {due.map((card) => (
             <DueCard key={card.id} card={card} now={now} />
           ))}
         </Section>
       )}
-      {showUpcoming && upcoming.length > 0 && (
+      {upcoming.length > 0 && (
         <Section title={t("student.upcoming", { count: upcoming.length })}>
           {upcoming.map((card) => (
             <Card key={card.id} className="surface-lift min-w-0 gap-2 p-5 shadow-sm">
@@ -258,7 +146,7 @@ export default function StudentHomePage() {
           ))}
         </Section>
       )}
-      {showCompleted && completed.length > 0 && (
+      {completed.length > 0 && (
         <Section title={t("student.completed", { count: completed.length })}>
           {completed.map((card) => (
             <Card
@@ -458,15 +346,4 @@ function Outcome({
       {scoreText(score.earned, score.total, locale, t)}
     </span>
   );
-}
-
-function assignmentClasses(
-  classes: { id: string; name: string }[],
-  assignments: StudentAssignmentCard[],
-) {
-  const names = new Map(classes.map((c) => [c.id, c.name]));
-  for (const card of assignments) {
-    if (card.classId && card.className) names.set(card.classId, card.className);
-  }
-  return names;
 }

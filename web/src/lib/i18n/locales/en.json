@@ -202,18 +202,6 @@
     "classSubmitted_other": "{{count}} papers submitted",
     "classesNav": "Classes",
     "viewAssignment": "View details",
-    "filterClass": "Class",
-    "allClasses": "All classes",
-    "unknownClass": "Selected class",
-    "filterStatus": "Status",
-    "views": {
-      "all": "All assignments",
-      "open": "Open",
-      "upcoming": "Upcoming",
-      "completed": "Completed"
-    },
-    "clearFilters": "Clear filters",
-    "noMatchingAssignments": "No assignments match these filters.",
     "inProgress": "In progress · {{count}}",
     "readyToStart": "Not started · {{count}}",
     "viewClassAssignments": "View class assignments",

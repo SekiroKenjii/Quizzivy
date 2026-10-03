@@ -48,7 +48,7 @@ interface Destination {
  * outlet serves both, so a page keeps its state when the width crosses 768.
  * `<main>` is the scroller. When the route changes it returns to the top and
  * takes focus, so the keyboard scrolls the new page; it does neither when a
- * page moves between its own sections or filters.
+ * page moves between its own sections.
  * A destination whose module has not shipped is absent (`app/modules`).
  */
 export default function StudentLayout() {

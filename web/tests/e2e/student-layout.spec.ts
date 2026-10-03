@@ -90,9 +90,6 @@ for (const width of [320, 360, 768, 1024, 1440, 1920]) {
     await expect(page.getByText("3 bài đang mở")).toBeVisible();
     await page.getByRole("link", { name: "Xem bài của lớp" }).click();
     await expect(page).toHaveURL(new RegExp(`classId=${classId}`));
-    await expect(page.getByRole("combobox", { name: "Lớp học" })).toHaveText(
-      classes[0]!.name,
-    );
     await fits(page);
   });
 }
@@ -190,28 +187,6 @@ test("English student controls fit a 320px phone", async ({ page }) => {
   await page.goto("/app/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await fits(page);
-});
-
-test("status filters expose counts and retain their selection through browser back", async ({
-  page,
-}) => {
-  await student(page);
-  await page.setViewportSize({ width: 320, height: 900 });
-  await page.goto("/app");
-  const filters = page.getByRole("group", { name: "Trạng thái" });
-  await expect(filters.getByRole("button", { name: "Tất cả bài 3" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await filters.getByRole("button", { name: "Đã hoàn thành 0" }).click();
-  await expect(page).toHaveURL(/view=completed/);
-  await expect(page.getByText("Không có bài phù hợp với bộ lọc.")).toBeVisible();
-  await page.goBack();
-  await expect(filters.getByRole("button", { name: "Tất cả bài 3" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await expect(page.getByRole("button", { name: "Tiếp tục làm bài" })).toHaveCount(2);
 });
 
 for (const width of [767, 768]) {

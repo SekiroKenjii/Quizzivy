@@ -337,21 +337,6 @@ describe("assignment discovery", () => {
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: "Xem chi tiết" })).toBeInTheDocument();
   });
-
-  it("opens the selected class from its URL and resets an empty status filter", async () => {
-    const user = userEvent.setup();
-    const router = home(
-      { dueNow: [card({ classId: SAMPLE_CLASS.id, className: SAMPLE_CLASS.name })] },
-      [SAMPLE_CLASS],
-      `/app?classId=${SAMPLE_CLASS.id}&view=completed`,
-    );
-    expect(
-      await screen.findByText("Không có bài phù hợp với bộ lọc."),
-    ).toBeInTheDocument();
-    await user.click(screen.getAllByRole("button", { name: "Xóa bộ lọc" })[0]!);
-    expect(await screen.findByText("Unit 5 — Present perfect")).toBeInTheDocument();
-    expect(router.state.location.search).toBe("");
-  });
 });
 
 describe("a refetch that fails after the lists loaded", () => {
