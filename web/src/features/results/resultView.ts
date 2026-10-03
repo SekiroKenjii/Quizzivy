@@ -72,10 +72,10 @@ export type Ring =
 
 /**
  * Summary is the state the sentence under the title is written from. `graded`
- * is a paper with every answer marked; `partly` has answers marked
- * automatically and answers waiting; `pending` has nothing marked
- * automatically and answers waiting; `withheld` is a paper whose score the
- * policy hides.
+ * is a paper with every answer marked, and its `key` says whether an answer
+ * below draws its correct answer; `partly` has answers marked automatically
+ * and answers waiting; `pending` has nothing marked automatically and answers
+ * waiting; `withheld` is a paper whose score the policy hides.
  */
 export type Summary =
   | {
@@ -246,7 +246,7 @@ export function resultView(data: AttemptResult): ResultView {
         correct: questions.filter((question) => verdict(question, review) === "correct")
           .length,
         total: questions.length,
-        key: review.showCorrectAnswers,
+        key: questions.some((question) => correctKey(question, review) !== null),
       },
       tiles: partTiles(sections, questions),
     };

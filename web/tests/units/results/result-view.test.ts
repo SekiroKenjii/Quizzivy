@@ -89,6 +89,19 @@ describe("resultView: a graded paper", () => {
     expect(view.lock).toBeNull();
   });
 
+  it("names the key only when an answer below draws one", () => {
+    const body = scored([
+      choice(1, AB, [1], { earned: 1, correctOptionIds: [uuid("b", 11)] }),
+      essay(2, "Viết một câu.", "Một câu.", { pendingManual: false, earned: 0 }),
+    ]);
+    expect(resultView(body).summary).toEqual({
+      kind: "graded",
+      correct: 1,
+      total: 2,
+      key: false,
+    });
+  });
+
   it("sums a tile per part from the questions that name it", () => {
     expect(resultView(grammarCheck()).tiles).toEqual([
       {
