@@ -1,15 +1,14 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { LoaderCircle } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  DeckDialog,
+  DeckDialogActions,
+  DeckDialogCancel,
+} from "@/components/shared/DeckDialog";
+import { Button } from "@/components/ui/button";
 import { learnsOnly } from "@/features/auth/permissions";
 import { myClassesQuery } from "@/features/classes/api";
 import { ApiError } from "@/lib/api/errors";
@@ -21,9 +20,6 @@ import { ClassPreviewCard } from "./ClassPreviewCard";
 import { JoinCodeField } from "./JoinCodeField";
 
 const ERROR_ID = "join-dialog-error";
-
-const FRAME =
-  "bg-card shadow-float top-[12%] flex max-h-[calc(100%-2rem)] w-[min(27.5rem,calc(100%-1.5rem))] max-w-none translate-y-0 flex-col gap-3.5 overflow-y-auto rounded-2xl p-5.5 min-[768px]:top-[50%] min-[768px]:translate-y-[-50%] sm:max-w-none";
 
 const LIST_WAIT_MS = 3000;
 
@@ -44,39 +40,16 @@ export function JoinDialog({
   onOpenChange,
 }: Readonly<{ open: boolean; onOpenChange: (open: boolean) => void }>) {
   const { t } = useTranslation();
-  const opener = useRef<HTMLElement | null>(null);
-  const page = useRef<HTMLElement | null>(null);
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className={FRAME}
-        onOpenAutoFocus={() => {
-          const active = document.activeElement;
-          opener.current =
-            active instanceof HTMLElement && active !== document.body ? active : null;
-          page.current = opener.current?.closest("main") ?? null;
-        }}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          const target = opener.current?.isConnected ? opener.current : page.current;
-          opener.current = null;
-          page.current = null;
-          target?.focus();
-        }}
-      >
-        <div>
-          <DialogTitle className="text-lg leading-normal font-semibold">
-            {t("student.joinClass")}
-          </DialogTitle>
-          <DialogDescription className="text-muted-fg mt-1 text-base leading-[1.55] text-pretty">
-            {t("join.subtitle")}
-          </DialogDescription>
-        </div>
-        <JoinForm onClose={() => onOpenChange(false)} />
-      </DialogContent>
-    </Dialog>
+    <DeckDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("student.joinClass")}
+      description={t("join.subtitle")}
+      placement="top"
+    >
+      <JoinForm onClose={() => onOpenChange(false)} />
+    </DeckDialog>
   );
 }
 
@@ -165,16 +138,8 @@ function JoinForm({ onClose }: Readonly<{ onClose: () => void }>) {
       {found && !student && (
         <p className="text-muted-fg -mt-1.5 text-sm">{t("join.studentsOnly")}</p>
       )}
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="shadow-none in-data-[scale=deck]:font-medium"
-          onClick={onClose}
-        >
-          {t("common.cancel")}
-        </Button>
+      <DeckDialogActions>
+        <DeckDialogCancel onClick={onClose}>{t("common.cancel")}</DeckDialogCancel>
         <Button
           type="submit"
           size="lg"
@@ -187,7 +152,7 @@ function JoinForm({ onClose }: Readonly<{ onClose: () => void }>) {
           )}
           {t("join.dialog.submit")}
         </Button>
-      </div>
+      </DeckDialogActions>
     </form>
   );
 }
