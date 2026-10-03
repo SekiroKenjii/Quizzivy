@@ -972,6 +972,17 @@ describe("the line above the title", () => {
     expect(await screen.findByText("Nộp Thứ 4, 26/08")).toBeVisible();
   });
 
+  it("writes the day in the app's time zone", async () => {
+    serve(
+      scored([choice(1, AB, [0], { earned: 1 })], {
+        attempt: { ...paper().attempt, submittedAt: "2026-08-26T18:30:00Z" },
+      }),
+      [],
+    );
+    renderResult();
+    expect(await screen.findByText("Nộp Thứ 5, 27/08")).toBeVisible();
+  });
+
   it("still shows the result when the assignment lists cannot be read", async () => {
     serve(body(), "fail");
     renderResult();
