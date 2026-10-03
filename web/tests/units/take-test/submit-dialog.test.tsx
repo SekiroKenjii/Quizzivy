@@ -33,6 +33,7 @@ const FAILED = "Không nộp được. Hãy thử lại.";
 
 const q = (n: number) => `018f0000-0000-7000-8000-00000000b00${n}`;
 const store = () => useTakeTestStore.getState();
+const storeSubmit = store().submit;
 const pass = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
 const deadline = () => new Date(store().deadlineAt).toISOString();
 
@@ -114,6 +115,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  useTakeTestStore.setState({ submit: storeSubmit });
   store().reset();
   await act(() => i18n.changeLanguage("vi"));
   vi.useRealTimers();
@@ -332,9 +334,12 @@ describe("the Submit dialog", () => {
     await open();
     await ask();
     const request = heldSubmit();
+    const asked = vi.fn(storeSubmit);
+    act(() => useTakeTestStore.setState({ submit: asked }));
 
     fireEvent.click(inDialog().getByRole("button", { name: SUBMIT }));
     await pass(0);
+    expect(asked).toHaveBeenCalledTimes(1);
 
     const sending = inDialog().getByRole("button", { name: "Đang nộp…" });
     expect(sending).toHaveAttribute("aria-busy", "true");
@@ -347,6 +352,7 @@ describe("the Submit dialog", () => {
     fireEvent.keyDown(dialog(), { key: "Escape" });
     await pass(0);
     expect(dialog()).toBeInTheDocument();
+    expect(asked).toHaveBeenCalledTimes(1);
     expect(submitAttempt).toHaveBeenCalledTimes(1);
 
     await request.land();
@@ -390,6 +396,28 @@ describe("the Submit dialog", () => {
     expect(submitAttempt).not.toHaveBeenCalled();
     expect(inDialog().getByRole("alert")).toHaveTextContent(FAILED);
     expect(store().dirty.has(q(5))).toBe(true);
+  });
+
+  it("takes the failure line away while a later submission is out", async () => {
+    await open();
+    await ask();
+    vi.mocked(submitAttempt).mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(inDialog().getByRole("button", { name: SUBMIT }));
+    await pass(0);
+    expect(inDialog().getByRole("alert")).toHaveTextContent(FAILED);
+
+    const request = heldSubmit();
+    act(() => {
+      void store().submit("timer_expired");
+    });
+    await pass(0);
+    expect(inDialog().getByRole("button", { name: "Đang nộp…" })).toBeInTheDocument();
+    expect(inDialog().queryByRole("alert")).toBeNull();
+
+    await request.land();
+    expect(
+      screen.getByRole("heading", { name: "Bài đã hết giờ và được nộp tự động." }),
+    ).toBeInTheDocument();
   });
 
   it("forgets a failure when it is opened again", async () => {
@@ -478,6 +506,23 @@ describe("the Submit dialog", () => {
     );
     await pass(0);
     noDialog();
+    expect(submitAttempt).not.toHaveBeenCalled();
+  });
+
+  it("closes when a save comes back saying the attempt has already ended", async () => {
+    await open();
+    vi.mocked(saveAnswers).mockRejectedValueOnce(
+      new ApiError({ status: 409, code: "ATTEMPT_CLOSED", message: "ended" }),
+    );
+    act(() => store().setAnswer(q(5), text("typed after the end")));
+    await ask();
+
+    await pass(FLUSH_DEBOUNCE_MS);
+    expect(store().lock).toBe("closed");
+    expect(store().submitState).toBe("idle");
+    noDialog();
+    expect(screen.getByText("Bài làm này đã kết thúc.")).toBeInTheDocument();
+    expect(header().queryByRole("button", { name: SUBMIT })).toBeNull();
     expect(submitAttempt).not.toHaveBeenCalled();
   });
 
