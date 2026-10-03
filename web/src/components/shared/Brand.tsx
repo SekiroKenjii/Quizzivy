@@ -80,16 +80,22 @@ export function BrandLockup({
   );
 }
 
-/** The mark alone, beside the app's own wordmark as ordinary text. */
+/**
+ * The mark alone, beside the app's own wordmark as ordinary text.
+ * `wordmark="header"` is the deck's 16px bold name beside a 24px mark, as a
+ * console's top bar draws it.
+ */
 export function BrandMark({
   height = 22,
   className,
   label = true,
+  wordmark = "compact",
   theme,
 }: Readonly<{
   height?: number;
   className?: string;
   label?: boolean;
+  wordmark?: "compact" | "header";
   theme?: "auto";
 }>) {
   const { t } = useTranslation();
@@ -109,7 +115,15 @@ export function BrandMark({
   return (
     <span className={cn("flex items-center gap-2", className)}>
       {mark}
-      <span className="text-sm font-semibold tracking-tight">{t("app.name")}</span>
+      <span
+        className={
+          wordmark === "header"
+            ? "text-title font-bold tracking-[-0.01em]"
+            : "text-sm font-semibold tracking-tight"
+        }
+      >
+        {t("app.name")}
+      </span>
     </span>
   );
 }

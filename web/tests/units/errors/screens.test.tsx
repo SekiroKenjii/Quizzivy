@@ -290,4 +290,16 @@ describe("the brand kit on screen", () => {
     expect(container.querySelector("img")).toHaveAttribute("alt", "");
     expect(screen.getByText("Quizzivy")).toBeInTheDocument();
   });
+
+  it("writes the name at the top bar's size only when asked", () => {
+    const { unmount } = render(<BrandMark height={24} />);
+    expect(screen.getByText("Quizzivy").className).toBe(
+      "text-sm font-semibold tracking-tight",
+    );
+    unmount();
+    render(<BrandMark height={24} wordmark="header" />);
+    expect(screen.getByText("Quizzivy").className).toBe(
+      "text-title font-bold tracking-[-0.01em]",
+    );
+  });
 });
