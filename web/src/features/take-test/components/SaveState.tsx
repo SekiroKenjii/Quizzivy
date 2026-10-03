@@ -5,17 +5,27 @@ import {
   CloudCheck,
   CloudOff,
   Loader,
+  Lock,
+  MonitorSmartphone,
+  TimerOff,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSaveStatus, type SaveStatus } from "../saveStatus";
-import { useTakeTestStore } from "../store";
+import { useTakeTestStore, type LockReason } from "../store";
+import { NoticeBar } from "./NoticeBar";
 
 const LINE: Record<SaveStatus, { icon: LucideIcon; label: string }> = {
   saved: { icon: CloudCheck, label: "takeTest.allSaved" },
   saving: { icon: Loader, label: "takeTest.saving" },
   offline: { icon: CloudOff, label: "takeTest.saveOffline" },
   failed: { icon: CloudAlert, label: "takeTest.saveFailed" },
+};
+
+const LOCKED: Record<LockReason, { icon: LucideIcon; label: string }> = {
+  superseded: { icon: MonitorSmartphone, label: "takeTest.lockedSuperseded" },
+  deadline: { icon: TimerOff, label: "takeTest.lockedDeadline" },
+  closed: { icon: Lock, label: "takeTest.lockedClosed" },
 };
 
 function troubled(status: SaveStatus): boolean {
@@ -67,11 +77,13 @@ export function SaveAnnouncement() {
 
 /**
  * SaveStrip is the one line under the engine's header. A locked paper says
- * why at every width. Below 768 the strip carries the save line only when a
- * save has failed or the device is offline while an answer is unsaved, never
- * for a save that is merely on its way, and the strike count at its far end
- * when the assignment counts departures; with neither it is absent, as the
- * deck draws it. From 768 the header holds both and there is no strip.
+ * why at every width, in the notice bar's warning tone: it was taken over by
+ * another device, its time is up, or it has ended. Below 768 the strip
+ * carries the save line only when a save has failed or the device is offline
+ * while an answer is unsaved, never for a save that is merely on its way, and
+ * the strike count at its far end when the assignment counts departures; with
+ * neither it is absent, as the deck draws it. From 768 the header holds both
+ * and there is no strip.
  */
 export function SaveStrip({
   wide,
@@ -85,13 +97,7 @@ export function SaveStrip({
   const status = useSaveStatus();
 
   if (lock !== null) {
-    return (
-      <div className="bg-warning/10 border-b px-4 py-3">
-        <p className="mx-auto w-full max-w-[720px] text-xs leading-relaxed">
-          {t(lockMessageKey(lock))}
-        </p>
-      </div>
-    );
+    return <NoticeBar icon={LOCKED[lock].icon}>{t(LOCKED[lock].label)}</NoticeBar>;
   }
   const trouble = troubled(status);
   if (wide || (!trouble && indicator === null)) return null;
@@ -105,10 +111,4 @@ export function SaveStrip({
       {indicator !== null && <span className="ml-auto flex-none">{indicator}</span>}
     </div>
   );
-}
-
-function lockMessageKey(lock: string): string {
-  if (lock === "superseded") return "takeTest.lockedSuperseded";
-  if (lock === "deadline") return "takeTest.lockedDeadline";
-  return "takeTest.lockedClosed";
 }

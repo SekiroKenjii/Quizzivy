@@ -239,7 +239,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   ).toBeVisible({ timeout: 15_000 });
   await expect(
     page.getByText(
-      "Bài đã được tự nộp do vượt giới hạn rời trang. Câu trả lời được giữ để chấm và vi phạm đã được ghi nhận.",
+      "Bạn đã rời trang làm bài quá số lần được phép nên bài đã được nộp. Câu trả lời của bạn được giữ lại để chấm. Giáo viên đã được báo.",
       { exact: true },
     ),
   ).toBeVisible();

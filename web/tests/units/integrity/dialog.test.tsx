@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
+import { StrikeIndicator } from "@/features/integrity/components/StrikeIndicator";
 import { strikeState } from "@/features/integrity/strikes";
 import type { IntegrityPolicy } from "@/features/take-test/api";
-import "@/lib/i18n";
+import i18n from "@/lib/i18n";
 
 const policy: IntegrityPolicy = {
   requireFullscreen: false,
@@ -14,10 +15,11 @@ const policy: IntegrityPolicy = {
   minAwayMs: 3000,
 };
 
-/**
- * Mirrors the page: the count is the server's baseline plus this sitting's
- * strikes, and a submit control sits underneath the dialog the whole time.
- */
+const STAY = "Hãy ở lại trang này cho đến khi nộp bài.";
+const SAFE = "Câu trả lời của bạn vẫn an toàn.";
+const TOLD = "Giáo viên đã được báo.";
+const BACK = "Quay lại bài làm";
+
 function Harness({
   strikes,
   baseline = 0,
@@ -35,68 +37,200 @@ function Harness({
       <button type="button" onClick={onSubmit}>
         Nộp bài
       </button>
-      <StrikeDialog state={state} strikes={strikes} lastAwayMs={24_000} />
+      <StrikeDialog state={state} strikes={strikes} />
     </>
   );
 }
 
-const dialog = () => screen.getByRole("dialog");
-const noDialog = () => expect(screen.queryByRole("dialog")).toBeNull();
+const dialog = () => screen.getByRole("alertdialog");
+const noDialog = () => expect(screen.queryByRole("alertdialog")).toBeNull();
+const body = () => dialog().querySelector('[data-slot="dialog-description"]');
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe("what the dialog says", () => {
-  it("states what happened, what is left, and that the clock runs", () => {
+afterEach(async () => {
+  await act(() => i18n.changeLanguage("vi"));
+});
+
+describe("the frame", () => {
+  it("is the deck's alert: 420px, the eye-off tile, the title, one body and one full-width button", () => {
     render(<Harness strikes={1} />);
-    expect(dialog()).toHaveTextContent("Bạn vừa rời khỏi trang làm bài");
-    expect(dialog()).toHaveTextContent("chuyển sang cửa sổ khác trong 24 giây");
-    expect(dialog()).toHaveTextContent(
-      "Bạn còn 1 lần nữa trước khi bài được đánh dấu để giáo viên xem lại",
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(dialog()).toHaveAccessibleName("Bạn vừa rời trang làm bài");
+    expect(dialog()).toHaveAccessibleDescription(
+      `Lần này được tính là lần 1 trong 2 lần được phép. ${STAY}`,
     );
-    expect(dialog()).toHaveTextContent("Đồng hồ vẫn đang chạy trong lúc này.");
+    expect(dialog()).toHaveClass(
+      "w-[min(26.25rem,calc(100%-1.5rem))]",
+      "bg-card",
+      "shadow-float",
+      "rounded-2xl",
+      "p-5.5",
+      "gap-3",
+      "items-start",
+    );
+
+    const tile = dialog().querySelector("svg")?.parentElement;
+    expect(tile).toHaveClass("size-10", "rounded-lg", "bg-warning-soft");
+    expect(tile).toHaveClass("text-warning-ink");
+    expect(tile).toHaveAttribute("aria-hidden", "true");
+    expect(dialog().querySelector("svg")).toHaveClass("lucide-eye-off", "size-5");
+
+    expect(
+      screen.getByRole("heading", { name: "Bạn vừa rời trang làm bài" }),
+    ).toHaveClass("text-lg", "font-semibold");
+    expect(body()).toHaveClass("text-muted-fg", "text-base", "leading-[1.55]");
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: BACK })).toHaveClass(
+      "self-stretch",
+      "h-11.5",
+      "text-md",
+      "bg-primary",
+    );
+  });
+});
+
+describe("what the dialog says", () => {
+  it("counts this absence against the allowance while some of it is left", () => {
+    render(<Harness strikes={1} />);
+    expect(body()).toHaveTextContent(
+      `Lần này được tính là lần 1 trong 2 lần được phép. ${STAY}`,
+    );
   });
 
-  it("says what the next episode does once the allowance is spent", () => {
+  it("says the same at the last one allowed, which is not yet past the allowance", () => {
     render(<Harness strikes={2} />);
-    expect(dialog()).toHaveTextContent("Bạn đã dùng hết số lần rời trang cho phép.");
-    expect(dialog()).toHaveTextContent(
-      "Nếu rời trang thêm lần nữa, bài sẽ được đánh dấu",
+    expect(body()).toHaveTextContent(
+      `Lần này được tính là lần 2 trong 2 lần được phép. ${STAY}`,
+    );
+    expect(body()).not.toHaveTextContent("Giáo viên");
+  });
+
+  it("says the teacher has been told and the answers are safe once past it under flag", () => {
+    render(<Harness strikes={1} baseline={2} />);
+    expect(body()).toHaveTextContent(
+      `Bạn đã rời trang làm bài 3 lần, nhiều hơn 2 lần được phép. ${TOLD} ${SAFE}`,
     );
   });
 
-  // §10.2's `flag`: attempt marked for the admin, student told.
-  it("tells the student the attempt is marked once the limit is exceeded", () => {
-    render(<Harness strikes={1} baseline={2} />);
-    expect(dialog()).toHaveTextContent("nên bài được đánh dấu để giáo viên xem lại");
-    expect(dialog()).toHaveTextContent("điểm không bị trừ tự động");
-    expect(dialog()).toHaveTextContent("chỉ ghi nhận việc trang này mất tập trung");
-  });
-
-  it("never says marked under warn, which is dialog only", () => {
+  it("never names the teacher under warn, which is the dialog and nothing else", () => {
     render(<Harness strikes={1} baseline={2} over={{ onLimitExceeded: "warn" }} />);
-    expect(dialog()).toHaveTextContent("Giáo viên sẽ thấy các lần rời trang");
-    expect(dialog()).not.toHaveTextContent("đánh dấu");
+    expect(body()).toHaveTextContent(
+      `Bạn đã rời trang làm bài 3 lần, nhiều hơn 2 lần được phép. ${SAFE} ${STAY}`,
+    );
+    expect(body()).not.toHaveTextContent(/giáo viên/i);
   });
 
   it("reads the server's count as the starting point", () => {
     render(<Harness strikes={1} baseline={1} />);
-    expect(dialog()).toHaveTextContent("Bạn đã dùng hết số lần rời trang cho phép.");
+    expect(body()).toHaveTextContent(
+      "Lần này được tính là lần 2 trong 2 lần được phép.",
+    );
   });
+
+  it("states no number when no absence is allowed", () => {
+    render(<Harness strikes={1} over={{ maxFocusLoss: -1 }} />);
+    expect(body()).toHaveTextContent(`Không được rời trang làm bài. ${TOLD} ${SAFE}`);
+    expect(body()).not.toHaveTextContent(/\d/);
+  });
+
+  it("warns without the teacher when no absence is allowed under warn", () => {
+    render(
+      <Harness strikes={2} over={{ maxFocusLoss: -1, onLimitExceeded: "warn" }} />,
+    );
+    expect(body()).toHaveTextContent(`Không được rời trang làm bài. ${SAFE} ${STAY}`);
+    expect(body()).not.toHaveTextContent(/giáo viên|\d/i);
+  });
+
+  it("says the test is submitted after the allowance under auto_submit", () => {
+    render(
+      <Harness
+        strikes={1}
+        over={{ maxFocusLoss: 3, onLimitExceeded: "auto_submit" }}
+      />,
+    );
+    expect(body()).toHaveTextContent(
+      "Lần này được tính là lần 1 trong 3 lần được phép. Sau đó, bài sẽ được nộp ngay.",
+    );
+  });
+
+  it("says the next absence submits the test at the last one allowed under auto_submit", () => {
+    render(<Harness strikes={2} over={{ onLimitExceeded: "auto_submit" }} />);
+    expect(body()).toHaveTextContent(
+      "Lần này được tính là lần 2 trong 2 lần được phép. Nếu bạn rời trang lần nữa, bài sẽ được nộp ngay.",
+    );
+  });
+
+  it("says the test is being submitted if it is ever shown past an auto_submit allowance", () => {
+    render(
+      <Harness strikes={1} baseline={2} over={{ onLimitExceeded: "auto_submit" }} />,
+    );
+    expect(body()).toHaveTextContent(
+      "Bạn đã rời trang làm bài quá số lần được phép nên bài đang được nộp.",
+    );
+  });
+
+  it("uses the deck's English, with the singular for an allowance of one", async () => {
+    await act(() => i18n.changeLanguage("en"));
+    const view = render(<Harness strikes={1} />);
+    expect(dialog()).toHaveAccessibleName("You left the test");
+    expect(body()).toHaveTextContent(
+      "That counts as 1 of 2 times allowed. Stay on this page until you submit.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Back to the test" }),
+    ).toBeInTheDocument();
+
+    view.rerender(<Harness strikes={1} baseline={2} />);
+    expect(body()).toHaveTextContent(
+      "You have left 3 times, more than the 2 allowed. Your teacher has been told. Your answers are safe.",
+    );
+
+    view.rerender(<Harness strikes={1} over={{ maxFocusLoss: 1 }} />);
+    expect(body()).toHaveTextContent("That counts as 1 of 1 time allowed.");
+  });
+
+  it.each(["vi", "en"])(
+    "never calls an absence a violation or cheating, whatever the policy (%s)",
+    async (language) => {
+      await act(() => i18n.changeLanguage(language));
+      const said: string[] = [];
+      for (const maxFocusLoss of [0, -1, 1, 2, 3]) {
+        for (const onLimitExceeded of ["warn", "flag", "auto_submit"] as const) {
+          for (const strikes of [1, 2, 3, 4]) {
+            const view = render(
+              <Harness strikes={strikes} over={{ maxFocusLoss, onLimitExceeded }} />,
+            );
+            const text = body()?.textContent ?? "";
+            said.push(text);
+            if (onLimitExceeded === "warn")
+              expect(text).not.toMatch(/giáo viên|teacher/i);
+            if (maxFocusLoss <= 0) expect(text).not.toMatch(/\d/);
+            view.unmount();
+          }
+        }
+      }
+      expect(said).toHaveLength(60);
+      expect(said.every((text) => text.length > 0)).toBe(true);
+      expect(said.join(" ")).not.toMatch(/vi phạm|gian lận|violat|cheat/i);
+    },
+  );
 });
 
 describe("when it opens", () => {
-  it("opens again on the next episode, with the new count", async () => {
+  it("opens again on the next absence, with the new count", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<Harness strikes={1} />);
-    expect(dialog()).toHaveTextContent("còn 1 lần");
+    expect(body()).toHaveTextContent("lần 1 trong 2");
 
-    await user.click(screen.getByRole("button", { name: "Tiếp tục làm bài" }));
+    await user.click(screen.getByRole("button", { name: BACK }));
     noDialog();
 
     rerender(<Harness strikes={2} />);
-    expect(dialog()).toHaveTextContent("dùng hết số lần rời trang");
+    expect(body()).toHaveTextContent("lần 2 trong 2");
   });
 
-  it("does not open for an episode that was not counted", () => {
+  it("does not open for an absence that was not counted", () => {
     render(<Harness strikes={0} />);
     noDialog();
   });
@@ -104,24 +238,21 @@ describe("when it opens", () => {
   it("speaks once a sitting when there is no limit", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<Harness strikes={1} over={{ maxFocusLoss: 0 }} />);
-    expect(dialog()).toHaveTextContent("Giáo viên có thể xem lại các lần rời trang");
-    expect(dialog()).not.toHaveTextContent("còn");
+    expect(body()).toHaveTextContent(
+      `Mỗi lần rời trang làm bài đều được ghi lại. ${STAY}`,
+    );
+    expect(body()).not.toHaveTextContent(/\d/);
 
-    await user.click(screen.getByRole("button", { name: "Tiếp tục làm bài" }));
+    await user.click(screen.getByRole("button", { name: BACK }));
     rerender(<Harness strikes={2} over={{ maxFocusLoss: 0 }} />);
     noDialog();
   });
 });
 
-/**
- * Non-dismissible means it cannot be waved away unread -- not that the student
- * is trapped (§10.2). Escape acknowledges it like the button does, and the
- * submit control underneath is reachable the moment it closes.
- */
 describe("never trapping the student", () => {
   it("puts focus on the only way out", () => {
     render(<Harness strikes={1} />);
-    expect(screen.getByRole("button", { name: "Tiếp tục làm bài" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: BACK })).toHaveFocus();
   });
 
   it("has no close button and does not close from the scrim", async () => {
@@ -133,7 +264,7 @@ describe("never trapping the student", () => {
     const scrim = document.querySelector('[data-slot="dialog-overlay"]');
     if (scrim === null) throw new Error("no scrim");
     await user.click(scrim);
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(dialog()).toBeInTheDocument();
   });
 
   it("lets Escape acknowledge it rather than swallowing the key", async () => {
@@ -153,8 +284,44 @@ describe("never trapping the student", () => {
     const onSubmit = vi.fn();
     render(<Harness strikes={1} onSubmit={onSubmit} />);
 
-    await user.click(screen.getByRole("button", { name: "Tiếp tục làm bài" }));
+    await user.click(screen.getByRole("button", { name: BACK }));
     await user.click(screen.getByRole("button", { name: "Nộp bài" }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the standing count", () => {
+  const indicator = (count: number, over: Partial<IntegrityPolicy> = {}) =>
+    render(<StrikeIndicator state={strikeState({ ...policy, ...over }, count)} />)
+      .container;
+
+  it("is a plain number while some of the allowance is left", () => {
+    const view = indicator(1);
+    expect(view).toHaveTextContent("Còn 1 lần rời trang");
+    expect(view.firstElementChild).not.toHaveClass("font-medium");
+  });
+
+  it("reads in the full ink once the allowance is spent", () => {
+    const view = indicator(2);
+    expect(view).toHaveTextContent("Hết lần rời trang");
+    expect(view.firstElementChild).toHaveClass("text-fg", "font-medium");
+  });
+
+  it("says the teacher has been told, in the warning ink, past the allowance under flag", () => {
+    const view = indicator(3);
+    expect(view).toHaveTextContent("Giáo viên đã được báo");
+    expect(view.firstElementChild).toHaveClass("text-warning-ink", "font-medium");
+  });
+
+  it("does not name the teacher past the allowance under warn", () => {
+    const view = indicator(3, { onLimitExceeded: "warn" });
+    expect(view).toHaveTextContent("Quá số lần rời trang");
+    expect(view).not.toHaveTextContent(/giáo viên/i);
+    expect(view.firstElementChild).toHaveClass("text-warning-ink");
+  });
+
+  it("starts spent when no absence is allowed, and is absent when there is no limit", () => {
+    expect(indicator(0, { maxFocusLoss: -1 })).toHaveTextContent("Hết lần rời trang");
+    expect(indicator(5, { maxFocusLoss: 0 })).toBeEmptyDOMElement();
   });
 });

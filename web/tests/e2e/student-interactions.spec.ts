@@ -202,19 +202,17 @@ for (const width of [320, 360, 1024, 1440]) {
       .getByRole("button", { name: "Xem lại & nộp", exact: true })
       .first()
       .click();
+    const dialog = page.getByRole("dialog", { name: /^Nộp bài/ });
+    await expect(dialog).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Xem lại trước khi nộp" }),
-    ).toBeVisible();
-    const submit = page.getByRole("button", { name: "Nộp bài", exact: true }).first();
-    await expect(submit).toBeInViewport();
-    await submit.click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+      dialog.getByRole("button", { name: "Nộp bài", exact: true }),
+    ).toBeInViewport();
     await page.keyboard.press("ArrowLeft");
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(dialog).toBeVisible();
   });
 }
 
-test("a long paper keeps review actions reachable on a 320px phone", async ({
+test("a long paper keeps the Submit dialog's actions reachable on a 320px phone", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 700 });
@@ -229,14 +227,12 @@ test("a long paper keeps review actions reachable on a 320px phone", async ({
     .getByRole("dialog")
     .getByRole("button", { name: "Xem lại & nộp", exact: true })
     .click();
+  const dialog = page.getByRole("dialog", { name: /^Nộp bài/ });
+  await expect(dialog).toContainText("Nộp bài khi còn 80 câu chưa trả lời?");
   await expect(
-    page.getByRole("heading", { name: "Xem lại trước khi nộp" }),
-  ).toBeVisible();
-  const submit = page.getByRole("button", { name: "Nộp bài", exact: true });
-  await expect(submit).toBeInViewport();
-  await expect(
-    page.getByRole("button", { name: "Quay lại làm tiếp", exact: true }),
+    dialog.getByRole("button", { name: "Nộp bài", exact: true }),
   ).toBeInViewport();
-  await submit.click();
-  await expect(page.getByRole("dialog")).toContainText("Còn 80 câu bạn chưa trả lời");
+  await expect(
+    dialog.getByRole("button", { name: "Quay lại làm tiếp", exact: true }),
+  ).toBeInViewport();
 });

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, renderHook, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
-import { enterFullscreen } from "@/features/integrity/fullscreen";
+import { enterFullscreen, exitFullscreen } from "@/features/integrity/fullscreen";
 import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { clearSession, pending } from "@/features/integrity/buffer";
 import type { IntegrityPolicy } from "@/features/take-test/api";
@@ -31,12 +31,15 @@ function fullscreen(over: { enabled: boolean; element?: Element | null }) {
 }
 
 const request = vi.fn<() => Promise<void>>();
+const exit = vi.fn<() => Promise<void>>();
 
 beforeEach(() => {
   sessionStorage.clear();
   clearSession(ATTEMPT);
   request.mockReset().mockResolvedValue(undefined);
+  exit.mockReset().mockResolvedValue(undefined);
   document.documentElement.requestFullscreen = request;
+  document.exitFullscreen = exit;
   fullscreen({ enabled: true });
 });
 afterEach(() => {
@@ -57,11 +60,40 @@ describe("the bar", () => {
     expect(request).toHaveBeenCalledWith({ navigationUI: "hide" });
   });
 
+  it("asks for fullscreen inside the click itself, before anything is awaited", () => {
+    render(<FullscreenBar />);
+    fireEvent.click(screen.getByRole("button", { name: "Quay lại toàn màn hình" }));
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("is a warning bar with the deck's small bordered button, which opts out of the 44px floor", () => {
+    render(<FullscreenBar />);
+    const bar = screen.getByText("Bạn đã thoát chế độ toàn màn hình.").parentElement;
+    expect(bar).toHaveAttribute("data-slot", "notice-bar");
+    expect(bar).toHaveClass(
+      "bg-warning-soft",
+      "text-warning-ink",
+      "border-b",
+      "px-3.5",
+    );
+    expect(bar).toHaveClass("min-[768px]:px-6");
+    expect(bar?.querySelector("svg")).toHaveClass("lucide-maximize", "size-4");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+
+    const back = screen.getByRole("button", { name: "Quay lại toàn màn hình" });
+    expect(back).toHaveClass("h-8", "min-h-0", "min-w-0", "text-fg", "border");
+  });
+
   // Every iPhone. A button that cannot work is worse than a sentence.
   it("says so when the browser has no fullscreen", () => {
     fullscreen({ enabled: false });
     render(<FullscreenBar />);
-    expect(screen.getByText(/không hỗ trợ chế độ toàn màn hình/)).toBeInTheDocument();
+    const line = screen.getByText(
+      "Trình duyệt này không hỗ trợ chế độ toàn màn hình. Bạn vẫn làm bài bình thường.",
+    );
+    expect(line.parentElement).toHaveClass("bg-muted", "text-muted-fg");
+    expect(line.parentElement).not.toHaveClass("bg-warning-soft");
     expect(screen.queryByRole("button")).toBeNull();
   });
 });
@@ -76,6 +108,25 @@ describe("entering", () => {
     fullscreen({ enabled: true, element: document.body });
     await enterFullscreen();
     expect(request).not.toHaveBeenCalled();
+  });
+});
+
+describe("leaving", () => {
+  it("leaves the fullscreen the document is in, and says it did", async () => {
+    fullscreen({ enabled: true, element: document.body });
+    await expect(exitFullscreen()).resolves.toBe(true);
+    expect(exit).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing when the document is not in fullscreen", async () => {
+    await expect(exitFullscreen()).resolves.toBe(false);
+    expect(exit).not.toHaveBeenCalled();
+  });
+
+  it("swallows a refusal, because a submitted paper must not fail on the way out", async () => {
+    fullscreen({ enabled: true, element: document.body });
+    exit.mockRejectedValue(new TypeError("Not in fullscreen mode"));
+    await expect(exitFullscreen()).resolves.toBe(false);
   });
 });
 
