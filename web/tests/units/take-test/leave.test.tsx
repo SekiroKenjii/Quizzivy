@@ -12,7 +12,7 @@ import { useTakeTestStore } from "@/features/take-test/store";
 import { pending } from "@/features/integrity/buffer";
 import { ApiError } from "@/lib/api/errors";
 import { session, viewport } from "./support";
-import "@/lib/i18n";
+import i18n from "@/lib/i18n";
 
 vi.mock("@/features/take-test/api", () => ({
   getAttempt: vi.fn(),
@@ -315,6 +315,20 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
     expect(store().dirty.size).toBe(0);
   });
 
+  it("takes Esc as Stay while the save is out", async () => {
+    const user = userEvent.setup();
+    const router = await open();
+    const save = heldSave();
+    await user.type(screen.getByRole("textbox"), "parks");
+    await user.click(leaveButton());
+    await user.click(inDialog().getByRole("button", { name: "Thoát" }));
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await save.succeed();
+    expect(path(router)).toBe("/app/attempts/att-1");
+  });
+
   it("holds the back button until a pending answer is saved, then goes where it was going", async () => {
     const user = userEvent.setup();
     const router = await open();
@@ -459,6 +473,19 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
     expect(saveAnswers).toHaveBeenCalledTimes(1);
   });
 
+  it("still raises the browser's prompt for an unsaved answer on a paper taken over", async () => {
+    const user = userEvent.setup();
+    await open();
+    vi.mocked(saveAnswers).mockRejectedValueOnce(superseded());
+    await user.type(screen.getByRole("textbox"), "parks");
+    await act(() => store().flush());
+    expect(store().lock).toBe("superseded");
+
+    const closing = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(closing);
+    expect(closing.defaultPrevented).toBe(true);
+  });
+
   it("closes the dialog, without saying the answers are saved, when another device takes the paper over", async () => {
     const user = userEvent.setup();
     const router = await open();
@@ -523,5 +550,44 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
 
     await user.click(leaveButton());
     expect(dialog()).toHaveAccessibleName(ASK);
+  });
+});
+
+describe("leaving the test in English", () => {
+  beforeEach(async () => {
+    viewport("desktop");
+    await i18n.changeLanguage("en");
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage("vi");
+  });
+
+  it("is the deck's dialog, word for word", async () => {
+    const user = userEvent.setup();
+    await open();
+
+    await user.click(screen.getByRole("button", { name: "Leave test" }));
+    expect(dialog()).toHaveAccessibleName("Leave the test?");
+    expect(dialog()).toHaveAccessibleDescription(
+      "Your answers are saved, but the timer keeps running. Come back before it reaches zero.",
+    );
+    expect(
+      inDialog()
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Stay", "Leave"]);
+  });
+
+  it("says the answers will be saved first while one is unsaved", async () => {
+    const user = userEvent.setup();
+    await open();
+    heldSave();
+    await user.type(screen.getByRole("textbox"), "parks");
+
+    await user.click(screen.getByRole("button", { name: "Leave test" }));
+    expect(dialog()).toHaveAccessibleDescription(
+      "Your latest answers will be saved before you leave. The timer keeps running, so come back before it reaches zero.",
+    );
   });
 });

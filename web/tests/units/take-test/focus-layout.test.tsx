@@ -41,6 +41,7 @@ describe("FocusLayout", () => {
     expect(root).toHaveAttribute("data-scale", "deck");
     expect(root).toHaveClass(
       "student-surface",
+      "@container/student",
       "bg-bg",
       "text-fg",
       "h-svh",

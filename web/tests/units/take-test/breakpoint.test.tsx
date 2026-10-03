@@ -115,6 +115,9 @@ it("is the wide engine from 768px and the phone engine below it", async () => {
   expect(rail()).not.toHaveClass("hidden");
   expect(screen.queryByRole("contentinfo")).toBeNull();
   expect(screen.getByText(/^Câu 1 \/ 2 · /)).toBeInTheDocument();
+  expect(screen.getByText("1 điểm · giáo viên chấm tay")).toHaveClass(
+    "min-[768px]:hidden",
+  );
 
   resize(767);
   expect(rail()).toBeNull();

@@ -12,7 +12,7 @@ import {
 import { FLUSH_DEBOUNCE_MS, useTakeTestStore } from "@/features/take-test/store";
 import { ApiError } from "@/lib/api/errors";
 import { session, text, viewport } from "./support";
-import "@/lib/i18n";
+import i18n from "@/lib/i18n";
 
 vi.mock("@/features/take-test/api", () => ({
   getAttempt: vi.fn(),
@@ -153,6 +153,12 @@ describe("the header at 1280", () => {
     viewport("desktop");
   });
 
+  it("hides the worth line under the answer from 768, where the meta line says it", async () => {
+    await open();
+    expect(screen.getByText("Câu 1 / 2 · 1 điểm")).toBeInTheDocument();
+    expect(screen.getByText("1 điểm")).toHaveClass("min-[768px]:hidden");
+  });
+
   it("is the deck's row: leave, the title over the save line, the timer and Submit", async () => {
     await open();
 
@@ -271,6 +277,24 @@ describe("the header at 1280", () => {
     expect(banner().getByText("Còn 2 lần rời trang")).toBeInTheDocument();
     expect(banner().getByText(SAVED)).toBeInTheDocument();
     expect(strip()).toBeNull();
+  });
+
+  it("keeps the strike count in the review's header", async () => {
+    await open(DECK_LEFT, {
+      integrity: {
+        requireFullscreen: false,
+        blockCopyPaste: true,
+        maxFocusLoss: 2,
+        onLimitExceeded: "flag",
+        minAwayMs: 3000,
+      },
+    });
+    fireEvent.click(banner().getByRole("button", { name: "Nộp bài" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Xem lại trước khi nộp" }),
+    ).toBeInTheDocument();
+    expect(banner().getByText("Còn 2 lần rời trang")).toBeInTheDocument();
   });
 
   it("draws no strike count when departures are not counted", async () => {
@@ -676,6 +700,31 @@ describe("the header on a phone", () => {
     expect(strip()).not.toHaveTextContent(FAILED);
   });
 
+  it("keeps the strip on the review: the strike count, and the save line when a save fails", async () => {
+    await open(DECK_LEFT, {
+      integrity: {
+        requireFullscreen: false,
+        blockCopyPaste: true,
+        maxFocusLoss: 2,
+        onLimitExceeded: "flag",
+        minAwayMs: 3000,
+      },
+    });
+    fireEvent.click(banner().getByRole("button", { name: "Nộp bài" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Xem lại trước khi nộp" }),
+    ).toBeInTheDocument();
+    expect(strip()).toHaveTextContent("Còn 2 lần rời trang");
+
+    vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("boom"));
+    type();
+    expect(strip()).not.toHaveTextContent(SAVING);
+    await pass(FLUSH_DEBOUNCE_MS);
+    expect(strip()).toHaveTextContent(FAILED);
+    expect(strip()).toHaveTextContent("Còn 2 lần rời trang");
+  });
+
   it("has no header once the paper is submitted", async () => {
     await open();
     await act(() => store().submit("manual"));
@@ -683,5 +732,47 @@ describe("the header on a phone", () => {
       screen.getByRole("heading", { name: "Bài đã được nộp." }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("banner")).toBeNull();
+  });
+});
+
+describe("the header in English", () => {
+  beforeEach(async () => {
+    viewport("desktop");
+    await i18n.changeLanguage("en");
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage("vi");
+  });
+
+  it("is the deck's wording, saved and saving", async () => {
+    await open();
+    expect(banner().getByRole("button", { name: "Leave test" })).toBeInTheDocument();
+    expect(banner().getByRole("button", { name: "Submit" })).toBeInTheDocument();
+    expect(screen.getByRole("timer", { name: "Time left" })).toHaveTextContent("38:12");
+    expect(banner().getByText("All answers saved")).toBeInTheDocument();
+
+    heldSave();
+    type();
+    expect(banner().getByText("Saving…")).toBeInTheDocument();
+  });
+
+  it("says which of failed and offline it is", async () => {
+    await open();
+    vi.mocked(saveAnswers).mockRejectedValue(new Error("boom"));
+    type();
+    await pass(FLUSH_DEBOUNCE_MS);
+    expect(announced()).toEqual(["Could not save. Trying again…"]);
+
+    connection(false);
+    expect(announced()).toEqual(["You are offline. Saving when you reconnect."]);
+  });
+
+  it("counts minutes in the singular and the plural", async () => {
+    await open(5 * MINUTE + 1_000);
+    await pass(1_000);
+    expect(announced()).toEqual(["5 minutes left"]);
+    await pass(4 * MINUTE);
+    expect(announced()).toEqual(["1 minute left"]);
   });
 });
