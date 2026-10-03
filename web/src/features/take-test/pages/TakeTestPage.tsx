@@ -58,7 +58,8 @@ import { worth } from "../worth";
  * header says when a save has failed or the device is offline, and is
  * otherwise absent. Once the attempt is submitted, by the student, the timer
  * or an auto-submit, the page shows the submitted screen and leaves the
- * fullscreen the assignment asked for.
+ * fullscreen the assignment asked for. From then on no fullscreen change is
+ * recorded, so that exit is never noted as the student's.
  */
 export default function TakeTestPage() {
   const { t } = useTranslation();
@@ -96,13 +97,17 @@ export default function TakeTestPage() {
     [sections, questions],
   );
   const question = questions[Math.min(index, questions.length - 1)];
+  const ended = submitState === "done";
 
   // Every §10 listener, in one place.
   const { strikes, fullscreen } = useIntegrityMonitor({
     attemptId: attemptId ?? null,
     sessionId,
     beaconToken,
-    policy: integrity,
+    policy:
+      ended && integrity !== null
+        ? { ...integrity, requireFullscreen: false }
+        : integrity,
     questionId: question?.id ?? null,
   });
 
@@ -114,7 +119,6 @@ export default function TakeTestPage() {
   const sealed = lock === "superseded" || lock === "closed";
   if (sealed && submitAsked) setSubmitAsked(false);
 
-  const ended = submitState === "done";
   const asksFullscreen = integrity?.requireFullscreen === true;
   useEffect(() => {
     if (ended && asksFullscreen) void exitFullscreen();

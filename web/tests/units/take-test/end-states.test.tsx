@@ -431,6 +431,25 @@ describe("leaving fullscreen when the attempt ends", () => {
     expect(exit).toHaveBeenCalledTimes(1);
   });
 
+  it("records the student's own change during the sitting, and nothing of its own exit", async () => {
+    await open(asked);
+    fullscreen({ enabled: true, element: document.body });
+    act(() => {
+      document.dispatchEvent(new Event("fullscreenchange"));
+    });
+    expect(bufferedEvents().map((recorded) => recorded.kind)).toEqual([
+      "fullscreen_enter",
+    ]);
+
+    exit.mockImplementation(async () => {
+      fullscreen({ enabled: true, element: null });
+      document.dispatchEvent(new Event("fullscreenchange"));
+    });
+    await handIn();
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(bufferedEvents()).toEqual([]);
+  });
+
   it("leaves a fullscreen the assignment did not ask for alone", async () => {
     fullscreen({ enabled: true, element: document.body });
     await open();
