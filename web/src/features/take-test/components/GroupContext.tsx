@@ -67,7 +67,7 @@ export const GroupContext = memo(function GroupContext({
             ) : (
               <button
                 type="button"
-                className="content-gap"
+                className="content-gap items-end"
                 aria-label={t("preview.goToQuestion", { n: number, label })}
                 onClick={() => onGap(gap)}
               >

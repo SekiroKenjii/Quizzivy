@@ -130,6 +130,10 @@ it("returns to the question, and to the gap's target, from a gap in the passage 
   mount();
   await screen.findByText(previewQuestions[1]!.prompt);
   await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
+  expect(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" })).toHaveClass(
+    "content-gap",
+    "items-end",
+  );
   await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
 
   expect(screen.getByText(previewQuestions[2]!.prompt)).toBeVisible();

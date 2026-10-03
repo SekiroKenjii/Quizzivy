@@ -165,7 +165,7 @@ describe("the panes from 768", () => {
     expect(questionPane()).toHaveClass("bg-sidebar", "flex-[1_1_0]");
     expect(questionPane()).toBeVisible();
     expect(sheet().parentElement).toHaveClass("overflow-y-auto", "px-8", "py-7");
-    expect(sheet()).toHaveClass("mx-auto", "max-w-150", "gap-4.5");
+    expect(sheet()).toHaveClass("mx-auto", "max-w-150", "gap-4.5", "outline-none!");
     expect(
       passage().compareDocumentPosition(questionPane()) &
         Node.DOCUMENT_POSITION_FOLLOWING,

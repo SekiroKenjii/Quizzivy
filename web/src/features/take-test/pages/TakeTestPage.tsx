@@ -423,7 +423,7 @@ function Paper({
           tabIndex={-1}
           aria-label={t("takeTest.dotLabel", { n: index + 1 })}
           data-resize-middle
-          className="flex min-w-0 flex-1 outline-none"
+          className="flex min-w-0 flex-1 outline-none!"
         >
           {passage !== undefined && (
             <GroupContext
@@ -454,7 +454,7 @@ function Paper({
                 id={`answer-question-${question.id}`}
                 tabIndex={-1}
                 aria-label={t("takeTest.dotLabel", { n: index + 1 })}
-                className="mx-auto flex w-full max-w-150 flex-col gap-4.5 outline-none"
+                className="mx-auto flex w-full max-w-150 flex-col gap-4.5 outline-none!"
               >
                 {part ? (
                   <p className="text-muted-fg text-meta leading-normal font-semibold tracking-[0.02em] uppercase">
@@ -635,7 +635,7 @@ function useLanding(
 function Shortcuts({ choice }: Readonly<{ choice: boolean }>) {
   const { t } = useTranslation();
   return (
-    <p className="text-muted-foreground ml-3 flex items-center gap-1 text-xs">
+    <p className="text-muted-foreground ml-3 flex min-w-0 flex-wrap items-center gap-1 text-xs">
       {t("takeTest.shortcuts")}
       {choice && (
         <>
