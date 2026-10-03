@@ -1184,6 +1184,15 @@ Note the ordering: the blanket `GRANT … ON ALL TABLES` runs first and the two
 
 The app role never owns anything and cannot run DDL, per §13.5.
 
+### `00079_revoke_temporary_from_public.sql`
+
+It revokes `TEMPORARY` on the database from `PUBLIC`, so `quizzivy_app` can
+create nothing in `pg_temp`, the schema a `SECURITY DEFINER` function with a
+loose `search_path` is attacked from (PR #193 closed one such hole); the
+application creates no temporary object. The database's owner keeps the
+privilege, so the migrate role's own temporary tables (`pg18_test.go`) still
+work.
+
 ### The student-payload rule (§13.5)
 
 `sample_answer`, `transcript`, `is_correct`, and accepted blank answers must
@@ -1331,6 +1340,7 @@ the file it adds.
 | `00076_index_users_created_by.sql` | `users_created_by_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00077_index_assignments_creator.sql` | `assignments_creator_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00078_add_join_code_encryption.sql` | `class_join_codes.code_ciphertext`, `key_id`, `lookup_scheme` and their four checks; Down refuses a live scheme-2 code | R2 (T-R2.14a), D5, D-27 |
+| `00079_revoke_temporary_from_public.sql` | revokes `TEMPORARY` on the database from `PUBLIC`; a no-op with a notice where the migration role does not own the database | fix for #194 |
 
 Notes on migration mechanics (§13.7):
 
