@@ -1,8 +1,8 @@
 import { vi } from "vitest";
 
 /**
- * The student shell and its detail pages branch on 768px in code, and the
- * engine on 1024px, so a test says which side it is on. jsdom's default stub answers
+ * The student shell, its detail pages and the engine branch on 768px in
+ * code, so a test says which side it is on. jsdom's default stub answers
  * "wide" to every min-width query; a test of a phone board pins "phone". The
  * returned `resize` moves to the other side and tells every listener, for a
  * test of what survives the crossing.

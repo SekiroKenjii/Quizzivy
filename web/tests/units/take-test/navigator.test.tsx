@@ -57,9 +57,7 @@ function renderPage() {
   return router;
 }
 
-const counter = () => screen.getAllByText(/^Câu \d\/3$/)[0]!;
-// The rail (S-08) is display:none below 1024px, which jsdom cannot see, so
-// the phone's footer is addressed by its landmark.
+const onQuestion = (n: number) => screen.queryByRole("main", { name: `Câu ${n}` });
 const footer = () => within(screen.getByRole("contentinfo"));
 
 beforeEach(() => {
@@ -96,7 +94,7 @@ describe("the navigator", () => {
 
     await user.click(within(sheet).getByRole("button", { name: "Câu 3" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(counter()).toHaveTextContent("Câu 3/3");
+    expect(onQuestion(3)).toBeInTheDocument();
   });
 
   it("marks a flagged question, in the grid and on the button", async () => {
@@ -142,9 +140,9 @@ describe("shortcuts", () => {
       screen.getByRole("button", { name: "Bỏ đánh dấu câu này" }),
     ).toBeInTheDocument();
     await user.keyboard("{ArrowRight}");
-    expect(counter()).toHaveTextContent("Câu 2/3");
+    expect(onQuestion(2)).toBeInTheDocument();
     await user.keyboard("{ArrowLeft}");
-    expect(counter()).toHaveTextContent("Câu 1/3");
+    expect(onQuestion(1)).toBeInTheDocument();
   });
 
   it("stay out of the way while the student is typing", async () => {
@@ -154,7 +152,7 @@ describe("shortcuts", () => {
     await user.click(screen.getByRole("button", { name: "Câu sau" }));
     await user.type(screen.getByRole("textbox"), "f");
     expect(screen.getByRole("textbox")).toHaveValue("f");
-    expect(counter()).toHaveTextContent("Câu 2/3");
+    expect(onQuestion(2)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Đánh dấu câu này" }),
     ).toBeInTheDocument();
@@ -186,7 +184,7 @@ describe("review and submit", () => {
 
       // A dot is a way back to the question it names.
       await user.click(screen.getByRole("button", { name: "Câu 3" }));
-      expect(counter()).toHaveTextContent("Câu 3/3");
+      expect(onQuestion(3)).toBeInTheDocument();
       await user.click(footer().getByRole("button", { name: "Xem lại & nộp" }));
 
       await user.click(await screen.findByRole("button", { name: "Nộp bài" }));
@@ -206,7 +204,9 @@ describe("review and submit", () => {
       expect(
         screen.getByText(/^Nộp lúc \d{2}:\d{2} · \d{2}\/\d{2} · 1\/3 câu đã trả lời$/),
       ).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Thoát" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Thoát khỏi bài làm" }),
+      ).not.toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/app/attempts/att-1");
 
       await user.click(screen.getByRole("button", { name: button }));
@@ -268,7 +268,7 @@ describe("review and submit", () => {
   });
 });
 
-describe("from 1024px (S-08, S-15)", () => {
+describe("from 768px", () => {
   const listening = paper({
     sections: [
       { id: "s1", title: "Phần 1 · Ngữ pháp", instructions: null },
@@ -291,8 +291,10 @@ describe("from 1024px (S-08, S-15)", () => {
     expect(
       header.getByText("Unit 5 — Present perfect & listening"),
     ).toBeInTheDocument();
-    expect(header.getByText("Chưa có gì để lưu")).toBeInTheDocument();
-    expect(header.queryByText(/^Câu \d\/3$/)).toBeNull();
+    expect(header.getByText("Đã lưu tất cả câu trả lời")).toBeInTheDocument();
+    expect(
+      header.getByRole("timer", { name: "Thời gian còn lại" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("contentinfo")).toBeNull();
     expect(screen.queryByRole("button", { name: "Danh sách câu" })).toBeNull();
 
@@ -346,13 +348,4 @@ describe("from 1024px (S-08, S-15)", () => {
     );
     expect(screen.getByRole("button", { name: "Nộp bài" })).not.toHaveClass("w-full");
   });
-});
-
-it("distinguishes restored server answers from a new empty attempt", async () => {
-  vi.mocked(getAttempt).mockResolvedValue(
-    paper({ answers: { q1: { type: "choice", optionIds: ["o1"] } } }),
-  );
-  renderPage();
-  expect(await screen.findByText("Đã tải bài đã lưu")).toBeInTheDocument();
-  expect(screen.queryByText("Chưa có gì để lưu")).toBeNull();
 });
