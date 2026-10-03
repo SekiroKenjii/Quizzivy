@@ -38,7 +38,14 @@ export async function startAttempt(page: Page, assignmentId: string): Promise<st
     name: /^(Bắt đầu làm bài|Tiếp tục làm bài)$/,
   });
   await expect(start).toBeVisible();
+  const asks = ((await start.textContent()) ?? "").includes("Bắt đầu");
   await start.click();
+  if (asks) {
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Bắt đầu", exact: true })
+      .click();
+  }
   await expect(page).toHaveURL(/\/app\/attempts\/[0-9a-f-]+$/);
   return page.url().split("/").pop() ?? "";
 }
