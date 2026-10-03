@@ -372,6 +372,31 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
     expect(router.state.historyAction).toBe("POP");
   });
 
+  it("holds the back button on the review too, and says so when the save fails", async () => {
+    const user = userEvent.setup();
+    const router = await open();
+    vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("offline"));
+    await user.type(screen.getByRole("textbox"), "parks");
+    await user.click(
+      within(screen.getByRole("banner")).getByRole("button", { name: "Nộp bài" }),
+    );
+    await screen.findByRole("heading", { name: "Xem lại trước khi nộp" });
+
+    await act(() => router.navigate(-1));
+    await screen.findByRole("dialog", { name: UNSAVED });
+    expect(inDialog().getByRole("alert")).toHaveTextContent(UNSAVED);
+    expect(path(router)).toBe("/app/attempts/att-1");
+    expect(
+      screen.getByRole("heading", { name: "Xem lại trước khi nộp", hidden: true }),
+    ).toBeInTheDocument();
+
+    await user.click(inDialog().getByRole("button", { name: "Thử lưu lại" }));
+    await waitFor(() => expect(path(router)).toBe("/app/classes"));
+    expect(vi.mocked(saveAnswers).mock.lastCall?.[1].answers).toEqual({
+      q1: { type: "text", value: "parks" },
+    });
+  });
+
   it("lets the back button through without asking when nothing is pending", async () => {
     const router = await open();
     await act(() => router.navigate(-1));
