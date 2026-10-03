@@ -610,6 +610,28 @@ describe("the panes below 768", () => {
     expect(questionPane()).toBeVisible();
   });
 
+  it("shows the question when the Submit dialog goes to the one whose passage is open", async () => {
+    const user = userEvent.setup();
+    await open(deckPassageSession(NOW));
+    for (let moves = 0; moves < 3; moves++) await user.click(next());
+    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
+    expect(questionPane()).not.toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Nộp bài" }));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Câu 4" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(questionPane()).toBeVisible();
+    expect(screen.getByRole("article", { hidden: true })).not.toBeVisible();
+    expect(within(switcher()!).getByRole("button", { name: "Câu 4" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(sheet()).toHaveFocus();
+    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+  });
+
   it("keeps the student's place in the question while the passage is showing", async () => {
     const user = userEvent.setup();
     await open(deckPassageSession(NOW));

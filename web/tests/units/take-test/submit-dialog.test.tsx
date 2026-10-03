@@ -79,6 +79,7 @@ const facts = () =>
   );
 const onQuestion = (n: number) =>
   screen.queryByRole("main", { name: `Câu ${n}`, hidden: true });
+const answerOf = (n: number) => document.getElementById(`answer-question-${q(n)}`);
 
 async function ask() {
   const button = headerSubmit();
@@ -241,7 +242,7 @@ describe("the Submit dialog", () => {
 
     noDialog();
     expect(onQuestion(6)).toBeInTheDocument();
-    expect(onQuestion(6)).toHaveFocus();
+    expect(answerOf(6)).toHaveFocus();
     expect(onQuestion(1)).toBeNull();
     expect(submitAttempt).not.toHaveBeenCalled();
   });

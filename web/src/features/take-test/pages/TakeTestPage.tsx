@@ -73,6 +73,7 @@ export default function TakeTestPage() {
   const [index, setIndex] = useState(0);
   const [submitAsked, setSubmitAsked] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [jumps, countJump] = useReducer((n: number) => n + 1, 0);
 
   const questions = useTakeTestStore((s) => s.questions);
   const sections = useTakeTestStore((s) => s.sections);
@@ -207,6 +208,7 @@ export default function TakeTestPage() {
     setIndex(i);
     setNavOpen(false);
     setSubmitAsked(false);
+    countJump();
   }, []);
 
   if (status === "loading") {
@@ -272,6 +274,7 @@ export default function TakeTestPage() {
       <Paper
         wide={wide}
         index={index}
+        jumps={jumps}
         question={question}
         total={questions.length}
         group={sectionAt(groups, index)}
@@ -303,6 +306,7 @@ export default function TakeTestPage() {
 function Paper({
   wide,
   index,
+  jumps,
   question,
   total,
   group,
@@ -321,6 +325,7 @@ function Paper({
 }: Readonly<{
   wide: boolean;
   index: number;
+  jumps: number;
   question: StudentQuestion;
   total: number;
   group: SectionGroup | null;
@@ -359,12 +364,13 @@ function Paper({
   );
   const context = contexts.get(question.id);
   const passage = hasPassage(context) ? context : undefined;
+  const visit = `${question.id}:${jumps}`;
   const [readingFor, setReadingFor] = useState<string | null>(null);
-  if (readingFor !== null && readingFor !== question.id) setReadingFor(null);
-  const reading = !wide && passage !== undefined && readingFor === question.id;
+  if (readingFor !== null && readingFor !== visit) setReadingFor(null);
+  const reading = !wide && passage !== undefined && readingFor === visit;
   const sheet = useRef<HTMLDivElement>(null);
   const onSheetScroll = useKeptScroll(sheet, reading, question.id);
-  const landOn = useLanding(question.id, sheet, answerPanel);
+  const landOn = useLanding(visit, sheet, answerPanel);
 
   const jumpToGap = useCallback(
     (gap: MaterialGap) => {
@@ -408,7 +414,7 @@ function Paper({
         <PaneSwitch
           number={index + 1}
           reading={reading}
-          onRead={(on) => setReadingFor(on ? question.id : null)}
+          onRead={(on) => setReadingFor(on ? visit : null)}
         />
       )}
 
@@ -602,7 +608,7 @@ function gapLanding(
 }
 
 function useLanding(
-  questionId: string,
+  visit: string,
   sheetRef: RefObject<HTMLDivElement | null>,
   panelRef: RefObject<HTMLDivElement | null>,
 ) {
@@ -619,7 +625,7 @@ function useLanding(
     const element = document.getElementById(id) ?? panelRef.current;
     element?.focus({ preventScroll: true });
     element?.scrollIntoView?.({ block: "nearest" });
-  }, [questionId, request, sheetRef, panelRef]);
+  }, [visit, request, sheetRef, panelRef]);
   return useCallback((id: string) => {
     target.current = id;
     ask();
