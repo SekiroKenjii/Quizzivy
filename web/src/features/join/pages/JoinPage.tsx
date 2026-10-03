@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { LoaderCircle } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router";
-import type { TFunction } from "i18next";
 
 import { Button } from "@/components/ui/button";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import { homePathFor } from "@/features/auth/home";
 import { learnsOnly } from "@/features/auth/permissions";
-import { joinClass, previewJoinCode } from "@/features/join/api";
-import { clean, CODE_LENGTH, hasExcluded, normalize } from "@/features/join/code";
+import { myClassesQuery } from "@/features/classes/api";
+import { joinClass } from "@/features/join/api";
+import { clean, normalize } from "@/features/join/code";
 import {
   clearJoinContext,
   joinOutcomeState,
@@ -23,10 +23,10 @@ import {
 import { ClassPreviewCard } from "@/features/join/components/ClassPreviewCard";
 import { JoinCodeField } from "@/features/join/components/JoinCodeField";
 import { JoinedState } from "@/features/join/components/JoinedState";
+import { toneFor, useJoinLookup } from "@/features/join/useJoinLookup";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
 
-const LOOKUP_DELAY_MS = 250;
 const ERROR_ID = "join-code-error";
 
 /**
@@ -94,21 +94,7 @@ function CodeEntry({ initial }: Readonly<{ initial: string }>) {
   const { t } = useTranslation();
   const signedIn = useAuthStore((s) => s.user !== null);
   const [code, setCode] = useState(() => clean(initial));
-  const excluded = hasExcluded(code);
-  const lookup = useSettled(code.length === CODE_LENGTH && !excluded ? code : null);
-  const preview = useQuery({
-    queryKey: ["join-preview", lookup],
-    queryFn: ({ signal }) => previewJoinCode(lookup ?? "", signal),
-    enabled: lookup !== null,
-    retry: false,
-    staleTime: 30_000,
-  });
-
-  const found = lookup !== null ? preview.data : undefined;
-  let message: string | null = null;
-  if (excluded) message = t("join.excluded");
-  else if (lookup !== null && preview.isError)
-    message = lookupMessage(preview.error, t);
+  const { found, message, checking } = useJoinLookup(code);
 
   return (
     <AuthLayout panel={false}>
@@ -130,7 +116,7 @@ function CodeEntry({ initial }: Readonly<{ initial: string }>) {
           </p>
         )}
         <p role="status" className="sr-only">
-          {lookup !== null && preview.isFetching ? t("join.checking") : ""}
+          {checking ? t("join.checking") : ""}
         </p>
 
         {found && (
@@ -216,31 +202,25 @@ function FoundClass({ context }: Readonly<{ context: JoinContext }>) {
   );
 }
 
-function useSettled(code: string | null): string | null {
-  const [settled, setSettled] = useState(code);
-  useEffect(() => {
-    if (code === null) return;
-    const timer = setTimeout(() => setSettled(code), LOOKUP_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [code]);
-  return code !== null && settled === code ? code : null;
-}
-
 function useEnrol() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   function finish(code: string, outcome: JoinOutcome) {
     clearJoinContext();
     void navigate(`/join/${code}`, { replace: true, state: joinOutcomeState(outcome) });
   }
   return useMutation({
     mutationFn: (context: JoinContext) => joinClass(context.code),
-    onSuccess: (joined, context) =>
+    onSuccess: (joined, context) => {
+      void queryClient.invalidateQueries({ queryKey: myClassesQuery.queryKey });
+      void queryClient.invalidateQueries({ queryKey: ["my-assignments"] });
       finish(context.code, {
         kind: "joined",
         className: joined.name,
         teacherName: context.teacherName,
-      }),
+      });
+    },
     onError: (cause, context) =>
       finish(
         context.code,
@@ -257,15 +237,4 @@ function useEnrol() {
             },
       ),
   });
-}
-
-function lookupMessage(error: unknown, t: TFunction): string {
-  if (error instanceof ApiError && error.isRateLimited) return error.message;
-  if (error instanceof ApiError && error.status === 404) return t("join.notFound");
-  return t("join.lookupFailed");
-}
-
-function toneFor(message: string | null, found: boolean) {
-  if (message) return "danger";
-  return found ? "success" : "idle";
 }

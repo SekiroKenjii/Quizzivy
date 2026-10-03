@@ -29,8 +29,10 @@ function joinAnswers(status: number, body: unknown) {
   );
 }
 
+let client = new QueryClient();
+
 function renderReturn() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const routes: RouteObject[] = [
     { path: "/join/:code", element: <JoinPage /> },
     { path: "/app/classes", element: <p>my classes</p> },
@@ -82,6 +84,21 @@ describe("coming back from sign-in to join", () => {
 
     await user.click(screen.getByRole("link", { name: "Đến lớp của tôi" }));
     expect(router.state.location.pathname).toBe("/app/classes");
+  });
+
+  it("marks the student's lists stale, so the app shows the new class", async () => {
+    joinAnswers(200, { ...sampleClass, name: CLASS_NAME });
+    useAuthStore.getState().setSession("token", studentUser);
+    renderReturn();
+    client.setQueryData(["my-classes"], { items: [] });
+    client.setQueryData(["my-assignments"], {
+      dueNow: [],
+      upcoming: [],
+      completed: [],
+    });
+    await screen.findByRole("heading", { name: `Bạn đã vào lớp ${CLASS_NAME}` });
+    expect(client.getQueryState(["my-classes"])?.isInvalidated).toBe(true);
+    expect(client.getQueryState(["my-assignments"])?.isInvalidated).toBe(true);
   });
 
   it("counts a class the student is already in as joined", async () => {

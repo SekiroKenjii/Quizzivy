@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { anonymous, stubApi, stubGoogleConsent, studentUser } from "./support/api";
+import {
+  anonymous,
+  sessionAs,
+  stubApi,
+  stubGoogleConsent,
+  studentUser,
+} from "./support/api";
 
 /**
  * §14's E2E 3 and E2E 4 — the self-join flow, which is the only way a student
@@ -58,6 +64,7 @@ test("E2E 3: an anonymous visitor joins a class from a deep link", async ({ page
         ],
       },
     },
+    "GET /app/assignments": { body: { dueNow: [], upcoming: [], completed: [] } },
   });
   await stubGoogleConsent(page);
   await page.goto(`/join/${CODE}`);
@@ -138,4 +145,72 @@ test("a signed-out visitor never reaches the app by guessing the URL", async ({
   await stubApi(page, anonymous);
   await page.goto("/app");
   await expect(page).toHaveURL(/\/login\?next=/);
+});
+
+test("a signed-in student joins from Classes with one lookup and one join", async ({
+  page,
+}) => {
+  const calls: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("localhost:8080"))
+      calls.push(`${r.method()} ${new URL(r.url()).pathname}`);
+  });
+  let joined = false;
+  const json = (body: unknown) => ({
+    contentType: "application/json",
+    body: JSON.stringify(body),
+  });
+  await stubApi(page, {
+    ...sessionAs(studentUser),
+    "GET /app/classes": (route) =>
+      route.fulfill(
+        json({
+          items: joined
+            ? [
+                {
+                  id: CLASS_ID,
+                  name: CLASS_NAME,
+                  description: null,
+                  teacherName: TEACHER,
+                  joinedAt: "2026-09-26T01:00:00Z",
+                },
+              ]
+            : [],
+        }),
+      ),
+    "GET /app/assignments": { body: { dueNow: [], upcoming: [], completed: [] } },
+    "POST /join/preview": {
+      body: { classId: CLASS_ID, className: CLASS_NAME, teacherName: TEACHER },
+    },
+    "POST /app/classes/join": (route) => {
+      joined = true;
+      return route.fulfill(
+        json({
+          id: CLASS_ID,
+          name: CLASS_NAME,
+          description: null,
+          studentCount: 13,
+          openAssignmentCount: 0,
+          archivedAt: null,
+          selfJoinEnabled: true,
+          createdAt: "2026-01-01T00:00:00Z",
+        }),
+      );
+    },
+  });
+  await page.goto("/app/classes");
+  await expect(page.getByText("Bạn chưa tham gia lớp nào.")).toBeVisible();
+  await page.getByRole("button", { name: "Tham gia lớp" }).click();
+  const dialog = page.getByRole("dialog", { name: "Tham gia lớp" });
+  await dialog.getByLabel("Mã lớp").pressSequentially("k7m3p9qr");
+  await expect(dialog.getByLabel("Mã lớp")).toHaveValue("K7M3-P9QR");
+  await expect(dialog.getByText(CLASS_NAME, { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/học viên/)).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Tham gia", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(`Bạn đã vào lớp ${CLASS_NAME}`)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: CLASS_NAME })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tham gia lớp" })).toBeFocused();
+  expect(calls.filter((c) => c === "POST /join/preview")).toHaveLength(1);
+  expect(calls.filter((c) => c === "POST /app/classes/join")).toHaveLength(1);
 });

@@ -10,6 +10,7 @@ import { contractJson } from "@tests/support/contractResponse";
 import { useAuthStore } from "@/stores/auth";
 import { viewport } from "@tests/support/viewport";
 import { Toaster, toast } from "@/components/ui/sonner";
+import { sampleClass } from "@tests/support/fixtures";
 import { ASSIGNMENT, ATTEMPT, BASE, card, mockStart, renderAt } from "./support";
 
 const flags = vi.hoisted(() => ({
@@ -608,18 +609,18 @@ describe("the states the deck does not draw", () => {
     expect(
       await screen.findByText("Hiện chưa có bài nào được giao."),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Tham gia lớp" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tham gia lớp" })).toBeNull();
     expect(screen.queryByText(/Hôm nay không có bài/)).toBeNull();
   });
 
-  it("offers the way into a class to a student who has none", async () => {
+  it("opens the Join dialog for a student who is in no class", async () => {
+    const user = userEvent.setup();
     home({}, []);
     expect(await screen.findByText("Bạn chưa tham gia lớp nào.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Tham gia lớp" })).toHaveAttribute(
-      "href",
-      "/join",
-    );
     expect(screen.queryByText("Hiện chưa có bài nào được giao.")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Tham gia lớp" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tham gia lớp" });
+    expect(within(dialog).getByLabelText("Mã lớp")).toBeInTheDocument();
   });
 
   it("waits for the classes before choosing between the two", async () => {
@@ -644,7 +645,7 @@ describe("the states the deck does not draw", () => {
     expect(
       await screen.findByText("Hiện chưa có bài nào được giao."),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Tham gia lớp" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tham gia lớp" })).toBeNull();
   });
 
   it("offers no class code to a student with a paper, whatever the classes say", async () => {
@@ -653,8 +654,61 @@ describe("the states the deck does not draw", () => {
       await screen.findByRole("button", { name: "Tiếp tục làm bài" }),
     ).toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(50));
-    expect(screen.queryByRole("link", { name: "Tham gia lớp" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tham gia lớp" })).toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("joins from Home, and lands on the page with the class joined", async () => {
+    const user = userEvent.setup();
+    const classes: unknown[] = [];
+    const joins: string[] = [];
+    serve({}, classes);
+    server.use(
+      http.post(`${BASE}/join/preview`, () =>
+        contractJson("/join/preview", "post", 200, {
+          classId: SAMPLE_CLASS.id,
+          className: SAMPLE_CLASS.name,
+          teacherName: "Cô Thương",
+        }),
+      ),
+      http.post(`${BASE}/app/classes/join`, async ({ request }) => {
+        joins.push(((await request.json()) as { joinCode: string }).joinCode);
+        classes.push(SAMPLE_CLASS);
+        return contractJson("/app/classes/join", "post", 200, {
+          ...sampleClass,
+          id: SAMPLE_CLASS.id,
+          name: SAMPLE_CLASS.name,
+        });
+      }),
+    );
+    renderAt("/app", [
+      {
+        path: "/app",
+        element: (
+          <>
+            <main tabIndex={-1}>
+              <StudentHomePage />
+            </main>
+            <Toaster />
+          </>
+        ),
+      },
+    ]);
+    await user.click(await screen.findByRole("button", { name: "Tham gia lớp" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Tham gia lớp" }));
+    await user.type(dialog.getByLabelText("Mã lớp"), "K7QM2PXA");
+    await dialog.findByText(SAMPLE_CLASS.name);
+    await user.click(dialog.getByRole("button", { name: "Tham gia" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(joins).toEqual(["K7QM2PXA"]);
+    expect(
+      await screen.findByText(`Bạn đã vào lớp ${SAMPLE_CLASS.name}`),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("Hiện chưa có bài nào được giao."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Tham gia lớp" })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("main")).toHaveFocus());
   });
 
   it("draws no skeleton beside a paper while the classes are still loading", async () => {

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DeckScale } from "@/components/ui/deck-scale";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -389,7 +390,33 @@ function OpenMenu() {
   );
 }
 
+function OpenDialog() {
+  return (
+    <Dialog open>
+      <DialogContent aria-describedby={undefined}>
+        <DialogTitle>Tham gia lớp</DialogTitle>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 describe("content that portals out of a deck surface stays on it", () => {
+  it("carries the scale onto a dialog, which renders under the body", () => {
+    const { container } = render(
+      <DeckScale>
+        <OpenDialog />
+      </DeckScale>,
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(container.contains(dialog)).toBe(false);
+    expect(dialog.dataset["scale"]).toBe("deck");
+  });
+
+  it("leaves a dialog unmarked off a deck surface", () => {
+    render(<OpenDialog />);
+    expect(screen.getByRole("dialog").closest("[data-scale]")).toBeNull();
+  });
+
   it("marks the surface itself", () => {
     const { container } = render(<DeckScale className="shell">nội dung</DeckScale>);
     const root = container.firstElementChild as HTMLElement;

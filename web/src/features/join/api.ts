@@ -1,4 +1,5 @@
 import { api } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
 
 export type JoinPreview = {
@@ -23,6 +24,24 @@ export function previewJoinCode(
     "/join/preview",
     signal ? { body: { joinCode }, signal } : { body: { joinCode } },
   );
+}
+
+/**
+ * lookupJoinCode is previewJoinCode for a caller that remembers the answer:
+ * it resolves null when the server refuses the code, whatever its reason, so
+ * a refusal can be kept beside a found class and is not asked about again.
+ * Anything else that goes wrong still rejects.
+ */
+export async function lookupJoinCode(
+  joinCode: string,
+  signal?: AbortSignal,
+): Promise<JoinPreview | null> {
+  try {
+    return await previewJoinCode(joinCode, signal);
+  } catch (cause) {
+    if (cause instanceof ApiError && cause.status === 404) return null;
+    throw cause;
+  }
 }
 
 /** The already-signed-in half of §6.2. */

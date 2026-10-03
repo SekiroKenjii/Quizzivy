@@ -168,6 +168,27 @@ export function homeView(lists: Lists, now: Date): HomeView {
 }
 
 /**
+ * nextByClass is the paper each class's card names as next, in Home's order:
+ * the attempt on the resume card, then every other paper still to do by the
+ * date on its tile. A paper counts for a class only when the server attributes
+ * it to that one class; a paper shared by two of the student's classes names
+ * none, and so is on no card.
+ */
+export function nextByClass(lists: Lists, now: Date): ReadonlyMap<string, ComingUpRow> {
+  const { resume, rows } = homeView(lists, now);
+  const first: ComingUpRow[] =
+    resume === null
+      ? []
+      : [{ card: resume, pill: "inProgress", moment: liveCloses(resume) }];
+  const next = new Map<string, ComingUpRow>();
+  for (const candidate of [...first, ...rows]) {
+    const classId = candidate.card.classId;
+    if (classId != null && !next.has(classId)) next.set(classId, candidate);
+  }
+  return next;
+}
+
+/**
  * justSubmitted says whether a result is less than a minute old. A device
  * whose clock runs behind the server's sees a submission in its future, and
  * that counts too.
