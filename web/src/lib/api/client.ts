@@ -65,9 +65,13 @@ type Optional<K extends string, T> = [T] extends [never]
   ? { [key in K]?: undefined }
   : { [key in K]: T };
 
+type BodyOption<O> = O extends { requestBody: unknown }
+  ? Optional<"body", BodyOf<O>>
+  : Partial<Optional<"body", BodyOf<O>>>;
+
 export type RequestOptions<O> = Optional<"path", PathParamsOf<O>> &
   Optional<"query", QueryParamsOf<O>> &
-  Optional<"body", BodyOf<O>> & { signal?: AbortSignal; cache?: RequestCache };
+  BodyOption<O> & { signal?: AbortSignal; cache?: RequestCache };
 
 // ------------------------------------------------------------ url building
 
