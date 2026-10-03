@@ -17,6 +17,16 @@ export function hasPassage(group: StudentGroup | undefined): group is StudentGro
 }
 
 /**
+ * questionShowing reports whether the question's pane is on screen. On a
+ * phone showing the passage it is not, and the keys that answer or flag must
+ * not act on a question the student cannot see.
+ */
+export function questionShowing(questionId: string): boolean {
+  const sheet = document.getElementById(`answer-question-${questionId}`);
+  return sheet === null || sheet.closest("[hidden]") === null;
+}
+
+/**
  * useKeptScroll keeps a pane's scroll position while the pane is hidden. A
  * hidden element has no scroll box, so the browser forgets where it was; the
  * hook remembers the last position scrolled to and puts it back when the pane

@@ -482,6 +482,41 @@ describe("the panes below 768", () => {
     );
   });
 
+  it("takes no answer and no flag from the keys while the passage hides the question", async () => {
+    const user = userEvent.setup();
+    const paper = deckPassageSession(NOW);
+    const fourth = paper.questions[3]!;
+    await open(paper);
+    for (let moves = 0; moves < 3; moves++) await user.click(next());
+    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
+
+    await user.keyboard("a");
+    await user.keyboard("f");
+    expect(store().answers[fourth.id]).toBeUndefined();
+    expect(store().flags.has(fourth.id)).toBe(false);
+
+    await user.click(within(switcher()!).getByRole("button", { name: "Câu 4" }));
+    await user.keyboard("a");
+    await user.keyboard("f");
+    expect(store().answers[fourth.id]).toEqual({
+      type: "choice",
+      optionIds: [fourth.options![0]!.id],
+    });
+    expect(store().flags.has(fourth.id)).toBe(true);
+  });
+
+  it("still moves to the next question from the arrow keys while the passage shows, and shows it", async () => {
+    const user = userEvent.setup();
+    await open(deckPassageSession(NOW));
+    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
+    expect(questionPane()).not.toBeVisible();
+
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("main", { name: "Câu 2" })).toBeInTheDocument();
+    expect(questionPane()).toBeVisible();
+    expect(screen.getByRole("article", { hidden: true })).not.toBeVisible();
+  });
+
   it("has no switcher when the question has no passage", async () => {
     await open(deckSession(NOW));
     expect(switcher()).toBeNull();

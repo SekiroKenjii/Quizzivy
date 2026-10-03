@@ -43,7 +43,7 @@ import {
   sectionAt,
   type SectionGroup,
 } from "../sections";
-import { hasPassage, useKeptScroll } from "../panes";
+import { hasPassage, questionShowing, useKeptScroll } from "../panes";
 import { questionKind } from "../questionType";
 import { useTakeTestStore } from "../store";
 import { useLeave } from "../useLeave";
@@ -167,7 +167,7 @@ export default function TakeTestPage() {
       case "f":
       case "F":
         event.preventDefault();
-        if (!event.repeat) toggleFlag(question.id);
+        if (!event.repeat && questionShowing(question.id)) toggleFlag(question.id);
         return;
     }
     const pick = "abcd".indexOf(event.key.toLowerCase());
@@ -176,7 +176,8 @@ export default function TakeTestPage() {
       pick >= 0 &&
       option !== undefined &&
       !event.repeat &&
-      questionKind(question) === "choice"
+      questionKind(question) === "choice" &&
+      questionShowing(question.id)
     ) {
       event.preventDefault();
       setAnswer(question.id, chooseOption(question, answers[question.id], option.id));
