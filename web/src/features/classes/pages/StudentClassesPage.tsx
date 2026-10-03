@@ -50,7 +50,7 @@ export default function StudentClassesPage() {
           </Link>
         </Button>
       </div>
-      {assignments.isError && (
+      {assignments.isError && assignments.data === undefined && (
         <LoadError error={assignments.error} onRetry={() => void assignments.refetch()}>
           {t("student.assignmentCountsFailed")}
         </LoadError>

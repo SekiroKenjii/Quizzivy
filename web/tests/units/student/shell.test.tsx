@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { focusManager } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { useLayoutEffect, useRef } from "react";
 import { http } from "msw";
 import StudentLayout from "@/layouts/StudentLayout";
 import StudentHomePage from "@/features/assignments/pages/StudentHomePage";
@@ -83,6 +84,12 @@ afterEach(() => {
   writeThemePreference("light");
 });
 
+function TakesFocus() {
+  const field = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => field.current?.focus(), []);
+  return <input ref={field} aria-label="Mã lớp" />;
+}
+
 function destinations() {
   return within(screen.getByRole("navigation", { name: NAV }))
     .getAllByRole("link")
@@ -119,6 +126,32 @@ describe("the shell from 768", () => {
     ).toHaveTextContent("AN");
     expect(screen.getAllByRole("navigation")).toHaveLength(1);
     expect(screen.queryByRole("link", { name: "Tôi" })).toBeNull();
+  });
+
+  it("is a deck surface and opens the deck's account menu", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    serveStudent({});
+    shell("/app", <p>trang</p>);
+    const account = await screen.findByRole("button", {
+      name: "Tài khoản của Nguyễn Văn An",
+    });
+    expect(account.closest("[data-scale='deck']")).toBe(
+      screen.getByRole("banner").parentElement,
+    );
+    expect(screen.getByRole("main").closest("[data-scale='deck']")).not.toBeNull();
+
+    await user.click(account);
+    const menu = screen.getByRole("menu");
+    expect(menu.dataset["scale"]).toBe("deck");
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Cài đặt", "Chế độ tối", "Đăng xuất"]);
+    expect(within(menu).getByRole("menuitem", { name: "Cài đặt" })).toHaveAttribute(
+      "href",
+      "/app/settings",
+    );
   });
 
   it("keeps the bar on a detail screen, lights no destination and offers no back arrow", async () => {
@@ -166,6 +199,26 @@ describe("the shell from 768", () => {
       "src",
       "/brand/quizzivy-mark-on-dark.svg",
     );
+  });
+
+  it("gives the keyboard the page: main takes focus on a new route, unless the page took it", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    serveStudent({});
+    renderAt("/app", [
+      {
+        element: <StudentLayout />,
+        children: [
+          { path: "/app", element: <p>trang chủ</p> },
+          { path: "/app/classes", element: <TakesFocus /> },
+        ],
+      },
+    ]);
+    const main = await screen.findByRole("main");
+    expect(main).toHaveFocus();
+    expect(main).toHaveAttribute("tabindex", "-1");
+
+    await user.click(screen.getByRole("link", { name: "Lớp" }));
+    expect(await screen.findByRole("textbox", { name: "Mã lớp" })).toHaveFocus();
   });
 
   it("returns to the top when the route changes", async () => {
@@ -344,6 +397,21 @@ describe("the shell below 768", () => {
     ).toBeInTheDocument();
   });
 
+  it("lights only the tab of the screen on show", async () => {
+    viewport("phone");
+    serveStudent({});
+    shell("/app/classes", <p>các lớp</p>);
+    const tabs = within(await screen.findByRole("navigation", { name: NAV }));
+    expect(tabs.getByRole("link", { name: "Lớp" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(tabs.getByRole("link", { name: "Trang chủ" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    expect(tabs.getByRole("link", { name: "Tôi" })).not.toHaveAttribute("aria-current");
+  });
+
   it("adds a shipped module's tab before Me", async () => {
     viewport("phone");
     flags.grades = true;
@@ -396,7 +464,7 @@ describe("crossing 768", () => {
   });
 });
 
-describe("home (S-13)", () => {
+describe("home", () => {
   it("keeps all assignment groups in the main reading flow", async () => {
     serveStudent({
       dueNow: [card({ className: "IELTS Foundation" })],
@@ -438,7 +506,7 @@ describe("home (S-13)", () => {
   });
 });
 
-describe("the intro (S-14)", () => {
+describe("the intro", () => {
   it("keeps the facts and start action together, with a way back", async () => {
     server.use(
       http.get(`${BASE}/app/assignments/${ASSIGNMENT}`, () =>
@@ -466,7 +534,7 @@ describe("the intro (S-14)", () => {
   });
 });
 
-describe("classes (S-17)", () => {
+describe("classes", () => {
   it("links each class to its assignments and exposes one join action", async () => {
     serveStudent({
       dueNow: [card({ classId: CLASS.id, className: CLASS.name })],
@@ -498,7 +566,7 @@ describe("classes (S-17)", () => {
   });
 });
 
-describe("settings (S-17)", () => {
+describe("settings", () => {
   it("keeps the account, editable forms and sign-out in one flow", async () => {
     serveStudent({});
     shell("/app/settings", <StudentSettingsPage />, SETTINGS);

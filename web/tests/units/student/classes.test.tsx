@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { http } from "msw";
+import { focusManager } from "@tanstack/react-query";
 import StudentClassesPage from "@/features/classes/pages/StudentClassesPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
@@ -9,14 +10,16 @@ import { viewport } from "@tests/support/viewport";
 import { BASE, renderAt } from "./support";
 import "@/lib/i18n";
 
-function classes(items: unknown[]) {
+function classes(items: unknown[], counts: "load" | "fail" = "load") {
   server.use(
     http.get(`${BASE}/app/assignments`, () =>
-      contractJson("/app/assignments", "get", 200, {
-        dueNow: [],
-        upcoming: [],
-        completed: [],
-      }),
+      counts === "fail"
+        ? new Response(null, { status: 500 })
+        : contractJson("/app/assignments", "get", 200, {
+            dueNow: [],
+            upcoming: [],
+            completed: [],
+          }),
     ),
     http.get(`${BASE}/app/classes`, () =>
       contractJson("/app/classes", "get", 200, { items }),
@@ -60,5 +63,44 @@ describe("/app/classes", () => {
     classes([]);
     expect(await screen.findByText("Bạn chưa tham gia lớp nào.")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Tham gia lớp" })).toHaveLength(1);
+  });
+});
+
+const COUNTS_FAILED =
+  "Chưa tải được số bài của các lớp. Bạn vẫn có thể mở danh sách bài.";
+const ONE_CLASS = {
+  id: "018f0000-0000-7000-8000-0000000000c1",
+  name: "IELTS Foundation",
+  description: null,
+  teacherName: "Cô Thương",
+  joinedAt: "2026-07-12T01:00:00Z",
+};
+
+describe("the counts' own failure", () => {
+  afterEach(() => focusManager.setFocused());
+
+  it("is reported when the counts never loaded", async () => {
+    classes([ONE_CLASS], "fail");
+    expect(await screen.findByText(COUNTS_FAILED)).toBeInTheDocument();
+  });
+
+  it("is not reported over counts that loaded and only failed to refresh", async () => {
+    classes([ONE_CLASS]);
+    await screen.findByText("IELTS Foundation");
+    await waitFor(() => expect(screen.queryByText(COUNTS_FAILED)).toBeNull());
+
+    let failed = 0;
+    server.use(
+      http.get(`${BASE}/app/assignments`, () => {
+        failed += 1;
+        return new Response(null, { status: 500 });
+      }),
+    );
+    act(() => focusManager.setFocused(false));
+    act(() => focusManager.setFocused(true));
+    await waitFor(() => expect(failed).toBe(1));
+    await act(() => new Promise((done) => setTimeout(done, 50)));
+
+    expect(screen.queryByText(COUNTS_FAILED)).toBeNull();
   });
 });

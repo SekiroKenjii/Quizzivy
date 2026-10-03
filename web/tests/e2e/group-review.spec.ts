@@ -139,9 +139,13 @@ async function setup(page: Page, teacher: boolean) {
 
 async function checkLayout(page: Page, name: string) {
   expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth + 1,
-    ),
+    await page.evaluate(() => {
+      const main = document.querySelector("main");
+      return (
+        document.documentElement.scrollWidth > window.innerWidth + 1 ||
+        (main !== null && main.scrollWidth > main.clientWidth + 1)
+      );
+    }),
   ).toBe(false);
   await page.screenshot({ path: test.info().outputPath(`${name}.png`) });
 }

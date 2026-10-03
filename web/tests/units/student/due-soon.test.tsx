@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/app/queryClient";
 import { http, HttpResponse } from "msw";
 import type { ReactNode } from "react";
 import { dueSoonCount, useDueSoonCount } from "@/features/assignments/dueSoon";
@@ -102,5 +103,43 @@ describe("the shell's reading of that count", () => {
     const { result } = renderHook(() => useDueSoonCount(), { wrapper });
     await waitFor(() => expect(asked).toBe(1));
     expect(result.current).toBe(0);
+  });
+});
+
+const EMPTY = { dueNow: [], upcoming: [], completed: [] };
+
+describe("when the shell reads the lists again, under the app's defaults", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    focusManager.setFocused();
+  });
+
+  it("asks on mount over fresh lists, never on a timer, and when the tab comes back stale", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let asked = 0;
+    server.use(
+      http.get(`${BASE}/app/assignments`, () => {
+        asked += 1;
+        return contractJson("/app/assignments", "get", 200, EMPTY);
+      }),
+    );
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { ...queryClient.getDefaultOptions().queries, retry: false },
+      },
+    });
+    client.setQueryData(["my-assignments"], EMPTY);
+    const fresh = ({ children }: Readonly<{ children: ReactNode }>) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    renderHook(() => useDueSoonCount(), { wrapper: fresh });
+    await waitFor(() => expect(asked).toBe(1));
+
+    await act(() => vi.advanceTimersByTimeAsync(5 * 60 * 1000));
+    expect(asked).toBe(1);
+
+    act(() => focusManager.setFocused(false));
+    act(() => focusManager.setFocused(true));
+    await waitFor(() => expect(asked).toBe(2));
   });
 });

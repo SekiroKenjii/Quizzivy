@@ -419,6 +419,26 @@ describe("content that portals out of a deck surface stays on it", () => {
     expect(menu.dataset["scale"]).toBe("deck");
   });
 
+  it("draws the select's tick at the deck's size and ink on a deck surface only", () => {
+    const tick = () =>
+      screen
+        .getByRole("option", { name: "45 phút" })
+        .querySelector("[data-slot='select-item-indicator'] svg")!;
+    const deck = render(
+      <DeckScale>
+        <OpenSelect />
+      </DeckScale>,
+    );
+    expect(tick()).toHaveClass("size-3.5", "text-fg");
+    expect(tick()).not.toHaveClass("size-4");
+    deck.unmount();
+
+    render(<OpenSelect />);
+    expect(tick()).toHaveClass("size-4");
+    expect([...tick().classList].filter((c) => c.startsWith("text-"))).toEqual([]);
+    expect([...tick().classList].filter((c) => c.includes("scale=deck"))).toEqual([]);
+  });
+
   it("leaves a select's list unmarked off a deck surface", () => {
     render(<OpenSelect />);
     expect(screen.getByRole("listbox").closest("[data-scale]")).toBeNull();

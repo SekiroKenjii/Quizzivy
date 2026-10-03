@@ -31,7 +31,7 @@ import { duringRules, type Rule } from "../studentRules";
 export default function AssignmentIntroPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
-  const wide = useMediaQuery("(min-width: 1024px)");
+  const wide = useMediaQuery("(min-width: 768px)");
 
   const detail = useQuery({
     queryKey: ["my-assignment", id],

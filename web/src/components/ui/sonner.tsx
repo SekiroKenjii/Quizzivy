@@ -2,14 +2,14 @@ import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Toaster as Sonner, toast } from "sonner";
 
+const EDGE = { top: 16, right: 16, bottom: "var(--toast-bottom, 16px)", left: 16 };
+
 /**
  * Toaster is the deck's toast: a card at the bottom right, one at a time, with
  * an icon in the tone's colour. Plain `toast()` calls keep a neutral card; the
  * tones come from `notify` in lib/toast.ts. It sits 16px from the edges, and
  * a shell with a bar along the bottom lifts it by setting `--toast-bottom`.
  */
-const EDGE = { top: 16, right: 16, bottom: "var(--toast-bottom, 16px)", left: 16 };
-
 function Toaster() {
   const { t } = useTranslation();
   return (

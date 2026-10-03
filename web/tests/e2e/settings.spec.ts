@@ -76,7 +76,7 @@ test("a teacher's settings screen adds the profile block", async ({ page }) => {
   await expect(page.getByLabel("Họ và tên")).toHaveValue("Thuong");
 });
 
-test("signing out lives behind the student's name, and on the settings screen (S-13)", async ({
+test("signing out lives behind the avatar, and on the settings screen", async ({
   page,
 }) => {
   await stubApi(page, sessionAs(studentUser));

@@ -71,7 +71,7 @@ export default function StudentHomePage() {
       return next;
     });
 
-  if (!assignments.isSuccess)
+  if (assignments.data === undefined)
     return (
       <div className="space-y-5">
         {heading}

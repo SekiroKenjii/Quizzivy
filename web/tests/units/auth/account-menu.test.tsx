@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
+import { server } from "@tests/support/server";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
@@ -96,6 +98,23 @@ describe("the account menu on a console built to the deck", () => {
     await user.click(trigger());
     await user.click(screen.getByRole("menuitem", { name: "Chế độ tối" }));
     expect(localStorage.getItem("quizzivy.theme")).toBe("dark");
+  });
+});
+
+describe("signing out from the deck's menu", () => {
+  it("ends the session on the server and clears it here", async () => {
+    let ended = 0;
+    server.use(
+      http.post("http://localhost:8080/auth/logout", () => {
+        ended += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = renderMenu(true);
+    await user.click(trigger());
+    await user.click(screen.getByRole("menuitem", { name: "Đăng xuất" }));
+    await waitFor(() => expect(ended).toBe(1));
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
   });
 });
 

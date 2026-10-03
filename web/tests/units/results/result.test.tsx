@@ -277,7 +277,7 @@ describe("the result page", () => {
   });
 });
 
-describe("from 1024px (S-16)", () => {
+describe("on a wide screen", () => {
   beforeEach(() => viewport("desktop"));
 
   it("keeps the title, score and counts above the paper", async () => {

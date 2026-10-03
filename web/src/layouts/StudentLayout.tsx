@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useMatches } from "react-router";
 import {
   ArrowLeft,
@@ -46,8 +46,9 @@ interface Destination {
  * below that the destinations move to a bottom tab bar, and a detail route
  * swaps the logo for a back arrow and its title and hides the tab bar. One
  * outlet serves both, so a page keeps its state when the width crosses 768.
- * `<main>` is the scroller and returns to the top when the route changes, not
- * when a page moves between its own sections or filters.
+ * `<main>` is the scroller. When the route changes it returns to the top and
+ * takes focus, so the keyboard scrolls the new page; it does neither when a
+ * page moves between its own sections or filters.
  * A destination whose module has not shipped is absent (`app/modules`).
  */
 export default function StudentLayout() {
@@ -61,8 +62,12 @@ export default function StudentLayout() {
   const context = useMemo(() => ({ setTitle }) satisfies DetailShell, []);
   const main = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    if (main.current) main.current.scrollTop = 0;
+  useLayoutEffect(() => {
+    const element = main.current;
+    if (!element) return;
+    element.scrollTop = 0;
+    if (!element.contains(document.activeElement))
+      element.focus({ preventScroll: true });
   }, [route]);
 
   const destinations: Destination[] = [
@@ -141,8 +146,9 @@ export default function StudentLayout() {
       </header>
       <main
         ref={main}
+        tabIndex={-1}
         className={cn(
-          "student-surface min-h-0 w-full min-w-0 flex-1 overflow-y-auto",
+          "student-surface min-h-0 w-full min-w-0 flex-1 overflow-y-auto outline-none!",
           wide ? "px-6 pt-8 pb-12" : "px-4 pt-4.5 pb-7",
         )}
       >
@@ -189,10 +195,10 @@ function DueSoon({
   return (
     <span
       className={cn(
-        "bg-brand text-brand-fg inline-flex items-center justify-center rounded-full leading-none",
+        "bg-brand text-brand-fg inline-flex items-center justify-center rounded-full",
         placement === "nav"
-          ? "text-2xs h-4.5 min-w-4.5 px-[0.3125rem] font-semibold"
-          : "absolute -top-0.5 right-1.5 h-4 min-w-4 px-1 text-[0.625rem] font-bold",
+          ? "text-2xs h-4.5 min-w-4.5 px-[0.3125rem] leading-none font-semibold"
+          : "absolute -top-0.5 right-1.5 h-4 min-w-4 px-1 text-[0.625rem] leading-none font-bold",
       )}
     >
       <span aria-hidden="true">{count}</span>

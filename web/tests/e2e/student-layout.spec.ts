@@ -47,7 +47,15 @@ async function student(page: Page) {
 }
 async function fits(page: Page) {
   await expect
-    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .poll(() =>
+      page.evaluate(() =>
+        [
+          document.documentElement,
+          document.querySelector("[data-scale='deck']"),
+          document.querySelector("main"),
+        ].every((node) => node === null || node.scrollWidth <= node.clientWidth + 1),
+      ),
+    )
     .toBe(true);
 }
 
@@ -158,6 +166,11 @@ test("result filters survive resizing, explain empty results and retain the full
   await page.goto("/app/attempts/result/result");
   const wrong = page.getByRole("button", { name: /^Sai/ });
   await wrong.click();
+  await page.setViewportSize({ width: 800, height: 900 });
+  await expect(page.getByRole("link", { name: "Quay lại" })).toHaveCount(0);
+  await expect(
+    page.getByRole("main").getByRole("link", { name: "Bài của tôi" }),
+  ).toHaveAttribute("href", "/app");
   await page.setViewportSize({ width: 320, height: 900 });
   await expect(wrong).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(result.testTitle);
