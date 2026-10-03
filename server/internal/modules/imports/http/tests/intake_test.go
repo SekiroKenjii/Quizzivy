@@ -61,7 +61,7 @@ func setup(t *testing.T) intake {
 		t.Cleanup(conn.Close)
 	}
 	var actor string
-	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role_id) VALUES($1,'Private intake teacher',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&actor); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role_id) VALUES($1,'Private intake teacher',(SELECT id FROM app.roles WHERE builtin_key = 'teacher')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&actor); err != nil {
 		t.Fatal(err)
 	}
 	store, err := storage.New(ctx, storage.Config{Endpoint: os.Getenv("S3_ENDPOINT"), Region: os.Getenv("S3_REGION"), Bucket: os.Getenv("S3_BUCKET"), AccessKeyID: os.Getenv("S3_ACCESS_KEY_ID"), SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"), ForcePathStyle: true})
@@ -115,6 +115,7 @@ func (h intake) cleanup(t *testing.T) {
 		`DELETE FROM app.word_import_sources WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
 		`DELETE FROM app.word_import_source_sets WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
 		`DELETE FROM app.word_imports WHERE created_by=$1`,
+		`DELETE FROM app.users WHERE id=$1`,
 	} {
 		if _, err := h.pool.Exec(ctx, sql, h.actor); err != nil {
 			t.Error(err)
@@ -262,7 +263,7 @@ type intakePrincipals struct{ owner string }
 
 func (p intakePrincipals) Resolve(_ context.Context, userID string) (access.Principal, error) {
 	if userID == p.owner {
-		return access.Principal{UserID: userID, BuiltinKey: access.BuiltinAdmin, Permissions: access.NewSet(access.All()...).Without(access.LearningTakeTests)}, nil
+		return access.Principal{UserID: userID, BuiltinKey: access.BuiltinTeacher, Permissions: access.NewSet(access.ContentTestsWrite, access.ContentQuestionsWrite, access.ContentMediaWrite)}, nil
 	}
 	return access.Principal{UserID: userID, BuiltinKey: access.BuiltinStudent, Permissions: access.NewSet(access.LearningTakeTests)}, nil
 }
