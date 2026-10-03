@@ -2157,7 +2157,11 @@ export interface components {
         };
         /**
          * @description Stable, machine-readable. **The only thing clients branch on.** Copy is
-         *     driven by `message`, never reconstructed from this.
+         *     driven by `message`, never reconstructed from this, with two exceptions
+         *     the web app words itself, as the design deck draws them:
+         *     `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
+         *     the change-password forms. The server still sends a localised `message`
+         *     for both, for any other client.
          * @enum {string}
          */
         ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
@@ -4133,7 +4137,7 @@ export interface operations {
                 "application/json": {
                     /**
                      * @description Accepted with or without the dash and in any case; normalized
-                     *     before hashing. Alphabet excludes `0/O` and `1/I/L` (§6.1).
+                     *     before lookup. The alphabet excludes `0`, `O`, `1` and `I` (§6.1).
                      * @example K7M3-P9QR
                      * @example k7m3p9qr
                      */
