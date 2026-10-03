@@ -1,19 +1,24 @@
 package httpx
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
+	"github.com/google/uuid"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 	"golang.org/x/text/language"
 )
 
-// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering.
+// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check.
 func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error) {
 	stripped := *spec
 	stripped.Servers = nil
@@ -34,7 +39,7 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 		return nil, err
 	}
 
-	return nethttpmiddleware.OapiRequestValidatorWithOptions(&stripped,
+	validator := nethttpmiddleware.OapiRequestValidatorWithOptions(&stripped,
 		&nethttpmiddleware.Options{
 			Options: openapi3filter.Options{
 				AuthenticationFunc: func(context.Context, *openapi3filter.AuthenticationInput) error {
@@ -48,7 +53,105 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 				}
 				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, validationMessage(r, err))
 			},
-		}), nil
+		})
+	keys := uuidMapKeys(uuidKeyedMaps(&stripped))
+	return func(next http.Handler) http.Handler { return validator(keys(next)) }, nil
+}
+
+func uuidKeyedMaps(spec *openapi3.T) map[string][][]string {
+	keyed := map[string][][]string{}
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
+				continue
+			}
+			media := op.RequestBody.Value.Content.Get("application/json")
+			if media == nil || media.Schema == nil {
+				continue
+			}
+			if paths := keyedPaths(media.Schema.Value, nil, map[*openapi3.Schema]bool{}); len(paths) > 0 {
+				keyed[method+" "+path] = paths
+			}
+		}
+	}
+	return keyed
+}
+
+func keyedPaths(schema *openapi3.Schema, at []string, seen map[*openapi3.Schema]bool) [][]string {
+	if schema == nil || seen[schema] {
+		return nil
+	}
+	seen[schema] = true
+	defer delete(seen, schema)
+	var paths [][]string
+	if names := schema.PropertyNames; names != nil && names.Value != nil && names.Value.Format == "uuid" {
+		paths = append(paths, slices.Clone(at))
+	}
+	for name, property := range schema.Properties {
+		if property != nil {
+			paths = append(paths, keyedPaths(property.Value, append(slices.Clone(at), name), seen)...)
+		}
+	}
+	return paths
+}
+
+func uuidMapKeys(keyed map[string][][]string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if path, found := malformedKeyPath(r, keyed[r.Pattern]); found {
+				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed,
+					"Trường \""+strings.Join(path, ".")+"\" không hợp lệ.")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func malformedKeyPath(r *http.Request, paths [][]string) ([]string, bool) {
+	if len(paths) == 0 || r.Body == nil {
+		return nil, false
+	}
+	body, err := io.ReadAll(r.Body)
+	_ = r.Body.Close()
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	if err != nil {
+		return nil, false
+	}
+	for _, path := range paths {
+		if !uuidKeys(body, path) {
+			return path, true
+		}
+	}
+	return nil, false
+}
+
+func uuidKeys(object []byte, path []string) bool {
+	decoder := json.NewDecoder(bytes.NewReader(object))
+	if opening, err := decoder.Token(); err != nil || opening != json.Delim('{') {
+		return true
+	}
+	for decoder.More() {
+		name, err := decoder.Token()
+		if err != nil {
+			return true
+		}
+		var value json.RawMessage
+		if decoder.Decode(&value) != nil {
+			return true
+		}
+		if key, _ := name.(string); !uuidKeysOfMember(key, value, path) {
+			return false
+		}
+	}
+	return true
+}
+
+func uuidKeysOfMember(name string, value []byte, path []string) bool {
+	if len(path) == 0 {
+		return len(name) == 36 && uuid.Validate(name) == nil
+	}
+	return name != path[0] || uuidKeys(value, path[1:])
 }
 
 func validationMessage(r *http.Request, err error) string {
