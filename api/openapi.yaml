@@ -6547,6 +6547,7 @@ paths:
       operationId: startOrResumeAttempt
       x-resource:
         - { in: path, name: id, kind: assignment }
+        - { in: body, name: /resume, kind: attempt }
       x-permission: learning.take_tests
       tags: [take-test]
       summary: Create or resume an attempt
@@ -6564,6 +6565,23 @@ paths:
         `min(now + durationMinutes, closesAt)` and is authoritative. The client
         derives remaining time from it plus the `serverTime` offset, never from
         the device clock.
+
+        A caller that means to continue a known attempt sends `resume`; a
+        Continue button must, so that an attempt whose time ran out while the
+        page was open is not answered with a new one.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                resume:
+                  $ref: '#/components/schemas/Uuid'
+                  description: >-
+                    The attempt the caller means to continue. With it the
+                    operation never starts an attempt: when this attempt is no
+                    longer the live one it answers `ATTEMPT_CLOSED`.
       responses:
         '200':
           description: Created, or resumed.
@@ -6573,6 +6591,9 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: |
+            `ATTEMPT_CLOSED` — `resume` named an attempt that is no longer live;
+            nothing was started.
+
             `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
 
             `MAINTENANCE_SCHEDULED` — a new attempt would run into a maintenance

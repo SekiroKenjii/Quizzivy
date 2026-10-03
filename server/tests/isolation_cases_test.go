@@ -374,7 +374,7 @@ func isolationCases() map[string]isoCase {
 		"joinClass":            {student: true},
 		"listMyAssignments":    {student: true},
 		"getMyAssignment":      {student: true},
-		"startOrResumeAttempt": {student: true},
+		"startOrResumeAttempt": {student: true, body: fixed(map[string]any{"resume": ""})},
 		"getAttempt":           {student: true},
 		"saveAnswers": {
 			student: true,

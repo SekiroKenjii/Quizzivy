@@ -10,6 +10,8 @@ R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), as each task lands:
 - §15 A student's assignment card carries `liveAnsweredCount`, and the result
   carries the paper's `sections` with a `sectionId` on every question
   (T-R3.4).
+- §15 `startOrResumeAttempt` accepts `resume`; a Continue never starts an
+  attempt (#237).
 
 **Changes since v0.44**
 
@@ -1730,6 +1732,8 @@ GET    /app/assignments/:id
 POST   /app/assignments/:id/attempts    → create or resume → Attempt + ordered questions + sessionId
                                           409 MAINTENANCE_SCHEDULED {startsAt, endsAt} for a start
                                           that would run into a window
+                                          startOrResumeAttempt accepts resume; a Continue never
+                                          starts an attempt (#237)
 GET    /app/attempts/:id                → Attempt + questions + serverTime + audioPlays
 PATCH  /app/attempts/:id/answers        {sessionId,answers:[...],events:[...]} → {savedAt, serverTime, deadlineAt}
 POST   /app/attempts/:id/events         standalone flush (sendBeacon path)

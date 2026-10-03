@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/domain"
 	"testing"
@@ -222,5 +223,107 @@ func TestAnAttemptInFlightSurvivesTheAssignmentClosing(t *testing.T) {
 	}
 	if resumed.Attempt.ID != first.Attempt.ID {
 		t.Error("resumed a different attempt")
+	}
+}
+
+func allowTwoAttempts(t *testing.T, pool *pgxpool.Pool, w world) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE app.assignments SET max_attempts = 2 WHERE id = $1::uuid`, w.assignment); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestContinuingAnAttemptThatRanOutOfTimeStartsNothing(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+	allowTwoAttempts(t, pool, w)
+
+	expire(t, pool, session.Attempt.ID)
+
+	_, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student, Resume: session.Attempt.ID})
+	if !errors.Is(err, domain.ErrAttemptClosed) {
+		t.Fatalf("got %v, want ErrAttemptClosed", err)
+	}
+
+	var status string
+	if err := pool.QueryRow(ctx,
+		`SELECT status::text FROM app.attempts WHERE id = $1::uuid`,
+		session.Attempt.ID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != string(domain.TimedOut) {
+		t.Errorf("status %q, want timed_out", status)
+	}
+	attempts := count(t, pool, `SELECT count(*) FROM app.attempts
+	                             WHERE assignment_id = $1::uuid AND student_id = $2::uuid`,
+		w.assignment, w.student)
+	if attempts != 1 {
+		t.Errorf("%d attempts, want 1: continuing a paper started another", attempts)
+	}
+}
+
+func TestStartingAfterAnAttemptRanOutStillStartsTheNext(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+	allowTwoAttempts(t, pool, w)
+
+	expire(t, pool, session.Attempt.ID)
+
+	next, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
+	if err != nil {
+		t.Fatalf("start after a timeout: %v", err)
+	}
+	if next.Attempt.ID == session.Attempt.ID {
+		t.Fatal("handed back the attempt whose time had run out")
+	}
+	if next.Attempt.AttemptNo != 2 {
+		t.Errorf("attemptNo %d, want 2", next.Attempt.AttemptNo)
+	}
+}
+
+func TestContinuingTheLiveAttemptResumesIt(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+
+	resumed, err := svc.Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student, Resume: session.Attempt.ID})
+	if err != nil {
+		t.Fatalf("continue: %v", err)
+	}
+	if resumed.Attempt.ID != session.Attempt.ID {
+		t.Fatalf("continued attempt %s, want %s", resumed.Attempt.ID, session.Attempt.ID)
+	}
+	if resumed.SessionID == session.SessionID {
+		t.Error("the session id did not change; the tab left behind would keep writing")
+	}
+}
+
+func TestContinuingAnAttemptThatIsNotTheLiveOneTakesNothingOver(t *testing.T) {
+	pool := newPool(t)
+	svc, w, older := started(t, pool)
+	ctx := context.Background()
+	allowTwoAttempts(t, pool, w)
+
+	expire(t, pool, older.Attempt.ID)
+	live, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
+	if err != nil {
+		t.Fatalf("start the next attempt: %v", err)
+	}
+	if live.Attempt.ID == older.Attempt.ID {
+		t.Fatal("the next attempt is the one whose time had run out")
+	}
+
+	_, err = svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student, Resume: older.Attempt.ID})
+	if !errors.Is(err, domain.ErrAttemptClosed) {
+		t.Fatalf("got %v, want ErrAttemptClosed", err)
+	}
+
+	kept := count(t, pool, `SELECT count(*) FROM app.attempts
+	                         WHERE id = $1::uuid AND session_id = $2::uuid AND status = 'in_progress'`,
+		live.Attempt.ID, live.SessionID)
+	if kept != 1 {
+		t.Error("continuing an older attempt took the live one's session")
 	}
 }

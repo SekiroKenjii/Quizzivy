@@ -22,6 +22,12 @@ export async function _valid() {
   // Query params are optional but typed.
   await api("get", "/teacher/questions", { query: { type: ["short_answer"] } });
 
+  await api("post", "/app/assignments/{id}/attempts", { path: { id: "abc" } });
+  await api("post", "/app/assignments/{id}/attempts", {
+    path: { id: "abc" },
+    body: { resume: "def" },
+  });
+
   // 204 endpoints resolve to void.
   const nothing: void = await api("post", "/auth/logout");
   return nothing;
@@ -42,6 +48,9 @@ export async function _invalid() {
 
   // @ts-expect-error — question type is an enum; "essay" is not in it
   await api("get", "/teacher/questions", { query: { type: "essay" } });
+
+  // @ts-expect-error — the save body is required; only an optional body may be left out
+  await api("patch", "/app/attempts/{id}/answers", { path: { id: "abc" } });
 }
 
 /**
