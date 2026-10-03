@@ -61,6 +61,8 @@
   --paper-fg: #1b2123;
   --qr-bg: #ffffff;
   --qr-fg: #1b2123;
+  --swatch-light: #ffffff;
+  --swatch-dark: #0e1213;
 
   /* Beyond the deck, for contrast (DG-30, DG-31): the focus ring, input borders and destructive buttons. */
   --focus: var(--muted-fg);
@@ -190,6 +192,8 @@
   --color-paper-fg: var(--paper-fg);
   --color-qr-bg: var(--qr-bg);
   --color-qr-fg: var(--qr-fg);
+  --color-swatch-light: var(--swatch-light);
+  --color-swatch-dark: var(--swatch-dark);
 
   --shadow-card: var(--qz-shadow);
   --shadow-float: var(--qz-shadow-lg);

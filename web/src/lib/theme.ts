@@ -98,6 +98,14 @@ export function useResolvedTheme(): ResolvedTheme {
 }
 
 /**
+ * useThemePreference returns the stored preference, `system` included, and
+ * re-renders when any control on the page changes it.
+ */
+export function useThemePreference(): ThemePreference {
+  return useSyncExternalStore(subscribe, readThemePreference, () => "light");
+}
+
+/**
  * useForcedLightTheme keeps the page light while the calling component is
  * mounted, whatever the preference, and restores the preference on unmount.
  * Screens not yet rebuilt to the deck call it: they were never drawn dark.
