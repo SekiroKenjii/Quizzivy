@@ -1331,3 +1331,24 @@ describe("a paper in parts", () => {
     ]);
   });
 });
+
+it("branches on the shell's 768px and on no other width", async () => {
+  const stubbed = window.matchMedia;
+  const asked = new Set<string>();
+  vi.stubGlobal("matchMedia", (query: string) => {
+    asked.add(query);
+    return stubbed(query);
+  });
+  serve(scored([choice(1, AB, [0], { earned: 1 })]));
+  renderResult();
+  await screen.findByText("Câu hỏi 1");
+  expect([...asked]).toEqual(["(min-width: 768px)"]);
+});
+
+it("keeps the deck's 820px column and 112px ring", async () => {
+  serve(scored([choice(1, AB, [0], { earned: 1 })]));
+  renderResult();
+  const card = (await screen.findByRole("heading", { level: 1 })).closest("section")!;
+  expect(card.parentElement).toHaveClass("max-w-205", "mx-auto");
+  expect(ring()).toHaveClass("size-28");
+});
