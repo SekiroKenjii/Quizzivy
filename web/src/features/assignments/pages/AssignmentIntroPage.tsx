@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
@@ -66,6 +66,11 @@ function refusal(cause: unknown, t: TFunction): string {
   return cause.message;
 }
 
+function rereadIn(a: Detail, readAt: number): number {
+  const away = Math.abs(Date.parse(a.opensAt) - readAt);
+  return Math.min(Math.max(away, 5_000), 60_000);
+}
+
 function opensLabel(a: Detail, now: Date, locale: Locale, t: TFunction): string {
   const days = appDaysUntil(a.opensAt, now);
   if (days <= 0) return t("student.intro.opensToday", { time: formatTime(a.opensAt) });
@@ -93,7 +98,9 @@ function startBody(a: Detail, now: Date, t: TFunction): string {
  * "Continue test" does the same in its own click, with no question. A test
  * that has not opened shows when it opens on a button that does nothing, and
  * a closed or used-up test says so in words. The page reads the assignment
- * afresh each time it opens, and every minute while it waits to open.
+ * afresh each time it opens and each time its tab is returned to; while it
+ * waits to open, every minute and at the opening; and once more when an open
+ * test's close passes. The server decides what the test's state is.
  */
 export default function AssignmentIntroPage() {
   const { t, i18n } = useTranslation();
@@ -105,11 +112,20 @@ export default function AssignmentIntroPage() {
     queryFn: ({ signal }) => getMyAssignment(id ?? "", signal),
     enabled: id !== undefined,
     staleTime: 0,
-    refetchInterval: (query) =>
-      query.state.data?.status === "scheduled" ? 60_000 : false,
+    refetchOnWindowFocus: true,
+    refetchInterval: ({ state }) =>
+      state.data?.status === "scheduled"
+        ? rereadIn(state.data, state.dataUpdatedAt)
+        : false,
   });
   useMinute(true);
   const now = new Date();
+  const { refetch } = detail;
+  const over =
+    detail.data?.status === "open" && Date.parse(detail.data.closesAt) <= now.getTime();
+  useEffect(() => {
+    if (over) void refetch();
+  }, [over, refetch]);
   const back = wide ? (
     <Link
       to="/app"

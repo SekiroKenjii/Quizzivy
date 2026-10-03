@@ -375,9 +375,69 @@ describe("a paper that has not opened", () => {
     await act(() => vi.advanceTimersByTimeAsync(125_000));
     expect(asked).toBe(1);
   });
+
+  it("asks at the opening, not a minute after the last answer", async () => {
+    show({
+      status: "scheduled",
+      opensAt: "2026-08-29T10:00:10Z",
+      closesAt: "2026-09-20T14:00:00Z",
+    });
+    await screen.findByRole("button", { name: "Mở lúc 17:00 hôm nay" });
+    serve();
+    await act(() => vi.advanceTimersByTimeAsync(11_000));
+    expect(await startButton()).toBeInTheDocument();
+    expect(asked).toBe(2);
+  });
+
+  it("asks again when the tab is returned to", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+    });
+    show(
+      {
+        status: "scheduled",
+        opensAt: "2026-09-01T01:00:00Z",
+        closesAt: "2026-09-20T14:00:00Z",
+      },
+      client,
+    );
+    await screen.findByRole("button", { name: "Mở thứ ba" });
+    serve();
+    act(() => {
+      window.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(await startButton()).toBeInTheDocument();
+    expect(asked).toBe(2);
+  });
 });
 
 describe("when there is nothing to start", () => {
+  it("reads an open paper once more when its close passes, and says it closed", async () => {
+    const user = userEvent.setup();
+    vi.setSystemTime(new Date("2026-08-29T13:58:30.250Z"));
+    show();
+    await ask(user);
+    serve({ status: "closed" });
+    await act(() => vi.advanceTimersByTimeAsync(95_000));
+    expect(await screen.findByText("Bài này đã đóng.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(asked).toBe(2);
+    await act(() => vi.advanceTimersByTimeAsync(180_000));
+    expect(asked).toBe(2);
+  });
+
+  it("asks once, not each minute, when the server still calls it open", async () => {
+    vi.setSystemTime(new Date("2026-08-29T13:58:30.250Z"));
+    show();
+    await startButton();
+    await act(() => vi.advanceTimersByTimeAsync(95_000));
+    await waitFor(() => expect(asked).toBe(2));
+    await act(() => vi.advanceTimersByTimeAsync(180_000));
+    expect(asked).toBe(2);
+    expect(await startButton()).toBeInTheDocument();
+  });
+
   it("says the attempts are spent", async () => {
     show({ attemptsUsed: 2, maxAttempts: 2 });
     expect(
