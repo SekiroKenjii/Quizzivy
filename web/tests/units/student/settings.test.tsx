@@ -529,6 +529,24 @@ describe("profile", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("forgets a failed save's reason once the name is edited again", async () => {
+    const user = userEvent.setup();
+    const bodies = profileAnswers(400);
+    open();
+    const name = await screen.findByLabelText("Họ và tên");
+
+    await user.type(name, " B");
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    await screen.findByRole("alert");
+    await user.type(name, "{Backspace}{Backspace}");
+    expect(screen.queryByRole("button", { name: "Lưu thay đổi" })).toBeNull();
+
+    await user.type(name, " C");
+    expect(screen.getByText("Bạn có thay đổi chưa lưu.")).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(bodies).toHaveLength(1);
+  });
+
   it("switches the language at once, stores it, and is never an unsaved change", async () => {
     const user = userEvent.setup();
     open();

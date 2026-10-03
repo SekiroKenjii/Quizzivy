@@ -139,7 +139,7 @@ export function StudentProfileSection() {
             autoComplete="name"
             aria-invalid={nameError ? true : undefined}
             aria-describedby={`${NAME}-note`}
-            {...form.register("fullName")}
+            {...form.register("fullName", { onChange: () => setFailure(null) })}
           />
           {nameError ? (
             <FieldError
