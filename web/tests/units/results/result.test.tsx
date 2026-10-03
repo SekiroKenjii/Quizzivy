@@ -425,6 +425,8 @@ describe("the result page", () => {
       "article",
     )!;
     expect(article).toHaveAttribute("data-verdict", "unknown");
+    expect(article.firstElementChild).toHaveClass("bg-muted", "text-muted-fg");
+    expect(article.querySelector("svg.lucide-minus")).not.toBeNull();
     expect(screen.queryByText("0 / 1")).toBeNull();
     expect(screen.queryByText("Đáp án đúng")).toBeNull();
     expect(screen.queryByText("was written")).toBeNull();
@@ -470,6 +472,32 @@ describe("the result page", () => {
       "whitespace-pre-wrap",
     );
     expect(screen.getAllByText("Nhận xét của giáo viên")).toHaveLength(1);
+  });
+
+  it("draws each mark's own circle", async () => {
+    serve(
+      scored([
+        choice(1, AB, [1], { prompt: "Câu đúng", earned: 1 }),
+        choice(2, AB, [0], { prompt: "Câu sai", earned: 0 }),
+        choice(3, AB, [0], { prompt: "Câu đúng một nửa", points: 2, earned: 1 }),
+        essay(4, "Câu đang chờ", "Một câu."),
+      ]),
+    );
+    renderResult();
+    await screen.findByText("Câu đúng");
+    const circle = (prompt: string) => {
+      const mark = item(prompt).firstElementChild!;
+      return [
+        /lucide-[a-z-]+/.exec(mark.querySelector("svg")!.getAttribute("class")!)![0],
+        ["success", "brand", "danger", "warning"].find((tone) =>
+          mark.classList.contains(`bg-${tone}-soft`),
+        ),
+      ];
+    };
+    expect(circle("Câu đúng")).toEqual(["lucide-check", "success"]);
+    expect(circle("Câu sai")).toEqual(["lucide-x", "danger"]);
+    expect(circle("Câu đúng một nửa")).toEqual(["lucide-percent", "brand"]);
+    expect(circle("Câu đang chờ")).toEqual(["lucide-hourglass", "warning"]);
   });
 
   it("writes the number and the prompt as one run, so a second line starts under the number", async () => {
@@ -572,9 +600,9 @@ describe("the deck's three variants", () => {
     const waiting = item("What should cities prioritise when they plan new districts?");
     expect(waiting).toHaveAttribute("data-verdict", "waiting");
     expect(within(waiting).getByText("Chờ chấm")).toBeVisible();
-    expect(within(waiting).getByText("public green space")).not.toHaveClass(
-      "line-through",
-    );
+    const written = waiting.querySelector("[data-slot=given]");
+    expect(written).toHaveTextContent("public green space");
+    expect(written).not.toHaveClass("line-through");
     const skipped = item("What rule does Copenhagen follow?");
     expect(skipped).toHaveAttribute("data-verdict", "wrong");
     expect(within(skipped).getByText("Chưa trả lời")).not.toHaveClass("line-through");
