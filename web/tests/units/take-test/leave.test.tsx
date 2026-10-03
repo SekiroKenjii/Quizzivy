@@ -131,6 +131,7 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
         .getAllByRole("button")
         .map((button) => button.textContent),
     ).toEqual(["Ở lại", "Thoát"]);
+    expect(inDialog().getByRole("alert")).toBeEmptyDOMElement();
 
     await user.click(inDialog().getByRole("button", { name: "Ở lại" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -241,6 +242,7 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
 
     expect(dialog()).toHaveAccessibleName(UNSAVED);
     expect(dialog()).toHaveAccessibleDescription(UNSAVED_BODY);
+    expect(inDialog().getByRole("alert")).toHaveTextContent(UNSAVED);
     expect(
       inDialog()
         .getAllByRole("button")
@@ -272,6 +274,7 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
       "aria-busy",
       "true",
     );
+    expect(inDialog().getByRole("alert")).toBeEmptyDOMElement();
     expect(path(router)).toBe("/app/attempts/att-1");
 
     await retry.succeed();
@@ -339,6 +342,7 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
 
     await act(() => router.navigate(-1));
     await screen.findByRole("dialog", { name: UNSAVED });
+    expect(inDialog().getByRole("alert")).toHaveTextContent(UNSAVED);
     expect(path(router)).toBe("/app/attempts/att-1");
 
     await user.click(inDialog().getByRole("button", { name: "Ở lại" }));

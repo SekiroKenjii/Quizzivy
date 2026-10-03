@@ -12,7 +12,8 @@ import type { Leave } from "../useLeave";
  * LeaveDialog asks "Leave the test?" in the deck's dialog, with Stay and
  * Leave. While an answer is unsaved it says the answer will be saved first
  * rather than that it is saved, and Leave shows the save in progress. When
- * that save fails it says the answers are not saved and offers Stay and "Try
+ * that save fails it says the answers are not saved, aloud as well, since
+ * the words change under a screen reader's focus, and offers Stay and "Try
  * saving again"; it never offers to leave without them. Esc and the backdrop
  * mean Stay.
  */
@@ -32,6 +33,9 @@ export function LeaveDialog({ leave }: Readonly<{ leave: Leave }>) {
       title={t(failed ? "takeTest.leaveUnsavedTitle" : "takeTest.leaveTitle")}
       description={t(failed ? "takeTest.leaveUnsavedDescription" : body)}
     >
+      <span role="alert" className="sr-only">
+        {failed ? t("takeTest.leaveUnsavedTitle") : ""}
+      </span>
       <DeckDialogActions>
         <DeckDialogCancel onClick={leave.stay}>
           {t("takeTest.leaveStay")}
