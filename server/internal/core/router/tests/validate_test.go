@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -159,5 +160,154 @@ func TestATemporaryPasswordMeetsTheNewPasswordRules(t *testing.T) {
 		if !pattern.MatchString(password) || uint64(utf8.RuneCountInString(password)) < rule.MinLength {
 			t.Fatalf("temporary password %q breaks the rules a new password must meet", password)
 		}
+	}
+}
+
+func postJSONAs(t *testing.T, handler http.Handler, path, body, token, acceptLanguage string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	if acceptLanguage != "" {
+		req.Header.Set("Accept-Language", acceptLanguage)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
+func errorCodeAndMessage(t *testing.T, rec *httptest.ResponseRecorder) (code, message string) {
+	t.Helper()
+	var body struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("response is not the error envelope: %v", err)
+	}
+	return body.Error.Code, body.Error.Message
+}
+
+func TestABrokenPasswordRuleIsStatedInTheCallersLanguage(t *testing.T) {
+	issuer := testIssuer(t)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000b2", "student", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newAuthTestRouter(t, issuer)
+
+	const (
+		vietnamese = "Mật khẩu mới cần từ 8 đến 512 ký tự và có số hoặc ký hiệu."
+		english    = "The new password needs 8 to 512 characters and a number or symbol."
+	)
+	tooLong, err := json.Marshal(map[string]string{"newPassword": strings.Repeat("a", 512) + "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name           string
+		body           string
+		acceptLanguage string
+		want           string
+	}{
+		{name: "no digit or symbol", body: `{"newPassword":"mậtkhẩuđẹp"}`, want: vietnamese},
+		{name: "seven characters", body: `{"newPassword":"short1!"}`, want: vietnamese},
+		{name: "short and no digit or symbol", body: `{"newPassword":"short"}`, want: vietnamese},
+		{name: "513 characters", body: string(tooLong), want: vietnamese},
+		{name: "beside another failing field", body: `{"currentPassword":5,"newPassword":"short"}`, want: vietnamese},
+		{name: "English preferred", body: `{"newPassword":"mậtkhẩuđẹp"}`, acceptLanguage: "en-US,en;q=0.9,vi;q=0.8", want: english},
+		{name: "neither language preferred", body: `{"newPassword":"mậtkhẩuđẹp"}`, acceptLanguage: "fr", want: vietnamese},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := postJSONAs(t, handler, "/auth/change-password", tc.body, token, tc.acceptLanguage)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			code, message := errorCodeAndMessage(t, rec)
+			if code != "VALIDATION_FAILED" {
+				t.Errorf("error code = %q, want VALIDATION_FAILED", code)
+			}
+			if message != tc.want {
+				t.Errorf("message = %q, want %q", message, tc.want)
+			}
+		})
+	}
+}
+
+func TestOtherValidationFailuresKeepTheirSentence(t *testing.T) {
+	issuer := testIssuer(t)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newAuthTestRouter(t, issuer)
+
+	const generic = "Dữ liệu gửi lên không hợp lệ."
+	for _, tc := range []struct {
+		name string
+		path string
+		body string
+		want string
+	}{
+		{name: "another operation's password", path: "/auth/login", body: `{"email":"a@b.com","password":"short"}`, want: generic},
+		{name: "newPassword absent", path: "/auth/change-password", body: `{"currentPassword":"matkhau1"}`, want: generic},
+		{name: "another field beside a good newPassword", path: "/auth/change-password", body: `{"currentPassword":5,"newPassword":"matkhau1"}`, want: generic},
+		{name: "a field the validator names", path: "/teacher/students", body: `{"email":"a@b.com","fullName":""}`, want: `Trường "fullName" không hợp lệ.`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := postJSONAs(t, handler, tc.path, tc.body, token, "en")
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			code, message := errorCodeAndMessage(t, rec)
+			if code != "VALIDATION_FAILED" {
+				t.Errorf("error code = %q, want VALIDATION_FAILED", code)
+			}
+			if message != tc.want {
+				t.Errorf("message = %q, want %q", message, tc.want)
+			}
+		})
+	}
+}
+
+func TestThePasswordRuleSentenceMatchesTheContract(t *testing.T) {
+	spec, err := openapi.GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var takers []string
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op.RequestBody == nil || op.RequestBody.Value == nil {
+				continue
+			}
+			media := op.RequestBody.Value.Content.Get("application/json")
+			if media == nil || media.Schema == nil || media.Schema.Value == nil {
+				continue
+			}
+			if _, ok := media.Schema.Value.Properties["newPassword"]; ok {
+				takers = append(takers, method+" "+path)
+			}
+		}
+	}
+	slices.Sort(takers)
+	if !slices.Equal(takers, []string{"POST /auth/change-password"}) {
+		t.Fatalf("operations taking newPassword = %v, want only POST /auth/change-password", takers)
+	}
+
+	body := spec.Paths.Find("/auth/change-password").Post.RequestBody.Value
+	rule := body.Content.Get("application/json").Schema.Value.Properties["newPassword"].Value
+	var maxLength uint64
+	if rule.MaxLength != nil {
+		maxLength = *rule.MaxLength
+	}
+	if rule.MinLength != 8 || maxLength != 512 || rule.Pattern != `[\p{N}\p{P}\p{S}]` {
+		t.Errorf("newPassword rule = %d to %d characters matching %q, want 8 to 512 matching %q, which is what the sentence states",
+			rule.MinLength, maxLength, rule.Pattern, `[\p{N}\p{P}\p{S}]`)
 	}
 }
