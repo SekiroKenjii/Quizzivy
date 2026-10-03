@@ -11,9 +11,12 @@ import (
 type StudentCard struct {
 	ID        string
 	TestTitle string
-	// ClassName is set only when exactly one targeted class contains them.
-	ClassName     *string
-	ClassID       *string
+	// ClassName is set only when exactly one targeted class that is not
+	// archived contains them.
+	ClassName *string
+	ClassID   *string
+	// ClassIDs is every targeted class that contains them and is not archived.
+	ClassIDs      []string
 	OpensAt       time.Time
 	ClosesAt      time.Time
 	ClosedAt      *time.Time

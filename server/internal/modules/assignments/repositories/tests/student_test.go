@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"quizzivy/internal/platform/db"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -531,6 +532,131 @@ func TestAStudentReachedByNameGetsNoClassName(t *testing.T) {
 	}
 	if name := sections.DueNow[0].ClassName; name != nil {
 		t.Errorf("the card named %q for a student reached by name", *name)
+	}
+}
+
+func secondClass(t *testing.T, pool *pgxpool.Pool, w world) string {
+	t.Helper()
+	ctx := context.Background()
+	name := "Lớp hai " + nonce(t)
+	t.Cleanup(func() {
+		for _, stmt := range []string{
+			`DELETE FROM app.assignment_classes
+			  WHERE class_id IN (SELECT id FROM app.classes WHERE name = $1)`,
+			`DELETE FROM app.classes WHERE name = $1`,
+		} {
+			if _, err := pool.Exec(context.Background(), stmt, name); err != nil {
+				t.Errorf("cleanup: %v", err)
+			}
+		}
+	})
+
+	var id string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2::uuid) RETURNING id::text`,
+		name, w.admin).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		 VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, id, w.student, w.admin); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func sameIDs(got []string, want ...string) bool {
+	return slices.Equal(slices.Sorted(slices.Values(got)), slices.Sorted(slices.Values(want)))
+}
+
+func TestACardListsEveryTargetedClassOfTheStudent(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+	second := secondClass(t, pool, w)
+
+	in := legalInput(w)
+	in.ClassIDs = []string{w.class, second}
+	a := createFor(t, store, w, in)
+
+	sections, err := store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := only(t, sections.DueNow, a.ID)
+	if card.ClassName != nil {
+		t.Errorf("the card named %q, but the student is in two targeted classes", *card.ClassName)
+	}
+	if card.ClassID != nil {
+		t.Errorf("classId %s, want none for a student in two targeted classes", *card.ClassID)
+	}
+	if !sameIDs(card.ClassIDs, w.class, second) {
+		t.Errorf("classIds %v, want both %s and %s", card.ClassIDs, w.class, second)
+	}
+
+	d, err := store.StudentDetail(ctx, a.ID, w.student)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameIDs(d.ClassIDs, w.class, second) {
+		t.Errorf("the intro's classIds %v, want both %s and %s", d.ClassIDs, w.class, second)
+	}
+}
+
+func TestAnArchivedClassIsNotNamedOnTheCard(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+	second := secondClass(t, pool, w)
+
+	in := legalInput(w)
+	in.ClassIDs = []string{w.class, second}
+	a := createFor(t, store, w, in)
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.classes SET archived_at = now() WHERE id = $1::uuid`, second); err != nil {
+		t.Fatal(err)
+	}
+	var name string
+	if err := pool.QueryRow(ctx,
+		`SELECT name FROM app.classes WHERE id = $1::uuid`, w.class).Scan(&name); err != nil {
+		t.Fatal(err)
+	}
+
+	sections, err := store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := only(t, sections.DueNow, a.ID)
+	if !sameIDs(card.ClassIDs, w.class) {
+		t.Errorf("classIds %v, want only %s: the other class is archived", card.ClassIDs, w.class)
+	}
+	if card.ClassID == nil || *card.ClassID != w.class {
+		t.Errorf("classId is not %s, the one class the student still sees", w.class)
+	}
+	if card.ClassName == nil || *card.ClassName != name {
+		t.Errorf("className is not %q, the one class the student still sees", name)
+	}
+}
+
+func TestAStudentReachedByNameHasNoClassIDs(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+
+	in := legalInput(w)
+	in.ClassIDs = nil
+	in.StudentIDs = []string{w.student}
+	a := createFor(t, store, w, in)
+
+	sections, err := store.ForStudent(context.Background(), w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := only(t, sections.DueNow, a.ID)
+	if card.ClassIDs == nil || len(card.ClassIDs) != 0 {
+		t.Errorf("classIds %#v, want an empty list for a student reached by name", card.ClassIDs)
 	}
 }
 
