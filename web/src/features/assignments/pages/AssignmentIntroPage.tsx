@@ -283,7 +283,8 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
   const locale = i18n.language as Locale;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [asking, setAsking] = useState<Date | null>(null);
+  const [asked, setAsked] = useState<Date | null>(null);
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const live = a.hasLiveAttempt === true;
@@ -299,7 +300,7 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
       queryClient.removeQueries({ queryKey: ["my-assignment", a.id] });
     } catch (cause) {
       setError(refusal(cause, t));
-      setAsking(null);
+      setOpen(false);
       setBusy(false);
       void queryClient.invalidateQueries({ queryKey: ["my-assignment", a.id] });
     }
@@ -363,27 +364,36 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
       </div>
     );
 
+  const from = asked !== null && asked > now ? asked : now;
+
   return (
     <div className={ACTION}>
       {alert}
-      <Button size="xl" className={CTA} onClick={() => setAsking(new Date())}>
+      <Button
+        size="xl"
+        className={CTA}
+        onClick={() => {
+          setAsked(new Date());
+          setOpen(true);
+        }}
+      >
         {t("student.start")}
         <ArrowRight aria-hidden="true" className="size-[18px]" />
       </Button>
       <span className={HINT}>{t("student.intro.startHint")}</span>
       <DeckDialog
-        open={asking !== null}
-        onOpenChange={(open) => {
-          if (!open && !busy) setAsking(null);
+        open={open}
+        onOpenChange={(next) => {
+          if (!next && !busy) setOpen(false);
         }}
         title={t("student.intro.startTitle")}
-        description={asking === null ? "" : startBody(a, asking, t)}
+        description={asked === null ? "" : startBody(a, from, t)}
       >
         <DeckDialogActions>
           <DeckDialogCancel
             aria-disabled={busy || undefined}
             onClick={() => {
-              if (!busy) setAsking(null);
+              if (!busy) setOpen(false);
             }}
           >
             {t("student.intro.startCancel")}

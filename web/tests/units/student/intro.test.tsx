@@ -481,6 +481,8 @@ describe("loading, failing and missing", () => {
 });
 
 describe("Start now?", () => {
+  const RUNS = "Đồng hồ chạy ngay khi bạn bấm Bắt đầu và không dừng lại.";
+
   it("asks before anything starts", async () => {
     const user = userEvent.setup();
     const calls = mockStart();
@@ -498,20 +500,68 @@ describe("Start now?", () => {
     expect(calls).toEqual([]);
   });
 
-  it("says how long is really left when the paper closes sooner", async () => {
+  it.each([
+    [
+      "13:14:30",
+      "14:00:00",
+      "Đồng hồ 45 phút chạy ngay khi bạn bấm Bắt đầu và không dừng lại.",
+    ],
+    ["13:39:30", "14:00:00", `Bài đóng lúc 21:00, nên bạn có 20 phút. ${RUNS}`],
+    ["13:59:30", "14:00:00", `Bài đóng lúc 21:00, nên bạn có 1 phút. ${RUNS}`],
+    ["16:39:30", "17:10:00", `Bài đóng lúc 00:10, 30/08, nên bạn có 30 phút. ${RUNS}`],
+  ])("asked at %s UTC of a paper closing at %s, says: %s", async (at, closes, body) => {
     const user = userEvent.setup();
-    vi.setSystemTime(new Date("2026-08-29T13:39:30Z"));
-    show();
+    vi.setSystemTime(new Date(`2026-08-29T${at}Z`));
+    show({ closesAt: `2026-08-29T${closes}Z` });
+    expect(await ask(user)).toHaveAccessibleDescription(body);
+  });
+
+  it("counts the minutes left from the click, not from the last repaint", async () => {
+    const user = userEvent.setup();
+    vi.setSystemTime(new Date("2026-08-29T13:40:00Z"));
+    show({ closesAt: "2026-08-29T14:00:30Z" });
+    await startButton();
+    await act(() => vi.advanceTimersByTimeAsync(45_000));
     expect(await ask(user)).toHaveAccessibleDescription(
-      "Bài đóng lúc 21:00, nên bạn có 20 phút. Đồng hồ chạy ngay khi bạn bấm Bắt đầu và không dừng lại.",
+      `Bài đóng lúc 21:00, nên bạn có 19 phút. ${RUNS}`,
     );
   });
 
-  it("promises the whole time limit when exactly that much is left", async () => {
+  it("counts the minutes again while the question stays open", async () => {
     const user = userEvent.setup();
-    vi.setSystemTime(new Date("2026-08-29T13:14:30Z"));
+    vi.setSystemTime(new Date("2026-08-29T13:14:40Z"));
+    show({ closesAt: "2026-08-29T14:00:30Z" });
+    const dialog = await ask(user);
+    expect(dialog).toHaveAccessibleDescription(
+      "Đồng hồ 45 phút chạy ngay khi bạn bấm Bắt đầu và không dừng lại.",
+    );
+    await act(() => vi.advanceTimersByTimeAsync(150_000));
+    expect(dialog).toHaveAccessibleDescription(
+      `Bài đóng lúc 21:00, nên bạn có 43 phút. ${RUNS}`,
+    );
+  });
+
+  it("keeps its sentence while it fades out", async () => {
+    const user = userEvent.setup();
+    const names: Record<string, string> = { open: "enter", closed: "exit" };
+    const style = globalThis.getComputedStyle;
+    vi.stubGlobal("getComputedStyle", (element: HTMLElement, pseudo?: string | null) => {
+      const real = style(element, pseudo);
+      return new Proxy(real, {
+        get: (target, key) => {
+          if (key === "animationName")
+            return names[element.dataset["state"] ?? ""] ?? "none";
+          const value: unknown = Reflect.get(target, key, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    });
     show();
-    expect(await ask(user)).toHaveAccessibleDescription(
+    const dialog = await ask(user);
+    await user.click(within(dialog).getByRole("button", { name: "Để sau" }));
+    expect(dialog).toHaveAttribute("data-state", "closed");
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveAccessibleDescription(
       "Đồng hồ 45 phút chạy ngay khi bạn bấm Bắt đầu và không dừng lại.",
     );
   });
