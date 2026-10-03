@@ -637,6 +637,8 @@ func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 		{"every blank filled beside a stale value", "fill_blank", 2, `{"type":"fill_blank","values":{"` + b1 + `":"went","` + b2 + `":"has","stale":"x"}}`, true},
 		{"only a stale value", "fill_blank", 2, `{"type":"fill_blank","values":{"stale":"x"}}`, false},
 		{"a fill-in whose question has no blanks", "fill_blank", 0, `{"type":"fill_blank","values":{}}`, false},
+		{"an answer of no known type", "short_answer", 0, `{"type":"essay","value":"words"}`, false},
+		{"an answer with no type", "short_answer", 0, `{"value":"words"}`, false},
 	}
 
 	got := liveCount(t, store, w, a.ID)
