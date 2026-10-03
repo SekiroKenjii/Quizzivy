@@ -517,6 +517,32 @@ describe("the panes below 768", () => {
     expect(screen.getByRole("article", { hidden: true })).not.toBeVisible();
   });
 
+  it("shows the question again on coming back to one whose passage was open", async () => {
+    const user = userEvent.setup();
+    await open(deckPassageSession(NOW));
+    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
+
+    await user.keyboard("{ArrowRight}");
+    await user.keyboard("{ArrowLeft}");
+    expect(screen.getByRole("main", { name: "Câu 1" })).toBeInTheDocument();
+    expect(questionPane()).toBeVisible();
+    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+  });
+
+  it("shows the question again on coming back by touch after the window was wide", async () => {
+    const view = viewport("phone");
+    const user = userEvent.setup();
+    await open(deckPassageSession(NOW));
+    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
+
+    act(() => view.resize("desktop"));
+    await user.click(next());
+    act(() => view.resize("phone"));
+    await user.click(screen.getByRole("button", { name: "Câu trước" }));
+    expect(screen.getByRole("main", { name: "Câu 1" })).toBeInTheDocument();
+    expect(questionPane()).toBeVisible();
+  });
+
   it("has no switcher when the question has no passage", async () => {
     await open(deckSession(NOW));
     expect(switcher()).toBeNull();

@@ -359,6 +359,7 @@ function Paper({
   const context = contexts.get(question.id);
   const passage = hasPassage(context) ? context : undefined;
   const [readingFor, setReadingFor] = useState<string | null>(null);
+  if (readingFor !== null && readingFor !== question.id) setReadingFor(null);
   const reading = !wide && passage !== undefined && readingFor === question.id;
   const sheet = useRef<HTMLDivElement>(null);
   const onSheetScroll = useKeptScroll(sheet, reading);
