@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import userEvent from "@testing-library/user-event";
@@ -512,6 +519,33 @@ describe("the result page", () => {
     expect(number).toHaveClass("float-left");
     expect(number.parentElement).not.toHaveClass("flex");
     expect(number.parentElement).toContainElement(prompt);
+  });
+
+  it("offers to read again when a question's recording has expired", async () => {
+    let reads = 0;
+    const body = passive(OPEN, true);
+    server.use(
+      http.get(`${BASE}/app/attempts/${ATTEMPT_ID}/result`, () => {
+        reads += 1;
+        return contractJson("/app/attempts/{id}/result", "get", 200, body);
+      }),
+      http.get(`${BASE}/app/assignments`, () =>
+        contractJson("/app/assignments", "get", 200, {
+          dueNow: [],
+          upcoming: [],
+          completed: [],
+        }),
+      ),
+    );
+    renderResult();
+    const article = (await screen.findByText("Người phụ nữ đề nghị làm gì?")).closest(
+      "article",
+    )!;
+    fireEvent.error(article.querySelector("audio")!);
+    await userEvent
+      .setup()
+      .click(await within(article).findByRole("button", { name: "Thử lại" }));
+    await waitFor(() => expect(reads).toBe(2));
   });
 });
 
