@@ -531,10 +531,13 @@ describe("the intro", () => {
       "45 phút",
     );
     expect(panel.getByRole("button", { name: "Bắt đầu làm bài" })).toBeInTheDocument();
+    expect(panel.getByRole("link", { name: "Trang chủ" })).toHaveAttribute(
+      "href",
+      "/app",
+    );
     expect(
-      within(screen.getByRole("main")).getByRole("link", { name: "Bài của tôi" }),
-    ).toHaveAttribute("href", "/app");
-    expect(screen.getByRole("heading", { name: "Khi làm bài" })).toBeInTheDocument();
+      panel.getByRole("heading", { name: "Trước khi bắt đầu" }),
+    ).toBeInTheDocument();
   });
 });
 
