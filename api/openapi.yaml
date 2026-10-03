@@ -4598,13 +4598,16 @@ paths:
       tags: [teacher-questions]
       description: |
         A-06a's "Nhân bản": copies the question, its options, blanks and
-        tags into a new bank row that no test references yet.
+        tags into a new bank row that no test references yet. A source whose
+        media asset has been deleted, or that no longer validates, answers
+        `VALIDATION_FAILED` as a create would; nothing is copied.
       responses:
         '201':
           description: Created.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   # =============================================================== teacher/media
