@@ -17,7 +17,12 @@ export function PasswordInput({
       <Input
         {...props}
         type={visible ? "text" : "password"}
-        className={cn("h-11 pr-12", props.size === "xl" && "pr-11.5", className)}
+        className={cn(
+          "h-11 pr-12",
+          props.size === "lg" && "pr-11",
+          props.size === "xl" && "pr-11.5",
+          className,
+        )}
       />
       <Button
         type="button"
@@ -25,6 +30,8 @@ export function PasswordInput({
         size="icon"
         className={cn(
           "absolute inset-y-0 right-0 h-11 w-11",
+          props.size === "lg" &&
+            "text-muted-fg hover:text-fg inset-y-auto top-1/2 right-1 size-8.5 -translate-y-1/2",
           props.size === "xl" &&
             "text-muted-fg hover:text-fg inset-y-auto top-1/2 right-1.5 size-9 -translate-y-1/2 in-data-[scale=deck]:size-9 [&_svg]:size-[17px]",
         )}

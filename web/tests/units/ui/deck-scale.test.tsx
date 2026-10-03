@@ -140,6 +140,37 @@ describe("deck geometry applies only on a deck surface", () => {
     expect(scoped).toContain("size-9");
     expect(scoped).not.toContain("size-8.5");
   });
+
+  it("centres the 42px password field's show and hide button at the deck's 34px", () => {
+    const { container } = render(
+      <div data-scale="deck">
+        <PasswordInput id="password" size="lg" />
+      </div>,
+    );
+    const button = split(container.querySelector("button")!);
+    expect(button.scoped).toContain("size-8.5");
+    expect(button.unscoped).toEqual(
+      expect.arrayContaining(["top-1/2", "-translate-y-1/2", "right-1", "size-8.5"]),
+    );
+    expect(button.unscoped).not.toContain("inset-y-0");
+    expect(button.unscoped).not.toContain("h-11");
+    const field = split(container.querySelector("input")!);
+    expect(field.scoped).toContain("h-10.5");
+    expect(field.unscoped).toContain("pr-11");
+    expect(field.unscoped).not.toContain("pr-12");
+  });
+
+  it("leaves the password field of a screen not yet rebuilt as it was", () => {
+    const { container } = render(<PasswordInput id="password" />);
+    const button = split(container.querySelector("button")!);
+    expect(button.unscoped).toEqual(
+      expect.arrayContaining(["inset-y-0", "right-0", "h-11", "w-11"]),
+    );
+    expect(button.unscoped).not.toContain("top-1/2");
+    expect(split(container.querySelector("input")!).unscoped).toEqual(
+      expect.arrayContaining(["h-11", "pr-12"]),
+    );
+  });
 });
 
 function split(element: Element) {
