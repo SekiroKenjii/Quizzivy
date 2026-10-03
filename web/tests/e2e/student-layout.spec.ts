@@ -66,8 +66,13 @@ for (const width of [320, 360, 768, 1024, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     await student(page);
     await page.goto("/app");
-    await expect(page.getByRole("button", { name: "Tiếp tục làm bài" })).toHaveCount(2);
-    await expect(page.getByRole("link", { name: "Xem chi tiết" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Tiếp tục làm bài" })).toHaveCount(1);
+    const rows = page.getByRole("main").getByRole("link");
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText("Bài luyện tập 2");
+    await expect(rows.nth(0)).toContainText("Đang làm");
+    await expect(rows.nth(1)).toContainText("Bài luyện tập 3");
+    await expect(rows.nth(1)).toContainText("Đang mở");
     await fits(page);
     const main = await page.getByRole("main").boundingBox();
     expect(main!.width).toBeGreaterThan(width * 0.95);
@@ -182,7 +187,8 @@ test("English student controls fit a 320px phone", async ({ page }) => {
   await student(page);
   await page.setViewportSize({ width: 320, height: 900 });
   await page.goto("/app");
-  await expect(page.getByRole("button", { name: "Continue the test" })).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Continue test" })).toHaveCount(1);
+  await expect(page.getByText("In progress", { exact: true })).toBeVisible();
   await fits(page);
   await page.goto("/app/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
