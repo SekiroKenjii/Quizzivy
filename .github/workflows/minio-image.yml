@@ -44,7 +44,6 @@ jobs:
       - name: Build and push unless this version is published
         env:
           TOKEN: ${{ github.token }}
-          SOURCE: ${{ github.server_url }}/${{ github.repository }}
         run: |
           image="$(scripts/ci/minio-image.sh)"
           echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
@@ -52,6 +51,6 @@ jobs:
             echo "$image is already published"
             exit 0
           fi
-          docker build --label "org.opencontainers.image.source=$SOURCE" --tag "$image" docker/minio
+          docker build --tag "$image" docker/minio
           docker push "$image"
           echo "published $image" >> "$GITHUB_STEP_SUMMARY"
