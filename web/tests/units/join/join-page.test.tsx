@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { http } from "msw";
+import { delay, http } from "msw";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
 import JoinPage from "@/features/join/pages/JoinPage";
 import { readJoinContext, saveJoinContext } from "@/features/join/context";
@@ -185,25 +185,28 @@ describe("/join", () => {
     await waitFor(() => expect(previews).toEqual([CODE]));
   });
 
-  it("abandons a lookup when the code is edited", async () => {
-    let aborted = false;
+  it("asks once about a code retyped while its lookup is out", async () => {
     server.use(
-      http.post(`${BASE}/join/preview`, ({ request }) => {
-        previews.push("started");
-        return new Promise<Response>((_, reject) => {
-          request.signal.addEventListener("abort", () => {
-            aborted = true;
-            reject(new Error("aborted"));
-          });
+      http.post(`${BASE}/join/preview`, async ({ request }) => {
+        const { joinCode } = (await request.json()) as { joinCode: string };
+        previews.push(joinCode);
+        await delay(300);
+        return contractJson("/join/preview", "post", 200, {
+          classId: REQUEST_ID,
+          className: CLASS_NAME,
+          teacherName: TEACHER,
         });
       }),
     );
     const user = userEvent.setup();
     renderJoin();
     await user.type(field(), CODE);
-    await waitFor(() => expect(previews).toEqual(["started"]));
+    await waitFor(() => expect(previews).toEqual([CODE]));
     await user.type(field(), "{Backspace}");
-    await waitFor(() => expect(aborted).toBe(true));
+    await user.type(field(), "A");
+    await screen.findByText(CLASS_NAME);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(previews).toEqual([CODE]);
   });
 
   it("shows the class and its teacher, and nothing more", async () => {
@@ -211,7 +214,9 @@ describe("/join", () => {
     renderJoin(`/join/${CODE}`);
     expect(await screen.findByText(CLASS_NAME)).toBeVisible();
     expect(field()).toHaveValue("K7QM-2PXA");
+    expect(field()).toHaveClass("h-[58px]");
     expect(screen.getByText("Đã tìm thấy lớp")).toBeVisible();
+    expect(screen.getByText("Đã tìm thấy lớp")).not.toHaveClass("sr-only");
     expect(screen.getByText(TEACHER)).toBeVisible();
     expect(screen.queryByText(/học viên/)).toBeNull();
     expect(

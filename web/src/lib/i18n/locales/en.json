@@ -295,7 +295,8 @@
       "alreadyMember": "You are already in this class.",
       "joined": "You joined {{className}}",
       "retryIn_one": "Try again in {{count}} second.",
-      "retryIn_other": "Try again in {{count}} seconds."
+      "retryIn_other": "Try again in {{count}} seconds.",
+      "found": "Class found: {{className}}, {{teacherName}}"
     }
   },
   "classDetail": {

@@ -25,13 +25,7 @@ const ERROR_ID = "join-dialog-error";
 const FRAME =
   "bg-card shadow-float top-[12%] flex max-h-[calc(100%-2rem)] w-[min(27.5rem,calc(100%-1.5rem))] max-w-none translate-y-0 flex-col gap-3.5 overflow-y-auto rounded-2xl p-5.5 min-[768px]:top-[50%] min-[768px]:translate-y-[-50%] sm:max-w-none";
 
-type Join = Readonly<{
-  code: string | null;
-  error: unknown;
-  busy: boolean;
-  done: boolean;
-  send: (code: string) => void;
-}>;
+const LIST_WAIT_MS = 3000;
 
 /**
  * JoinDialog is how a signed-in student joins a class by its code (§6.2). A
@@ -40,40 +34,21 @@ type Join = Readonly<{
  * no class. A student already in the class is told so and cannot join again.
  * Joining refreshes the class and assignment lists, says "You joined {name}"
  * and closes the dialog, with focus back on what opened it, or on the page
- * when that control has gone. The typed code is forgotten when the dialog
- * closes.
+ * when that control has gone. It waits for the class list so the new class is
+ * on screen under the toast, and for no more than three seconds. The typed
+ * code and the state of a join are forgotten when the dialog closes; a join
+ * still on its way then finishes without closing a dialog opened since.
  */
 export function JoinDialog({
   open,
   onOpenChange,
 }: Readonly<{ open: boolean; onOpenChange: (open: boolean) => void }>) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const opener = useRef<HTMLElement | null>(null);
   const page = useRef<HTMLElement | null>(null);
-  const join = useMutation({
-    mutationFn: (code: string) => joinClass(code),
-    onSuccess: async (joined) => {
-      void queryClient.invalidateQueries({ queryKey: ["my-assignments"] });
-      await queryClient.invalidateQueries({ queryKey: myClassesQuery.queryKey });
-      notify.success(t("join.dialog.joined", { className: joined.name }));
-      onOpenChange(false);
-    },
-    onError: (cause, code) => {
-      if (cause instanceof ApiError && cause.status === 404)
-        queryClient.setQueryData(["join-preview", code], null);
-    },
-  });
-  const { reset } = join;
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) reset();
-        onOpenChange(next);
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
         className={FRAME}
@@ -99,35 +74,43 @@ export function JoinDialog({
             {t("join.subtitle")}
           </DialogDescription>
         </div>
-        <JoinForm
-          join={{
-            code: join.variables ?? null,
-            error: join.error,
-            busy: join.isPending,
-            done: join.isSuccess,
-            send: join.mutate,
-          }}
-          onCancel={() => onOpenChange(false)}
-        />
+        <JoinForm onClose={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function JoinForm({ join, onCancel }: Readonly<{ join: Join; onCancel: () => void }>) {
+function JoinForm({ onClose }: Readonly<{ onClose: () => void }>) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const student = useAuthStore((s) => learnsOnly(s.user));
+  const join = useMutation({
+    mutationFn: (code: string) => joinClass(code),
+    onSuccess: async (joined) => {
+      void queryClient.invalidateQueries({ queryKey: ["my-assignments"] });
+      await Promise.race([
+        queryClient.invalidateQueries({ queryKey: myClassesQuery.queryKey }),
+        new Promise((resolve) => setTimeout(resolve, LIST_WAIT_MS)),
+      ]);
+      notify.success(t("join.dialog.joined", { className: joined.name }));
+    },
+    onError: (cause, code) => {
+      if (cause instanceof ApiError && cause.status === 404)
+        queryClient.setQueryData(["join-preview", code], null);
+    },
+  });
   const [code, setCode] = useState("");
   const lookup = useJoinLookup(code);
   const classes = useQuery(myClassesQuery);
-  const joining = (join.busy || join.done) && join.code === lookup.code;
+  const sent = (join.variables ?? null) === lookup.code;
+  const joining = (join.isPending || join.isSuccess) && sent;
   const waiting = lookup.found !== undefined && classes.isPending;
   const member =
     !joining &&
     lookup.found !== undefined &&
     classes.data?.items.some((c) => c.id === lookup.found?.classId) === true;
   const found = waiting || member ? undefined : lookup.found;
-  const failed = join.code === lookup.code && !join.busy ? join.error : null;
+  const failed = sent && !join.isPending ? join.error : null;
 
   let message = lookup.message;
   let retryAfter = lookup.retryAfter;
@@ -135,9 +118,16 @@ function JoinForm({ join, onCancel }: Readonly<{ join: Join; onCancel: () => voi
   else if (failed instanceof ApiError && failed.isRateLimited) {
     message = failed.message;
     retryAfter = failed.retryAfterSeconds ?? null;
-  } else if (failed !== null && failed !== undefined && message === null)
-    message = t("join.failed");
+  } else if (failed !== null && message === null) message = t("join.failed");
   const ready = found !== undefined && student;
+
+  let status = "";
+  if (lookup.checking || waiting) status = t("join.checking");
+  else if (found)
+    status = t("join.dialog.found", {
+      className: found.className,
+      teacherName: found.teacherName,
+    });
 
   return (
     <form
@@ -145,7 +135,8 @@ function JoinForm({ join, onCancel }: Readonly<{ join: Join; onCancel: () => voi
       className="flex flex-col gap-3.5"
       onSubmit={(event) => {
         event.preventDefault();
-        if (ready && !joining && lookup.code !== null) join.send(lookup.code);
+        if (ready && !joining && lookup.code !== null)
+          join.mutate(lookup.code, { onSuccess: onClose });
       }}
     >
       <JoinCodeField
@@ -162,7 +153,7 @@ function JoinForm({ join, onCancel }: Readonly<{ join: Join; onCancel: () => voi
         </p>
       )}
       <p role="status" className="sr-only">
-        {lookup.checking || waiting ? t("join.checking") : ""}
+        {status}
       </p>
       {found && (
         <ClassPreviewCard
@@ -179,8 +170,8 @@ function JoinForm({ join, onCancel }: Readonly<{ join: Join; onCancel: () => voi
           type="button"
           variant="outline"
           size="lg"
-          className="in-data-[scale=deck]:font-medium"
-          onClick={onCancel}
+          className="shadow-none in-data-[scale=deck]:font-medium"
+          onClick={onClose}
         >
           {t("common.cancel")}
         </Button>

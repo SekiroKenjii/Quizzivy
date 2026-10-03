@@ -26,6 +26,7 @@ export interface JoinLookup {
 
 function useSettled(code: string | null): string | null {
   const [settled, setSettled] = useState(code);
+  if (code === null && settled !== null) setSettled(null);
   useEffect(() => {
     if (code === null) return;
     const timer = setTimeout(() => setSettled(code), LOOKUP_DELAY_MS);
@@ -44,9 +45,11 @@ function failureLine(error: unknown, t: TFunction): string {
  * is sent while the code is incomplete, holds a character no code uses, or is
  * still being typed: a complete code is sent once it has rested for
  * LOOKUP_DELAY_MS, and an answer is kept for 30 seconds, a refusal as much as
- * a found class, so retyping a code costs no second request. A lookup that
- * could not be made is sent again. Every refusal reads as the one line that
- * names no class.
+ * a found class, so retyping a code costs no second request. An edit does not
+ * abandon a lookup already out: the server has counted it, so it finishes and
+ * is remembered. A lookup that could not be made is sent again when the code
+ * is retyped, never by itself. Every refusal reads as the one line that names
+ * no class.
  */
 export function useJoinLookup(code: string): JoinLookup {
   const { t } = useTranslation();
@@ -54,10 +57,11 @@ export function useJoinLookup(code: string): JoinLookup {
   const settled = useSettled(code.length === CODE_LENGTH && !excluded ? code : null);
   const preview = useQuery({
     queryKey: ["join-preview", settled],
-    queryFn: ({ signal }) => lookupJoinCode(settled ?? "", signal),
+    queryFn: () => lookupJoinCode(settled ?? ""),
     enabled: settled !== null,
     retry: false,
     staleTime: 30_000,
+    refetchOnReconnect: false,
   });
 
   let message: string | null = null;

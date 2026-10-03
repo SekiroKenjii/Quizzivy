@@ -233,6 +233,8 @@ describe("what comes next in a class", () => {
     await screen.findByRole("heading", { level: 2, name: A.name });
     expect(cardOf(A.name).queryByText("Chưa có bài nào được giao")).toBeNull();
     expect(cardOf(A.name).queryByText("Chưa tải được bài của lớp")).toBeNull();
+    const footer = cardOf(A.name).getByText("Tiếp theo").parentElement!;
+    expect(footer.querySelector("[data-slot='skeleton']")).not.toBeNull();
   });
 
   it("says the papers could not be loaded, and keeps the cards", async () => {

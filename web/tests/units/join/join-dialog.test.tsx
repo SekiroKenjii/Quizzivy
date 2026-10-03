@@ -1,8 +1,13 @@
 import { useState } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import {
+  onlineManager,
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { delay, http } from "msw";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { Toaster, toast } from "@/components/ui/sonner";
@@ -24,6 +29,7 @@ const BASE = "http://localhost:8080";
 const CODE = "K7QM2PXA";
 const OTHER = "W3RT8KDZ";
 const CLASS_ID = "019535da-0000-7000-8000-0000000000aa";
+const OTHER_ID = "019535da-0000-7000-8000-0000000000bb";
 const CLASS_NAME = "TOEIC 600 Weekend";
 const TEACHER = "Hoàng Thương";
 const REQUEST_ID = "019535d9-3df7-79fb-b466-fa907fa17f9e";
@@ -216,6 +222,10 @@ describe("the frame and the field", () => {
     const { user } = await opened();
     await user.type(field(), "K7QM");
     expect(submit()).toHaveAttribute("aria-disabled", "true");
+    expect(submit()).toBeEnabled();
+    await user.tab();
+    await user.tab();
+    expect(submit()).toHaveFocus();
     await user.click(submit());
     await user.type(field(), "{Enter}");
     await rest();
@@ -270,25 +280,85 @@ describe("the lookup", () => {
     expect(previews).toEqual([CODE]);
   });
 
-  it("abandons a lookup when the code is edited", async () => {
+  it("asks once about a code retyped while its lookup is out", async () => {
     lists();
-    let aborted = false;
     server.use(
-      http.post(`${BASE}/join/preview`, ({ request }) => {
-        previews.push("started");
-        return new Promise<Response>((_, reject) => {
-          request.signal.addEventListener("abort", () => {
-            aborted = true;
-            reject(new Error("aborted"));
-          });
+      http.post(`${BASE}/join/preview`, async ({ request }) => {
+        const { joinCode } = (await request.json()) as { joinCode: string };
+        previews.push(joinCode);
+        await delay(300);
+        return contractJson("/join/preview", "post", 200, {
+          classId: CLASS_ID,
+          className: CLASS_NAME,
+          teacherName: TEACHER,
         });
       }),
     );
-    const { user } = await opened();
+    const { user, in: dialog } = await opened();
     await user.type(field(), CODE);
-    await waitFor(() => expect(previews).toEqual(["started"]));
+    await waitFor(() => expect(previews).toEqual([CODE]));
+    expect(dialog.getByRole("status")).toHaveTextContent("Đang tìm lớp…");
     await user.type(field(), "{Backspace}");
-    await waitFor(() => expect(aborted).toBe(true));
+    await user.type(field(), "A");
+    await screen.findByText(CLASS_NAME);
+    await rest();
+    expect(previews).toEqual([CODE]);
+  });
+
+  it("sends a lookup that breaks once, whatever the client retries by default", async () => {
+    lists();
+    previewAnswers(() => refusal(500, "INTERNAL", "Lỗi máy chủ."));
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: 2, retryDelay: 0 } } })
+        }
+      >
+        <Harness vanishing={false} />
+      </QueryClientProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Mở" }));
+    await user.type(field(), CODE);
+    await screen.findByRole("alert");
+    await rest();
+    expect(previews).toEqual([CODE]);
+  });
+
+  it("does not ask again by itself when the connection comes back", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      lists();
+      previewFinds();
+      const { user } = await opened();
+      await user.type(field(), CODE);
+      await screen.findByText(CLASS_NAME);
+      await act(() => vi.advanceTimersByTimeAsync(31_000));
+      act(() => onlineManager.setOnline(false));
+      act(() => onlineManager.setOnline(true));
+      await act(() => vi.advanceTimersByTimeAsync(500));
+      expect(previews).toEqual([CODE]);
+    } finally {
+      onlineManager.setOnline(true);
+      vi.useRealTimers();
+    }
+  });
+
+  it("asks again about a code once its answer is 30 seconds old", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      lists();
+      previewFinds();
+      const { user } = await opened();
+      await user.type(field(), CODE);
+      await screen.findByText(CLASS_NAME);
+      await user.clear(field());
+      await act(() => vi.advanceTimersByTimeAsync(31_000));
+      await user.type(field(), CODE);
+      await waitFor(() => expect(previews).toEqual([CODE, CODE]));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("says a code never uses 0, O, 1 or I, and sends nothing", async () => {
@@ -314,6 +384,9 @@ describe("what a code comes to", () => {
     expect(await dialog.findByText(CLASS_NAME)).toBeInTheDocument();
     expect(dialog.getByText(TEACHER)).toBeInTheDocument();
     expect(dialog.getByText("Đã tìm thấy lớp")).toHaveClass("sr-only");
+    expect(dialog.getByRole("status")).toHaveTextContent(
+      `Đã tìm thấy lớp: ${CLASS_NAME}, ${TEACHER}`,
+    );
     expect(dialog.queryByText(/học viên/)).toBeNull();
     expect(field()).toHaveClass("border-success");
     expect(submit()).not.toHaveAttribute("aria-disabled");
@@ -330,6 +403,7 @@ describe("what a code comes to", () => {
       "Bạn đã ở trong lớp này rồi.",
     );
     expect(dialog.queryByText(CLASS_NAME)).toBeNull();
+    expect(dialog.getByRole("status")).toBeEmptyDOMElement();
     expect(field()).toHaveClass("border-danger");
     expect(submit()).toHaveAttribute("aria-disabled", "true");
     await user.click(submit());
@@ -452,6 +526,134 @@ describe("joining", () => {
     );
   });
 
+  it("waits for the class list before it says so and closes", async () => {
+    lists();
+    previewFinds();
+    joinSucceeds();
+    const { user } = await opened();
+    await user.type(field(), CODE);
+    await screen.findByText(CLASS_NAME);
+    let release = () => {};
+    server.use(
+      http.get(`${BASE}/app/classes`, async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return contractJson("/app/classes", "get", 200, { items: enrolled });
+      }),
+    );
+    await user.click(submit());
+    await waitFor(() => expect(joins).toEqual([CODE]));
+    await rest();
+    expect(submit()).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText(`Bạn đã vào lớp ${CLASS_NAME}`)).toBeNull();
+    release();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await screen.findByText(`Bạn đã vào lớp ${CLASS_NAME}`)).toBeInTheDocument();
+  });
+
+  it("says so and closes when the class list does not come back", async () => {
+    lists();
+    previewFinds();
+    joinSucceeds();
+    const { user } = await opened();
+    await user.type(field(), CODE);
+    await screen.findByText(CLASS_NAME);
+    lists("wait");
+    await user.click(submit());
+    expect(
+      await screen.findByText(`Bạn đã vào lớp ${CLASS_NAME}`, {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("names the class as the join answered it", async () => {
+    lists();
+    previewFinds();
+    joinAnswers(() =>
+      contractJson("/app/classes/join", "post", 200, {
+        ...sampleClass,
+        id: CLASS_ID,
+        name: "TOEIC 650 Weekend",
+      }),
+    );
+    const { user } = await opened();
+    await user.type(field(), CODE);
+    await screen.findByText(CLASS_NAME);
+    await user.click(submit());
+    expect(
+      await screen.findByText("Bạn đã vào lớp TOEIC 650 Weekend"),
+    ).toBeInTheDocument();
+  });
+
+  it("joins a second class without leaving the page", async () => {
+    lists();
+    previewFinds();
+    joinSucceeds();
+    const { user } = await opened();
+    await user.type(field(), CODE);
+    await screen.findByText(CLASS_NAME);
+    await user.click(submit());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    previewFinds(OTHER_ID);
+    await user.click(screen.getByRole("button", { name: "Mở" }));
+    await user.type(field(), OTHER);
+    await within(await screen.findByRole("dialog")).findByText(CLASS_NAME);
+    expect(submit()).not.toHaveAttribute("aria-busy");
+    await user.click(submit());
+    await waitFor(() => expect(joins).toEqual([CODE, OTHER]));
+  });
+
+  it("tells a student who retypes the code just joined that they are in the class", async () => {
+    lists();
+    previewFinds();
+    joinSucceeds();
+    const { user } = await opened();
+    await user.type(field(), CODE);
+    await screen.findByText(CLASS_NAME);
+    await user.click(submit());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "Mở" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.type(field(), CODE);
+    expect(await dialog.findByRole("alert")).toHaveTextContent(
+      "Bạn đã ở trong lớp này rồi.",
+    );
+    expect(dialog.queryByText(CLASS_NAME)).toBeNull();
+    expect(submit()).toHaveAttribute("aria-disabled", "true");
+    expect(submit()).not.toHaveAttribute("aria-busy");
+    expect(joins).toEqual([CODE]);
+  });
+
+  it("does not carry a failed join over to another code", async () => {
+    lists();
+    previewFinds();
+    joinAnswers(() => refusal(500, "INTERNAL", "Lỗi máy chủ."));
+    const { user, in: dialog } = await opened();
+    await user.type(field(), CODE);
+    await screen.findByText(CLASS_NAME);
+    await user.click(submit());
+    await dialog.findByRole("alert");
+    await user.clear(field());
+    await user.type(field(), OTHER);
+    await waitFor(() => expect(previews).toEqual([CODE, OTHER]));
+    await dialog.findByText(CLASS_NAME);
+    expect(dialog.queryByRole("alert")).toBeNull();
+  });
+
+  it("gives the server's sentence alone when a refused join names no wait", async () => {
+    lists();
+    previewFinds();
+    joinAnswers(() => refusal(429, "RATE_LIMITED", TOO_FAST));
+    const { user, in: dialog } = await opened();
+    await user.type(field(), CODE);
+    await screen.findByText(CLASS_NAME);
+    await user.click(submit());
+    const alert = await dialog.findByRole("alert");
+    expect(alert).toHaveTextContent(TOO_FAST);
+    expect(alert).not.toHaveTextContent(/giây/);
+  });
+
   it("joins on Enter", async () => {
     lists();
     previewFinds();
@@ -564,6 +766,60 @@ describe("closing and focus", () => {
       );
     },
   );
+
+  it.each(["{Escape}", "Huỷ"])(
+    "lets a join that was left on %s finish without closing a dialog opened since",
+    async (how) => {
+      lists();
+      previewFinds();
+      let release = () => {};
+      joinAnswers(async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        enrolled = [JOINED];
+        return contractJson("/app/classes/join", "post", 200, {
+          ...sampleClass,
+          id: CLASS_ID,
+          name: CLASS_NAME,
+        });
+      });
+      const { user } = await opened();
+      await user.type(field(), CODE);
+      await screen.findByText(CLASS_NAME);
+      await user.click(submit());
+      await waitFor(() => expect(joins).toEqual([CODE]));
+      if (how === "Huỷ") await user.click(screen.getByRole("button", { name: "Huỷ" }));
+      else await user.keyboard(how);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await user.click(screen.getByRole("button", { name: "Mở" }));
+      await user.type(field(), "W3RT");
+      release();
+      expect(
+        await screen.findByText(`Bạn đã vào lớp ${CLASS_NAME}`),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(field()).toHaveValue("W3RT");
+    },
+  );
+
+  it("forgets a failed join when it is cancelled and reopened", async () => {
+    lists();
+    previewFinds();
+    joinAnswers(() => refusal(500, "INTERNAL", "Lỗi máy chủ."));
+    const { user } = await opened();
+    await user.type(field(), CODE);
+    await screen.findByText(CLASS_NAME);
+    await user.click(submit());
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Huỷ" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "Mở" }));
+    await user.type(field(), CODE);
+    await screen.findByText(CLASS_NAME);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(joins).toEqual([CODE]);
+  });
 
   it("forgets a failed join when it is reopened", async () => {
     lists();

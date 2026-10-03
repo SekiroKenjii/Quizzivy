@@ -295,7 +295,8 @@
       "alreadyMember": "Bạn đã ở trong lớp này rồi.",
       "joined": "Bạn đã vào lớp {{className}}",
       "retryIn_one": "Thử lại sau {{count}} giây.",
-      "retryIn_other": "Thử lại sau {{count}} giây."
+      "retryIn_other": "Thử lại sau {{count}} giây.",
+      "found": "Đã tìm thấy lớp: {{className}}, {{teacherName}}"
     }
   },
   "classDetail": {
