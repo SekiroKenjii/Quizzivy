@@ -195,6 +195,7 @@ describe("the header at 1280", () => {
     type();
     expect(banner().getByText(SAVING)).toBeInTheDocument();
     expect(banner().queryByText(SAVED)).toBeNull();
+    expect(strip()).toBeNull();
     expect(saveAnswers).not.toHaveBeenCalled();
 
     await pass(FLUSH_DEBOUNCE_MS);
@@ -268,6 +269,7 @@ describe("the header at 1280", () => {
     });
     expect(banner().getByText("Còn 2 lần rời trang")).toBeInTheDocument();
     expect(banner().getByText(SAVED)).toBeInTheDocument();
+    expect(strip()).toBeNull();
   });
 
   it("draws no strike count when departures are not counted", async () => {

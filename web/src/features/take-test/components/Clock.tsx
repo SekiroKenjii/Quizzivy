@@ -59,7 +59,7 @@ export function Clock() {
         <Timer aria-hidden="true" className="size-4" />
         {countdown(left)}
       </span>
-      <span role="status" data-slot="time-announcement" className="sr-only">
+      <span role="status" className="sr-only">
         {said === null ? "" : t("takeTest.minutesLeft", { count: said })}
       </span>
     </>

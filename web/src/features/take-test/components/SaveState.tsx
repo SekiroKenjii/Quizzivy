@@ -35,7 +35,6 @@ export function SaveState() {
   const trouble = troubled(status);
   return (
     <span
-      data-save={status}
       aria-hidden={trouble || undefined}
       className={cn(
         "flex min-w-0 items-center gap-[5px]",
@@ -60,7 +59,7 @@ export function SaveAnnouncement() {
   const { t } = useTranslation();
   const status = useSaveStatus();
   return (
-    <span role="status" data-slot="save-announcement" className="sr-only">
+    <span role="status" className="sr-only">
       {troubled(status) ? t(LINE[status].label) : ""}
     </span>
   );
