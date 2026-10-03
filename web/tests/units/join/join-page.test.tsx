@@ -145,6 +145,37 @@ describe("/join", () => {
     expect(previews).toEqual([CODE, OTHER]);
   });
 
+  it("does not ask twice about a code the server refused", async () => {
+    previewFails(404, "JOIN_CODE_EXPIRED", "Mã lớp đã hết hạn.");
+    const user = userEvent.setup();
+    renderJoin();
+    await user.type(field(), CODE);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không có lớp nào dùng mã này. Hãy kiểm tra lại với giáo viên.",
+    );
+    await user.clear(field());
+    await user.type(field(), OTHER);
+    await waitFor(() => expect(previews).toEqual([CODE, OTHER]));
+    await user.clear(field());
+    await user.type(field(), CODE);
+    expect(await screen.findByRole("alert")).toBeVisible();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(previews).toEqual([CODE, OTHER]);
+  });
+
+  it("asks again about a code whose lookup could not be made", async () => {
+    previewFails(500, "INTERNAL", "Lỗi máy chủ.");
+    const user = userEvent.setup();
+    renderJoin();
+    await user.type(field(), CODE);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Chưa kiểm tra được mã. Vui lòng thử lại.",
+    );
+    await user.clear(field());
+    await user.type(field(), CODE);
+    await waitFor(() => expect(previews).toEqual([CODE, CODE]));
+  });
+
   it("waits for the typing to stop before it looks up", async () => {
     previewFinds();
     const user = userEvent.setup();

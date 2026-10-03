@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { ApiError } from "@/lib/api/errors";
-import { previewJoinCode, type JoinPreview } from "./api";
+import { lookupJoinCode, type JoinPreview } from "./api";
 import { CODE_LENGTH, hasExcluded } from "./code";
 
 /** LOOKUP_DELAY_MS is how long a complete code rests before it is looked up. */
@@ -34,9 +34,8 @@ function useSettled(code: string | null): string | null {
   return code !== null && settled === code ? code : null;
 }
 
-function lookupMessage(error: unknown, t: TFunction): string {
+function failureLine(error: unknown, t: TFunction): string {
   if (error instanceof ApiError && error.isRateLimited) return error.message;
-  if (error instanceof ApiError && error.status === 404) return t("join.notFound");
   return t("join.lookupFailed");
 }
 
@@ -44,9 +43,10 @@ function lookupMessage(error: unknown, t: TFunction): string {
  * useJoinLookup looks up the class behind a cleaned join code (§6.2). Nothing
  * is sent while the code is incomplete, holds a character no code uses, or is
  * still being typed: a complete code is sent once it has rested for
- * LOOKUP_DELAY_MS, and an answer is kept for 30 seconds, so retyping a code
- * costs no second request. Every refusal reads as the one line that names no
- * class.
+ * LOOKUP_DELAY_MS, and an answer is kept for 30 seconds, a refusal as much as
+ * a found class, so retyping a code costs no second request. A lookup that
+ * could not be made is sent again. Every refusal reads as the one line that
+ * names no class.
  */
 export function useJoinLookup(code: string): JoinLookup {
   const { t } = useTranslation();
@@ -54,7 +54,7 @@ export function useJoinLookup(code: string): JoinLookup {
   const settled = useSettled(code.length === CODE_LENGTH && !excluded ? code : null);
   const preview = useQuery({
     queryKey: ["join-preview", settled],
-    queryFn: ({ signal }) => previewJoinCode(settled ?? "", signal),
+    queryFn: ({ signal }) => lookupJoinCode(settled ?? "", signal),
     enabled: settled !== null,
     retry: false,
     staleTime: 30_000,
@@ -62,15 +62,15 @@ export function useJoinLookup(code: string): JoinLookup {
 
   let message: string | null = null;
   if (excluded) message = t("join.excluded");
-  else if (settled !== null && preview.isError)
-    message = lookupMessage(preview.error, t);
+  else if (settled !== null && preview.isError) message = failureLine(preview.error, t);
+  else if (settled !== null && preview.data === null) message = t("join.notFound");
   const limited =
     settled !== null && preview.error instanceof ApiError && preview.error.isRateLimited
       ? preview.error
       : null;
   return {
     code: settled,
-    found: settled !== null ? preview.data : undefined,
+    found: settled !== null ? (preview.data ?? undefined) : undefined,
     message,
     checking: settled !== null && preview.isFetching,
     retryAfter: limited?.retryAfterSeconds ?? null,
