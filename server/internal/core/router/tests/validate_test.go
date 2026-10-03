@@ -10,6 +10,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/getkin/kin-openapi/openapi3"
+
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/identity/domain"
 )
@@ -271,6 +273,96 @@ func TestOtherValidationFailuresKeepTheirSentence(t *testing.T) {
 				t.Errorf("message = %q, want %q", message, tc.want)
 			}
 		})
+	}
+}
+
+const saveAnswersPath = "/app/attempts/019535d9-3df7-79fb-b466-fa907fa17f9e/answers"
+
+func saveAnswersKeyedBy(t *testing.T, key string) string {
+	t.Helper()
+	quoted, err := json.Marshal(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{` + string(quoted) + `:{"type":"choice","optionIds":[]}}}`
+}
+
+func TestAnAnswerKeyThatIsNotAUuidIsRefusedBeforeTheHandler(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	for name, body := range map[string]string{
+		"not a uuid":             saveAnswersKeyedBy(t, "not-a-uuid"),
+		"braced":                 saveAnswersKeyedBy(t, "{019535d9-3df7-79fb-b466-fa907fa17f9e}"),
+		"urn":                    saveAnswersKeyedBy(t, "urn:uuid:019535d9-3df7-79fb-b466-fa907fa17f9e"),
+		"no hyphens":             saveAnswersKeyedBy(t, "019535d93df779fbb466fa907fa17f9e"),
+		"empty":                  saveAnswersKeyedBy(t, ""),
+		"36 characters, not hex": saveAnswersKeyedBy(t, "019535d9-3df7-79fb-b466-fa907fa17f9g"),
+		"beside a uuid":          `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{"019535d9-3df7-79fb-b466-fa907fa17fa0":{"type":"choice","optionIds":[]},"not-a-uuid":{"type":"choice","optionIds":[]}}}`,
+		"in a repeated member":   `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{"not-a-uuid":{"type":"choice","optionIds":[]}},"answers":{}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := sendAs(t, handler, issuer, http.MethodPatch, saveAnswersPath, studentUser, body)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			code, message := errorCodeAndMessage(t, rec)
+			if code != "VALIDATION_FAILED" {
+				t.Errorf("error code = %q, want VALIDATION_FAILED", code)
+			}
+			if want := `Trường "answers" không hợp lệ.`; message != want {
+				t.Errorf("message = %q, want %q", message, want)
+			}
+		})
+	}
+}
+
+func TestAWellFormedAnswerKeyReachesTheHandler(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	for name, body := range map[string]string{
+		"a hyphenated uuid": saveAnswersKeyedBy(t, "019535d9-3df7-79fb-b466-fa907fa17fa0"),
+		"no answers":        `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f"}`,
+		"an empty map":      `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := sendAs(t, handler, issuer, http.MethodPatch, saveAnswersPath, studentUser, body)
+
+			if rec.Code != http.StatusNotImplemented {
+				t.Fatalf("status = %d, want 501 from a router with no attempts module: %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestOnlySaveAnswersIsKeyedByUuidToday(t *testing.T) {
+	spec, err := openapi.GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var keyed []string
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op.RequestBody == nil || op.RequestBody.Value == nil {
+				continue
+			}
+			for mediaType, media := range op.RequestBody.Value.Content {
+				found := map[string]bool{}
+				uuidPointers(media.Schema, "", map[*openapi3.Schema]bool{}, found)
+				for pointer := range found {
+					if strings.HasSuffix(pointer, "/+") {
+						keyed = append(keyed, method+" "+path+" "+mediaType+" "+pointer)
+					}
+				}
+			}
+		}
+	}
+	slices.Sort(keyed)
+	if want := []string{"PATCH /app/attempts/{id}/answers application/json /answers/+"}; !slices.Equal(keyed, want) {
+		t.Fatalf("body maps keyed by uuid = %v, want %v", keyed, want)
 	}
 }
 
