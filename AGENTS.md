@@ -366,19 +366,20 @@ looks exactly like your fix not working.
 
 `docs/setup/ci.md` describes it. What to keep in mind while working:
 
-- **A job is skipped only when the same files already passed it.**
-  `scripts/ci/plan.mjs` names the set of files each job reads and hashes it; a
-  job leaves a marker for its hash, and Plan skips the job when the marker
-  exists. A change under `docs/plan/` runs no code job; a server-only change
-  runs no web job.
+- **A job is skipped only when the same files passed it and have not failed
+  it since.** `scripts/ci/plan.mjs` names the set of files each job reads and
+  hashes it; a job records its outcome for that hash, and Plan skips the job
+  while the newest record is a pass. So a change under `docs/plan/` normally
+  runs no code job, and a server-only change no web job.
 - **Each job checks out only its set.** A test that reads a file outside its
   own tree (the web join-code test reads `joincode.go`; the isolation suite
   reads an mp3 under `web/tests/e2e/fixtures/`) needs that path in the set's
   `include`, in the same PR. Never make a test skip when a file is missing.
 - **"Re-run all jobs" runs everything**, and so does a push to `main`. Use the
   first when a skipped job should be run again.
-- **The required check is CI result**, not the individual jobs. A new job goes
-  in `JOBS` and in that job's `needs`, or the result fails.
+- **The required check is CI result**, not the individual jobs, and only a
+  pull request's run reports it. A new job goes in `JOBS` and in that job's
+  `needs`, or Plan's own test fails.
 
 ## Git workflow
 
@@ -393,8 +394,9 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
   `main` deploys to production.
 - `hotfix/<slug>` off `main`, merged to both.
 - Never commit directly to `main`, `develop` or a `work/**` branch. The branch
-  rules refuse it: a change reaches them by pull request, with **CI result**
-  passing.
+  rules refuse it: a change reaches them by pull request, merged with a merge
+  commit, and `develop` and `work/**` also need **CI result** to pass
+  (`docs/setup/ci.md`, "Branch rules").
 
 **A behavioural change never rides along in a formatting sweep.** A commit that
 reformats or restrips comments across many files must contain nothing else — the
