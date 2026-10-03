@@ -5,6 +5,7 @@ import {
   homeView,
   justSubmitted,
   minutesLeft,
+  nextByClass,
 } from "@/features/assignments/studentHome";
 
 const NOW = new Date("2026-08-29T10:00:00.000Z");
@@ -392,5 +393,64 @@ describe("the line under the greeting", () => {
 
   it("is absent for a student with nothing assigned", () => {
     expect(view({}).sub).toEqual({ kind: "none" });
+  });
+});
+
+describe("the paper a class names as next", () => {
+  const A = id(701);
+  const B = id(702);
+  const next = (
+    lists: Partial<
+      Record<"dueNow" | "upcoming" | "completed", StudentAssignmentCard[]>
+    >,
+  ) =>
+    [...nextByClass({ dueNow: [], upcoming: [], completed: [], ...lists }, NOW)].map(
+      ([classId, row]) => [classId, row.card.id, row.pill],
+    );
+
+  it("is the attempt in progress before any other paper of the class", () => {
+    expect(
+      next({
+        dueNow: [
+          paper(1, { classId: A, closesAt: "2026-08-29T10:05:00Z" }),
+          live(2, { classId: A }),
+        ],
+      }),
+    ).toEqual([[A, id(2), "inProgress"]]);
+  });
+
+  it("is the earliest paper by the date on its tile, one for each class", () => {
+    expect(
+      next({
+        upcoming: [
+          paper(1, {
+            classId: A,
+            status: "scheduled",
+            opensAt: "2026-08-30T01:00:00Z",
+          }),
+        ],
+        dueNow: [
+          paper(2, { classId: A, closesAt: "2026-09-03T01:00:00Z" }),
+          paper(3, { classId: B, closesAt: "2026-08-29T14:00:00Z" }),
+          paper(4, { classId: B, closesAt: "2026-08-29T12:00:00Z" }),
+        ],
+      }),
+    ).toEqual([
+      [B, id(4), "dueToday"],
+      [A, id(1), "opens"],
+    ]);
+  });
+
+  it("leaves out a paper closed on this clock, a finished one and one shared by two classes", () => {
+    expect(
+      next({
+        dueNow: [
+          paper(1, { classId: A, closesAt: NOW.toISOString() }),
+          paper(2, { classId: null }),
+          paper(3, {}),
+        ],
+        completed: [done(4, { classId: A })],
+      }),
+    ).toEqual([]);
   });
 });
