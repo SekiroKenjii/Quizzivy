@@ -271,6 +271,18 @@ describe("resultView: a score the policy hides", () => {
     expect(resultView(body).ring).toEqual({ kind: "withheld" });
     expect(resultView(body).filters).toEqual(["all"]);
   });
+
+  it("has no part tiles on a paper in parts", () => {
+    const body = paper({
+      review: CLOSED,
+      sections: [
+        { id: PART_ONE, title: "Nghe", instructions: null },
+        { id: PART_TWO, title: "Đọc", instructions: null },
+      ],
+      questions: [choice(1, AB, [0]), choice(2, AB, [0], { sectionId: PART_TWO })],
+    });
+    expect(resultView(body).tiles).toEqual([]);
+  });
 });
 
 describe("resultView: the lock line", () => {
