@@ -27,7 +27,11 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 		return nil, httpx.ErrNotImplemented
 	}
 
-	session, err := h.app.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: request.Id.String(), StudentID: principal.UserID})
+	cmd := command.StartOrResume{AssignmentID: request.Id.String(), StudentID: principal.UserID}
+	if request.Body != nil && request.Body.Resume != nil {
+		cmd.Resume = request.Body.Resume.String()
+	}
+	session, err := h.app.Commands.StartOrResume.Handle(ctx, cmd)
 	var scheduled *domain.MaintenanceScheduledError
 	switch {
 	case errors.As(err, &scheduled):
@@ -48,6 +52,9 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 	case errors.Is(err, domain.ErrLimitReached):
 		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
 			openapi.ATTEMPTLIMITREACHED, "Bạn đã dùng hết số lượt làm bài.")), nil
+	case errors.Is(err, domain.ErrAttemptClosed):
+		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
+			openapi.ATTEMPTCLOSED, "Bài làm này đã kết thúc.")), nil
 	case (errors.Is(err, domain.ErrGroupContextUnavailable) || errors.Is(err, domain.ErrUnsupportedDeliveryVersion)):
 		return nil, httpx.ErrNotImplemented
 	case err != nil:
