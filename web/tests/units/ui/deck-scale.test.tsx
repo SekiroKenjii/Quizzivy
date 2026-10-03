@@ -273,8 +273,11 @@ describe("the three controls the student screens use first", () => {
         "translate-x-0.5",
         "data-[state=checked]:translate-x-4.5",
         "bg-switch-thumb",
+        "shadow-thumb",
       ]),
     );
+    expect(thumb.unscoped).toContain("shadow-sm");
+    expect(thumb.unscoped).not.toContain("shadow-thumb");
   });
 
   it.each([
