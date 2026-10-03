@@ -320,6 +320,10 @@ it("keeps the group's tables and images on the paper surface", async () => {
     "[&_.content-table-scroll]:bg-paper",
     "[&_.content-table-scroll]:text-paper-fg",
   );
+  expect(surface.className).toMatch(
+    /\[&_\.content-table-scroll_:is\(th,td\)\]:border-\S+!(\s|$)/,
+  );
+  expect(surface.className).toMatch(/\[&_\.content-table-scroll_th\]:bg-\S+!(\s|$)/);
   expect(table).toHaveClass("content-table-scroll");
   expect(surface.className).not.toMatch(/dark:/);
   expect(surface).toContainElement(item("The letter ____ yesterday."));
