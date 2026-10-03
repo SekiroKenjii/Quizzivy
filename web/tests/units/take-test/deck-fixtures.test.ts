@@ -58,6 +58,24 @@ describe("the deck's take-test fixture", () => {
     ).toThrow(/does not match/);
   });
 
+  it("has refusals the contract accepts for a paper taken over, out of time or ended", () => {
+    for (const [code, message] of [
+      ["SESSION_SUPERSEDED", "Bài làm này đã được mở ở nơi khác."],
+      ["DEADLINE_PASSED", "Đã hết giờ làm bài."],
+      ["ATTEMPT_CLOSED", "Bài làm này đã được nộp."],
+    ]) {
+      const body = {
+        error: { code, message, requestId: "018f0000-0000-7000-8000-0000000000aa" },
+      };
+      expect(() =>
+        contractJson("/app/attempts/{id}/answers", "patch", 409, body),
+      ).not.toThrow();
+      expect(() =>
+        contractJson("/app/attempts/{id}/submit", "post", 409, body),
+      ).not.toThrow();
+    }
+  });
+
   it("carries the deck's numbers: eight questions, three answered, 38:12, two absences", () => {
     expect(session.questions).toHaveLength(8);
     expect(
