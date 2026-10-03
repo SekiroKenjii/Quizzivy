@@ -97,12 +97,7 @@ export function SubmitDialog({
             className="bg-card flex min-w-0 flex-col justify-between px-3 py-2.5"
           >
             <dt className="text-muted-fg text-xs leading-normal">{fact.label}</dt>
-            <dd
-              className={cn(
-                "text-stat-sm leading-normal font-semibold tabular-nums",
-                fact.ink,
-              )}
-            >
+            <dd className={cn("text-stat-sm leading-normal font-semibold", fact.ink)}>
               {fact.value}
             </dd>
           </div>
@@ -123,7 +118,7 @@ export function SubmitDialog({
               type="button"
               disabled={busy}
               aria-label={t("takeTest.submitDialog.question", { n: index + 1 })}
-              className="bg-card hover:bg-muted rounded-seg h-7.5 min-w-8 border px-2 text-sm leading-none font-semibold tabular-nums disabled:opacity-50"
+              className="bg-card hover:bg-muted rounded-seg h-7.5 min-w-8 border px-2 text-sm leading-none font-semibold disabled:opacity-50"
               onClick={() => onGo(index)}
             >
               {index + 1}
