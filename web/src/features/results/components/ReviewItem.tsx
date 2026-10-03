@@ -187,8 +187,10 @@ export function ReviewItem({
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex justify-between gap-2.5">
-          <div className="flex min-w-0 flex-1 gap-1">
-            <span className="text-base leading-normal font-medium">{numbered}</span>
+          <div className="min-w-0 flex-1">
+            <span className="float-left mr-1 text-base leading-normal font-medium">
+              {numbered}
+            </span>
             <Prompt question={question} />
           </div>
           {earned !== null && (

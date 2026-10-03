@@ -471,6 +471,16 @@ describe("the result page", () => {
     );
     expect(screen.getAllByText("Nhận xét của giáo viên")).toHaveLength(1);
   });
+
+  it("writes the number and the prompt as one run, so a second line starts under the number", async () => {
+    serve(scored([choice(1, AB, [1], { prompt: "Câu đúng", earned: 1 })]));
+    renderResult();
+    const prompt = await screen.findByText("Câu đúng");
+    const number = within(item("Câu đúng")).getByText("1.");
+    expect(number).toHaveClass("float-left");
+    expect(number.parentElement).not.toHaveClass("flex");
+    expect(number.parentElement).toContainElement(prompt);
+  });
 });
 
 describe("the deck's three variants", () => {
