@@ -113,9 +113,9 @@ What the teacher is told holds on every screen:
   The source is named by a localized "Pasted text" label taken from its
   format, never from a stored file name.
 - **The page states the conventions the recognizer reads**, and no others:
-  number each question, put each option on its own line, and mark the answer
-  with `*` after the correct option, an "Answer: B" line or one
-  "Answer key: 1-B 2-C" line.
+  put a heading on each part, number each question, put each option on its
+  own line, and mark the answer with `*` after the correct option, an
+  "Answer: B" line or one "Answer key: 1-B 2-C" line.
 - **The quick count follows the server's rules** for text sources, so it
   cannot contradict the review. It is a hint; the full check runs in
   processing.

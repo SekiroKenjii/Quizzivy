@@ -94,7 +94,8 @@ Decided on 2026-10-03, with the second import (DG-12 to DG-19 in `docs/design/ga
   follow the search (in the audit log, the date range as well).
 - **The Imports history switches between its grid and its cards by a container query** at 960px
   of the list's own width, not by the deck's viewport arithmetic.
-- **The To review chips read "{n} need action" for every import,** pasted or not.
+- **The To review chips and the Ready card's pill read "{n} need action" for every import,**
+  pasted or not (DG-14).
 
 ## Updating the deck
 
