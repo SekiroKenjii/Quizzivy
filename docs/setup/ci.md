@@ -70,17 +70,20 @@ some tens of seconds and no result.
 
 ## How long it takes
 
-Measured on 2026-10-03 on GitHub's hosted runners. The old workflow took
-between 7 min 40 s and 10 min 33 s for every run.
+Measured on GitHub's hosted runners: the first and third rows on 2026-10-04,
+after the server job began building the import converter's image and running
+its tests; the second on 2026-10-03. The old workflow took between 7 min 40 s
+and 10 min 33 s for every run.
 
 | Run | Time |
 |---|---|
-| Every job runs | 4 min 39 s |
+| Every job runs | 4 min 25 s |
 | Every job runs and MinIO is built from source, the first run after `docker/minio` changes | 8 min 43 s |
 | No job has anything new to run | 18 s |
 
-E2E (live API) is the longest job, a little over four minutes; a faster run
-starts there.
+E2E (live API) is the longest job, a little over four minutes (4 min 3 s in
+that run), and Server tests the next (3 min 40 s, the converter image and its
+nine tests included); a faster run starts with those two.
 
 ## When a job needs a file outside its set
 
@@ -157,8 +160,9 @@ unset, and `go test` reports a package whose tests all skipped as `ok`. The
 image id is the one such value that comes from another step, and an expression
 that names a renamed step or a mistyped output is empty without an error; that
 is why **Import converter tests** checks it first. The storage settings are
-written on the steps themselves. To see by name which of these tests ran, read
-the step with `-v`.
+written on the steps themselves. The steps do not print each test; to see by
+name which of these tests ran, add `-v` to the step's `go test` for one run, as
+the pull request that added the steps did.
 
 ## MinIO
 
