@@ -1,126 +1,136 @@
-import { memo, useId, useMemo, useState } from "react";
+import { memo, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ContentView } from "@/components/shared/content/ContentView";
 import {
   GroupMaterials,
   type MaterialGap,
 } from "@/components/shared/content/GroupMaterials";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
+import { cn } from "@/lib/utils";
+import { PassageBody } from "./PassageBody";
 import { useGroupPlaybackStore, groupPlayCount } from "../groupPlayback";
 import { useTakeTestStore } from "../store";
+import { useKeptScroll } from "../panes";
 import type { StudentGroup } from "../api";
 
-/** GroupContext keeps shared listening controls mounted while navigating the group's questions. */
+/**
+ * GroupContext is the passage pane: the reading material a group of
+ * questions shares, scrolling by itself beside the question. Its text cannot
+ * be selected. A gap in the material is a button that goes to the question
+ * or blank it stands for. While `hidden`, on a phone showing the question,
+ * it stays mounted and keeps its place in the text.
+ */
 export const GroupContext = memo(function GroupContext({
   group,
+  eyebrow,
   numbers,
   onGap,
   onRetryMedia,
   wide,
+  hidden,
 }: Readonly<{
   group: StudentGroup;
+  eyebrow?: string | undefined;
   numbers: ReadonlyMap<string, number>;
   onGap: (gap: MaterialGap) => void;
   onRetryMedia: () => void;
   wide: boolean;
+  hidden: boolean;
 }>) {
   const { t } = useTranslation();
-  const contentId = useId();
-  const [collapsed, setCollapsed] = useState(() => readCollapsed(group.id));
+  const pane = useRef<HTMLElement>(null);
+  const onScroll = useKeptScroll(pane, hidden);
+  return (
+    <article
+      ref={pane}
+      onScroll={onScroll}
+      hidden={hidden}
+      aria-label={group.title}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Scroll regions need keyboard access independently of their content.
+      tabIndex={0}
+      className={cn(
+        "min-w-0 flex-[1_1_0] overflow-y-auto -outline-offset-2! select-none",
+        wide ? "border-r px-8 py-7" : "px-4 py-4.5",
+      )}
+    >
+      <PassageBody eyebrow={eyebrow} title={group.title}>
+        <GroupMaterials
+          group={group}
+          omitTitle={group.title}
+          onRetryMedia={onRetryMedia}
+          renderAudio={(node) => <p className="text-muted-fg text-ui">{node.label}</p>}
+          renderGap={(gap, label) => {
+            const number = numbers.get(gap.questionId);
+            return number == null ? (
+              <span className="content-gap">{label}</span>
+            ) : (
+              <button
+                type="button"
+                className="content-gap"
+                aria-label={t("preview.goToQuestion", { n: number, label })}
+                onClick={() => onGap(gap)}
+              >
+                {label}
+              </button>
+            );
+          }}
+        />
+      </PassageBody>
+    </article>
+  );
+});
+
+/**
+ * GroupListening is what a group adds to the question pane: its shared
+ * recordings, which stay mounted, and so keep playing, while the student
+ * moves between the group's questions. A group with nothing to read also
+ * states its title and instructions here, since it has no passage pane.
+ */
+export const GroupListening = memo(function GroupListening({
+  group,
+  onRetryMedia,
+}: Readonly<{
+  group: StudentGroup;
+  onRetryMedia: () => void;
+}>) {
+  const { t } = useTranslation();
   const assets = useMemo(
     () => new Map(group.assets.map((asset) => [asset.id, asset])),
     [group.assets],
   );
-  const show = wide || !collapsed;
+  const standalone = group.stimuli.length === 0;
+  if (!standalone && group.recordings.length === 0) return null;
   return (
-    <Card
-      className="min-w-0 gap-4 self-start lg:sticky lg:top-0 lg:max-h-[calc(100dvh-12rem)] lg:overflow-y-auto"
-      aria-label={group.title}
-    >
-      <CardHeader className="gap-2">
-        <div className="flex items-start justify-between gap-3">
-          <CardTitle>
-            <h2 className="text-base leading-relaxed">{group.title}</h2>
-          </CardTitle>
-          {!wide && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-11 shrink-0"
-              aria-label={t(show ? "takeTest.hideMaterial" : "takeTest.showMaterial")}
-              aria-expanded={show}
-              aria-controls={contentId}
-              onClick={() => {
-                setCollapsed(!collapsed);
-                writeCollapsed(group.id, !collapsed);
-              }}
-            >
-              {show ? (
-                <ChevronUp aria-hidden="true" />
-              ) : (
-                <ChevronDown aria-hidden="true" />
-              )}
-            </Button>
-          )}
-        </div>
-        <CardDescription>
-          {t("preview.sharedRange", {
-            from: numbers.get(group.questionIds[0] ?? ""),
-            to: numbers.get(group.questionIds.at(-1) ?? ""),
-          })}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex min-w-0 flex-col gap-4">
-        {group.recordings.map((recording, index) => {
-          const asset = assets.get(recording.assetId);
-          return asset?.kind === "audio" && asset.url ? (
-            <SharedAudio
-              key={recording.id}
-              recording={recording}
-              label={t("takeTest.sharedAudioLabel", { n: index + 1 })}
-              asset={asset}
-              onRetry={onRetryMedia}
+    <div className="flex min-w-0 flex-col gap-3">
+      {standalone && (
+        <div className="flex flex-col gap-1.5">
+          <h2 className="text-title font-semibold">{group.title}</h2>
+          {group.instructions ? (
+            <ContentView
+              document={group.instructions}
+              className="text-muted-fg text-ui"
             />
-          ) : (
-            <p key={recording.id} role="status">
-              {t("preview.materialUnavailable")}
-            </p>
-          );
-        })}
-        <div id={contentId} hidden={!show}>
-          <GroupMaterials
-            group={group}
-            onRetryMedia={onRetryMedia}
-            renderAudio={(node) => (
-              <p className="text-muted-foreground text-sm">{node.label}</p>
-            )}
-            renderGap={(gap, label) => {
-              const number = numbers.get(gap.questionId);
-              return number == null ? (
-                <span className="content-gap">{label}</span>
-              ) : (
-                <button
-                  type="button"
-                  className="content-gap"
-                  aria-label={t("preview.goToQuestion", { n: number, label })}
-                  onClick={() => onGap(gap)}
-                >
-                  {label}
-                </button>
-              );
-            }}
-          />
+          ) : null}
         </div>
-      </CardContent>
-    </Card>
+      )}
+      {group.recordings.map((recording, index) => {
+        const asset = assets.get(recording.assetId);
+        return asset?.kind === "audio" && asset.url ? (
+          <SharedAudio
+            key={recording.id}
+            recording={recording}
+            label={t("takeTest.sharedAudioLabel", { n: index + 1 })}
+            asset={asset}
+            onRetry={onRetryMedia}
+          />
+        ) : (
+          <p key={recording.id} role="status" className="text-muted-fg text-ui">
+            {t("preview.materialUnavailable")}
+          </p>
+        );
+      })}
+    </div>
   );
 });
 
@@ -152,8 +162,8 @@ function SharedAudio({
       : t("takeTest.playsLeft", { count: (limit ?? 0) - played });
   const hint = limit == null ? t("takeTest.sharedAudioUnlimited") : limitedHint;
   return (
-    <div className="flex flex-col gap-2" role="group" aria-label={label}>
-      <p className="text-sm font-medium">{label}</p>
+    <div className="flex flex-col gap-1.5" role="group" aria-label={label}>
+      <p className="text-ui font-medium">{label}</p>
       <AudioPlayer
         src={asset.url}
         label={label}
@@ -165,16 +175,14 @@ function SharedAudio({
         onPlay={() => notePlay(recording.id)}
         onRetry={onRetry}
       />
-      <p className="text-muted-foreground text-xs leading-relaxed">
-        {t("takeTest.sharedAudioScope")}
-      </p>
+      <p className="text-muted-fg text-meta">{t("takeTest.sharedAudioScope")}</p>
       {limit != null && played >= limit && (
-        <p role="status" className="text-muted-foreground text-xs leading-relaxed">
+        <p role="status" className="text-muted-fg text-meta">
           {t("takeTest.extraPlaysRecorded")}
         </p>
       )}
       {pending && (
-        <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+        <div className="text-muted-fg text-meta flex flex-wrap items-center gap-2">
           <span role="status">{t("takeTest.sharedAudioPending")}</span>
           <Button
             variant="ghost"
@@ -188,20 +196,4 @@ function SharedAudio({
       )}
     </div>
   );
-}
-
-function readCollapsed(groupId: string): boolean {
-  try {
-    return sessionStorage.getItem(`quizzivy.material-collapsed.${groupId}`) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function writeCollapsed(groupId: string, value: boolean): void {
-  try {
-    sessionStorage.setItem(`quizzivy.material-collapsed.${groupId}`, String(value));
-  } catch {
-    return;
-  }
 }

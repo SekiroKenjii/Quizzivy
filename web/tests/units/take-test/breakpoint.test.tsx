@@ -114,15 +114,14 @@ it("is the wide engine from 768px and the phone engine below it", async () => {
   expect(rail()).toBeInTheDocument();
   expect(rail()).not.toHaveClass("hidden");
   expect(screen.queryByRole("contentinfo")).toBeNull();
-  expect(screen.getByText(/^Câu 1 \/ 2 · /)).toBeInTheDocument();
-  expect(screen.getByText("1 điểm · giáo viên chấm tay")).toHaveClass(
-    "min-[768px]:hidden",
-  );
+  expect(screen.getByText("Câu 1 trên 2 · Trả lời ngắn")).toBeInTheDocument();
+  expect(screen.getAllByText("1 điểm · giáo viên chấm tay")).toHaveLength(1);
 
   resize(767);
   expect(rail()).toBeNull();
   expect(screen.getByRole("contentinfo")).toBeInTheDocument();
-  expect(screen.queryByText(/^Câu 1 \/ 2 · /)).toBeNull();
+  expect(screen.getByText("Câu 1 trên 2 · Trả lời ngắn")).toBeInTheDocument();
+  expect(screen.getAllByText("1 điểm · giáo viên chấm tay")).toHaveLength(1);
 
   resize(1023);
   expect(rail()).toBeInTheDocument();

@@ -66,7 +66,7 @@ it("keeps navigation and answer shortcuts working after clicking a radio", async
   await user.keyboard("b");
   expect(screen.getByRole("radio", { name: "Second answer" })).toBeChecked();
   await user.keyboard("f");
-  expect(screen.getByRole("button", { name: "Bỏ đánh dấu câu này" })).toHaveAttribute(
+  expect(screen.getByRole("button", { name: "Đã đánh dấu" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );

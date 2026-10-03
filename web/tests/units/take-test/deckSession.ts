@@ -134,3 +134,59 @@ export function deckSession(now: Date, leftMs = DECK_LEFT_MS): AttemptSession {
 export function deckSaved(now: Date, deadlineAt: string) {
   return { serverTime: now.toISOString(), savedAt: now.toISOString(), deadlineAt };
 }
+
+export const DECK_PASSAGE = "Why cities need green space";
+
+const PARAGRAPHS = [
+  [
+    "A",
+    "Planners once treated parks as a luxury, something to add only after housing and roads were finished. That view has changed. Research across forty European cities found that residents who lived within 300 metres of a park reported better sleep and visited their doctor less often.",
+  ],
+  [
+    "B",
+    "Green space also pays for itself. Homes that overlook a park sell for up to 15 per cent more than similar homes a few streets away, and the extra property tax often covers the cost of maintenance within a decade. Trees along busy streets cool the pavement by several degrees in summer.",
+  ],
+  [
+    "C",
+    "For this reason, the report argues that cities should prioritise public green space when they plan new districts, rather than leaving small leftover plots between buildings. It points to Copenhagen, where every new neighbourhood must place a park within a five-minute walk of each home.",
+  ],
+  [
+    "D",
+    "Some councils have gone further. On Sundays, a number of streets in Bogotá and Seoul are closed to traffic and handed to walkers and cyclists. Locals call them play streets, and surveys show that most shop owners on these streets now support the scheme they once opposed.",
+  ],
+] as const;
+
+export function deckPassageSession(now: Date, leftMs = DECK_LEFT_MS): AttemptSession {
+  const paper = deckSession(now, leftMs);
+  return {
+    ...paper,
+    groups: [
+      {
+        id: id("9001"),
+        sectionId: SECTION,
+        title: DECK_PASSAGE,
+        questionIds: paper.questions.map((question) => question.id),
+        stimuli: [
+          {
+            id: id("9002"),
+            title: DECK_PASSAGE,
+            content: {
+              format: "semantic_v1",
+              blocks: PARAGRAPHS.map(([key, text]) => ({
+                type: "paragraph",
+                content: [
+                  { type: "text", text: key, marks: ["bold"] },
+                  { type: "text", text: `\u2002${text}`, marks: [] },
+                ],
+              })),
+            },
+            gaps: [],
+          },
+        ],
+        recordings: [],
+        assets: [],
+      },
+    ],
+    groupAudioPlays: {},
+  };
+}

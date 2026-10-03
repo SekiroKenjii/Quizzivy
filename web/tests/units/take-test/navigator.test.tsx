@@ -100,9 +100,9 @@ describe("the navigator", () => {
   it("marks a flagged question, in the grid and on the button", async () => {
     const user = userEvent.setup();
     renderPage();
-    const flag = await screen.findByRole("button", { name: "Đánh dấu câu này" });
+    const flag = await screen.findByRole("button", { name: "Đánh dấu xem lại" });
     await user.click(flag);
-    expect(screen.getByRole("button", { name: "Bỏ đánh dấu câu này" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Đã đánh dấu" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -136,9 +136,7 @@ describe("shortcuts", () => {
     await user.keyboard("b");
     expect(screen.getByRole("radio", { name: /Beta/ })).toBeChecked();
     await user.keyboard("f");
-    expect(
-      screen.getByRole("button", { name: "Bỏ đánh dấu câu này" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Đã đánh dấu" })).toBeInTheDocument();
     await user.keyboard("{ArrowRight}");
     expect(onQuestion(2)).toBeInTheDocument();
     await user.keyboard("{ArrowLeft}");
@@ -154,7 +152,7 @@ describe("shortcuts", () => {
     expect(screen.getByRole("textbox")).toHaveValue("f");
     expect(onQuestion(2)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Đánh dấu câu này" }),
+      screen.getByRole("button", { name: "Đánh dấu xem lại" }),
     ).toBeInTheDocument();
   });
 });
@@ -298,7 +296,7 @@ describe("from 768px", () => {
     expect(screen.queryByRole("contentinfo")).toBeNull();
     expect(screen.queryByRole("button", { name: "Danh sách câu" })).toBeNull();
 
-    expect(screen.getByText("Câu 1 / 3 · 1 điểm")).toBeInTheDocument();
+    expect(screen.getByText("Câu 1 trên 3 · Chọn một đáp án")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Câu trước" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Câu sau" })).toHaveTextContent(
       "Câu sau",
@@ -315,13 +313,14 @@ describe("from 768px", () => {
     const rail = within(screen.getByRole("complementary", { name: "Danh sách câu" }));
     expect(rail.getByText("Phần 1 · Ngữ pháp")).toBeInTheDocument();
     expect(rail.getByText("Phần 2 · Nghe")).toBeInTheDocument();
-    expect(
-      screen.getByText("Phần 1 · Ngữ pháp — Câu 1 / 3 · 1 điểm"),
-    ).toBeInTheDocument();
+    const paper = () => within(screen.getByRole("main"));
+    expect(paper().getByText("Phần 1 · Ngữ pháp")).toBeInTheDocument();
+    expect(paper().getByText("Câu 1 trên 3 · Chọn một đáp án")).toBeInTheDocument();
     expect(screen.queryByRole("note")).toBeNull();
 
     await user.click(rail.getByRole("button", { name: "Câu 3" }));
-    expect(screen.getByText("Phần 2 · Nghe — Câu 3 / 3 · 1 điểm")).toBeInTheDocument();
+    expect(paper().getByText("Phần 2 · Nghe")).toBeInTheDocument();
+    expect(paper().getByText("Câu 3 trên 3 · Đúng hay sai")).toBeInTheDocument();
     expect(screen.getByRole("note")).toHaveTextContent(
       "Nghe đoạn hội thoại rồi trả lời.",
     );

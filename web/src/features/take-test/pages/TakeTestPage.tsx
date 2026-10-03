@@ -9,11 +9,11 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
-import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
-import { ChevronLeft, ChevronRight, Flag, List } from "lucide-react";
+import { ChevronLeft, ChevronRight, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { LoadError } from "@/components/shared/ListState";
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { EngineHeader, LeaveButton } from "../components/EngineHeader";
 import { LeaveDialog } from "../components/LeaveDialog";
 import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
-import { GroupContext } from "../components/GroupContext";
+import { GroupContext, GroupListening } from "../components/GroupContext";
 import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviewScreen } from "../components/ReviewScreen";
@@ -43,9 +43,10 @@ import {
   sectionAt,
   type SectionGroup,
 } from "../sections";
+import { hasPassage, useKeptScroll } from "../panes";
+import { questionKind } from "../questionType";
 import { useTakeTestStore } from "../store";
 import { useLeave } from "../useLeave";
-import { worth } from "../worth";
 
 /**
  * TakeTestPage is the engine, one question at a time, with two other views of
@@ -171,7 +172,12 @@ export default function TakeTestPage() {
     }
     const pick = "abcd".indexOf(event.key.toLowerCase());
     const option = question.options?.[pick];
-    if (pick >= 0 && option !== undefined && !event.repeat) {
+    if (
+      pick >= 0 &&
+      option !== undefined &&
+      !event.repeat &&
+      questionKind(question) === "choice"
+    ) {
       event.preventDefault();
       setAnswer(question.id, chooseOption(question, answers[question.id], option.id));
     }
@@ -292,7 +298,6 @@ export default function TakeTestPage() {
   );
 }
 
-/** The paper itself: header, strip, one question, the way to the next. */
 function Paper({
   wide,
   index,
@@ -317,7 +322,6 @@ function Paper({
   question: StudentQuestion;
   total: number;
   group: SectionGroup | null;
-  /** More than one part: the meta line names the part (S-08). */
   sectioned: boolean;
   dots: DotState[];
   groups: SectionGroup[];
@@ -332,11 +336,9 @@ function Paper({
   onReload: () => void;
 }>) {
   const { t } = useTranslation();
-  const flagged = useTakeTestStore((s) => s.flags.has(question.id));
   const lock = useTakeTestStore((s) => s.lock);
-  const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
-  const choice = (question.options?.length ?? 0) > 0;
-  const paper = useRef<HTMLElement>(null);
+  const choice =
+    questionKind(question) === "choice" && (question.options?.length ?? 0) > 0;
   const answerPanel = useRef<HTMLDivElement>(null);
   const sharedGroups = useTakeTestStore((state) => state.groups);
   const questions = useTakeTestStore((state) => state.questions);
@@ -354,55 +356,24 @@ function Paper({
     [questions],
   );
   const context = contexts.get(question.id);
-  const contextClasses = paperColumns(context !== undefined);
-  const previousContext = useRef<string | undefined>(undefined);
-  const focusTarget = useRef<string | null>(null);
-  const [focusRequest, requestFocus] = useReducer((n: number) => n + 1, 0);
-  const revealAnswerPanel = useEffectEvent(() => {
-    if (!wide) answerPanel.current?.scrollIntoView?.({ block: "start" });
-  });
-  useEffect(() => {
-    const target = focusTarget.current;
-    focusTarget.current = null;
-    if (target !== null) {
-      const element = document.getElementById(target) ?? answerPanel.current;
-      element?.focus({ preventScroll: true });
-      element?.scrollIntoView?.({ block: "nearest" });
-    } else if (context?.id && previousContext.current === context.id) {
-      answerPanel.current?.focus({ preventScroll: true });
-      revealAnswerPanel();
-    } else if (paper.current) {
-      paper.current.scrollTop = 0;
-      paper.current.focus({ preventScroll: true });
-    }
-    previousContext.current = context?.id;
-  }, [question.id, context?.id, focusRequest]);
+  const passage = hasPassage(context) ? context : undefined;
+  const [readingFor, setReadingFor] = useState<string | null>(null);
+  const reading = !wide && passage !== undefined && readingFor === question.id;
+  const sheet = useRef<HTMLDivElement>(null);
+  const onSheetScroll = useKeptScroll(sheet, reading);
+  const landOn = useLanding(question.id, sheet, answerPanel);
 
   const jumpToGap = useCallback(
     (gap: MaterialGap) => {
       const landing = gapLanding(gap, questions, numbers);
       if (landing === null) return;
-      focusTarget.current = landing.target;
-      requestFocus();
+      setReadingFor(null);
+      landOn(landing.target);
       onJump(landing.index);
     },
-    [numbers, questions, onJump],
+    [numbers, questions, onJump, landOn],
   );
 
-  const flag = (
-    <Button
-      variant="ghost"
-      size={wide ? "sm" : "icon-sm"}
-      className="text-muted-foreground min-h-11 min-w-11 shrink-0 lg:min-h-0 lg:min-w-0"
-      aria-pressed={flagged}
-      aria-label={t(flagged ? "takeTest.unflagThis" : "takeTest.flagThis")}
-      disabled={lock !== null}
-      onClick={() => toggleFlag(question.id)}
-    >
-      <Flag className={flagged ? "fill-current" : undefined} aria-hidden="true" />
-      {wide && t("takeTest.flag")}
-    </Button>
-  );
   const previous = (
     <PreviousButton
       wide={wide}
@@ -418,6 +389,7 @@ function Paper({
       onReview={onReview}
     />
   );
+  const part = sectioned && passage === undefined ? group?.section.title : undefined;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -429,57 +401,79 @@ function Paper({
       />
       <SaveStrip wide={wide} indicator={status} />
       {fullscreenBar && <FullscreenBar />}
+      {!wide && passage !== undefined && (
+        <PaneSwitch
+          number={index + 1}
+          reading={reading}
+          onRead={(on) => setReadingFor(on ? question.id : null)}
+        />
+      )}
 
       <div data-columns className="flex min-h-0 flex-1">
         <main
-          ref={paper}
           tabIndex={-1}
           aria-label={t("takeTest.dotLabel", { n: index + 1 })}
           data-resize-middle
-          className={cn(
-            "@container/paper min-w-0 flex-1 overflow-y-auto outline-none",
-            wide ? "p-8" : "p-4",
-          )}
+          className="flex min-w-0 flex-1 outline-none"
         >
-          <div
-            className={cn("mx-auto flex w-full flex-col gap-5", contextClasses.width)}
+          {passage !== undefined && (
+            <GroupContext
+              key={passage.id}
+              group={passage}
+              eyebrow={group?.section.title}
+              numbers={numbers}
+              onGap={jumpToGap}
+              onRetryMedia={onReload}
+              wide={wide}
+              hidden={!wide && !reading}
+            />
+          )}
+          <section
+            hidden={reading}
+            className="bg-sidebar flex min-w-0 flex-[1_1_0] flex-col"
           >
-            {wide && (
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-muted-foreground text-xs">
-                  {metaLine(t, question, index, total, sectioned ? group : null)}
-                </p>
-                {flag}
-              </div>
-            )}
-            {group !== null && opensSection(group, index) && (
-              <SectionInstructions
-                group={group}
-                audio={question.media?.kind === "audio"}
-              />
-            )}
-            <div className={contextClasses.grid}>
-              {context && (
-                <GroupContext
-                  key={context.id}
-                  group={context}
-                  numbers={numbers}
-                  onGap={jumpToGap}
-                  onRetryMedia={onReload}
-                  wide={wide}
-                />
+            <div
+              ref={sheet}
+              onScroll={onSheetScroll}
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto",
+                wide ? "px-8 py-7" : "px-4 py-4.5",
               )}
+            >
               <div
                 ref={answerPanel}
                 id={`answer-question-${question.id}`}
                 tabIndex={-1}
                 aria-label={t("takeTest.dotLabel", { n: index + 1 })}
-                className="flex min-w-0 flex-col gap-5 outline-none"
+                className="mx-auto flex w-full max-w-150 flex-col gap-4.5 outline-none"
               >
+                {part ? (
+                  <p className="text-muted-fg text-meta leading-normal font-semibold tracking-[0.02em] uppercase">
+                    {part}
+                  </p>
+                ) : null}
                 <QuestionCard
                   question={question}
+                  number={index + 1}
+                  total={total}
                   onAudioExpired={onReload}
-                  action={wide ? undefined : flag}
+                  lead={
+                    <>
+                      {group !== null && opensSection(group, index) && (
+                        <SectionInstructions
+                          group={group}
+                          audio={question.media?.kind === "audio"}
+                        />
+                      )}
+                      {context && (
+                        <GroupListening
+                          key={context.id}
+                          group={context}
+                          onRetryMedia={onReload}
+                        />
+                      )}
+                    </>
+                  }
                 />
                 {wide && (
                   <div className="flex flex-wrap items-center gap-2 pt-2">
@@ -490,7 +484,7 @@ function Paper({
                 )}
               </div>
             </div>
-          </div>
+          </section>
         </main>
         {wide && (
           <NavigatorRail
@@ -503,7 +497,7 @@ function Paper({
         )}
       </div>
 
-      {!wide && (
+      {!wide && !reading && (
         <footer
           className="flex shrink-0 items-center gap-2 border-t p-3"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
@@ -604,6 +598,31 @@ function gapLanding(
   };
 }
 
+function useLanding(
+  questionId: string,
+  sheetRef: RefObject<HTMLDivElement | null>,
+  panelRef: RefObject<HTMLDivElement | null>,
+) {
+  const target = useRef<string | null>(null);
+  const [request, ask] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const id = target.current;
+    target.current = null;
+    if (id === null) {
+      if (sheetRef.current) sheetRef.current.scrollTop = 0;
+      panelRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    const element = document.getElementById(id) ?? panelRef.current;
+    element?.focus({ preventScroll: true });
+    element?.scrollIntoView?.({ block: "nearest" });
+  }, [questionId, request, sheetRef, panelRef]);
+  return useCallback((id: string) => {
+    target.current = id;
+    ask();
+  }, []);
+}
+
 function Shortcuts({ choice }: Readonly<{ choice: boolean }>) {
   const { t } = useTranslation();
   return (
@@ -623,24 +642,50 @@ function Shortcuts({ choice }: Readonly<{ choice: boolean }>) {
   );
 }
 
-/** S-08's line above the stem: the part when there is more than one, the position, the worth. */
-function metaLine(
-  t: TFunction,
-  question: StudentQuestion,
-  index: number,
-  total: number,
-  group: SectionGroup | null,
-): string {
-  const points = worth(question, t);
-  if (group === null) {
-    return t("takeTest.questionMeta", { n: index + 1, total, points });
-  }
-  return t("takeTest.sectionMeta", {
-    section: group.section.title,
-    n: index + 1,
-    total,
-    points,
-  });
+function PaneSwitch({
+  number,
+  reading,
+  onRead,
+}: Readonly<{
+  number: number;
+  reading: boolean;
+  onRead: (reading: boolean) => void;
+}>) {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="group"
+      aria-label={t("takeTest.paneSwitch")}
+      className="flex flex-none gap-1.5 border-b px-3.5 py-2"
+    >
+      <PaneTab on={reading} onClick={() => onRead(true)}>
+        {t("takeTest.passage")}
+      </PaneTab>
+      <PaneTab on={!reading} onClick={() => onRead(false)}>
+        {t("takeTest.dotLabel", { n: number })}
+      </PaneTab>
+    </div>
+  );
+}
+
+function PaneTab({
+  on,
+  onClick,
+  children,
+}: Readonly<{ on: boolean; onClick: () => void; children: string }>) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      className={cn(
+        "text-ui h-8.5 min-h-0 min-w-0 flex-1 rounded-md leading-none font-medium",
+        on ? "bg-primary text-primary-fg" : "bg-muted text-fg",
+      )}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
 }
 
 /** The key caps S-08 draws. Not translated: they are the keys. */
@@ -693,13 +738,4 @@ function Notice({ children }: Readonly<{ children: string }>) {
       <p className="text-muted-foreground text-sm leading-relaxed">{children}</p>
     </main>
   );
-}
-
-function paperColumns(shared: boolean) {
-  return shared
-    ? {
-        width: "max-w-none",
-        grid: "grid min-w-0 items-start gap-6 @min-[800px]/paper:grid-cols-2",
-      }
-    : { width: "max-w-[720px]", grid: undefined };
 }

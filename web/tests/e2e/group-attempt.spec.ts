@@ -81,7 +81,17 @@ for (const width of [320, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     const seen = await setup(page);
     const material = page.getByRole("heading", { name: previewGroup.title });
-    await expect(material).toBeVisible();
+    const passageTab = page.getByRole("button", { name: "Ngữ liệu", exact: true });
+    if (width === 320) {
+      await expect(material).toBeHidden();
+      await passageTab.click();
+      await expect(material).toBeVisible();
+      await page.getByRole("button", { name: "Câu 1", exact: true }).click();
+      await expect(material).toBeHidden();
+    } else {
+      await expect(material).toBeVisible();
+      await expect(passageTab).toHaveCount(0);
+    }
     await expect(page.getByText("Còn 2 lượt nghe")).toBeVisible();
     await page.getByRole("button", { name: "Phát", exact: true }).click();
     await expect(page.getByText("Còn 1 lượt nghe")).toBeVisible();
@@ -101,12 +111,12 @@ for (const width of [320, 1440]) {
     await expect(page.getByText("Lượt nghe đang chờ đồng bộ.")).toHaveCount(0);
     expect(seen.size).toBe(1);
     if (width === 320) {
-      await page.getByRole("button", { name: "Thu gọn ngữ liệu" }).click();
       await expect(page.getByText("Lịch hoạt động", { exact: true })).toBeHidden();
       await expect(
         page.getByRole("button", { name: "Phát", exact: true }),
       ).toBeVisible();
-      await page.getByRole("button", { name: "Mở ngữ liệu" }).click();
+      await passageTab.click();
+      await expect(page.getByText("Lịch hoạt động", { exact: true })).toBeVisible();
     }
     const gap = page.getByRole("button", { name: "Ô A — chuyển đến câu 2" });
     await gap.focus();

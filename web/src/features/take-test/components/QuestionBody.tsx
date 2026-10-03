@@ -1,69 +1,70 @@
 import { RichBlankPrompt } from "@/components/shared/content/RichBlankPrompt";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
-import {
-  createContext,
-  useContext,
-  useId,
-  useMemo,
-  type ComponentProps,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useId, useMemo, type ComponentProps } from "react";
 import type { ExtraProps } from "react-markdown";
 import { useTranslation } from "react-i18next";
+import { Check } from "lucide-react";
 import { Markdown } from "@/components/shared/Markdown";
-import { Textarea } from "@/components/ui/textarea";
+import { useLargerTestText } from "@/lib/testText";
 import { cn } from "@/lib/utils";
 import { blankInputs } from "./blankInputs";
+import { questionKind } from "../questionType";
 import { worth } from "../worth";
 import type { Answer, StudentQuestion } from "../api";
 
-/** What a student answers, one question at a time (S-05). */
+const PROMPT = "leading-[1.6]! font-medium text-pretty";
+const HINT = "text-muted-fg -mt-2 text-sm";
+const CAPTION = "text-muted-fg text-meta leading-normal";
+const FIELD =
+  "border-border bg-card text-fg placeholder:text-muted-fg border-[1.5px] outline-none focus:border-primary disabled:opacity-60";
+
+const PAPER_BLANKS = [
+  "[&_.content-table-scroll_input]:bg-paper [&_.content-table-scroll_input]:text-paper-fg",
+  "[&_.content-table-scroll_input]:border-[color-mix(in_oklab,var(--paper-fg)_30%,var(--paper))]",
+  "[&_.content-table-scroll_input:focus]:border-paper-fg",
+].join(" ");
+
+function textSizes(larger: boolean) {
+  return larger
+    ? { prompt: "text-[1.1875rem]", answer: "text-lg", field: "text-lg" }
+    : {
+        prompt: "text-lg",
+        answer: "text-md",
+        field: "text-[length:var(--text-input)] lg:text-md",
+      };
+}
+
+/**
+ * QuestionBody is what a student answers, one question at a time: the prompt
+ * at 17px, then the options as rows with letter markers, the blanks inside
+ * the sentence, or the answer field with its word count. "Larger text in
+ * tests" raises the prompt to 19px and the answers to 17px. A type this page
+ * has no renderer for draws nothing here and never calls `onAnswer`:
+ * QuestionSheet puts UnknownType in its place.
+ */
 export function QuestionBody({
   question,
   answer,
   onAnswer,
   disabled = false,
-  action,
 }: Readonly<{
   question: StudentQuestion;
   answer: Answer | undefined;
   onAnswer: (answer: Answer) => void;
-  /** Read-only once the paper is locked; the answers stay legible. */
   disabled?: boolean;
-  action?: ReactNode;
 }>) {
-  switch (question.type) {
+  const larger = useLargerTestText();
+  const props = { question, answer, onAnswer, disabled, larger };
+  switch (questionKind(question)) {
+    case "choice":
+      return <Choice {...props} />;
     case "fill_blank":
-      return (
-        <FillBlank
-          question={question}
-          answer={answer}
-          onAnswer={onAnswer}
-          disabled={disabled}
-          action={action}
-        />
-      );
+      return <FillBlank {...props} />;
     case "short_answer":
-      return (
-        <ShortAnswer
-          question={question}
-          answer={answer}
-          onAnswer={onAnswer}
-          disabled={disabled}
-          action={action}
-        />
-      );
-    default:
-      return (
-        <Choice
-          question={question}
-          answer={answer}
-          onAnswer={onAnswer}
-          disabled={disabled}
-          action={action}
-        />
-      );
+      return <ShortAnswer {...props} />;
+    case "unknown":
+      return null;
   }
 }
 
@@ -72,44 +73,19 @@ type Props = {
   answer: Answer | undefined;
   onAnswer: (answer: Answer) => void;
   disabled: boolean;
-  action?: ReactNode;
+  larger: boolean;
 };
 
-/** A, B, C … the label the student and the teacher both refer to out loud. */
 function optionKey(index: number): string {
   return String.fromCharCode(65 + index);
 }
 
-function Prompt({
-  children,
-  content,
-  action,
-}: Readonly<{
-  children: string;
-  content: StudentQuestion["promptContent"];
-  action?: ReactNode;
-}>) {
-  return (
-    <div className="flex items-start gap-3">
-      <QuestionProse
-        className="min-w-0 flex-1 text-base"
-        text={children}
-        content={content}
-      />
-      {action}
-    </div>
-  );
-}
-
-/**
- * single_choice, multiple_choice and true_false, which differ only in how many
- * may be chosen.
- */
-function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props>) {
+function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props>) {
   const { t } = useTranslation();
   const options = question.options ?? [];
   const multiple = question.type === "multiple_choice";
   const instructionId = useId();
+  const size = textSizes(larger);
   const chosen = new Set(
     answer !== undefined && "optionIds" in answer ? answer.optionIds : [],
   );
@@ -126,15 +102,17 @@ function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props
   };
 
   return (
-    <div className="space-y-4">
-      <Prompt action={action} content={question.promptContent}>
-        {question.prompt}
-      </Prompt>
-      <p id={instructionId} className="text-muted-foreground text-sm">
+    <div className="flex flex-col gap-4.5">
+      <QuestionProse
+        className={cn(size.prompt, PROMPT)}
+        text={question.prompt}
+        content={question.promptContent}
+      />
+      <p id={instructionId} className={multiple ? HINT : "sr-only"}>
         {t(multiple ? "takeTest.chooseMultiple" : "takeTest.chooseSingle")}
       </p>
       <div
-        className="space-y-2.5"
+        className="flex flex-col gap-2"
         role={multiple ? "group" : "radiogroup"}
         aria-label={t("takeTest.answerOptions")}
         aria-describedby={instructionId}
@@ -145,12 +123,12 @@ function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props
             <label
               key={option.id}
               className={cn(
-                "group flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border px-4 py-3.5",
-                "transition-colors",
-                disabled ? "cursor-default" : "hover:bg-accent",
-                selected &&
-                  "border-foreground bg-accent shadow-[inset_0_0_0_1px_var(--color-foreground)]",
-                "has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-2",
+                size.answer,
+                "bg-card text-fg flex min-h-13 items-center gap-3 rounded-[11px] border-[1.5px] px-3.5 py-2.5 leading-[1.45]",
+                "has-[:focus-visible]:outline-focus has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2",
+                selected ? "border-primary" : "border-border",
+                disabled ? "cursor-default" : "cursor-pointer",
+                !disabled && !selected && "hover:border-ring",
               )}
             >
               <input
@@ -164,16 +142,16 @@ function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props
               <span
                 aria-hidden="true"
                 className={cn(
-                  "grid size-6 shrink-0 place-content-center border text-xs font-semibold",
-                  multiple ? "rounded-sm" : "rounded-full",
+                  "grid size-6.5 flex-none place-items-center border-[1.5px] text-xs font-semibold",
+                  multiple ? "rounded-[6px]" : "rounded-full",
                   selected
-                    ? "bg-primary text-primary-foreground border-transparent"
-                    : "text-muted-foreground",
+                    ? "border-primary bg-primary text-primary-fg"
+                    : "border-ring text-muted-fg",
                 )}
               >
-                {optionKey(index)}
+                {selected ? <Check className="size-3.5" /> : optionKey(index)}
               </span>
-              <span className="text-base">
+              <span className="min-w-0 flex-1">
                 <OptionText text={option.text} content={option.content} />
               </span>
             </label>
@@ -184,13 +162,10 @@ function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props
   );
 }
 
-/**
- * The inputs go where the placeholders are, inside the rendered Markdown, so
- * the sentence reads as a sentence rather than as a prompt followed by a list
- * of boxes.
- */
-function FillBlank({ question, answer, onAnswer, disabled, action }: Readonly<Props>) {
+function FillBlank({ question, answer, onAnswer, disabled, larger }: Readonly<Props>) {
+  const { t } = useTranslation();
   const values = answer !== undefined && "values" in answer ? answer.values : {};
+  const size = textSizes(larger);
   const blanks = useMemo(
     () => new Map(question.blanks?.map((blank) => [String(blank.ordinal), blank])),
     [question.blanks],
@@ -198,30 +173,35 @@ function FillBlank({ question, answer, onAnswer, disabled, action }: Readonly<Pr
 
   const write = (blankId: string, value: string) =>
     onAnswer({ type: "fill_blank", values: { ...values, [blankId]: value } });
+  const state = { blanks, values, disabled, field: size.field, write };
 
   return (
-    <BlankContext value={{ blanks, values, disabled, write }}>
-      <div className="flex items-start gap-3">
+    <BlankContext value={state}>
+      <div className={cn("flex flex-col gap-4.5", PAPER_BLANKS)}>
         {question.promptContent != null ? (
           <RichBlankPrompt
             text={question.prompt}
             content={question.promptContent}
             blanks={question.blanks ?? []}
-            className="min-w-0 flex-1 text-base"
-            renderBlank={(blank) => (
-              <BlankInput blank={blank} state={{ blanks, values, disabled, write }} />
-            )}
+            className={cn(size.prompt, PROMPT)}
+            renderBlank={(blank) => <BlankInput blank={blank} state={state} />}
           />
         ) : (
           <Markdown
-            className="min-w-0 flex-1 text-base"
+            className={cn(size.prompt, PROMPT)}
             plugins={[blankInputs]}
             components={blankComponents}
           >
             {question.prompt}
           </Markdown>
         )}
-        {action}
+        <p role="note" className={HINT}>
+          {t(
+            (question.blanks ?? []).some((blank) => blank.caseSensitive)
+              ? "takeTest.blankRuleSensitive"
+              : "takeTest.blankRuleInsensitive",
+          )}
+        </p>
       </div>
     </BlankContext>
   );
@@ -231,6 +211,7 @@ type BlankState = {
   blanks: Map<string, NonNullable<StudentQuestion["blanks"]>[number]>;
   values: Record<string, string>;
   disabled: boolean;
+  field: string;
   write: (id: string, value: string) => void;
 };
 
@@ -257,7 +238,11 @@ function BlankInput({
   const { t } = useTranslation();
   return (
     <input
-      className="border-input mx-1 my-1 inline-block h-11 w-32 max-w-full rounded-md border px-3 text-center align-middle text-[length:var(--text-input)] lg:h-9 lg:text-sm"
+      className={cn(
+        state.field,
+        FIELD,
+        "rounded-ctl mx-1 my-1 inline-block h-11 w-32 max-w-full px-2.5 text-center align-middle font-normal lg:h-10",
+      )}
       aria-label={t("takeTest.blankLabel", { n: blank.ordinal })}
       id={`answer-blank-${blank.id}`}
       value={state.values[blank.id] ?? ""}
@@ -275,32 +260,42 @@ function ShortAnswer({
   answer,
   onAnswer,
   disabled,
-  action,
+  larger,
 }: Readonly<Props>) {
   const { t } = useTranslation();
   const value = answer !== undefined && "value" in answer ? String(answer.value) : "";
-  // Whitespace-separated, which is what "18 từ" means to a student writing English.
   const words = value.trim() === "" ? 0 : value.trim().split(/\s+/).length;
+  const size = textSizes(larger);
 
   return (
-    <div className="space-y-4">
-      <Prompt action={action} content={question.promptContent}>
-        {question.prompt}
-      </Prompt>
-      <Textarea
-        className="min-h-36 leading-relaxed"
-        value={value}
-        disabled={disabled}
-        aria-label={t("takeTest.yourAnswer")}
-        onChange={(event) => onAnswer({ type: "text", value: event.target.value })}
+    <div className="flex flex-col gap-4.5">
+      <QuestionProse
+        className={cn(size.prompt, PROMPT)}
+        text={question.prompt}
+        content={question.promptContent}
       />
-      <div className="flex items-center justify-between gap-3 min-[768px]:justify-end">
-        <p className="text-muted-foreground text-xs min-[768px]:hidden">
-          {worth(question, t)}
-        </p>
-        <p className="text-muted-foreground text-xs tabular-nums">
-          {t("takeTest.wordCount", { count: words })}
-        </p>
+      <div className="flex flex-col gap-1.5">
+        <textarea
+          rows={1}
+          className={cn(
+            size.field,
+            FIELD,
+            "field-sizing-content min-h-13 w-full resize-none rounded-[11px] px-3.5 leading-[1.45] disabled:cursor-not-allowed",
+            "not-supports-[field-sizing:content]:min-h-24 not-supports-[field-sizing:content]:resize-y",
+            larger ? "py-3" : "py-[13px]",
+          )}
+          value={value}
+          disabled={disabled}
+          placeholder={t("takeTest.answerPlaceholder")}
+          aria-label={t("takeTest.yourAnswer")}
+          onChange={(event) => onAnswer({ type: "text", value: event.target.value })}
+        />
+        <div className="flex items-baseline justify-between gap-3">
+          <p className={cn(CAPTION, "tabular-nums")}>
+            {t("takeTest.wordCount", { count: words })}
+          </p>
+          <p className={CAPTION}>{worth(question, t)}</p>
+        </div>
       </div>
     </div>
   );
