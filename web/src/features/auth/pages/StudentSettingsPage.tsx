@@ -70,7 +70,9 @@ export default function StudentSettingsPage() {
         size="lg"
         value={active}
         options={SECTIONS.map(({ id, label }) => ({ value: id, label: t(label) }))}
-        onChange={(id) => void navigate(pathOf(id as SectionId))}
+        onChange={(id) => {
+          if (id !== active) void navigate(pathOf(id as SectionId));
+        }}
         className="max-w-full self-start overflow-x-auto [&>button]:outline-offset-1!"
       />
       <div hidden={active !== "profile"}>

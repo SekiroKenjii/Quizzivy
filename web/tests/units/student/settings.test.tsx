@@ -279,6 +279,20 @@ describe("the settings page", () => {
     expect(screen.getByRole("region", { name: "Hồ sơ" })).toBeVisible();
   });
 
+  it("adds nothing to the history when the section already on is pressed", async () => {
+    const user = userEvent.setup();
+    const router = open("/app/settings/sign-in");
+    await screen.findByRole("region", { name: "Đăng nhập" });
+    await user.click(switcher().getByRole("button", { name: "Giao diện" }));
+    await user.click(switcher().getByRole("button", { name: "Giao diện" }));
+    expect(await screen.findByRole("region", { name: "Giao diện" })).toBeVisible();
+
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(router.state.location.pathname).toBe("/app/settings/sign-in");
+  });
+
   it.each([
     ["/app/settings/profile", "Hồ sơ"],
     ["/app/settings/sign-in", "Đăng nhập"],
