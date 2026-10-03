@@ -972,6 +972,70 @@ describe("what counts as answered", () => {
       "whitespace-pre-wrap",
     );
   });
+
+  it("separates the options picked with commas and writes decimals the Vietnamese way", async () => {
+    serve(
+      scored([
+        choice(1, ["một", "hai", "ba"], [2, 0], {
+          type: "multiple_choice",
+          prompt: "Chọn hai",
+          points: 1.5,
+          earned: 0.5,
+        }),
+      ]),
+    );
+    renderResult();
+    const article = (await screen.findByText("Chọn hai")).closest("article")!;
+    expect(article.querySelector("[data-slot=given]")).toHaveTextContent("một, ba");
+    expect(within(article).getByText("0,5 / 1,5")).toBeVisible();
+  });
+
+  it("names the answers section after its heading", async () => {
+    serve(scored([choice(1, AB, [0], { earned: 1 })]));
+    renderResult();
+    await screen.findByText("Câu hỏi 1");
+    expect(screen.getByRole("region", { name: "Câu trả lời của bạn" })).toHaveAttribute(
+      "data-slot",
+      "result-answers",
+    );
+  });
+
+  it("has no empty-filter note on a paper with no questions", async () => {
+    serve(scored([]));
+    renderResult();
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByText("Không có câu sai trong bài này.")).toBeNull();
+  });
+
+  it("turns a part's bar amber and writes a true answer in words", async () => {
+    serve(
+      scored(
+        [
+          choice(1, ["Đúng", "Sai"], null, {
+            type: "true_false",
+            prompt: "Nước sôi ở 100 độ.",
+            earned: 0,
+            answer: { type: "true_false", value: true },
+          }),
+          choice(2, AB, [1], { earned: 1, sectionId: PART_TWO }),
+        ],
+        {
+          sections: [
+            { id: PART_ONE, title: "Nghe", instructions: null },
+            { id: PART_TWO, title: "Đọc", instructions: null },
+          ],
+        },
+      ),
+    );
+    renderResult();
+    const article = (await screen.findByText("Nước sôi ở 100 độ.")).closest("article")!;
+    expect(article.querySelector("[data-slot=given]")).toHaveTextContent("Đúng");
+    expect(
+      [...document.querySelectorAll("[data-slot=tile-bar]")].map((bar) =>
+        ["bg-success", "bg-warning"].find((tone) => bar.classList.contains(tone)),
+      ),
+    ).toEqual(["bg-warning", "bg-success"]);
+  });
 });
 
 describe("content written in the rich editor", () => {
@@ -1287,6 +1351,42 @@ describe("before and instead of a result", () => {
       "Unit 4",
     );
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("reads again by itself when the network drops, twice at most", async () => {
+    const body = scored([choice(1, AB, [0], { earned: 1 })]);
+    let reads = 0;
+    serve(body);
+    server.use(
+      http.get(`${BASE}/app/attempts/${ATTEMPT_ID}/result`, () => {
+        reads += 1;
+        return reads < 3
+          ? HttpResponse.error()
+          : contractJson("/app/attempts/{id}/result", "get", 200, body);
+      }),
+    );
+    renderResult(new QueryClient({ defaultOptions: { queries: { retryDelay: 0 } } }));
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(
+      "Unit 4",
+    );
+    expect(reads).toBe(3);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("stops after the second retry and says the paper is safe", async () => {
+    let reads = 0;
+    server.use(
+      http.get(`${BASE}/app/attempts/${ATTEMPT_ID}/result`, () => {
+        reads += 1;
+        return HttpResponse.error();
+      }),
+    );
+    renderResult(new QueryClient({ defaultOptions: { queries: { retryDelay: 0 } } }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không tải được kết quả",
+    );
+    expect(reads).toBe(3);
+    expect(screen.queryByText("Mã lỗi")).toBeNull();
   });
 
   it("keeps a result that has loaded when a later read fails", async () => {
