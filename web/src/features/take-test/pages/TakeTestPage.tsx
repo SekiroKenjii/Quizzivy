@@ -48,8 +48,8 @@ import { worth } from "../worth";
 
 /**
  * S-05's engine, one question at a time -- and S-06's two other views of the
- * same attempt: the navigator (a sheet in thumb range, a rail from 1024px)
- * and the review before submitting. From 1024px the chrome is S-08's: one
+ * same attempt: the navigator (a sheet in thumb range, a rail from 768px)
+ * and the review before submitting. From 768px the chrome is S-08's: one
  * header row, no save strip, no sticky footer, the two buttons under the
  * answer at their own width.
  */
@@ -57,7 +57,7 @@ export default function TakeTestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { attemptId } = useParams<{ attemptId: string }>();
-  const wide = useMediaQuery("(min-width: 1024px)");
+  const wide = useMediaQuery("(min-width: 768px)");
 
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [loadError, setLoadError] = useState<unknown>(null);

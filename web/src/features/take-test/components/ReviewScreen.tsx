@@ -19,7 +19,7 @@ import type { SectionGroup } from "../sections";
 
 /**
  * S-06's review: what is still empty, what was flagged, and the one button
- * that ends the attempt. From 1024px it is S-15: the same header row as the
+ * that ends the attempt. From 768px it is S-15: the same header row as the
  * paper, the rail beside it without its button, and the two actions side by
  * side at their own width.
  */

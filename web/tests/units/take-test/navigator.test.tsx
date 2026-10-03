@@ -58,8 +58,6 @@ function renderPage() {
 }
 
 const counter = () => screen.getAllByText(/^Câu \d\/3$/)[0]!;
-// The rail (S-08) is display:none below 1024px, which jsdom cannot see, so
-// the phone's footer is addressed by its landmark.
 const footer = () => within(screen.getByRole("contentinfo"));
 
 beforeEach(() => {
@@ -268,7 +266,7 @@ describe("review and submit", () => {
   });
 });
 
-describe("from 1024px (S-08, S-15)", () => {
+describe("from 768px (S-08, S-15)", () => {
   const listening = paper({
     sections: [
       { id: "s1", title: "Phần 1 · Ngữ pháp", instructions: null },
