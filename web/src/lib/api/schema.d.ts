@@ -623,7 +623,9 @@ export interface paths {
         put?: never;
         /**
          * @description A-06a's "Nhân bản": copies the question, its options, blanks and
-         *     tags into a new bank row that no test references yet.
+         *     tags into a new bank row that no test references yet. A source whose
+         *     media asset has been deleted, or that no longer validates, answers
+         *     `VALIDATION_FAILED` as a create would; nothing is copied.
          */
         post: operations["duplicateQuestion"];
         delete?: never;
@@ -5625,6 +5627,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminQuestion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
