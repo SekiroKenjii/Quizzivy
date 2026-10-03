@@ -9,10 +9,10 @@ import { enterFullscreen, fullscreenSupported } from "../fullscreen";
  * asks for fullscreen is not in it. It is a bar and never a dialog, because
  * Esc must always work and a modal over an exited fullscreen is a trap
  * (§10.2): the paper below stays writable and the bar only offers the way
- * back, in the warning tone with the deck's small bordered button at every
- * width. The click itself asks for fullscreen, since a browser grants it only
- * inside a gesture. A browser with no fullscreen gets one muted sentence and
- * no button.
+ * back, in the warning tone with the deck's small bordered button, which
+ * keeps the 44px floor below 1024. The click itself asks for fullscreen, since
+ * a browser grants it only inside a gesture. A browser with no fullscreen gets
+ * one muted sentence and no button.
  */
 export function FullscreenBar() {
   const { t } = useTranslation();
@@ -30,7 +30,7 @@ export function FullscreenBar() {
       action={
         <Button
           variant="outline"
-          className="text-fg in-data-[scale=deck]:text-meta h-8 min-h-0 min-w-0 flex-none shadow-none in-data-[scale=deck]:px-2.5"
+          className="text-fg in-data-[scale=deck]:text-meta h-8 flex-none shadow-none in-data-[scale=deck]:px-2.5"
           onClick={() => void enterFullscreen()}
         >
           {t("integrity.fullscreenReturn")}

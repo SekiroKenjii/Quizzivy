@@ -66,7 +66,7 @@ describe("the bar", () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
-  it("is a warning bar with the deck's small bordered button, which opts out of the 44px floor", () => {
+  it("is a warning bar with the deck's small bordered button, which keeps the 44px floor", () => {
     render(<FullscreenBar />);
     const bar = screen.getByText("Bạn đã thoát chế độ toàn màn hình.").parentElement;
     expect(bar).toHaveAttribute("data-slot", "notice-bar");
@@ -82,7 +82,9 @@ describe("the bar", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull();
 
     const back = screen.getByRole("button", { name: "Quay lại toàn màn hình" });
-    expect(back).toHaveClass("h-8", "min-h-0", "min-w-0", "text-fg", "border");
+    expect(back).toHaveClass("h-8", "text-fg", "border");
+    expect(back).not.toHaveClass("min-h-0");
+    expect(back).not.toHaveClass("min-w-0");
   });
 
   // Every iPhone. A button that cannot work is worse than a sentence.
