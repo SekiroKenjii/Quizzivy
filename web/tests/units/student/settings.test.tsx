@@ -232,6 +232,16 @@ describe("the settings page", () => {
     expect(screen.queryByRole("region", { name: "Giao diện" })).toBeNull();
   });
 
+  it("lifts the 44px floor and draws the deck's 32px switcher", async () => {
+    open();
+    const heading = await screen.findByRole("heading", { level: 1 });
+    expect(heading.parentElement).toHaveClass(
+      "[&_button]:min-h-auto",
+      "[&_button]:min-w-auto",
+    );
+    expect(switcher().getByRole("button", { name: "Hồ sơ" })).toHaveClass("h-8");
+  });
+
   it("lights no destination in the top bar", async () => {
     open();
     const nav = within(await screen.findByRole("navigation", { name: NAV }));
@@ -249,6 +259,23 @@ describe("the settings page", () => {
       within(screen.getAllByRole("banner")[0]!).getByText("Cài đặt"),
     ).toBeInTheDocument();
     expect(screen.getByRole("group", { name: SWITCHER })).toBeInTheDocument();
+  });
+
+  it("draws its own heading from 768, not from a wider breakpoint", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      (query: string) =>
+        ({
+          matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1]) <= 768,
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }) as unknown as MediaQueryList,
+    );
+    open();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Cài đặt" }),
+    ).not.toHaveClass("sr-only");
   });
 
   it("moves between its sections by URL and shows one at a time", async () => {
@@ -350,6 +377,7 @@ describe("profile", () => {
     const name = card.getByLabelText("Họ và tên");
     expect(name).toHaveValue("Nguyễn Văn An");
     expect(name).toHaveAccessibleDescription("Giáo viên của bạn thấy tên này.");
+    expect(name).toHaveAttribute("autocomplete", "name");
 
     const email = card.getByLabelText("Email");
     expect(email).toHaveValue("an@example.com");
@@ -374,6 +402,10 @@ describe("profile", () => {
     await user.clear(name);
     await user.type(name, "Nguyễn Đức Minh");
     expect(screen.getByText("Bạn có thay đổi chưa lưu.")).toBeVisible();
+    expect(screen.getByText("Bạn có thay đổi chưa lưu.").parentElement).toHaveClass(
+      "sticky",
+      "bottom-3",
+    );
     expect(bodies).toEqual([]);
 
     await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
@@ -449,6 +481,18 @@ describe("profile", () => {
     expect(name).toHaveAccessibleDescription("Họ và tên không được để trống.");
     expect(screen.queryByText("Giáo viên của bạn thấy tên này.")).toBeNull();
     expect(bodies).toEqual([]);
+  });
+
+  it("refuses an empty name as soon as the field is left", async () => {
+    const user = userEvent.setup();
+    open();
+    const name = await screen.findByLabelText("Họ và tên");
+
+    await user.clear(name);
+    await user.tab();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Họ và tên không được để trống.",
+    );
   });
 
   it("refuses a name longer than 200 characters", async () => {
@@ -543,6 +587,43 @@ describe("profile", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("forgets a failed save's reason while a second try runs and after it works", async () => {
+    const user = userEvent.setup();
+    profileAnswers(400);
+    open();
+    const name = await screen.findByLabelText("Họ và tên");
+
+    await user.type(name, " Bình");
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    await screen.findByRole("alert");
+
+    const gate = held();
+    server.use(
+      http.patch(`${BASE}/auth/me`, async () => {
+        await gate.wait();
+        return contractJson(
+          "/auth/me",
+          "patch",
+          200,
+          account({ fullName: "Nguyễn Văn An Bình" }),
+        );
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(screen.getByRole("button", { name: "Đang lưu…" })).toBeDisabled();
+    expect(screen.getByText("Bạn có thay đổi chưa lưu.")).toBeVisible();
+
+    gate.release();
+    await waitFor(() => expect(notify.success).toHaveBeenCalledOnce());
+    await waitFor(() => expect(name).not.toHaveAttribute("readonly"));
+    expect(screen.queryByRole("button", { name: "Lưu thay đổi" })).toBeNull();
+
+    await user.type(name, " Chi");
+    expect(screen.getByText("Bạn có thay đổi chưa lưu.")).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("forgets a failed save's reason once the name is edited again", async () => {
     const user = userEvent.setup();
     const bodies = profileAnswers(400);
@@ -626,7 +707,7 @@ describe("sign-in: the password", () => {
     expect(change).toHaveAttribute("aria-expanded", "false");
     expect(change).toHaveAccessibleDescription("Mật khẩu");
     expect(card.queryByLabelText("Mật khẩu mới")).toBeNull();
-    expect(card.queryByText(/Đã đổi|trước/)).toBeNull();
+    expect(card.getByText("Mật khẩu").parentElement).toHaveTextContent(/^Mật khẩu$/);
   });
 
   it("opens both fields with an empty meter, the rule and a button that waits", async () => {
@@ -735,11 +816,13 @@ describe("sign-in: the password", () => {
     expect(form.next).toHaveAccessibleDescription(
       "Mật khẩu mới cần có số hoặc ký hiệu.",
     );
+    expect(form.next).toBeInvalid();
     expect(bodies).toEqual([]);
 
     await user.type(form.next, "9");
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(form.next).toHaveAccessibleDescription("Mạnh.");
+    expect(form.next).toBeValid();
   });
 
   it("changes the password, reads the user again, closes the form and says so", async () => {
@@ -1030,6 +1113,13 @@ describe("sign-in: Google", () => {
     );
   });
 
+  it("switches Link Google off while the redirect is starting", async () => {
+    google.pending = true;
+    open("/app/settings/sign-in");
+    const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
+    expect(card.getByRole("button", { name: "Liên kết Google" })).toBeDisabled();
+  });
+
   it("keeps the link and says why when the unlink is refused", async () => {
     const user = userEvent.setup();
     server.use(
@@ -1055,6 +1145,32 @@ describe("sign-in: Google", () => {
       "aria-disabled",
       "false",
     );
+  });
+
+  it("forgets a refused unlink once a second try works", async () => {
+    const user = userEvent.setup();
+    let refuse = true;
+    server.use(
+      http.delete(`${BASE}/auth/google/link`, () => {
+        if (!refuse) return new Response(null, { status: 204 });
+        refuse = false;
+        return contractJson(
+          "/auth/google/link",
+          "delete",
+          409,
+          failure("LAST_LOGIN_METHOD", "Tài khoản không còn cách đăng nhập nào khác."),
+        );
+      }),
+    );
+    meServes(account({ linkedProviders: [] }));
+    open("/app/settings/sign-in", { linkedProviders: ["google"] });
+    const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
+
+    await user.click(card.getByRole("button", { name: "Bỏ liên kết" }));
+    await card.findByRole("alert");
+    await user.click(card.getByRole("button", { name: "Bỏ liên kết" }));
+    await waitFor(() => expect(notify.success).toHaveBeenCalledOnce());
+    expect(card.queryByRole("alert")).toBeNull();
   });
 });
 
