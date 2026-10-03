@@ -90,6 +90,28 @@ describe("submitting", () => {
     expect(useTakeTestStore.getState().submitState).toBe("done");
   });
 
+  it.each([
+    { first: "auto_submit", second: "manual" },
+    { first: "manual", second: "auto_submit" },
+    { first: "timer_expired", second: "manual" },
+  ] as const)(
+    "sends one submission when $second races $first, under the reason that started it",
+    async ({ first, second }) => {
+      start();
+      useTakeTestStore.getState().setAnswer("q1", text("typed before either"));
+      const store = useTakeTestStore.getState();
+      await Promise.all([store.submit(first), store.submit(second)]);
+
+      expect(saved).toHaveBeenCalledTimes(1);
+      expect(submitted).toHaveBeenCalledExactlyOnceWith("att-1", { reason: first });
+      expect(saved.mock.invocationCallOrder[0]).toBeLessThan(
+        submitted.mock.invocationCallOrder[0] ?? 0,
+      );
+      expect(useTakeTestStore.getState().submitState).toBe("done");
+      expect(useTakeTestStore.getState().submitReason).toBe(first);
+    },
+  );
+
   it("ignores a later tap once the attempt is in", async () => {
     start();
     await useTakeTestStore.getState().submit();

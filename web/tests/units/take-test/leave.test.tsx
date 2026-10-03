@@ -386,7 +386,7 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
     expect(router.state.historyAction).toBe("POP");
   });
 
-  it("holds the back button on the review too, and says so when the save fails", async () => {
+  it("holds the back button with the Submit dialog open too, and says so when the save fails", async () => {
     const user = userEvent.setup();
     const router = await open();
     vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("offline"));
@@ -394,14 +394,14 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
     await user.click(
       within(screen.getByRole("banner")).getByRole("button", { name: "Nộp bài" }),
     );
-    await screen.findByRole("heading", { name: "Xem lại trước khi nộp" });
+    await screen.findByRole("dialog", { name: "Nộp bài?" });
 
     await act(() => router.navigate(-1));
     await screen.findByRole("dialog", { name: UNSAVED });
     expect(inDialog().getByRole("alert")).toHaveTextContent(UNSAVED);
     expect(path(router)).toBe("/app/attempts/att-1");
     expect(
-      screen.getByRole("heading", { name: "Xem lại trước khi nộp", hidden: true }),
+      screen.getByRole("heading", { name: "Nộp bài?", hidden: true }),
     ).toBeInTheDocument();
 
     await user.click(inDialog().getByRole("button", { name: "Thử lưu lại" }));
