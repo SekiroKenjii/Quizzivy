@@ -15,7 +15,7 @@ import { useResolvedTheme, writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
 
 const DECK_ITEM =
-  "focus:bg-hover focus:text-fg gap-2.5 p-2 text-sm [&_svg:not([class*='size-'])]:size-[0.9375rem]";
+  "focus:bg-hover focus:text-fg gap-2.5 p-2 text-sm leading-4 [&_svg:not([class*='size-'])]:size-[0.9375rem]";
 
 /**
  * AccountMenu is the avatar at the end of a console's top bar and the menu it

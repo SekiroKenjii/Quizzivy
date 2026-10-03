@@ -297,9 +297,10 @@ describe("the brand kit on screen", () => {
       "text-sm font-semibold tracking-tight",
     );
     unmount();
-    render(<BrandMark height={24} wordmark="header" />);
+    const { container } = render(<BrandMark height={24} wordmark="header" />);
     expect(screen.getByText("Quizzivy").className).toBe(
       "text-title font-bold tracking-[-0.01em]",
     );
+    expect(container.querySelector("img")).toHaveClass("h-6", "w-auto");
   });
 });

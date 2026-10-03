@@ -107,7 +107,7 @@ export function BrandMark({
       // Decorative when the name follows it as text; the identifier otherwise.
       alt={label ? "" : t("app.name")}
       {...box(art, height)}
-      className="select-none"
+      className={wordmark === "header" ? "h-6 w-auto select-none" : "select-none"}
       draggable={false}
     />
   );
