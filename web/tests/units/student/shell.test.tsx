@@ -492,10 +492,14 @@ describe("home", () => {
 
     const main = within(screen.getByRole("main"));
     expect(screen.queryByRole("complementary")).toBeNull();
-    expect(main.getByRole("heading", { name: "Sắp tới · 1" })).toBeInTheDocument();
-    expect(main.getByText("Listening practice 03")).toBeInTheDocument();
-    expect(main.getAllByRole("link", { name: "Xem chi tiết" })).toHaveLength(2);
-    expect(main.getByText("IELTS Foundation · Nộp 26/08")).toBeInTheDocument();
+    expect(
+      main.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(["Sắp tới", "Kết quả gần đây"]);
+    expect(main.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      `/app/assignments/${card().id}`,
+      "/app/assignments/018f0000-0000-7000-8000-0000000000d2",
+      "/app/attempts/018f0000-0000-7000-8000-0000000000e3/result",
+    ]);
   });
 
   it("draws no panel when there is nothing to put in it", async () => {

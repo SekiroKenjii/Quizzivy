@@ -47,6 +47,69 @@ export function sameAppDay(a: string | Date, b: string | Date): boolean {
   );
 }
 
+/** appHour is the hour of the day, 0 to 23, in the app's zone. */
+export function appHour(utc: string | Date): number {
+  return Number(formatInTimeZone(utc, APP_TIME_ZONE, "H"));
+}
+
+/**
+ * appDaysUntil counts calendar days in the app's zone from the day of `now`
+ * to the day of `utc`: 0 on the same day, 1 on the next, negative for a day
+ * already past.
+ */
+export function appDaysUntil(utc: string | Date, now: string | Date): number {
+  const day = (moment: string | Date) => {
+    const [y = 0, m = 1, d = 1] = formatInTimeZone(moment, APP_TIME_ZONE, "yyyy-M-d")
+      .split("-")
+      .map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((day(utc) - day(now)) / 86_400_000);
+}
+
+/** weekdayShort is "T5" or "CN" in Vietnamese and "Thu" in English. */
+export function weekdayShort(utc: string | Date, locale: AppLocale = "vi") {
+  return formatInTimeZone(utc, APP_TIME_ZONE, locale === "vi" ? "EEEEE" : "EEE", {
+    locale: dateFnsLocale[locale],
+  });
+}
+
+/**
+ * weekdayName is the weekday as it reads inside a sentence: "thứ năm" in
+ * Vietnamese, "Thursday" in English.
+ */
+export function weekdayName(utc: string | Date, locale: AppLocale = "vi") {
+  const text = formatInTimeZone(utc, APP_TIME_ZONE, "EEEE", {
+    locale: dateFnsLocale[locale],
+  });
+  return locale === "vi" ? text.toLocaleLowerCase("vi") : text;
+}
+
+/** dayOfMonth is the day number without a leading zero: "5", "25". */
+export function dayOfMonth(utc: string | Date) {
+  return formatInTimeZone(utc, APP_TIME_ZONE, "d");
+}
+
+/** dayMonth is a date without its year: "05/09" in Vietnamese, "5 Sep" in English. */
+export function dayMonth(utc: string | Date, locale: AppLocale = "vi") {
+  return formatInTimeZone(utc, APP_TIME_ZONE, locale === "vi" ? "dd/MM" : "d MMM", {
+    locale: dateFnsLocale[locale],
+  });
+}
+
+/**
+ * dayDate is a short weekday and date: "Thứ 6, 19/09" in Vietnamese, "Fri 19
+ * Sep" in English.
+ */
+export function dayDate(utc: string | Date, locale: AppLocale = "vi") {
+  return formatInTimeZone(
+    utc,
+    APP_TIME_ZONE,
+    locale === "vi" ? "EEE, dd/MM" : "EEE d MMM",
+    { locale: dateFnsLocale[locale] },
+  );
+}
+
 /** "Thứ hai, 01/09" -- the weekday the deck writes on upcoming rows. */
 export function weekdayDate(
   utc: string | Date,
