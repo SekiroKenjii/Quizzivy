@@ -9,6 +9,8 @@
     "close": "Close",
     "back": "Back",
     "signOut": "Sign out",
+    "darkMode": "Dark mode",
+    "lightMode": "Light mode",
     "language": "Language",
     "comingSoon": "This section is built in a later phase.",
     "save": "Save",
