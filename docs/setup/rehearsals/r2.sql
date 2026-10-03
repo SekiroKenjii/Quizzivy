@@ -49,7 +49,7 @@ SELECT count(*) FILTER (WHERE revoked_at IS NULL AND expires_at > now()) AS acti
 \echo '-- B1. Users without role_id (must be 0)'
 SELECT count(*) AS must_be_0 FROM app.users WHERE role_id IS NULL;
 
-\echo '-- B2. Users by built-in role (one active Admin, the owner; Students as in A2)'
+\echo '-- B2. Users by built-in role (the admins of A2 as Admin; the students as Student)'
 SELECT r.builtin_key, (u.disabled_at IS NOT NULL) AS disabled, count(*) AS users
   FROM app.users u
   JOIN app.roles r ON r.id = u.role_id
