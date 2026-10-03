@@ -29,7 +29,6 @@ test("E2E 6: leaving the page warns the student and the count comes back from th
 
   const dialog = page.getByRole("alertdialog");
   await expect(dialog.getByText("Bạn vừa rời trang làm bài")).toBeVisible();
-  // §10.2: the dialog states where the student stands against the allowance.
   await expect(
     dialog.getByText(/Lần này được tính là lần 1 trong 1 lần được phép/),
   ).toBeVisible();
