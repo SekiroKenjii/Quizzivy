@@ -42,6 +42,8 @@ const questions: StudentQuestion[] = [
 ];
 
 const store = () => useTakeTestStore.getState();
+const superseded = () =>
+  new ApiError({ status: 409, code: "SESSION_SUPERSEDED", message: "elsewhere" });
 
 function reply() {
   const now = new Date().toISOString();
@@ -416,18 +418,81 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
   it("leaves a paper another device took over without trying to save it", async () => {
     const user = userEvent.setup();
     const router = await open();
-    vi.mocked(saveAnswers).mockRejectedValueOnce(
-      new ApiError({ status: 409, code: "SESSION_SUPERSEDED", message: "elsewhere" }),
-    );
+    vi.mocked(saveAnswers).mockRejectedValueOnce(superseded());
     await user.type(screen.getByRole("textbox"), "parks");
     await act(() => store().flush());
     expect(store().lock).toBe("superseded");
     expect(store().dirty.size).toBe(1);
 
     await user.click(leaveButton());
-    expect(dialog()).toHaveAccessibleDescription(SAVED_BODY);
-    await user.click(inDialog().getByRole("button", { name: "Thoát" }));
     await waitFor(() => expect(path(router)).toBe("/app"));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(saveAnswers).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the dialog, without saying the answers are saved, when another device takes the paper over", async () => {
+    const user = userEvent.setup();
+    const router = await open();
+    vi.mocked(saveAnswers).mockRejectedValueOnce(superseded());
+    await user.type(screen.getByRole("textbox"), "parks");
+    await user.click(leaveButton());
+    expect(dialog()).toHaveAccessibleDescription(PENDING_BODY);
+
+    await act(() => store().flush());
+    expect(store().lock).toBe("superseded");
+    expect(store().dirty.size).toBe(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByText(SAVED_BODY)).toBeNull();
+    expect(path(router)).toBe("/app/attempts/att-1");
+
+    await user.click(leaveButton());
+    await waitFor(() => expect(path(router)).toBe("/app"));
+  });
+
+  it("closes the dialog over a held back button too when the store's retry finds the paper taken over", async () => {
+    const user = userEvent.setup();
+    const router = await open();
+    vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("offline"));
+    await user.type(screen.getByRole("textbox"), "parks");
+    await act(() => router.navigate(-1));
+    await screen.findByRole("dialog", { name: UNSAVED });
+
+    vi.mocked(saveAnswers).mockRejectedValueOnce(superseded());
+    await act(() => store().flush());
+    expect(store().lock).toBe("superseded");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByText(SAVED_BODY)).toBeNull();
+    expect(path(router)).toBe("/app/attempts/att-1");
+
+    await user.click(leaveButton());
+    await waitFor(() => expect(path(router)).toBe("/app"));
+  });
+
+  it("does not ask again by itself when the paper is taken back after a lock closed the dialog", async () => {
+    const user = userEvent.setup();
+    const router = await open();
+    vi.mocked(saveAnswers).mockRejectedValueOnce(superseded());
+    await user.type(screen.getByRole("textbox"), "parks");
+    await user.click(leaveButton());
+    await act(() => store().flush());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const now = new Date();
+    act(() =>
+      store().hydrate({
+        ...session({
+          serverTime: now.toISOString(),
+          deadlineAt: new Date(now.getTime() + 3_600_000).toISOString(),
+        }),
+        questions,
+        sessionId: "ses-2",
+      }),
+    );
+    expect(store().lock).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(path(router)).toBe("/app/attempts/att-1");
+
+    await user.click(leaveButton());
+    expect(dialog()).toHaveAccessibleName(ASK);
   });
 });

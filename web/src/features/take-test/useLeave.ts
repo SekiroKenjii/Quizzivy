@@ -29,7 +29,13 @@ async function savePending(): Promise<boolean> {
   return store().lock !== null || store().dirty.size === 0;
 }
 
-function phaseOf(step: LeavePhase, blocked: boolean, pending: boolean): LeavePhase {
+function phaseOf(
+  step: LeavePhase,
+  blocked: boolean,
+  pending: boolean,
+  locked: boolean,
+): LeavePhase {
+  if (locked) return "idle";
   if (step === "failed") return pending ? "failed" : "asking";
   if (blocked) return "saving";
   return step;
@@ -45,11 +51,12 @@ function phaseOf(step: LeavePhase, blocked: boolean, pending: boolean): LeavePha
  * that would carry only what the integrity monitor has buffered. A save that
  * fails keeps the student on the paper with the dialog saying so, and nothing
  * navigates until a retry succeeds or the student stays; if the store's own
- * retry lands first, the dialog goes back to asking. A paper another device
- * took over has nothing this tab can save, so Leave goes without a save; a
- * paper that has ended or run out of time has no timer left to warn about,
- * so the ✕ leaves without asking. Closing the tab with an unsaved answer
- * raises the browser's own prompt.
+ * retry lands first, the dialog goes back to asking. A locked paper (ended,
+ * out of time, or taken over by another device) has nothing this tab can
+ * save and says why in its own strip, so the ✕ leaves without asking, and a
+ * dialog that is open when the lock arrives closes for good rather than say
+ * that answers the lock rejected are saved. Closing the tab with an unsaved
+ * answer raises the browser's own prompt.
  */
 export function useLeave(): Leave {
   const navigate = useNavigate();
@@ -57,6 +64,7 @@ export function useLeave(): Leave {
   const locked = useTakeTestStore((s) => s.lock !== null);
   const pending = dirty && !locked;
   const [step, setStep] = useState<LeavePhase>("idle");
+  if (locked && step !== "idle") setStep("idle");
   const run = useRef(0);
   const blocker = useBlocker(pending);
   const blocked = blocker.state === "blocked";
@@ -89,7 +97,7 @@ export function useLeave(): Leave {
 
   const ask = useCallback(() => {
     const { lock } = useTakeTestStore.getState();
-    if (lock === "closed" || lock === "deadline") void navigate("/app");
+    if (lock !== null) void navigate("/app");
     else setStep("asking");
   }, [navigate]);
 
@@ -114,5 +122,11 @@ export function useLeave(): Leave {
     });
   }, [navigate, proceed]);
 
-  return { phase: phaseOf(step, blocked, pending), pending, ask, stay, confirm };
+  return {
+    phase: phaseOf(step, blocked, pending, locked),
+    pending,
+    ask,
+    stay,
+    confirm,
+  };
 }
