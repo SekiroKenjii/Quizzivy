@@ -163,11 +163,16 @@ integration test asserts they are equal. Labels and defaults are the deck's
 
 - Each operation in `api/openapi.yaml` declares `x-permission`: one key, one pseudo-key, or a
   list meaning any of them. A list is used only where one operation serves two matrix rows:
-  question and question-group writes (`[content.questions.write, content.tests.write]`) and the
-  attempt-review reads (`[teaching.grading, teaching.attempts.intervene]`). The handler narrows
-  the check when the body decides which row applies. Open operations (`security: []`) declare
-  none. A startup assertion, `permissions_test.go` and `testdata/permissions.golden` fail the
-  build on any operation that breaks this.
+  the question and question-group writes that serve both the bank and the test builder
+  (creating, updating and duplicating a question; creating, updating, copying and deleting a
+  group: `[content.questions.write, content.tests.write]`) and the attempt-review reads
+  (`[teaching.grading, teaching.attempts.intervene]`). The group writes narrow the check under
+  the row lock, once the destination or the stored group shows which row applies: the bank
+  needs `content.questions.write`, a test section `content.tests.write` (T-R2.12a). Open
+  operations, those that do not require the bearer token, declare none, and every key belongs
+  to its path's tree (T-R2.7). `router.New` refuses to start on any operation that breaks
+  this, and `permissions_test.go`, `testdata/permissions.golden` and the web contract suite
+  fail the build.
 - **Open operations.** There are six at v0.6.0 (login, Google, refresh, logout,
   `/join/preview`, the integrity beacon). R1 adds `getPublicStatus` (7). R5 adds
   `checkSetPasswordLink`, `setPasswordWithLink`, `getPublicOrganization` and
@@ -175,29 +180,46 @@ integration test asserts they are equal. Labels and defaults are the deck's
   adds `submitLead` (13). Each is rate-limited, leak-reviewed and added to the pinned list in its
   own PR.
 - `httpx.RequirePermission` replaces `RequireRole`'s `/admin/` prefix gate. It resolves the
-  caller's role, permission set and `disabled_at` on every request, from a 10-second in-process
-  cache keyed by user, forgotten at once on the machine that made the write, so a matrix edit,
-  role change or disable applies on that machine's next request and within 10 seconds on any
-  other, and Neon is not woken per poll.
+  caller's role, permission set, `disabled_at` and session epoch on every request, from a
+  10-second in-process cache keyed by user (10,000 entries, least recently used out first),
+  with each role's grants cached by `(role_id, revision)`. A write forgets the entry at once on
+  the machine that made it, so a matrix edit, role change or disable applies on that machine's
+  next request and within 10 seconds on any other, and Neon is not woken per poll. An unknown
+  or disabled user, or a token whose epoch is older than the user's, gets 401; an unmet
+  requirement gets 403.
 - **Ending access is one rule.** Every password reset (single, bulk, reset-link issue and link
   use), disable, sign-out-everywhere and role change does three things in one command: it
   revokes the user's refresh families, bumps `session_epoch` and calls
   `Principals.Forget(userID)`. `setRolePermissions` and `updateRole` call `ForgetAll`.
 - Resource scoping is separate from permission: repositories filter by
-  `access.Scope{UserID, All}` (owner, share grants, class membership). A two-teacher isolation
-  suite exercises every `/teacher/*` operation.
+  `access.Scope{UserID, All}` (owner, share grants, class membership), with `All` only for
+  `scope.all`. Another teacher's id answers exactly as a missing id does, never 403. The
+  two-teacher isolation suite (T-R2.16) sends another owner's id into every id an operation
+  under `/teacher/*`, `/app/*` or `/me/*` takes, as the contract's `x-resource` names them.
 
 ### 4.3 Guards that are not permissions
 
-- **Subset rule (D13):** for reset password, disable, enable, sign out everywhere, change role,
-  create user, every user-import row, bulk actions, "copy from" when creating a role, and every
-  key a matrix save grants or revokes, the target's permissions, ignoring `learning.take_tests`
-  (which gives no power over another person), must be a subset of the actor's
-  (`access.CanActOn`). Nobody edits their own role's permissions.
-- **Student targets stay strict:** "reset student password", class membership and assignment
-  targets accept only the built-in Student role or a role whose permissions are a subset of
-  `{learning.take_tests}`. An Admin with "Take tests" turned on is never a student target.
-- **Last admin:** the last active Admin cannot be demoted or disabled.
+- **Subset rule (D13):** for editing or deleting an account, reset password, disable, enable,
+  sign out everywhere, change role, create user, every user-import row, bulk actions, "copy
+  from" when creating a role, and every key a matrix save grants or revokes, the target's
+  permissions, ignoring `learning.take_tests` (which gives no power over another person), must
+  be a subset of the actor's (`access.CanActOn`). Nobody edits their own role's permissions.
+  R2 applies it to the student writes it has: update (a disable included), reset and delete
+  (T-R2.13).
+- **Student targets stay strict:** the Students list and record, every write to a student, the
+  dashboard's student counts, class membership, assignment targets and the anonymiser take only
+  the built-in Student role or a custom role whose grants are a subset of
+  `{learning.take_tests}`. `app.student_like_roles` is the one definition, and
+  `access.IsStudentLike` the same predicate in Go. An Admin with "Take tests" turned on is
+  never a student target.
+- **Disabling and shared students (T-R2.13):** a disable needs `people.users.manage`
+  (`403 FORBIDDEN`). So do a password reset and an email change, unless no one else reaches
+  the student: every class of theirs, archived ones included, is one the actor teaches, no
+  other account created them or targets them individually, and with no class the actor
+  created them. Otherwise the answer is `403 STUDENT_SHARED`.
+- **Last admin:** the last active Admin cannot be demoted, disabled or deleted, by any path:
+  the `users_last_admin` trigger refuses it (`20-data-model.md` §30). `409 LAST_ADMIN` joins
+  the contract with R5's first operation that can reach it.
 - **Sign-in policy:** a settings change that would leave no active Admin able to sign in is
   refused (`422 SIGN_IN_POLICY_LOCKOUT`); the response counts users who would lose their only
   sign-in method.
@@ -222,11 +244,11 @@ API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*
 
 | Item | Plan | Release |
 |---|---|---|
-| The owner's account | `role='admin'` maps to the built-in Admin role: every permission, both workspaces. No manual step. | R2 |
-| Students | `role='student'` → built-in Student. Memberships, attempts, answers and events are untouched. | R2 |
-| Ownership | `owner_id` backfilled from `created_by` / `uploaded_by`; classes' `teacher_id` from `classes.created_by`, which `00006` already declares `NOT NULL` (the oldest-admin rule in `classes/repositories/lookup.go` is not copied). Each backfill raises if a row would stay NULL. | R2 |
-| Join codes | New codes are encrypted from R2. Every legacy hashed code is rotated at the R4 release, when the new class screens can show codes (D5); legacy codes redeem until then. | R2, R4 |
-| Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped in R3. | R2, R3 |
+| The owner's account | `role='admin'` maps to the built-in Admin role: every permission, both workspaces. No manual step. | R2 (done) |
+| Students | `role='student'` → built-in Student. Memberships, attempts, answers and events are untouched. | R2 (done) |
+| Ownership | `owner_id` backfilled from `created_by` / `uploaded_by`; classes' `teacher_id` from the oldest active Admin, the teacher v0.7.0 shows, because `app.classes` has never recorded a creator (D-23, decided 2026-09-28). Each backfill raises if a row would stay NULL. | R2 (done) |
+| Join codes | New codes are encrypted from R2. Every legacy hashed code is rotated at the R4 release, when the new class screens can show codes (D5); legacy codes redeem until then. | R2 (done), R4 |
+| Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped in R3. | R2 (done), R3 |
 | Attempts in flight | R3 reads the existing local answer drafts unchanged. Deploys happen outside exam windows. | R3 |
 | Assignment integrity | Existing assignments keep their stored policy; the wizard's new defaults apply to new assignments. | R4 |
 | Retention | O-23's fixed rules apply until an admin changes the R5 settings. | R5 |
@@ -270,11 +292,11 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| PR-1 | A teacher sees another teacher's data after R2 | Scope in every repository; the two-teacher isolation suite over every operation; no second teacher before R2 is live |
-| PR-2 | A role or permission edit escalates privilege | Subset rule, strict student targets, last-admin and lockout guards, each unit-tested plus one e2e escalation attempt |
+| PR-1 | A teacher sees another teacher's data after R2 | Landed in R2: every teacher repository filters by `access.Scope`, and another teacher's id answers as a missing one (T-R2.12a–f); the isolation suite sends another owner's id into every id a `/teacher/*`, `/app/*` or `/me/*` operation takes, and a scoped uuid without an `x-resource` kind fails the build (T-R2.16, NFR-S17); no UI creates a second teacher before R5 (§2 rule 2) |
+| PR-2 | A role or permission edit escalates privilege | Landed in R2: the subset rule (`access.CanActOn`) on every student write; strict student targets through `app.student_like_roles`; `people.users.manage` for a disable and for resetting or re-addressing a shared student; the `users_last_admin` trigger; grant triggers that keep the hidden keys ungranted and the Student's "Take tests" (T-R2.1, T-R2.2, T-R2.13); `escalation_test.go` with an Admin who takes tests and a custom role per matrix key as targets. R5 adds the role and matrix edits, the sign-in lockout guard and `admin_escalation_flow_test.go` |
 | PR-3 | The rebuilt take-test engine loses work | The five canaries before and after every PR; local drafts read unchanged; live E2E 5–8; deploy outside exam windows |
 | PR-4 | Rolling deploy breaks inserts from the old binary | Expand/contract with fill triggers; the old-binary insert test |
-| PR-5 | The path rename breaks old tabs or drops a rate limit | An outer legacy-alias handler for one release; every rate-limit key moved; a test that every credential-minting operation has a limit |
+| PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logs `legacy_admin_path` and lasts until R3 (T-R2.8); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
 | PR-6 | Legacy join codes stop working unannounced | Rotation only at R4, with the release note and an in-app notice |
 | PR-7 | Polling keeps Neon awake | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4 and R7 |
 | PR-8 | English-only deck leaks English into the product | vi first per PR; `no-hardcoded-strings` and parity tests; a native review before v1.0 |

@@ -83,7 +83,7 @@ func TestDeletingAnAssetAPublishedVersionUsesIsRefused(t *testing.T) {
 		t.Errorf("the refusal names %+v, want \"Đề đã xuất bản\" v1", blocked)
 	}
 
-	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: repositories.MaxLimit}})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Scope: everyone, Limit: repositories.MaxLimit}})
 	listed := listResult.Items
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +130,7 @@ func TestUsageCountReflectsPublishedVersions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: repositories.MaxLimit}})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Scope: everyone, Limit: repositories.MaxLimit}})
 	listed := listResult.Items
 	if err != nil {
 		t.Fatal(err)

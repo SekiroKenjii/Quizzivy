@@ -50,7 +50,7 @@ func (h UploadHandler) Handle(ctx context.Context, in Upload) (domain.Receipt, e
 	if format == "" {
 		return domain.Receipt{}, domain.ErrUnsupported
 	}
-	if _, err := h.Repo.Get(ctx, in.ImportID); err != nil {
+	if _, err := h.Repo.Get(ctx, reach(in.Actor), in.ImportID); err != nil {
 		return domain.Receipt{}, err
 	}
 	file, err := os.CreateTemp(h.WorkDir, "source-*")

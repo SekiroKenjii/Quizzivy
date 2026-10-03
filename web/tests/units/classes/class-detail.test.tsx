@@ -75,11 +75,11 @@ const stats = (over: Record<string, unknown>) => ({
 beforeEach(() => {
   assignmentQueries = [];
   server.use(
-    http.get(`${BASE}/admin/classes/${CLASS_ID}`, () =>
-      contractJson("/admin/classes/{id}", "get", 200, klass),
+    http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>
+      contractJson("/teacher/classes/{id}", "get", 200, klass),
     ),
-    http.get(`${BASE}/admin/classes/${CLASS_ID}/members`, () =>
-      contractJson("/admin/classes/{id}/members", "get", 200, {
+    http.get(`${BASE}/teacher/classes/${CLASS_ID}/members`, () =>
+      contractJson("/teacher/classes/{id}/members", "get", 200, {
         items: [
           {
             userId: MINH,
@@ -108,9 +108,9 @@ beforeEach(() => {
         total: 2,
       }),
     ),
-    http.get(`${BASE}/admin/assignments`, ({ request }) => {
+    http.get(`${BASE}/teacher/assignments`, ({ request }) => {
       assignmentQueries.push(new URL(request.url).searchParams.get("classId"));
-      return contractJson("/admin/assignments", "get", 200, {
+      return contractJson("/teacher/assignments", "get", 200, {
         page: 1,
         pageSize: 100,
         total: 2,
@@ -138,8 +138,8 @@ beforeEach(() => {
         ],
       });
     }),
-    http.get(`${BASE}/admin/students`, () =>
-      contractJson("/admin/students", "get", 200, {
+    http.get(`${BASE}/teacher/students`, () =>
+      contractJson("/teacher/students", "get", 200, {
         items: [
           {
             id: MINH,

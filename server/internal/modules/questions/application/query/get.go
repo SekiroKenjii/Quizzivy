@@ -4,10 +4,14 @@ import (
 	"context"
 	"quizzivy/internal/modules/questions/application/internal/support"
 	"quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/shared/access"
 )
 
+// Get reads one live bank question that Scope reaches; another owner's answers
+// ErrNotFound, exactly as a missing one does.
 type Get struct {
-	ID string
+	ID    string
+	Scope access.Scope
 }
 
 type GetHandler struct {
@@ -15,5 +19,5 @@ type GetHandler struct {
 }
 
 func (s GetHandler) Handle(ctx context.Context, q Get) (domain.Question, error) {
-	return s.Repo.Get(ctx, q.ID)
+	return s.Repo.Get(ctx, q.Scope, q.ID)
 }

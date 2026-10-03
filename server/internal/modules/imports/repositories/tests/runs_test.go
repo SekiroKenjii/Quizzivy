@@ -72,7 +72,7 @@ func TestRunIdentityPinsImmutableSourceAndPipeline(t *testing.T) {
 	if _, err := h.repo.Schedule(ctx, in); !errors.Is(err, domain.ErrConflict) {
 		t.Fatalf("changed pipeline replay: %v", err)
 	}
-	parent, err := h.repo.Get(ctx, run.ImportID)
+	parent, err := h.repo.Get(ctx, everyone, run.ImportID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestLeaseExpiryAndTakeoverFenceEveryWorkerWrite(t *testing.T) {
 	if err != nil || saved.Status != "succeeded" || len(saved.Result) == 0 {
 		t.Fatalf("completion: %+v %v", saved, err)
 	}
-	parent, err := h.repo.Get(ctx, second.ImportID)
+	parent, err := h.repo.Get(ctx, everyone, second.ImportID)
 	if err != nil || parent.Status != "needs_review" || len(parent.Sources) != 1 {
 		t.Fatalf("review lost source: %+v %v", parent, err)
 	}
@@ -138,7 +138,7 @@ func TestExhaustedCrashBecomesFailedAndExplicitRetryKeepsOldRun(t *testing.T) {
 	if err != nil || saved.Status != "failed" || saved.ErrorCode == nil || *saved.ErrorCode != "WORKER_LEASE_EXPIRED" {
 		t.Fatalf("expired recovery: %+v %v", saved, err)
 	}
-	parent, err := h.repo.Get(ctx, run.ImportID)
+	parent, err := h.repo.Get(ctx, everyone, run.ImportID)
 	if err != nil || parent.Status != "failed" {
 		t.Fatal("import stuck processing after final lease")
 	}
@@ -201,7 +201,7 @@ func TestCancellationAndCompletionHaveOnlyOneWinner(t *testing.T) {
 		version := uuid.NewString()
 		h.schedule(t, version, 3)
 		run := h.claim(t, policy(version))
-		parent, err := h.repo.Get(ctx, run.ImportID)
+		parent, err := h.repo.Get(ctx, everyone, run.ImportID)
 		if err != nil {
 			t.Fatal(err)
 		}

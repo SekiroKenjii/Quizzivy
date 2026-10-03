@@ -161,7 +161,7 @@ func TestRealPipelineResumesPrivateArtifactsAndKeepsCandidateOutOfRunEnvelope(t 
 			}
 		}
 	}
-	updated, err := h.repo.Get(ctx, parent.ID)
+	updated, err := h.repo.Get(ctx, everyone, parent.ID)
 	if err != nil || updated.Status != "needs_review" {
 		t.Fatal("processing bypassed teacher review")
 	}

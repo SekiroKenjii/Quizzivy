@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"strings"
 	"time"
 
@@ -17,6 +20,8 @@ import (
 // left can go back in. Only a closed assignment qualifies, judged at the
 // database's clock like the list, and the audit row is written from the
 // UPDATE's own OLD/NEW so the values recorded are the values changed (§13.4).
+// Only an assignment the actor reaches qualifies; another teacher's answers
+// ErrNotFound.
 func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time.Time, reason string, now time.Time) (domain.Assignment, error) {
 	reason = strings.TrimSpace(reason)
 	if reason == "" {
@@ -38,6 +43,7 @@ func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time
 		  UPDATE app.assignments a
 		     SET closes_at = $2, closed_at = NULL
 		   WHERE a.id = $1::uuid AND `+derivedStatus+` = 'closed'
+		     AND ($8::boolean OR a.id IN `+visibility.AssignmentIDs(9)+`)
 		  RETURNING a.id, old.closes_at AS prev_closes_at, old.closed_at AS prev_closed_at
 		), logged AS (
 		  INSERT INTO app.audit_log
@@ -50,15 +56,15 @@ func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time
 		    FROM updated
 		)
 		SELECT id::text FROM updated`,
-		req.ID, closesAt, req.ActorID, now, req.IP, req.UserAgent, reason).Scan(&reopened)
+		req.ID, closesAt, req.ActorID, now, req.IP, req.UserAgent, reason, req.All, opt.String(req.ActorID)).Scan(&reopened)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Assignment{}, s.whyNotReopened(ctx, tx, req.ID)
+		return domain.Assignment{}, s.whyNotReopened(ctx, tx, req.Scope(), req.ID)
 	}
 	if err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: reopen: %w", err)
 	}
 
-	saved, err := s.get(ctx, tx, req.ID)
+	saved, err := s.get(ctx, tx, req.Scope(), req.ID, false)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
@@ -68,10 +74,11 @@ func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time
 	return saved, nil
 }
 
-func (s *Postgres) whyNotReopened(ctx context.Context, q db.Querier, id string) error {
+func (s *Postgres) whyNotReopened(ctx context.Context, q db.Querier, scope access.Scope, id string) error {
 	var exists bool
 	if err := q.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM app.assignments WHERE id = $1::uuid)`, id).Scan(&exists); err != nil {
+		`SELECT EXISTS (SELECT 1 FROM app.assignments WHERE id = $1::uuid AND ($2::boolean OR id IN `+visibility.AssignmentIDs(3)+`))`,
+		id, scope.All, opt.String(scope.UserID)).Scan(&exists); err != nil {
 		return fmt.Errorf("assignments: reopen check: %w", err)
 	}
 	if !exists {

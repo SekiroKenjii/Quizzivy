@@ -19,8 +19,12 @@ type EnrolExistingHandler struct {
 }
 
 func (s EnrolExistingHandler) Handle(ctx context.Context, cmd EnrolExisting) (domain.EnrolResult, error) {
+	code, ok := s.Lookup(cmd.Code)
+	if !ok {
+		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
+	}
 	return s.Repo.Enrol(ctx, domain.EnrolInput{
-		RawCode:        cmd.Code,
+		Code:           code,
 		ExistingUserID: cmd.UserID,
 		Now:            s.Now(),
 		IP:             opt.String(cmd.Meta.IP),

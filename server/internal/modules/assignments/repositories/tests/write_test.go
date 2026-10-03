@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var everyone = access.Scope{All: true}
 
 func newPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -66,14 +69,14 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, status string) world {
 	}
 
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin')
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin'))
 		 RETURNING id::text`, "asg-a-"+id+"@example.com").Scan(&w.admin))
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học viên','student')
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Học viên',(SELECT id FROM app.roles WHERE builtin_key = 'student'))
 		 RETURNING id::text`, "asg-s-"+id+"@example.com").Scan(&w.student))
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-		"Lớp "+id).Scan(&w.class))
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+		"Lớp "+id, w.admin).Scan(&w.class))
 	must(func() error {
 		_, err := pool.Exec(ctx,
 			`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
@@ -176,7 +179,7 @@ func TestACreatedAssignmentCarriesItsTargetsAndRoster(t *testing.T) {
 		t.Errorf("target count: want 1, got %d", created.TargetCount)
 	}
 
-	got, err := store.Get(ctx, created.ID)
+	got, err := store.Get(ctx, everyone, created.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -278,14 +281,26 @@ func TestAnUnknownTargetIsNamed(t *testing.T) {
 	}
 }
 
-// An admin is a real user, so only the role check keeps them out of a roster.
+// A staff account the teacher reaches is a real user, so only the role check
+// keeps it out of a roster.
 func TestOnlyAStudentCanBeTargetedIndividually(t *testing.T) {
 	pool := newPool(t)
 	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
+	var staff string
+	if err := pool.QueryRow(context.Background(), `INSERT INTO app.users (email, full_name, role_id, created_by)
+		VALUES ($1, 'Trợ giảng', (SELECT id FROM app.roles WHERE builtin_key = 'teacher'), $2) RETURNING id::text`,
+		"staff-"+nonce(t)+"@example.com", w.admin).Scan(&staff); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = $1`, staff); err != nil {
+			t.Error(err)
+		}
+	})
 
 	in := legalInput(w)
-	in.StudentIDs = []string{w.admin}
+	in.StudentIDs = []string{staff}
 
 	_, err := store.Create(context.Background(), request(w), in)
 	if _, ok := fieldsOf(t, err)["targets.studentIds"]; !ok {
@@ -465,7 +480,7 @@ func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
 	// A second student in the same class, so the roster is two.
 	var other string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Người Thứ Hai','student')
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Người Thứ Hai',(SELECT id FROM app.roles WHERE builtin_key = 'student'))
 		 RETURNING id::text`, "asg-x-"+nonce(t)+"@example.com").Scan(&other); err != nil {
 		t.Fatal(err)
 	}
@@ -485,7 +500,7 @@ func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	before, err := store.Get(ctx, created.ID)
+	before, err := store.Get(ctx, everyone, created.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -498,7 +513,7 @@ func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	after, err := store.Get(ctx, created.ID)
+	after, err := store.Get(ctx, everyone, created.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -599,7 +614,7 @@ func TestTheListFiltersDraftsSeparately(t *testing.T) {
 	}
 
 	drafts := domain.Draft
-	found, _, err := store.List(ctx, domain.ListInput{Status: &drafts})
+	found, _, err := store.List(ctx, domain.ListInput{Scope: everyone, Status: &drafts})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -614,7 +629,7 @@ func TestTheListFiltersDraftsSeparately(t *testing.T) {
 	}
 
 	open := domain.Open
-	opened, _, err := store.List(ctx, domain.ListInput{Status: &open})
+	opened, _, err := store.List(ctx, domain.ListInput{Scope: everyone, Status: &open})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -640,7 +655,7 @@ func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	found, page, err := store.List(ctx, domain.ListInput{ClassID: &mine.class})
+	found, page, err := store.List(ctx, domain.ListInput{Scope: everyone, ClassID: &mine.class})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -648,7 +663,7 @@ func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 		t.Fatalf("classId=%s returned %d rows (total %d), want only %s", mine.class, len(found), page.Total, kept.ID)
 	}
 
-	facets, err := store.Facets(ctx, domain.ListInput{ClassID: &mine.class})
+	facets, err := store.Facets(ctx, domain.ListInput{Scope: everyone, ClassID: &mine.class})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -22,15 +22,15 @@ beforeEach(() => {
   states = [wordImport({ status: "processing", run: run({ stage: "extraction" }) })];
   server.use(
     capabilities(),
-    http.get(`${BASE}/admin/imports/:id`, () => {
+    http.get(`${BASE}/teacher/imports/:id`, () => {
       const next = states[Math.min(reads, states.length - 1)]!;
       reads += 1;
-      return contractJson("/admin/imports/{id}", "get", 200, next);
+      return contractJson("/teacher/imports/{id}", "get", 200, next);
     }),
-    http.post(`${BASE}/admin/imports/:id/cancel`, async ({ request }) => {
+    http.post(`${BASE}/teacher/imports/:id/cancel`, async ({ request }) => {
       cancels.push((await request.json()) as { expectedRevision: number });
       return contractJson(
-        "/admin/imports/{id}/cancel",
+        "/teacher/imports/{id}/cancel",
         "post",
         200,
         wordImport({ status: "cancelled", revision: 6 }),
@@ -131,10 +131,10 @@ describe("the processing screen", () => {
       wordImport({ status: "processing", draftRevision: 3, run: run({ keyPaper: 2 }) }),
     ];
     server.use(
-      http.post(`${BASE}/admin/imports/:id/cancel`, async ({ request }) => {
+      http.post(`${BASE}/teacher/imports/:id/cancel`, async ({ request }) => {
         cancels.push((await request.json()) as { expectedRevision: number });
         return contractJson(
-          "/admin/imports/{id}/cancel",
+          "/teacher/imports/{id}/cancel",
           "post",
           200,
           wordImport({
@@ -215,11 +215,11 @@ describe("the processing screen", () => {
     let fail = false;
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () => {
+      http.get(`${BASE}/teacher/imports/:id`, () => {
         reads += 1;
         if (fail) return new Response(null, { status: 503 });
         return contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           wordImport({ status: "processing", run: run() }),

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// UploadMedia implements POST /admin/media (§11.1).
+// UploadMedia implements POST /teacher/media (§11.1).
 func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaRequestObject) (openapi.UploadMediaResponseObject, error) {
 	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -96,13 +96,13 @@ func ToAPIMediaAsset(a domain.Asset, url string) openapi.MediaAsset {
 	return out
 }
 
-// ListMedia implements GET /admin/media -- the §8 media library.
+// ListMedia implements GET /teacher/media -- the §8 media library.
 func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestObject) (openapi.ListMediaResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
 	if request.Params.Kind != nil {
 		kind := domain.Kind(*request.Params.Kind)
 		in.Kind = &kind
@@ -119,7 +119,7 @@ func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestOb
 	if err != nil {
 		return nil, err
 	}
-	totalBytes, err := h.app.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: in.Kind})
+	totalBytes, err := h.app.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: in.Kind, Scope: in.Scope})
 	if err != nil {
 		return nil, err
 	}
@@ -156,22 +156,22 @@ func ToAPIReferencingTests(refs []domain.TestRef) []openapi.ReferencingTest {
 	return out
 }
 
-// DeleteMedia implements DELETE /admin/media/{id}.
+// DeleteMedia implements DELETE /teacher/media/{id}.
 func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaRequestObject) (openapi.DeleteMediaResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	principal, ok := httpx.PrincipalFromContext(ctx)
+	actor, ok := httpapi.ActorFromContext(ctx)
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	meta := httpx.RequestMetaFromContext(ctx)
 	_, err := h.app.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{
 		ID:        request.Id.String(),
-		ActorID:   principal.UserID,
-		IP:        meta.IP,
-		UserAgent: meta.UserAgent,
+		ActorID:   actor.ID,
+		All:       actor.Scope.All,
+		IP:        actor.IP,
+		UserAgent: actor.UserAgent,
 	}})
 	switch {
 	case err == nil:

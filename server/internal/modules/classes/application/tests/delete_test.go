@@ -18,7 +18,7 @@ import (
 func TestDeletingAnArchivedClassKeepsStudentAccounts(t *testing.T) {
 	pool := newPool(t)
 	id, teacher, student := makeClass(t, pool)
-	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)), joinKeys)
 	ctx := context.Background()
 	by := actor.Actor{ID: teacher}
 	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: id, UserID: student, Actor: by}); err != nil {

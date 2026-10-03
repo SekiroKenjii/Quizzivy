@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/content"
 	"slices"
 	"strings"
@@ -13,17 +14,20 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *GroupsPostgres) lockGroupAssets(ctx context.Context, tx pgx.Tx, bundle domain.GroupBundle) error {
+func groupAssetIDs(bundle domain.GroupBundle) ([]string, error) {
 	assets := make(map[string]bool)
 	for _, question := range bundle.Questions {
 		if question.Input.MediaAssetID != nil {
 			assets[strings.ToLower(*question.Input.MediaAssetID)] = true
 		}
 	}
+	for _, recording := range bundle.Group.Recordings {
+		assets[strings.ToLower(recording.AssetID)] = true
+	}
 	for _, material := range bundle.Group.Stimuli {
 		document, err := content.Parse(material.Content)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, asset := range document.Assets() {
 			assets[strings.ToLower(asset.ID)] = true
@@ -34,7 +38,15 @@ func (s *GroupsPostgres) lockGroupAssets(ctx context.Context, tx pgx.Tx, bundle 
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)
-	if len(ids) > 0 && s.media == nil {
+	return ids, nil
+}
+
+func (s *GroupsPostgres) lockGroupAssets(ctx context.Context, tx pgx.Tx, scope access.Scope, bundle domain.GroupBundle) error {
+	ids, err := groupAssetIDs(bundle)
+	if err != nil || len(ids) == 0 {
+		return err
+	}
+	if s.media == nil {
 		return fmt.Errorf("groups: media reference locks unavailable")
 	}
 	for _, id := range ids {
@@ -42,7 +54,7 @@ func (s *GroupsPostgres) lockGroupAssets(ctx context.Context, tx pgx.Tx, bundle 
 			return err
 		}
 	}
-	return nil
+	return s.media.RequireReadable(ctx, tx, scope, ids)
 }
 
 func insertGroupRecordings(ctx context.Context, tx pgx.Tx, group domain.QuestionGroup) error {

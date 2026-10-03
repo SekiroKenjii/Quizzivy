@@ -55,7 +55,7 @@ func enrol(t *testing.T, pool *pgxpool.Pool, w world, n int) []string {
 	ids := make([]string, n)
 	for i := range n {
 		if err := pool.QueryRow(ctx,
-			`INSERT INTO app.users (email, full_name, role) VALUES ($1, $2, 'student') RETURNING id::text`,
+			`INSERT INTO app.users (email, full_name, role_id) VALUES ($1, $2, (SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 			"mon-"+id+"-"+string(rune('a'+i%26))+string(rune('a'+i/26))+"@example.com",
 			"Học viên "+string(rune('A'+i%26))+string(rune('a'+i/26))).Scan(&ids[i]); err != nil {
 			t.Fatal(err)
@@ -116,7 +116,7 @@ func TestTheMonitorIsTwoQueriesForFiftyStudentsAndThirtyAttempts(t *testing.T) {
 
 	store := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{})
 	counter.n.Store(0)
-	monitor, err := store.Monitor(context.Background(), w.assignment, time.Now())
+	monitor, err := store.Monitor(context.Background(), everyone, w.assignment, time.Now())
 	if err != nil {
 		t.Fatalf("monitor: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestARowShowsTheAttemptThatStillCountsAndReadsProgressFromTheAnswers(t *tes
 	handIn(t, pool, w, other, 1, "voided")
 	live := handIn(t, pool, w, other, 2, "submitted")
 
-	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{AssignmentID: w.assignment})
+	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{Scope: everyone, AssignmentID: w.assignment})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,10 +192,10 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := svc.Commands.ExpireDue.Handle(context.Background(), command.ExpireDue{AssignmentID: w.assignment}); err != nil {
+	if _, err := svc.Commands.ExpireDue.Handle(context.Background(), command.ExpireDue{Scope: everyone, AssignmentID: w.assignment}); err != nil {
 		t.Fatal(err)
 	}
-	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{AssignmentID: w.assignment})
+	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{Scope: everyone, AssignmentID: w.assignment})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 
 func TestAnUnknownAssignmentIsNotAnEmptyMonitor(t *testing.T) {
 	pool := newPool(t)
-	_, err := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}).Monitor(context.Background(), "01935000-0000-7000-8000-00000000dead", time.Now())
+	_, err := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}).Monitor(context.Background(), everyone, "01935000-0000-7000-8000-00000000dead", time.Now())
 	if err != domain.ErrNotFound {
 		t.Errorf("got %v, want ErrNotFound", err)
 	}

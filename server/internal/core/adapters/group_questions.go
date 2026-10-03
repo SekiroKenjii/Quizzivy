@@ -16,6 +16,10 @@ func (GroupQuestions) LockForDraftUse(ctx context.Context, tx pgx.Tx, questionID
 	return repositories.LockForDraftUse(ctx, tx, questionID)
 }
 
+func (GroupQuestions) NotOwnedBy(ctx context.Context, tx pgx.Tx, ownerID string, questionIDs []string) ([]string, error) {
+	return repositories.NotOwnedBy(ctx, tx, ownerID, questionIDs)
+}
+
 func (GroupQuestions) CreateGroupMember(ctx context.Context, tx pgx.Tx, in domain.WriteInput, ownership domain.GroupOwnership) (domain.Question, error) {
 	return repositories.NewPostgres(db.NewContext(tx)).CreateOwned(ctx, in, ownership)
 }

@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/stats"
+	"quizzivy/internal/shared/visibility"
 )
 
 // StudentStats derives each student's figures from their attempts: the best
@@ -20,7 +22,9 @@ func NewStudentStats(dbx db.Context) *StudentStats {
 
 var _ stats.Source = (*StudentStats)(nil)
 
-func (s *StudentStats) StudentStats(ctx context.Context, ids []string) (map[string]stats.Student, error) {
+var reached = `($2::boolean OR a.assignment_id IN ` + visibility.AssignmentIDs(3) + `)`
+
+func (s *StudentStats) StudentStats(ctx context.Context, scope access.Scope, ids []string) (map[string]stats.Student, error) {
 	out := make(map[string]stats.Student, len(ids))
 	if len(ids) == 0 {
 		return out, nil
@@ -34,7 +38,8 @@ func (s *StudentStats) StudentStats(ctx context.Context, ids []string) (map[stri
 		    SELECT (SELECT count(DISTINCT a.assignment_id)
 		              FROM app.attempts a
 		             WHERE a.student_id = u.id
-		               AND a.status IN ('submitted','timed_out','graded')) AS submitted_count,
+		               AND a.status IN ('submitted','timed_out','graded')
+		               AND `+reached+`) AS submitted_count,
 		           sum(g.score_earned)                AS earned,
 		           sum(g.score_total)                 AS total,
 		           coalesce(sum(g.pending_manual), 0) AS pending_manual
@@ -51,6 +56,7 @@ func (s *StudentStats) StudentStats(ctx context.Context, ids []string) (map[stri
 		         WHERE a.student_id = u.id
 		           AND a.status = 'graded'
 		           AND a.score_earned IS NOT NULL
+		           AND `+reached+`
 		         ORDER BY a.assignment_id,
 		                  a.score_earned / coalesce(a.score_total, v.total_points) DESC,
 		                  a.attempt_no DESC
@@ -62,8 +68,9 @@ func (s *StudentStats) StudentStats(ctx context.Context, ids []string) (map[stri
 		           max(greatest(a.submitted_at, a.started_at))                  AS last_attempt_at
 		      FROM app.attempts a
 		     WHERE a.student_id = u.id AND a.status <> 'voided'
+		       AND `+reached+`
 		  ) act ON TRUE
-		 WHERE u.id = ANY($1::uuid[])`, ids)
+		 WHERE u.id = ANY($1::uuid[])`, ids, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return nil, fmt.Errorf("student stats: %w", err)
 	}

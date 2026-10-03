@@ -5,13 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// Rotate revokes the class's active code and issues a replacement in one
-// transaction, so a class is never left with two active codes or none.
+// Rotate revokes the active code of a class the actor teaches and issues a
+// replacement in one transaction, so a class is never left with two active
+// codes or none. Another teacher's class answers ErrClassNotFound.
 func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.IssuedCode, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -20,8 +24,8 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 	defer func() { _ = tx.Rollback(ctx) }()
 	var exists bool
 	err = tx.QueryRow(ctx,
-		`SELECT true FROM app.classes WHERE id = $1 FOR UPDATE`,
-		in.ClassID).Scan(&exists)
+		`SELECT true FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR UPDATE`,
+		in.ClassID, in.All, opt.String(in.ActorUserID)).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.IssuedCode{}, domain.ErrClassNotFound
 	}
@@ -44,8 +48,9 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 
 	const issue = `
 		INSERT INTO app.class_join_codes
-		       (class_id, code_hash, code_hint, expires_at, max_uses, created_by, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		       (id, class_id, code_hash, code_ciphertext, key_id, lookup_scheme,
+		        code_hint, expires_at, max_uses, created_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, 2, $6, $7, $8, $9, $10)
 		RETURNING id::text, uses_count`
 	out := domain.IssuedCode{
 		ClassID:   in.ClassID,
@@ -54,7 +59,8 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 		MaxUses:   in.MaxUses,
 	}
 	if err := tx.QueryRow(ctx, issue,
-		in.ClassID, in.CodeHash, in.Hint, in.ExpiresAt, in.MaxUses, in.ActorUserID, in.Now,
+		in.CodeID, in.ClassID, in.CodeHash, in.Ciphertext, in.KeyID,
+		in.Hint, in.ExpiresAt, in.MaxUses, in.ActorUserID, in.Now,
 	).Scan(&out.ID, &out.UsesCount); err != nil {
 		return domain.IssuedCode{}, fmt.Errorf("issue code: %w", err)
 	}
@@ -85,8 +91,9 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 	return out, nil
 }
 
-// Revoke ends the active code without issuing a replacement, and turns off
-// self-join (§6.4).
+// Revoke ends the active code of a class the actor teaches without issuing a
+// replacement, and turns off self-join (§6.4). Another teacher's class answers
+// ErrClassNotFound.
 func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -96,8 +103,8 @@ func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
 
 	var exists bool
 	err = tx.QueryRow(ctx,
-		`SELECT true FROM app.classes WHERE id = $1 FOR UPDATE`,
-		in.ClassID).Scan(&exists)
+		`SELECT true FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR UPDATE`,
+		in.ClassID, in.All, opt.String(in.ActorUserID)).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrClassNotFound
 	}
@@ -137,21 +144,35 @@ func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
 	return tx.Commit(ctx)
 }
 
-// ActiveCode returns the class's live code metadata, or nil if there is none.
-func (s *Postgres) ActiveCode(ctx context.Context, classID string) (*domain.IssuedCode, error) {
+// ActiveCode returns the active code of a class the scope reaches, as
+// stored. Another teacher's class answers ErrClassNotFound, exactly as a
+// missing one does; a reached class without an active code answers
+// ErrNoActiveCode.
+func (s *Postgres) ActiveCode(ctx context.Context, scope access.Scope, classID string) (domain.StoredCode, error) {
 	const q = `
-		SELECT id::text, class_id::text, code_hint, expires_at, max_uses, uses_count
-		  FROM app.class_join_codes
-		 WHERE class_id = $1 AND revoked_at IS NULL`
+		SELECT jc.id::text, jc.code_hint, jc.expires_at, jc.max_uses, jc.uses_count,
+		       jc.lookup_scheme, jc.key_id, jc.code_hash, jc.code_ciphertext
+		  FROM app.classes c
+		  LEFT JOIN app.class_join_codes jc ON jc.class_id = c.id AND jc.revoked_at IS NULL
+		 WHERE c.id = $1 AND ` + taughtClass
 
-	var c domain.IssuedCode
-	err := s.QueryRow(ctx, q, classID).Scan(
-		&c.ID, &c.ClassID, &c.Hint, &c.ExpiresAt, &c.MaxUses, &c.UsesCount)
+	var id, hint *string
+	var expiresAt *time.Time
+	var usesCount *int
+	var scheme *domain.LookupScheme
+	c := domain.StoredCode{IssuedCode: domain.IssuedCode{ClassID: classID}}
+	err := s.QueryRow(ctx, q, classID, scope.All, opt.String(scope.UserID)).Scan(
+		&id, &hint, &expiresAt, &c.MaxUses, &usesCount,
+		&scheme, &c.Lookup.KeyID, &c.Lookup.Hash, &c.Ciphertext)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return domain.StoredCode{}, domain.ErrClassNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("load active join code: %w", err)
+		return domain.StoredCode{}, fmt.Errorf("load active join code: %w", err)
 	}
-	return &c, nil
+	if id == nil {
+		return domain.StoredCode{}, domain.ErrNoActiveCode
+	}
+	c.ID, c.Hint, c.ExpiresAt, c.UsesCount, c.Lookup.Scheme = *id, *hint, *expiresAt, *usesCount, *scheme
+	return c, nil
 }

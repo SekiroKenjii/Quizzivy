@@ -27,14 +27,14 @@ func makeClassRow(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, student
 	n := nonce(t)
 
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role)
-		 VALUES ($1, 'Giáo viên', 'admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1, 'Giáo viên', (SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"teacher-"+n+"@example.com").Scan(&teacherID); err != nil {
 		t.Fatalf("insert teacher: %v", err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role)
-		 VALUES ($1, 'Học viên', 'student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1, 'Học viên', (SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"student-"+n+"@example.com").Scan(&studentID); err != nil {
 		t.Fatalf("insert student: %v", err)
 	}
@@ -47,8 +47,8 @@ func makeClassRow(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, student
 		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id IN ($1, $2)`, teacherID, studentID)
 	})
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-		"Lớp "+n).Scan(&classID); err != nil {
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+		"Lớp "+n, teacherID).Scan(&classID); err != nil {
 		t.Fatalf("insert class: %v", err)
 	}
 	if _, err := pool.Exec(ctx,
@@ -62,7 +62,7 @@ func makeClassRow(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, student
 
 func newSvc(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
-	return application.New(repositories.NewPostgres(db.NewContext(pool)), nil)
+	return application.New(repositories.NewPostgres(db.NewContext(pool)), nil, joinKeys)
 }
 
 func activeCodeCount(t *testing.T, pool *pgxpool.Pool, classID string) int {
@@ -108,7 +108,7 @@ func TestRotationRetiresTheOldCodeAndLeavesMembersAlone(t *testing.T) {
 	var revoked bool
 	if err := pool.QueryRow(ctx,
 		`SELECT revoked_at IS NOT NULL FROM app.class_join_codes WHERE code_hash = $1`,
-		domain.JoinCodes.Hash(domain.JoinCodes.Normalize(first.Code))).Scan(&revoked); err != nil {
+		joinKeys.Hash(domain.JoinCodes.Normalize(first.Code))).Scan(&revoked); err != nil {
 		t.Fatalf("old code row: %v", err)
 	}
 	if !revoked {
@@ -128,7 +128,7 @@ func TestRotationRetiresTheOldCodeAndLeavesMembersAlone(t *testing.T) {
 	}
 }
 
-func TestOnlyTheHashAndAHintAreStored(t *testing.T) {
+func TestOnlyASealedCodeAKeyedHashAndAHintAreStored(t *testing.T) {
 	// §13.3. A database dump must not hand over class access.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
@@ -152,15 +152,16 @@ func TestOnlyTheHashAndAHintAreStored(t *testing.T) {
 	if hint != canonical[len(canonical)-4:] {
 		t.Errorf("hint = %q, want the last four of %q", hint, canonical)
 	}
-	if !domain.JoinCodes.Equal(hash, domain.JoinCodes.Hash(canonical)) {
-		t.Error("the stored hash does not match the issued code")
+	if !domain.JoinCodes.Equal(hash, joinKeys.Hash(canonical)) {
+		t.Error("the stored hash is not the issued code's keyed hash")
 	}
 
 	// Nothing anywhere in the row holds the plaintext.
 	var plaintextRows int
 	if err := pool.QueryRow(context.Background(),
 		`SELECT count(*) FROM app.class_join_codes
-		  WHERE class_id = $1 AND (code_hint = $2 OR encode(code_hash,'escape') LIKE '%' || $2 || '%')`,
+		  WHERE class_id = $1 AND (code_hint = $2 OR encode(code_hash,'escape') LIKE '%' || $2 || '%'
+		        OR encode(code_ciphertext,'escape') LIKE '%' || $2 || '%')`,
 		classID, canonical).Scan(&plaintextRows); err != nil {
 		t.Fatal(err)
 	}

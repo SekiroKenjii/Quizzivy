@@ -46,7 +46,7 @@ func (h Imports) GetWordImport(ctx context.Context, request openapi.GetWordImpor
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	v, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String()})
+	v, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if err != nil {
 		return importFailure(ctx, err)
 	}
@@ -59,7 +59,7 @@ func (h Imports) ListWordImports(ctx context.Context, request openapi.ListWordIm
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	in := query.List{Search: httpapi.DerefString(request.Params.Q)}
+	in := query.List{Search: httpapi.DerefString(request.Params.Q), Scope: httpapi.ScopeFromContext(ctx)}
 	if request.Params.Status != nil {
 		in.Status = string(*request.Params.Status)
 	}
@@ -118,7 +118,7 @@ func (h Imports) DownloadImportSource(ctx context.Context, request openapi.Downl
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	v, err := h.app.Queries.Download.Handle(ctx, query.Download{ImportID: request.Id.String(), SourceID: request.SourceId.String()})
+	v, err := h.app.Queries.Download.Handle(ctx, query.Download{ImportID: request.Id.String(), SourceID: request.SourceId.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if err != nil {
 		return importFailure(ctx, err)
 	}

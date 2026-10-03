@@ -42,12 +42,13 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- ------------------------------------------------------------------ class
-INSERT INTO app.classes (id, name, description, self_join_enabled)
+INSERT INTO app.classes (id, name, description, self_join_enabled, teacher_id)
 VALUES (
   '01935000-0000-7000-8000-0000000000c1',
   'Tiếng Anh giao tiếp — Lớp A',
   'Lớp mẫu để phát triển.',
-  true
+  true,
+  '01935000-0000-7000-8000-0000000000a1'
 )
 ON CONFLICT (id) DO NOTHING;
 

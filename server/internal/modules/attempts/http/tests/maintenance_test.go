@@ -32,7 +32,7 @@ func startDuringMaintenance(t *testing.T, acceptLanguage string) (*httptest.Resp
 
 	handler := httpx.WithRequestMeta(func(*http.Request) string { return "203.0.113.9" })(
 		httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
-			return httpx.Principal{UserID: student.String(), Role: "student"}, nil
+			return httpx.Principal{UserID: student.String()}, nil
 		})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			out, err := transport.StartOrResumeAttempt(r.Context(), openapi.StartOrResumeAttemptRequestObject{Id: uuid.New()})
 			if err != nil {

@@ -33,46 +33,48 @@ func (f fakeReview) app() *attemptsapp.Application {
 	}}
 }
 
-type fakeStudents struct{ student identitydomain.Student }
+type fakeStudents struct{ account identitydomain.Account }
 
 func (f fakeStudents) handler() attemptshttp.Students {
-	get := func(context.Context, identityquery.GetStudent) (identitydomain.Student, error) { return f.student, nil }
-	return cqrs.HandlerFunc[identityquery.GetStudent, identitydomain.Student](get)
+	get := func(context.Context, identityquery.StudentAccount) (identitydomain.Account, error) {
+		return f.account, nil
+	}
+	return cqrs.HandlerFunc[identityquery.StudentAccount, identitydomain.Account](get)
 }
 
-// A disabled account is refused a session, but its papers are still the
-// teacher's to read: the review must not go through the session's user read.
-func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
-	const studentID = "01935000-0000-7000-8000-0000000000a2"
-	disabledAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+type reviewedSitter struct {
+	FullName string `json:"fullName"`
+	Role     string `json:"role"`
+}
+
+func reviewWith(t *testing.T, account identitydomain.Account) (reviewedSitter, string) {
+	t.Helper()
+	at := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	issuer := testIssuer(t)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	review := fakeReview{rv: attemptsdomain.Review{
 		Attempt: attemptsdomain.Attempt{
-			ID: "01935000-0000-7000-8000-00000000dd07", StudentID: studentID,
-			Status: attemptsdomain.Submitted, StartedAt: disabledAt, DeadlineAt: disabledAt.Add(time.Hour),
+			ID: "01935000-0000-7000-8000-00000000dd07", StudentID: account.ID,
+			Status: attemptsdomain.Submitted, StartedAt: at, DeadlineAt: at.Add(time.Hour),
 		},
 		TestTitle: "Unit 5", MaxAttempts: 1,
 		Answers: map[string]attemptsdomain.ReviewAnswer{}, AudioPlays: map[string]int{},
 	}}
-	students := fakeStudents{student: identitydomain.Student{
-		ID: studentID, Email: "an@example.com", FullName: "Nguyễn Văn An",
-		HasPassword: true, CreatedAt: disabledAt, DisabledAt: &disabledAt,
-	}}
 	handler, err := router.New(router.Deps{
-		DB:      fakeDB{},
-		Modules: router.Modules{Attempts: attemptshttp.NewAttempts(review.app(), nil, students.handler(), nil)},
-		Tokens:  issuer,
+		Principals: newFakePrincipals(),
+		DB:         fakeDB{},
+		Modules:    router.Modules{Attempts: attemptshttp.NewAttempts(review.app(), nil, fakeStudents{account: account}.handler(), nil)},
+		Tokens:     issuer,
 	}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
 	}
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/attempts/01935000-0000-7000-8000-00000000dd07", nil)
+	req := httptest.NewRequest(http.MethodGet, "/teacher/attempts/01935000-0000-7000-8000-00000000dd07", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
@@ -81,16 +83,33 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 	}
 
 	var body struct {
-		Student struct {
-			FullName string `json:"fullName"`
-			Role     string `json:"role"`
-		} `json:"student"`
-		TestTitle string `json:"testTitle"`
+		Student   reviewedSitter `json:"student"`
+		TestTitle string         `json:"testTitle"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if body.Student.FullName != "Nguyễn Văn An" || body.Student.Role != "student" || body.TestTitle != "Unit 5" {
-		t.Errorf("body = %+v", body)
+	return body.Student, body.TestTitle
+}
+
+// A disabled account is refused a session, but its papers are still the
+// teacher's to read: the review must not go through the session's user read.
+func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
+	sitter, title := reviewWith(t, identitydomain.Account{
+		ID: "01935000-0000-7000-8000-0000000000a2", Email: "an@example.com", FullName: "Nguyễn Văn An",
+		Role: "student", HasPassword: true, CreatedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+	})
+	if sitter.FullName != "Nguyễn Văn An" || sitter.Role != "student" || title != "Unit 5" {
+		t.Errorf("sitter = %+v, title = %q", sitter, title)
+	}
+}
+
+func TestAReviewNamesAStaffSitterByTheirOwnRole(t *testing.T) {
+	sitter, _ := reviewWith(t, identitydomain.Account{
+		ID: "01935000-0000-7000-8000-0000000000a3", Email: "admin@example.com", FullName: "Quản trị",
+		Role: "admin", HasPassword: true, CreatedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+	})
+	if sitter.Role != "admin" {
+		t.Errorf("role = %q, want admin", sitter.Role)
 	}
 }

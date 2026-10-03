@@ -18,7 +18,7 @@ func (h Assignments) ListAssignments(ctx context.Context, request openapi.ListAs
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
 	if request.Params.Status != nil {
 		status := domain.Status(*request.Params.Status)
 		in.Status = &status
@@ -134,7 +134,7 @@ func (h Assignments) GetAssignment(ctx context.Context, request openapi.GetAssig
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	a, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String()})
+	a, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
@@ -233,14 +233,8 @@ func (h Assignments) ReopenAssignment(ctx context.Context, request openapi.Reope
 }
 
 func assignmentRequest(ctx context.Context, id string) (domain.Request, bool) {
-	principal, ok := httpx.PrincipalFromContext(ctx)
-	if !ok {
-		return domain.Request{}, false
-	}
-	meta := httpx.RequestMetaFromContext(ctx)
-	return domain.Request{
-		ID: id, ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent,
-	}, true
+	who, ok := httpapi.ActorFromContext(ctx)
+	return domain.Request{ID: id, ActorID: who.ID, All: who.Scope.All, IP: who.IP, UserAgent: who.UserAgent}, ok
 }
 
 func assignmentValidationError(ctx context.Context, invalid *domain.ValidationError) openapi.ErrorResponse {

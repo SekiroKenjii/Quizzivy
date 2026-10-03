@@ -15,7 +15,7 @@ describe("array query parameters", () => {
   it("repeats the key once per value", async () => {
     let seen: string | null = null;
     server.use(
-      http.get(`${BASE}/admin/questions`, ({ request }) => {
+      http.get(`${BASE}/teacher/questions`, ({ request }) => {
         seen = new URL(request.url).search;
         return HttpResponse.json({
           items: [],
@@ -36,7 +36,7 @@ describe("array query parameters", () => {
       }),
     );
 
-    await api("get", "/admin/questions", {
+    await api("get", "/teacher/questions", {
       query: { type: ["short_answer", "fill_blank"], tag: ["unit-5"], hasAudio: true },
     });
 

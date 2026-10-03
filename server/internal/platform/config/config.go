@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -42,9 +44,14 @@ type Config struct {
 	AccessTokenTTL      time.Duration
 	RefreshTokenTTL     time.Duration
 	RefreshCookieSecure bool
+
+	JoinCodeKey         []byte
+	JoinCodeKeyPrevious []byte
 }
 
 const defaultMaxConcurrentPasswordHashes = 4
+
+const joinCodeKeyBytes = 32
 
 // Load reads the environment and fails loudly on anything missing.
 func Load() (Config, error) {
@@ -69,6 +76,9 @@ func Load() (Config, error) {
 		return cfg, err
 	}
 	if err := loadTokens(&cfg); err != nil {
+		return cfg, err
+	}
+	if err := loadJoinCodeKeys(&cfg); err != nil {
 		return cfg, err
 	}
 	if err := loadGoogle(&cfg); err != nil {
@@ -124,6 +134,47 @@ func loadTokens(cfg *Config) error {
 	}
 	cfg.RefreshCookieSecure = getenv("REFRESH_COOKIE_SECURE", "true") != "false"
 	return nil
+}
+
+func loadJoinCodeKeys(cfg *Config) error {
+	var err error
+	cfg.JoinCodeKey, cfg.JoinCodeKeyPrevious, err = JoinCodeKeys()
+	return err
+}
+
+// JoinCodeKeys reads JOIN_CODE_KEY and JOIN_CODE_KEY_PREVIOUS as Load does:
+// the current key is required and the previous one optional, each standard
+// base64 of exactly 32 bytes, and the two must differ. No error repeats a
+// value.
+func JoinCodeKeys() (current, previous []byte, err error) {
+	if current, err = joinCodeKey("JOIN_CODE_KEY"); err != nil {
+		return nil, nil, err
+	}
+	if current == nil {
+		return nil, nil, fmt.Errorf("JOIN_CODE_KEY is required: standard base64 of %d random bytes; generate one with: openssl rand -base64 32", joinCodeKeyBytes)
+	}
+	if previous, err = joinCodeKey("JOIN_CODE_KEY_PREVIOUS"); err != nil {
+		return nil, nil, err
+	}
+	if previous != nil && bytes.Equal(previous, current) {
+		return nil, nil, fmt.Errorf("JOIN_CODE_KEY_PREVIOUS must differ from JOIN_CODE_KEY")
+	}
+	return current, previous, nil
+}
+
+func joinCodeKey(name string) ([]byte, error) {
+	v := strings.TrimSpace(os.Getenv(name))
+	if v == "" {
+		return nil, nil
+	}
+	raw, err := base64.StdEncoding.DecodeString(v)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be standard base64; generate one with: openssl rand -base64 32", name)
+	}
+	if len(raw) != joinCodeKeyBytes {
+		return nil, fmt.Errorf("%s must decode to exactly %d bytes, got %d; generate one with: openssl rand -base64 32", name, joinCodeKeyBytes, len(raw))
+	}
+	return raw, nil
 }
 
 func loadHashing(cfg *Config) error {

@@ -79,7 +79,7 @@ func TestAttemptGroupTransportAuthorizesEveryAssetAndOmitsKeys(t *testing.T) {
 			serve := func() (*httptest.ResponseRecorder, error) {
 				var failure error
 				handler := httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
-					return httpx.Principal{UserID: student.String(), Role: "student"}, nil
+					return httpx.Principal{UserID: student.String()}, nil
 				})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if start {
 						response, err := transport.StartOrResumeAttempt(r.Context(), openapi.StartOrResumeAttemptRequestObject{Id: uuid.New()})

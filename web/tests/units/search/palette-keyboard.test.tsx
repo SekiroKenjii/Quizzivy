@@ -21,8 +21,8 @@ const QUESTION_ID = "018f0000-0000-7000-8000-0000000000b1";
 
 beforeEach(() => {
   server.use(
-    http.get(`${BASE}/admin/tests`, () =>
-      contractJson("/admin/tests", "get", 200, {
+    http.get(`${BASE}/teacher/tests`, () =>
+      contractJson("/teacher/tests", "get", 200, {
         facets: { all: 1, draft: 0, published: 1, archived: 0 },
         tags: [],
         items: [
@@ -45,8 +45,8 @@ beforeEach(() => {
         total: 1,
       }),
     ),
-    http.get(`${BASE}/admin/questions`, () =>
-      contractJson("/admin/questions", "get", 200, {
+    http.get(`${BASE}/teacher/questions`, () =>
+      contractJson("/teacher/questions", "get", 200, {
         facets: {
           all: 1,
           single_choice: 1,

@@ -31,7 +31,7 @@ func reserveSource(ctx context.Context, tx pgx.Tx, in domain.Reserve, quotas dom
 	if err := quotaLock(ctx, tx); err != nil {
 		return domain.Source{}, err
 	}
-	parent, err := scanImport(tx.QueryRow(ctx, `SELECT `+importColumns+` FROM app.word_imports WHERE id=$1 FOR UPDATE`, in.Source.ImportID))
+	parent, err := lockImport(ctx, tx, in.Source.ImportID, in.Actor)
 	if err != nil {
 		return domain.Source{}, err
 	}
@@ -93,7 +93,7 @@ func sameUpload(a, b domain.Source) bool {
 func (s *Postgres) Finish(ctx context.Context, in domain.Finish) (domain.Receipt, error) {
 	var out domain.Receipt
 	err := s.InTx(ctx, "finish import source", func(tx pgx.Tx) error {
-		parent, err := scanImport(tx.QueryRow(ctx, `SELECT `+importColumns+` FROM app.word_imports WHERE id=$1 FOR UPDATE`, in.ImportID))
+		parent, err := lockImport(ctx, tx, in.ImportID, in.Actor)
 		if err != nil {
 			return err
 		}
@@ -112,7 +112,7 @@ func (s *Postgres) Finish(ctx context.Context, in domain.Finish) (domain.Receipt
 			src.SourceRevision = parent.SourceRevision + 1
 		}
 		out.Source = src
-		out.Import, err = readImport(ctx, tx, parent.ID)
+		out.Import, err = readImport(ctx, tx, anyImport, parent.ID)
 		return err
 	})
 	return out, err

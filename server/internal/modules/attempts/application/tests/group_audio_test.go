@@ -129,11 +129,11 @@ func TestSharedPlaysDeduplicateConcurrentRetriesAndKeepIndependentScopes(t *test
 	if err != nil || loaded.GroupAudioPlays[first] != 11 || loaded.GroupAudioPlays[second] != 1 {
 		t.Fatalf("reload lost counts: %+v, %v", loaded.GroupAudioPlays, err)
 	}
-	timeline, err := svc.Queries.Timeline.Handle(ctx, query.Timeline{AttemptID: input.AttemptID})
+	timeline, err := svc.Queries.Timeline.Handle(ctx, query.Timeline{Scope: everyone, AttemptID: input.AttemptID})
 	if err != nil || timeline.Summary.AudioReplays != 9 {
 		t.Fatalf("timeline omitted shared replays: %+v, %v", timeline.Summary, err)
 	}
-	monitor, err := svc.Queries.Monitor.Handle(ctx, query.Monitor{AssignmentID: w.assignment})
+	monitor, err := svc.Queries.Monitor.Handle(ctx, query.Monitor{Scope: everyone, AssignmentID: w.assignment})
 	if err != nil || len(monitor.Rows) != 1 || !monitor.Rows[0].AudioOverLimit {
 		t.Fatalf("monitor omitted shared replays: %+v, %v", monitor.Rows, err)
 	}

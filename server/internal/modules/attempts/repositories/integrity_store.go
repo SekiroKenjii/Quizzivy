@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -20,8 +23,9 @@ func NewTimelines(dbx db.Context) *Timelines {
 	return &Timelines{Repository: db.NewRepository(dbx), now: time.Now}
 }
 
-// Timeline reads one attempt's log and builds §10.4's view of it.
-func (s *Timelines) Timeline(ctx context.Context, attemptID string) (domain.Timeline, error) {
+// Timeline reads the log of one attempt on an assignment the scope reaches and
+// builds §10.4's view of it; another teacher's answers ErrTimelineNotFound.
+func (s *Timelines) Timeline(ctx context.Context, scope access.Scope, attemptID string) (domain.Timeline, error) {
 	var (
 		startedAt    time.Time
 		minAwayMs    int
@@ -39,7 +43,8 @@ func (s *Timelines) Timeline(ctx context.Context, attemptID string) (domain.Time
 		           WHERE p.attempt_id=at.id AND r.max_plays IS NOT NULL),0)
 		  FROM app.attempts at
 		  JOIN app.assignments a ON a.id = at.assignment_id
-		 WHERE at.id = $1::uuid`, attemptID).Scan(&startedAt, &minAwayMs, &audioReplays)
+		 WHERE at.id = $1::uuid AND ($2::boolean OR at.assignment_id IN `+visibility.AssignmentIDs(3)+`)`,
+		attemptID, scope.All, opt.String(scope.UserID)).Scan(&startedAt, &minAwayMs, &audioReplays)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Timeline{}, domain.ErrTimelineNotFound
 	}

@@ -94,7 +94,7 @@ func TestListCostsAFixedNumberOfQueries(t *testing.T) {
 
 	measure := func(limit int) int {
 		before := tracer.count()
-		if _, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: limit}}); err != nil {
+		if _, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Scope: everyone, Limit: limit}}); err != nil {
 			t.Fatal(err)
 		}
 		return tracer.count() - before

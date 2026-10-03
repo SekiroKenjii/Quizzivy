@@ -183,6 +183,7 @@ Set these with `fly secrets set`, never in `fly.toml` — that file is committed
 DATABASE_URL           postgres://quizzivy_app:...@<neon-host>/quizzivy?sslmode=require
 MIGRATE_DATABASE_URL   postgres://quizzivy_migrate:...@<neon-host>/quizzivy?sslmode=require
 JWT_SIGNING_KEY        openssl rand -base64 48
+JOIN_CODE_KEY          openssl rand -base64 32, with an offline copy in the owner's password manager
 GOOGLE_CLIENT_SECRET   from the OAuth client
 S3_ENDPOINT            https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com
 S3_BUCKET              quizzivy-media

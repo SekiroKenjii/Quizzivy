@@ -20,7 +20,7 @@ func (h Tests) ListTests(ctx context.Context, request openapi.ListTestsRequestOb
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
 	if request.Params.Status != nil {
 		status := domain.Status(*request.Params.Status)
 		in.Status = &status
@@ -79,7 +79,7 @@ func (h Tests) GetTest(ctx context.Context, request openapi.GetTestRequestObject
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	t, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String()})
+	t, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgTestNotFound))}, nil
@@ -168,7 +168,7 @@ func (h Tests) DuplicateTest(ctx context.Context, request openapi.DuplicateTestR
 	}
 
 	t, err := h.app.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: req})
-	if errors.Is(err, domain.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrUnknownQuestion) {
 		return openapi.DuplicateTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgTestNotFound))}, nil
 	}
@@ -189,7 +189,7 @@ func testRequest(ctx context.Context, id string) (domain.Request, bool) {
 	}
 	meta := httpx.RequestMetaFromContext(ctx)
 	return domain.Request{
-		ID: id, ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent,
+		ID: id, ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent, Scope: httpapi.ScopeFromContext(ctx),
 	}, true
 }
 
@@ -296,7 +296,7 @@ func (h Tests) ListTestVersions(ctx context.Context, request openapi.ListTestVer
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	versions, err := h.app.Queries.ListVersions.Handle(ctx, query.ListVersions{TestID: request.Id.String()})
+	versions, err := h.app.Queries.ListVersions.Handle(ctx, query.ListVersions{TestID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +337,7 @@ func (h Tests) PreviewTest(ctx context.Context, request openapi.PreviewTestReque
 		version = *request.Params.Version
 	}
 
-	previewResult, err := h.app.Queries.Preview.Handle(ctx, query.Preview{TestID: request.Id.String(), Version: version})
+	previewResult, err := h.app.Queries.Preview.Handle(ctx, query.Preview{TestID: request.Id.String(), Version: version, Scope: httpapi.ScopeFromContext(ctx)})
 	resolved, questions := previewResult.Version, previewResult.Questions
 	if errors.Is(err, domain.ErrNotPublished) {
 		return openapi.PreviewTest409JSONResponse(httpapi.Error(ctx,

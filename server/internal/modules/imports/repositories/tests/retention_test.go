@@ -187,7 +187,7 @@ func TestRemovingFilesDeletesTheDraftMarksTheImportAndIsIdempotent(t *testing.T)
 	if err := h.pool.QueryRow(ctx, `SELECT count(*) FROM app.word_import_drafts WHERE import_id=$1`, id).Scan(&drafts); err != nil || drafts != 0 {
 		t.Fatalf("draft rows left: %d %v", drafts, err)
 	}
-	got, err := repo.Get(ctx, id)
+	got, err := repo.Get(ctx, everyone, id)
 	if err != nil || got.FilesRemovedAt == nil {
 		t.Fatalf("the import does not report its files removed: %v %v", got.FilesRemovedAt, err)
 	}

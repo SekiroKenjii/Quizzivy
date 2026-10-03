@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/validation"
 
 	"github.com/jackc/pgx/v5"
 )
 
-func prepareQuestionContent(ctx context.Context, tx pgx.Tx, id string, in *domain.Input, update bool, groupID *string) error {
+func prepareQuestionContent(ctx context.Context, tx pgx.Tx, write *domain.WriteInput, update bool, groupID *string) error {
+	in := &write.Input
 	if !update {
 		return in.ValidateContent()
 	}
@@ -19,7 +21,8 @@ func prepareQuestionContent(ctx context.Context, tx pgx.Tx, id string, in *domai
 	var promptContent, explanationContent json.RawMessage
 	err := tx.QueryRow(ctx, `SELECT prompt, explanation, prompt_content, explanation_content
         FROM app.questions WHERE id = $1 AND deleted_at IS NULL
-          AND context_group_id IS NOT DISTINCT FROM $2::uuid FOR UPDATE`, id, groupID).
+          AND context_group_id IS NOT DISTINCT FROM $2::uuid AND ($3::boolean OR owner_id = $4::uuid) FOR UPDATE`,
+		write.ID, groupID, write.All || groupID != nil, opt.String(write.ActorID)).
 		Scan(&prompt, &explanation, &promptContent, &explanationContent)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound

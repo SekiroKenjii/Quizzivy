@@ -54,9 +54,9 @@ async function setup(page: Page) {
   };
   await stubApi(page, {
     ...sessionAs(adminUser),
-    [`GET /admin/question-groups/${groupId}`]: (route) =>
+    [`GET /teacher/question-groups/${groupId}`]: (route) =>
       route.fulfill({ json: state.stored }),
-    [`PUT /admin/question-groups/${groupId}`]: (route) => {
+    [`PUT /teacher/question-groups/${groupId}`]: (route) => {
       state.writes++;
       if (state.offline)
         return route.fulfill({
@@ -79,7 +79,7 @@ async function setup(page: Page) {
       };
       return route.fulfill({ json: state.stored });
     },
-    "GET /admin/question-groups": (route) =>
+    "GET /teacher/question-groups": (route) =>
       route.fulfill({
         json: {
           items: [state.stored, ...state.copies].map((item) => ({
@@ -98,19 +98,19 @@ async function setup(page: Page) {
           pageSize: 20,
         },
       }),
-    "POST /admin/question-groups": async (route) => {
+    "POST /teacher/question-groups": async (route) => {
       const body = route
         .request()
         .postDataJSON() as components["schemas"]["GroupCreateInput"];
       const copy = { ...initial(), bundle: body.bundle };
       state.copies.push(copy);
       await page.route(
-        `http://localhost:8080/admin/question-groups/${copy.bundle.group.id}`,
+        `http://localhost:8080/teacher/question-groups/${copy.bundle.group.id}`,
         (read) => read.fulfill({ json: copy }),
       );
       return route.fulfill({ status: 201, json: copy });
     },
-    "GET /admin/questions": {
+    "GET /teacher/questions": {
       body: {
         items: [],
         total: 0,
@@ -328,7 +328,7 @@ test("material assets, links and stable gap bindings survive preview and undo", 
 }) => {
   const state = await setup(page);
   const imageId = "019535d9-3df7-79fb-b466-fa907fa17fa3";
-  await page.route("http://localhost:8080/admin/media?*", (route) =>
+  await page.route("http://localhost:8080/teacher/media?*", (route) =>
     route.fulfill({
       json: {
         items: [

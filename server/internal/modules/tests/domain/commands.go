@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/validation"
 	"strconv"
 	"strings"
@@ -15,13 +16,16 @@ type ListInput struct {
 	Query string
 	Page  int
 	Limit int
+	Scope access.Scope
 }
 
-// CreateInput is a new empty draft.
+// CreateInput is a new empty draft, owned by OwnerID when set and by ActorID
+// otherwise; ActorID is recorded as its creator either way.
 type CreateInput struct {
 	Title       string
 	Description *string
 	ActorID     string
+	OwnerID     string
 	Now         time.Time
 	IP          string
 	UserAgent   string
@@ -35,6 +39,7 @@ type UpdateRequest struct {
 	Now       time.Time
 	IP        string
 	UserAgent string
+	Scope     access.Scope
 }
 
 // UpdateInput is the autosave body. Nil fields are left alone; a non-nil
@@ -67,13 +72,17 @@ type DuplicateInput struct {
 	Now       time.Time
 	IP        string
 	UserAgent string
+	Scope     access.Scope
 }
 
+// Request identifies a test and who acts on it; Scope is whose tests the
+// actor may reach, and a test outside it is ErrNotFound.
 type Request struct {
 	ID        string
 	ActorID   string
 	IP        string
 	UserAgent string
+	Scope     access.Scope
 }
 
 func sectionField(i int, field string) string {

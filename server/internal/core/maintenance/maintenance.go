@@ -72,11 +72,12 @@ func AnonymizeStudent(ctx context.Context, conn db.Conn, studentID string, apply
 		return out, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var role string
-	if err := tx.QueryRow(ctx, `SELECT role::text FROM app.users WHERE id = $1 FOR UPDATE`, studentID).Scan(&role); err != nil {
+	var studentLike bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM app.student_like_roles r WHERE r.id = u.role_id)
+		 FROM app.users u WHERE u.id = $1 FOR UPDATE OF u`, studentID).Scan(&studentLike); err != nil {
 		return out, fmt.Errorf("find student: %w", err)
 	}
-	if role != "student" {
+	if !studentLike {
 		return out, errors.New("only student accounts may be anonymized")
 	}
 	var active bool

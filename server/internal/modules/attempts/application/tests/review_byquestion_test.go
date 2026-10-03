@@ -22,7 +22,7 @@ func TestOneQuestionIsReadAcrossEveryHandedInPaper(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	byQ, err := store.AnswersForQuestion(ctx, assignmentID, p.essay)
+	byQ, err := store.AnswersForQuestion(ctx, everyone, assignmentID, p.essay)
 	if err != nil {
 		t.Fatalf("answers for question: %v", err)
 	}
@@ -46,13 +46,13 @@ func TestOneQuestionIsReadAcrossEveryHandedInPaper(t *testing.T) {
 		t.Errorf("row %+v should carry the unmarked answer", item)
 	}
 
-	if _, err := store.AnswersForQuestion(ctx, assignmentID, p.choice); err != nil {
+	if _, err := store.AnswersForQuestion(ctx, everyone, assignmentID, p.choice); err != nil {
 		t.Errorf("a non-manual question on the paper is still readable: %v", err)
 	}
-	if _, err := store.AnswersForQuestion(ctx, assignmentID, "00000000-0000-7000-8000-000000000000"); !errors.Is(err, domain.ErrQuestionNotOnPaper) {
+	if _, err := store.AnswersForQuestion(ctx, everyone, assignmentID, "00000000-0000-7000-8000-000000000000"); !errors.Is(err, domain.ErrQuestionNotOnPaper) {
 		t.Errorf("a question off the paper: %v, want ErrQuestionNotOnPaper", err)
 	}
-	if _, err := store.AnswersForQuestion(ctx, "00000000-0000-7000-8000-000000000000", p.essay); !errors.Is(err, domain.ErrPaperNotFound) {
+	if _, err := store.AnswersForQuestion(ctx, everyone, "00000000-0000-7000-8000-000000000000", p.essay); !errors.Is(err, domain.ErrPaperNotFound) {
 		t.Errorf("an unknown assignment: %v, want ErrPaperNotFound", err)
 	}
 }

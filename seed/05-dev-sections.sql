@@ -7,7 +7,8 @@
 -- parts, two with instructions, four question types, no audio (E2E 8 authors
 -- its own audio test through the admin UI, for the same reason as before).
 --
--- Fixed uuids, ON CONFLICT DO NOTHING, like every other seed file.
+-- Relies on 01: the Admin (…00a1) and the class (…00c1). Fixed uuids, ON
+-- CONFLICT DO NOTHING, like every other seed file.
 
 INSERT INTO app.tests (id, title, description, status, current_version, created_by)
 VALUES (

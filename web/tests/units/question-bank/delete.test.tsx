@@ -36,8 +36,8 @@ beforeEach(() => {
   deletes = 0;
   referenced = false;
   server.use(
-    http.get(`${BASE}/admin/questions`, () =>
-      contractJson("/admin/questions", "get", 200, {
+    http.get(`${BASE}/teacher/questions`, () =>
+      contractJson("/teacher/questions", "get", 200, {
         facets: {
           all: 1,
           single_choice: 1,
@@ -54,7 +54,7 @@ beforeEach(() => {
         total: 1,
       }),
     ),
-    http.delete(`${BASE}/admin/questions/${ID}`, () => {
+    http.delete(`${BASE}/teacher/questions/${ID}`, () => {
       deletes += 1;
       if (referenced) {
         return HttpResponse.json(

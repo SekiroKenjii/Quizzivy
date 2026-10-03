@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// Preview renders a published version the way a student would receive it.
-func (s *Postgres) Preview(ctx context.Context, testID string, version int) (domain.PreviewPaper, error) {
+// Preview renders a published version the way a student would receive it. A
+// test outside scope is domain.ErrNotPublished, as an unknown id is.
+func (s *Postgres) Preview(ctx context.Context, scope access.Scope, testID string, version int) (domain.PreviewPaper, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.PreviewPaper{}, err
@@ -23,8 +26,9 @@ func (s *Postgres) Preview(ctx context.Context, testID string, version int) (dom
         SELECT v.id::text, v.version FROM app.test_versions v
         JOIN app.tests t ON t.id=v.test_id
         WHERE v.test_id=$1 AND t.deleted_at IS NULL
+        AND ($3::boolean OR t.owner_id = $4::uuid)
         AND v.version=CASE WHEN $2::integer=0 THEN t.current_version ELSE $2 END
-        FOR SHARE OF v`, testID, version).Scan(&versionID, &paper.Version)
+        FOR SHARE OF v`, testID, version, scope.All, opt.String(scope.UserID)).Scan(&versionID, &paper.Version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PreviewPaper{}, domain.ErrNotPublished
 	}

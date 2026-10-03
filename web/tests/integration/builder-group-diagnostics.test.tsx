@@ -54,17 +54,17 @@ test("a publication finding opens the owned member editor without trying the sta
   };
   let standaloneReads = 0;
   server.use(
-    http.get("http://localhost:8080/admin/tests/:id", () =>
-      contractJson("/admin/tests/{id}", "get", 200, draft),
+    http.get("http://localhost:8080/teacher/tests/:id", () =>
+      contractJson("/teacher/tests/{id}", "get", 200, draft),
     ),
-    http.get("http://localhost:8080/admin/question-groups/:id", () =>
-      contractJson("/admin/question-groups/{id}", "get", 200, group),
+    http.get("http://localhost:8080/teacher/question-groups/:id", () =>
+      contractJson("/teacher/question-groups/{id}", "get", 200, group),
     ),
-    http.get("http://localhost:8080/admin/questions/:id", () => {
+    http.get("http://localhost:8080/teacher/questions/:id", () => {
       standaloneReads++;
       return new Response(null, { status: 404 });
     }),
-    http.post("http://localhost:8080/admin/tests/:id/publish", () =>
+    http.post("http://localhost:8080/teacher/tests/:id/publish", () =>
       Response.json(
         {
           error: { code: "PUBLISH_VALIDATION_FAILED", message: "Cần sửa nội dung" },

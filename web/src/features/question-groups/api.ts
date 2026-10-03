@@ -18,31 +18,31 @@ export interface ListGroupsParams {
 
 export function listGroups(params: ListGroupsParams = {}, signal?: AbortSignal) {
   const query = { ...params };
-  return api("get", "/admin/question-groups", signal ? { query, signal } : { query });
+  return api("get", "/teacher/question-groups", signal ? { query, signal } : { query });
 }
 
 export function getGroup(id: string, signal?: AbortSignal) {
   return api(
     "get",
-    "/admin/question-groups/{id}",
+    "/teacher/question-groups/{id}",
     signal ? { path: { id }, signal } : { path: { id } },
   );
 }
 
 export function createGroup(body: GroupCreateInput) {
-  return api("post", "/admin/question-groups", { body });
+  return api("post", "/teacher/question-groups", { body });
 }
 
 export function updateGroup(id: string, body: GroupUpdateInput) {
-  return api("put", "/admin/question-groups/{id}", { path: { id }, body });
+  return api("put", "/teacher/question-groups/{id}", { path: { id }, body });
 }
 
 export function copyGroup(id: string, body: GroupCopyInput) {
-  return api("post", "/admin/question-groups/{id}/copy", { path: { id }, body });
+  return api("post", "/teacher/question-groups/{id}/copy", { path: { id }, body });
 }
 
 export function archiveGroup(group: StoredGroup | GroupSummary, archived: boolean) {
-  return api("patch", "/admin/question-groups/{id}/archive", {
+  return api("patch", "/teacher/question-groups/{id}/archive", {
     path: { id: "bundle" in group ? group.bundle.group.id : group.id },
     body: { expectedRevision: group.revision, archived },
   });
@@ -53,7 +53,7 @@ export function deleteGroup(
   expectedRevision: number,
   expectedTestUpdatedAt?: string,
 ) {
-  return api("delete", "/admin/question-groups/{id}", {
+  return api("delete", "/teacher/question-groups/{id}", {
     path: { id },
     query: {
       expectedRevision,

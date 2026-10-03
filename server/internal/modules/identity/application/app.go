@@ -29,6 +29,15 @@ func (a *Application) SetGoogle(p ports.GoogleProvider, enroller ports.SelfEnrol
 	a.service.SetGoogle(p, enroller)
 }
 
+// SetPrincipals attaches the access module's principal cache, so a disable or
+// a password reset takes effect on this machine's next request, and a new
+// session shows the user the permissions their role holds. Without it,
+// sessions carry none.
+func (a *Application) SetPrincipals(p ports.Principals) {
+	a.students.Principals = p
+	a.service.Principals = p
+}
+
 type Commands struct {
 	DeleteStudent        cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
 	ChangePassword       cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
@@ -46,10 +55,11 @@ type Commands struct {
 }
 
 type Queries struct {
-	CurrentUser   cqrs.QueryHandler[query.CurrentUser, domain.User]
-	GetStudent    cqrs.QueryHandler[query.GetStudent, domain.Student]
-	ListStudents  cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
-	StudentFacets cqrs.QueryHandler[query.StudentFacets, domain.StudentFacets]
+	CurrentUser    cqrs.QueryHandler[query.CurrentUser, domain.User]
+	GetStudent     cqrs.QueryHandler[query.GetStudent, domain.Student]
+	ListStudents   cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
+	StudentAccount cqrs.QueryHandler[query.StudentAccount, domain.Account]
+	StudentFacets  cqrs.QueryHandler[query.StudentFacets, domain.StudentFacets]
 }
 
 func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, repo domain.Students, stats stats.Source) *Application {
@@ -72,10 +82,11 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 			UpdateStudent:        command.UpdateStudentHandler{Students: students},
 		},
 		Queries: Queries{
-			CurrentUser:   query.CurrentUserHandler{Service: service},
-			GetStudent:    query.GetStudentHandler{Students: students},
-			ListStudents:  query.ListStudentsHandler{Students: students},
-			StudentFacets: query.StudentFacetsHandler{Students: students},
+			CurrentUser:    query.CurrentUserHandler{Service: service},
+			GetStudent:     query.GetStudentHandler{Students: students},
+			ListStudents:   query.ListStudentsHandler{Students: students},
+			StudentAccount: query.StudentAccountHandler{Students: students},
+			StudentFacets:  query.StudentFacetsHandler{Students: students},
 		},
 		service:  service,
 		students: students,

@@ -11,7 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// SoftDelete marks an unreferenced asset deleted and audits it.
+const scopedAsset = `($2::boolean OR owner_id = $3::uuid)`
+
+// SoftDelete marks an unreferenced asset in the actor's scope deleted and
+// audits it. The scope is checked before the references, so an asset outside
+// it answers ErrNotFound and never the tests and groups that use it.
 func (s *Postgres) SoftDelete(ctx context.Context, in domain.DeleteInput) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -20,8 +24,8 @@ func (s *Postgres) SoftDelete(ctx context.Context, in domain.DeleteInput) error 
 	defer func() { _ = tx.Rollback(ctx) }()
 	var alreadyDeleted bool
 	err = tx.QueryRow(ctx,
-		`SELECT deleted_at IS NOT NULL FROM app.media_assets WHERE id = $1 FOR UPDATE`,
-		in.ID).Scan(&alreadyDeleted)
+		`SELECT deleted_at IS NOT NULL FROM app.media_assets WHERE id = $1 AND `+scopedAsset+` FOR UPDATE`,
+		in.ID, in.All, opt.String(in.ActorID)).Scan(&alreadyDeleted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}

@@ -260,10 +260,12 @@ CREATE UNIQUE INDEX class_join_codes_one_active
   ON app.class_join_codes (class_id) WHERE revoked_at IS NULL;
 ```
 
-- `code_hash` is the only lookup path. `POST /join/preview` is
-  `WHERE code_hash = $1 AND revoked_at IS NULL AND expires_at > now()`, which the
-  `UNIQUE` serves. The plaintext code is never stored (§13.3), so a database dump
-  does not hand over class access.
+- `code_hash` is the only lookup path, through its `UNIQUE` index. A typed code
+  is looked up as `code_hash = ANY(candidates)`, and revocation, expiry and
+  uses are judged on the row found (§33). The plaintext code is never stored
+  (§13.3). From `00078` a new code is also sealed under a key the database
+  never holds (D-27), so a dump does not hand it over; a legacy row's SHA-256
+  still does, in 2^20 guesses, until R4 rotates it (§33).
 - **The exhaustion check is in the database**, not only in the handler. §6.5
   treats the code as a bearer secret; a `uses_count > max_uses` row is a silent
   policy failure and this makes it impossible.
@@ -404,7 +406,7 @@ CREATE INDEX media_assets_checksum_idx
 - `uploaded_by ON DELETE RESTRICT`: an asset referenced by a frozen test version
   must not lose its provenance.
 - `deleted_at` soft delete per §13.2 — history matters here because a published
-  version may reference the row. `DELETE /admin/media/:id` (§15) returns `409`
+  version may reference the row. `DELETE /teacher/media/:id` (§15) returns `409`
   when `test_version_questions` still references it; only unreferenced assets
   get a `deleted_at`. **R2 object lifecycle after soft delete is deliberately
   out of scope for v1** — the object stays. See `40-open-items.md`.
@@ -803,7 +805,7 @@ CREATE TABLE app.test_version_blank_answers (
 ```
 
 - **`tvq_media_idx` is load-bearing, not decorative.** It is the index behind
-  §15's `DELETE /admin/media/:id → 409 if referenced by a published version` and
+  §15's `DELETE /teacher/media/:id → 409 if referenced by a published version` and
   behind §8's "Delete blocked if referenced". Without it that check is a full
   scan of every version question on every delete attempt.
 - **`source_question_id ON DELETE SET NULL` [D-07]**, deviating from the
@@ -1234,6 +1236,13 @@ listed here matches the spec.
 | D-18 | `assignments`: no `status` column; add `closed_at` | §7's status is a pure function of the window; storing it needs a scheduler and invents a stale-state bug class |
 | D-19 | `attempt_answers`: add `requires_manual`, `graded_by`, `graded_at` | `final_score` is VIRTUAL and unindexable, so `pendingManual` needs a real-column predicate |
 | D-20 | Add `maintenance_windows`, read-only for the app role; written only through `cmd/maintenance`, whose extensions are audited as System | §13 has no maintenance state; the API must be able to answer 503 without being able to schedule, move or cancel a window itself (T-R1.12) |
+| D-21 | Reference data the app cannot run without is written by a migration, not `seed/`: the permission catalogue (`permissions`), the four built-in `roles` and their grants (`role_permissions`) | §13.7 keeps seed data out of migrations, but a production database with no roles cannot sign anyone in; plan 70 §3 (T-R2.1) |
+| D-22 | `tests`, `questions`, `question_groups` and `media_assets` gain `owner_id` beside `created_by` / `uploaded_by`; `users` gains a nullable `created_by` | Ownership is who a row belongs to and provenance is who made it. R5's ownership transfer and R7's co-editing move the first and must not rewrite the second (T-R2.9) |
+| D-23 | `classes.teacher_id` is backfilled from the oldest active Admin, with no `classes.created_by` | `app.classes` never recorded a creator, and the oldest active Admin is who v0.7.0 shows as every class's teacher, so no teacher changes; a class's creator from R2 on is its `class.created` audit row (Thuong, 2026-09-28; T-R2.9) |
+| D-24 | Add the view `app.student_like_roles`, the one strict-student predicate: the built-in Student, or a custom role holding nothing but `learning.take_tests`; the other built-in roles are excluded by key | The Admin stores only its "Take tests" cell, so a predicate on grants alone would make it a student target; every student read and write, the legacy-role sync and the anonymiser use this one definition (plan 70 §4.3, T-R2.1) |
+| D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum, expand half: added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step until R3 drops the column and the enum | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
+| D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
+| D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
 
 ---
 
@@ -1297,23 +1306,50 @@ the file it adds.
 | `00051_grant_word_import_draft_delete.sql` | Lets the retention sweep delete a review draft when it removes an import's files | Word D-08 |
 | `00052_allow_pdf_import_sources.sql` | PDF sources | Word D-10 |
 | `00053_create_maintenance_windows.sql` | `maintenance_windows`, read-only for the app role | R1 (T-R1.12) |
+| `00054_create_roles_and_permissions.sql` | `permissions`, `roles`, `role_permissions`, the built-in rows and their guard triggers; read-only for the app role | R2 (T-R2.1), D-21 |
+| `00055_create_student_like_roles_view.sql` | `student_like_roles`, the strict student predicate | R2 (T-R2.1), D-24 |
+| `00056_add_users_role_id.sql` | `users.role_id`, backfilled, `NOT NULL NOT VALID`, with the legacy-role sync trigger | R2 (T-R2.2), D-25 |
+| `00057_index_users_role_id.sql` | `users_role_id_active_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.2) |
+| `00058_add_users_session_epoch.sql` | `users.session_epoch` | R2 (T-R2.2) |
+| `00059_add_users_last_admin_guard.sql` | the `users_last_admin` trigger, the schema's first `SECURITY DEFINER` function | R2 (T-R2.2), D-26 |
+| `00060_add_tests_owner.sql` | `tests.owner_id`, backfilled from `created_by`, `NOT NULL NOT VALID`, with `app.fill_owner_from_created_by()` and its fill trigger | R2 (T-R2.9), D-22 |
+| `00061_add_questions_owner.sql` | `questions.owner_id`, the same way | R2 (T-R2.9), D-22 |
+| `00062_add_question_groups_owner.sql` | `question_groups.owner_id`, the same way | R2 (T-R2.9), D-22 |
+| `00063_add_media_assets_owner.sql` | `media_assets.owner_id` from `uploaded_by`, with `app.fill_owner_from_uploaded_by()` | R2 (T-R2.9), D-22 |
+| `00064_add_users_created_by.sql` | `users.created_by`, nullable, `ON DELETE SET NULL` | R2 (T-R2.9), D-22 |
+| `00065_add_classes_teacher.sql` | `classes.teacher_id` from the oldest active Admin, `NOT NULL NOT VALID`, with `classes_fill_teacher` | R2 (T-R2.9), D-23 |
+| `00066_add_tests_owner_fkey.sql` | `tests_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00067_add_questions_owner_fkey.sql` | `questions_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00068_add_question_groups_owner_fkey.sql` | `question_groups_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00069_add_media_assets_owner_fkey.sql` | `media_assets_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00070_add_classes_teacher_fkey.sql` | `classes_teacher_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00071_index_classes_teacher.sql` | `classes_teacher_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00072_index_tests_owner.sql` | `tests_owner_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00073_index_questions_owner.sql` | `questions_owner_bank_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00074_index_question_groups_owner.sql` | `question_groups_owner_bank_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00075_index_media_assets_owner.sql` | `media_assets_owner_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00076_index_users_created_by.sql` | `users_created_by_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00077_index_assignments_creator.sql` | `assignments_creator_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00078_add_join_code_encryption.sql` | `class_join_codes.code_ciphertext`, `key_id`, `lookup_scheme` and their four checks; Down refuses a live scheme-2 code | R2 (T-R2.14a), D5, D-27 |
 
 Notes on migration mechanics (§13.7):
 
 - Every file has a `-- +goose Down` that is actually correct. CI runs `up` then
   `down` then `up` against a clean `postgres:18` (T-0.17), so an unreversible
   migration is a red build on the day it is written.
-- **No `CREATE INDEX CONCURRENTLY` in any of these.** All 22 create empty tables,
-  where a plain `CREATE INDEX` is instant and transactional. `CONCURRENTLY`
-  becomes mandatory the first time an index is added to a populated table —
-  and that file gets `-- +goose NO TRANSACTION`, because
+- **No `CREATE INDEX CONCURRENTLY` in `00001`–`00022`.** They create empty
+  tables, where a plain `CREATE INDEX` is instant and transactional.
+  `CONCURRENTLY` becomes mandatory once an index is added to a populated table
+  (`00029`, `00036`, `00038`, `00057`, `00071`–`00077`), and each such file
+  gets `-- +goose NO TRANSACTION`, because
   [CREATE INDEX CONCURRENTLY cannot run inside a transaction block](https://www.postgresql.org/docs/18/sql-createindex.html)
   and leaves an `INVALID` index if it fails.
-- **`NOT NULL … NOT VALID` does not appear here.** Every column that should be
-  `NOT NULL` says so inline at `CREATE TABLE`, where it is free. The PG18
-  construct (§13.6) applies only to tightening an existing nullable column
-  against existing rows — realistically Phase 5 or later. T-0.16 verifies it
-  works so it is proven when needed rather than assumed.
+- **`NOT NULL … NOT VALID` only where a populated table gains a column.**
+  Every column of a new table says `NOT NULL` inline at `CREATE TABLE`, where
+  it is free. R2 is the first to need the PG18 construct (§13.6): `00056`,
+  `00060`–`00063` and `00065` backfill a new column, add `NOT NULL … NOT
+  VALID`, and leave validation to R3 (§30, §31). T-0.16 proved it before it
+  was needed.
 - **`00009` runs in Phase 1, not last.** It was originally scheduled for Phase 3
   on the reasoning that `GRANT … ON ALL TABLES` must follow the tables. That is
   backwards: it left `quizzivy_app` unable to read anything from the first table
@@ -1323,7 +1359,8 @@ Notes on migration mechanics (§13.7):
   it, so one early migration covers every table Phases 2–5 add. Custom types
   need their own `USAGE`; schema `USAGE` is not enough to reference
   `app.user_role` in a query.
-- Seed data lives in `seed/`, never in a migration (§13.7).
+- Seed data lives in `seed/`, never in a migration (§13.7). The exception is
+  reference data the app cannot run without (D-21).
 
 ## 14. Query discipline (§13.8)
 
@@ -1886,3 +1923,263 @@ Every transaction advisory lock this codebase takes is
 | 41 | Reserved: R4's legacy join-code rotation | Confirmed by R4 |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
 
+## 29. Roles and permissions (T-R2.1)
+
+`00054_create_roles_and_permissions.sql` stores the access model of plan 70 §4.1
+as data. Its rows are reference data the app cannot run without, so the file
+writes them (D-21).
+
+- `app.permissions (key text PK, group_key, ordinal, in_matrix)` holds the
+  catalogue: the deck's eighteen matrix rows in the matrix's order, with
+  "Create student accounts" second in People (DG-03), then the four hidden keys
+  (`scope.all`, `system.api_reference`, `system.data_export`, `system.leads`)
+  with `in_matrix = false`, ordinals 4–7 of `system`. `key` is checked against
+  `^[a-z]+(\.[a-z_]+)+$`, and `(group_key, ordinal)` is unique.
+  `core/tests/catalogue_test.go` asserts that the table, `access.All()` and the
+  contract's `PermissionKey` enum are the same list in the same order.
+- `app.roles (id uuid PK DEFAULT uuidv7(), builtin_key UNIQUE, name, description,
+  icon, color, copied_from, revision, created_by, created_at, updated_at)`.
+  `builtin_key` is one of `admin`, `teacher`, `assistant`, `student`, or NULL for
+  a custom role, and `roles_builtin_key_immutable` refuses any change to it.
+  `icon` and `color` are checked against the Edit role dialog's twelve icons and
+  seven colours. Names are unique case-insensitively (`roles_name_lower_key`).
+  `revision` starts at 1 and moves with every grant change, so a cache keyed by
+  `(id, revision)` is never stale. `copied_from` and `created_by` are not
+  indexed: the table holds a handful of rows.
+- `app.role_permissions (role_id, permission_key)` is the grant table, PK on the
+  pair, with `role_permissions_permission_key_idx` for the foreign key to
+  `permissions` (`ON DELETE RESTRICT`). A role's grants go with it
+  (`ON DELETE CASCADE`), although nothing may delete a role (DG-52).
+- The built-in rows: Quản trị viên (shield, dark), Giáo viên (graduation-cap,
+  lime), Trợ giảng (hand-helping, blue), Học viên (user, gray), with the deck's
+  descriptions in Vietnamese (D2, D11). The Teacher holds 13 keys, the Assistant
+  6 and the Student `learning.take_tests`. The Admin stores nothing: it is the
+  wildcard, with "Take tests" off (DG-51).
+- Triggers on `role_permissions`, all row-level:
+  - `role_permissions_guard` (BEFORE INSERT OR UPDATE) refuses a hidden key for
+    any role, and any key but `learning.take_tests` for the Admin.
+  - `role_permissions_keep_student_take_tests` (BEFORE DELETE OR UPDATE) keeps
+    `learning.take_tests` on the built-in Student.
+  - `role_permissions_bump_revision` (AFTER INSERT OR UPDATE OR DELETE) moves
+    `roles.revision` for every role a grant leaves or joins. It runs as the
+    invoker; R5's role commands get UPDATE on `revision` with their writes.
+  UPDATE is covered although no role may update a grant: an update is a delete
+  and an insert in one statement.
+- All three tables are read-only for `quizzivy_app`, narrowing `00009`'s
+  default privileges; R5 (T-R5.8) grants the role commands' writes, never
+  DELETE on `roles` and never any write on `permissions`.
+
+`00055_create_student_like_roles_view.sql` adds `app.student_like_roles (id)`,
+the one definition of a strict student target (plan 70 §4.3, D-24): the built-in
+Student, or a custom role holding nothing but `learning.take_tests`. Built-in
+roles other than Student are excluded by key, because the Admin stores only its
+"Take tests" cell and would otherwise match. A single-table view is
+automatically updatable, so the file revokes INSERT, UPDATE and DELETE on it
+from `quizzivy_app`. `access.IsStudentLike` is the same predicate in Go.
+
+## 30. A role per user, the session epoch and the last Admin (T-R2.2)
+
+The expand half of moving users from `users.role` to `users.role_id` (plan 70
+§3, D-25). R3 validates the constraint, drops the sync trigger, `users.role`,
+`users_role_active_idx` and `app.user_role`.
+
+- `00056_add_users_role_id.sql` adds `role_id uuid REFERENCES app.roles ON
+  DELETE RESTRICT`, nullable, and backfills it: `admin` → the Admin role,
+  `student` → the Student role. `users_set_updated_at` is disabled for the
+  backfill, so `updated_at` keeps meaning "the user changed". The file raises if
+  a row is still NULL, then adds `users_role_id_not_null NOT NULL role_id NOT
+  VALID` (PG18), which holds for every new and updated row.
+- `users_sync_legacy_role` (BEFORE INSERT OR UPDATE OF `role`, `role_id`) keeps
+  the two columns in step while v0.7.0 and v0.8.0 machines overlap:
+  - an insert without `role_id` is the old binary's and takes it from `role`;
+  - an insert or update with `role_id` derives `role`: `student` for a role in
+    `student_like_roles`, `admin` for any other, over the column default;
+  - an update of `role` alone re-derives `role_id`.
+  The new binary inserts `role_id` (the built-in Student, found by
+  `builtin_key` in the statement) and reads the legacy value through
+  `student_like_roles`.
+- `00057_index_users_role_id.sql` builds `users_role_id_active_idx ON app.users
+  (role_id) WHERE disabled_at IS NULL` `CONCURRENTLY`, in a `NO TRANSACTION`
+  file, because the table is populated.
+- `00058_add_users_session_epoch.sql` adds `session_epoch integer NOT NULL
+  DEFAULT 0` with `users_session_epoch_check (session_epoch >= 0)`. The
+  constant default is metadata-only. A command that ends a user's access bumps
+  it; in R2, a disable and a staff password reset.
+- `00059_add_users_last_admin_guard.sql` adds `users_last_admin`, AFTER UPDATE
+  OR DELETE, row-level, with no column list. When the old row was an active
+  Admin and the new one is not, it takes `FOR NO KEY UPDATE` on the Admin row of
+  `app.roles`, then raises `check_violation` with constraint `users_last_admin`
+  if no active Admin remains. The count is its own statement, so under READ
+  COMMITTED it sees a concurrent departure the lock waited for: of two
+  transactions disabling the only two Admins, exactly one commits. Any other
+  change returns before locking, so disabling a student takes no lock on
+  `roles`.
+  - The guarantee holds under READ COMMITTED, which every writer in the app
+    uses, and under SERIALIZABLE. Two REPEATABLE READ transactions count on
+    their own snapshots and could both pass; only a hand-written transaction
+    runs that way. Locking the remaining Admins `FOR SHARE` would close it, but
+    two departures that leave a third Admin would then deadlock, and that is
+    the likelier case.
+  - `FOR NO KEY UPDATE`, not `FOR UPDATE`: it serialises the guard against
+    itself without conflicting with the `FOR KEY SHARE` a foreign-key check on
+    `users.role_id` takes, so promoting one user to Admin does not hold up
+    another Admin's departure (and two transfers cannot deadlock).
+  - No column list: the v0.7.0 binary demotes by writing `role`, and a column
+    list matches the columns an UPDATE names, not those a BEFORE trigger sets.
+    Naming `role` would also make R3's `DROP COLUMN role` depend on the trigger.
+- **The schema's first `SECURITY DEFINER` function (D-26).** The row lock
+  needs UPDATE privilege on `app.roles`, which `00054` revokes from
+  `quizzivy_app`. Running as the invoker, R5's demote and disable would fail
+  with 42501 instead of the guard. It is owned by `quizzivy_migrate` and
+  hardened as the PostgreSQL docs require for definer functions:
+  - `search_path = pg_catalog, app, pg_temp`. An unlisted `pg_temp` is searched
+    first for relations and types, so a session that can create temporary
+    objects could otherwise plant a `pg_temp.uuid` domain whose CHECK runs as
+    the owner.
+  - Every type and relation inside is schema-qualified.
+  - EXECUTE is revoked from PUBLIC, so no role can attach it to a table of its
+    own. A trigger fires regardless of EXECUTE.
+
+`platform/db/tests/expand_r2_test.go` proves all of this on a scratch database.
+It migrates to the version before `create_roles_and_permissions`, writes users
+the v0.7.0 way, migrates the rest of the way up, then checks the backfill and
+`updated_at`. As the app role, it checks both insert paths, the last-Admin
+refusals and the two-transaction race, and it checks the definer's
+attributes and that a foreign-key check on the Admin role does not hold the
+guard up. It carries the `integration` tag and runs where `TEST_DESTRUCTIVE=1`
+is set, as CI does.
+
+## 31. Ownership (T-R2.9)
+
+The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). R3
+validates every constraint below and drops the fill triggers and their
+functions (73-r3.md T-R3.2).
+
+- `00060`–`00063` add `owner_id uuid` to `tests`, `questions`,
+  `question_groups` and `media_assets`, beside the provenance column each
+  already has. Each file:
+  - backfills `owner_id` from `created_by` (`uploaded_by` for media) with the
+    table's `*_set_updated_at` trigger disabled, so no `updated_at` moves. An
+    open builder tab sends a test's `updated_at` back as `expectedUpdatedAt`,
+    and a moved value would fail its next autosave with `STALE_WRITE` during
+    the deploy. `media_assets` has no `updated_at`;
+  - raises if a row is still NULL;
+  - adds `<table>_owner_id_not_null NOT NULL owner_id NOT VALID` (PG18);
+  - adds a BEFORE INSERT trigger, `<table>_fill_owner`, that sets `owner_id`
+    from the provenance column when the v0.7.0 binary inserts without it.
+    `00060` creates `app.fill_owner_from_created_by()`, which `00061` and
+    `00062` reuse; `00063` creates `app.fill_owner_from_uploaded_by()`.
+- `00064` adds `users.created_by uuid REFERENCES app.users ON DELETE SET NULL`,
+  nullable and not backfilled. NULL means the creator is unknown: every account
+  that predates R2, and a Google self-join, which has none. Deleting the
+  creator clears it rather than taking the account with it.
+- `00065` adds `classes.teacher_id uuid`. `app.classes` has never had a
+  `created_by`, so the backfill takes
+  the oldest active Admin (by `created_at`, then `id`), the teacher v0.7.0
+  shows for every class. It raises if no active Admin exists and a class does.
+  `classes_fill_teacher` (BEFORE INSERT) applies the same rule to the old
+  binary's inserts; it and its function `app.classes_fill_teacher()` share the
+  name. It reads `users.role_id`, not the legacy `role`, so R3's `DROP COLUMN
+  role` cannot break it before R3 drops it.
+- `00066`–`00070` add the foreign keys, `<table>_owner_id_fkey` and
+  `classes_teacher_id_fkey`, each `REFERENCES app.users ON DELETE RESTRICT`
+  and each in its own file after the columns. A column file holds ACCESS
+  EXCLUSIVE on its table until it commits; a reference inline would then ask
+  for SHARE ROW EXCLUSIVE on `users` while holding it. A v0.7.0 transaction
+  that has written `users` and next needs a lock on that table would then wait
+  on the migration while the migration waits on it: the student creation that
+  enrols into classes through `class_members`' foreign key, or a user delete
+  whose foreign-key checks read the referencing rows. The deadlock detector
+  would abort one side, most likely the release. Apart, a column file never
+  locks `users` beyond ACCESS SHARE, and a foreign-key file takes SHARE ROW
+  EXCLUSIVE on the referencing table, which reads and foreign-key checks do
+  not conflict with, so it simply waits for such a transaction to commit.
+  `00064` keeps its inline reference: it references its own table.
+- The new binary names every owner itself; the triggers exist only for the
+  deploy overlap:
+
+  | Row | Owner written |
+  |---|---|
+  | a class | `teacher_id` = the acting user |
+  | a new test, a bank question, a bank group | the acting user |
+  | a duplicated test | the source test's owner; `created_by` stays the actor |
+  | a committed Word import's test, its section groups and bank questions | the import's creator; `created_by` stays the committer (T-R2.12f) |
+  | a section-owned group, a restored draft's question | the test's owner |
+  | a group member | the group's owner |
+  | a media asset | the uploader |
+  | a student created by staff | `created_by` = the actor |
+  | a Google self-join | `created_by` = NULL |
+
+- Test fixtures and `seed/01-dev.sql` that insert a class name `teacher_id`.
+  The class fill is the one that reads other rows: a fixture relying on it
+  would take whichever fixture Admin is oldest at that moment, and a parallel
+  package's delete of that user would then fail one side on the foreign key.
+  The shared fixture in `constraints_test.go` also runs on scratch databases
+  migrated to versions before `00065`, so it names `teacher_id` only when the
+  column exists.
+
+`platform/db/tests/expand_r2_test.go` (`TestTheOwnershipExpandKeepsTheOldBinaryWorking`)
+writes a legacy dataset at v0.7.0's schema by two authors, with an older,
+disabled Admin, and migrates. It checks that every row went to its author and
+the class to the oldest active Admin, with `updated_at` unmoved. It also
+checks the old binary's inserts are filled, an explicit owner is kept, an
+account's creator is optional and cleared when the creator goes, and each
+constraint stays NOT VALID.
+`TestAddingTheClassTeacherWaitsForTheOldStudentCreateInsteadOfDeadlocking`
+holds a v0.7.0-style student insert open across `00065`, enrols the student
+into a class after it, and checks the foreign-key files wait for the commit
+instead of deadlocking.
+
+## 32. Ownership indexes (T-R2.10)
+
+`00071`–`00077` each hold one `CREATE INDEX CONCURRENTLY` in a `NO
+TRANSACTION` file, because every table is populated and in use; Down is `DROP
+INDEX CONCURRENTLY IF EXISTS`. `docs/setup/deploy.md` lists the drops to run
+after an interrupted build.
+
+| Index | Definition | Serves |
+|---|---|---|
+| `classes_teacher_idx` | `(teacher_id)` | a teacher's classes; the RESTRICT check on a user delete |
+| `tests_owner_idx` | `(owner_id, id DESC) WHERE deleted_at IS NULL` | a teacher's tests list |
+| `questions_owner_bank_idx` | `(owner_id, id DESC) WHERE deleted_at IS NULL AND context_group_id IS NULL` | a teacher's bank, without group members |
+| `question_groups_owner_bank_idx` | `(owner_id, updated_at DESC, id DESC) WHERE owner_section_id IS NULL AND archived_at IS NULL` | a teacher's bank groups, in `00049`'s order |
+| `media_assets_owner_idx` | `(owner_id, kind, created_at DESC) WHERE deleted_at IS NULL` | a teacher's media library, as `media_assets_kind_created_idx` serves everyone's |
+| `users_created_by_idx` | `(created_by) WHERE created_by IS NOT NULL` | the accounts a staff member made; the SET NULL scan when they go |
+| `assignments_creator_idx` | `(created_by, id DESC)` | a teacher's assignments |
+
+The four partial indexes (tests, questions, question groups, media) cannot
+serve the `owner_id` RESTRICT checks from `00066`–`00069`, which run on every
+user delete (today only a student's) and do not filter on the partial
+predicate. Each check scans its table, as the unindexed `created_by` and
+`uploaded_by` checks already did, which is cheap at today's sizes. Only
+`classes_teacher_idx` covers its check.
+
+No plan is forced. At today's volumes a sequential scan is often the right
+plan (§14), and the indexes earn their place as teachers and rows grow.
+
+## 33. Encrypted join codes (T-R2.14a)
+
+`00078` lets a join code be read back (D5, D-27) without letting a database dump
+redeem one. Three columns join `app.class_join_codes`:
+
+| Column | Type | Meaning |
+|---|---|---|
+| `code_ciphertext` | `bytea`, 36 bytes when set | a 12-byte nonce, the 8-byte code and a 16-byte AES-256-GCM tag; the additional data is the class id's 16 bytes, then the code id's |
+| `key_id` | `smallint`, never 0 | the 16-bit HKDF fingerprint of the key that sealed the code and keyed its hash |
+| `lookup_scheme` | `smallint NOT NULL DEFAULT 1`, 1 or 2 | 1: `code_hash` is the SHA-256 of the code (v0.7.0); 2: it is the HMAC-SHA256 under `key_id`'s lookup key |
+
+- **`class_join_codes_scheme_consistent`** makes a row either legacy (scheme
+  1, no ciphertext, no key) or fully sealed (scheme 2 with both). The v0.7.0
+  binary's insert names none of the columns and is a legacy row.
+- **`code_hash` keeps its `UNIQUE` index**, and it is still the only lookup
+  path: a typed code is searched as `code_hash = ANY(candidates)`, the keyed
+  hash under the current and the previous key and the legacy SHA-256. The
+  newest matching row is taken, and it counts only against the candidate of
+  its own scheme and key.
+- **The keys never reach the database.** A dump yields ciphertexts and keyed
+  hashes; without `JOIN_CODE_KEY` neither opens nor can be hashed through the
+  code space. A legacy row's SHA-256 still can, and quickly: beside the
+  stored four-character hint only 2^20 codes remain. That is why R4 rotates
+  the legacy codes (D5).
+- **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
+  because the previous binary looks codes up by SHA-256 alone.

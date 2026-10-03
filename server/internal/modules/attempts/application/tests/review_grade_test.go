@@ -21,7 +21,7 @@ func TestTheScoreUsesTheManualMarkWherePresentAndTheAutoScoreOtherwise(t *testin
 	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 
-	score, err := store.Grade(ctx, p.attempt, p.admin, []domain.GradeItem{
+	score, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{
 		{QuestionID: p.essay, Points: 4, Comment: comment("Ý tốt, câu thứ hai thiếu động từ chính.")},
 	})
 	if err != nil {
@@ -31,7 +31,7 @@ func TestTheScoreUsesTheManualMarkWherePresentAndTheAutoScoreOtherwise(t *testin
 		t.Errorf("after the essay: %+v, want 9/10 with nothing pending", score)
 	}
 
-	score, err = store.Grade(ctx, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.choice, Points: 3}})
+	score, err = store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.choice, Points: 3}})
 	if err != nil {
 		t.Fatalf("regrade the choice: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestTheScoreUsesTheManualMarkWherePresentAndTheAutoScoreOtherwise(t *testin
 		t.Errorf("attempts.score_earned %v, want 7 folded back onto the attempt", stored)
 	}
 
-	rv, err := store.Get(ctx, p.attempt)
+	rv, err := store.Get(ctx, everyone, p.attempt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestPointsAboveTheQuestionsCeilingAreRefused(t *testing.T) {
 	p := seedPaper(t, pool, "submitted")
 	store := repositories.NewReviews(db.NewContext(pool))
 
-	_, err := store.Grade(context.Background(), p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 5.5}})
+	_, err := store.Grade(context.Background(), everyone, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 5.5}})
 	var invalid *domain.GradeValidationError
 	if !errors.As(err, &invalid) || len(invalid.Items) != 1 || invalid.Items[0].Reason != "above_ceiling" {
 		t.Fatalf("got %v, want one above_ceiling item", err)
@@ -92,7 +92,7 @@ func TestAQuestionOffThePaperOrNeverAnsweredCannotBeMarked(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := store.Grade(ctx, p.attempt, p.admin, []domain.GradeItem{
+	_, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{
 		{QuestionID: p.essay, Points: 1},
 		{QuestionID: "01935000-0000-7000-8000-00000000dead", Points: 1},
 	})
@@ -115,14 +115,14 @@ func TestGradingWaitsForTheStudentAndSkipsAVoidedAttempt(t *testing.T) {
 	ctx := context.Background()
 
 	live := seedPaper(t, pool, "in_progress")
-	if _, err := store.Grade(ctx, live.attempt, live.admin, []domain.GradeItem{{QuestionID: live.essay, Points: 1}}); !errors.Is(err, domain.ErrPaperInProgress) {
+	if _, err := store.Grade(ctx, everyone, live.attempt, live.admin, []domain.GradeItem{{QuestionID: live.essay, Points: 1}}); !errors.Is(err, domain.ErrPaperInProgress) {
 		t.Errorf("in progress: %v, want ErrPaperInProgress", err)
 	}
 	voided := seedPaper(t, pool, "voided")
-	if _, err := store.Grade(ctx, voided.attempt, voided.admin, []domain.GradeItem{{QuestionID: voided.essay, Points: 1}}); !errors.Is(err, domain.ErrPaperVoided) {
+	if _, err := store.Grade(ctx, everyone, voided.attempt, voided.admin, []domain.GradeItem{{QuestionID: voided.essay, Points: 1}}); !errors.Is(err, domain.ErrPaperVoided) {
 		t.Errorf("voided: %v, want ErrPaperVoided", err)
 	}
-	if _, err := store.Get(ctx, "01935000-0000-7000-8000-00000000dead"); !errors.Is(err, domain.ErrPaperNotFound) {
+	if _, err := store.Get(ctx, everyone, "01935000-0000-7000-8000-00000000dead"); !errors.Is(err, domain.ErrPaperNotFound) {
 		t.Errorf("unknown: %v, want ErrPaperNotFound", err)
 	}
 }
@@ -131,7 +131,7 @@ func TestTheReviewCarriesTheKeyThePaperAndTheAnswers(t *testing.T) {
 	pool := newPool(t)
 	p := seedPaper(t, pool, "submitted")
 
-	rv, err := repositories.NewReviews(db.NewContext(pool)).Get(context.Background(), p.attempt)
+	rv, err := repositories.NewReviews(db.NewContext(pool)).Get(context.Background(), everyone, p.attempt)
 	if err != nil {
 		t.Fatal(err)
 	}

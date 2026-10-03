@@ -9,6 +9,7 @@ import (
 	questionscommand "quizzivy/internal/modules/questions/application/command"
 	"quizzivy/internal/modules/tests/application/command"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -31,8 +32,8 @@ func pubMakeAuthor(t *testing.T, pool *pgxpool.Pool) string {
 	}
 	var id string
 	if err := pool.QueryRow(context.Background(),
-		`INSERT INTO app.users (email, full_name, role)
-		 VALUES ($1,'Giáo viên','admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"publish-"+hex.EncodeToString(nonce)+"@example.com").Scan(&id); err != nil {
 		t.Fatal(err)
 	}
@@ -87,11 +88,11 @@ func (b *builder) shortAnswer(prompt, points string) string {
 func (b *builder) draft(title string, questionIDs ...string) domain.Test {
 	b.t.Helper()
 	ctx := context.Background()
-	created, err := b.tests.Commands.Create.Handle(ctx, command.Create{Request: domain.Request{ActorID: b.author}, Title: title, Description: nil})
+	created, err := b.tests.Commands.Create.Handle(ctx, command.Create{Request: domain.Request{ActorID: b.author, Scope: access.Scope{UserID: b.author}}, Title: title, Description: nil})
 	if err != nil {
 		b.t.Fatal(err)
 	}
-	saved, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: created.ID, ActorID: b.author}, Input: domain.UpdateInput{
+	saved, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: created.ID, ActorID: b.author, Scope: access.Scope{UserID: b.author}}, Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt,
 		SetSections:       true,
 		Sections:          []domain.SectionInput{{Title: "Phần 1", QuestionIDs: questionIDs}},
@@ -103,5 +104,5 @@ func (b *builder) draft(title string, questionIDs ...string) domain.Test {
 }
 
 func (b *builder) publish(testID string) (domain.Version, error) {
-	return application.New(repositories.NewPostgres(db.NewContext(b.pool), questionsrepo.NewPostgres(db.NewContext(b.pool)), mediarepo.NewPostgres(db.NewContext(b.pool)))).Commands.Publish.Handle(context.Background(), command.Publish{Request: domain.PublishRequest{TestID: testID, ActorID: b.author}})
+	return application.New(repositories.NewPostgres(db.NewContext(b.pool), questionsrepo.NewPostgres(db.NewContext(b.pool)), mediarepo.NewPostgres(db.NewContext(b.pool)))).Commands.Publish.Handle(context.Background(), command.Publish{Request: domain.PublishRequest{TestID: testID, ActorID: b.author, Scope: access.Scope{UserID: b.author}}})
 }

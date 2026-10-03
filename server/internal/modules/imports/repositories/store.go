@@ -8,14 +8,20 @@ import (
 	"github.com/jackc/pgx/v5"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 	"time"
 )
 
 type Postgres struct{ db.Repository }
 
 func NewPostgres(ctx db.Context) *Postgres { return &Postgres{db.NewRepository(ctx)} }
+
+var anyImport = access.Scope{All: true}
+
+const scopedImport = `($2::boolean OR created_by = $3::uuid)`
 
 const importColumns = `id::text, title, status, revision, coalesce(source_revision,0), created_by::text, created_at, updated_at, files_removed_at, closed_idle`
 const sourceColumns = `id::text, import_id::text, upload_id::text, expected_revision, role, filename, format, bytes, checksum_sha256, storage_key, uploaded_by::text, ready, coalesce(source_revision,0), created_at`
@@ -56,7 +62,7 @@ func (s *Postgres) Create(ctx context.Context, in domain.Create, quotas domain.Q
 	if err != nil {
 		return out, err
 	}
-	return s.Get(ctx, out.ID)
+	return s.Get(ctx, anyImport, out.ID)
 }
 func createImport(ctx context.Context, tx pgx.Tx, in domain.Create, quotas domain.Quotas) (domain.Import, error) {
 	if err := quotaLock(ctx, tx); err != nil {
@@ -86,8 +92,8 @@ func createImport(ctx context.Context, tx pgx.Tx, in domain.Create, quotas domai
 	return out, auditImport(ctx, tx, in.Actor, out.ID, "import.created")
 }
 
-func readImport(ctx context.Context, q db.Querier, id string) (domain.Import, error) {
-	v, err := scanImport(q.QueryRow(ctx, `SELECT `+importColumns+` FROM app.word_imports WHERE id=$1`, id))
+func readImport(ctx context.Context, q db.Querier, scope access.Scope, id string) (domain.Import, error) {
+	v, err := scanImport(q.QueryRow(ctx, `SELECT `+importColumns+` FROM app.word_imports WHERE id=$1 AND `+scopedImport, id, scope.All, opt.String(scope.UserID)))
 	if err != nil {
 		return v, err
 	}
@@ -106,22 +112,33 @@ func hydrateImport(ctx context.Context, q db.Querier, v domain.Import) (domain.I
 	err = attachProgress(ctx, q, items)
 	return items[0], err
 }
-func (s *Postgres) Get(ctx context.Context, id string) (domain.Import, error) {
+
+// Get reads one import the scope's user created, or any under scope.all;
+// another creator's answers ErrNotFound exactly as a missing one does.
+func (s *Postgres) Get(ctx context.Context, scope access.Scope, id string) (domain.Import, error) {
 	var out domain.Import
 	err := s.InTx(ctx, "read import", func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY`); err != nil {
 			return err
 		}
 		var err error
-		out, err = readImport(ctx, tx, id)
+		out, err = readImport(ctx, tx, scope, id)
 		return err
 	})
 	return out, err
 }
-func (s *Postgres) Source(ctx context.Context, importID, id string) (domain.Source, error) {
-	out, err := scanSource(s.QueryRow(ctx, `SELECT `+sourceColumns+` FROM app.word_import_sources WHERE import_id=$1 AND id=$2 AND ready`, importID, id))
+
+// Source reads one completed source of an import the scope reaches, as Get
+// does; a source of another creator's import answers ErrNotFound.
+func (s *Postgres) Source(ctx context.Context, scope access.Scope, importID, id string) (domain.Source, error) {
+	out, err := scanSource(s.QueryRow(ctx, `SELECT `+sourceColumns+` FROM app.word_import_sources WHERE import_id=$1 AND id=$2 AND ready
+ AND import_id IN (SELECT i.id FROM app.word_imports i WHERE i.id=$1 AND ($3::boolean OR i.created_by=$4::uuid))`, importID, id, scope.All, opt.String(scope.UserID)))
 	if err != nil {
 		return out, fmt.Errorf("read import source: %w", err)
 	}
 	return out, nil
+}
+
+func lockImport(ctx context.Context, tx pgx.Tx, id string, by actor.Actor) (domain.Import, error) {
+	return scanImport(tx.QueryRow(ctx, `SELECT `+importColumns+` FROM app.word_imports WHERE id=$1 AND `+scopedImport+` FOR UPDATE`, id, by.Scope.All, opt.String(by.ID)))
 }

@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/attempts/domain"
 	testsquery "quizzivy/internal/modules/tests/application/query"
 	testsdomain "quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/access"
 	"slices"
 	"time"
 
@@ -25,8 +26,8 @@ type Service struct {
 
 // ExpireDue closes every attempt on the assignment whose time has run out, so
 // the monitor never shows "in progress" beside a deadline in the past.
-func (s *Service) ExpireDue(ctx context.Context, assignmentID string) error {
-	ids, err := s.Store.DueAttempts(ctx, assignmentID, s.Now())
+func (s *Service) ExpireDue(ctx context.Context, scope access.Scope, assignmentID string) error {
+	ids, err := s.Store.DueAttempts(ctx, scope, assignmentID, s.Now())
 	if err != nil {
 		return err
 	}

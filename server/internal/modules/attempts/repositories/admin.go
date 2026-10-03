@@ -5,12 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 )
+
+var interveneOn = ` AND ($8::boolean OR assignment_id IN ` + visibility.AssignmentIDs(9) + `)`
 
 // Extend moves a live attempt's deadline and records why, in one statement.
 func (s *Postgres) Extend(ctx context.Context, req domain.Request, attemptID string, minutes int, reason string, now time.Time) (domain.Attempt, error) {
@@ -22,7 +26,7 @@ func (s *Postgres) Extend(ctx context.Context, req domain.Request, attemptID str
 		WITH updated AS (
 		  UPDATE app.attempts
 		     SET deadline_at = deadline_at + make_interval(mins => $2)
-		   WHERE id = $1::uuid AND status = 'in_progress'
+		   WHERE id = $1::uuid AND status = 'in_progress'` + interveneOn + `
 		  RETURNING ` + attemptColumns + `, old.deadline_at AS prev_deadline
 		), logged AS (
 		  INSERT INTO app.audit_log
@@ -35,9 +39,9 @@ func (s *Postgres) Extend(ctx context.Context, req domain.Request, attemptID str
 		)
 		SELECT ` + attemptColumns + ` FROM updated`
 	out, err := scanAttempt(s.QueryRow(ctx, q,
-		attemptID, minutes, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), reason))
+		attemptID, minutes, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), reason, req.All, opt.String(req.ActorID)))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Attempt{}, s.whyNotLive(ctx, attemptID)
+		return domain.Attempt{}, s.whyNotLive(ctx, req.Scope(), attemptID)
 	}
 	if err != nil {
 		return domain.Attempt{}, fmt.Errorf("attempts: extend: %w", err)
@@ -67,7 +71,7 @@ func (s *Postgres) void(ctx context.Context, req domain.Request, attemptID, reas
 		WITH updated AS (
 		  UPDATE app.attempts
 		     SET status = 'voided', void_reason = $2
-		   WHERE id = $1::uuid AND status <> 'voided'
+		   WHERE id = $1::uuid AND status <> 'voided'` + interveneOn + `
 		  RETURNING ` + attemptColumns + `, old.status AS prev_status
 		), logged AS (
 		  INSERT INTO app.audit_log
@@ -80,9 +84,9 @@ func (s *Postgres) void(ctx context.Context, req domain.Request, attemptID, reas
 		)
 		SELECT ` + attemptColumns + ` FROM updated`
 	out, err := scanAttempt(s.QueryRow(ctx, q,
-		attemptID, reason, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), action))
+		attemptID, reason, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), action, req.All, opt.String(req.ActorID)))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Attempt{}, s.whyNotLive(ctx, attemptID)
+		return domain.Attempt{}, s.whyNotLive(ctx, req.Scope(), attemptID)
 	}
 	if err != nil {
 		return domain.Attempt{}, fmt.Errorf("attempts: %s: %w", action, err)
@@ -99,7 +103,7 @@ func (s *Postgres) Flag(ctx context.Context, req domain.Request, attemptID strin
 		WITH updated AS (
 		  UPDATE app.attempts
 		     SET flagged = $2
-		   WHERE id = $1::uuid AND status <> 'voided'
+		   WHERE id = $1::uuid AND status <> 'voided'` + interveneOn + `
 		  RETURNING ` + attemptColumns + `, old.flagged AS prev_flagged
 		), logged AS (
 		  INSERT INTO app.audit_log
@@ -113,9 +117,9 @@ func (s *Postgres) Flag(ctx context.Context, req domain.Request, attemptID strin
 		)
 		SELECT ` + attemptColumns + ` FROM updated`
 	out, err := scanAttempt(s.QueryRow(ctx, q,
-		attemptID, flagged, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), strings.TrimSpace(reason)))
+		attemptID, flagged, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), strings.TrimSpace(reason), req.All, opt.String(req.ActorID)))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Attempt{}, s.whyNotFlaggable(ctx, attemptID)
+		return domain.Attempt{}, s.whyNotFlaggable(ctx, req.Scope(), attemptID)
 	}
 	if err != nil {
 		return domain.Attempt{}, fmt.Errorf("attempts: flag: %w", err)
@@ -123,18 +127,19 @@ func (s *Postgres) Flag(ctx context.Context, req domain.Request, attemptID strin
 	return out.Attempt, nil
 }
 
-func (s *Postgres) whyNotFlaggable(ctx context.Context, attemptID string) error {
-	err := s.whyNotLive(ctx, attemptID)
+func (s *Postgres) whyNotFlaggable(ctx context.Context, scope access.Scope, attemptID string) error {
+	err := s.whyNotLive(ctx, scope, attemptID)
 	if errors.Is(err, domain.ErrAttemptClosed) {
 		return fmt.Errorf("attempts: flag: %w", errors.ErrUnsupported)
 	}
 	return err
 }
 
-func (s *Postgres) whyNotLive(ctx context.Context, attemptID string) error {
+func (s *Postgres) whyNotLive(ctx context.Context, scope access.Scope, attemptID string) error {
 	var status domain.Status
 	err := s.QueryRow(ctx,
-		`SELECT status FROM app.attempts WHERE id = $1::uuid`, attemptID).Scan(&status)
+		`SELECT status FROM app.attempts WHERE id = $1::uuid AND ($2::boolean OR assignment_id IN `+visibility.AssignmentIDs(3)+`)`,
+		attemptID, scope.All, opt.String(scope.UserID)).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}

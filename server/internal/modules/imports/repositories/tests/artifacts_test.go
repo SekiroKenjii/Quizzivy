@@ -17,7 +17,7 @@ func artifactQuotas() domain.ArtifactQuotas {
 }
 func (h harness) artifactPlan(t *testing.T, run domain.Run) domain.ArtifactPlan {
 	t.Helper()
-	parent, err := h.repo.Get(context.Background(), run.ImportID)
+	parent, err := h.repo.Get(context.Background(), everyone, run.ImportID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestArtifactTakeoverRejectsLateWritesAndReusesOnlyCompleteCompatibleEvidenc
 	if err := h.repo.Fail(ctx, domain.RunFailure{Claim: second.Claim(), Code: "SYNTHETIC_FAILURE"}); err != nil {
 		t.Fatal(err)
 	}
-	parent, err := h.repo.Get(ctx, second.ImportID)
+	parent, err := h.repo.Get(ctx, everyone, second.ImportID)
 	if err != nil {
 		t.Fatal(err)
 	}

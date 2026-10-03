@@ -14,6 +14,7 @@ import (
 	"quizzivy/internal/modules/media/application/command"
 	"quizzivy/internal/modules/media/application/ports"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"sync"
 	"testing"
 	"time"
@@ -43,6 +44,8 @@ func newPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+var everyone = access.Scope{All: true}
+
 func makeUploader(t *testing.T, pool *pgxpool.Pool) string {
 	t.Helper()
 	nonce := make([]byte, 8)
@@ -53,7 +56,7 @@ func makeUploader(t *testing.T, pool *pgxpool.Pool) string {
 
 	var id string
 	if err := pool.QueryRow(context.Background(),
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		email).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +327,7 @@ func makeStudent(t *testing.T, pool *pgxpool.Pool) string {
 
 	var id string
 	if err := pool.QueryRow(context.Background(),
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học sinh','student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Học sinh',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		email).Scan(&id); err != nil {
 		t.Fatal(err)
 	}

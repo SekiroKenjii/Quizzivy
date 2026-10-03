@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { components } from "@/lib/api/schema";
 
-type User = components["schemas"]["User"];
+type User = components["schemas"]["CurrentUser"];
 
 /**
  * Session state. The access token lives in memory only -- never localStorage or

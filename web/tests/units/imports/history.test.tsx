@@ -20,12 +20,12 @@ beforeEach(() => {
   failing = false;
   queries = [];
   server.use(
-    http.get(`${BASE}/admin/imports`, ({ request }) => {
+    http.get(`${BASE}/teacher/imports`, ({ request }) => {
       const query = new URL(request.url).searchParams;
       queries.push(query);
       if (failing) return new Response(null, { status: 503 });
       const visible = query.has("status") || query.has("q") ? [] : items;
-      return contractJson("/admin/imports", "get", 200, {
+      return contractJson("/teacher/imports", "get", 200, {
         items: visible,
         page: 1,
         pageSize: 20,

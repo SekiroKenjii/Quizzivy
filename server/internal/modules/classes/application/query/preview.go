@@ -17,19 +17,16 @@ type PreviewHandler struct {
 }
 
 func (s PreviewHandler) Handle(ctx context.Context, q Preview) (domain.PreviewResult, error) {
-	normalized := domain.JoinCodes.Normalize(q.Code)
-	if normalized == "" {
+	code, ok := s.Lookup(q.Code)
+	if !ok {
 		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil
 	}
 
-	row, err := s.Repo.LookupByCodeHash(ctx, domain.JoinCodes.Hash(normalized))
+	row, err := s.Repo.LookupByCode(ctx, code)
 	if err != nil {
 		return domain.PreviewResult{}, err
 	}
-	if row == nil {
-		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil
-	}
-	if !domain.JoinCodes.Equal(row.CodeHash, domain.JoinCodes.Hash(normalized)) {
+	if row == nil || !code.Matches(row.Lookup) {
 		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil
 	}
 

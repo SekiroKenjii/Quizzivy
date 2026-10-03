@@ -32,7 +32,7 @@ func (h ProcessHandler) Handle(ctx context.Context, in Process) (domain.Import, 
 	if !h.Enabled {
 		return domain.Import{}, domain.ErrProcessingOff
 	}
-	current, err := h.Repo.Get(ctx, in.ImportID)
+	current, err := h.Repo.Get(ctx, reach(in.Actor), in.ImportID)
 	if err != nil {
 		return domain.Import{}, err
 	}
@@ -43,7 +43,7 @@ func (h ProcessHandler) Handle(ctx context.Context, in Process) (domain.Import, 
 	if h.Worker != nil {
 		h.Worker.Wake()
 	}
-	return h.Repo.Get(ctx, in.ImportID)
+	return h.Repo.Get(ctx, reach(in.Actor), in.ImportID)
 }
 
 type Nudge struct{}

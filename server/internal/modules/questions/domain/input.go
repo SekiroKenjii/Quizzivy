@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/validation"
 	"strings"
@@ -27,20 +28,38 @@ type Input struct {
 	Tags               []string
 }
 
+// WriteRequest is a write to the bank by ActorID. It reaches only ActorID's own
+// questions and binds only assets ActorID may read, unless All, the actor's
+// scope.all, is set; anything else answers exactly as a missing id does. On a
+// create, OwnerID owns the new question instead of ActorID; only a Word-import
+// commit sets it, and a group member still follows its group.
 type WriteRequest struct {
 	ID        string
 	Input     Input
 	ActorID   string
+	OwnerID   string
+	All       bool
 	IP        string
 	UserAgent string
 }
 
-// WriteInput is a create or an update, depending on whether ID is set.
+// Scope is the scope the request reads and binds under: ActorID's own, or
+// everyone's with All.
+func (r WriteRequest) Scope() access.Scope {
+	return access.Scope{UserID: r.ActorID, All: r.All}
+}
+
+// WriteInput is a create or an update, depending on whether ID is set. An
+// update or delete of a bank question needs ActorID to own it unless All is
+// set; a group member's write is authorized by its group and ignores both.
+// OwnerID applies to a create only, as on WriteRequest.
 type WriteInput struct {
 	ID             string
 	Input          Input
 	MediaAssetKind *string
 	ActorID        string
+	OwnerID        string
+	All            bool
 	Now            time.Time
 	IP             string
 	UserAgent      string
@@ -61,7 +80,8 @@ type BlankInput struct {
 	CaseSensitive   bool
 }
 
-// ListInput selects a page of the bank.
+// ListInput selects a page of the bank. Scope limits it to the caller's own
+// questions, or every teacher's under scope.all; a zero Scope matches nothing.
 type ListInput struct {
 	Types    []Type
 	Tags     []string
@@ -69,6 +89,7 @@ type ListInput struct {
 	Query    string
 	Page     int
 	Limit    int
+	Scope    access.Scope
 }
 
 // Validate enforces question invariants for HTTP, internal writes and publication.

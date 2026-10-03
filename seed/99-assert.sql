@@ -82,5 +82,31 @@ BEGIN
     RAISE EXCEPTION 'seed: attempt answer(s) choosing options that do not exist: %', bad;
   END IF;
 
+  -- R2's access model: the built-in roles exist, and every row it scopes by
+  -- has the column it reads (T-R2.11).
+  IF (SELECT count(*) FROM app.roles
+       WHERE builtin_key IN ('admin', 'teacher', 'assistant', 'student')) <> 4 THEN
+    RAISE EXCEPTION 'seed: the four built-in roles are not all present';
+  END IF;
+
+  SELECT string_agg(email, ', ') INTO bad FROM app.users WHERE role_id IS NULL;
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: user(s) without role_id: %', bad;
+  END IF;
+
+  SELECT string_agg(id::text, ', ') INTO bad FROM app.classes WHERE teacher_id IS NULL;
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: class(es) without teacher_id: %', bad;
+  END IF;
+
+  SELECT string_agg(owned.kind || ' ' || owned.id::text, ', ') INTO bad
+    FROM (SELECT 'test' AS kind, id FROM app.tests WHERE owner_id IS NULL
+          UNION ALL SELECT 'question', id FROM app.questions WHERE owner_id IS NULL
+          UNION ALL SELECT 'question group', id FROM app.question_groups WHERE owner_id IS NULL
+          UNION ALL SELECT 'media asset', id FROM app.media_assets WHERE owner_id IS NULL) owned;
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: row(s) without owner_id: %', bad;
+  END IF;
+
   RAISE NOTICE 'seed: invariants hold';
 END $$;

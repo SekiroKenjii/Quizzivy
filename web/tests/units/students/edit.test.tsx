@@ -34,8 +34,8 @@ let patches: unknown[] = [];
 beforeEach(() => {
   patches = [];
   server.use(
-    http.get(`${BASE}/admin/students`, () =>
-      contractJson("/admin/students", "get", 200, {
+    http.get(`${BASE}/teacher/students`, () =>
+      contractJson("/teacher/students", "get", 200, {
         items: [han],
         page: 1,
         pageSize: 20,
@@ -43,13 +43,13 @@ beforeEach(() => {
         facets: { total: 1, activeLast7Days: 0 },
       }),
     ),
-    http.get(`${BASE}/admin/students/${HAN}`, () =>
-      contractJson("/admin/students/{id}", "get", 200, han),
+    http.get(`${BASE}/teacher/students/${HAN}`, () =>
+      contractJson("/teacher/students/{id}", "get", 200, han),
     ),
-    http.patch(`${BASE}/admin/students/${HAN}`, async ({ request }) => {
+    http.patch(`${BASE}/teacher/students/${HAN}`, async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       patches.push(body);
-      return contractJson("/admin/students/{id}", "patch", 200, { ...han, ...body });
+      return contractJson("/teacher/students/{id}", "patch", 200, { ...han, ...body });
     }),
   );
 });

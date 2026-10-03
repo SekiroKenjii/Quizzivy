@@ -122,6 +122,37 @@ describe("§6.5: public endpoints", () => {
   );
 });
 
+describe("x-permission (plan 70 §4.2)", () => {
+  const catalogue = new Set<string>(
+    (resolveRef(doc, "#/components/schemas/PermissionKey") as { enum: string[] }).enum,
+  );
+  const pseudo = new Set(["self", "workspace.teacher", "workspace.admin"]);
+
+  function requiresBearer(op: Json): boolean {
+    const reqs: Json[] = op.security ?? doc.security ?? [];
+    return reqs.length > 0 && reqs.every((r: Json) => r && "bearerAuth" in r);
+  }
+
+  it("every operation that requires the bearer token declares a permission, and no other does", () => {
+    const wrong = ops
+      .filter(({ op }) => requiresBearer(op) !== "x-permission" in op)
+      .map(({ method, path }) => `${method.toUpperCase()} ${path}`);
+    expect(wrong).toEqual([]);
+  });
+
+  it("every declared value is a PermissionKey or a pseudo-key", () => {
+    const unknown = ops.flatMap(({ method, path, op }) => {
+      const declared: Json = op["x-permission"];
+      if (declared === undefined) return [];
+      const keys: string[] = Array.isArray(declared) ? declared : [declared];
+      return keys
+        .filter((k) => !catalogue.has(k) && !pseudo.has(k))
+        .map((k) => `${method.toUpperCase()} ${path}: ${k}`);
+    });
+    expect(unknown).toEqual([]);
+  });
+});
+
 describe("conventions", () => {
   it("gives every operation a unique operationId", () => {
     const seen = new Map<string, string>();

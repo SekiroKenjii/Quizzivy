@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/tests/application/model"
 	"quizzivy/internal/modules/tests/application/query"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/shared/actor"
 	"time"
@@ -17,7 +18,7 @@ func (h Tests) GetQuestionGroup(ctx context.Context, request openapi.GetQuestion
 	if h.app == nil || h.app.Queries.Group == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	group, err := h.app.Queries.Group.Handle(ctx, query.Group{ID: request.Id.String()})
+	group, err := h.app.Queries.Group.Handle(ctx, query.Group{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	return h.groupReply(ctx, group, err, 200)
 }
 
@@ -39,7 +40,7 @@ func (h Tests) CreateQuestionGroup(ctx context.Context, request openapi.CreateQu
 		id := request.Body.OwnerSectionId.String()
 		owner = &id
 	}
-	group, err := h.app.Commands.CreateGroup.Handle(ctx, command.CreateGroup{Bundle: bundle, OwnerSectionID: owner, ExpectedTestUpdatedAt: mutation.ExpectedTestUpdatedAt, Actor: mutation.Actor})
+	group, err := h.app.Commands.CreateGroup.Handle(ctx, command.CreateGroup{Bundle: bundle, OwnerSectionID: owner, ExpectedTestUpdatedAt: mutation.ExpectedTestUpdatedAt, Actor: mutation.Actor, Grants: mutation.Grants})
 	return h.groupReply(ctx, group, err, 201)
 }
 
@@ -112,7 +113,7 @@ func (h Tests) ListQuestionGroups(ctx context.Context, request openapi.ListQuest
 	if h.app == nil || h.app.Queries.Groups == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	in := domain.GroupListInput{}
+	in := domain.GroupListInput{Scope: httpapi.ScopeFromContext(ctx)}
 	if request.Params.Page != nil {
 		in.Page = *request.Params.Page
 	}
@@ -137,7 +138,9 @@ func (h Tests) ListQuestionGroups(ctx context.Context, request openapi.ListQuest
 
 func groupMutation(ctx context.Context, id string, revision int64, updated *time.Time) (model.GroupMutation, bool) {
 	req, ok := testRequest(ctx, id)
-	out := model.GroupMutation{ID: id, ExpectedRevision: revision, Actor: actor.Actor{ID: req.ActorID, IP: req.IP, UserAgent: req.UserAgent}}
+	principal, _ := httpx.PrincipalFromContext(ctx)
+	out := model.GroupMutation{ID: id, ExpectedRevision: revision, Actor: actor.Actor{ID: req.ActorID, IP: req.IP, UserAgent: req.UserAgent, Scope: req.Scope},
+		Grants: principal.Access.Permissions}
 	if updated != nil {
 		out.ExpectedTestUpdatedAt = *updated
 	}

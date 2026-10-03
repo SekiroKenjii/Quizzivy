@@ -37,9 +37,9 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   requests = [];
   server.use(
-    http.get(`${BASE}/admin/questions`, ({ request }) => {
+    http.get(`${BASE}/teacher/questions`, ({ request }) => {
       requests.push(new URL(request.url));
-      return contractJson("/admin/questions", "get", 200, {
+      return contractJson("/teacher/questions", "get", 200, {
         facets: {
           all: 0,
           single_choice: 0,
@@ -111,11 +111,11 @@ describe("the question bank list", () => {
   // O-20: numbered pages.
   it("turns pages by number, with the first page asking for none", async () => {
     server.use(
-      http.get(`${BASE}/admin/questions`, ({ request }) => {
+      http.get(`${BASE}/teacher/questions`, ({ request }) => {
         const url = new URL(request.url);
         requests.push(url);
         const page = Number(url.searchParams.get("page") ?? "1");
-        return contractJson("/admin/questions", "get", 200, {
+        return contractJson("/teacher/questions", "get", 200, {
           facets: {
             all: 0,
             single_choice: 0,
@@ -155,8 +155,8 @@ describe("the question bank list", () => {
 
   it("offers one sentence and one action when nothing matches", async () => {
     server.use(
-      http.get(`${BASE}/admin/questions`, () =>
-        contractJson("/admin/questions", "get", 200, {
+      http.get(`${BASE}/teacher/questions`, () =>
+        contractJson("/teacher/questions", "get", 200, {
           facets: {
             all: 0,
             single_choice: 0,
@@ -184,8 +184,8 @@ describe("the question bank list", () => {
 
   it("distinguishes an empty bank from an empty filter", async () => {
     server.use(
-      http.get(`${BASE}/admin/questions`, () =>
-        contractJson("/admin/questions", "get", 200, {
+      http.get(`${BASE}/teacher/questions`, () =>
+        contractJson("/teacher/questions", "get", 200, {
           facets: {
             all: 0,
             single_choice: 0,
@@ -215,8 +215,8 @@ describe("the question bank list", () => {
 
   it("previews audio in the row rather than in a dialog", async () => {
     server.use(
-      http.get(`${BASE}/admin/questions`, () =>
-        contractJson("/admin/questions", "get", 200, {
+      http.get(`${BASE}/teacher/questions`, () =>
+        contractJson("/teacher/questions", "get", 200, {
           facets: {
             all: 0,
             single_choice: 0,
@@ -266,9 +266,9 @@ describe("the question bank list", () => {
   it("says so when a preview URL has expired, rather than a player that will not start", async () => {
     let listings = 0;
     server.use(
-      http.get(`${BASE}/admin/questions`, () => {
+      http.get(`${BASE}/teacher/questions`, () => {
         listings += 1;
-        return contractJson("/admin/questions", "get", 200, {
+        return contractJson("/teacher/questions", "get", 200, {
           facets: {
             all: 0,
             single_choice: 0,

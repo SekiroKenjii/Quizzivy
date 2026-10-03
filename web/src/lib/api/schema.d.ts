@@ -19,8 +19,10 @@ export interface paths {
          *     the student sees **which class they are joining** before authenticating.
          *     Never create an account and enrol in one blind tap (§6.2).
          *
-         *     Lookup is by SHA-256 hash of the normalized code, compared in constant
-         *     time. The plaintext is never stored (§6.5).
+         *     Lookup is by a keyed hash of the normalized code, or by its SHA-256 for
+         *     a code issued before v0.8.0, compared in constant time. The plaintext
+         *     is never stored; a code issued from v0.8.0 on is stored encrypted
+         *     (§6.5).
          */
         post: operations["previewJoinCode"];
         delete?: never;
@@ -70,7 +72,7 @@ export interface paths {
         put?: never;
         /**
          * Email and password sign-in
-         * @description Admin-created accounts and the admin's own login (§5.1). Self-signup
+         * @description Teacher-created accounts and staff sign-in (§5.1). Self-signup
          *     requires Google (§6.3); there is no password registration endpoint.
          */
         post: operations["login"];
@@ -164,7 +166,7 @@ export interface paths {
          *     The name is the account's own; the email is not. An address is issued
          *     by the teacher or arrives from Google, it is the login, and moving it
          *     would move who the account is — so it stays read-only here and only
-         *     `PATCH /admin/students/{id}` can change it. Role, password and provider
+         *     `PATCH /teacher/students/{id}` can change it. Role, password and provider
          *     links each have their own endpoint for the same reason.
          *
          *     Bounds match `users_full_name_check` and createStudent.
@@ -249,7 +251,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/question-groups": {
+    "/teacher/question-groups": {
         parameters: {
             query?: never;
             header?: never;
@@ -264,7 +266,7 @@ export interface paths {
         put?: never;
         /**
          * Create a complete independent draft group
-         * @description Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination.
+         * @description Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination. Either permission admits the call; the target then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404.
          */
         post: operations["createQuestionGroup"];
         delete?: never;
@@ -273,7 +275,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/question-groups/{id}": {
+    "/teacher/question-groups/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -287,17 +289,17 @@ export interface paths {
          * @description Reads one coherent independent graph and its revisions. Teacher-only; asset links never grant access to an unrelated source document.
          */
         get: operations["getQuestionGroup"];
-        /** @description Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first. */
+        /** @description Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first. Either permission admits the call; the target then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404. */
         put: operations["updateQuestionGroup"];
         post?: never;
-        /** @description Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision. */
+        /** @description Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision. Either permission admits the call; the target then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404. */
         delete: operations["deleteQuestionGroup"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/admin/question-groups/{id}/copy": {
+    "/teacher/question-groups/{id}/copy": {
         parameters: {
             query?: never;
             header?: never;
@@ -308,7 +310,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section. */
+        /** @description Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section. The source must be one the caller can see. Either permission admits the call; the destination then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404. */
         post: operations["copyQuestionGroup"];
         delete?: never;
         options?: never;
@@ -316,7 +318,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/question-groups/{id}/archive": {
+    "/teacher/question-groups/{id}/archive": {
         parameters: {
             query?: never;
             header?: never;
@@ -335,7 +337,7 @@ export interface paths {
         patch: operations["archiveQuestionGroup"];
         trace?: never;
     };
-    "/admin/tests": {
+    "/teacher/tests": {
         parameters: {
             query?: never;
             header?: never;
@@ -353,7 +355,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/tests/{id}": {
+    "/teacher/tests/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -375,14 +377,14 @@ export interface paths {
          * @description Backs the builder's 1.5s-debounced autosave (§8). The whole outline —
          *     sections and question ordering — is written in one transaction.
          *
-         *     `expectedUpdatedAt` is a version guard. §1.3 says one admin edits at a
-         *     time; this makes a stale second tab fail loudly with `STALE_WRITE`
-         *     instead of silently reverting the outline.
+         *     `expectedUpdatedAt` is a version guard. §1.3 rules out real-time
+         *     collaborative authoring; this makes a stale second tab fail loudly with
+         *     `STALE_WRITE` instead of silently reverting the outline.
          */
         patch: operations["updateTest"];
         trace?: never;
     };
-    "/admin/tests/{id}/publish": {
+    "/teacher/tests/{id}/publish": {
         parameters: {
             query?: never;
             header?: never;
@@ -413,7 +415,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/tests/{id}/duplicate": {
+    "/teacher/tests/{id}/duplicate": {
         parameters: {
             query?: never;
             header?: never;
@@ -432,7 +434,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/tests/{id}/versions": {
+    "/teacher/tests/{id}/versions": {
         parameters: {
             query?: never;
             header?: never;
@@ -454,7 +456,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/tests/{id}/versions/{version}": {
+    "/teacher/tests/{id}/versions/{version}": {
         parameters: {
             query?: never;
             header?: never;
@@ -474,7 +476,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/tests/{id}/versions/{version}/current": {
+    "/teacher/tests/{id}/versions/{version}/current": {
         parameters: {
             query?: never;
             header?: never;
@@ -494,7 +496,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/tests/{id}/versions/{version}/draft": {
+    "/teacher/tests/{id}/versions/{version}/draft": {
         parameters: {
             query?: never;
             header?: never;
@@ -514,7 +516,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/tests/{id}/preview": {
+    "/teacher/tests/{id}/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -525,7 +527,7 @@ export interface paths {
         };
         /**
          * Student-eye preview of a published version
-         * @description Renders from the **published version**, not the draft, so what the admin
+         * @description Renders from the **published version**, not the draft, so what the teacher
          *     checks is what a student would actually receive (§8).
          */
         get: operations["previewTest"];
@@ -537,7 +539,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/questions": {
+    "/teacher/questions": {
         parameters: {
             query?: never;
             header?: never;
@@ -555,7 +557,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/questions/tags": {
+    "/teacher/questions/tags": {
         parameters: {
             query?: never;
             header?: never;
@@ -582,7 +584,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/questions/{id}": {
+    "/teacher/questions/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -591,7 +593,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description A single bank question, including its grading key. Admin-only by construction. */
+        /** @description A single bank question, including its grading key. Teacher-only by construction. */
         get: operations["getQuestion"];
         put?: never;
         post?: never;
@@ -603,7 +605,7 @@ export interface paths {
         patch: operations["updateQuestion"];
         trace?: never;
     };
-    "/admin/questions/{id}/duplicate": {
+    "/teacher/questions/{id}/duplicate": {
         parameters: {
             query?: never;
             header?: never;
@@ -625,7 +627,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports": {
+    "/teacher/imports": {
         parameters: {
             query?: never;
             header?: never;
@@ -634,7 +636,7 @@ export interface paths {
         };
         /**
          * Search private import history
-         * @description Paginated shared teacher history with accent-insensitive title and current filename search.
+         * @description Paginated history of the caller's imports (every teacher's with `scope.all`), with accent-insensitive title and current filename search.
          */
         get: operations["listWordImports"];
         put?: never;
@@ -649,7 +651,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/{id}": {
+    "/teacher/imports/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -671,7 +673,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/{id}/sources": {
+    "/teacher/imports/{id}/sources": {
         parameters: {
             query?: never;
             header?: never;
@@ -705,7 +707,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/{id}/sources/{sourceId}/download": {
+    "/teacher/imports/{id}/sources/{sourceId}/download": {
         parameters: {
             query?: never;
             header?: never;
@@ -717,8 +719,9 @@ export interface paths {
         };
         /**
          * Authorize a short-lived original-file download
-         * @description The completed source must belong to the requested import. Historical
-         *     completed sources remain accessible to teachers. A 60-second bearer URL
+         * @description The completed source must belong to the requested import, which the caller
+         *     created (any import with `scope.all`). Historical completed sources remain
+         *     downloadable. A 60-second bearer URL
          *     forces attachment download as application/octet-stream. Response is no-store.
          *     Pending storage reservations are never downloadable.
          */
@@ -731,7 +734,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/capabilities": {
+    "/teacher/imports/capabilities": {
         parameters: {
             query?: never;
             header?: never;
@@ -754,7 +757,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/limits": {
+    "/teacher/imports/limits": {
         parameters: {
             query?: never;
             header?: never;
@@ -774,7 +777,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/{id}/process": {
+    "/teacher/imports/{id}/process": {
         parameters: {
             query?: never;
             header?: never;
@@ -798,7 +801,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/{id}/cancel": {
+    "/teacher/imports/{id}/cancel": {
         parameters: {
             query?: never;
             header?: never;
@@ -820,7 +823,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/{id}/review": {
+    "/teacher/imports/{id}/review": {
         parameters: {
             query?: never;
             header?: never;
@@ -847,7 +850,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/{id}/review/adopt": {
+    "/teacher/imports/{id}/review/adopt": {
         parameters: {
             query?: never;
             header?: never;
@@ -870,7 +873,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/{id}/source": {
+    "/teacher/imports/{id}/source": {
         parameters: {
             query?: never;
             header?: never;
@@ -892,7 +895,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/imports/{id}/commit": {
+    "/teacher/imports/{id}/commit": {
         parameters: {
             query?: never;
             header?: never;
@@ -916,7 +919,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/media": {
+    "/teacher/media": {
         parameters: {
             query?: never;
             header?: never;
@@ -949,7 +952,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/media/{id}": {
+    "/teacher/media/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -968,7 +971,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/assignments": {
+    "/teacher/assignments": {
         parameters: {
             query?: never;
             header?: never;
@@ -991,7 +994,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/assignments/{id}": {
+    "/teacher/assignments/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1017,7 +1020,7 @@ export interface paths {
         patch: operations["updateAssignment"];
         trace?: never;
     };
-    "/admin/assignments/{id}/answers": {
+    "/teacher/assignments/{id}/answers": {
         parameters: {
             query?: never;
             header?: never;
@@ -1031,7 +1034,7 @@ export interface paths {
          * @description G-04's "Chấm theo câu hỏi": one manually graded question across every
          *     handed-in, non-voided attempt of the assignment, so the rubric is
          *     decided once instead of per student. The write stays
-         *     `POST /admin/attempts/{id}/grade`, one attempt per call. Rows come in
+         *     `POST /teacher/attempts/{id}/grade`, one attempt per call. Rows come in
          *     attempt order rather than by name, because the mode hides names until
          *     the question is graded (anonymous marking).
          */
@@ -1044,7 +1047,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/assignments/{id}/reopen": {
+    "/teacher/assignments/{id}/reopen": {
         parameters: {
             query?: never;
             header?: never;
@@ -1068,7 +1071,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/assignments/{id}/attempts": {
+    "/teacher/assignments/{id}/attempts": {
         parameters: {
             query?: never;
             header?: never;
@@ -1095,7 +1098,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/attempts": {
+    "/teacher/attempts": {
         parameters: {
             query?: never;
             header?: never;
@@ -1117,7 +1120,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/attempts/{id}": {
+    "/teacher/attempts/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1128,7 +1131,7 @@ export interface paths {
         };
         /**
          * Full attempt for review and grading
-         * @description The admin view, so it carries the grading key: `AdminQuestion` includes
+         * @description The teacher's view, so it carries the grading key: `AdminQuestion` includes
          *     `isCorrect`, `sampleAnswer` and `acceptedAnswers`. This is the only
          *     question shape that does.
          */
@@ -1141,7 +1144,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/attempts/{id}/events": {
+    "/teacher/attempts/{id}/events": {
         parameters: {
             query?: never;
             header?: never;
@@ -1172,7 +1175,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/attempts/{id}/extend": {
+    "/teacher/attempts/{id}/extend": {
         parameters: {
             query?: never;
             header?: never;
@@ -1195,7 +1198,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/attempts/{id}/reset": {
+    "/teacher/attempts/{id}/reset": {
         parameters: {
             query?: never;
             header?: never;
@@ -1218,7 +1221,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/attempts/{id}/void": {
+    "/teacher/attempts/{id}/void": {
         parameters: {
             query?: never;
             header?: never;
@@ -1237,7 +1240,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/attempts/{id}/note": {
+    "/teacher/attempts/{id}/note": {
         parameters: {
             query?: never;
             header?: never;
@@ -1260,7 +1263,7 @@ export interface paths {
         patch: operations["setAttemptNote"];
         trace?: never;
     };
-    "/admin/attempts/{id}/flag": {
+    "/teacher/attempts/{id}/flag": {
         parameters: {
             query?: never;
             header?: never;
@@ -1284,7 +1287,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/attempts/{id}/grade": {
+    "/teacher/attempts/{id}/grade": {
         parameters: {
             query?: never;
             header?: never;
@@ -1307,7 +1310,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/attempts/{id}/finish-grading": {
+    "/teacher/attempts/{id}/finish-grading": {
         parameters: {
             query?: never;
             header?: never;
@@ -1330,14 +1333,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/dashboard": {
+    "/teacher/dashboard": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description The five counts §8 needs and spec §15 has no endpoint for. One round trip. */
+        /** @description The five counts §8 needs and spec §15 has no endpoint for, over what the caller reaches. One round trip. */
         get: operations["getDashboard"];
         put?: never;
         post?: never;
@@ -1347,7 +1350,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/students": {
+    "/teacher/students": {
         parameters: {
             query?: never;
             header?: never;
@@ -1358,8 +1361,12 @@ export interface paths {
         get: operations["listStudents"];
         put?: never;
         /**
-         * @description Admin-created accounts get a temporary password and
+         * @description Teacher-created accounts get a temporary password and
          *     `mustChangePassword: true`. Self-signup requires Google (§6.3).
+         *
+         *     Every `classIds` entry must be a class the caller teaches, or any class
+         *     with `scope.all`. Anything else answers 404, exactly as a missing class
+         *     does, and nothing is created.
          */
         post: operations["createStudent"];
         delete?: never;
@@ -1368,7 +1375,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/students/{id}": {
+    "/teacher/students/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1381,15 +1388,23 @@ export interface paths {
         get: operations["getStudent"];
         put?: never;
         post?: never;
-        /** @description Permanently deletes a disabled student account only when no assignment, attempt, or retained audit record references it. Historical identities use the approved manual anonymization process instead. */
-        delete: operations["deleteStudent"];
+        delete?: never;
         options?: never;
         head?: never;
-        /** @description Edits profile fields, or disables the account. Disabling blocks login without deleting any attempt history. */
+        /**
+         * @description Edits profile fields, or disables the account. Disabling blocks login
+         *     without deleting any attempt history. `disabled`, either value, also
+         *     needs `people.users.manage`. A new `email` needs `people.users.manage`
+         *     too unless no one else reaches the student, by the rule
+         *     `resetStudentPassword` states, because a new address can take over the
+         *     account through Google sign-in. Sending the address the student already
+         *     has is not a change. The student's permissions, except
+         *     `learning.take_tests`, must be a subset of the caller's.
+         */
         patch: operations["updateStudent"];
         trace?: never;
     };
-    "/admin/students/{id}/reset-password": {
+    "/teacher/students/{id}/reset-password": {
         parameters: {
             query?: never;
             header?: never;
@@ -1403,10 +1418,34 @@ export interface paths {
         /**
          * @description Sets a temporary password and `mustChangePassword`. There is no
          *     self-service email reset in v1 — that needs an email provider, which is
-         *     the same dependency §6.3 declines (§5.4, §17.1).
+         *     the same dependency §6.3 declines (§5.4, §17.1). Only a student no one
+         *     else reaches may be reset by a teacher: every class they are in,
+         *     archived ones included, is the caller's; no other account created them;
+         *     no other account's assignment targets them individually; and a student
+         *     in no class must have been created by the caller. A holder of
+         *     `people.users.manage` resets any student.
          */
         post: operations["resetStudentPassword"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Permanently deletes a disabled student account only when no assignment, attempt, retained audit record or owned content references it, and only when the student's permissions, except `learning.take_tests`, are a subset of the caller's. Historical identities use the approved manual anonymization process instead. */
+        delete: operations["deleteUser"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1425,11 +1464,11 @@ export interface paths {
          * Open the API reference for fifteen minutes
          * @description Sets `quizzivy_docs`, a docs-only session cookie. `/docs` and
          *     `/docs/openapi.json` answer only to it: 401 without a valid one, 403 for
-         *     a role other than admin. The cookie carries a token for the `docs`
+         *     a role without `system.api_reference`. The cookie carries a token for the `docs`
          *     audience signed with its own key, so it is never an access token and an
          *     access token never opens the docs. `Path=/docs` keeps it off every API
          *     request, and `SameSite=Strict` still travels on the SPA's same-site
-         *     navigation to the API origin. Admin only, like every `/admin/` path, and
+         *     navigation to the API origin. Admin only, through `system.api_reference`, and
          *     rate-limited as an operation that mints a credential.
          */
         post: operations["openDocsSession"];
@@ -1439,7 +1478,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/classes": {
+    "/teacher/classes": {
         parameters: {
             query?: never;
             header?: never;
@@ -1461,7 +1500,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/classes/{id}": {
+    "/teacher/classes/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1482,7 +1521,7 @@ export interface paths {
         patch: operations["updateClass"];
         trace?: never;
     };
-    "/admin/classes/{id}/members": {
+    "/teacher/classes/{id}/members": {
         parameters: {
             query?: never;
             header?: never;
@@ -1498,7 +1537,14 @@ export interface paths {
          */
         get: operations["listClassMembers"];
         put?: never;
-        /** @description Enrols an existing user directly, bypassing the join code. Recorded as `joinedVia: admin` so the teacher can tell the two apart. */
+        /**
+         * @description Enrols an existing user directly, bypassing the join code. Recorded as
+         *     `joinedVia: admin` so the teacher can tell the two apart.
+         *
+         *     `userId` must be an active student the caller reaches. Anything else
+         *     answers 404, whatever the reason, so the answer reveals nothing about
+         *     accounts beyond the caller's reach.
+         */
         post: operations["addClassMember"];
         delete?: never;
         options?: never;
@@ -1506,7 +1552,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/classes/{id}/members/{userId}": {
+    "/teacher/classes/{id}/members/{userId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1534,7 +1580,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/classes/{id}/join-code": {
+    "/teacher/classes/{id}/join-code": {
         parameters: {
             query?: never;
             header?: never;
@@ -1543,7 +1589,24 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Read the class's active join code
+         * @description The active code of a class the caller teaches, or of any class under
+         *     `scope.all`, with its metadata (D5). The code is a bearer secret: the
+         *     response is never cached, and the operation is rate-limited like every
+         *     other that reveals one. It is not audited, because the teacher's
+         *     screens show the code on every class card.
+         *
+         *     `code` is `null` when the code cannot be read back. A code issued
+         *     before v0.8.0 is held only as a hash (`legacy: true`), and R4 rotates
+         *     those. A code sealed under a key this server no longer holds
+         *     (`legacy: false`) can be neither read nor redeemed. Rotate either to
+         *     get a readable code.
+         *
+         *     404 when the class is not the caller's, exactly as a missing class
+         *     answers, or when it has no active code.
+         */
+        get: operations["getJoinCode"];
         put?: never;
         /**
          * Issue a new join code, revoking the old one
@@ -1551,9 +1614,10 @@ export interface paths {
          *     per-class constraint cannot be violated. Previously enrolled students are
          *     unaffected (§6.1).
          *
-         *     The plaintext code is returned **exactly once, here**. Only a SHA-256
-         *     hash is stored, so a database dump does not hand over class access
-         *     (§13.3). If it is lost, rotate again.
+         *     The plaintext code is returned here, and `getJoinCode` reads it again.
+         *     It is stored encrypted under a key the database does not hold, with a
+         *     keyed hash to find it, so a database dump does not hand over class
+         *     access (§13.3).
          */
         post: operations["rotateJoinCode"];
         /**
@@ -2096,7 +2160,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -2149,7 +2213,7 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
-         * @description Shared teacher scope within this installation, with creator attribution.
+         * @description Belongs to the teacher who created it (`createdBy`); every import with `scope.all`.
          *     Sources are private originals, never learner media. Source revision zero
          *     means no completed source set. Upload completion does not mean recognition.
          *     Pending uploads are durable reservations and cannot be downloaded or processed.
@@ -2223,7 +2287,7 @@ export interface components {
             /**
              * @description Private import storage is configured, so imports can be created,
              *     listed, reviewed and committed. When false, every other
-             *     /admin/imports operation answers 501.
+             *     /teacher/imports operation answers 501.
              */
             intakeEnabled: boolean;
             /**
@@ -2452,6 +2516,38 @@ export interface components {
          * @enum {string}
          */
         Role: "admin" | "student";
+        /**
+         * @description The permission catalogue, in the order of the Roles & permissions
+         *     matrix, and equal to the rows of `app.permissions`. Each key and the
+         *     matrix row it is:
+         *
+         *     - `content.tests.write`: Create and edit tests
+         *     - `content.tests.publish`: Publish tests
+         *     - `content.questions.write`: Manage question bank
+         *     - `content.media.write`: Upload and delete media
+         *     - `content.share`: Share own content with other teachers
+         *     - `teaching.classes.write`: Create classes
+         *     - `teaching.assignments.write`: Assign tests to classes
+         *     - `teaching.grading`: Grade answers
+         *     - `teaching.attempts.intervene`: Reset, void or extend attempts
+         *     - `teaching.attendance`: Take attendance
+         *     - `people.students.read`: See students in own classes
+         *     - `people.students.create`: Create student accounts
+         *     - `people.students.reset_password`: Reset student passwords
+         *     - `people.users.manage`: Add and disable users
+         *     - `people.roles.manage`: Change roles
+         *     - `system.audit.read`: View audit log
+         *     - `system.settings.write`: Change system settings
+         *     - `learning.take_tests`: Take tests and view own results
+         *
+         *     The last four keys in the enum are hidden: no matrix row shows them,
+         *     no role is granted them, and only the Admin holds them. The Admin
+         *     holds every key, and `learning.take_tests` only when that cell is
+         *     turned on. `scope.all` reads and edits any teacher's content, classes
+         *     and people.
+         * @enum {string}
+         */
+        PermissionKey: "content.tests.write" | "content.tests.publish" | "content.questions.write" | "content.media.write" | "content.share" | "teaching.classes.write" | "teaching.assignments.write" | "teaching.grading" | "teaching.attempts.intervene" | "teaching.attendance" | "people.students.read" | "people.students.create" | "people.students.reset_password" | "people.users.manage" | "people.roles.manage" | "system.audit.read" | "system.settings.write" | "learning.take_tests" | "scope.all" | "system.api_reference" | "system.data_export" | "system.leads";
         User: {
             id: components["schemas"]["Uuid"];
             /** Format: email */
@@ -2466,6 +2562,41 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
+         * @description A console the signed-in user may enter: `teacher` for any `content.*`,
+         *     `teaching.*` or `people.students.*` permission; `admin` for
+         *     `people.users.manage`, `people.roles.manage`, `system.audit.read`,
+         *     `system.settings.write` or `scope.all`; `app` for
+         *     `learning.take_tests`.
+         * @enum {string}
+         */
+        Workspace: "teacher" | "admin" | "app";
+        /**
+         * @description The signed-in user, as only the user sees it: `User`'s properties plus
+         *     the permissions the user's role holds, in catalogue order, and the
+         *     workspaces they open. Written flat, because a closed schema cannot be
+         *     extended with `allOf` (issue #41). `User` stays where a response
+         *     describes someone else, so a student's permissions never reach a
+         *     teacher's payload.
+         *
+         *     `role` keeps its two legacy values, derived from the role, so a tab
+         *     still open on v0.7.0 keeps routing.
+         */
+        CurrentUser: {
+            id: components["schemas"]["Uuid"];
+            /** Format: email */
+            email: string;
+            fullName: string;
+            role: components["schemas"]["Role"];
+            /** @description false for Google-only accounts. Gates the unlink affordance. */
+            hasPassword: boolean;
+            linkedProviders: "google"[];
+            /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
+            mustChangePassword: boolean;
+            createdAt: components["schemas"]["Timestamp"];
+            permissions: components["schemas"]["PermissionKey"][];
+            workspaces: components["schemas"]["Workspace"][];
+        };
+        /**
          * @description AuthSuccess plus the class a join code enrolled the student in.
          *
          *     Flat rather than `allOf: [AuthSuccess, ...]`: AuthSuccess is
@@ -2477,7 +2608,7 @@ export interface components {
             accessToken: string;
             /** @description Seconds. */
             expiresIn: number;
-            user: components["schemas"]["User"];
+            user: components["schemas"]["CurrentUser"];
             /** @description Present only when a `joinCode` produced an enrolment. */
             enrolledClass?: components["schemas"]["Class"] | null;
         };
@@ -2515,7 +2646,7 @@ export interface components {
              */
             version?: number;
         };
-        /** @description Admin-only shared context that protects an immutable media asset, including archived bank groups. */
+        /** @description Teacher-only shared context that protects an immutable media asset, including archived bank groups. */
         ReferencingGroup: {
             id: components["schemas"]["Uuid"];
             title: string;
@@ -2526,7 +2657,16 @@ export interface components {
             testId?: string | null;
         };
         /**
-         * @description A MediaAsset as the admin library lists it, with how many published
+         * @description What still references a row whose permanent delete answered
+         *     `RESOURCE_REFERENCED`, carried as `details.referencedBy` by
+         *     `deleteClass` and `deleteUser`. `other` is a reference the server does
+         *     not name. Later releases add values; a client treats an unknown one as
+         *     `other`.
+         * @enum {string}
+         */
+        ReferencedBy: "assignments" | "attempts" | "audit" | "members" | "owned_content" | "other";
+        /**
+         * @description A MediaAsset as the teacher's media library lists it, with how many published
          *     versions reference it. Flat for the same reason (issue #41) -- this is
          *     the site that was actually shipping a body its own contract rejected.
          */
@@ -2615,7 +2755,9 @@ export interface components {
         };
         /**
          * @description Per-student teaching figures for §8's students table (G-07) and the class
-         *     roster (G-06).
+         *     roster (G-06), over only the assignments the caller reaches: those they
+         *     created and those targeting a class they teach, or every one with
+         *     `scope.all`.
          *
          *     Deliberately NOT on `User`. `User` is the `/auth/me`, `/auth/login` and
          *     `/auth/refresh` payload, so a field added there is shipped to the student
@@ -2669,13 +2811,15 @@ export interface components {
              *     them again.
              */
             disabledAt: string | null;
-            /** @description All memberships. The table truncates; the drawer lists them. */
+            /** @description Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them. */
             classes: components["schemas"]["StudentClass"][];
             stats: components["schemas"]["StudentStats"];
         };
         /**
          * @description G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a page
-         *     cannot express, in the same shape as TestStatusFacets.
+         *     cannot express, in the same shape as TestStatusFacets. Both count only
+         *     the students the caller reaches, and `activeLast7Days` only work on
+         *     assignments the caller reaches.
          *
          *     `active` reuses the dashboard's window verbatim rather than defining a
          *     second meaning of active on a second screen.
@@ -2689,7 +2833,7 @@ export interface components {
             accessToken: string;
             /** @description Seconds. */
             expiresIn: number;
-            user: components["schemas"]["User"];
+            user: components["schemas"]["CurrentUser"];
         };
         Class: {
             id: components["schemas"]["Uuid"];
@@ -2701,19 +2845,39 @@ export interface components {
             selfJoinEnabled: boolean;
             /** @description Set once archived. An archived class leaves every picker and keeps its record (G-08). */
             archivedAt: components["schemas"]["Timestamp"] | null;
-            /** @description Admin responses only. Never present on a `/app/*` response. */
+            /** @description Teacher responses only. Never present on a `/app/*` response. */
             joinCode?: components["schemas"]["JoinCodeInfo"] | null;
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
-         * @description Metadata about the active code — **not the code itself**. The plaintext
-         *     is returned exactly once, from the rotate endpoint. Thereafter only
-         *     `hint` (last 4 characters) is available; the stored value is a SHA-256
-         *     hash (§13.3), so a database dump does not hand over class access.
+         * @description Metadata about the active code — **not the code itself**, which
+         *     `getJoinCode` reads for its teacher. A code issued from v0.8.0 on
+         *     is stored encrypted under a key the database does not hold and found
+         *     by a keyed hash (§13.3), so a database dump does not hand it over. A
+         *     code issued before v0.8.0 is held only as its SHA-256 hash, which a
+         *     dump can reverse beside the hint, until it is rotated (D5).
          */
         JoinCodeInfo: {
             /** @example 7K3M */
             hint: string;
+            expiresAt: components["schemas"]["Timestamp"];
+            maxUses: number | null;
+            usesCount: number;
+        };
+        /**
+         * @description A class's active join code, read back for its teacher (D5), with the
+         *     metadata `JoinCodeInfo` carries.
+         */
+        JoinCode: {
+            /**
+             * @description Grouped `XXXX-XXXX`, or `null` when the code cannot be read back.
+             * @example K7M3-P9QR
+             */
+            code: string | null;
+            /** @example 7K3M */
+            hint: string;
+            /** @description True for a code issued before v0.8.0, held only as a hash until it is rotated. */
+            legacy: boolean;
             expiresAt: components["schemas"]["Timestamp"];
             maxUses: number | null;
             usesCount: number;
@@ -2753,7 +2917,7 @@ export interface components {
             id: components["schemas"]["Uuid"];
             name: string;
             description: string | null;
-            /** @description The teacher's display name, null only while no admin account exists. */
+            /** @description The display name of the class's own teacher. */
             teacherName: string | null;
             joinedAt: components["schemas"]["Timestamp"];
         };
@@ -2995,7 +3159,7 @@ export interface components {
             explanationContent?: components["schemas"]["QuestionContent"] | null;
             explanation?: string | null;
             /**
-             * @description `short_answer` only. **Admin-only, shown during grading.** Never
+             * @description `short_answer` only. **Teacher-only, shown during grading.** Never
              *     appears in any `/app/*` schema, including the result endpoint.
              */
             sampleAnswer?: string | null;
@@ -3161,7 +3325,7 @@ export interface components {
          *     identities. Immutable asset bytes may be reused through protected bindings.
          *     Validate graph references and aggregate limits in addition to JSON Schema.
          *     The byte budget includes resolved question content/keys; a transport must
-         *     also bound original input before decoding. This is an admin authoring
+         *     also bound original input before decoding. This is a teacher authoring
          *     shape, never a learner payload or an asset access grant.
          */
         QuestionGroup: {
@@ -3210,7 +3374,7 @@ export interface components {
             blankGapId: string;
         };
         /**
-         * @description Admin-only authoring shape. One explicit playback binding per audio asset
+         * @description Teacher-only authoring shape. One explicit playback binding per audio asset
          *     used in the group's materials. All member questions share its allowance;
          *     another group using the same asset has a different binding. Transcripts
          *     require a separate policy-gated review projection, never a learner cast.
@@ -3438,7 +3602,7 @@ export interface components {
                 closesAt: components["schemas"]["Timestamp"];
                 /**
                  * Format: date-time
-                 * @description Set when closed early by the admin.
+                 * @description Set when closed early by the teacher.
                  */
                 closedAt?: string | null;
             };
@@ -3695,8 +3859,11 @@ export interface components {
             flagged: boolean;
         };
         /**
-         * @description §8's `/admin` needs five counts that spec §15 has no endpoint for. One
-         *     round trip, not five.
+         * @description §8's teacher dashboard needs five counts that spec §15 has no endpoint for. One
+         *     round trip, not five. Every figure covers what the caller reaches: the assignments
+         *     they created or that target a class they teach, the papers the grading queue shows
+         *     them on those assignments, and the students of the classes they teach. With
+         *     `scope.all` it covers everything.
          */
         Dashboard: {
             /** @description Open assignments closing within the next 24 hours. */
@@ -3705,11 +3872,12 @@ export interface components {
             waitingStudents?: number;
             /** Format: date-time */
             oldestWaitingAt?: string | null;
-            /** @description Enabled student accounts. */
+            /** @description Enabled student accounts in the classes the caller teaches; every enabled student account with `scope.all`. */
             totalStudents?: number;
             nextClosing?: components["schemas"]["ClosingAssignment"] | null;
             openAssignments: number;
             awaitingGrading: number;
+            /** @description Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches. With `scope.all`, every enabled account that started an attempt in the last seven days, whatever its role. */
             activeStudents: number;
             flaggedAttempts: number;
             recentAttempts: components["schemas"]["AttemptListRow"][];
@@ -3721,7 +3889,7 @@ export interface components {
             closesAt: string;
             /** @description Distinct enabled students who have handed in at least one non-voided attempt. */
             submittedCount: number;
-            /** @description Enabled students in the union of class and individual targets. */
+            /** @description Enabled students in the union of class and individual targets, counting only the classes the caller teaches and the students they reach. */
             targetCount: number;
         };
         StudentAssignmentCard: {
@@ -3779,7 +3947,7 @@ export interface components {
             mediaAssetId?: string | null;
             /** @description Required if and only if the asset is audio (§7). */
             audio?: components["schemas"]["AudioPolicy"] | null;
-            /** @description Audio questions only. Admin-authored; the student sees it only per policy. */
+            /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */
             transcript?: string | null;
             /** @description Order in the array is the stored ordinal. */
             options?: {
@@ -3867,7 +4035,8 @@ export interface components {
             };
         };
         /**
-         * @description Authenticated but not permitted. A `student` reaching an `/admin/*` route
+         * @description Authenticated but not permitted: the caller's role lacks the operation's
+         *     `x-permission`, as a `student` reaching a `/teacher/*` route does. It
          *     gets this, and the client renders a 403 page rather than redirecting —
          *     a redirect hides the misconfiguration (§5.4).
          */
@@ -3926,7 +4095,7 @@ export interface components {
     parameters: {
         /**
          * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-         *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+         *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
          *     lists: at this scale the teacher wants "trang 3 / 26" more than
          *     stability under concurrent inserts). A page past the end is an empty
          *     `items` with the same `total`.
@@ -4003,6 +4172,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -4064,6 +4242,15 @@ export interface operations {
              *     the same thing.
              */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4148,6 +4335,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -4219,7 +4415,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["CurrentUser"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -4247,7 +4443,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["CurrentUser"];
                 };
             };
             /** @description `VALIDATION_FAILED` — the name is empty or too long. */
@@ -4298,6 +4494,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     changePassword: {
@@ -4313,7 +4510,7 @@ export interface operations {
                     /**
                      * @description Required, EXCEPT while `mustChangePassword` is true.
                      *
-                     *     In that window the current password is one an admin
+                     *     In that window the current password is one a teacher
                      *     generated and read aloud, so re-entering it proves nothing
                      *     the access token has not already proved — and demanding it
                      *     strands the case G-07 is drawn for: a student whose password
@@ -4395,7 +4592,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["CurrentUser"];
                 };
             };
             /**
@@ -4465,7 +4662,7 @@ export interface operations {
             query?: {
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -4524,6 +4721,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale revision, archived owner or duplicate graph identity. */
             409: {
@@ -4602,6 +4800,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale revision, archived group/test or identity conflict. */
             409: {
@@ -4653,6 +4852,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale revision, archived enclosing test, or bank group not archived. */
             409: {
@@ -4690,6 +4890,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale source/destination revision or archived enclosing test. */
             409: {
@@ -4761,7 +4962,7 @@ export interface operations {
                 q?: components["parameters"]["Query"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -5187,7 +5388,7 @@ export interface operations {
                 q?: components["parameters"]["Query"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -5413,7 +5614,7 @@ export interface operations {
             query?: {
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -6037,7 +6238,7 @@ export interface operations {
                 kind?: components["schemas"]["MediaKind"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -6167,7 +6368,7 @@ export interface operations {
                 classId?: components["schemas"]["Uuid"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -6442,7 +6643,7 @@ export interface operations {
                 pendingGrading?: boolean;
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -6515,7 +6716,7 @@ export interface operations {
                         integrity: components["schemas"]["IntegritySummary"];
                         /**
                          * @description G-05's "Ghi chú của bạn": the teacher's private note on
-                         *     this attempt. Admin-only by construction — it lives on
+                         *     this attempt. Teacher-only by construction — it lives on
                          *     this response and nowhere under `/app/*`.
                          */
                         teacherNote: string | null;
@@ -6849,7 +7050,7 @@ export interface operations {
                 status?: "active" | "disabled" | "all";
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -6913,6 +7114,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
             /** @description `EMAIL_TAKEN` — already in use, compared case-insensitively. */
             409: {
                 headers: {
@@ -6947,36 +7149,6 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    deleteStudent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            /** @description The resource is still referenced or has not reached its required inactive state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
     updateStudent: {
         parameters: {
             query?: never;
@@ -7004,6 +7176,20 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentRow"];
+                };
+            };
+            /**
+             * @description `FORBIDDEN` — `disabled` without `people.users.manage`, or a student
+             *     whose permissions are not a subset of the caller's.
+             *     `STUDENT_SHARED` — a new `email` for a student someone else also
+             *     reaches, without `people.users.manage`. Nothing is written.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             404: components["responses"]["NotFound"];
@@ -7040,7 +7226,69 @@ export interface operations {
                     };
                 };
             };
+            /**
+             * @description `STUDENT_SHARED` — someone else also reaches the student, so only a
+             *     holder of `people.users.manage` may reset them. `FORBIDDEN` — the
+             *     student's permissions are not a subset of the caller's. Nothing is
+             *     written.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             404: components["responses"]["NotFound"];
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `FORBIDDEN` — the student's permissions are not a subset of the caller's. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `RESOURCE_NOT_ARCHIVED` — the account is not disabled.
+             *     `RESOURCE_REFERENCED` — something still references it, and
+             *     `details.referencedBy` (`ReferencedBy`) always names what:
+             *     `assignments` (an individual assignment target, or an assignment it
+             *     created), `attempts`, `audit` (audit history it acted in),
+             *     `owned_content` (tests, questions, question groups, media, classes,
+             *     join codes, published versions or Word imports it owns or created),
+             *     or `other`.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     openDocsSession: {
@@ -7070,7 +7318,7 @@ export interface operations {
                 q?: components["parameters"]["Query"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -7176,7 +7424,14 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["NotFound"];
-            /** @description The resource is still referenced or has not reached its required inactive state. */
+            /**
+             * @description `RESOURCE_NOT_ARCHIVED` — the class is not archived.
+             *     `RESOURCE_REFERENCED` — something still references it, and
+             *     `details.referencedBy` (`ReferencedBy`) always names what:
+             *     `assignments` (an assignment targets the class), `members` (a
+             *     membership in another class came through one of its join codes),
+             *     or `other`.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7227,7 +7482,7 @@ export interface operations {
                 q?: components["parameters"]["Query"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
-                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
                  *     `items` with the same `total`.
@@ -7308,6 +7563,31 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getJoinCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinCode"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     rotateJoinCode: {
         parameters: {
             query?: never;
@@ -7350,7 +7630,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /**
-                         * @description Plaintext, grouped `XXXX-XXXX`. Shown once and never retrievable again.
+                         * @description Plaintext, grouped `XXXX-XXXX`. `getJoinCode` reads it again.
                          * @example K7M3-P9QR
                          */
                         code: string;
@@ -7427,6 +7707,15 @@ export interface operations {
             };
             /** @description Invalid, expired, exhausted or revoked. Same leak rules as `/join/preview`. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7560,6 +7849,7 @@ export interface operations {
             content: {
                 "application/json": {
                     sessionId: components["schemas"]["Uuid"];
+                    /** @description Keyed by the version question's id. */
                     answers?: {
                         [key: string]: components["schemas"]["Answer"];
                     };

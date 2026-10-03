@@ -106,7 +106,10 @@ test("group graph and uploaded material round-trip through the real API, then co
     (response) =>
       response.request().method() === "DELETE" &&
       new URL(response.url()).pathname ===
-        originalPath.replace("/question-bank/groups/", "/question-groups/"),
+        originalPath.replace(
+          "/admin/question-bank/groups/",
+          "/teacher/question-groups/",
+        ),
   );
   await page
     .getByRole("dialog")

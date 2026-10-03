@@ -12,6 +12,7 @@ import (
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/modules/imports/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 	"sync"
 	"testing"
@@ -24,6 +25,8 @@ type harness struct {
 	quotas domain.Quotas
 }
 
+var everyone = access.Scope{All: true}
+
 func setup(t *testing.T) harness {
 	t.Helper()
 	ctx := context.Background()
@@ -33,7 +36,7 @@ func setup(t *testing.T) harness {
 	}
 	t.Cleanup(pool.Close)
 	var id string
-	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role) VALUES($1,'Import teacher','admin') RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&id); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role_id) VALUES($1,'Import teacher',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	connection := pool
@@ -146,11 +149,11 @@ func TestSourcesAreImmutableRevisionedAndScoped(t *testing.T) {
 	v := h.create(t)
 	examIn := h.upload(v, "exam")
 	exam := h.reserve(t, examIn)
-	pending, err := h.repo.Get(ctx, v.ID)
+	pending, err := h.repo.Get(ctx, everyone, v.ID)
 	if err != nil || pending.PendingUploads != 1 || len(pending.Sources) != 0 {
 		t.Fatalf("pending receipt: %+v %v", pending, err)
 	}
-	if _, err := h.repo.Source(ctx, v.ID, exam.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := h.repo.Source(ctx, everyone, v.ID, exam.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("pending source downloadable: %v", err)
 	}
 	first := h.finish(t, exam)
@@ -180,18 +183,18 @@ func TestSourcesAreImmutableRevisionedAndScoped(t *testing.T) {
 	if len(third.Import.Sources) != 2 || third.Import.SourceRevision != 3 {
 		t.Fatalf("replace lost key: %+v", third)
 	}
-	if _, err := h.repo.Source(ctx, v.ID, exam.ID); err != nil {
+	if _, err := h.repo.Source(ctx, everyone, v.ID, exam.ID); err != nil {
 		t.Fatalf("historical original disappeared: %v", err)
 	}
 	other := h.create(t)
-	if _, err := h.repo.Source(ctx, other.ID, exam.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := h.repo.Source(ctx, everyone, other.ID, exam.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("cross-import download accepted: %v", err)
 	}
 	var source string
 	if err := h.pool.QueryRow(ctx, `SELECT source_id::text FROM app.word_import_source_set_items WHERE import_id=$1 AND revision=1 AND role='exam'`, v.ID).Scan(&source); err != nil || source != exam.ID {
 		t.Fatalf("history overwritten: %v", err)
 	}
-	filtered, err := h.repo.List(ctx, domain.Filter{Search: "de tieng anh", Page: 1, Limit: 100})
+	filtered, err := h.repo.List(ctx, domain.Filter{Scope: everyone, Search: "de tieng anh", Page: 1, Limit: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +207,7 @@ func TestSourcesAreImmutableRevisionedAndScoped(t *testing.T) {
 	if !found {
 		t.Fatal("Vietnamese title search did not fold accents")
 	}
-	escaped, err := h.repo.List(ctx, domain.Filter{Search: "%_"})
+	escaped, err := h.repo.List(ctx, domain.Filter{Scope: everyone, Search: "%_"})
 	if err != nil || escaped.Page.Total != 0 {
 		t.Fatalf("wildcards were interpreted: %+v %v", escaped, err)
 	}
@@ -240,7 +243,7 @@ func TestConcurrentFinishesRejectStaleSourcesAndRetainReservation(t *testing.T) 
 	if ok != 1 || conflicts != 1 {
 		t.Fatalf("concurrent finish: %d successes %d conflicts", ok, conflicts)
 	}
-	saved, err := h.repo.Get(ctx, v.ID)
+	saved, err := h.repo.Get(ctx, everyone, v.ID)
 	if err != nil || saved.PendingUploads != 1 || saved.SourceRevision != 1 {
 		t.Fatalf("pending conflict lost: %+v %v", saved, err)
 	}

@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"strings"
 	"testing"
 	"time"
@@ -45,6 +46,13 @@ func TestCreatingAStudentEnrolsThemAndForcesAChange(t *testing.T) {
 
 	if !created.MustChangePassword {
 		t.Error("an admin-created account did not force a password change")
+	}
+	var creator string
+	if err := pool.QueryRow(ctx, `SELECT coalesce(created_by::text, '') FROM app.users WHERE id = $1`, created.ID).Scan(&creator); err != nil {
+		t.Fatal(err)
+	}
+	if creator != w.admin {
+		t.Errorf("created_by = %q, want the staff member who created the account, %s", creator, w.admin)
 	}
 	if !created.HasPassword {
 		t.Error("no password was set")
@@ -104,7 +112,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 
 	yes := true
 	// The contract declares 200 with a StudentRow for this exact request.
-	disabled, err := store.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: domain.WriteRequest{ActorID: w.admin}, Input: domain.StudentPatch{
+	disabled, err := store.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: domain.WriteRequest{ActorID: w.admin, Grants: access.NewSet(access.All()...)}, Input: domain.StudentPatch{
 		ID: w.student, Disabled: &yes, Now: time.Now(),
 	}})
 	if err != nil {
@@ -125,7 +133,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 	}
 
 	// Findable again, which is what makes the disable reversible.
-	back, err := store.Queries.GetStudent.Handle(ctx, query.GetStudent{ID: w.student})
+	back, err := store.Queries.GetStudent.Handle(ctx, query.GetStudent{Scope: everyone, ID: w.student})
 	if err != nil {
 		t.Fatalf("Get on a disabled student: %v", err)
 	}
@@ -133,7 +141,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 		t.Error("the row does not report that it is disabled")
 	}
 
-	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{}})
+	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Scope: everyone}})
 	active := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +152,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 		}
 	}
 
-	listStudentsResult, err = store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Status: domain.StudentsDisabled}})
+	listStudentsResult, err = store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Scope: everyone, Status: domain.StudentsDisabled}})
 	found := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)

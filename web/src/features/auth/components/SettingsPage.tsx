@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useParams } from "react-router";
 import { Shield, SlidersHorizontal, UserRound } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { SignOutButton } from "@/features/auth/SignOutButton";
+import { learnsOnly } from "@/features/auth/permissions";
 import { formatDate } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -89,7 +90,7 @@ export function SettingsPage({
                   </p>
                   <p className="text-muted-foreground text-xs">
                     {t(
-                      user.role === "student"
+                      learnsOnly(user)
                         ? "settings.roleStudent"
                         : "settings.roleTeacher",
                     )}{" "}

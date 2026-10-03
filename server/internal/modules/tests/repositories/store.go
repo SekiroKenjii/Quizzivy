@@ -7,6 +7,7 @@ import (
 	questionsdomain "quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
 	"slices"
@@ -18,14 +19,24 @@ const entityTest = "test"
 
 const liveTests = `t.deleted_at IS NULL`
 
+const scopedTest = `($2::boolean OR owner_id = $3::uuid)`
+
 // QuestionLocks and MediaLocks are the row locks other modules take on this
-// module's behalf inside its transactions, so a draft cannot outlive what it names.
+// module's behalf inside its transactions, so a draft cannot outlive what it
+// names, and the checks that run under them. NotOwnedBy reads, without
+// locking, which of questions the draft's owner does not own; it runs after
+// LockForDraftUse has locked every one of them in the same transaction.
+// RequireReadable refuses, as a missing asset, any asset the scope may not
+// read; it runs after LockForVersionUse and before any row naming the asset is
+// written.
 type QuestionLocks interface {
 	LockForDraftUse(ctx context.Context, tx pgx.Tx, questionID string) error
+	NotOwnedBy(ctx context.Context, tx pgx.Tx, ownerID string, questionIDs []string) ([]string, error)
 }
 
 type MediaLocks interface {
 	LockForVersionUse(ctx context.Context, tx pgx.Tx, assetID string) error
+	RequireReadable(ctx context.Context, tx pgx.Tx, scope access.Scope, assetIDs []string) error
 }
 
 type Postgres struct {
@@ -69,15 +80,17 @@ func scanTest(row pgx.Row) (domain.Test, error) {
 	return t, nil
 }
 
-// Get returns one live test with its draft outline.
-func (s *Postgres) Get(ctx context.Context, id string) (domain.Test, error) {
+// Get returns one live test with its draft outline; a test outside scope is
+// domain.ErrNotFound.
+func (s *Postgres) Get(ctx context.Context, scope access.Scope, id string) (domain.Test, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Test{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var locked string
-	err = tx.QueryRow(ctx, `SELECT id::text FROM app.tests WHERE id=$1 AND deleted_at IS NULL FOR SHARE`, id).Scan(&locked)
+	err = tx.QueryRow(ctx, `SELECT id::text FROM app.tests WHERE id=$1 AND deleted_at IS NULL AND `+scopedTest+` FOR SHARE`,
+		id, scope.All, opt.String(scope.UserID)).Scan(&locked)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Test{}, domain.ErrNotFound
 	}
@@ -165,8 +178,8 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Te
 
 	var id string
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO app.tests (title, description, created_by) VALUES ($1, $2, $3)
-		 RETURNING id::text`, in.Title, in.Description, in.ActorID).Scan(&id); err != nil {
+		`INSERT INTO app.tests (title, description, created_by, owner_id) VALUES ($1, $2, $3, coalesce($4::uuid, $3))
+		 RETURNING id::text`, in.Title, in.Description, in.ActorID, opt.String(in.OwnerID)).Scan(&id); err != nil {
 		return domain.Test{}, fmt.Errorf("tests: insert: %w", err)
 	}
 	if err := audit.Write(ctx, tx, audit.Entry{
@@ -191,7 +204,7 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Te
 	return created, nil
 }
 
-func (s *Postgres) lockQuestions(ctx context.Context, tx pgx.Tx, sections []domain.SectionInput) error {
+func (s *Postgres) lockQuestions(ctx context.Context, tx pgx.Tx, ownerID string, sections []domain.SectionInput) error {
 	seen := map[string]bool{}
 	var ids []string
 	for _, sec := range sections {
@@ -211,6 +224,16 @@ func (s *Postgres) lockQuestions(ctx context.Context, tx pgx.Tx, sections []doma
 			}
 			return err
 		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	foreign, err := s.questions.NotOwnedBy(ctx, tx, ownerID, ids)
+	if err != nil {
+		return err
+	}
+	if len(foreign) > 0 {
+		return fmt.Errorf("%w: %s", domain.ErrUnknownQuestion, foreign[0])
 	}
 	return nil
 }

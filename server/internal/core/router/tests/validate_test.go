@@ -93,11 +93,11 @@ func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
 
 func TestPathParametersAreValidatedToo(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/admin/classes/not-a-uuid", nil)
+	req := httptest.NewRequest(http.MethodGet, "/teacher/classes/not-a-uuid", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	newAuthTestRouter(t, issuer).ServeHTTP(rec, req)
@@ -109,7 +109,7 @@ func TestPathParametersAreValidatedToo(t *testing.T) {
 
 func TestANewPasswordNeedsADigitPunctuationOrSymbol(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000b2", "student")
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000b2", "student", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

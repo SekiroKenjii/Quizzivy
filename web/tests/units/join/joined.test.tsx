@@ -8,7 +8,7 @@ import JoinPage from "@/features/join/pages/JoinPage";
 import { readJoinContext, saveJoinContext } from "@/features/join/context";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { sampleClass, studentUser } from "@tests/support/fixtures";
+import { adminWhoTakesTests, sampleClass, studentUser } from "@tests/support/fixtures";
 import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
 
@@ -146,6 +146,17 @@ describe("coming back from sign-in to join", () => {
     );
     expect(joins).toBe(0);
     expect(readJoinContext()).not.toBeNull();
+  });
+
+  it("does not join for an Admin who takes tests", async () => {
+    joinAnswers(200, { ...sampleClass, name: CLASS_NAME });
+    useAuthStore.getState().setSession("token", adminWhoTakesTests);
+    renderReturn();
+
+    expect(
+      await screen.findByText("Chỉ tài khoản học viên mới tham gia lớp được."),
+    ).toBeVisible();
+    expect(joins).toBe(0);
   });
 
   it("offers the form again when the visitor turns out to be signed out", async () => {

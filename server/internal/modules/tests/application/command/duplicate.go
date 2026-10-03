@@ -21,5 +21,6 @@ func (s DuplicateHandler) Handle(ctx context.Context, cmd Duplicate) (domain.Tes
 		Now:       s.Now(),
 		IP:        cmd.Request.IP,
 		UserAgent: cmd.Request.UserAgent,
+		Scope:     cmd.Request.Scope,
 	})
 }

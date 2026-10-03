@@ -25,10 +25,13 @@ import (
 	"quizzivy/internal/modules/imports/repositories"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/storage"
+	"quizzivy/internal/shared/access"
 	"strings"
 	"testing"
 	"time"
 )
+
+var everyone = access.Scope{All: true}
 
 type intake struct {
 	handler               http.Handler
@@ -58,7 +61,7 @@ func setup(t *testing.T) intake {
 		t.Cleanup(conn.Close)
 	}
 	var actor string
-	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role) VALUES($1,'Private intake teacher','admin') RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&actor); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role_id) VALUES($1,'Private intake teacher',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&actor); err != nil {
 		t.Fatal(err)
 	}
 	store, err := storage.New(ctx, storage.Config{Endpoint: os.Getenv("S3_ENDPOINT"), Region: os.Getenv("S3_REGION"), Bucket: os.Getenv("S3_BUCKET"), AccessKeyID: os.Getenv("S3_ACCESS_KEY_ID"), SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"), ForcePathStyle: true})
@@ -71,15 +74,15 @@ func setup(t *testing.T) intake {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, err := issuer.Issue(actor, "admin")
+	token, err := issuer.Issue(actor, "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	student, err := issuer.Issue(uuid.NewString(), "student")
+	student, err := issuer.Issue(uuid.NewString(), "student", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler, err := router.New(router.Deps{Tokens: issuer, Modules: router.Modules{Imports: importshttp.New(app)}}, slog.New(slog.NewTextHandler(io.Discard, nil)), []string{"http://localhost:4173"}, "")
+	handler, err := router.New(router.Deps{Tokens: issuer, Principals: intakePrincipals{owner: actor}, Modules: router.Modules{Imports: importshttp.New(app)}}, slog.New(slog.NewTextHandler(io.Discard, nil)), []string{"http://localhost:4173"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +132,7 @@ func (h intake) request(method, path, contentType string, body io.Reader, token 
 func (h intake) create(t *testing.T) openapi.WordImport {
 	t.Helper()
 	body := `{"requestId":"` + uuid.NewString() + `","title":"Đề kiểm tra"}`
-	rec := h.request(http.MethodPost, "/admin/imports", "application/json", strings.NewReader(body), h.token)
+	rec := h.request(http.MethodPost, "/teacher/imports", "application/json", strings.NewReader(body), h.token)
 	if rec.Code != 201 {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
@@ -188,7 +191,7 @@ func TestPrivateIntakeRoundTripsThroughRouterPostgresAndMinIO(t *testing.T) {
 	h := setup(t)
 	v := h.create(t)
 	data := docx(t)
-	path := "/admin/imports/" + v.Id.String() + "/sources?role=exam&uploadId=" + uuid.NewString() + "&expectedRevision=1"
+	path := "/teacher/imports/" + v.Id.String() + "/sources?role=exam&uploadId=" + uuid.NewString() + "&expectedRevision=1"
 	bad, kind := multipartBody(t, data, true)
 	invalid := h.request(http.MethodPost, path, kind, bad, h.token)
 	if invalid.Code != 400 {
@@ -215,7 +218,7 @@ func TestPrivateIntakeRoundTripsThroughRouterPostgresAndMinIO(t *testing.T) {
 	if replay.Source.Id != receipt.Source.Id || replay.Import.Revision != 2 || replay.SourceRevision != 1 {
 		t.Fatal("retry created another source")
 	}
-	downloadPath := "/admin/imports/" + v.Id.String() + "/sources/" + receipt.Source.Id.String() + "/download"
+	downloadPath := "/teacher/imports/" + v.Id.String() + "/sources/" + receipt.Source.Id.String() + "/download"
 	denied := h.request(http.MethodGet, downloadPath, "", nil, h.student)
 	if denied.Code != 403 {
 		t.Fatalf("student download: %d", denied.Code)
@@ -245,7 +248,7 @@ func TestPrivateIntakeRoundTripsThroughRouterPostgresAndMinIO(t *testing.T) {
 	if !strings.HasPrefix(response.Header.Get("Content-Disposition"), "attachment") {
 		t.Fatal("original can be interpreted as inline content")
 	}
-	current, err := h.repo.Get(context.Background(), v.Id.String())
+	current, err := h.repo.Get(context.Background(), everyone, v.Id.String())
 	if err != nil || current.PendingUploads != 0 || len(current.Sources) != 1 {
 		t.Fatalf("source state: %+v %v", current, err)
 	}
@@ -253,4 +256,13 @@ func TestPrivateIntakeRoundTripsThroughRouterPostgresAndMinIO(t *testing.T) {
 	if err := h.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.media_assets WHERE id=$1`, receipt.Source.Id).Scan(&mediaCount); err != nil || mediaCount != 0 {
 		t.Fatal("source leaked into learner media")
 	}
+}
+
+type intakePrincipals struct{ owner string }
+
+func (p intakePrincipals) Resolve(_ context.Context, userID string) (access.Principal, error) {
+	if userID == p.owner {
+		return access.Principal{UserID: userID, BuiltinKey: access.BuiltinAdmin, Permissions: access.NewSet(access.All()...).Without(access.LearningTakeTests)}, nil
+	}
+	return access.Principal{UserID: userID, BuiltinKey: access.BuiltinStudent, Permissions: access.NewSet(access.LearningTakeTests)}, nil
 }
