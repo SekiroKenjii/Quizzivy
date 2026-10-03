@@ -147,13 +147,24 @@ export default function ResultPage() {
   );
 }
 
+function SubmittedMeta({
+  data,
+  classTitle,
+}: Readonly<{ data: AttemptResult; classTitle: string | null }>) {
+  const { t, i18n } = useTranslation();
+  const fresh = justNow(data.attempt.submittedAt, new Date());
+  useTick(fresh);
+  const meta = metaLine(data, classTitle, fresh, i18n.language as Locale, t);
+  if (meta === null) return null;
+  return <p className="text-muted-fg text-sm break-words">{meta}</p>;
+}
+
 function Loaded({
   data,
   wide,
   onRetry,
 }: Readonly<{ data: AttemptResult; wide: boolean; onRetry: () => void }>) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.language as Locale;
+  const { t } = useTranslation();
   const heading = useId();
   const [chip, setChip] = useState<Filter>("all");
   const target = useRef<string | null>(null);
@@ -172,18 +183,9 @@ function Loaded({
   });
 
   const { attempt, review, questions } = data;
-  const fresh = justNow(attempt.submittedAt, new Date());
-  useTick(fresh);
   const view = resultView(data);
   const active = view.filters.includes(chip) ? chip : "all";
   const shown = shownUnder(active, questions, review);
-  const meta = metaLine(
-    data,
-    classNameOf(lists.data, attempt.assignmentId),
-    fresh,
-    locale,
-    t,
-  );
 
   const numbers = new Map(questions.map((question, index) => [question.id, index + 1]));
   const shownIds = new Set(shown.map((question) => question.id));
@@ -204,7 +206,10 @@ function Loaded({
       <section className="bg-card shadow-card flex flex-wrap items-center gap-5.5 rounded-2xl border p-5.5">
         <ScoreRing ring={view.ring} />
         <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-1.5">
-          {meta !== null && <p className="text-muted-fg text-sm break-words">{meta}</p>}
+          <SubmittedMeta
+            data={data}
+            classTitle={classNameOf(lists.data, attempt.assignmentId)}
+          />
           <h1 className="text-xl leading-[1.3] font-semibold tracking-[-0.01em] break-words">
             {data.testTitle}
           </h1>

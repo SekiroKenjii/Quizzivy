@@ -884,6 +884,27 @@ describe("the line above the title", () => {
   });
 });
 
+describe("the minute after submitting", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-26T13:14:05Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("repaints the line above the title alone, then writes the day", async () => {
+    serve(scored([blank(1, "She {{1}} in Hanoi.", "lives", { earned: 1 })]));
+    renderResult();
+    expect(await screen.findByText("IELTS Foundation A · vừa nộp")).toBeVisible();
+    const gap = screen.getByRole("img", { name: "chỗ trống" });
+    await act(() => vi.advanceTimersByTimeAsync(3_000));
+    expect(gap).toBeInTheDocument();
+    expect(screen.getByText("IELTS Foundation A · vừa nộp")).toBeVisible();
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    expect(screen.getByText("IELTS Foundation A · nộp Thứ 4, 26/08")).toBeVisible();
+    expect(gap).toBeInTheDocument();
+  });
+});
+
 describe("the filter", () => {
   it("keeps a partly right answer under Wrong and leaves the right ones out", async () => {
     serve(
