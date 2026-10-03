@@ -24,13 +24,19 @@ var studentCardColumns = `
 	SELECT a.id::text, t.title,
 	       (SELECT CASE WHEN count(*) = 1 THEN min(c.name) END
 	          FROM app.assignment_classes ac
-	          JOIN app.classes c ON c.id = ac.class_id
+	          JOIN app.classes c ON c.id = ac.class_id AND c.archived_at IS NULL
 	          JOIN app.class_members m ON m.class_id = ac.class_id
 	                                  AND m.user_id = $1::uuid
 	         WHERE ac.assignment_id = a.id),
 	       (SELECT CASE WHEN count(*) = 1 THEN min(c.id::text) END
 	          FROM app.assignment_classes ac
-	          JOIN app.classes c ON c.id = ac.class_id
+	          JOIN app.classes c ON c.id = ac.class_id AND c.archived_at IS NULL
+	          JOIN app.class_members m ON m.class_id = ac.class_id
+	                                  AND m.user_id = $1::uuid
+	         WHERE ac.assignment_id = a.id),
+	       (SELECT coalesce(array_agg(c.id::text ORDER BY c.name, c.id), '{}')
+	          FROM app.assignment_classes ac
+	          JOIN app.classes c ON c.id = ac.class_id AND c.archived_at IS NULL
 	          JOIN app.class_members m ON m.class_id = ac.class_id
 	                                  AND m.user_id = $1::uuid
 	         WHERE ac.assignment_id = a.id),
@@ -108,7 +114,7 @@ func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 		showScore bool
 		l         lastAttempt
 	)
-	err := row.Scan(&c.ID, &c.TestTitle, &c.ClassName, &c.ClassID,
+	err := row.Scan(&c.ID, &c.TestTitle, &c.ClassName, &c.ClassID, &c.ClassIDs,
 		&c.OpensAt, &c.ClosesAt, &c.ClosedAt, &c.PublishedAt,
 		&c.DurationMin, &c.MaxAttempts, &showScore,
 		&c.QuestionCount, &c.TotalPoints,
@@ -174,7 +180,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 	       audio.max_plays`+studentCardFrom+studentAudioSummary+`
 	 WHERE a.id = $2::uuid AND a.published_at IS NOT NULL AND `+targeted,
 		studentID, id).Scan(
-		&d.ID, &d.TestTitle, &d.ClassName, &d.ClassID,
+		&d.ID, &d.TestTitle, &d.ClassName, &d.ClassID, &d.ClassIDs,
 		&d.OpensAt, &d.ClosesAt, &d.ClosedAt, &d.PublishedAt,
 		&d.DurationMin, &d.MaxAttempts, &showScore,
 		&d.QuestionCount, &d.TotalPoints,

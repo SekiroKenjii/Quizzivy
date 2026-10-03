@@ -453,4 +453,29 @@ describe("the paper a class names as next", () => {
       }),
     ).toEqual([]);
   });
+
+  it("is on both cards when two of the student's classes share it", () => {
+    expect(next({ dueNow: [paper(1, { classId: null, classIds: [A, B] })] })).toEqual([
+      [A, id(1), "open"],
+      [B, id(1), "open"],
+    ]);
+  });
+
+  it("is the first paper of each class when a shared one comes later", () => {
+    expect(
+      next({
+        dueNow: [
+          paper(1, { classId: null, classIds: [A, B] }),
+          paper(2, { classId: A, classIds: [A], closesAt: "2026-09-03T01:00:00Z" }),
+        ],
+      }),
+    ).toEqual([
+      [A, id(2), "open"],
+      [B, id(1), "open"],
+    ]);
+  });
+
+  it("still reads classId from a server that sends no classIds", () => {
+    expect(next({ dueNow: [paper(1, { classId: A })] })).toEqual([[A, id(1), "open"]]);
+  });
 });
