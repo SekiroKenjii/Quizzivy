@@ -1,3 +1,4 @@
+import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import type { components, operations } from "@/lib/api/schema";
 
@@ -113,6 +114,15 @@ export function addMember(classId: string, userId: string) {
 export function fetchMyClasses(signal?: AbortSignal) {
   return api("get", "/app/classes", signal ? { signal } : {});
 }
+
+/**
+ * myClassesQuery is the student's class list as every screen reads it: Home,
+ * Classes and the Join dialog share the one key, so a join refreshes them all.
+ */
+export const myClassesQuery = queryOptions({
+  queryKey: ["my-classes"],
+  queryFn: ({ signal }) => fetchMyClasses(signal),
+});
 
 export function deleteClass(id: string) {
   return api("delete", "/teacher/classes/{id}", { path: { id } });

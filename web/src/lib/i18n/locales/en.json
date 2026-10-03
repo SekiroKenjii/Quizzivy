@@ -288,6 +288,13 @@
       "title": "You're in {{className}}",
       "body": "{{teacherName}} will see you in the class list.",
       "failedTitle": "We couldn't add you to {{className}}"
+    },
+    "dialog": {
+      "submit": "Join class",
+      "alreadyMember": "You are already in this class.",
+      "joined": "You joined {{className}}",
+      "retryIn_one": "Try again in {{count}} second.",
+      "retryIn_other": "Try again in {{count}} seconds."
     }
   },
   "classDetail": {

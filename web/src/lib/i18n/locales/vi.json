@@ -288,6 +288,13 @@
       "title": "Bạn đã vào lớp {{className}}",
       "body": "{{teacherName}} sẽ thấy bạn trong danh sách lớp.",
       "failedTitle": "Chưa thể thêm bạn vào {{className}}"
+    },
+    "dialog": {
+      "submit": "Tham gia",
+      "alreadyMember": "Bạn đã ở trong lớp này rồi.",
+      "joined": "Bạn đã vào lớp {{className}}",
+      "retryIn_one": "Thử lại sau {{count}} giây.",
+      "retryIn_other": "Thử lại sau {{count}} giây."
     }
   },
   "classDetail": {
