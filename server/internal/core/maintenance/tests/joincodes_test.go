@@ -73,6 +73,9 @@ func newRekeyWorld(t *testing.T) *rekeyWorld {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(ctx) })
+	if _, err := tx.Exec(ctx, `LOCK TABLE app.class_join_codes IN EXCLUSIVE MODE`); err != nil {
+		t.Fatal(err)
+	}
 	w := &rekeyWorld{ctx: ctx, tx: tx}
 	n := uuid.NewString()
 	w.teacher = w.id(t, `INSERT INTO app.users (email, full_name, role_id) VALUES ($1, 'Giáo viên', (SELECT id FROM app.roles WHERE builtin_key = 'teacher')) RETURNING id::text`, "rekey-teacher-"+n+"@example.com")
@@ -98,9 +101,6 @@ func newRekeyWorld(t *testing.T) *rekeyWorld {
 
 func (w *rekeyWorld) isolate(t *testing.T) {
 	t.Helper()
-	if _, err := w.tx.Exec(w.ctx, `LOCK TABLE app.class_join_codes IN SHARE ROW EXCLUSIVE MODE`); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := w.tx.Exec(w.ctx, `
 		UPDATE app.class_join_codes SET revoked_at = now()
 		 WHERE revoked_at IS NULL AND lookup_scheme = 2 AND key_id <> ALL($1::smallint[])`,
