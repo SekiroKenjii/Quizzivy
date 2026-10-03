@@ -113,6 +113,9 @@ redrawn to match. **Answered** — resolved by a later export.
 | DG-84 | The result page draws a "Comment" callout from the teacher with no model behind it. | Only per-answer comments show; a single-essay result shows its comment. | R3 |
 | DG-85 | Result variant 2 draws topic tiles (Present perfect 4/5, Past simple 4/5) for a one-part, one-skill paper; nothing models topics. | Not built: a one-part, one-skill paper shows no tiles. | R6 |
 | DG-86 | Essay grading draws scores 3–8 in nine values; bands run 3–9 in half steps. | 3–9 in half steps; please redraw the score row. | R6 |
+| DG-87 | The Student deck centres its toast at the bottom, 20px from the edge and 84px while the tab bar shows; the Teacher and Admin decks put it at the bottom right, 16px from both edges. | One toaster for all three consoles, at the bottom right and 16px, lifted to 84px while the student tab bar shows (T-R3.5). Please draw one position. | R3 |
+| DG-88 | Every console header writes "Quizzivy" in the interface typeface beside the mark; the brand kit says the wordmark is never re-set in that typeface (`docs/design/README.md`, "The brand"). | Built as the decks draw it: the mark with the name as text, 16px bold in the student header (T-R3.5). Listed so the design team decides between the kit's rule and the decks. | R3 |
+| DG-89 | The phone tab bar's "Me" opens Settings, which is a detail screen: it hides the tab bar, so "Me" is never shown as the current tab. | Built as drawn. Five tabs are drawn; the product shows a tab only when its module has shipped, so v0.9.0 has Home, Classes and Me. | R3 |
 
 ### Collaboration, schedule, insights, learn
 
