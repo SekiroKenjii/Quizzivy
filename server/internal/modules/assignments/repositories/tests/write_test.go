@@ -671,3 +671,81 @@ func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 		t.Errorf("facets for the class = %+v, want %+v", facets, want)
 	}
 }
+
+func TestADisabledStudentAlreadyTargetedDoesNotBlockPublishOrClose(t *testing.T) {
+	pool := newPool(t)
+	store := repositories.NewPostgres(db.NewContext(pool))
+	w := seedWorld(t, pool, "published")
+	ctx := context.Background()
+
+	in := legalInput(w)
+	in.StudentIDs = []string{w.student}
+	in.Draft = true
+	draft, err := store.Create(ctx, request(w), in)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`, w.student); err != nil {
+		t.Fatal(err)
+	}
+
+	req := request(w)
+	req.ID = draft.ID
+	in.Draft = false
+	published, err := store.Update(ctx, req, in)
+	if err != nil {
+		t.Fatalf("publish with a disabled individual target: %v", err)
+	}
+	if published.PublishedAt == nil {
+		t.Error("publishing did not record when")
+	}
+	if len(published.Students) != 1 || published.Students[0].ID != w.student {
+		t.Errorf("student targets after publishing: got %v", published.Students)
+	}
+
+	in.CloseNow = true
+	closed, err := store.Update(ctx, req, in)
+	if err != nil {
+		t.Fatalf("close with a disabled individual target: %v", err)
+	}
+	if closed.ClosedAt == nil {
+		t.Error("closeNow did not set closedAt")
+	}
+	if len(closed.Students) != 1 || closed.Students[0].ID != w.student {
+		t.Errorf("student targets after closing: got %v", closed.Students)
+	}
+}
+
+func TestADisabledStudentCannotBeAddedAsANewTarget(t *testing.T) {
+	pool := newPool(t)
+	store := repositories.NewPostgres(db.NewContext(pool))
+	w := seedWorld(t, pool, "published")
+	ctx := context.Background()
+
+	created, err := store.Create(ctx, request(w), legalInput(w))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`, w.student); err != nil {
+		t.Fatal(err)
+	}
+
+	in := legalInput(w)
+	in.StudentIDs = []string{w.student}
+
+	req := request(w)
+	req.ID = created.ID
+	_, err = store.Update(ctx, req, in)
+	if _, ok := fieldsOf(t, err)["targets.studentIds"]; !ok {
+		t.Errorf("update: want a studentIds error, got %v", err)
+	}
+
+	_, err = store.Create(ctx, request(w), in)
+	if _, ok := fieldsOf(t, err)["targets.studentIds"]; !ok {
+		t.Errorf("create: want a studentIds error, got %v", err)
+	}
+}
