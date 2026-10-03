@@ -88,6 +88,7 @@ const line = (label: string) =>
   banner().getByText(label, { ignore: '[role="status"]' });
 const timer = () => screen.getByRole("timer", { name: "Thời gian còn lại" });
 const strip = () => document.querySelector<HTMLElement>('[data-slot="save-strip"]');
+const columns = () => screen.getByRole("main").parentElement;
 const announced = () =>
   screen
     .getAllByRole("status")
@@ -525,76 +526,106 @@ describe("the header on a phone", () => {
     expect(timer()).toHaveTextContent("38:12");
     expect(banner().queryByText(TITLE)).toBeNull();
     expect(screen.queryByText(SAVED)).toBeNull();
-    expect(strip()).toBeEmptyDOMElement();
+    expect(strip()).toBeNull();
+    expect(header.nextElementSibling).toBe(columns());
   });
 
-  it("shows the save line in the strip only while an answer is unsaved", async () => {
+  it("draws no strip while a save is on its way, so the paper stays where it is", async () => {
     await open();
     const save = heldSave();
 
     type();
-    expect(strip()).toHaveTextContent(SAVING);
-    expect(banner().queryByText(SAVING)).toBeNull();
+    expect(strip()).toBeNull();
+    expect(screen.queryByText(SAVING)).toBeNull();
+    expect(screen.getByRole("banner").nextElementSibling).toBe(columns());
 
     await pass(FLUSH_DEBOUNCE_MS);
-    expect(strip()).toHaveTextContent(SAVING);
+    expect(store().flushInFlight).toBe(true);
+    expect(strip()).toBeNull();
+    expect(screen.queryByText(SAVING)).toBeNull();
+    expect(announced()).toEqual([]);
 
     await save.succeed();
-    expect(strip()).toBeEmptyDOMElement();
+    expect(store().dirty.size).toBe(0);
+    expect(strip()).toBeNull();
     expect(screen.queryByText(SAVED)).toBeNull();
   });
 
-  it("keeps the strip's row in place, saved or not, so the paper under it never moves", async () => {
+  it("shows the strip when a save fails, between the header and the paper, until the answer is saved", async () => {
     await open();
-    const row = strip();
-    const paper = screen.getByRole("main").parentElement;
-    expect(row).toHaveClass("min-h-[35px]", "flex-none", "border-b", "py-2");
-    expect(row?.previousElementSibling).toBe(screen.getByRole("banner"));
-    expect(row?.nextElementSibling).toBe(paper);
+    vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("boom"));
+    const retry = heldSave();
 
-    const save = heldSave();
     type();
-    expect(strip()).toBe(row);
-    expect(row?.nextElementSibling).toBe(paper);
-
+    expect(strip()).toBeNull();
     await pass(FLUSH_DEBOUNCE_MS);
-    await save.succeed();
-    expect(strip()).toBe(row);
-    expect(row).toBeEmptyDOMElement();
-    expect(row?.nextElementSibling).toBe(paper);
+    expect(strip()).toHaveTextContent(FAILED);
+    expect(strip()).not.toHaveClass("min-h-[35px]");
+    expect(within(strip()!).getByText(FAILED).parentElement).toHaveClass(
+      "text-danger-ink",
+    );
+    expect(within(strip()!).getByText(FAILED).parentElement).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(strip()?.previousElementSibling).toBe(screen.getByRole("banner"));
+    expect(strip()?.nextElementSibling).toBe(columns());
+    expect(banner().queryByText(FAILED, { ignore: '[role="status"]' })).toBeNull();
+    expect(announced()).toEqual([FAILED]);
+
+    await pass(2_000);
+    expect(saveAnswers).toHaveBeenCalledTimes(2);
+    expect(store().flushInFlight).toBe(true);
+    expect(strip()).toHaveTextContent(FAILED);
+
+    await retry.succeed();
+    expect(strip()).toBeNull();
+    expect(announced()).toEqual([]);
+    expect(screen.getByRole("banner").nextElementSibling).toBe(columns());
   });
 
-  it("reserves the same row on the review", async () => {
+  it("shows the strip when the device is offline with an answer unsaved, and not before", async () => {
+    await open();
+    connection(false);
+    expect(strip()).toBeNull();
+    expect(announced()).toEqual([]);
+
+    vi.mocked(saveAnswers).mockRejectedValue(new Error("offline"));
+    type();
+    expect(strip()).toHaveTextContent(OFFLINE);
+    expect(within(strip()!).getByText(OFFLINE).parentElement).toHaveClass(
+      "text-danger-ink",
+    );
+    expect(announced()).toEqual([OFFLINE]);
+
+    await pass(FLUSH_DEBOUNCE_MS);
+    expect(strip()).toHaveTextContent(OFFLINE);
+
+    connection(true);
+    expect(strip()).toHaveTextContent(FAILED);
+    expect(announced()).toEqual([FAILED]);
+
+    vi.mocked(saveAnswers).mockImplementation(async () => reply());
+    await pass(30_000);
+    expect(strip()).toBeNull();
+    expect(announced()).toEqual([]);
+  });
+
+  it("draws no strip on the review either, until a save fails there", async () => {
     await open();
     fireEvent.click(banner().getByRole("button", { name: "Nộp bài" }));
     expect(
       screen.getByRole("heading", { name: "Xem lại trước khi nộp" }),
     ).toBeInTheDocument();
-    expect(strip()).toBeEmptyDOMElement();
-    expect(strip()?.previousElementSibling).toBe(screen.getByRole("banner"));
-  });
+    expect(strip()).toBeNull();
 
-  it("says in the strip that a save failed or the device is offline, and announces it", async () => {
-    await open();
-    vi.mocked(saveAnswers).mockRejectedValue(new Error("boom"));
-
+    vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("boom"));
     type();
+    expect(strip()).toBeNull();
     await pass(FLUSH_DEBOUNCE_MS);
     expect(strip()).toHaveTextContent(FAILED);
-    expect(within(strip()!).getByText(FAILED).parentElement).toHaveClass(
-      "text-danger-ink",
-    );
+    expect(strip()?.previousElementSibling).toBe(screen.getByRole("banner"));
     expect(announced()).toEqual([FAILED]);
-
-    connection(false);
-    expect(strip()).toHaveTextContent(OFFLINE);
-    expect(announced()).toEqual([OFFLINE]);
-
-    connection(true);
-    vi.mocked(saveAnswers).mockImplementation(async () => reply());
-    await pass(30_000);
-    expect(strip()).toBeEmptyDOMElement();
-    expect(announced()).toEqual([]);
   });
 
   it("keeps the lock message strip as it was", async () => {
@@ -613,7 +644,7 @@ describe("the header on a phone", () => {
     expect(screen.queryByText(FAILED)).toBeNull();
   });
 
-  it("keeps the strike count in the strip, with the save line beside it only while unsaved", async () => {
+  it("keeps the strike count in the strip, with the save line beside it only when a save fails", async () => {
     await open(DECK_LEFT, {
       integrity: {
         requireFullscreen: false,
@@ -627,15 +658,22 @@ describe("the header on a phone", () => {
     expect(strip()).not.toHaveTextContent(SAVED);
     expect(banner().queryByText("Còn 2 lần rời trang")).toBeNull();
 
-    const save = heldSave();
+    const row = strip();
+    vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("boom"));
     type();
-    expect(strip()).toHaveTextContent(SAVING);
-    expect(strip()).toHaveTextContent("Còn 2 lần rời trang");
-
-    await pass(FLUSH_DEBOUNCE_MS);
-    await save.succeed();
     expect(strip()).toHaveTextContent("Còn 2 lần rời trang");
     expect(strip()).not.toHaveTextContent(SAVING);
+
+    await pass(FLUSH_DEBOUNCE_MS);
+    expect(strip()).toBe(row);
+    expect(strip()).toHaveTextContent(FAILED);
+    expect(strip()).toHaveTextContent("Còn 2 lần rời trang");
+
+    await pass(2_000);
+    expect(store().dirty.size).toBe(0);
+    expect(strip()).toBe(row);
+    expect(strip()).toHaveTextContent("Còn 2 lần rời trang");
+    expect(strip()).not.toHaveTextContent(FAILED);
   });
 
   it("has no header once the paper is submitted", async () => {

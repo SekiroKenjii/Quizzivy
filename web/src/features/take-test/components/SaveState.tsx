@@ -67,11 +67,11 @@ export function SaveAnnouncement() {
 
 /**
  * SaveStrip is the one line under the engine's header. A locked paper says
- * why at every width. Below 768 the strip carries the save line only while
- * something is unsaved, and the strike count at its far end when the
- * assignment counts departures; with neither the row is empty but keeps its
- * height, so the paper under it never moves as answers are saved. From 768
- * the header holds both and there is no strip.
+ * why at every width. Below 768 the strip carries the save line only when a
+ * save has failed or the device is offline while an answer is unsaved, never
+ * for a save that is merely on its way, and the strike count at its far end
+ * when the assignment counts departures; with neither it is absent, as the
+ * deck draws it. From 768 the header holds both and there is no strip.
  */
 export function SaveStrip({
   wide,
@@ -93,14 +93,15 @@ export function SaveStrip({
       </div>
     );
   }
-  if (wide) return null;
+  const trouble = troubled(status);
+  if (wide || (!trouble && indicator === null)) return null;
 
   return (
     <div
       data-slot="save-strip"
-      className="text-muted-fg flex min-h-[35px] flex-none items-center gap-2 border-b px-3.5 py-2 text-xs leading-normal"
+      className="text-muted-fg flex flex-none items-center gap-2 border-b px-3.5 py-2 text-xs leading-normal"
     >
-      {status !== "saved" && <SaveState />}
+      {trouble && <SaveState />}
       {indicator !== null && <span className="ml-auto flex-none">{indicator}</span>}
     </div>
   );

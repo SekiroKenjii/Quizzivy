@@ -52,8 +52,8 @@ import { worth } from "../worth";
  * the same attempt: the navigator (a sheet in thumb range, a rail from 768px)
  * and the review before submitting. The header is the deck's at every width.
  * From 768px there is no sticky footer and the two buttons sit under the
- * answer at their own width; below it the strip under the header carries
- * the save line only while an answer is unsaved.
+ * answer at their own width; below it a strip under the header says when a
+ * save has failed or the device is offline, and is otherwise absent.
  */
 export default function TakeTestPage() {
   const { t } = useTranslation();
