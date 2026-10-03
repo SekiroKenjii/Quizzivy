@@ -3,16 +3,17 @@ branch: main
 path: web/src
 
 ## Last sync
-date: 2026-09-26T01:58:51Z
-branch read: main (Word/PDF import release)
+date: 2026-10-03T17:53:01Z
+branch read: develop (rich question content editor)
 
 ### Updated in this project
-- Import renamed "Import from Word/PDF"; upload accepts .docx, .doc, .pdf with the release's limits text and PDF errors
-- Upload slots match SourceIntake (exam + answer key), with a test title field and recognition note
-- PDF import examples: review with PDF layout findings, failed run with PDF_NO_TEXT and error code
-- History adds the Cancelled filter
+- Test builder prompt and explanation use the rich content editor: toolbar from ContentToolbar.tsx, table row tools, gap for fill-in-the-blank
+- Paste from Word/Docs opens "Preview content after pasting" (PastePreview.tsx); pasted or dropped images upload to Media
+- Rich text ⇄ Markdown switch with conversion preview (RichProseEditor.tsx) and a Markdown toolbar with Write/Preview
+- Question media block (QuestionMediaField.tsx) with Media library picker, audio plays/pause and transcript
 
 ## Sync history
+- 2026-09-26T01:58:51Z · main · Word/PDF import release, storage split, sharing
 - 2026-09-25T09:05:37Z · develop · API reference, test versions, Word import
 
 ## Screen map
@@ -37,4 +38,5 @@ branch read: main (Word/PDF import release)
 | Word/PDF import (Teacher: imports, importNew, importRun, importReview, importConfirm) | web/src/features/imports/pages/*, components/SourceIntake.tsx, FileSlot.tsx, ProcessingPanel.tsx, status.ts, findings.ts, locales/en.json (imports.*), docs/plan/18-word-import-ux.md |
 | Test detail · versions (Teacher: testDetail) | web/src/features/tests/pages/TestDetailPage.tsx, web/src/features/tests/api.ts (develop) |
 | Admin API reference (Admin: apiref) | web/src/features/auth/components/SettingsSections.tsx (ApiDocsSection), SettingsPage.tsx (develop) |
+| Builder content editor (Teacher: builder) | web/src/components/shared/content/editor/ContentEditor.tsx, ContentToolbar.tsx, PastePreview.tsx, extensions.ts, markdown.ts; web/src/features/question-bank/components/RichProseEditor.tsx, QuestionProseField.tsx, QuestionMediaField.tsx, QuestionEditor.tsx (develop) |
 | Question editor | web/src/features/question-bank/pages/QuestionEditorPage.tsx, components/QuestionEditor.tsx, questionSchema.ts |
