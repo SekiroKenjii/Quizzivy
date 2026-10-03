@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
@@ -301,11 +301,20 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
   const locale = i18n.language as Locale;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const errorId = useId();
+  const box = useRef<HTMLParagraphElement>(null);
   const [asked, setAsked] = useState<Date | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const live = a.hasLiveAttempt === true;
+  const blocked = !live && (a.attemptsUsed >= a.maxAttempts || a.status === "closed");
+  const refused = error !== null;
+
+  useEffect(() => {
+    if (blocked && refused && document.activeElement === document.body)
+      box.current?.closest("main")?.focus({ preventScroll: true });
+  }, [blocked, refused]);
 
   const start = async () => {
     if (busy) return;
@@ -324,8 +333,8 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
     }
   };
 
-  const alert = error !== null && (
-    <p role="alert" className="text-danger-ink text-center text-sm">
+  const alert = refused && (
+    <p id={errorId} role="alert" className="bg-bg text-danger-ink text-center text-sm">
       {error}
     </p>
   );
@@ -354,10 +363,15 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
       </div>
     );
 
-  if (a.attemptsUsed >= a.maxAttempts || a.status === "closed")
+  if (blocked)
     return (
       <div className={ACTION}>
-        <p className="bg-muted text-muted-fg grid min-h-12.5 place-items-center rounded-[11px] px-4 py-2 text-center text-base font-medium">
+        <p
+          key="blocked"
+          ref={box}
+          role={refused ? "alert" : undefined}
+          className="bg-muted text-muted-fg grid min-h-12.5 place-items-center rounded-[11px] px-4 py-2 text-center text-base font-medium"
+        >
           {t(
             a.attemptsUsed >= a.maxAttempts
               ? "student.intro.exhausted"
@@ -390,6 +404,7 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
       <Button
         size="xl"
         className={CTA}
+        aria-describedby={refused ? errorId : undefined}
         onClick={() => {
           setAsked(new Date());
           setOpen(true);

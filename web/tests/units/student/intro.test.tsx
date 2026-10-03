@@ -464,6 +464,7 @@ describe("when there is nothing to start", () => {
     show({ status: "closed" });
     expect(await screen.findByText("Bài này đã đóng.")).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("says the attempts are spent of a closed paper with none left", async () => {
@@ -840,7 +841,44 @@ describe("Start now?", () => {
       expect(screen.queryByRole("button", { name: "Bắt đầu làm bài" })).toBeNull(),
     );
     expect(screen.getAllByText("Bạn đã dùng hết số lượt làm bài.")).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Bạn đã dùng hết số lượt làm bài.",
+    );
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("announces the new state and moves focus to the page when the button goes", async () => {
+    const user = userEvent.setup();
+    mockStart(409);
+    serve();
+    renderAt(`/app/assignments/${ASSIGNMENT}`, [
+      {
+        path: "/app/assignments/:id",
+        element: (
+          <main tabIndex={-1}>
+            <AssignmentIntroPage />
+          </main>
+        ),
+      },
+    ]);
+    const dialog = await ask(user);
+    server.use(
+      http.get(DETAIL, async () => {
+        await delay(300);
+        return contractJson(
+          "/app/assignments/{id}",
+          "get",
+          200,
+          detail({ attemptsUsed: 2, maxAttempts: 2 }),
+        );
+      }),
+    );
+    await user.click(confirm(dialog));
+    const refusal = await screen.findByRole("alert");
+    await waitFor(async () => expect(await startButton()).toHaveFocus());
+    await waitFor(() => expect(screen.queryByRole("button")).toBeNull());
+    expect(screen.getByRole("main")).toHaveFocus();
+    expect(screen.getByRole("alert")).not.toBe(refusal);
   });
 
   it("says a refusal in the reader's language, by its code", async () => {
@@ -897,7 +935,10 @@ describe("Start now?", () => {
     server.use(http.post(START, () => HttpResponse.error()));
     const router = show();
     await user.click(confirm(await ask(user)));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Không bắt đầu được. Hãy thử lại.");
+    expect(alert).toHaveClass("bg-bg");
+    expect(await startButton()).toHaveAccessibleDescription(
       "Không bắt đầu được. Hãy thử lại.",
     );
     mockStart();
