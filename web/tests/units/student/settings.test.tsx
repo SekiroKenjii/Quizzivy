@@ -745,7 +745,7 @@ describe("sign-in: the password", () => {
   it("changes the password, reads the user again, closes the form and says so", async () => {
     const user = userEvent.setup();
     const bodies = passwordAnswers();
-    const reads = meServes(account());
+    const reads = meServes(account({ fullName: "Nguyễn Văn Ân" }));
     open("/app/settings/sign-in");
     await screen.findByRole("region", { name: "Đăng nhập" });
     const form = await openPasswordForm(user);
@@ -765,6 +765,7 @@ describe("sign-in: the password", () => {
       ),
     );
     expect(reads).toEqual(["me"]);
+    expect(useAuthStore.getState().user?.fullName).toBe("Nguyễn Văn Ân");
     expect(screen.queryByLabelText("Mật khẩu mới")).toBeNull();
     expect(screen.getByRole("button", { name: "Đổi" })).toHaveAttribute(
       "aria-expanded",
