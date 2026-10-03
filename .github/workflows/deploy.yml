@@ -54,7 +54,10 @@ jobs:
   resolve:
     name: Resolve
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    # event == 'push': the branch filter above matches the run's HEAD branch,
+    # and the back-merge pull request from main to develop has main as its
+    # head. Without this, its CI run deployed the same commit a second time.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
     outputs:
       sha: ${{ steps.pick.outputs.sha }}
       api: ${{ steps.pick.outputs.api }}
