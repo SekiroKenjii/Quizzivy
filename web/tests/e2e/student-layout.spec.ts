@@ -175,10 +175,13 @@ test("result filters survive resizing, explain empty results and retain the full
   await page.setViewportSize({ width: 800, height: 900 });
   await expect(page.getByRole("link", { name: "Quay lại" })).toHaveCount(0);
   await expect(
-    page.getByRole("main").getByRole("link", { name: "Bài của tôi" }),
+    page.getByRole("main").getByRole("link", { name: "Trang chủ" }),
   ).toHaveAttribute("href", "/app");
   await page.setViewportSize({ width: 320, height: 900 });
   await expect(wrong).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("banner").getByText("Kết quả", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(result.testTitle);
   await expect(page.getByText("Không có câu sai trong bài này.")).toBeVisible();
   await fits(page);
