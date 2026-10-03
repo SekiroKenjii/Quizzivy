@@ -41,6 +41,95 @@ it("places shared material once before its members and links gaps to their displ
   expect(screen.getByText("Nghe thử không tính lượt làm bài.")).toBeVisible();
 });
 
+it("draws the passage and the questions as the engine's panes, on a deck surface, with nothing to answer", () => {
+  const { container } = render(
+    <StudentPreview
+      questions={[
+        ...previewQuestions,
+        {
+          id: "01935000-0000-7000-8000-000000000014",
+          sectionId: previewSection.id,
+          type: "short_answer",
+          prompt: "Viết một câu",
+          points: 2,
+        },
+      ]}
+      groups={[previewGroup]}
+      sections={[previewSection]}
+    />,
+  );
+  expect(container.firstElementChild).toHaveAttribute("data-scale", "deck");
+
+  const title = screen.getByRole("heading", { level: 3, name: previewGroup.title });
+  expect(title).toHaveClass("text-stat", "leading-[1.3]");
+  expect(title.parentElement).toHaveClass("max-w-160", "[&_img]:bg-paper");
+  expect(screen.getByText("Ngữ liệu dùng chung · Câu 2–3")).toHaveClass(
+    "text-meta",
+    "uppercase",
+  );
+  expect(screen.getByText("Lịch hoạt động")).toBeVisible();
+
+  const line = screen.getByText("Câu 1 trên 4 · Chọn một đáp án");
+  expect(line).toHaveClass("text-muted-fg", "text-sm");
+  expect(line.closest(".bg-sidebar")).toHaveClass("rounded-xl", "border");
+  expect(screen.getAllByRole("radio")).toHaveLength(3);
+  for (const radio of screen.getAllByRole("radio")) {
+    expect(radio).toBeDisabled();
+    expect(radio.parentElement).toHaveClass("min-h-13", "rounded-[11px]");
+  }
+  expect(screen.getByText("Câu 4 trên 4 · Trả lời ngắn")).toBeVisible();
+  const field = screen.getByRole("textbox", { name: "Bài làm của bạn" });
+  expect(field).toBeDisabled();
+  expect(field).toHaveAttribute("placeholder", "Nhập câu trả lời");
+  expect(screen.getByText("2 điểm · giáo viên chấm tay")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Đánh dấu xem lại" })).toBeNull();
+});
+
+it("draws a question's own recording and image in the preview", () => {
+  const media = {
+    id: "01935000-0000-7000-8000-000000000031",
+    bytes: 12,
+    createdAt: "2026-09-24T00:00:00Z",
+  };
+  const { container } = render(
+    <StudentPreview
+      questions={[
+        {
+          ...previewQuestions[0]!,
+          media: {
+            ...media,
+            kind: "audio",
+            mimeType: "audio/mpeg",
+            durationMs: 1000,
+            originalFilename: "q1.mp3",
+            url: "https://assets.example/q1.mp3",
+          },
+          audio: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+        },
+        {
+          ...previewQuestions[1]!,
+          media: {
+            ...media,
+            kind: "image",
+            mimeType: "image/png",
+            originalFilename: "map.png",
+            url: "https://assets.example/map.png",
+          },
+        },
+      ]}
+    />,
+  );
+  expect(container.querySelector("audio")).toHaveAttribute(
+    "src",
+    "https://assets.example/q1.mp3",
+  );
+  expect(screen.getByText("Nghe thử không tính lượt làm bài.")).toBeVisible();
+  expect(screen.getByAltText("map.png")).toHaveAttribute(
+    "src",
+    "https://assets.example/map.png",
+  );
+});
+
 it("does not resolve an unbound material asset or recording from its ID", () => {
   const { container, rerender } = render(
     <StudentPreview

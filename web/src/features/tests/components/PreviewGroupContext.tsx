@@ -1,18 +1,16 @@
 import { useTranslation } from "react-i18next";
 import { GroupMaterials } from "@/components/shared/content/GroupMaterials";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
+import { PassageBody } from "@/features/take-test/components/PassageBody";
 import type { components } from "@/lib/api/schema";
 
 type StudentGroup = components["schemas"]["StudentGroup"];
 
-/** PreviewGroupContext shows one frozen context and links its gaps to the displayed questions. */
+/**
+ * PreviewGroupContext shows one frozen context as the engine's passage pane
+ * draws it, names the questions it serves, and links its gaps to the
+ * displayed questions.
+ */
 export function PreviewGroupContext({
   group,
   numbers,
@@ -26,21 +24,18 @@ export function PreviewGroupContext({
 }>) {
   const { t } = useTranslation();
   return (
-    <Card className="min-w-0">
-      <CardHeader>
-        <CardTitle>
-          <h3>{group.title}</h3>
-        </CardTitle>
-        <CardDescription>
-          {t("preview.sharedRange", {
-            from: numbers.get(group.questionIds[0] ?? ""),
-            to: numbers.get(group.questionIds.at(-1) ?? ""),
-          })}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex min-w-0 flex-col gap-5">
+    <div className="bg-bg min-w-0 rounded-xl border px-4 py-4.5">
+      <PassageBody
+        heading="h3"
+        title={group.title}
+        eyebrow={t("preview.sharedRange", {
+          from: numbers.get(group.questionIds[0] ?? ""),
+          to: numbers.get(group.questionIds.at(-1) ?? ""),
+        })}
+      >
         <GroupMaterials
           group={group}
+          omitTitle={group.title}
           onRetryMedia={onRetryMedia}
           renderAudio={(node, asset, recording) => (
             <AudioPlayer
@@ -69,7 +64,7 @@ export function PreviewGroupContext({
             );
           }}
         />
-      </CardContent>
-    </Card>
+      </PassageBody>
+    </div>
   );
 }
