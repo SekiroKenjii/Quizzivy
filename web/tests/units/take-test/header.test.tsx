@@ -388,7 +388,7 @@ describe("the timer", () => {
       listen();
     }
 
-    expect(heard).toEqual(["", "Còn 5 phút", "Còn 1 phút"]);
+    expect(heard).toEqual(["", "Còn 5 phút", "", "Còn 1 phút"]);
     expect(timer()).toHaveTextContent("00:02");
     expect(screen.getByText("Còn 1 phút")).toHaveAttribute("role", "status");
     expect(timer()).not.toHaveAttribute("aria-live");
@@ -403,12 +403,62 @@ describe("the timer", () => {
     expect(timer()).toHaveTextContent("05:00");
     expect(announced()).toEqual(["Còn 5 phút"]);
 
-    await pass(4 * MINUTE - 1_000);
-    expect(timer()).toHaveTextContent("01:01");
+    await pass(59_000);
+    expect(timer()).toHaveTextContent("04:01");
     expect(announced()).toEqual(["Còn 5 phút"]);
+    await pass(1_000);
+    expect(timer()).toHaveTextContent("04:00");
+    expect(announced()).toEqual([]);
+
+    await pass(3 * MINUTE - 1_000);
+    expect(timer()).toHaveTextContent("01:01");
+    expect(announced()).toEqual([]);
     await pass(1_000);
     expect(timer()).toHaveTextContent("01:00");
     expect(announced()).toEqual(["Còn 1 phút"]);
+
+    await pass(59_000);
+    expect(timer()).toHaveTextContent("00:01");
+    expect(announced()).toEqual(["Còn 1 phút"]);
+  });
+
+  it("says one minute again when a moved deadline lets the paper pass it twice", async () => {
+    await open(2 * MINUTE);
+    await pass(80_000);
+    expect(timer()).toHaveTextContent("00:40");
+    expect(announced()).toEqual(["Còn 1 phút"]);
+
+    vi.mocked(saveAnswers).mockImplementationOnce(async () => ({
+      ...reply(),
+      deadlineAt: at(4 * MINUTE),
+    }));
+    type();
+    await pass(2_000);
+    expect(timer()).toHaveTextContent("02:38");
+    expect(announced()).toEqual([]);
+
+    await pass(97_000);
+    expect(timer()).toHaveTextContent("01:01");
+    expect(announced()).toEqual([]);
+    await pass(1_000);
+    expect(timer()).toHaveTextContent("01:00");
+    expect(announced()).toEqual(["Còn 1 phút"]);
+  });
+
+  it("does not bring an old line back when a deadline moves by less than a minute", async () => {
+    await open(5 * MINUTE + 1_000);
+    await pass(63_000);
+    expect(timer()).toHaveTextContent("03:58");
+    expect(announced()).toEqual([]);
+
+    vi.mocked(saveAnswers).mockImplementationOnce(async () => ({
+      ...reply(),
+      deadlineAt: at(5 * MINUTE + 31_000),
+    }));
+    type();
+    await pass(2_000);
+    expect(timer()).toHaveTextContent("04:26");
+    expect(announced()).toEqual([]);
   });
 
   it("does not announce a time the paper was never above", async () => {
