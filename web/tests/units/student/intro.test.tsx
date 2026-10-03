@@ -613,6 +613,43 @@ describe("Start now?", () => {
     expect(calls).toEqual(["start"]);
   });
 
+  it("keeps the busy dialog and asks nothing again while the engine loads", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const calls = mockStart();
+    let open = () => {};
+    const held = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    serve();
+    const router = renderAt(
+      `/app/assignments/${ASSIGNMENT}`,
+      [
+        ...ROUTES,
+        {
+          path: "/app/attempts/:id",
+          lazy: async () => {
+            await held;
+            return { Component: () => <p>engine</p> };
+          },
+        },
+      ],
+      client,
+    );
+    await user.click(confirm(await ask(user)));
+    await waitFor(() => expect(router.state.navigation.state).toBe("loading"));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(confirm(screen.getByRole("dialog"))).toHaveAttribute("aria-busy", "true");
+    expect(asked).toBe(1);
+    open();
+    expect(await screen.findByText("engine")).toBeInTheDocument();
+    expect(calls).toEqual(["start"]);
+    expect(asked).toBe(1);
+    await waitFor(() =>
+      expect(client.getQueryData(["my-assignment", ASSIGNMENT])).toBeUndefined(),
+    );
+  });
+
   it("forgets what it read once the attempt starts", async () => {
     const user = userEvent.setup();
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -622,7 +659,9 @@ describe("Start now?", () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
     );
-    expect(client.getQueryData(["my-assignment", ASSIGNMENT])).toBeUndefined();
+    await waitFor(() =>
+      expect(client.getQueryData(["my-assignment", ASSIGNMENT])).toBeUndefined(),
+    );
   });
 
   it("closes on a refusal, says why in the page, and reads the paper again", async () => {

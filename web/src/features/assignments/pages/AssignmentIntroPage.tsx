@@ -295,8 +295,8 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
     setError(null);
     try {
       const session = await startOrResumeAttempt(a.id);
-      queryClient.removeQueries({ queryKey: ["my-assignment", a.id] });
       await navigate(`/app/attempts/${session.attempt.id}`);
+      queryClient.removeQueries({ queryKey: ["my-assignment", a.id] });
     } catch (cause) {
       setError(refusal(cause, t));
       setAsking(null);
