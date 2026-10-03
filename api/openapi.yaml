@@ -463,7 +463,11 @@ components:
       type: string
       description: |
         Stable, machine-readable. **The only thing clients branch on.** Copy is
-        driven by `message`, never reconstructed from this.
+        driven by `message`, never reconstructed from this, with two exceptions
+        the web app words itself, as the design deck draws them:
+        `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
+        the change-password forms. The server still sends a localised `message`
+        for both, for any other client.
       enum:
         # auth
         - INVALID_CREDENTIALS
@@ -3230,7 +3234,7 @@ paths:
                   maxLength: 9
                   description: |
                     Accepted with or without the dash and in any case; normalized
-                    before hashing. Alphabet excludes `0/O` and `1/I/L` (§6.1).
+                    before lookup. The alphabet excludes `0`, `O`, `1` and `I` (§6.1).
                   examples: ['K7M3-P9QR', 'k7m3p9qr']
       responses:
         '200':
