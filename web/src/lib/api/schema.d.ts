@@ -3276,6 +3276,8 @@ export interface components {
          */
         ResultQuestion: {
             id: components["schemas"]["Uuid"];
+            /** @description The part of the paper this question belongs to, one of the result's `sections`. Present under every review policy: the paper already showed the student which part a question was in. */
+            sectionId: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
@@ -3926,6 +3928,8 @@ export interface components {
              * @description The live attempt's deadline. Null exactly when `hasLiveAttempt` is false.
              */
             liveDeadlineAt?: string | null;
+            /** @description How many of the live attempt's saved answers say something, by the rule the engine's navigator uses: a choice with an option picked, a true/false with a value, a text that is not blank, a fill-in with every blank filled. An answer that exists only in the browser's draft is not counted. Null exactly when `hasLiveAttempt` is false. */
+            liveAnsweredCount?: number | null;
             /** @description Only when the assignment's `review.showScore` is on. */
             score?: components["schemas"]["AttemptScore"] | null;
         };
@@ -8065,6 +8069,8 @@ export interface operations {
                         testTitle: string;
                         /** @description For "Lượt 1/2" under the score (S-09). */
                         maxAttempts: number;
+                        /** @description The paper's parts in test order, as the attempt showed them. The page sums each part's `earned` from the questions whose `sectionId` names it; no review policy hides a part's title or membership. */
+                        sections: components["schemas"]["StudentSection"][];
                         questions: components["schemas"]["ResultQuestion"][];
                         sharedContext?: components["schemas"]["SharedReviewContext"];
                     };
