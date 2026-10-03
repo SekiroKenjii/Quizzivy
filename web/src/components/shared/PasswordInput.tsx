@@ -19,7 +19,7 @@ export function PasswordInput({
         type={visible ? "text" : "password"}
         className={cn(
           "h-11 pr-12",
-          props.size === "lg" && "pr-11",
+          props.size === "lg" && "pr-11 in-data-[scale=deck]:pr-11",
           props.size === "xl" && "pr-11.5",
           className,
         )}

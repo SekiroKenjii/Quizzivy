@@ -157,6 +157,7 @@ describe("deck geometry applies only on a deck surface", () => {
     const field = split(container.querySelector("input")!);
     expect(field.scoped).toContain("h-10.5");
     expect(field.unscoped).toContain("pr-11");
+    expect(field.scoped).toContain("pr-11");
     expect(field.unscoped).not.toContain("pr-12");
   });
 
