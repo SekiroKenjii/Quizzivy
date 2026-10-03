@@ -333,6 +333,19 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
     });
   });
 
+  it("goes where the back button was going when a retry from the dialog saves", async () => {
+    const user = userEvent.setup();
+    const router = await open();
+    vi.mocked(saveAnswers).mockRejectedValueOnce(new Error("offline"));
+    await user.type(screen.getByRole("textbox"), "parks");
+    await act(() => router.navigate(-1));
+    await screen.findByRole("dialog", { name: UNSAVED });
+
+    await user.click(inDialog().getByRole("button", { name: "Thử lưu lại" }));
+    await waitFor(() => expect(path(router)).toBe("/app/classes"));
+    expect(router.state.historyAction).toBe("POP");
+  });
+
   it("lets the back button through without asking when nothing is pending", async () => {
     const router = await open();
     await act(() => router.navigate(-1));
