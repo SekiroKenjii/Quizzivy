@@ -21,7 +21,7 @@ export function ClassPreviewCard({
         <span className="min-w-0">
           <span className="sr-only">{t("join.found")}</span>
           <span className="block text-base font-semibold break-words">{name}</span>
-          <span className="text-muted-fg text-meta block break-words">
+          <span className="text-muted-fg text-meta block leading-normal break-words">
             {teacherName}
           </span>
         </span>

@@ -179,7 +179,7 @@ function JoinForm({ join, onCancel }: Readonly<{ join: Join; onCancel: () => voi
           type="button"
           variant="outline"
           size="lg"
-          className="font-medium"
+          className="in-data-[scale=deck]:font-medium"
           onClick={onCancel}
         >
           {t("common.cancel")}
