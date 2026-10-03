@@ -26,10 +26,9 @@ test("E2E 2a: a student signs in with a password and reaches their own app", asy
   await expect(page).toHaveURL(/\/app$/);
   // Their own app: greeted by name, and -- in no class yet -- offered the way in.
   await expect(page.getByRole("heading", { name: /^Chào / })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Tham gia lớp" })).toHaveAttribute(
-    "href",
-    "/join",
-  );
+  await page.getByRole("button", { name: "Tham gia lớp" }).click();
+  await expect(page.getByRole("dialog", { name: "Tham gia lớp" })).toBeVisible();
+  await expect(page.getByLabel("Mã lớp")).toBeFocused();
 });
 
 test("E2E 2a: student settings groups profile, security and preferences", async ({

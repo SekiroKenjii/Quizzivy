@@ -120,11 +120,7 @@ export function renderAt(path: string, routes: RouteObject[]) {
   useAuthStore.getState().setSession("token", STUDENT);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [
-      ...routes,
-      { path: "/app/attempts/:id", element: <p>engine</p> },
-      { path: "/join", element: <p>join page</p> },
-    ],
+    [...routes, { path: "/app/attempts/:id", element: <p>engine</p> }],
     { initialEntries: [path] },
   );
   render(

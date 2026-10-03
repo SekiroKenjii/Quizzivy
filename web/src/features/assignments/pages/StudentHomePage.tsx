@@ -1,10 +1,11 @@
 import type { TFunction } from "i18next";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
 import { Button } from "@/components/ui/button";
-import { fetchMyClasses } from "@/features/classes/api";
+import { myClassesQuery } from "@/features/classes/api";
+import { JoinDialog } from "@/features/join/components/JoinDialog";
 import type { Locale } from "@/lib/i18n";
 import {
   appDaysUntil,
@@ -57,7 +58,8 @@ function subLine(sub: HomeSub, now: Date, locale: Locale, t: TFunction): string 
  * from the clock: the page repaints each minute, so a tab left open does not
  * keep yesterday's greeting and pills. A list that has loaded stays on screen
  * when a later refetch fails. Until Grades ships, every result is listed, not
- * the deck's three: Home is then the only screen that links to one.
+ * the deck's three: Home is then the only screen that links to one. A student
+ * in no class is offered the Join dialog.
  */
 export default function StudentHomePage() {
   const { t, i18n } = useTranslation();
@@ -67,10 +69,8 @@ export default function StudentHomePage() {
     queryKey: ["my-assignments"],
     queryFn: ({ signal }) => listMyAssignments(signal),
   });
-  const classes = useQuery({
-    queryKey: ["my-classes"],
-    queryFn: ({ signal }) => fetchMyClasses(signal),
-  });
+  const classes = useQuery(myClassesQuery);
+  const [joining, setJoining] = useState(false);
   useMinute(true);
   const now = new Date();
   const view = assignments.data === undefined ? null : homeView(assignments.data, now);
@@ -100,9 +100,7 @@ export default function StudentHomePage() {
       {nothing && classes.data?.items.length === 0 && (
         <EmptyState
           action={
-            <Button asChild>
-              <Link to="/join">{t("student.joinClass")}</Link>
-            </Button>
+            <Button onClick={() => setJoining(true)}>{t("student.joinClass")}</Button>
           }
         >
           {t("student.noClasses")}
@@ -120,6 +118,7 @@ export default function StudentHomePage() {
       {results !== undefined && results.length > 0 && (
         <RecentResults results={results} />
       )}
+      <JoinDialog open={joining} onOpenChange={setJoining} />
     </div>
   );
 }

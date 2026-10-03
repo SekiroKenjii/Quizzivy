@@ -92,9 +92,13 @@ for (const width of [320, 360, 768, 1024, 1440, 1920]) {
       fullPage: true,
     });
     await page.getByRole("link", { name: "Lớp", exact: true }).click();
-    await expect(page.getByText("3 bài đang mở")).toBeVisible();
-    await page.getByRole("link", { name: "Xem bài của lớp" }).click();
-    await expect(page).toHaveURL(new RegExp(`classId=${classId}`));
+    await expect(
+      page.getByRole("heading", { level: 2, name: classes[0]!.name }),
+    ).toBeVisible();
+    await expect(page.getByText("Bài luyện tập 1 · đang làm")).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link")).toHaveCount(0);
+    const join = await page.getByRole("button", { name: "Tham gia lớp" }).boundingBox();
+    expect(join!.height).toBe(40);
     await fits(page);
   });
 }

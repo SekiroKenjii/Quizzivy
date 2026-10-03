@@ -608,18 +608,18 @@ describe("the states the deck does not draw", () => {
     expect(
       await screen.findByText("Hiện chưa có bài nào được giao."),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Tham gia lớp" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tham gia lớp" })).toBeNull();
     expect(screen.queryByText(/Hôm nay không có bài/)).toBeNull();
   });
 
-  it("offers the way into a class to a student who has none", async () => {
+  it("opens the Join dialog for a student who is in no class", async () => {
+    const user = userEvent.setup();
     home({}, []);
     expect(await screen.findByText("Bạn chưa tham gia lớp nào.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Tham gia lớp" })).toHaveAttribute(
-      "href",
-      "/join",
-    );
     expect(screen.queryByText("Hiện chưa có bài nào được giao.")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Tham gia lớp" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tham gia lớp" });
+    expect(within(dialog).getByLabelText("Mã lớp")).toBeInTheDocument();
   });
 
   it("waits for the classes before choosing between the two", async () => {
@@ -644,7 +644,7 @@ describe("the states the deck does not draw", () => {
     expect(
       await screen.findByText("Hiện chưa có bài nào được giao."),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Tham gia lớp" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tham gia lớp" })).toBeNull();
   });
 
   it("offers no class code to a student with a paper, whatever the classes say", async () => {
@@ -653,7 +653,7 @@ describe("the states the deck does not draw", () => {
       await screen.findByRole("button", { name: "Tiếp tục làm bài" }),
     ).toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(50));
-    expect(screen.queryByRole("link", { name: "Tham gia lớp" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tham gia lớp" })).toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
   });
 
