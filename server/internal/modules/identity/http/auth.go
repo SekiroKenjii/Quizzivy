@@ -91,7 +91,8 @@ func (h Identity) RefreshSession(ctx context.Context, _ openapi.RefreshSessionRe
 	return body, nil
 }
 
-// Logout implements POST /auth/logout (§5.4).
+// Logout implements POST /auth/logout (§5.4). When the revoke fails the answer
+// is the router's 500 and still clears both cookies.
 func (h Identity) Logout(ctx context.Context, _ openapi.LogoutRequestObject) (openapi.LogoutResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
@@ -103,7 +104,7 @@ func (h Identity) Logout(ctx context.Context, _ openapi.LogoutRequestObject) (op
 			"Không có phiên đăng nhập.")), nil
 	}
 	if _, err := h.app.Commands.Logout.Handle(ctx, command.Logout{Token: token}); err != nil {
-		return nil, err
+		return failedLogout{cleared: clearedSession{clearRefreshCookie(h.cookieSecure), clearDocsCookie()}, err: err}, nil
 	}
 
 	return clearedSession{clearRefreshCookie(h.cookieSecure), clearDocsCookie()}, nil
