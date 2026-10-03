@@ -11,7 +11,7 @@ const ARC: Record<RingTone, string> = {
 };
 
 const VALUE = "text-[1.5rem] leading-[1.1] font-bold tabular-nums";
-const CAPTION = "text-muted-fg max-w-20 text-center text-xs leading-[1.1]";
+const CAPTION = "text-muted-fg max-w-20 text-center text-xs leading-[1.1] text-balance";
 
 function arcOf(ring: Ring): { colour: string; degrees: number } {
   if (ring.kind === "score")

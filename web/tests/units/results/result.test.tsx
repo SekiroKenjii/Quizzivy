@@ -295,9 +295,9 @@ it("keeps shared material above the first of its questions that the filter keeps
       ),
     ].map((node) =>
       node.tagName === "ARTICLE"
-        ? [...node.querySelectorAll("span")].find((span) =>
-            /^\d+\.$/.test(span.textContent),
-          )?.textContent
+        ? [...node.querySelectorAll("span")]
+            .map((span) => span.textContent.trim())
+            .find((text) => /^\d+\.$/.test(text))
         : "material",
     );
   await screen.findByText(previewGroup.title);
@@ -516,9 +516,29 @@ describe("the result page", () => {
     renderResult();
     const prompt = await screen.findByText("Câu đúng");
     const number = within(item("Câu đúng")).getByText("1.");
-    expect(number).toHaveClass("float-left");
+    expect(number).toHaveClass("float-left", "whitespace-pre");
+    expect(number.textContent).toBe("1. ");
+    expect(number).not.toHaveClass("mr-1");
     expect(number.parentElement).not.toHaveClass("flex");
     expect(number.parentElement).toContainElement(prompt);
+  });
+
+  it("lets a long word break inside the answer's box, whichever line it is on", async () => {
+    serve(
+      scored([
+        choice(1, AB, [0], {
+          prompt: "Câu sai",
+          earned: 0,
+          explanation: "https://example.com/a-very-long-address-with-no-space-in-it",
+        }),
+      ]),
+    );
+    renderResult();
+    const prompt = await screen.findByText("Câu sai");
+    const column = item("Câu sai").lastElementChild!;
+    expect(column).toHaveClass("min-w-0", "break-words");
+    expect(column).toContainElement(prompt);
+    expect(column).toContainElement(screen.getByText(/a-very-long-address/));
   });
 
   it("offers to read again when a question's recording has expired", async () => {

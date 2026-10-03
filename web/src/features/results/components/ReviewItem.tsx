@@ -169,7 +169,7 @@ export function ReviewItem({
   const answer = given(question);
   const key = correctKey(question, review);
   const earned = points(mark, question, i18n.language as Locale, t);
-  const numbered = `${number}.`;
+  const numbered = `${number}. `;
   const struck = mark === "wrong" && answer.kind !== "none";
   const audio = question.media?.kind === "audio" ? question.media : null;
   const explanation = review.showExplanations ? (question.explanation ?? null) : null;
@@ -185,10 +185,10 @@ export function ReviewItem({
         <Icon aria-hidden="true" className="size-3.5" />
         {label !== null && <span className="sr-only">{t(label)}</span>}
       </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 break-words">
         <div className="flex justify-between gap-2.5">
           <div className="min-w-0 flex-1">
-            <span className="float-left mr-1 text-base leading-normal font-medium">
+            <span className="float-left text-base leading-normal font-medium whitespace-pre">
               {numbered}
             </span>
             <Prompt question={question} />
@@ -203,10 +203,7 @@ export function ReviewItem({
           <span className="text-muted-fg">{t("result.youAnswered")} </span>
           <span
             data-slot="given"
-            className={cn(
-              "font-medium break-words",
-              struck && "text-danger-ink line-through",
-            )}
+            className={cn("font-medium", struck && "text-danger-ink line-through")}
           >
             <GivenText answer={answer} />
           </span>
@@ -214,7 +211,7 @@ export function ReviewItem({
         {key !== null && (
           <p className={LINE}>
             <span className="text-muted-fg">{t("result.correctAnswer")} </span>
-            <span className="text-success-ink font-medium break-words">
+            <span className="text-success-ink font-medium">
               {key.kind === "options" ? (
                 <Options options={key} />
               ) : (
