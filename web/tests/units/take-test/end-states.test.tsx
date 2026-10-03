@@ -450,6 +450,20 @@ describe("leaving fullscreen when the attempt ends", () => {
     expect(bufferedEvents()).toEqual([]);
   });
 
+  it("stays in fullscreen on a paper that is locked without a submit", async () => {
+    fullscreen({ enabled: true, element: document.body });
+    await open(asked);
+    vi.mocked(saveAnswers).mockRejectedValueOnce(
+      new ApiError({ status: 409, code: "ATTEMPT_CLOSED", message: "ended" }),
+    );
+    act(() => store().setAnswer(q(5), text("typed after the end")));
+    await pass(FLUSH_DEBOUNCE_MS);
+
+    expect(store().lock).toBe("closed");
+    expect(bar()).toHaveTextContent("Bài làm này đã kết thúc.");
+    expect(exit).not.toHaveBeenCalled();
+  });
+
   it("leaves a fullscreen the assignment did not ask for alone", async () => {
     fullscreen({ enabled: true, element: document.body });
     await open();
@@ -584,6 +598,16 @@ describe("copy and paste under blockCopyPaste", () => {
       expect(bufferedEvents().map((recorded) => recorded.kind)).toEqual([kind]);
     },
   );
+
+  it("still tells the student on the submitted screen, where the monitor still stops it", async () => {
+    await open();
+    await handIn();
+    const event = clipboard("copy");
+    await pass(0);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(COPY_OFF);
+    expect(event.defaultPrevented).toBe(true);
+  });
 
   it("shows one toast however many times the student tries", async () => {
     await open();

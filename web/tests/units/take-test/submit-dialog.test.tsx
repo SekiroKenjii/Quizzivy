@@ -225,6 +225,14 @@ describe("the Submit dialog", () => {
     expect(facts()["Đánh dấu"]).toHaveClass("text-warning-ink");
   });
 
+  it("puts Flagged in the warning ink from the first flag", async () => {
+    await open();
+    act(() => store().toggleFlag(q(2)));
+    await ask();
+    expect(facts()["Đánh dấu"]).toHaveTextContent(/^1$/);
+    expect(facts()["Đánh dấu"]).toHaveClass("text-warning-ink");
+  });
+
   it("goes to an unanswered question from its chip, and closes", async () => {
     await open();
     await ask();
@@ -706,6 +714,21 @@ describe("the Submit dialog in English", () => {
       inDialog().getByRole("button", { name: "Keep working" }),
     ).toBeInTheDocument();
     expect(inDialog().getByRole("button", { name: "Submit test" })).toBeInTheDocument();
+  });
+
+  it("says less than a minute is left, then that time is up", async () => {
+    await open(30_000);
+    vi.mocked(submitAttempt).mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(header().getByRole("button", { name: "Submit" }));
+    await pass(0);
+    expect(dialog()).toHaveAccessibleDescription(
+      "Unanswered questions score zero. You have less than a minute left.",
+    );
+
+    await pass(30_000);
+    expect(dialog()).toHaveAccessibleDescription(
+      "Unanswered questions score zero. Time is up.",
+    );
   });
 
   it("counts one minute in the singular and asks the plain question when all are answered", async () => {

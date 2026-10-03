@@ -161,6 +161,13 @@ describe("what the dialog says", () => {
     );
   });
 
+  it("does not say the next absence submits while one more is allowed under auto_submit", () => {
+    render(<Harness strikes={1} over={{ onLimitExceeded: "auto_submit" }} />);
+    expect(body()).toHaveTextContent(
+      "Lần này được tính là lần 1 trong 2 lần được phép. Sau đó, bài sẽ được nộp ngay.",
+    );
+  });
+
   it("says the test is being submitted if it is ever shown past an auto_submit allowance", () => {
     render(
       <Harness strikes={1} baseline={2} over={{ onLimitExceeded: "auto_submit" }} />,
@@ -188,6 +195,43 @@ describe("what the dialog says", () => {
 
     view.rerender(<Harness strikes={1} over={{ maxFocusLoss: 1 }} />);
     expect(body()).toHaveTextContent("That counts as 1 of 1 time allowed.");
+  });
+
+  it.each([
+    [
+      { maxFocusLoss: 0 },
+      1,
+      "Leaving the test is recorded. Stay on this page until you submit.",
+    ],
+    [
+      { maxFocusLoss: -1 },
+      1,
+      "Leaving the test is not allowed. Your teacher has been told. Your answers are safe.",
+    ],
+    [
+      { maxFocusLoss: -1, onLimitExceeded: "warn" },
+      1,
+      "Leaving the test is not allowed. Your answers are safe. Stay on this page until you submit.",
+    ],
+    [
+      { onLimitExceeded: "warn" },
+      3,
+      "You have left 3 times, more than the 2 allowed. Your answers are safe. Stay on this page until you submit.",
+    ],
+    [
+      { maxFocusLoss: 3, onLimitExceeded: "auto_submit" },
+      1,
+      "That counts as 1 of 3 times allowed. After that, your test is submitted.",
+    ],
+    [
+      { maxFocusLoss: 1, onLimitExceeded: "auto_submit" },
+      1,
+      "That counts as 1 of 1 time allowed. If you leave again, your test is submitted.",
+    ],
+  ] as const)("says %o after %i in English", async (over, strikes, sentence) => {
+    await act(() => i18n.changeLanguage("en"));
+    render(<Harness strikes={strikes} over={over} />);
+    expect(body()?.textContent).toBe(sentence);
   });
 
   it.each(["vi", "en"])(
@@ -318,6 +362,11 @@ describe("the standing count", () => {
     expect(view).toHaveTextContent("Quá số lần rời trang");
     expect(view).not.toHaveTextContent(/giáo viên/i);
     expect(view.firstElementChild).toHaveClass("text-warning-ink");
+  });
+
+  it("says the teacher has been told in English too", async () => {
+    await act(() => i18n.changeLanguage("en"));
+    expect(indicator(3)).toHaveTextContent("Your teacher has been told");
   });
 
   it("starts spent when no absence is allowed, and is absent when there is no limit", () => {
