@@ -63,6 +63,7 @@ function refusal(cause: unknown, t: TFunction): string {
   if (!(cause instanceof ApiError)) return t("student.intro.startFailed");
   if (cause.code === "ATTEMPT_LIMIT_REACHED") return t("student.intro.exhausted");
   if (cause.code === "ASSIGNMENT_NOT_OPEN") return t("student.intro.notOpen");
+  if (cause.status === 403 || cause.status === 404) return t("student.intro.notFound");
   return cause.message;
 }
 
@@ -136,10 +137,11 @@ export default function AssignmentIntroPage() {
     </Link>
   ) : null;
 
-  if (detail.data === undefined) {
-    const missing =
-      detail.error instanceof ApiError &&
-      (detail.error.status === 404 || detail.error.status === 403);
+  const missing =
+    detail.error instanceof ApiError &&
+    (detail.error.status === 404 || detail.error.status === 403);
+
+  if (detail.data === undefined || missing) {
     return (
       <div className={COLUMN}>
         {back}

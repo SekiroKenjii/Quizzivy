@@ -43,17 +43,31 @@ function show(over: Record<string, unknown> = {}, client?: QueryClient) {
   return renderAt(`/app/assignments/${ASSIGNMENT}`, ROUTES, client);
 }
 
-function refuse(code: string, message: string) {
+function refuse(code: string, message: string, status: 403 | 409 = 409) {
   const calls: string[] = [];
   server.use(
     http.post(START, () => {
       calls.push("start");
-      return contractJson("/app/assignments/{id}/attempts", "post", 409, {
+      return contractJson("/app/assignments/{id}/attempts", "post", status, {
         error: { code, message, requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e" },
       });
     }),
   );
   return calls;
+}
+
+function takeAway(status: 403 | 404 = 403) {
+  server.use(
+    http.get(DETAIL, () =>
+      contractJson("/app/assignments/{id}", "get", status, {
+        error: {
+          code: status === 403 ? "FORBIDDEN" : "NOT_FOUND",
+          message: "x",
+          requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+        },
+      }),
+    ),
+  );
 }
 
 async function rules() {
@@ -514,17 +528,7 @@ describe("loading, failing and missing", () => {
     "says a paper is not the student's on a %d, with the way Home",
     async (status) => {
       const user = userEvent.setup();
-      server.use(
-        http.get(DETAIL, () =>
-          contractJson("/app/assignments/{id}", "get", status, {
-            error: {
-              code: status === 403 ? "FORBIDDEN" : "NOT_FOUND",
-              message: "x",
-              requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
-            },
-          }),
-        ),
-      );
+      takeAway(status);
       viewport("phone");
       const router = renderAt(`/app/assignments/${ASSIGNMENT}`, ROUTES);
       expect(
@@ -538,6 +542,40 @@ describe("loading, failing and missing", () => {
       expect(router.state.location.pathname).toBe("/app");
     },
   );
+
+  it("says so when the paper stops being the student's while the page waits", async () => {
+    show({
+      status: "scheduled",
+      opensAt: "2026-09-01T01:00:00Z",
+      closesAt: "2026-09-20T14:00:00Z",
+    });
+    await screen.findByRole("button", { name: "Mở thứ ba" });
+    takeAway();
+    await act(() => vi.advanceTimersByTimeAsync(61_000));
+    expect(
+      await screen.findByText(
+        "Không tìm thấy bài này, hoặc bài không được giao cho bạn.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("heading")).toBeNull();
+  });
+
+  it("says so after a start refused for a paper no longer the student's", async () => {
+    const user = userEvent.setup();
+    refuse("FORBIDDEN", "Bạn không có quyền làm bài này.", 403);
+    show();
+    const dialog = await ask(user);
+    takeAway();
+    await user.click(confirm(dialog));
+    expect(
+      await screen.findByText(
+        "Không tìm thấy bài này, hoặc bài không được giao cho bạn.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByText("Bạn không có quyền làm bài này.")).toBeNull();
+  });
 });
 
 describe("Start now?", () => {
@@ -605,17 +643,20 @@ describe("Start now?", () => {
     const user = userEvent.setup();
     const names: Record<string, string> = { open: "enter", closed: "exit" };
     const style = globalThis.getComputedStyle;
-    vi.stubGlobal("getComputedStyle", (element: HTMLElement, pseudo?: string | null) => {
-      const real = style(element, pseudo);
-      return new Proxy(real, {
-        get: (target, key) => {
-          if (key === "animationName")
-            return names[element.dataset["state"] ?? ""] ?? "none";
-          const value: unknown = Reflect.get(target, key, target);
-          return typeof value === "function" ? value.bind(target) : value;
-        },
-      });
-    });
+    vi.stubGlobal(
+      "getComputedStyle",
+      (element: HTMLElement, pseudo?: string | null) => {
+        const real = style(element, pseudo);
+        return new Proxy(real, {
+          get: (target, key) => {
+            if (key === "animationName")
+              return names[element.dataset["state"] ?? ""] ?? "none";
+            const value: unknown = Reflect.get(target, key, target);
+            return typeof value === "function" ? value.bind(target) : value;
+          },
+        });
+      },
+    );
     show();
     const dialog = await ask(user);
     await user.click(within(dialog).getByRole("button", { name: "Để sau" }));
@@ -815,6 +856,19 @@ describe("Start now?", () => {
     await user.click(within(dialog).getByRole("button", { name: "Start" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "You have used all your attempts.",
+    );
+  });
+
+  it("says a start refused with a 403 in the reader's language", async () => {
+    await i18n.changeLanguage("en");
+    const user = userEvent.setup();
+    refuse("FORBIDDEN", "Bạn không có quyền làm bài này.", 403);
+    show();
+    await user.click(await screen.findByRole("button", { name: "Start test" }));
+    const dialog = await screen.findByRole("dialog", { name: "Start now?" });
+    await user.click(within(dialog).getByRole("button", { name: "Start" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This test was not found, or it was not assigned to you.",
     );
   });
 
