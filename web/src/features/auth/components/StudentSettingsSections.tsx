@@ -60,6 +60,7 @@ const NAME = "student-settings-name";
 const EMAIL = "student-settings-email";
 const LANGUAGE = "student-settings-language";
 const KEY_ROW = "student-settings-key";
+const KEY_TOGGLE = "student-settings-key-toggle";
 const CURRENT = "student-settings-current";
 const NEW = "student-settings-new";
 const GOOGLE = "student-settings-google";
@@ -299,6 +300,7 @@ function PasswordRow() {
       if (reread !== null) setUser(reread);
       form.reset();
       setOpen(false);
+      document.getElementById(KEY_TOGGLE)?.focus();
       notify.success(t("student.settings.passwordUpdated"));
     } catch (cause) {
       setFailure(
@@ -321,6 +323,7 @@ function PasswordRow() {
           </span>
         </span>
         <Button
+          id={KEY_TOGGLE}
           type="button"
           variant="outline"
           aria-expanded={open}

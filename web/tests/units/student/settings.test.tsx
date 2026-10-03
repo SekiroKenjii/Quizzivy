@@ -701,6 +701,7 @@ describe("sign-in: the password", () => {
       ]),
     );
     await waitFor(() => expect(notify.success).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button", { name: "Đổi" })).toHaveFocus();
   });
 
   it("lets the form's rule, not the meter, refuse a password with no number or symbol", async () => {
@@ -755,6 +756,7 @@ describe("sign-in: the password", () => {
       "aria-expanded",
       "false",
     );
+    expect(screen.getByRole("button", { name: "Đổi" })).toHaveFocus();
 
     const again = await openPasswordForm(user);
     expect(again.current).toHaveValue("");
