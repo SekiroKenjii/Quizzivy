@@ -99,7 +99,6 @@ export default function TakeTestPage() {
   const question = questions[Math.min(index, questions.length - 1)];
   const ended = submitState === "done";
 
-  // Every §10 listener, in one place.
   const { strikes, fullscreen } = useIntegrityMonitor({
     attemptId: attemptId ?? null,
     sessionId,
