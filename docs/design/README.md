@@ -128,6 +128,9 @@ Thuong has not decided these; the plan builds them until he or the design team a
   the builder's "25 MB", "WAV" and "GIF" do not ship (DG-63, DG-111).
 - **"Choose from Media" lists the caller's own files.** Media is not a shared kind, so "files
   other teachers shared with you" and "Shared by …" do not ship (DG-112).
+- **A pasted image is left out and counted.** Today a paste that holds an image is refused
+  whole (spec §7.1). The converter keeps every other refusal, and the paste preview says how
+  many images were left out (DG-115).
 - **The review's "Question" editor keeps what the product has:** stored content, gaps for a
   fill-in-the-blank item, a read view where the review is read-only, and no Markdown mode
   (DG-114).
