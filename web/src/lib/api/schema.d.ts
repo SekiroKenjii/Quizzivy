@@ -2173,7 +2173,8 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
             /**
              * @description Already localized server-side from `Accept-Language`, `vi` by
-             *     default. Display it; do not build copy from `code`.
+             *     default. Display it; do not build copy from `code`, except for the
+             *     two codes the `ErrorCode` description names.
              * @example Mã lớp không hợp lệ.
              */
             message: string;
