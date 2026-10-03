@@ -9,6 +9,7 @@ import {
   type StudentQuestion,
 } from "@/features/take-test/api";
 import { useTakeTestStore } from "@/features/take-test/store";
+import { pending } from "@/features/integrity/buffer";
 import { ApiError } from "@/lib/api/errors";
 import { session, viewport } from "./support";
 import "@/lib/i18n";
@@ -154,6 +155,25 @@ describe.each(["desktop", "phone"] as const)("leaving the test on a %s", (width)
     await waitFor(() => expect(path(router)).toBe("/app"));
     expect(saveAnswers).not.toHaveBeenCalled();
     expect(router.state.historyAction).toBe("PUSH");
+  });
+
+  it("goes home at once with every answer saved, whatever the monitor has recorded", async () => {
+    const user = userEvent.setup();
+    const router = await open();
+    act(() => {
+      window.dispatchEvent(new Event("blur"));
+      window.dispatchEvent(new Event("focus"));
+    });
+    expect(pending().map((event) => event.kind)).toEqual([
+      "window_blur",
+      "window_focus",
+    ]);
+    vi.mocked(saveAnswers).mockImplementation(() => new Promise(() => {}));
+    await user.click(leaveButton());
+    await user.click(inDialog().getByRole("button", { name: "Thoát" }));
+
+    await waitFor(() => expect(path(router)).toBe("/app"));
+    expect(saveAnswers).not.toHaveBeenCalled();
   });
 
   it("saves a pending answer before it goes home", async () => {

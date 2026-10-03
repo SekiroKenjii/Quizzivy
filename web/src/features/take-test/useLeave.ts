@@ -23,6 +23,7 @@ export interface Leave {
 
 async function savePending(): Promise<boolean> {
   const store = () => useTakeTestStore.getState();
+  if (store().dirty.size === 0) return true;
   const saved = await store().flush();
   if (saved && store().dirty.size > 0) await store().flush();
   return store().lock !== null || store().dirty.size === 0;
@@ -39,8 +40,10 @@ function phaseOf(step: LeavePhase, blocked: boolean, pending: boolean): LeavePha
  * The browser's back button, or any other navigation while an answer is
  * unsaved, is blocked and taken as the answer "leave". Either way the unsaved
  * answers are sent before the route changes: to `/app` from the ✕, to
- * wherever the blocked navigation was going otherwise. A save that fails
- * keeps the student on the paper with the dialog saying so, and nothing
+ * wherever the blocked navigation was going otherwise. With no answer
+ * unsaved, Leave goes at once and sends nothing: it never waits on a request
+ * that would carry only what the integrity monitor has buffered. A save that
+ * fails keeps the student on the paper with the dialog saying so, and nothing
  * navigates until a retry succeeds or the student stays; if the store's own
  * retry lands first, the dialog goes back to asking. A paper another device
  * took over has nothing this tab can save, so Leave goes without a save; a
