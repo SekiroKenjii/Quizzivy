@@ -333,6 +333,19 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
   DG-67's "Needed by" moved to it. Pasting a test, which the deck draws since 2026-10-03, is not
   one of them: R4 builds it (`74-r4.md` T-R4.55–T-R4.57). The answer conventions its page
   states are fixed recognizer rules for text sources, not the gated source-conventions control.
+- **The content editor of the 2026-10-04 export (DG-108 to DG-116, D1).** The third deck import
+  redrew the builder's editor pane and the import review's "Question" field around one rich
+  content editor. R4 builds it (`74-r4.md` T-R4.62–T-R4.66, with T-R4.31b, T-R4.33 and T-R4.38)
+  on defaults that Thuong has not confirmed, all listed in that file's open items. The main
+  six: the editor ships to every teacher and its flag goes; the editing mode is the form the field is stored in; one question editor serves the
+  builder and the bank; the type menu offers the five stored types; "Students can pause" is not
+  built; and a prompt holds no media in R4. The last is the large one. Images and audio inside
+  a prompt or an explanation need a contract change that runs through the publish snapshot,
+  the student payload and the engine. Default: built, as D1 requires, in R6; `76-r6.md` gains
+  the tasks when Thuong confirms. The alternative is to build them in R4. Two defaults leave
+  something drawn unbuilt in every release: "Students can pause" (DG-111) and the review's
+  "Markdown" mode (DG-114). If Thuong confirms them, each is a D1 exception recorded in §2 with
+  its DG entry.
 - **Class staff (D14, DG-04).** §2 rule 9. Default: class staff lands in the first release that
   starts after the deck draws DG-04; if DG-04 is still open at T-R11.14, v1.0 ships with
   Assistant hidden from role pickers and class staff on the post-1.0 list. Thuong confirms the

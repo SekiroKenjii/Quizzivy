@@ -208,8 +208,11 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await expect(page).toHaveURL((url) => url.pathname === `/admin/tests/${id}`);
   await page.getByRole("button", { name: "Quay lại", exact: true }).click();
   await expect(page.getByPlaceholder("Tìm theo tên đề")).toHaveValue(title);
-  for (const checkbox of await copies.getByRole("checkbox").all())
-    await checkbox.check();
+  await expect(copies).toHaveCount(2);
+  for (const copy of await copies.all()) await copy.getByRole("checkbox").check();
+  await expect(
+    page.getByRole("button", { name: "Lưu trữ các mục đã chọn", exact: true }),
+  ).toBeVisible();
   await page
     .getByRole("button", { name: "Lưu trữ các mục đã chọn", exact: true })
     .click();

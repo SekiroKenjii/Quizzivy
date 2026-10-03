@@ -91,6 +91,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./tests/support/setup.ts"],
+    ...(process.env["CI"] ? {} : { maxWorkers: 3, testTimeout: 15_000 }),
     css: true,
     // The tests state their own preconditions rather than inheriting them from
     // an untracked file.

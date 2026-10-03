@@ -139,3 +139,15 @@ func hasTablePrivilege(t *testing.T, conn *sql.DB, role, table, priv string) boo
 	}
 	return ok
 }
+
+func TestTheAppRoleCannotCreateTemporaryObjects(t *testing.T) {
+	conn := migrated(t)
+	var allowed bool
+	if err := conn.QueryRow(
+		`SELECT has_database_privilege($1, current_database(), 'TEMPORARY')`, appRole).Scan(&allowed); err != nil {
+		t.Fatal(err)
+	}
+	if allowed {
+		t.Errorf("%s may create temporary objects in this database; migration 00079 revokes that only where the migration role owns the database", appRole)
+	}
+}
