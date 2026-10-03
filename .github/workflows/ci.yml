@@ -268,7 +268,7 @@ jobs:
           S3_ACCESS_KEY_ID: quizzivy
           S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
           S3_FORCE_PATH_STYLE: "true"
-        run: go test -v -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
+        run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
 
       # The converter refuses a tag and takes an image id, so the id is what
       # the next step is given.
@@ -303,7 +303,7 @@ jobs:
             sha256:*) ;;
             *) echo "::error::no converter image id, so every converter test would skip"; exit 1 ;;
           esac
-          go test -v -tags integration -p 1 -count=1 -run '^(TestDocker|TestRealPipeline)' \
+          go test -tags integration -p 1 -count=1 -run '^(TestDocker|TestRealPipeline)' \
             ./internal/platform/wordconvert/... ./internal/modules/imports/repositories/... \
             -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-converter.out
 
