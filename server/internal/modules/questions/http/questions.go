@@ -143,6 +143,9 @@ func (h Questions) DuplicateQuestion(ctx context.Context, request openapi.Duplic
 		return openapi.DuplicateQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
 	}
+	if resp, handled := questionWriteError(ctx, err); handled {
+		return openapi.DuplicateQuestion400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(resp)}, nil
+	}
 	if err != nil {
 		return nil, err
 	}

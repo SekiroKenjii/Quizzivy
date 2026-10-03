@@ -10,6 +10,10 @@ R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), as each task lands:
 - §15 A student's assignment card carries `liveAnsweredCount`, and the result
   carries the paper's `sections` with a `sectionId` on every question
   (T-R3.4).
+- §15 `startOrResumeAttempt` accepts `resume`; a Continue never starts an
+  attempt (#237).
+- §15 The monitor's `answeredCount` counts by the same rule as
+  `liveAnsweredCount` (#234).
 
 **Changes since v0.44**
 
@@ -1730,6 +1734,8 @@ GET    /app/assignments/:id
 POST   /app/assignments/:id/attempts    → create or resume → Attempt + ordered questions + sessionId
                                           409 MAINTENANCE_SCHEDULED {startsAt, endsAt} for a start
                                           that would run into a window
+                                          startOrResumeAttempt accepts resume; a Continue never
+                                          starts an attempt (#237)
 GET    /app/attempts/:id                → Attempt + questions + serverTime + audioPlays
 PATCH  /app/attempts/:id/answers        {sessionId,answers:[...],events:[...]} → {savedAt, serverTime, deadlineAt}
 POST   /app/attempts/:id/events         standalone flush (sendBeacon path)
@@ -1749,7 +1755,7 @@ GET    /app/media/:assetId/url          → short-lived signed URL
 
 **During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it.
 
-**`liveAnsweredCount`** on a student's assignment card is the number of the live attempt's saved answers that say something, by the rule the engine's navigator applies (`web/src/features/take-test/answered.ts`): a choice with an option picked, a true/false with a value, a text that is not blank, and a fill-in with every blank of the frozen question filled. Blank means empty after removing the whitespace JavaScript's `trim()` removes. An answer that exists only in the browser's draft is not counted. The field is absent when there is no live attempt.
+**`liveAnsweredCount`** on a student's assignment card is the number of the live attempt's saved answers that say something, by the rule the engine's navigator applies (`web/src/features/take-test/answered.ts`): a choice with an option picked, a true/false with a value, a text that is not blank, and a fill-in with every blank of the frozen question filled. Blank means empty after removing the whitespace JavaScript's `trim()` removes. An answer that exists only in the browser's draft is not counted. The field is absent when there is no live attempt. The teacher's monitor applies the same rule to a row's `answeredCount`, so a saved answer the student has since cleared counts on neither screen.
 
 **The result's `sections`** are the paper's parts in test order, and every result question names its `sectionId`. Both are present under every review policy, because the attempt already showed the student its parts; the page sums a part's score from its questions' `earned`, which the policy still gates.
 

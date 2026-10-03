@@ -37,7 +37,7 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 	if err := checkOptionShuffle(ctx, tx, in); err != nil {
 		return domain.Assignment{}, err
 	}
-	if err := checkTargets(ctx, tx, req.Scope(), in); err != nil {
+	if err := checkTargets(ctx, tx, req.Scope(), "", in); err != nil {
 		return domain.Assignment{}, err
 	}
 
@@ -138,7 +138,7 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 	if err := checkOptionShuffle(ctx, tx, in); err != nil {
 		return domain.Assignment{}, err
 	}
-	if err := checkTargets(ctx, tx, req.Scope(), in); err != nil {
+	if err := checkTargets(ctx, tx, req.Scope(), req.ID, in); err != nil {
 		return domain.Assignment{}, err
 	}
 
@@ -283,12 +283,13 @@ func checkOptionShuffle(ctx context.Context, tx pgx.Tx, in domain.WriteInput) er
 	return nil
 }
 
-func checkTargets(ctx context.Context, tx pgx.Tx, scope access.Scope, in domain.WriteInput) error {
+func checkTargets(ctx context.Context, tx pgx.Tx, scope access.Scope, assignmentID string, in domain.WriteInput) error {
 	var fields []domain.FieldError
 
 	if len(in.ClassIDs) > 0 {
-		missing, err := missingIDs(ctx, tx, scope,
-			`SELECT id::text FROM app.classes WHERE id = ANY($1::uuid[]) AND ($2::boolean OR id IN `+visibility.TaughtClassIDs(3)+`)`, in.ClassIDs)
+		missing, err := missingIDs(ctx, tx,
+			`SELECT id::text FROM app.classes WHERE id = ANY($1::uuid[]) AND ($2::boolean OR id IN `+visibility.TaughtClassIDs(3)+`)`,
+			in.ClassIDs, scope.All, opt.String(scope.UserID))
 		if err != nil {
 			return err
 		}
@@ -298,12 +299,15 @@ func checkTargets(ctx context.Context, tx pgx.Tx, scope access.Scope, in domain.
 	}
 
 	if len(in.StudentIDs) > 0 {
-		missing, err := missingIDs(ctx, tx, scope,
+		missing, err := missingIDs(ctx, tx,
 			`SELECT u.id::text FROM app.users u
-			  WHERE u.id = ANY($1::uuid[]) AND u.disabled_at IS NULL
-			    AND u.role_id IN (SELECT r.id FROM app.student_like_roles r)
-			    AND ($2::boolean OR u.id IN `+visibility.StudentIDs(3)+`)`,
-			in.StudentIDs)
+			  WHERE u.id = ANY($1::uuid[])
+			    AND ($2::boolean OR u.id IN `+visibility.StudentIDs(3)+`)
+			    AND ((u.disabled_at IS NULL
+			          AND u.role_id IN (SELECT r.id FROM app.student_like_roles r))
+			         OR u.id IN (SELECT s.user_id FROM app.assignment_students s
+			                      WHERE s.assignment_id = $4::uuid))`,
+			in.StudentIDs, scope.All, opt.String(scope.UserID), opt.String(assignmentID))
 		if err != nil {
 			return err
 		}
@@ -318,8 +322,8 @@ func checkTargets(ctx context.Context, tx pgx.Tx, scope access.Scope, in domain.
 	return nil
 }
 
-func missingIDs(ctx context.Context, tx pgx.Tx, scope access.Scope, query string, want []string) ([]string, error) {
-	rows, err := tx.Query(ctx, query, want, scope.All, opt.String(scope.UserID))
+func missingIDs(ctx context.Context, tx pgx.Tx, query string, want []string, args ...any) ([]string, error) {
+	rows, err := tx.Query(ctx, query, append([]any{want}, args...)...)
 	if err != nil {
 		return nil, fmt.Errorf("assignments: check targets: %w", err)
 	}

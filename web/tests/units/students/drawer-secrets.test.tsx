@@ -1,12 +1,14 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
 import StudentsListPage from "@/features/students/pages/StudentsListPage";
+import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { adminUser } from "@tests/support/fixtures";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
@@ -126,6 +128,14 @@ describe("the one-time password in the student drawer", () => {
  * `disabled: false` was unreachable.
  */
 describe("suspending and restoring a student", () => {
+  beforeEach(() => {
+    useAuthStore.getState().setUser(adminUser);
+  });
+
+  afterEach(() => {
+    useAuthStore.getState().clearSession();
+  });
+
   it("finds suspended accounts only when asked, and offers to restore them", async () => {
     const suspended = {
       ...student(HAN, "Phạm Gia Hân", "han@example.com"),

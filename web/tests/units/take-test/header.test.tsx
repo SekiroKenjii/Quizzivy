@@ -181,6 +181,14 @@ describe("the header at 1280", () => {
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 
+  it("keeps each digit in a cell one zero wide, so the pill does not move as it ticks", async () => {
+    await open();
+
+    const digits = within(timer()).getAllByText(/^\d$/);
+    expect(digits.map((digit) => digit.textContent).join("")).toBe("3812");
+    for (const digit of digits) expect(digit).toHaveClass("inline-block", "w-[1ch]");
+  });
+
   it("opens the review from Submit, where the header keeps the way back and no second Submit", async () => {
     await open();
     fireEvent.click(banner().getByRole("button", { name: "Nộp bài" }));

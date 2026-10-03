@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageAside } from "@/components/shared/PageAside";
 import { toast } from "@/components/ui/sonner";
+import { useCan } from "@/features/auth/permissions";
 import { EditStudentForm } from "@/features/students/components/EditStudentForm";
 import { TemporaryPasswordCard } from "@/features/students/components/TemporaryPasswordCard";
 import {
@@ -40,6 +41,7 @@ export function StudentDrawer({
   const [temporary, setTemporary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const locale = useLocale();
+  const canManageUsers = useCan("people.users.manage");
 
   // Escape closes it, unless a layer above already answered for it.
   useEffect(() => {
@@ -220,24 +222,26 @@ export function StudentDrawer({
             ? t("students.enabledHint")
             : t("students.disabledHint")}
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2.5"
-          disabled={setDisabled.isPending}
-          onClick={() =>
-            student.disabledAt
-              ? setDisabled.mutate(false)
-              : setConfirming({ kind: "disable" })
-          }
-        >
-          {student.disabledAt ? (
-            <UserCheck aria-hidden="true" />
-          ) : (
-            <Ban aria-hidden="true" />
-          )}
-          {student.disabledAt ? t("students.enable") : t("students.disable")}
-        </Button>
+        {canManageUsers ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2.5"
+            disabled={setDisabled.isPending}
+            onClick={() =>
+              student.disabledAt
+                ? setDisabled.mutate(false)
+                : setConfirming({ kind: "disable" })
+            }
+          >
+            {student.disabledAt ? (
+              <UserCheck aria-hidden="true" />
+            ) : (
+              <Ban aria-hidden="true" />
+            )}
+            {student.disabledAt ? t("students.enable") : t("students.disable")}
+          </Button>
+        ) : null}
       </div>
 
       <ConfirmDialog

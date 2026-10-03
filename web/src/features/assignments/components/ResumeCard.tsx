@@ -10,7 +10,7 @@ import { useTick } from "@/hooks/useTick";
 import { ApiError } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
 import { clockTime, formatTime, sameAppDay } from "@/lib/i18n/datetime";
-import type { StudentAssignmentCard } from "../api";
+import { continueAttempt, type StudentAssignmentCard } from "../api";
 import { minutesLeft } from "../studentHome";
 import { HOME_PILL } from "./homeStyles";
 
@@ -19,9 +19,9 @@ import { HOME_PILL } from "./homeStyles";
  * long is left, how much is answered and when the attempt closes, and its
  * button goes straight to the paper: the rules were read when the attempt
  * began. The minutes repaint as they pass; nothing is fetched to do so. When
- * the server refuses to resume, the lists are read again, so a card for an
- * attempt that has ended does not stay; the reason is a toast, because it has
- * to outlive the card.
+ * the attempt has ended or the server refuses to resume, the lists are read
+ * again, so a card for an attempt that has ended does not stay; the reason is
+ * a toast, because it has to outlive the card.
  */
 export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   const { t } = useTranslation();
@@ -48,7 +48,9 @@ export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) 
   const resume = async () => {
     setBusy(true);
     try {
-      const session = await startOrResumeAttempt(card.id);
+      const session = await (card.lastAttemptId == null
+        ? startOrResumeAttempt(card.id)
+        : continueAttempt(card.id, card.lastAttemptId));
       await navigate(`/app/attempts/${session.attempt.id}`);
     } catch (cause) {
       notify.error(

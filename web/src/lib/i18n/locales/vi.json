@@ -208,7 +208,42 @@
     },
     "questions_one": "{{count}} câu",
     "questions_other": "{{count}} câu",
-    "classesNav": "Lớp"
+    "classesNav": "Lớp",
+    "settings": {
+      "sections": {
+        "profile": "Hồ sơ",
+        "signIn": "Đăng nhập",
+        "appearance": "Giao diện"
+      },
+      "nameHint": "Giáo viên của bạn thấy tên này.",
+      "emailHint": "Muốn đổi email, hãy nhờ giáo viên của bạn.",
+      "unsaved": "Bạn có thay đổi chưa lưu.",
+      "discard": "Bỏ thay đổi",
+      "change": "Đổi",
+      "updatePassword": "Cập nhật mật khẩu",
+      "passwordUpdated": "Đã cập nhật mật khẩu. Các thiết bị khác đã được đăng xuất.",
+      "passwordMin": "Ít nhất 8 ký tự.",
+      "strength": {
+        "okay": "Tạm được",
+        "strong": "Mạnh",
+        "veryStrong": "Rất mạnh"
+      },
+      "strengthAdvice": "{{strength}}. Thêm số hoặc ký hiệu để mật khẩu mạnh hơn.",
+      "strengthOnly": "{{strength}}.",
+      "google": "Google",
+      "googleLinked": "Đã liên kết",
+      "googleNotLinked": "Chưa liên kết. Liên kết để đăng nhập bằng một chạm.",
+      "unlink": "Bỏ liên kết",
+      "googleUnlinked": "Đã bỏ liên kết Google. Hãy dùng mật khẩu để đăng nhập.",
+      "theme": "Chủ đề",
+      "themes": {
+        "light": "Sáng",
+        "dark": "Tối",
+        "system": "Theo thiết bị"
+      },
+      "largerText": "Chữ lớn hơn khi làm bài",
+      "largerTextHint": "Bài đọc và câu hỏi hiện ở cỡ chữ 18px"
+    }
   },
   "changePassword": {
     "title": "Chọn mật khẩu của bạn",
@@ -1660,63 +1695,80 @@
   "result": {
     "title": "Kết quả",
     "notReady": "Kết quả chưa sẵn sàng.",
-    "pendingTitle_one": "Còn {{count}} câu giáo viên đang chấm",
-    "pendingTitle_other": "Còn {{count}} câu giáo viên đang chấm",
-    "pendingBody": "Điểm cuối cùng sẽ hiện khi chấm xong.",
-    "hiddenTitle": "Giáo viên chưa công bố điểm",
-    "hiddenBody": "Bài của bạn đã được nộp lúc {{time}} · {{date}}. Khi giáo viên mở phần xem lại, bạn sẽ thấy điểm ở đây.",
-    "yourPaper": "Bài làm của bạn",
-    "answeredWithKey": "Bạn đã trả lời {{answered}}/{{total}} câu. Bạn có thể xem lại câu hỏi, câu trả lời của mình và đáp án đúng bên dưới.",
-    "answeredNoKey": "Bạn đã trả lời {{answered}}/{{total}} câu. Bạn có thể xem lại câu hỏi và câu trả lời của mình, nhưng chưa xem được đáp án đúng.",
-    "filter": "Lọc câu hỏi",
-    "chips": {
-      "all": "Tất cả {{count}}",
-      "wrong": "Sai {{count}}",
-      "pending": "Chờ chấm {{count}}"
+    "notFound": "Không tìm thấy kết quả này, hoặc đây không phải bài của bạn.",
+    "loadFailed": "Không tải được kết quả",
+    "loadFailedBody": "Bài làm của bạn đã nộp và vẫn được lưu. Kiểm tra kết nối rồi thử lại.",
+    "meta": {
+      "submitted": "Nộp {{when}}",
+      "submittedIn": "{{class}} · nộp {{when}}",
+      "submittedNow": "Vừa nộp",
+      "submittedNowIn": "{{class}} · vừa nộp",
+      "attempt": "lượt {{n}}/{{total}}"
     },
-    "noKey": "Giáo viên không hiển thị đáp án đúng cho bài này.",
-    "noExplanations": "Giáo viên không hiển thị giải thích cho bài này.",
-    "provisional": "Điểm tạm tính",
-    "yourScore": "Điểm của bạn",
-    "excludesPending": "chưa gồm {{points}} điểm đang chấm tay",
-    "percent": "Đạt {{percent}}%",
-    "submittedMeta": "Nộp lúc {{time}} · {{date}} · Lượt {{n}}/{{total}}",
-    "pointsPending": "— / {{total}} điểm",
-    "pointsOf": "{{earned}}/{{total}} điểm",
-    "listening": "Nghe",
+    "ring": {
+      "of": "trên {{total}}",
+      "soFar": "trên {{total}}, tạm tính",
+      "grading": "đang chấm",
+      "withheld": "Điểm chưa được công bố"
+    },
+    "summary": {
+      "graded": "Bạn trả lời đúng {{correct}}/{{total}} câu.",
+      "gradedKey": "Bạn trả lời đúng {{correct}}/{{total}} câu. Đáp án đúng hiển thị bên dưới.",
+      "auto_one": "{{count}} câu đã được chấm tự động.",
+      "auto_other": "{{count}} câu đã được chấm tự động.",
+      "teacher_one": "Giáo viên sẽ chấm {{count}} câu tự luận.",
+      "teacher_other": "Giáo viên sẽ chấm {{count}} câu tự luận.",
+      "pending": "Giáo viên đang chấm các câu tự luận của bạn. Điểm sẽ hiện ở đây khi chấm xong.",
+      "pendingNotify": "Giáo viên đang chấm các câu tự luận của bạn. Bạn sẽ nhận được thông báo khi có điểm.",
+      "withheld": "Bạn đã trả lời {{answered}}/{{total}} câu. Giáo viên chưa công bố điểm."
+    },
+    "tiles": {
+      "auto": "Chấm tự động",
+      "waiting": "Chờ giáo viên chấm",
+      "time": "Thời gian làm bài",
+      "score": "{{earned}} / {{total}}",
+      "answers_one": "{{count}} câu",
+      "answers_other": "{{count}} câu",
+      "minutes_one": "{{count}} phút",
+      "minutes_other": "{{count}} phút"
+    },
+    "yourAnswers": "Câu trả lời của bạn",
+    "filter": "Lọc câu hỏi",
+    "filters": {
+      "all": "Tất cả",
+      "wrong": "Sai",
+      "waiting": "Chờ chấm"
+    },
+    "lock": {
+      "score": "Giáo viên chưa công bố điểm cho bài này.",
+      "answers": "Giáo viên không hiển thị đáp án đúng cho bài này.",
+      "explanations": "Giáo viên không hiển thị giải thích cho bài này.",
+      "scoreAnswers": "Giáo viên không hiển thị điểm và đáp án đúng cho bài này.",
+      "scoreExplanations": "Giáo viên không hiển thị điểm và giải thích cho bài này.",
+      "answersExplanations": "Giáo viên không hiển thị đáp án đúng và giải thích cho bài này.",
+      "all": "Giáo viên không hiển thị điểm, đáp án đúng và giải thích cho bài này."
+    },
+    "empty": {
+      "wrong": "Không có câu sai trong bài này."
+    },
+    "showAll": "Xem tất cả câu",
     "verdict": {
       "correct": "Đúng",
       "wrong": "Sai",
-      "partial": "Đúng một phần",
-      "pending": "Chờ chấm",
-      "graded": "Đã chấm"
+      "partial": "Đúng một phần"
     },
+    "points": "{{earned}} / {{total}}",
+    "waiting": "Chờ chấm",
+    "youAnswered": "Bạn trả lời",
+    "correctAnswer": "Đáp án đúng",
+    "noAnswer": "Chưa trả lời",
+    "true": "Đúng",
+    "false": "Sai",
+    "blank": "chỗ trống",
     "replayFreely": "Nghe lại thoải mái sau khi nộp",
     "showTranscript": "Xem lời thoại",
     "noTranscript": "Lời thoại không được hiển thị.",
-    "teacherComment": "Nhận xét của giáo viên",
-    "unanswered": "Bạn chưa trả lời câu này.",
-    "correctAnswerIs": "Đáp án đúng: {{answers}}",
-    "youChose": "bạn chọn",
-    "correctOption": "đáp án đúng",
-    "loadFailed": "Không tải được kết quả",
-    "loadFailedBody": "Bài làm của bạn đã nộp và vẫn được lưu. Kiểm tra kết nối rồi thử lại.",
-    "panel": "Kết quả",
-    "rows": {
-      "correct": "Đúng",
-      "wrong": "Sai",
-      "pending": "Chờ chấm",
-      "submittedAt": "Nộp lúc",
-      "moment": "{{time}} · {{date}}",
-      "attempt": "Lượt",
-      "attemptOf": "{{n}} / {{total}}"
-    },
-    "showAll": "Xem tất cả câu",
-    "empty": {
-      "all": "Chưa có câu hỏi để hiển thị.",
-      "wrong": "Không có câu sai trong bài này.",
-      "pending": "Không còn câu nào đang chờ chấm."
-    }
+    "teacherComment": "Nhận xét của giáo viên"
   },
   "queue": {
     "summary": {

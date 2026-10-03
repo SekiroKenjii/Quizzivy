@@ -192,6 +192,11 @@ export interface paths {
          *     access token must not be able to strand a live refresh family: the one
          *     moment a user most wants to log out is the moment their session has
          *     gone strange.
+         *
+         *     During a maintenance window the request is answered `503 MAINTENANCE`
+         *     like any other; when the request carried the refresh cookie, that
+         *     answer still clears the refresh and docs cookies; the family is not
+         *     revoked.
          */
         post: operations["logout"];
         delete?: never;
@@ -618,7 +623,9 @@ export interface paths {
         put?: never;
         /**
          * @description A-06a's "Nhân bản": copies the question, its options, blanks and
-         *     tags into a new bank row that no test references yet.
+         *     tags into a new bank row that no test references yet. A source whose
+         *     media asset has been deleted, or that no longer validates, answers
+         *     `VALIDATION_FAILED` as a create would; nothing is copied.
          */
         post: operations["duplicateQuestion"];
         delete?: never;
@@ -1746,6 +1753,10 @@ export interface paths {
          *     `min(now + durationMinutes, closesAt)` and is authoritative. The client
          *     derives remaining time from it plus the `serverTime` offset, never from
          *     the device clock.
+         *
+         *     A caller that means to continue a known attempt sends `resume`; a
+         *     Continue button must, so that an attempt whose time ran out while the
+         *     page was open is not answered with a new one.
          */
         post: operations["startOrResumeAttempt"];
         delete?: never;
@@ -2157,7 +2168,11 @@ export interface components {
         };
         /**
          * @description Stable, machine-readable. **The only thing clients branch on.** Copy is
-         *     driven by `message`, never reconstructed from this.
+         *     driven by `message`, never reconstructed from this, with two exceptions
+         *     the web app words itself, as the design deck draws them:
+         *     `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
+         *     the change-password forms. The server still sends a localised `message`
+         *     for both, for any other client.
          * @enum {string}
          */
         ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
@@ -2169,7 +2184,8 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
             /**
              * @description Already localized server-side from `Accept-Language`, `vi` by
-             *     default. Display it; do not build copy from `code`.
+             *     default. Display it; do not build copy from `code`, except for the
+             *     two codes the `ErrorCode` description names.
              * @example Mã lớp không hợp lệ.
              */
             message: string;
@@ -3841,7 +3857,7 @@ export interface components {
             deadlineAt?: string | null;
             /** Format: date-time */
             submittedAt?: string | null;
-            /** @description Questions with a saved answer, against the response's `questionCount` (G-02's progress column). */
+            /** @description Questions whose saved answer says something, by the rule of `StudentAssignmentCard.liveAnsweredCount`, against the response's `questionCount` (G-02's progress column). */
             answeredCount?: number | null;
             score?: components["schemas"]["AttemptScore"] | null;
             focusLossCount?: number | null;
@@ -4133,7 +4149,7 @@ export interface operations {
                 "application/json": {
                     /**
                      * @description Accepted with or without the dash and in any case; normalized
-                     *     before hashing. Alphabet excludes `0/O` and `1/I/L` (§6.1).
+                     *     before lookup. The alphabet excludes `0`, `O`, `1` and `I` (§6.1).
                      * @example K7M3-P9QR
                      * @example k7m3p9qr
                      */
@@ -5611,6 +5627,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminQuestion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -7788,7 +7805,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The attempt the caller means to continue. With it the operation never starts an attempt: when this attempt is no longer the live one it answers `ATTEMPT_CLOSED`. */
+                    resume?: components["schemas"]["Uuid"];
+                };
+            };
+        };
         responses: {
             /** @description Created, or resumed. */
             200: {
@@ -7801,7 +7825,10 @@ export interface operations {
             };
             403: components["responses"]["Forbidden"];
             /**
-             * @description `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
+             * @description `ATTEMPT_CLOSED` — `resume` named an attempt that is no longer live;
+             *     nothing was started.
+             *
+             *     `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
              *
              *     `MAINTENANCE_SCHEDULED` — a new attempt would run into a maintenance
              *     window. `details.startsAt` and `details.endsAt` name it. Resuming an

@@ -19,6 +19,14 @@ function minutesToSay(
   return Math.ceil(left / 60_000) === said ? said : null;
 }
 
+function cells(text: string) {
+  return Array.from(text, (char, at) => ({
+    char,
+    id: `c${at}`,
+    digit: char >= "0" && char <= "9",
+  }));
+}
+
 /**
  * Clock is the engine's timer pill, read from the server's time rather than
  * the device's. Under five minutes it takes the danger tones. It is a
@@ -27,7 +35,9 @@ function minutesToSay(
  * once when it passes one, and again if a later deadline lets it pass them
  * again. The region holds that line only for the minute it is true of and is
  * empty otherwise, so it never reads a time that has gone. A paper opened
- * with less than that left is not told a time it never crossed.
+ * with less than that left is not told a time it never crossed. Each digit
+ * sits in a cell one zero wide, because the typeface has no tabular figures
+ * and the pill would otherwise change width, and move, every second.
  */
 export function Clock() {
   const { t } = useTranslation();
@@ -58,7 +68,17 @@ export function Clock() {
         )}
       >
         <Timer aria-hidden="true" className="size-4" />
-        {countdown(left)}
+        <span>
+          {cells(countdown(left)).map((cell) =>
+            cell.digit ? (
+              <span key={cell.id} className="inline-block w-[1ch] text-center">
+                {cell.char}
+              </span>
+            ) : (
+              cell.char
+            ),
+          )}
+        </span>
       </span>
       <span role="status" className="sr-only">
         {said === null ? "" : t("takeTest.minutesLeft", { count: said })}

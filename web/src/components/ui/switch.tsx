@@ -31,7 +31,7 @@ function Switch({
       <SwitchPrimitive.Thumb
         className={cn(
           "bg-background pointer-events-none block size-[0.9rem] translate-x-[0.125rem] rounded-full shadow-sm transition-transform data-[state=checked]:translate-x-[0.975rem]",
-          "in-data-[scale=deck]:bg-switch-thumb in-data-[scale=deck]:size-4.5 in-data-[scale=deck]:translate-x-0.5 in-data-[scale=deck]:data-[state=checked]:translate-x-4.5",
+          "in-data-[scale=deck]:bg-switch-thumb in-data-[scale=deck]:shadow-thumb in-data-[scale=deck]:size-4.5 in-data-[scale=deck]:translate-x-0.5 in-data-[scale=deck]:data-[state=checked]:translate-x-4.5",
           size === "sm" &&
             "size-4 translate-x-0.5 in-data-[scale=deck]:size-4 data-[state=checked]:translate-x-4.5 in-data-[scale=deck]:data-[state=checked]:translate-x-4.5",
           size === "lg" &&
