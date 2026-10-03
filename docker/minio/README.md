@@ -16,6 +16,14 @@ and takes longer than pulling the former image; subsequent builds reuse it.
 `make up` builds the image before starting the stack. Both services share the image,
 and `scripts/verify-r2.sh` uses its client too.
 
+CI does not repeat that build on every run. `.github/workflows/minio-image.yml`
+publishes the image to `ghcr.io/<owner>/quizzivy-minio`, a public package as
+the repository is, under a tag that is a hash of this directory, and
+`.github/actions/minio` pulls it. A change here, this file included, names a
+new tag, which CI builds from source until it is published. The image's labels
+name the licence (AGPL-3.0-or-later) and this repository, where the table
+above lists the unmodified source commits.
+
 The image contains the upstream license and credits for each binary. It is a
 development/CI stand-in for production Cloudflare R2; these historical releases
 are not a supported production storage deployment. Changing this image does not

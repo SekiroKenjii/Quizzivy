@@ -11,7 +11,14 @@ feature/*  →  develop  →  release/x.y  →  main  →  CI  →  Deploy
 
 `.github/workflows/deploy.yml` runs on `workflow_run` after **CI** concludes on
 `main`, not on the push itself. That ordering is the point: a merge that breaks
-something is not deployed while its own test run is still red.
+something is not deployed while its own test run is still red. CI runs every
+job on a push to `main`, whatever passed before (`docs/setup/ci.md`).
+
+Only the CI run of a **push** deploys, and only while its commit is still the
+tip of `main`. The back-merge pull request from `main` to `develop` has `main`
+as its head branch too, and through v0.8.0 its CI run deployed the same commit
+a second time. Re-running an older CI run of `main` to green completes it again;
+the tip check is what keeps that from putting an earlier release back.
 
 ## What it does
 
@@ -102,16 +109,16 @@ Two reasons this exists:
 ## Cutting a release
 
 ```bash
-git checkout -b release/0.1 develop
+git checkout -b release/0.9.0 develop
 # only fixes on this branch -- no new features
-git checkout main && git merge --no-ff release/0.1
-git push origin main            # CI runs, then Deploy
-git checkout develop && git merge --no-ff release/0.1
-git branch -d release/0.1
+git push -u origin release/0.9.0 && gh pr create --base main   # merging it pushes main: CI runs, then Deploy
+git fetch origin && git tag v0.9.0 origin/main && git push origin v0.9.0
+gh pr create --base develop --head main                        # back-merge; its CI run does not deploy
 ```
 
 Merge back into `develop` too, or fixes made on the release branch are lost from
-the next one.
+the next one. `main` and `develop` take changes only by pull request
+(`ci.md`, "Branch rules").
 
 ## Verifying afterwards
 

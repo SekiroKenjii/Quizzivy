@@ -54,20 +54,38 @@ jobs:
   resolve:
     name: Resolve
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    # event == 'push': the branch filter above matches the run's HEAD branch,
+    # and the back-merge pull request from main to develop has main as its
+    # head. Without this, its CI run deployed the same commit a second time.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
     outputs:
       sha: ${{ steps.pick.outputs.sha }}
       api: ${{ steps.pick.outputs.api }}
       web: ${{ steps.pick.outputs.web }}
     steps:
+      # A CI run that is no longer the tip of main deploys nothing. Re-running
+      # an old run to green completes it again, and without this check that
+      # would put an earlier release back into production.
       - id: pick
+        env:
+          TRIGGER: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           sha="${{ github.event.workflow_run.head_sha || github.sha }}"
           target="${{ inputs.target || 'all' }}"
-          echo "sha=$sha"                                    >> "$GITHUB_OUTPUT"
-          echo "api=${{ inputs.target == 'web' && 'false' || 'true' }}" >> "$GITHUB_OUTPUT"
-          echo "web=${{ inputs.target == 'api' && 'false' || 'true' }}" >> "$GITHUB_OUTPUT"
-          echo "Deploying $target at $sha"
+          api="${{ inputs.target == 'web' && 'false' || 'true' }}"
+          web="${{ inputs.target == 'api' && 'false' || 'true' }}"
+          if [ "$TRIGGER" = workflow_run ]; then
+            tip="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+            if [ "$sha" != "$tip" ]; then
+              echo "::notice::$sha is not the tip of main ($tip); nothing is deployed"
+              api=false; web=false
+            fi
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "Deploying $target at $sha (api=$api, web=$web)"
 
   # ------------------------------------------------------------------- api
   api:
