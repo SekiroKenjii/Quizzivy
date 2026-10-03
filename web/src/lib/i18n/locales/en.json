@@ -213,7 +213,43 @@
     },
     "questions_one": "{{count}} question",
     "questions_other": "{{count}} questions",
-    "classesNav": "Classes"
+    "classesNav": "Classes",
+    "settings": {
+      "sections": {
+        "profile": "Profile",
+        "signIn": "Sign-in",
+        "appearance": "Appearance"
+      },
+      "nameHint": "Your teacher sees this name.",
+      "emailHint": "Ask your teacher to change your email.",
+      "unsaved": "You have unsaved changes.",
+      "discard": "Discard",
+      "change": "Change",
+      "updatePassword": "Update password",
+      "passwordUpdated": "Password updated. Other devices have been signed out.",
+      "passwordMin": "At least 8 characters.",
+      "strength": {
+        "weak": "Weak",
+        "okay": "Okay",
+        "strong": "Strong",
+        "veryStrong": "Very strong"
+      },
+      "strengthAdvice": "{{strength}}. Add a number or symbol to make it stronger.",
+      "strengthOnly": "{{strength}}.",
+      "google": "Google",
+      "googleLinked": "Linked",
+      "googleNotLinked": "Not linked. Link it to sign in with one tap.",
+      "unlink": "Unlink",
+      "googleUnlinked": "Google unlinked. Use your password to sign in.",
+      "theme": "Theme",
+      "themes": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "Device"
+      },
+      "largerText": "Larger text in tests",
+      "largerTextHint": "Reading passages and questions at 18px"
+    }
   },
   "changePassword": {
     "title": "Choose your password",

@@ -31,20 +31,39 @@ test("E2E 2a: a student signs in with a password and reaches their own app", asy
   await expect(page.getByLabel("Mã lớp")).toBeFocused();
 });
 
-test("E2E 2a: student settings groups profile, security and preferences", async ({
+test("E2E 2a: student settings groups profile, sign-in and appearance", async ({
   page,
 }) => {
   await stubApi(page, sessionAs(studentUser));
   await page.goto("/app/settings");
-  await expect(page.getByRole("heading", { name: "Hồ sơ" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Hồ sơ" })).toBeVisible();
   await expect(page.getByLabel("Họ và tên")).toBeEditable();
   await expect(page.getByLabel("Email")).toBeDisabled();
-  const navigation = page.getByRole("navigation", { name: "Mục cài đặt" });
-  await navigation.getByRole("link", { name: "Bảo mật" }).click();
-  await expect(page.getByRole("heading", { name: "Mật khẩu" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Tài khoản Google" })).toBeVisible();
-  await navigation.getByRole("link", { name: "Tuỳ chọn" }).click();
-  await expect(page.getByRole("heading", { name: "Ngôn ngữ" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Ngôn ngữ" })).toBeVisible();
+  const sections = page.getByRole("group", { name: "Mục cài đặt" });
+  await sections.getByRole("button", { name: "Đăng nhập" }).click();
+  await expect(page).toHaveURL(/\/app\/settings\/sign-in$/);
+  const signIn = page.getByRole("region", { name: "Đăng nhập" });
+  await expect(signIn.getByText("Mật khẩu", { exact: true })).toBeVisible();
+  await expect(signIn.getByText("Google", { exact: true })).toBeVisible();
+  await sections.getByRole("button", { name: "Giao diện" }).click();
+  await expect(page).toHaveURL(/\/app\/settings\/appearance$/);
+  await expect(page.getByRole("group", { name: "Chủ đề" })).toBeVisible();
+  await expect(
+    page.getByRole("switch", { name: "Chữ lớn hơn khi làm bài" }),
+  ).toBeVisible();
+});
+
+test("the old section addresses lead to where their controls went", async ({
+  page,
+}) => {
+  await stubApi(page, sessionAs(studentUser));
+  await page.goto("/app/settings/security");
+  await expect(page).toHaveURL(/\/app\/settings\/sign-in$/);
+  await expect(page.getByRole("region", { name: "Đăng nhập" })).toBeVisible();
+  await page.goto("/app/settings/preferences");
+  await expect(page).toHaveURL(/\/app\/settings$/);
+  await expect(page.getByRole("combobox", { name: "Ngôn ngữ" })).toBeVisible();
 });
 
 test("unlinking is disabled, with a reason, when Google is the only way in", async ({
@@ -54,17 +73,15 @@ test("unlinking is disabled, with a reason, when Google is the only way in", asy
     page,
     sessionAs({ ...studentUser, hasPassword: false, linkedProviders: ["google"] }),
   );
-  await page.goto("/app/settings/security");
+  await page.goto("/app/settings/sign-in");
 
-  // aria-disabled, not disabled: S-10 keeps the control focusable so the reason
-  // beside it is announced instead of skipped.
-  const unlink = page.getByRole("button", { name: "Bỏ liên kết Google" });
+  const unlink = page.getByRole("button", { name: "Bỏ liên kết", exact: true });
   await expect(unlink).toHaveAttribute("aria-disabled", "true");
+  await expect(unlink).not.toHaveAttribute("disabled");
   await expect(page.getByText(/cách duy nhất để đăng nhập/)).toBeVisible();
-  // And no password card at all: S-10's Google-only settings frame draws three
-  // cards, none of them "Mật khẩu" -- there is nothing to change and no way to
-  // set one, so a card would only be a hole in S-17's grid.
-  await expect(page.getByRole("heading", { name: "Mật khẩu" })).toHaveCount(0);
+  const signIn = page.getByRole("region", { name: "Đăng nhập" });
+  await expect(signIn.getByText("Mật khẩu", { exact: true })).toHaveCount(0);
+  await expect(signIn.getByRole("button", { name: "Đổi", exact: true })).toHaveCount(0);
 });
 
 test("a teacher's settings screen adds the profile block", async ({ page }) => {
@@ -75,7 +92,7 @@ test("a teacher's settings screen adds the profile block", async ({ page }) => {
   await expect(page.getByLabel("Họ và tên")).toHaveValue("Thuong");
 });
 
-test("signing out lives behind the avatar, and on the settings screen", async ({
+test("signing out lives behind the avatar, on the settings screen too", async ({
   page,
 }) => {
   await stubApi(page, sessionAs(studentUser));
@@ -87,13 +104,17 @@ test("signing out lives behind the avatar, and on the settings screen", async ({
   await page.getByRole("menuitem", { name: "Cài đặt" }).click();
   await expect(page).toHaveURL(/\/app\/settings$/);
   await expect(page.getByRole("heading", { name: "Cài đặt" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Đăng xuất" })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Tài khoản của/ }).click();
+  await expect(page.getByRole("menuitem", { name: "Đăng xuất" })).toBeVisible();
 });
 
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("settings is the Me tab, and signing out sits at its foot", async ({ page }) => {
+  test("settings is the Me tab, and signing out stays behind the avatar", async ({
+    page,
+  }) => {
     await stubApi(page, sessionAs(studentUser));
 
     await page.goto("/app");
@@ -101,7 +122,11 @@ test.describe("on a phone", () => {
 
     await page.getByRole("link", { name: "Tôi", exact: true }).click();
     await expect(page).toHaveURL(/\/app\/settings$/);
-    await expect(page.getByRole("heading", { name: "Cài đặt" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
+    await expect(
+      page.getByRole("banner").getByText("Cài đặt", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Đăng xuất" })).toHaveCount(0);
+    await page.getByRole("button", { name: /^Tài khoản của/ }).click();
+    await expect(page.getByRole("menuitem", { name: "Đăng xuất" })).toBeVisible();
   });
 });

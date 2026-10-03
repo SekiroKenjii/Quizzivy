@@ -213,7 +213,43 @@
     },
     "questions_one": "{{count}} câu",
     "questions_other": "{{count}} câu",
-    "classesNav": "Lớp"
+    "classesNav": "Lớp",
+    "settings": {
+      "sections": {
+        "profile": "Hồ sơ",
+        "signIn": "Đăng nhập",
+        "appearance": "Giao diện"
+      },
+      "nameHint": "Giáo viên của bạn thấy tên này.",
+      "emailHint": "Muốn đổi email, hãy nhờ giáo viên của bạn.",
+      "unsaved": "Bạn có thay đổi chưa lưu.",
+      "discard": "Bỏ thay đổi",
+      "change": "Đổi",
+      "updatePassword": "Cập nhật mật khẩu",
+      "passwordUpdated": "Đã cập nhật mật khẩu. Các thiết bị khác đã được đăng xuất.",
+      "passwordMin": "Ít nhất 8 ký tự.",
+      "strength": {
+        "weak": "Yếu",
+        "okay": "Tạm được",
+        "strong": "Mạnh",
+        "veryStrong": "Rất mạnh"
+      },
+      "strengthAdvice": "{{strength}}. Thêm số hoặc ký hiệu để mật khẩu mạnh hơn.",
+      "strengthOnly": "{{strength}}.",
+      "google": "Google",
+      "googleLinked": "Đã liên kết",
+      "googleNotLinked": "Chưa liên kết. Liên kết để đăng nhập bằng một chạm.",
+      "unlink": "Bỏ liên kết",
+      "googleUnlinked": "Đã bỏ liên kết Google. Hãy dùng mật khẩu để đăng nhập.",
+      "theme": "Chủ đề",
+      "themes": {
+        "light": "Sáng",
+        "dark": "Tối",
+        "system": "Theo thiết bị"
+      },
+      "largerText": "Chữ lớn hơn khi làm bài",
+      "largerTextHint": "Bài đọc và câu hỏi hiện ở cỡ chữ 18px"
+    }
   },
   "changePassword": {
     "title": "Chọn mật khẩu của bạn",

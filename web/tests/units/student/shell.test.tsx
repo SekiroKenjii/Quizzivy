@@ -555,14 +555,13 @@ describe("classes", () => {
 });
 
 describe("settings", () => {
-  it("keeps the account, editable forms and sign-out in one flow", async () => {
+  it("keeps the account and its editable form in one flow, with no side panel", async () => {
     serveStudent({});
     shell("/app/settings", <StudentSettingsPage />, SETTINGS);
     const panel = within(screen.getByRole("main"));
-    expect(panel.getByText("Nguyễn Văn An")).toBeInTheDocument();
-    expect(panel.getByText("an@example.com")).toBeInTheDocument();
-    expect(panel.getByText(/Học viên ·/)).toBeInTheDocument();
-    expect(panel.getByRole("button", { name: "Đăng xuất" })).toBeInTheDocument();
+    expect(panel.getByLabelText("Họ và tên")).toHaveValue("Nguyễn Văn An");
+    expect(panel.getByLabelText("Email")).toHaveValue("an@example.com");
+    expect(panel.queryByRole("button", { name: "Đăng xuất" })).toBeNull();
     expect(screen.queryByRole("complementary")).toBeNull();
     expect(
       screen.getByRole("heading", { level: 1, name: "Cài đặt" }),
