@@ -937,20 +937,36 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The §8 media library, with a usage count so referenced assets can be shown as undeletable. */
+        /**
+         * @description The §8 media library: the caller's own files, whatever the caller
+         *     holds, newest first. A deleted file is not listed, and neither is one
+         *     that was replaced. Each row carries how many questions use it and how
+         *     many published versions reference it, so a file that cannot be deleted
+         *     can be shown as such. `q` is matched on `displayName` and on
+         *     `originalFilename`, without accents and without case.
+         */
         get: operations["listMedia"];
         put?: never;
         /**
          * Upload an audio or image asset
-         * @description Upload goes **through the backend** in v1 — the files are small, volume
-         *     is low, and the backend must validate anyway. Presigned direct-to-R2 is
-         *     the P1 optimisation, and the client contract will not change beyond this
-         *     one call (§11.1).
+         * @description Upload goes **through the backend** in v1 — volume is low, and the
+         *     backend must validate anyway. Presigned direct-to-R2 is the P1
+         *     optimisation, and the client contract will not change beyond this one
+         *     call (§11.1).
          *
-         *     Validation order is size → magic bytes → duration, so an oversized
-         *     upload is cut off before anything is parsed. **Never trusts the
-         *     `Content-Type` header or the file extension** (§11.1): the type comes
-         *     from sniffing, and the duration from probing the container.
+         *     The file part is streamed to disk and never held in memory.
+         *     Audio is mp3 or m4a, at most 50 MB and 5 minutes; an image is png,
+         *     jpg or webp, at most 10 MB (`MediaAsset`'s `x-media-limits`).
+         *     Validation order is the audio size → magic bytes → the image size →
+         *     duration, so an oversized upload is cut off before anything is parsed.
+         *     **Never trusts the `Content-Type` header or the file extension**
+         *     (§11.1): the type comes from sniffing, and the duration from probing
+         *     the container. An image's pixel size is read from its header; an image
+         *     whose header cannot be read is stored without one.
+         *
+         *     The file joins the caller's library, which may hold at most the
+         *     deployment's quota (`listMedia`'s `usage.quotaBytes`); a file that
+         *     would take it past the quota is not kept.
          *
          *     Assets are immutable. Re-uploading the same file creates a new row with
          *     a new key; it never overwrites (§11.1). That is what lets a version
@@ -979,7 +995,16 @@ export interface paths {
         delete: operations["deleteMedia"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename a file or set its default play limit
+         * @description Changes the name the library shows for a file and the default play
+         *     limit stored with it; the stored file and its `originalFilename` never
+         *     change, and neither does a question that uses it. It reaches the
+         *     caller's own file, or any file with `scope.all`, as `deleteMedia`
+         *     does. A missing, deleted or replaced file, and another owner's,
+         *     answer the same 404. The change is audited.
+         */
+        patch: operations["updateMedia"];
         trace?: never;
     };
     "/teacher/assignments": {
@@ -2296,7 +2321,7 @@ export interface components {
          *     without a body on the operations that need no token.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -2820,8 +2845,10 @@ export interface components {
          */
         ReferencedBy: "assignments" | "attempts" | "audit" | "members" | "owned_content" | "other";
         /**
-         * @description A MediaAsset as the teacher's media library lists it, with how many published
-         *     versions reference it. Flat for the same reason (issue #41) -- this is
+         * @description A MediaAsset as the teacher's media library lists it: with the name the
+         *     library shows, its default play limit, an image's size in pixels, how
+         *     many questions use the file and how many published versions reference
+         *     it. Flat for the same reason (issue #41) -- this is
          *     the site that was actually shipping a body its own contract rejected.
          */
         LibraryAsset: {
@@ -2837,6 +2864,34 @@ export interface components {
             durationMs?: number | null;
             originalFilename: string;
             createdAt: components["schemas"]["Timestamp"];
+            /**
+             * @description The name the library shows: the one `updateMedia` stored, or
+             *     `originalFilename` while none was set.
+             */
+            displayName: string;
+            /**
+             * @description The default play limit stored with this audio, for a client to
+             *     start a question's own limit from when it attaches the file; the
+             *     server applies it to nothing. `0` is unlimited and `null` is not
+             *     set. Always `null` for an image.
+             */
+            defaultMaxPlays: number | null;
+            /**
+             * @description An image's width in pixels. `null` for audio, and for an image
+             *     whose header could not be read; `width` and `height` are `null`
+             *     together.
+             */
+            width: number | null;
+            /** @description An image's height in pixels; `null` exactly when `width` is. */
+            height: number | null;
+            /**
+             * @description How many questions use the file, each counted once: a question
+             *     that is not deleted and attaches it, and every member that is not
+             *     deleted of a question group whose recordings or materials hold it.
+             *     Any owner's questions count. A published version, and a group with
+             *     no member, add nothing here; `usageCount` counts versions.
+             */
+            questionCount: number;
             /** @description Published-version references. Non-zero blocks delete (§8). */
             usageCount?: number;
             /**
@@ -2844,6 +2899,47 @@ export interface components {
              *     so the blocked-delete dialog can name them (A-07).
              */
             usedIn?: components["schemas"]["ReferencingTest"][];
+        };
+        /**
+         * @description How many files of the caller's library each tab holds for the CURRENT
+         *     search, ignoring the `kind` and `unused` filters themselves, so that
+         *     choosing a tab does not zero the others. `unused` counts the files
+         *     whose `questionCount` is zero.
+         */
+        MediaFacets: {
+            all: number;
+            audio: number;
+            image: number;
+            unused: number;
+        };
+        /**
+         * @description The bytes the caller's whole library holds, whatever the search and
+         *     the filters, beside the quota an upload is measured against. A deleted
+         *     or replaced file counts in neither figure.
+         */
+        MediaUsage: {
+            /** Format: int64 */
+            audioBytes: number;
+            /** Format: int64 */
+            imageBytes: number;
+            /**
+             * Format: int64
+             * @description The most one owner's library may hold, as the deployment sets it.
+             */
+            quotaBytes: number;
+        };
+        /**
+         * @description What `updateMedia` changes. A property left out keeps its stored
+         *     value.
+         */
+        MediaUpdate: {
+            /** @description Trimmed by the server; a name that is blank once trimmed is refused. */
+            displayName?: string;
+            /**
+             * @description `0` is unlimited and `null` clears the limit. A number is refused
+             *     for an image.
+             */
+            defaultMaxPlays?: number | null;
         };
         /**
          * @description The intro screen's card: what StudentAssignmentCard carries, without
@@ -3078,6 +3174,12 @@ export interface components {
         };
         /** @enum {string} */
         MediaKind: "image" | "audio";
+        /**
+         * @description A stored file as a question, a preview and a student's paper carry it.
+         *     `x-media-limits` is what an upload may be (§11.1): audio of at most
+         *     `audioBytes` and `durationMs`, an image of at most `imageBytes`. The
+         *     server's constants and the web's pre-check are tested against it.
+         */
         MediaAsset: {
             id: components["schemas"]["Uuid"];
             kind: components["schemas"]["MediaKind"];
@@ -3090,6 +3192,7 @@ export interface components {
             url: string;
             /** @enum {string} */
             mimeType: "audio/mpeg" | "audio/mp4" | "audio/aac" | "image/png" | "image/jpeg" | "image/webp";
+            /** @description At most `audioBytes` for audio, and `imageBytes` for an image. */
             bytes: number;
             /** @description Audio only, and always present for audio. Probed server-side (§11.1). */
             durationMs?: number | null;
@@ -6513,6 +6616,15 @@ export interface operations {
             query?: {
                 kind?: components["schemas"]["MediaKind"];
                 /**
+                 * @description `true` keeps only the files whose `questionCount` is zero. `false`
+                 *     is the same as leaving it out. A file that only a published
+                 *     version or an empty group still holds is unused here, and
+                 *     `deleteMedia` still refuses it.
+                 */
+                unused?: boolean;
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
@@ -6550,8 +6662,14 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["LibraryAsset"][];
-                        /** @description Every live asset the filter matches, not just this page, for A-07's "18 tệp · 42 MB". */
+                        /**
+                         * @description Every file the search and the filters match, not
+                         *     just this page, for A-07's "18 tệp · 42 MB". `total`
+                         *     follows them in the same way.
+                         */
                         totalBytes: number;
+                        facets: components["schemas"]["MediaFacets"];
+                        usage: components["schemas"]["MediaUsage"];
                     };
                 };
             };
@@ -6560,7 +6678,15 @@ export interface operations {
     };
     uploadMedia: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description The default play limit to store with the audio, as
+                 *     `LibraryAsset.defaultMaxPlays` reads it; `0` is unlimited. Left
+                 *     out, none is set. Audio only: sent with a file that turns out to
+                 *     be an image, the upload is refused and nothing is stored.
+                 */
+                defaultMaxPlays?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6583,7 +6709,23 @@ export interface operations {
                     "application/json": components["schemas"]["MediaAsset"];
                 };
             };
-            /** @description `MEDIA_TOO_LARGE` — over 10 MB (§11.1). */
+            400: components["responses"]["BadRequest"];
+            /**
+             * @description `MEDIA_QUOTA_EXCEEDED` — the caller's library would hold more than
+             *     its quota with this file. Nothing was stored.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TOO_LARGE` — over 50 MB, or an image over 10 MB (§11.1).
+             *     The message names the limit that was passed.
+             */
             413: {
                 headers: {
                     [name: string]: unknown;
@@ -6635,6 +6777,34 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    updateMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaUpdate"];
+            };
+        };
+        responses: {
+            /** @description The file as the library now lists it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryAsset"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     listAssignments: {
