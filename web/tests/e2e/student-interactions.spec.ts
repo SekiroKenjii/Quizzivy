@@ -147,3 +147,22 @@ test("a long paper keeps the Submit dialog's actions reachable on a 320px phone"
     dialog.getByRole("button", { name: "Quay lại làm tiếp", exact: true }),
   ).toBeInViewport();
 });
+
+for (const [width, floored] of [
+  [1023, true],
+  [1024, false],
+] as const) {
+  test(`Return to fullscreen ${floored ? "keeps" : "is past"} the 44px floor at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const data = paper();
+    data.integrity.requireFullscreen = true;
+    await start(page, data);
+    const box = (await page
+      .getByRole("button", { name: "Quay lại toàn màn hình", exact: true })
+      .boundingBox())!;
+    if (floored) expect(box.height).toBeGreaterThanOrEqual(44);
+    else expect(box.height).toBeLessThan(44);
+  });
+}

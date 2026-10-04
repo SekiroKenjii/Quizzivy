@@ -179,3 +179,15 @@ test("every tab is at least 44px tall", async ({ page }) => {
   expect(heights).toHaveLength(3);
   for (const height of heights) expect(height).toBeGreaterThanOrEqual(44);
 });
+
+test("the way Home from a paper that is not there keeps the 44px floor", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.goto("/app/assignments/assignment-9");
+  const home = page
+    .getByRole("main")
+    .getByRole("link", { name: "Trang chủ", exact: true });
+  await expect(home).toBeVisible();
+  expect((await home.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+});
