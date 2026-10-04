@@ -43,8 +43,8 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 
 	server := &Server{Imports: deps.Modules.Imports, Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Questions: deps.Modules.Questions, Media: deps.Modules.Media, Tests: deps.Modules.Tests, Assignments: deps.Modules.Assignments, Attempts: deps.Modules.Attempts, Availability: deps.Modules.Availability, Deps: deps, Logger: logger}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())
+		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
+			httpx.WriteMalformedBody(w, r)
 		},
 		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			if errors.Is(err, httpx.ErrNotImplemented) {
@@ -82,12 +82,38 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			validate,
 		),
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())
+			httpx.WriteMalformedParameter(w, r, parameterName(err))
 		},
 	})
 
 	gated := routedOnly(mux, httpx.Maintenance(deps.Maintenance, deps.Modules.Identity.ClearSessionOnRefusedLogout)(handler), handler)
 	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(legacyAdmin(logger)(gated))))), nil
+}
+
+func parameterName(err error) string {
+	var (
+		format    *openapi.InvalidParamFormatError
+		required  *openapi.RequiredParamError
+		header    *openapi.RequiredHeaderError
+		unmarshal *openapi.UnmarshalingParamError
+		tooMany   *openapi.TooManyValuesForParamError
+		cookie    *openapi.UnescapedCookieParamError
+	)
+	switch {
+	case errors.As(err, &format):
+		return format.ParamName
+	case errors.As(err, &required):
+		return required.ParamName
+	case errors.As(err, &header):
+		return header.ParamName
+	case errors.As(err, &unmarshal):
+		return unmarshal.ParamName
+	case errors.As(err, &tooMany):
+		return tooMany.ParamName
+	case errors.As(err, &cookie):
+		return cookie.ParamName
+	}
+	return ""
 }
 
 var probeMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
