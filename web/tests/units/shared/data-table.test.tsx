@@ -516,6 +516,16 @@ describe("geometry the deck draws", () => {
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
+  it("is at least as wide as its tracks, so the header band and the row borders span a sideways scroll", () => {
+    const { container } = renderAssignments();
+    const table = screen.getByRole("table", { name: "Bài giao" });
+    expect(table).toHaveClass("min-w-min");
+    expect(table.parentElement).toBe(frame(container));
+    for (const row of screen.getAllByRole("row")) {
+      expect(row).not.toHaveClass("min-w-min");
+    }
+  });
+
   it("draws the card, the 40px header row and the body rows with the deck's classes", () => {
     const { container } = renderAssignments();
     expect(frame(container)).toHaveClass(

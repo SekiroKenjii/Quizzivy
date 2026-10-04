@@ -437,7 +437,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
       data-slot="data-table"
       className={cn("overflow-x-auto overflow-y-hidden", framed && FRAME)}
     >
-      <div role="table" aria-label={label}>
+      <div role="table" aria-label={label} className="min-w-min">
         <div role="rowgroup">
           <HeaderRow
             visible={visible}
