@@ -255,9 +255,14 @@ time once: a type-level contract assertion was silently never evaluated.
   authentication: during a window every route answers `503 MAINTENANCE`, an
   expired token included, and only `GET`/`HEAD` `/livez`, `/healthz` and
   `/public/status` pass. It runs only when the path matches a route under some
-  method (`routedOnly` in `router.go`): a path no route serves gets the mux's
-  404 without a read of the window snapshot, so scanners cannot wake Neon
-  through it. `maintenance_gate_test.go` pins its position.
+  method (`routedOnly` in `router.go`): a path no route serves gets the
+  envelope's `404 NOT_FOUND` without a read of the window snapshot, so scanners
+  cannot wake Neon through it. Inside the gate, `servedMethodOnly` answers a
+  known path under a method it does not serve with `405 METHOD_NOT_ALLOWED` and
+  `Allow`, and serves `HEAD` on an open `GET` as that `GET` without a body;
+  `HEAD` on a `GET` that needs a token is the same 405.
+  `maintenance_gate_test.go` pins its position and `unrouted_test.go` these
+  answers.
 - **The contract is enforced at runtime, once, in `httpx.ValidateRequests`.**
   Do not hand-write `required` / length / format checks in a handler; put the
   constraint in `api/openapi.yaml` and it is enforced everywhere. Handlers still
