@@ -52,9 +52,10 @@ Computer or Phone frame, with no saving, no integrity record and no play countin
 **Exit criteria:** every engine frame matches the fourth import at 360, 768, 1024, 1280 and
 1440 and at 419 / 420, 899 / 900 and 1179 / 1180, in light and dark (T-D4.12); the builder's
 group row, the Shared content dialog and the three previews match it at the five widths, and
-every difference left is a row in `docs/design/gaps.md`; the five canaries are green and their files are as they were at `v0.10.0`; a draft, a flag set
-and an open-question id written by v0.10.0 are read unchanged; no operation is added and
-`permissions.golden` is unchanged; every CI step of 70 §8 is green, `pnpm e2e:live` included; released as `v0.10.1`.
+every difference left is a row in `docs/design/gaps.md`; the five canaries are green and
+their files are as they were at `v0.10.0`; a draft, a flag set and an open-question id written
+by v0.10.0 are read unchanged; no operation is added and `permissions.golden` is unchanged;
+every CI step of 70 §8 is green, `pnpm e2e:live` included; released as `v0.10.1`.
 
 **Depends on:** v0.10.0 released: tagged, and `main` merged back into `develop`. D4 uses what R4
 leaves on `develop`: the numeric form of the `viewport()` test helper (T-R4.3a), `useMediaUpload`
@@ -149,7 +150,7 @@ and puts both runs in its pull request:
 imported Student and Teacher pages, the page with a newline between every two tags. After
 T-D4.1 a builder makes it with
 `perl -0pe 's/>\s*</>\n</g' "docs/design/deck/Quizzivy Student.dc.html" > student.pretty.html`
-(and the same for the Teacher page); the result has 1,847 and 8,674 lines. Each reference also
+(and the same for the Teacher page); the result has 1,848 and 8,675 lines. Each reference also
 names its place by something a reformat keeps: the script function, the element's id, class or
 ARIA name, or the text it shows. Code paths are under `web/src/` unless they start with
 `server/`, `api/`, `migrations/` or `docs/`. Code and contract line numbers are those of
@@ -159,6 +160,9 @@ since #315's, `api/openapi.yaml` is one line shorter past line 492, and since #3
 each number is quoted beside an identifier. R4's task ids and their text are those of
 `work/redesign-r4`, where T-R4.0 corrected `74-r4.md` (T-R4.1a, T-R4.2a and T-R4.3a are
 sub-PRs there); they reach `develop` with v0.10.0.
+
+**Two fields a task here may carry** beyond the form of `74-r4.md`. "Reopens" names the R4
+task whose result the task changes. "Frozen" lists what the task leaves exactly as it is.
 
 **The gap rows.** T-D4.1 opens fourteen rows in `docs/design/gaps.md`. Their ids are the next
 free ones when it runs: `develop` ends at DG-119 today, the R4 branch holds DG-122 and reserves
