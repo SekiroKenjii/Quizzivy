@@ -19,7 +19,9 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-const msgAttemptNotFound = "Không tìm thấy lượt làm."
+func msgAttemptNotFound(ctx context.Context) string {
+	return httpx.Text(ctx, "Không tìm thấy lượt làm.", "The attempt was not found.")
+}
 
 // GetAssignmentMonitor backs G-02: one row per targeted student, two queries.
 func (h Attempts) GetAssignmentMonitor(ctx context.Context, request openapi.GetAssignmentMonitorRequestObject) (openapi.GetAssignmentMonitorResponseObject, error) {
@@ -32,7 +34,7 @@ func (h Attempts) GetAssignmentMonitor(ctx context.Context, request openapi.GetA
 	monitor, err := h.app.Queries.Monitor.Handle(ctx, query.Monitor{AssignmentID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAssignmentMonitor404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
+			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy bài giao.", "The assignment was not found.")))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -93,7 +95,7 @@ func (h Attempts) GetAttemptForReview(ctx context.Context, request openapi.GetAt
 	}
 	if errors.Is(err, domain.ErrPaperNotFound) {
 		return openapi.GetAttemptForReview404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
+			httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -177,9 +179,9 @@ func (h Attempts) ListAnswersForQuestion(ctx context.Context, request openapi.Li
 	byQ, err := h.app.Queries.AnswersForQuestion.Handle(ctx, query.AnswersForQuestion{AssignmentID: request.Id.String(), QuestionID: request.Params.QuestionId.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	switch {
 	case errors.Is(err, domain.ErrPaperNotFound):
-		return openapi.ListAnswersForQuestion404JSONResponse(httpapi.NotFound(ctx, "Không tìm thấy bài giao.")), nil
+		return openapi.ListAnswersForQuestion404JSONResponse(httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy bài giao.", "The assignment was not found."))), nil
 	case errors.Is(err, domain.ErrQuestionNotOnPaper):
-		return openapi.ListAnswersForQuestion404JSONResponse(httpapi.NotFound(ctx, "Câu hỏi này không có trong đề của bài giao.")), nil
+		return openapi.ListAnswersForQuestion404JSONResponse(httpapi.NotFound(ctx, httpx.Text(ctx, "Câu hỏi này không có trong đề của bài giao.", "This question is not in the assignment's test."))), nil
 	case errors.Is(err, domain.ErrGroupContextUnavailable):
 		return nil, httpx.ErrNotImplemented
 	case err != nil:
@@ -234,7 +236,7 @@ func (h Attempts) SetAttemptNote(ctx context.Context, request openapi.SetAttempt
 	_, err := h.app.Commands.SetNote.Handle(ctx, command.SetNote{AttemptID: request.Id.String(), Note: request.Body.Note, Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrPaperNotFound) {
 		return openapi.SetAttemptNote404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
+			httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -262,9 +264,9 @@ func (h Attempts) FlagAttempt(ctx context.Context, request openapi.FlagAttemptRe
 	flagged, err := h.app.Commands.Flag.Handle(ctx, command.Flag{Request: req, AttemptID: request.Id.String(), Flagged: request.Body.Flagged, Reason: reason})
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
-		return openapi.FlagAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
+		return openapi.FlagAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrAttemptVoided):
-		return openapi.FlagAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
+		return openapi.FlagAttempt409JSONResponse(attemptVoided(ctx)), nil
 	case err != nil:
 		return nil, err
 	}
@@ -335,7 +337,7 @@ func (h Attempts) GetAttemptEvents(ctx context.Context, request openapi.GetAttem
 	timeline, err := h.app.Queries.Timeline.Handle(ctx, query.Timeline{AttemptID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrTimelineNotFound) {
 		return openapi.GetAttemptEvents404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
+			httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -390,11 +392,11 @@ func (h Attempts) ExtendAttempt(ctx context.Context, request openapi.ExtendAttem
 	case errors.Is(err, domain.ErrBlankReason):
 		return openapi.ExtendAttempt400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(httpapi.BlankReason(ctx))}, nil
 	case errors.Is(err, domain.ErrNotFound):
-		return openapi.ExtendAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
+		return openapi.ExtendAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrAttemptVoided):
-		return openapi.ExtendAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
+		return openapi.ExtendAttempt409JSONResponse(attemptVoided(ctx)), nil
 	case errors.Is(err, domain.ErrAttemptClosed):
-		return openapi.ExtendAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTCLOSED, "Lượt làm này đã kết thúc nên không gia hạn được.")), nil
+		return openapi.ExtendAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTCLOSED, httpx.Text(ctx, "Lượt làm này đã kết thúc nên không gia hạn được.", "This attempt has ended, so it cannot be extended."))), nil
 	case err != nil:
 		return nil, err
 	}
@@ -412,9 +414,9 @@ func (h Attempts) ResetAttempt(ctx context.Context, request openapi.ResetAttempt
 	case refused == refusedBlankReason:
 		return openapi.ResetAttempt400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(httpapi.BlankReason(ctx))}, nil
 	case refused == refusedNotFound:
-		return openapi.ResetAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
+		return openapi.ResetAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
 	case refused == refusedVoided:
-		return openapi.ResetAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, msgAttemptVoided)), nil
+		return openapi.ResetAttempt409JSONResponse(attemptVoided(ctx)), nil
 	}
 	return openapi.ResetAttempt200JSONResponse(toAPIAttempt(done)), nil
 }
@@ -430,14 +432,16 @@ func (h Attempts) VoidAttempt(ctx context.Context, request openapi.VoidAttemptRe
 	case refused == refusedBlankReason:
 		return openapi.VoidAttempt400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(httpapi.BlankReason(ctx))}, nil
 	case refused == refusedNotFound:
-		return openapi.VoidAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
+		return openapi.VoidAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
 	case refused == refusedVoided:
-		return openapi.VoidAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, msgAttemptVoided)), nil
+		return openapi.VoidAttempt409JSONResponse(attemptVoided(ctx)), nil
 	}
 	return openapi.VoidAttempt200JSONResponse(toAPIAttempt(done)), nil
 }
 
-const msgAttemptVoided = "Lượt làm này đã bị huỷ."
+func attemptVoided(ctx context.Context) openapi.ErrorResponse {
+	return httpapi.Error(ctx, openapi.ATTEMPTVOIDED, httpx.Text(ctx, "Lượt làm này đã bị huỷ.", "This attempt was voided."))
+}
 
 type interventionRefusal int
 
@@ -495,11 +499,11 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	case errors.As(err, &invalid):
 		return openapi.GradeAttempt400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(gradeValidationError(ctx, invalid))}, nil
 	case errors.Is(err, domain.ErrPaperNotFound):
-		return openapi.GradeAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
+		return openapi.GradeAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrPaperInProgress):
-		return openapi.GradeAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS, "Học viên chưa nộp bài.")), nil
+		return openapi.GradeAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS, httpx.Text(ctx, "Học viên chưa nộp bài.", "The student has not submitted yet."))), nil
 	case errors.Is(err, domain.ErrPaperVoided):
-		return openapi.GradeAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
+		return openapi.GradeAttempt409JSONResponse(attemptVoided(ctx)), nil
 	case err != nil:
 		return nil, err
 	}
@@ -507,23 +511,23 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 }
 
 func gradeValidationError(ctx context.Context, invalid *domain.GradeValidationError) openapi.ErrorResponse {
-	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Điểm không hợp lệ.")
+	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Điểm không hợp lệ.", "The score is not valid."))
 	details := map[string]interface{}{}
 	for _, it := range invalid.Items {
-		details[it.QuestionID] = gradeItemMessage(it.Reason)
+		details[it.QuestionID] = gradeItemMessage(ctx, it.Reason)
 	}
 	resp.Error.Details = &details
 	return resp
 }
 
-func gradeItemMessage(reason string) string {
+func gradeItemMessage(ctx context.Context, reason string) string {
 	switch reason {
 	case "above_ceiling":
-		return "Điểm vượt quá điểm tối đa của câu."
+		return httpx.Text(ctx, "Điểm vượt quá điểm tối đa của câu.", "The score is above the question's maximum.")
 	case "unanswered":
-		return "Học viên không trả lời câu này."
+		return httpx.Text(ctx, "Học viên không trả lời câu này.", "The student did not answer this question.")
 	default:
-		return "Câu này không có trong đề."
+		return httpx.Text(ctx, "Câu này không có trong đề.", "This question is not in the test.")
 	}
 }
 
@@ -535,13 +539,13 @@ func (h Attempts) FinishGrading(ctx context.Context, request openapi.FinishGradi
 	graded, err := h.app.Commands.Finish.Handle(ctx, command.Finish{AttemptID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	switch {
 	case errors.Is(err, domain.ErrPaperNotFound):
-		return openapi.FinishGrading404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
+		return openapi.FinishGrading404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrGradingIncomplete):
-		return openapi.FinishGrading409JSONResponse(httpapi.Error(ctx, openapi.GRADINGINCOMPLETE, "Còn câu tự luận chưa chấm.")), nil
+		return openapi.FinishGrading409JSONResponse(httpapi.Error(ctx, openapi.GRADINGINCOMPLETE, httpx.Text(ctx, "Còn câu tự luận chưa chấm.", "Some written answers are not graded yet."))), nil
 	case errors.Is(err, domain.ErrPaperInProgress):
-		return openapi.FinishGrading409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS, "Học viên chưa nộp bài.")), nil
+		return openapi.FinishGrading409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS, httpx.Text(ctx, "Học viên chưa nộp bài.", "The student has not submitted yet."))), nil
 	case errors.Is(err, domain.ErrPaperVoided):
-		return openapi.FinishGrading409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
+		return openapi.FinishGrading409JSONResponse(attemptVoided(ctx)), nil
 	case err != nil:
 		return nil, err
 	}
