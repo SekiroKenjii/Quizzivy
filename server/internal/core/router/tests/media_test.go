@@ -453,3 +453,15 @@ func TestListMediaTakesItsFiltersFromTheQuery(t *testing.T) {
 		t.Errorf("unused=false answered %d and filtered %v, want the whole library", rec.Code, library.listed[0].Unused)
 	}
 }
+
+func TestUpdateMediaAnswers501WithoutObjectStorage(t *testing.T) {
+	issuer := testIssuer(t)
+	h := roleRouter(t, issuer, rolePrincipals())
+	rec := sendPatch(t, h, issuer, teacherUser, `{"displayName":"Tên mới"}`)
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("a deployment without object storage answered %d, want 501: %s", rec.Code, rec.Body.String())
+	}
+	if rec := sendPatch(t, h, issuer, teacherUser, `{}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("an empty body answered %d without object storage, want the contract's 400", rec.Code)
+	}
+}
