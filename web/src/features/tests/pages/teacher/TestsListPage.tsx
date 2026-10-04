@@ -126,7 +126,7 @@ export default function TestsListPage() {
     mutationFn: () => createTest(t("tests.untitled")),
     onSuccess: async (test) => {
       await invalidate();
-      void navigate(`/admin/tests/${test.id}/edit`);
+      void navigate(`/teacher/tests/${test.id}/edit`);
     },
     onError: (cause) => setError(message(cause, t("tests.createFailed"))),
   });
@@ -201,7 +201,7 @@ export default function TestsListPage() {
                 size="sm"
                 className="text-muted-foreground"
               >
-                <Link to="/admin/imports">
+                <Link to="/teacher/imports">
                   <History aria-hidden="true" />
                   {t("tests.importHistory")}
                 </Link>
@@ -209,7 +209,7 @@ export default function TestsListPage() {
             ) : null}
             {imports === "on" ? (
               <Button asChild variant="outline" size="sm">
-                <Link to="/admin/imports/new">
+                <Link to="/teacher/imports/new">
                   <FileUp aria-hidden="true" />
                   {t("tests.importWord")}
                 </Link>
@@ -424,7 +424,7 @@ export default function TestsListPage() {
                             <RowActions
                               test={test}
                               onEdit={() =>
-                                void navigate(`/admin/tests/${test.id}/edit`)
+                                void navigate(`/teacher/tests/${test.id}/edit`)
                               }
                               onDuplicate={() => duplicate.mutate(test.id)}
                               onArchive={() => setArchiving(test)}
@@ -517,13 +517,13 @@ function RowActions({
   return (
     <RowMenu className="w-60">
       <DropdownMenuItem asChild>
-        <Link to={`/admin/tests/${test.id}`}>
+        <Link to={`/teacher/tests/${test.id}`}>
           <Eye className="text-muted-foreground" aria-hidden="true" />
           {t("tests.preview")}
         </Link>
       </DropdownMenuItem>
       <DropdownMenuItem asChild>
-        <Link to={`/admin/assignments/new?testId=${test.id}`}>
+        <Link to={`/teacher/assignments/new?testId=${test.id}`}>
           <Send className="text-muted-foreground" aria-hidden="true" />
           {t("tests.assignToClass")}
         </Link>
@@ -533,7 +533,7 @@ function RowActions({
         {t("tests.duplicate")}
       </DropdownMenuItem>
       <DropdownMenuItem asChild>
-        <Link to={`/admin/tests/${test.id}#versions`}>
+        <Link to={`/teacher/tests/${test.id}#versions`}>
           <History className="text-muted-foreground" aria-hidden="true" />
           {t("tests.versionHistory")}
         </Link>
@@ -549,8 +549,8 @@ function RowActions({
 
 function openHref(test: Test): string {
   return test.status === "draft"
-    ? `/admin/tests/${test.id}/edit`
-    : `/admin/tests/${test.id}`;
+    ? `/teacher/tests/${test.id}/edit`
+    : `/teacher/tests/${test.id}`;
 }
 
 function message(cause: unknown, fallback: string): string {

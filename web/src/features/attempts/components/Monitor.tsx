@@ -91,7 +91,7 @@ export function Monitor({
         action={
           <Button size="sm" asChild>
             <Link
-              to={firstClass ? `/admin/classes/${firstClass.id}` : "/admin/classes"}
+              to={firstClass ? `/teacher/classes/${firstClass.id}` : "/teacher/classes"}
             >
               <UserPlus aria-hidden="true" />
               {t("monitor.addStudents")}
@@ -311,7 +311,7 @@ function Row({
             </span>
             {row.score.pendingManual > 0 && row.attemptId && (
               <Link
-                to={`/admin/attempts/${row.attemptId}`}
+                to={`/teacher/attempts/${row.attemptId}`}
                 className={cn(badgeVariants({ variant: "outline" }), "hover:bg-accent")}
               >
                 {t("monitor.pendingBadge", { count: row.score.pendingManual })}
@@ -326,7 +326,7 @@ function Row({
         {row.attemptId && (
           <RowMenu>
             <DropdownMenuItem asChild>
-              <Link to={`/admin/attempts/${row.attemptId}`}>
+              <Link to={`/teacher/attempts/${row.attemptId}`}>
                 <Eye aria-hidden="true" />
                 {t("monitor.menu.view")}
               </Link>

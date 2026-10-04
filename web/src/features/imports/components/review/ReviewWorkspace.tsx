@@ -594,7 +594,7 @@ export function ReviewWorkspace({
           variant="ghost"
           size="icon-sm"
           aria-label={t("imports.review.back")}
-          onClick={() => void navigate(`/admin/imports/${importId}`)}
+          onClick={() => void navigate(`/teacher/imports/${importId}`)}
         >
           <ArrowLeft aria-hidden="true" />
         </Button>

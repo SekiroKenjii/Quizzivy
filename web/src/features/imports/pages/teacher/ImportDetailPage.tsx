@@ -85,7 +85,7 @@ export default function ImportDetailPage() {
         <EmptyState
           action={
             <Button asChild size="sm" variant="outline">
-              <Link to="/admin/imports">{t("imports.backToHistory")}</Link>
+              <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
             </Button>
           }
         >
@@ -105,7 +105,7 @@ export default function ImportDetailPage() {
       <PageHeader
         title={value.title}
         meta={<ImportStatusBadge status={value.status} />}
-        backTo="/admin/imports"
+        backTo="/teacher/imports"
         backLabel={t("imports.backToHistory")}
       />
       <div className="mx-auto max-w-3xl space-y-6">
@@ -191,7 +191,7 @@ function StatePanel({
         >
           {value.testId === undefined ? null : (
             <Button asChild className="self-start">
-              <Link to={`/admin/tests/${value.testId}/edit`}>
+              <Link to={`/teacher/tests/${value.testId}/edit`}>
                 {t("imports.detail.openBuilder")}
               </Link>
             </Button>
@@ -242,7 +242,7 @@ function ReadyPanel({
       ) : null}
       <div className="flex flex-wrap items-center gap-3">
         <Button asChild>
-          <Link to={`/admin/imports/${value.id}/review`}>
+          <Link to={`/teacher/imports/${value.id}/review`}>
             {t("imports.detail.continueReview")}
           </Link>
         </Button>
@@ -304,7 +304,7 @@ function ClosedPanel({
   const reviewLink =
     hasDraft(value) && !removed ? (
       <Button asChild variant="outline">
-        <Link to={`/admin/imports/${value.id}/review`}>
+        <Link to={`/teacher/imports/${value.id}/review`}>
           {t("imports.detail.viewReview")}
         </Link>
       </Button>
@@ -322,7 +322,7 @@ function ClosedPanel({
       <div className="flex flex-wrap items-center gap-3 empty:hidden">
         {processing ? (
           <Button asChild variant="outline">
-            <Link to="/admin/imports/new">{t("imports.detail.startOver")}</Link>
+            <Link to="/teacher/imports/new">{t("imports.detail.startOver")}</Link>
           </Button>
         ) : null}
         {reviewLink}
@@ -425,11 +425,11 @@ function ProcessingState({
       )}
       <div className="flex flex-wrap items-center gap-3">
         <Button asChild variant="outline" size="sm">
-          <Link to="/admin/imports">{t("imports.detail.leave")}</Link>
+          <Link to="/teacher/imports">{t("imports.detail.leave")}</Link>
         </Button>
         {reprocess ? (
           <Button asChild variant="outline" size="sm">
-            <Link to={`/admin/imports/${value.id}/review`}>
+            <Link to={`/teacher/imports/${value.id}/review`}>
               {t("imports.detail.viewReview")}
             </Link>
           </Button>

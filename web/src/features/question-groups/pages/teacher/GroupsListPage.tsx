@@ -75,7 +75,7 @@ export default function GroupsListPage() {
     onSuccess: (saved) => {
       client.setQueryData(["admin-group", saved.bundle.group.id], saved);
       void refresh();
-      void navigate(`/admin/question-bank/groups/${saved.bundle.group.id}`);
+      void navigate(`/teacher/question-bank/groups/${saved.bundle.group.id}`);
     },
     onError: fail,
   });
@@ -240,7 +240,7 @@ export default function GroupsListPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <Link
                               className="font-medium hover:underline"
-                              to={`/admin/question-bank/groups/${group.id}`}
+                              to={`/teacher/question-bank/groups/${group.id}`}
                             >
                               {group.title}
                             </Link>

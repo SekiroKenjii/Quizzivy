@@ -35,14 +35,14 @@ interface Entry {
 }
 
 const DESTINATIONS: { key: string; to: string; Icon: typeof FileText }[] = [
-  { key: "nav.dashboard", to: "/admin", Icon: LayoutDashboard },
-  { key: "nav.tests", to: "/admin/tests", Icon: FileText },
-  { key: "nav.questionBank", to: "/admin/question-bank", Icon: Library },
-  { key: "nav.media", to: "/admin/media", Icon: AudioLines },
-  { key: "nav.assignments", to: "/admin/assignments", Icon: ClipboardList },
-  { key: "nav.students", to: "/admin/students", Icon: Users },
-  { key: "nav.classes", to: "/admin/classes", Icon: GraduationCap },
-  { key: "nav.settings", to: "/admin/settings", Icon: Settings },
+  { key: "nav.dashboard", to: "/teacher", Icon: LayoutDashboard },
+  { key: "nav.tests", to: "/teacher/tests", Icon: FileText },
+  { key: "nav.questionBank", to: "/teacher/question-bank", Icon: Library },
+  { key: "nav.media", to: "/teacher/media", Icon: AudioLines },
+  { key: "nav.assignments", to: "/teacher/assignments", Icon: ClipboardList },
+  { key: "nav.students", to: "/teacher/students", Icon: Users },
+  { key: "nav.classes", to: "/teacher/classes", Icon: GraduationCap },
+  { key: "nav.settings", to: "/teacher/settings", Icon: Settings },
 ];
 
 /**
@@ -83,7 +83,7 @@ export function CommandPalette({
       label: test.title,
       status: test.status,
       Icon: FileText,
-      to: `/admin/tests/${test.id}`,
+      to: `/teacher/tests/${test.id}`,
     })),
     ...(questions.data?.items ?? []).map((question) => ({
       id: `question-${question.id}`,
@@ -91,7 +91,7 @@ export function CommandPalette({
       label: question.prompt,
       hint: question.tags.join(", "),
       Icon: question.media?.kind === "audio" ? Headphones : Library,
-      to: `/admin/question-bank/${question.id}`,
+      to: `/teacher/question-bank/${question.id}`,
     })),
     ...DESTINATIONS.filter((d) => !searching || matches(t(d.key), search)).map((d) => ({
       id: `nav-${d.to}`,

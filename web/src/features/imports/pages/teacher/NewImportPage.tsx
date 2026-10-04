@@ -24,7 +24,7 @@ export default function NewImportPage() {
   const header = (
     <PageHeader
       title={t("imports.newTitle")}
-      backTo="/admin/imports"
+      backTo="/teacher/imports"
       backLabel={t("imports.backToHistory")}
     />
   );
@@ -36,7 +36,7 @@ export default function NewImportPage() {
           hint={t("imports.availability.newOffHint")}
           action={
             <Button asChild size="sm" variant="outline">
-              <Link to="/admin/imports">{t("imports.backToHistory")}</Link>
+              <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
             </Button>
           }
         >
@@ -67,7 +67,7 @@ export default function NewImportPage() {
               existing={null}
               onStarted={(started) => {
                 void storeImport(client, started);
-                void navigate(`/admin/imports/${started.id}`);
+                void navigate(`/teacher/imports/${started.id}`);
               }}
             />
           </CardContent>

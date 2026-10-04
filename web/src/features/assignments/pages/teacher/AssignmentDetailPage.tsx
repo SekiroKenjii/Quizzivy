@@ -110,7 +110,7 @@ export default function AssignmentDetailPage() {
       <EmptyState
         action={
           <Button variant="outline" size="sm" asChild>
-            <Link to="/admin/assignments">{t("assignments.detail.backToList")}</Link>
+            <Link to="/teacher/assignments">{t("assignments.detail.backToList")}</Link>
           </Button>
         }
       >
@@ -134,7 +134,7 @@ export default function AssignmentDetailPage() {
     <>
       <PageHeader
         title={a.testTitle}
-        backTo="/admin/assignments"
+        backTo="/teacher/assignments"
         meta={
           <>
             <StatusBadge kind="assignment" status={status} />
@@ -148,8 +148,8 @@ export default function AssignmentDetailPage() {
             status={status}
             hasTargets={hasTargets}
             targetCount={targetCount}
-            editHref={`/admin/assignments/${a.id}/edit`}
-            attemptsHref={`/admin/assignments/${a.id}/attempts`}
+            editHref={`/teacher/assignments/${a.id}/edit`}
+            attemptsHref={`/teacher/assignments/${a.id}/attempts`}
             publishing={publish.isPending}
             now={now}
             onPublish={() => {
@@ -543,7 +543,7 @@ function TestCard({
             </p>
           </div>
           <Button variant="ghost" size="sm" asChild>
-            <Link to={`/admin/tests/${a.testId}`}>
+            <Link to={`/teacher/tests/${a.testId}`}>
               <ExternalLink aria-hidden="true" />
               {t("assignments.detail.viewTest")}
             </Link>

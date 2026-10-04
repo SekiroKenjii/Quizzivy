@@ -28,7 +28,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
 /**
- * §8's /admin, as A-01: a work queue rather than a wall of statistics.
+ * §8's /teacher, as A-01: a work queue rather than a wall of statistics.
  *
  * The three cards at the top are the only things that can need the teacher
  * today; everything below them is reference. Each card states the number, what
@@ -44,7 +44,7 @@ export default function AdminDashboardPage() {
     mutationFn: () => createTest(t("tests.untitled")),
     onSuccess: async (test) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-tests"] });
-      void navigate(`/admin/tests/${test.id}/edit`);
+      void navigate(`/teacher/tests/${test.id}/edit`);
     },
   });
 
@@ -79,7 +79,7 @@ export default function AdminDashboardPage() {
               {t("tests.new")}
             </Button>
             <Button asChild size="sm">
-              <Link to="/admin/assignments/new">
+              <Link to="/teacher/assignments/new">
                 <Send aria-hidden="true" />
                 {t("dashboard.assign")}
               </Link>
@@ -126,14 +126,14 @@ export default function AdminDashboardPage() {
                     : t("dashboard.noWaiting")
                 }
                 action={t("dashboard.grade")}
-                to="/admin/grading"
+                to="/teacher/grading"
               />
               <QueueCard
                 count={data.flaggedAttempts}
                 label={t("dashboard.flagged")}
                 hint={t("dashboard.flaggedHint")}
                 action={t("dashboard.review")}
-                to="/admin/grading?tab=flagged"
+                to="/teacher/grading?tab=flagged"
               />
               <QueueCard
                 count={data.closingSoon ?? 0}
@@ -151,8 +151,8 @@ export default function AdminDashboardPage() {
                 action={t("dashboard.monitor")}
                 to={
                   data.nextClosing
-                    ? `/admin/assignments/${data.nextClosing.id}`
-                    : "/admin/assignments"
+                    ? `/teacher/assignments/${data.nextClosing.id}`
+                    : "/teacher/assignments"
                 }
               />
             </div>
@@ -171,7 +171,7 @@ export default function AdminDashboardPage() {
                 {t("dashboard.openNow")}
               </h2>
               <Link
-                to="/admin/assignments"
+                to="/teacher/assignments"
                 className="text-muted-foreground hover:text-foreground text-sm"
               >
                 {t("dashboard.allAssignments")}
@@ -334,7 +334,7 @@ function AssignmentRow({
     <TableRow>
       <TableCell className="min-w-48 font-medium whitespace-normal">
         <Link
-          to={`/admin/assignments/${assignment.id}`}
+          to={`/teacher/assignments/${assignment.id}`}
           className="inline-flex items-center gap-2 rounded-sm hover:underline"
         >
           {assignment.testTitle}

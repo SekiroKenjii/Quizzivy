@@ -26,7 +26,7 @@ const DECK_ITEM =
  * the given name beside the avatar.
  */
 export function AccountMenu({
-  settingsTo = "/admin/settings",
+  settingsTo = "/teacher/settings",
   named = false,
   deck = false,
 }: Readonly<{

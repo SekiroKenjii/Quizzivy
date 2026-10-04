@@ -151,10 +151,10 @@ export function ReviewSummaryDialog({
           ) : (
             <>
               <Button asChild variant="outline" className="flex-1">
-                <Link to="/admin/imports">{t("imports.backToHistory")}</Link>
+                <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
               </Button>
               <Button asChild className="flex-1">
-                <Link to={`/admin/tests/${done.testId}/edit`}>
+                <Link to={`/teacher/tests/${done.testId}/edit`}>
                   {t("imports.detail.openBuilder")}
                 </Link>
               </Button>

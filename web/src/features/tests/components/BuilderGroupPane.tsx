@@ -165,7 +165,7 @@ function GroupForm({
       {copied ? (
         <p role="status" className="text-sm">
           {t("builder.groupSavedToBank")}{" "}
-          <Link className="underline" to={`/admin/question-bank/groups/${copied}`}>
+          <Link className="underline" to={`/teacher/question-bank/groups/${copied}`}>
             {t("common.view")}
           </Link>
         </p>
