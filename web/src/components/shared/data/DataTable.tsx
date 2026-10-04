@@ -207,7 +207,7 @@ function HeaderRow<T extends Item>({
         </div>
       ))}
       {hasMenu ? (
-        <div role="columnheader">
+        <div role="columnheader" className="relative">
           <span className="sr-only">{t("common.actions")}</span>
         </div>
       ) : null}

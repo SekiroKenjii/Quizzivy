@@ -629,6 +629,14 @@ describe("roles", () => {
     expect(cells[6]).toHaveClass("flex");
   });
 
+  it("positions the menu column's header, so its hidden text scrolls with the table and never widens the page", () => {
+    contentWidth(1200);
+    renderAssignments();
+    const header = screen.getByRole("columnheader", { name: MENU });
+    expect(header).toHaveClass("relative");
+    expect(header.firstElementChild).toHaveClass("sr-only");
+  });
+
   it("gives each row's menu its own row", () => {
     const menu = vi.fn((row: Assignment) => (
       <DropdownMenuItem>Nhân bản {row.title}</DropdownMenuItem>
