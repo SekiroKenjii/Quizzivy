@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useGroupPlaybackStore } from "./groupPlayback";
-import { clearDraft, readDraft, writeDraft } from "./draft";
+import { clearDraft, dropDraft, readDraft, strandedDraft, writeDraft } from "./draft";
 import {
   drain as drainEvents,
   pending as pendingEvents,
@@ -134,7 +134,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     set((state) => {
       const sameAttempt = state.attemptId === session.attempt.id;
       const recovered =
-        session.attempt.status === "in_progress"
+        session.attempt.status === "in_progress" && session.superseded !== true
           ? readDraft(
               session.attempt.id,
               session.attempt.studentId,
@@ -180,6 +180,8 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     useGroupPlaybackStore
       .getState()
       .hydrate(session, (reason) => get().lockNow(reason));
+    if (get().lock === "superseded")
+      useGroupPlaybackStore.getState().lockNow("superseded");
   },
 
   toggleFlag: (questionId) => {
@@ -498,9 +500,13 @@ function serverDeadline(value: unknown): number | null {
   return Number.isFinite(at) ? at : null;
 }
 
-/** An attempt that arrives already finished is read-only from the first render. */
+/**
+ * An attempt that arrives already finished is read-only from the first render,
+ * and so is one in progress whose payload says this tab's session was superseded.
+ */
 function lockFor(session: AttemptSession): LockReason | null {
-  return session.attempt.status === "in_progress" ? null : "closed";
+  if (session.attempt.status !== "in_progress") return "closed";
+  return session.superseded === true ? "superseded" : null;
 }
 
 function lockForError(error: unknown): LockReason | null {
@@ -528,8 +534,14 @@ export { getAttempt };
 function persistPending(state: TakeTestState) {
   if (state.attemptId === null || state.studentId === null || state.sessionId === null)
     return;
+  if (state.lock === "superseded") {
+    const stored = strandedDraft(state.attemptId, state.studentId);
+    if (stored !== null && stored.sessionId === state.sessionId)
+      dropDraft(state.attemptId, stored.raw);
+    return;
+  }
   const pending: Record<string, Answer> = {};
-  if (state.lock !== "closed" && state.lock !== "superseded") {
+  if (state.lock !== "closed") {
     for (const id of state.dirty) {
       const answer = state.answers[id];
       if (answer !== undefined) pending[id] = answer;

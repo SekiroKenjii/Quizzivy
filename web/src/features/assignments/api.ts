@@ -1,3 +1,4 @@
+import { holdSession } from "@/features/take-test/heldSession";
 import { saveStrandedDraft } from "@/features/take-test/strandedDraft";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
@@ -73,14 +74,17 @@ export function getMyAssignment(id: string, signal?: AbortSignal) {
  * continueAttempt first sends the answers a closed tab left in this browser,
  * through `saveStrandedDraft`, then resumes the named attempt and never starts
  * one: a 409 `ATTEMPT_CLOSED` means it has ended. It rejects without resuming
- * when those answers could not be sent.
+ * when those answers could not be sent. The tab then holds the session the
+ * resume returned.
  */
 export async function continueAttempt(assignmentId: string, attemptId: string) {
   await saveStrandedDraft(attemptId);
-  return api("post", "/app/assignments/{id}/attempts", {
+  const session = await api("post", "/app/assignments/{id}/attempts", {
     path: { id: assignmentId },
     body: { resume: attemptId },
   });
+  holdSession(session.attempt.id, session.sessionId);
+  return session;
 }
 
 export function deleteAssignment(id: string) {
