@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { startGroupPaper } from "./support/engine";
+import { engineFits, startGroupPaper } from "./support/engine";
 import { previewGroup, previewQuestions } from "../support/groupPreview";
 
-for (const width of [320, 1440]) {
+for (const width of [320, 768, 1440]) {
   test(`shared materials, audio recovery and gap navigation at ${width}px`, async ({
     page,
   }) => {
@@ -53,11 +53,8 @@ for (const width of [320, 1440]) {
       "id",
       `answer-question-${previewQuestions[2]!.id}`,
     );
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth + 1,
-    );
-    expect(overflow).toBe(false);
-    if (width === 1440) {
+    await engineFits(page);
+    if (width >= 768) {
       const contextBox = await page
         .getByLabel(previewGroup.title, { exact: true })
         .boundingBox();

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { paper, start, type Session } from "./support/engine";
+import { engineFits, paper, start, type Session } from "./support/engine";
 
 test("rich table blanks preserve frozen answer bindings and reload on a 320px phone", async ({
   page,
@@ -72,9 +72,7 @@ test("rich table blanks preserve frozen answer bindings and reload on a 320px ph
     .poll(() => data.answers["q2"])
     .toEqual({ type: "fill_blank", values: { "frozen-a": "one", "frozen-b": "two" } });
   await expect(page.locator("table input").first()).toHaveValue("two");
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-  ).toBe(true);
+  await engineFits(page);
   await page.reload();
   await page.getByRole("button", { name: "Câu sau", exact: true }).click();
   await expect(first).toHaveValue("one");
@@ -85,7 +83,7 @@ test("rich table blanks preserve frozen answer bindings and reload on a 320px ph
   });
 });
 
-for (const width of [320, 360, 1024, 1440]) {
+for (const width of [320, 360, 768, 1024, 1440]) {
   test(`student keyboard and fill-blank at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 850 });
     await start(page);
@@ -98,9 +96,7 @@ for (const width of [320, 360, 1024, 1440]) {
     await blank.pressSequentially("went");
     await expect(blank).toBeFocused();
     await expect(blank).toHaveValue("went");
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBe(true);
+    await engineFits(page);
     await page.screenshot({
       path: info.outputPath(`fill-blank-${width}.png`),
       fullPage: true,
@@ -112,9 +108,7 @@ for (const width of [320, 360, 1024, 1440]) {
     await page
       .getByRole("textbox", { name: "Bài làm của bạn" })
       .pressSequentially("A full sentence.");
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBe(true);
+    await engineFits(page);
     const finish = page.getByRole("button", { name: "Hoàn tất", exact: true });
     const bounds = await finish.boundingBox();
     expect(bounds).not.toBeNull();
