@@ -203,6 +203,28 @@ describe("useContentBand", () => {
   });
 });
 
+describe("a consumer that has unmounted", () => {
+  it("is not asked again", () => {
+    const area = contentWidth(710);
+    let reads = 0;
+    const thresholds = new Proxy([...COLUMNS], {
+      get(target, key, receiver) {
+        reads += 1;
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    const hook = renderHook(() => useContentBand(thresholds));
+    expect(hook.result.current).toBe(2);
+    area.resize(600);
+    expect(hook.result.current).toBe(1);
+    expect(reads).toBeGreaterThan(0);
+    hook.unmount();
+    reads = 0;
+    area.resize(900);
+    expect(reads).toBe(0);
+  });
+});
+
 describe("registerContentElement", () => {
   afterEach(() => {
     register(null);
