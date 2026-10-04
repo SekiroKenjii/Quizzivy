@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient } from "@tanstack/react-query";
@@ -14,6 +22,7 @@ import {
   ATTEMPT,
   BASE,
   POLICY,
+  STUDENT,
   attemptSession,
   detail,
   mockStart,
@@ -1164,6 +1173,60 @@ describe("Continue test", () => {
       expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
     );
     expect(sent).toEqual([{ resume: ATTEMPT }]);
+  });
+
+  it("saves what a closed tab left before it continues", async () => {
+    const key = `quizzivy.answer-draft.${ATTEMPT}`;
+    const draft = {
+      sessionId: "018f0000-0000-7000-8000-0000000000b7",
+      answers: {
+        "018f0000-0000-7000-8000-000000000701": {
+          type: "text",
+          value: "typed offline",
+        },
+      },
+    };
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        studentId: STUDENT.id,
+        sessionId: draft.sessionId,
+        deadlineAt: Date.parse("2026-08-29T10:45:00Z"),
+        answers: draft.answers,
+      }),
+    );
+    onTestFinished(() => localStorage.removeItem(key));
+    const calls: { call: string; body: unknown }[] = [];
+    server.use(
+      http.patch(`${BASE}/app/attempts/${ATTEMPT}/answers`, async ({ request }) => {
+        calls.push({ call: "save", body: await request.json() });
+        return contractJson("/app/attempts/{id}/answers", "patch", 200, {
+          serverTime: "2026-08-29T10:00:00Z",
+          savedAt: "2026-08-29T10:00:00Z",
+          deadlineAt: "2026-08-29T10:45:00Z",
+        });
+      }),
+      http.post(START, async ({ request }) => {
+        calls.push({ call: "resume", body: await request.json() });
+        return contractJson(
+          "/app/assignments/{id}/attempts",
+          "post",
+          200,
+          attemptSession(),
+        );
+      }),
+    );
+    const router = live();
+    fireEvent.click(await screen.findByRole("button", { name: "Tiếp tục làm bài" }));
+    expect(request).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
+    );
+    expect(calls).toEqual([
+      { call: "save", body: draft },
+      { call: "resume", body: { resume: ATTEMPT } },
+    ]);
+    expect(localStorage.getItem(key)).toBeNull();
   });
 
   it("an ended attempt turns Continue into Start", async () => {
