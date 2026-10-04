@@ -273,6 +273,7 @@ The student's browser storage in v0.9.0, as `web/src` reads and writes it:
 | `quizzivy.answer-draft.<attemptId>` | local | Answers the server has not confirmed. The format is v0.8.0's. |
 | `quizzivy.group-play.<playId>` | local | A play of a shared recording the server has not confirmed. |
 | `quizzivy.flags.<attemptId>` | session | The questions flagged for review. |
+| `quizzivy.open-question.<attemptId>` | session | The id of the question that was open, so a reload returns to it. Removed when the attempt is submitted. |
 | `quizzivy.integrity.<attemptId>` | session | The integrity event buffer and its sequence number. |
 | `quizzivy.join` | session | The class being joined, across sign-in, for 30 minutes. |
 | `quizzivy.oauth.pending` | session | The Google authorization in flight (PKCE). |
