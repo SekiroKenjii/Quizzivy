@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
 import { ApiError } from "@/lib/api/errors";
-import { getWordImport, getWordImportReview } from "../api";
-import { ReviewWorkspace } from "../components/review/ReviewWorkspace";
-import { IMPORT_POLL_MS, isActiveStatus } from "../status";
+import { getWordImport, getWordImportReview } from "../../api";
+import { ReviewWorkspace } from "../../components/review/ReviewWorkspace";
+import { IMPORT_POLL_MS, isActiveStatus } from "../../status";
 
 export default function ImportReviewPage() {
   const { id = "" } = useParams();

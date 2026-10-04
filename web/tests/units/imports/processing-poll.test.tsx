@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import ImportDetailPage from "@/features/imports/pages/ImportDetailPage";
+import ImportDetailPage from "@/features/imports/pages/teacher/ImportDetailPage";
 import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";

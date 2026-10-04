@@ -30,18 +30,18 @@ import { formatDateTime, formatRelative } from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
-import { listWordImports, type WordImport } from "../api";
-import { useImportAvailability } from "../availability";
-import { ImportStatusBadge } from "../components/ImportStatusBadge";
-import { ProcessingOffNotice } from "../components/ProcessingOffNotice";
-import { StaleNotice } from "../components/StaleNotice";
+import { listWordImports, type WordImport } from "../../api";
+import { useImportAvailability } from "../../availability";
+import { ImportStatusBadge } from "../../components/ImportStatusBadge";
+import { ProcessingOffNotice } from "../../components/ProcessingOffNotice";
+import { StaleNotice } from "../../components/StaleNotice";
 import {
   IMPORT_STATUSES,
   importActionHref,
   importHref,
   isActiveStatus,
   isImportStatus,
-} from "../status";
+} from "../../status";
 
 const PAGE_SIZE = 20;
 const ALL = "all";

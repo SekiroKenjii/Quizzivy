@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ImportCapabilities } from "../api";
-import { importCapabilitiesQuery } from "../queries";
+import type { ImportCapabilities } from "../../api";
+import { importCapabilitiesQuery } from "../../queries";
 
 const intakeOf = (capabilities: ImportCapabilities) => capabilities.intakeEnabled;
 

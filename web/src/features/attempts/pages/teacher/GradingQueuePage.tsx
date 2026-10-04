@@ -23,7 +23,7 @@ import {
 import { usePage } from "@/hooks/usePage";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatRelative } from "@/lib/i18n/datetime";
-import { listAttempts, type AttemptListRow } from "../api";
+import { listAttempts, type AttemptListRow } from "../../api";
 
 type Tab = "pending" | "flagged";
 const PAGE_SIZE = 20;
