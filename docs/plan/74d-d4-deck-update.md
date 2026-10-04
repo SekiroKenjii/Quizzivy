@@ -1477,7 +1477,7 @@ draft holding the older materials could be offered back over what the dialog sav
 
 ### T-D4.15 — Authoring: one "Plays" control, and "Students can pause"
 **Reopens:** T-R4.65 (the question media block's "Plays", and "Students can pause is not built")
-**Depends on:** T-D4.13
+**Depends on:** T-D4.14; the four pause bullets also on T-D4.13. If the owner declines Q4, the task is its "Plays" bullet and the comparison
 **Touches:** `web/src/features/question-bank/components/AudioPolicyPanel.tsx`, `web/src/features/question-bank/{audioPolicy.ts,questionSchema.ts}`, `web/src/features/question-groups/{model.ts,recovery.ts}`, locales, `web/tests/units/question-bank/editor.test.tsx`, `web/tests/units/question-groups/{recovery-compat.test.ts,recording-plays.test.tsx}` (new)
 **Size:** S
 **Done when:**
@@ -1762,8 +1762,9 @@ steps ship as T-R4.49 if v0.9.1 has not shipped before R4.
   value, so it cannot switch pausing back on.
 - When: T-D4.13 is D4's server task. It builds the default if no answer has come when it
   starts, and T-D4.15 adds the switch R4 left out (T-R4.65).
-- Cost of "do not build": the three tasks go, DG-111's default stands, and the deck's switch is
-  left off two teacher surfaces. Cost of "a number of pauses": a counter the server must own as
+- Cost of "do not build": T-D4.13 and T-D4.9 go, T-D4.15 keeps only its "Plays" bullet and
+  its comparison, DG-111's default stands, and the deck's switch is left off two teacher
+  surfaces. Cost of "a number of pauses": a counter the server must own as
   it owns plays (a column, a ledger, an operation with its permission and isolation entry), L,
   and a student rule nobody has drawn.
 
