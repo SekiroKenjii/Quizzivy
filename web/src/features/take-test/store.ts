@@ -351,6 +351,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     cancelScheduledFlush();
     cancelDeadline();
     set({ lock: reason });
+    if (reason === "deadline") armDeadline();
   },
 
   reset: (options) => {
