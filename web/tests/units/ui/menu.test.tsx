@@ -141,7 +141,7 @@ describe("the menu's surface", () => {
       "bg-card",
       "shadow-float",
       "z-(--z-popover)",
-      "max-h-[60vh]",
+      "max-h-[min(60vh,var(--radix-dropdown-menu-content-available-height))]",
       "overflow-y-auto",
       "rounded-lg",
       "p-1.25",
@@ -440,7 +440,7 @@ describe("the student's account menu keeps its own geometry", () => {
 
     const deck = own(menu);
     expect(deck).toEqual([
-      "max-h-[60vh]",
+      "max-h-[min(60vh,var(--radix-dropdown-menu-content-available-height))]",
       "overflow-y-auto",
       "bg-card",
       "shadow-float",

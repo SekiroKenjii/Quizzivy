@@ -18,9 +18,10 @@ function DropdownMenuTrigger(props: React.ComponentProps<typeof Primitive.Trigge
  * DropdownMenuContent is the menu's surface, rendered in a portal. On a deck
  * surface it carries `data-scale="deck"` itself and is the deck's container:
  * the card fill, a 10px radius, the float shadow, 5px of padding and a height
- * capped at 60% of the viewport, past which it scrolls. It sets no width. A
- * caller overrides this geometry with a `data-[scale=deck]:` class, because
- * the content has no deck ancestor in the DOM.
+ * capped at 60% of the viewport and at the room beside its trigger, past which
+ * it scrolls. It sets no width. A caller overrides this geometry with a
+ * `data-[scale=deck]:` class, because the content has no deck ancestor in the
+ * DOM.
  */
 function DropdownMenuContent({
   className,
@@ -37,7 +38,7 @@ function DropdownMenuContent({
         className={cn(
           "bg-popover text-popover-foreground z-50 min-w-40 overflow-hidden rounded-md border p-1 shadow-md",
           "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
-          "data-[scale=deck]:bg-card data-[scale=deck]:shadow-float data-[scale=deck]:z-(--z-popover) data-[scale=deck]:max-h-[60vh] data-[scale=deck]:overflow-y-auto data-[scale=deck]:rounded-lg data-[scale=deck]:p-1.25",
+          "data-[scale=deck]:bg-card data-[scale=deck]:shadow-float data-[scale=deck]:z-(--z-popover) data-[scale=deck]:max-h-[min(60vh,var(--radix-dropdown-menu-content-available-height))] data-[scale=deck]:overflow-y-auto data-[scale=deck]:rounded-lg data-[scale=deck]:p-1.25",
           className,
         )}
         {...props}
