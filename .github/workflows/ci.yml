@@ -307,25 +307,6 @@ jobs:
             ./internal/platform/wordconvert/... ./internal/modules/imports/repositories/... \
             -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-converter.out
 
-      # Temporary, for the acceptance run of #298: the two tests that replaced
-      # the timing-dependent one, thirty times each, every result printed.
-      # A -run that matched nothing would read ok, so the step counts the
-      # passes itself. Revert the commit that added this step before the merge.
-      - name: Converter timeout and slot tests, thirty times (#298)
-        working-directory: server
-        env:
-          TEST_WORD_CONVERTER_IMAGE: ${{ steps.converter.outputs.image }}
-        run: |
-          set -o pipefail
-          go test -v -tags integration -p 1 -count=30 \
-            -run '^(TestDockerConversionTimeout|TestDockerHeldSlot)' \
-            ./internal/platform/wordconvert/... | tee "$RUNNER_TEMP/acceptance-298.log"
-          for name in TestDockerConversionTimeoutDoesNotLeaveContainerOrStaging TestDockerHeldSlotRefusesSecondConversion; do
-            passed="$(grep -c "^--- PASS: $name " "$RUNNER_TEMP/acceptance-298.log" || true)"
-            echo "#298 acceptance: $name passed $passed of 30"
-            [ "$passed" -eq 30 ]
-          done
-
       # The two-teacher isolation suite uploads real images, audio and Word
       # sources. Its harness defaults to the compose endpoint, credentials and
       # buckets.
