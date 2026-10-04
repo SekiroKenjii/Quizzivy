@@ -408,6 +408,56 @@ describe("the header and the three facts", () => {
   });
 });
 
+describe("the cover under the action", () => {
+  const STATES = [
+    {
+      state: "can be started",
+      over: {},
+      action: () => screen.findByRole("button", { name: "Bắt đầu làm bài" }),
+    },
+    {
+      state: "is in progress",
+      over: { hasLiveAttempt: true, lastAttemptId: ATTEMPT },
+      action: () => screen.findByRole("button", { name: "Tiếp tục làm bài" }),
+    },
+    {
+      state: "has not opened",
+      over: {
+        status: "scheduled",
+        opensAt: "2026-09-01T01:00:00Z",
+        closesAt: "2026-09-20T14:00:00Z",
+      },
+      action: () => screen.findByRole("button", { name: "Mở thứ ba" }),
+    },
+    {
+      state: "has no attempt left",
+      over: { attemptsUsed: 2, maxAttempts: 2 },
+      action: () => screen.findByText("Bạn đã dùng hết số lượt làm bài."),
+    },
+  ];
+
+  it.each(STATES)(
+    "is the shell's 48px from 768 when the paper $state",
+    async ({ over, action }) => {
+      show(over);
+      const bar = (await action()).parentElement;
+      expect(bar).toHaveClass("sticky", "after:top-full", "after:bg-bg", "after:h-12");
+      expect(bar).not.toHaveClass("after:h-7");
+    },
+  );
+
+  it.each(STATES)(
+    "is the shell's 28px on a phone when the paper $state",
+    async ({ over, action }) => {
+      viewport("phone");
+      show(over);
+      const bar = (await action()).parentElement;
+      expect(bar).toHaveClass("sticky", "after:top-full", "after:bg-bg", "after:h-7");
+      expect(bar).not.toHaveClass("after:h-12");
+    },
+  );
+});
+
 describe("a paper that has not opened", () => {
   async function waiting(opensAt: string) {
     show({ status: "scheduled", opensAt, closesAt: "2026-09-20T14:00:00Z" });
