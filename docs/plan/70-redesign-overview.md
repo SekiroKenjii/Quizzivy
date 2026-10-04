@@ -369,10 +369,12 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
   built; and a prompt holds no media in R4. The last is the large one. Images and audio inside
   a prompt or an explanation need a contract change that runs through the publish snapshot,
   the student payload and the engine. Default: built, as D1 requires, in R6; `76-r6.md` gains
-  the tasks when Thuong confirms. The alternative is to build them in R4. Two defaults leave
-  something drawn unbuilt in every release: "Students can pause" (DG-111) and the review's
-  "Markdown" mode (DG-114). If Thuong confirms them, each is a D1 exception recorded in §2 with
-  its DG entry.
+  the tasks when Thuong confirms. The alternative is to build them in R4. "Students can pause"
+  (DG-111) is unbuilt until D4, which builds it as `allowPause` on its own default
+  (`74d-d4-deck-update.md`, T-D4.13 and Q4). One default leaves something drawn unbuilt in
+  every release: the review's "Markdown" mode (DG-114). If Thuong confirms it, it is a D1
+  exception recorded in §2 with its DG entry; so is "Students can pause" if he declines it
+  in D4.
 - **Class staff (D14, DG-04).** §2 rule 9. Default: class staff lands in the first release that
   starts after the deck draws DG-04; if DG-04 is still open at T-R11.14, v1.0 ships with
   Assistant hidden from role pickers and class staff on the post-1.0 list. Thuong confirms the
