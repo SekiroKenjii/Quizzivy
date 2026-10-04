@@ -429,6 +429,26 @@ func TestWithoutANotifierTheCommandRotatesAndTellsNobody(t *testing.T) {
 	}
 }
 
+func TestFailuresAreCountedWhenNobodyListensForProblems(t *testing.T) {
+	var events []string
+	store := &rotationStore{
+		classes:  []domain.LegacyCodeClass{legacyClass(1, "Lớp 10A1", teacherLan), legacyClass(2, "Lớp 11B", teacherMai)},
+		outcomes: map[string][]rotationOutcome{classID(1): {{err: errors.New("the database is away")}}},
+		events:   &events,
+	}
+	app := application.New(store, nil, sealingKeys).WithNotifier(
+		cqrs.HandlerFunc[notificationscommand.Notify, cqrs.Nothing](func(context.Context, notificationscommand.Notify) (cqrs.Nothing, error) {
+			return cqrs.Nothing{}, errors.New("the notifications table is away")
+		}))
+	got, err := app.Commands.RotateLegacyJoinCodes.Handle(context.Background(), command.RotateLegacyJoinCodes{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (domain.LegacyRotation{Found: 2, Rotated: 1, Failed: 1, NotifyFailed: 1}); got != want {
+		t.Errorf("the run answered %+v, want %+v", got, want)
+	}
+}
+
 func TestAClassWithoutATeacherIsRotatedAndNobodyIsTold(t *testing.T) {
 	w := rotating(legacyClass(1, "Lớp mồ côi", ""), legacyClass(2, "Lớp mồ côi 2", ""), legacyClass(3, "Lớp 11B", teacherMai))
 	got := w.run(t)
