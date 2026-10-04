@@ -350,6 +350,8 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
   },
 
   lockNow: (reason) => {
+    const lock = get().lock;
+    if (reason === "deadline" && (lock === "closed" || lock === "superseded")) return;
     cancelScheduledFlush();
     cancelDeadline();
     set({ lock: reason });
