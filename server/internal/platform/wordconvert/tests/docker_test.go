@@ -203,7 +203,7 @@ func TestDockerConversionTimeoutAndSingleSlot(t *testing.T) {
 	if _, err := c.Convert(ctx, bytes.NewReader(source), "docx"); !errors.Is(err, wordconvert.ErrBusy) {
 		t.Fatalf("second conversion was not bounded: %v", err)
 	}
-	if err := <-finished; !errors.Is(err, context.DeadlineExceeded) {
+	if err := <-finished; !errors.Is(err, wordconvert.ErrTimeout) {
 		t.Fatalf("timeout not enforced: %v", err)
 	}
 	entries, err := os.ReadDir(root)
