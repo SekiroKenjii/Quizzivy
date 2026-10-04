@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,10 @@ interface AudioPlayerProps {
   preload?: "none" | "metadata";
   // Fired synchronously as playback starts, inside the gesture.
   onPlay?: (() => void) | undefined;
+  // Fired when playback reaches the end.
+  onEnded?: (() => void) | undefined;
+  // Fired when the browser refuses to start playback.
+  onBlocked?: (() => void) | undefined;
   // Fired when a seek is refused.
   onSeekBlocked?: (() => void) | undefined;
   // Refetches whatever owns the asset, minting a fresh signed URL.
@@ -44,6 +48,8 @@ export function AudioPlayer({
   size = "default",
   preload = "none",
   onPlay,
+  onEnded,
+  onBlocked,
   onSeekBlocked,
   onRetry,
 }: Readonly<AudioPlayerProps>) {
@@ -54,6 +60,7 @@ export function AudioPlayer({
   const [loaded, setLoaded] = useState<number | null>(null);
   const [failedFor, setFailedFor] = useState<string | null>(null);
   const failed = failedFor === src;
+  const ended = useEffectEvent(() => onEnded?.());
 
   const { span, shownTotal } = lengths(durationMs, loaded);
   const shownPosition = shownTotal > 0 ? Math.min(position, shownTotal) : position;
@@ -69,6 +76,7 @@ export function AudioPlayer({
     const onEnd = () => {
       setPlaying(false);
       setPosition(0);
+      ended();
     };
     const onPause = () => setPlaying(false);
     const onPlaying = () => setPlaying(true);
@@ -100,7 +108,11 @@ export function AudioPlayer({
     if (element.paused) {
       const started = element.play();
       onPlay?.();
-      void started.catch(() => setFailedFor(src));
+      void started.catch((cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === "NotAllowedError")
+          onBlocked?.();
+        setFailedFor(src);
+      });
     } else {
       element.pause();
     }
