@@ -2529,6 +2529,18 @@
       "sourceRemoved": "Tệp gốc đã được xoá theo chính sách lưu trữ nên không còn xem được nội dung trích ra."
     }
   },
+  "controls": {
+    "unsaved": "Bạn có thay đổi chưa lưu.",
+    "discard": "Bỏ thay đổi",
+    "decrease": "Giảm",
+    "increase": "Tăng",
+    "removeTag": "Bỏ thẻ {{tag}}",
+    "addTag": "Thêm thẻ…",
+    "tagSuggestions": "Gợi ý thẻ",
+    "createTag": "Tạo “{{tag}}”",
+    "newTag": "Thẻ mới",
+    "tagKeys": "↑ ↓ để di chuyển · Enter để thêm · Esc để đóng"
+  },
   "toast": {
     "region": "Thông báo",
     "close": "Đóng thông báo"
