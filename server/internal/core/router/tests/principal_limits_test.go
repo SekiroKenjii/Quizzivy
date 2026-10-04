@@ -85,6 +85,9 @@ func TestTwoActorsBehindOneAddressKeepSeparateBudgets(t *testing.T) {
 	if rec := resetFrom(t, h, issuer, adminUser, centreAddress); rec.Code != http.StatusNotImplemented {
 		t.Errorf("a second actor's first reset behind the same address: %d, want it to reach the handler", rec.Code)
 	}
+	if rec := resetFrom(t, h, issuer, teacherUser, centreAddress); rec.Code != http.StatusTooManyRequests {
+		t.Errorf("the first actor's next reset after the second actor's: %d, want 429: the registry must hold both budgets", rec.Code)
+	}
 }
 
 func TestOneActorFromTwoAddressesSharesOneBudget(t *testing.T) {
