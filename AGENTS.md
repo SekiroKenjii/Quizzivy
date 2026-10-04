@@ -466,7 +466,9 @@ shell's `<main>` and on `FocusLayout`, puts a 44px floor on buttons below
 route loads `SideColumn`, directly or through `PageAside`
 (`tests/units/student/side-column.test.ts`), and none imports
 `useColumnWidth`. `DeckDialog`
-(`components/shared/`) is the frame of the student's dialogs.
+(`components/shared/`) is the frame of the student's dialogs; the "You left
+the test" alert (`StrikeDialog`, 420px) and the question sheet draw their own
+on the dialog primitive.
 
 The take-test engine runs in `FocusLayout` and branches at the same 768px.
 From 768, a question whose group has something to read splits into a passage
