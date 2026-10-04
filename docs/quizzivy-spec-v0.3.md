@@ -15,6 +15,14 @@ R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), as each task lands:
 - §15 The monitor's `answeredCount` counts by the same rule as
   `liveAnsweredCount` (#234).
 - §15 A student's assignment card carries `classIds` (#240).
+- §15 A logout the maintenance gate or the limiter refuses, or whose revoke
+  fails, still clears the session cookies (#188, #256).
+- §5.2 A sign-in stores its refresh token under the user's lock and is refused
+  if the account changed meanwhile; the rotations, reuse detections and
+  logouts of one user run one at a time (#248, #279).
+- §5.4 An individual target who is already on an assignment stays on it when
+  disabled (#210).
+- §15 `deleteQuestionGroup` answers `RESOURCE_REFERENCED` (#213).
 
 **Changes since v0.44**
 
@@ -518,6 +526,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   - 503 `MAINTENANCE` → the maintenance overlay.
 - Every request sends `Accept-Language` set to the app's locale, so server messages match the UI rather than the browser.
 - Reuse detection: presenting an already-rotated token revokes the whole family and forces re-login.
+- **Races.** A sign-in stores its refresh token under a lock on the user and compares the account with what it read: if the password, the session epoch or the disabled state changed meanwhile, a password sign-in answers `INVALID_CREDENTIALS` and a Google sign-in reads the account again. A rotation and a logout take the lock an update of the user takes, so one user's rotations, reuse detections and logouts run one at a time and none overlaps a reset, a disable or a password change: a session never survives the event that should have ended it.
 - **Session epoch.** `users.session_epoch` ends live sessions at once. Sign-in, Google sign-in and refresh put the user's current epoch in the access token (claim `sep`; a token without it reads as 0), and a token older than the user's epoch is refused (§5). In R2 two writes move it, each in the same transaction that revokes every refresh family the student has: disabling a student (`updateStudent` with `disabled: true`) and resetting a student's password (`resetStudentPassword`). Enabling the account again does not bring those sessions back. R5's sign-out-everywhere, role changes and set-password links move it too (70 §4.2).
 - **A disabled user is refused on the next request.** Every gated request reads `disabled_at` through the principal cache (§5): at once on the machine that made the change, within 10 seconds on any other. Refresh refuses a disabled user and revokes the family, so the client's refresh ends the session.
 
@@ -554,7 +563,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   The contract enforces the first two (`400 VALIDATION_FAILED`) and the server the third (`400 PASSWORD_UNCHANGED`). Existing passwords are never re-validated. `/change-password` shows the rules and a strength meter.
 - `/forgot-password` makes no request. It tells a Google user that no password is needed, and everyone else to ask the front desk (§4, when configured) or their teacher.
 - **Guards that are not permissions** (70 §4.3), enforced by the server. A guard on a student runs after the student is found in the caller's scope, so another teacher's student answers `404`, never `403`.
-  - **Strict student targets.** Every student read and write (the Students list and record, update, reset and delete, class membership, individual assignment targets, the dashboard's counts and `maintenance anonymize-student`) accepts only a role in `app.student_like_roles`: the built-in Student, or a custom role granted nothing but `learning.take_tests`. An Admin with "Take tests" turned on is never a student target.
+  - **Strict student targets.** Every student read and write (the Students list and record, update, reset and delete, class membership, individual assignment targets, the dashboard's counts and `maintenance anonymize-student`) accepts only a role in `app.student_like_roles`: the built-in Student, or a custom role granted nothing but `learning.take_tests`. An Admin with "Take tests" turned on is never a student target. For an assignment's individual targets the rule applies to a target being added: a student who is already a target stays on the assignment when they are disabled or their role stops being student-like, so the teacher can still publish, edit and close it (#210).
   - **The subset rule.** `updateStudent`, `resetStudentPassword` and `deleteUser` need the target's permissions, without `learning.take_tests`, to be a subset of the caller's (`access.CanActOn`); otherwise `403 FORBIDDEN`. 70 §4.3 lists the R5 operations it will also cover.
   - **Disabling.** `updateStudent` with `disabled`, either value, also needs `people.users.manage`; otherwise `403 FORBIDDEN`.
   - **Shared students.** A reset, or a new `email`, by a caller without `people.users.manage` needs a student no one else reaches: every class they are in, archived ones included, is the caller's; no other account created them; no other account's assignment targets them individually; and a student in no class was created by the caller. Otherwise `403 STUDENT_SHARED`, and nothing is written. Sending the address the student already has is not a change. A new address could take the account over through Google sign-in, which links by email (§5.1).
@@ -1752,9 +1761,9 @@ GET    /app/media/:assetId/url          → short-lived signed URL
 
 **`CurrentUser`** is `User`'s fields plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.
 
-`deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`) answer `RESOURCE_REFERENCED` without details.
+`deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`, `deleteQuestionGroup`) answer `RESOURCE_REFERENCED` without details.
 
-**During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it.
+**During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it. A `POST /auth/logout` refused this way still clears the refresh and docs cookies when it carried the refresh cookie. The family is not revoked: the device is signed out, but a copy of the token held elsewhere stays usable for as long as it is rotated, because each rotation renews the lifetime and the cleared cookie can no longer trigger reuse detection; only a password reset, a disable or a password change ends it. The same holds for a logout the limiter refuses (429) and one whose revoke fails (500).
 
 **`liveAnsweredCount`** on a student's assignment card is the number of the live attempt's saved answers that say something, by the rule the engine's navigator applies (`web/src/features/take-test/answered.ts`): a choice with an option picked, a true/false with a value, a text that is not blank, and a fill-in with every blank of the frozen question filled. Blank means empty after removing the whitespace JavaScript's `trim()` removes. An answer that exists only in the browser's draft is not counted. The field is absent when there is no live attempt. The teacher's monitor applies the same rule to a row's `answeredCount`, so a saved answer the student has since cleared counts on neither screen.
 

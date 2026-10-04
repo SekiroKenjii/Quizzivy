@@ -85,6 +85,11 @@ For a local logical-backup rehearsal, stop application writes, capture evidence,
 use PG18 `pg_dump --format=custom`, restore into a new empty database owned by
 `quizzivy_migrate`, and compare the evidence. Preserve roles/ACLs; never use
 `--clean` against the source. This proves the local procedure, not Neon PITR.
+A database-level privilege is restored only by `pg_restore --create`, which
+this procedure does not use: after restoring into a new database, run
+`REVOKE TEMPORARY ON DATABASE <database> FROM PUBLIC;` as its owner, or the
+restored database holds goose's record of migration 00079 without its effect
+(#194).
 
 Local rehearsal on 2026-09-22: PG18 custom-format dump restored into a new
 empty database, verifier matched the checkpoint before and after migration
