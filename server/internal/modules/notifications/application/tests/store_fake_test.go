@@ -2,6 +2,7 @@ package application_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -78,7 +79,9 @@ func (f *fakeStore) Preferences(_ context.Context, userID string) ([]domain.Pref
 func (f *fakeStore) SavePreferences(_ context.Context, userID string, prefs []domain.Preference) ([]domain.Preference, error) {
 	f.call("SavePreferences")
 	f.userID, f.saved = userID, prefs
-	return prefs, nil
+	answered := slices.Clone(prefs)
+	slices.Reverse(answered)
+	return answered, nil
 }
 
 func (f *fakeStore) DeleteBefore(_ context.Context, cutoff time.Time) (int64, error) {

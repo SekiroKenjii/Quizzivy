@@ -134,7 +134,7 @@ func TestUpdatePreferencesStoresTheWholeSetInTheSwitchesOrder(t *testing.T) {
 		t.Errorf("the store was handed %+v for %q, want %+v", store.saved, store.userID, want)
 	}
 	if !slices.Equal(got, want) {
-		t.Errorf("the answer is %+v, want the stored set %+v", got, want)
+		t.Errorf("the answer is %+v, want the stored set in the switches' order whatever order the store answers in: %+v", got, want)
 	}
 }
 
