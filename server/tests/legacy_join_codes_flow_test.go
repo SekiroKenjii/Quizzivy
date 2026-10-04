@@ -65,17 +65,25 @@ func TestStartUpRotatesALegacyJoinCodeAndTellsItsTeacher(t *testing.T) {
 		}
 	})
 
-	var current map[string]any
 	deadline := time.Now().Add(20 * time.Second)
 	for {
-		current = teacher.must(http.StatusOK, http.MethodGet, path, nil)
-		if current["legacy"] == false {
+		var legacy bool
+		if err := w.pool.QueryRow(context.Background(), `
+			SELECT lookup_scheme = 1 FROM app.class_join_codes
+			 WHERE class_id = $1::uuid AND revoked_at IS NULL`, classID).Scan(&legacy); err != nil {
+			t.Fatalf("read the class's active code: %v", err)
+		}
+		if !legacy {
 			break
 		}
 		if time.Now().After(deadline) {
 			t.Fatal("start-up left the legacy join code in place")
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+	current := teacher.must(http.StatusOK, http.MethodGet, path, nil)
+	if current["legacy"] != false {
+		t.Fatalf("after start-up the code reads %v, want one its teacher can read back", current)
 	}
 	fresh, _ := current["code"].(string)
 	if canonical := classesdomain.JoinCodes.Normalize(fresh); len(canonical) != classesdomain.Length || canonical == old ||
