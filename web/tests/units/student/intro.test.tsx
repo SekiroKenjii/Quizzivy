@@ -406,23 +406,56 @@ describe("the header and the three facts", () => {
     await screen.findByRole("heading", { level: 1 });
     expect(screen.queryByRole("link", { name: "Trang chủ" })).toBeNull();
   });
+});
 
-  it("covers the shell's bottom padding under the action, 48px from 768 and 28px below", async () => {
-    show();
-    const wide = (await screen.findByRole("button", { name: /Bắt đầu làm bài/ }))
-      .parentElement;
-    expect(wide).toHaveClass("sticky", "after:top-full", "after:bg-bg", "after:h-12");
-    expect(wide).not.toHaveClass("after:h-7");
-  });
+describe("the cover under the action", () => {
+  const STATES = [
+    {
+      state: "can be started",
+      over: {},
+      action: () => screen.findByRole("button", { name: "Bắt đầu làm bài" }),
+    },
+    {
+      state: "is in progress",
+      over: { hasLiveAttempt: true, lastAttemptId: ATTEMPT },
+      action: () => screen.findByRole("button", { name: "Tiếp tục làm bài" }),
+    },
+    {
+      state: "has not opened",
+      over: {
+        status: "scheduled",
+        opensAt: "2026-09-01T01:00:00Z",
+        closesAt: "2026-09-20T14:00:00Z",
+      },
+      action: () => screen.findByRole("button", { name: "Mở thứ ba" }),
+    },
+    {
+      state: "has no attempt left",
+      over: { attemptsUsed: 2, maxAttempts: 2 },
+      action: () => screen.findByText("Bạn đã dùng hết số lượt làm bài."),
+    },
+  ];
 
-  it("covers 28px under the action on a phone, for every state of the action", async () => {
-    viewport("phone");
-    show({ attemptsUsed: 2, maxAttempts: 2 });
-    const spent = (await screen.findByText("Bạn đã dùng hết số lượt làm bài."))
-      .parentElement;
-    expect(spent).toHaveClass("sticky", "after:top-full", "after:bg-bg", "after:h-7");
-    expect(spent).not.toHaveClass("after:h-12");
-  });
+  it.each(STATES)(
+    "is the shell's 48px from 768 when the paper $state",
+    async ({ over, action }) => {
+      show(over);
+      const bar = (await action()).parentElement;
+      expect(bar).toHaveClass("sticky", "after:top-full", "after:bg-bg", "after:h-12");
+      expect(bar).not.toHaveClass("after:h-7");
+    },
+  );
+
+  it.each(STATES)(
+    "is the shell's 28px on a phone when the paper $state",
+    async ({ over, action }) => {
+      viewport("phone");
+      show(over);
+      const bar = (await action()).parentElement;
+      expect(bar).toHaveClass("sticky", "after:top-full", "after:bg-bg", "after:h-7");
+      expect(bar).not.toHaveClass("after:h-12");
+    },
+  );
 });
 
 describe("a paper that has not opened", () => {
