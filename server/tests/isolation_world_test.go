@@ -264,6 +264,8 @@ func (w *world) teacherWorld(name string) *party {
 	learner.must(http.StatusOK, http.MethodPost, "/app/attempts/"+p.ids["attempt"]+"/submit",
 		map[string]any{"sessionId": session["sessionId"], "reason": "manual"})
 
+	p.ids["notification"] = w.notification(p.userID, name)
+
 	sitting := c.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "dang-lam-" + name + "-" + nonce(w.t) + "@example.com", "fullName": "Học viên đang làm " + name, "classIds": []string{p.ids["class"]},
 	})
@@ -278,6 +280,18 @@ func (w *world) teacherWorld(name string) *party {
 		"media":             p.ids["media"],
 	}}
 	return p
+}
+
+func (w *world) notification(userID, name string) string {
+	w.t.Helper()
+	var id string
+	if err := w.pool.QueryRow(context.Background(), `
+		INSERT INTO app.notifications (user_id, kind, params, dedupe_key)
+		VALUES ($1::uuid, 'class.joined', jsonb_build_object('studentName', 'Học viên ' || $2::text, 'className', 'Lớp cách ly ' || $2::text), 'isolation')
+		RETURNING id::text`, userID, name).Scan(&id); err != nil {
+		w.t.Fatalf("%s's notification: %v", name, err)
+	}
+	return id
 }
 
 func (w *world) sharedStudent(p *party) (*client, string) {
@@ -356,6 +370,7 @@ func (w *world) snapshotOf(p *party) string {
 		  UNION ALL SELECT row_to_json(x)::text FROM app.assignments x WHERE x.created_by = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.attempts x JOIN app.assignments a ON a.id = x.assignment_id WHERE a.created_by = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.attempt_answers x JOIN app.attempts at ON at.id = x.attempt_id JOIN app.assignments a ON a.id = at.assignment_id WHERE a.created_by = $1::uuid
+		  UNION ALL SELECT row_to_json(x)::text FROM app.notifications x WHERE x.user_id = $1::uuid
 		  UNION ALL SELECT row_to_json(u)::text FROM app.users u WHERE u.id = $2::uuid
 		)
 		SELECT md5(string_agg(r, '|' ORDER BY r)) || ':' || count(*) FROM rows`, p.userID, p.ids["student"]).Scan(&digest); err != nil {
