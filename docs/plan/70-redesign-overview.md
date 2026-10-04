@@ -254,7 +254,26 @@ API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*
 | Attempts in flight | R3 reads the existing local answer drafts unchanged. Deploys happen outside exam windows. | R3 |
 | Assignment integrity | Existing assignments keep their stored policy; the wizard's new defaults apply to new assignments. | R4 |
 | Retention | O-23's fixed rules apply until an admin changes the R5 settings. | R5 |
-| Browser storage | `quizzivy.column.*` student keys go unused in R3; theme joins as `quizzivy.theme`; `quizzivy.locale` stays. | R1, R3 |
+| Browser storage | The student has no `quizzivy.column.*` key since R3: the engine's footer deletes `quizzivy.column.studentNavigator`, the only one, when it mounts. The theme is `quizzivy.theme` since R1; `quizzivy.locale` stays. The student's keys are listed below. | R1 (done), R3 |
+
+The student's browser storage in v0.9.0, as `web/src` reads and writes it:
+
+| Key | Store | Holds |
+|---|---|---|
+| `quizzivy.theme` | local | The theme preference: light, dark or system (R1). |
+| `quizzivy.locale` | local | The language, `vi` or `en`. |
+| `quizzivy.testText` | local | "Larger text in tests", `large` or `default`, until R4's `users.preferences` takes it (`73-r3.md`). |
+| `quizzivy.answer-draft.<attemptId>` | local | Answers the server has not confirmed. The format is v0.8.0's. |
+| `quizzivy.group-play.<playId>` | local | A play of a shared recording the server has not confirmed. |
+| `quizzivy.flags.<attemptId>` | session | The questions flagged for review. |
+| `quizzivy.integrity.<attemptId>` | session | The integrity event buffer and its sequence number. |
+| `quizzivy.join` | session | The class being joined, across sign-in, for 30 minutes. |
+| `quizzivy.oauth.pending` | session | The Google authorization in flight (PKCE). |
+
+Two keys are gone since R3: `quizzivy.column.studentNavigator` (local), and
+`quizzivy.material-collapsed.<groupId>` (session), which nothing writes now
+that the phone has no collapse button. The teacher console keeps
+`quizzivy.column.sidebar`, `rail`, `panel`, `outline` and `importSource`.
 
 ## 7. R0 — Groundwork
 
