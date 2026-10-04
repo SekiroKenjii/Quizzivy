@@ -27,7 +27,7 @@ function importsOf(path: string): string[] {
   const source = readFileSync(path, "utf8");
   const specifiers = [
     ...source.matchAll(/\bfrom\s*["']([^"']+)["']/g),
-    ...source.matchAll(/\bimport\s*\(\s*["']([^"']+)["']\s*\)/g),
+    ...source.matchAll(/\bimport\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/g),
     ...source.matchAll(/\bimport\s*["']([^"']+)["']/g),
   ].map((match) => match[1]!);
   return specifiers.flatMap((specifier) => {
@@ -62,6 +62,16 @@ const named = (paths: Iterable<string>) =>
 
 describe("what the student routes import", () => {
   const student = [...routesOf("studentTree"), ...routesOf("takeTestTree")];
+
+  it("walks every route the router declares under /app", () => {
+    const declared = ROUTER.matchAll(
+      /(?:const (\w+): RouteObject = \{\s*)?\bpath: "app[/"]/g,
+    );
+    expect([...declared].map((match) => match[1])).toEqual([
+      "studentTree",
+      "takeTestTree",
+    ]);
+  });
 
   it("starts from the shell, its pages and the engine", () => {
     expect(named(student)).toEqual(
