@@ -68,7 +68,7 @@ func mintsACredential(op *openapi3.Operation) bool {
 
 func TestEveryCredentialMinterHasARateLimit(t *testing.T) {
 	spec := freshSpec(t)
-	limits := router.RateLimits()
+	byAddress, byPrincipal := router.RateLimits(), router.PrincipalRateLimits()
 	found := map[string]string{}
 	eachOperation(spec, func(pattern string, op *openapi3.Operation) {
 		if theCredentialMinters[op.OperationID] {
@@ -81,7 +81,9 @@ func TestEveryCredentialMinterHasARateLimit(t *testing.T) {
 			t.Errorf("%s is not in the contract", id)
 			continue
 		}
-		if _, limited := limits.Lookup(pattern); !limited {
+		_, perAddress := byAddress.Lookup(pattern)
+		_, perActor := byPrincipal.Lookup(pattern)
+		if !perAddress && !perActor {
 			t.Errorf("%s (%s) mints a credential and has no rate limit", id, pattern)
 		}
 	}
