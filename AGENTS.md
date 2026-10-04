@@ -34,6 +34,9 @@ this file describe the code as it is and name the release that changes them.
   owner constraints and drops their fill triggers. Until then all of them are
   in the code.
 - **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
+- **The design team's fourth export (2026-10-04) is not the deck of record.**
+  R4 builds from `docs/design/deck/` as it is, and D4 imports the export after
+  v0.10.0 (`docs/plan/74d-d4-deck-update.md`).
 
 ## Sources of truth, in order
 
