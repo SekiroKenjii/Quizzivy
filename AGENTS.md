@@ -453,9 +453,13 @@ detail route declares `handle.detail`: below 768 the header swaps the logo for
 a back arrow and the title and the tab bar hides, and from 768 Intro and
 Result draw their own back link. Each page is one centred column with its own
 maximum width: Home and Classes 960px, Test intro 720px, Result 820px,
-Settings 760px. A threshold inside a page that is not the shell's 768 is a
+Settings 760px. A new threshold inside a page that is not the shell's 768 is a
 container query on the container named `student`, which the roots of both
-student layouts declare; no page needs one yet. `.student-surface`, on the
+student layouts declare; nothing queries it yet. The thresholds that exist
+beside 768 are not on it: `min-[360px]:` on the Test intro's facts strip, `lg:`
+(1024px, where the 44px floor ends) on the engine's blanks and answer field and
+on the audio player's seek track, and the load-error card's own container,
+`load-error`. `.student-surface`, on the
 shell's `<main>` and on `FocusLayout`, puts a 44px floor on buttons below
 1024px; a control the deck draws smaller opts out in its own classes. No `/app`
 route loads `PageAside`, `SideColumn` or `useColumnWidth`
