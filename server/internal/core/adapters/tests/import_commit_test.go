@@ -301,6 +301,42 @@ func TestACommitNamingAMissingAssetIsABadDraftAndLeavesNothingBehind(t *testing.
 	}
 }
 
+func TestACommitNamingAnAssetOfTheWrongKindIsABadDraftAndLeavesNothingBehind(t *testing.T) {
+	h := commitSetup(t)
+	ctx := context.Background()
+	t.Cleanup(func() {
+		if _, err := h.pool.Exec(context.Background(), `DELETE FROM app.media_assets WHERE uploaded_by=$1`, h.by.ID); err != nil {
+			t.Errorf("cleanup media assets: %v", err)
+		}
+	})
+	var audio string
+	if err := h.pool.QueryRow(ctx, `INSERT INTO app.media_assets (kind,storage_key,mime_type,bytes,duration_ms,original_filename,checksum_sha256,uploaded_by,owner_id)
+ VALUES ('audio',$1,'audio/mpeg',100,1000,'fixture',$2,$3,$3) RETURNING id::text`, uuid.NewString(), make([]byte, 32), h.by.ID).Scan(&audio); err != nil {
+		t.Fatal(err)
+	}
+	importID := h.underReview(t)
+	draft := reviewedDraft()
+	draft.Sections[0].Items[1].Group.Stimulus = json.RawMessage(`{"format":"semantic_v1","blocks":[{"type":"image","assetId":"` + audio + `","alt":"Sơ đồ"},{"type":"paragraph","content":[{"type":"text","text":"Tet is ","marks":[]},{"type":"gap","id":"gap-2","label":"2"}]}]}`)
+	p, err := importsdomain.Plan(draft, "fallback", uuid.NewString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.committer.Materialize(ctx, p, h.by.ID, h.by, h.record(importID, uuid.NewString()))
+	if !errors.Is(err, importsdomain.ErrBadDraft) || h.testsCreated(t) != 0 {
+		t.Fatalf("err %v tests %d", err, h.testsCreated(t))
+	}
+	var questions, groups int
+	if err := h.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM app.questions WHERE created_by=$1), (SELECT count(*) FROM app.question_groups WHERE created_by=$1)`, h.by.ID).Scan(&questions, &groups); err != nil {
+		t.Fatal(err)
+	}
+	if questions != 0 || groups != 0 {
+		t.Fatalf("%d questions and %d groups left behind", questions, groups)
+	}
+	if current, err := h.imports.Get(ctx, access.Scope{All: true}, importID); err != nil || current.Status != "needs_review" {
+		t.Fatalf("import %+v err %v", current, err)
+	}
+}
+
 func TestConcurrentCommitsProduceExactlyOneTest(t *testing.T) {
 	h := commitSetup(t)
 	importID := h.underReview(t)
