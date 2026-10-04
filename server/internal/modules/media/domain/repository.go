@@ -7,9 +7,10 @@ import (
 )
 
 // Repository persists asset rows and answers who references them. The library
-// is an owner's assets that are neither deleted nor replaced: List, Count
-// figures, Find and Update see only those, while Get, Readable, ReferencesFor
-// and SoftDelete also reach a replaced asset.
+// is an owner's assets that are neither deleted nor replaced: List,
+// TotalBytes, Facets, Usage, Find, Update and the quota Insert checks see only
+// those, while Get, Readable, ReferencesFor and SoftDelete also reach a
+// replaced asset.
 type Repository interface {
 	Insert(ctx context.Context, in InsertInput) (Asset, error)
 	Get(ctx context.Context, id string) (Asset, error)
