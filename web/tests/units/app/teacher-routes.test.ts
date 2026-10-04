@@ -10,7 +10,7 @@ const ROUTE =
   /(?:path: "([^"]+)"|index: true),(?:(?!path: "|index: true)[^])*?import\("@\/([^"]+)"\)/g;
 
 const TEACHER_TREE = [
-  ["/teacher", "layouts/AdminLayout"],
+  ["/teacher", "layouts/TeacherShell"],
   ["/teacher (index)", "app/pages/AdminDashboardPage"],
   ["/teacher/tests", "features/tests/pages/teacher/TestsListPage"],
   ["/teacher/tests/:id", "features/tests/pages/teacher/TestDetailPage"],
