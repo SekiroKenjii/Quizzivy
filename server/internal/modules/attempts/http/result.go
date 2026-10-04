@@ -29,9 +29,11 @@ func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttem
 		return openapi.GetAttemptResult403JSONResponse{ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
 			httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền xem kết quả này."))}, nil
 	case errors.Is(err, domain.ErrAttemptInProgress):
-		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS, "Bài chưa được nộp.")), nil
+		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS,
+			attemptText(ctx, "Bài chưa được nộp.", "This test has not been submitted yet."))), nil
 	case errors.Is(err, domain.ErrAttemptVoided):
-		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
+		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED,
+			attemptText(ctx, "Lượt làm này đã bị huỷ.", "This attempt was voided."))), nil
 	case errors.Is(err, domain.ErrUnsupportedDeliveryVersion), errors.Is(err, domain.ErrGroupContextUnavailable):
 		return nil, httpx.ErrNotImplemented
 	case err != nil:

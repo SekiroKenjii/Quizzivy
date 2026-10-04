@@ -44,17 +44,21 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 
 		return openapi.StartOrResumeAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền làm bài này.")),
+				httpapi.Error(ctx, openapi.FORBIDDEN, attemptText(ctx,
+					"Bạn không có quyền làm bài này.", "You do not have access to this test."))),
 		}, nil
 	case errors.Is(err, domain.ErrAssignmentClosed):
 		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
-			openapi.ASSIGNMENTNOTOPEN, "Bài thi này hiện không mở.")), nil
+			openapi.ASSIGNMENTNOTOPEN, attemptText(ctx,
+				"Bài thi này hiện không mở.", "This test is not open right now."))), nil
 	case errors.Is(err, domain.ErrLimitReached):
 		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
-			openapi.ATTEMPTLIMITREACHED, "Bạn đã dùng hết số lượt làm bài.")), nil
+			openapi.ATTEMPTLIMITREACHED, attemptText(ctx,
+				"Bạn đã dùng hết số lượt làm bài.", "You have used all your attempts."))), nil
 	case errors.Is(err, domain.ErrAttemptClosed):
 		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
-			openapi.ATTEMPTCLOSED, "Bài làm này đã kết thúc.")), nil
+			openapi.ATTEMPTCLOSED, attemptText(ctx,
+				"Bài làm này đã kết thúc.", "This attempt has ended."))), nil
 	case (errors.Is(err, domain.ErrGroupContextUnavailable) || errors.Is(err, domain.ErrUnsupportedDeliveryVersion)):
 		return nil, httpx.ErrNotImplemented
 	case err != nil:
@@ -484,4 +488,11 @@ func scheduledMessage(ctx context.Context) string {
 		return "Quizzivy will be updated before this attempt would end. Start it once the update is over."
 	}
 	return "Quizzivy sắp được cập nhật trước khi bài làm kết thúc. Hãy bắt đầu sau khi cập nhật xong."
+}
+
+func attemptText(ctx context.Context, vi, en string) string {
+	if _, index := language.MatchStrings(attemptLanguages, httpx.RequestMetaFromContext(ctx).Language); index == 1 {
+		return en
+	}
+	return vi
 }
