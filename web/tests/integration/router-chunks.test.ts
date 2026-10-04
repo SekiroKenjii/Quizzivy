@@ -49,9 +49,38 @@ const matches = (ids: readonly string[], re: RegExp) =>
 
 const ADMIN =
   /\/(layouts\/AdminLayout|app\/pages\/AdminDashboardPage|features\/(tests|question-bank|media|students)\/)/;
-const STUDENT =
-  /\/(layouts\/StudentLayout|features\/assignments\/pages\/StudentHomePage)/;
+const STUDENT_PAGES = [
+  "layouts/StudentLayout",
+  "features/assignments/pages/StudentHomePage",
+  "features/classes/pages/StudentClassesPage",
+  "features/assignments/pages/AssignmentIntroPage",
+  "features/results/pages/ResultPage",
+  "features/auth/pages/StudentSettingsPage",
+  "features/join/components/JoinDialog",
+];
+const STUDENT = new RegExp(`/(${STUDENT_PAGES.join("|")})`);
 const FOCUS = /\/layouts\/FocusLayout\./;
+const ENGINE = /\/features\/take-test\//;
+const CLEARED_AT_SIGN_OUT = [
+  "features/take-test/draft.ts",
+  "features/take-test/groupPlaybackDraft.ts",
+];
+
+const eager = () => {
+  const byName = new Map(chunks().map((chunk) => [chunk.fileName, chunk]));
+  const seen = new Map<string, OutputChunk>();
+  const pending = [entry()];
+  while (pending.length) {
+    const chunk = pending.pop()!;
+    if (seen.has(chunk.fileName)) continue;
+    seen.set(chunk.fileName, chunk);
+    for (const name of chunk.imports) {
+      const dependency = byName.get(name);
+      if (dependency) pending.push(dependency);
+    }
+  }
+  return [...seen.values()];
+};
 
 describe("route-level code splitting (§2)", () => {
   it("keeps rich editors out of the entry and learner routes' static dependencies", () => {
@@ -95,6 +124,42 @@ describe("route-level code splitting (§2)", () => {
 
   it("keeps the take-test shell out of the entry chunk", () => {
     expect(matches(entry().moduleIds, FOCUS)).toEqual([]);
+  });
+
+  it("keeps the student tree and the take-test shell out of every chunk the entry loads statically", () => {
+    expect(eager().length).toBeGreaterThan(1);
+    for (const chunk of eager()) {
+      expect(matches(chunk.moduleIds, STUDENT), chunk.fileName).toEqual([]);
+      expect(matches(chunk.moduleIds, FOCUS), chunk.fileName).toEqual([]);
+    }
+  });
+
+  it("loads nothing of the engine with the entry, save the two draft stores that signing out clears", () => {
+    const loaded = eager()
+      .flatMap((chunk) => matches(chunk.moduleIds, ENGINE))
+      .map((id) => id.slice(id.lastIndexOf("/src/") + 5))
+      .sort((a, b) => a.localeCompare(b));
+    expect(loaded).toEqual(CLEARED_AT_SIGN_OUT);
+  });
+
+  it("still builds every student page, the take-test shell and the engine, in non-entry chunks", () => {
+    const named = [
+      ...STUDENT_PAGES,
+      "layouts/FocusLayout",
+      "features/take-test/pages/TakeTestPage",
+    ];
+    for (const page of named) {
+      const owning = chunks().filter((chunk) =>
+        chunk.moduleIds.some((id) =>
+          id.replace(/\\/g, "/").includes(`/src/${page}.tsx`),
+        ),
+      );
+      expect(owning.length, page).toBeGreaterThan(0);
+      expect(
+        owning.map((chunk) => chunk.isEntry),
+        page,
+      ).not.toContain(true);
+    }
   });
 
   it("ships the system pages in the entry, so they render when a lazy chunk cannot load", () => {
