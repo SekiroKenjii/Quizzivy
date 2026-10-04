@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { Activity, Clock, Flag, SquarePen } from "lucide-react";
 import { KpiTile, type KpiTileProps } from "@/components/shared/stats/KpiTile";
 import { Meter } from "@/components/shared/stats/Meter";
@@ -54,6 +54,23 @@ describe("KpiTile with a destination", () => {
       "aria-hidden",
       "true",
     );
+  });
+
+  it("opens its route in the app's router, without loading a page", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Routes>
+          <Route
+            path="/"
+            element={<KpiTile {...TO_GRADE} to="/teacher/grading" action="Chấm" />}
+          />
+          <Route path="/teacher/grading" element={<h1>Chấm bài</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole("link"));
+    expect(screen.getByRole("heading", { name: "Chấm bài" })).toBeInTheDocument();
   });
 
   it("darkens its border under the pointer", () => {
