@@ -1990,8 +1990,8 @@ from `quizzivy_app`. `access.IsStudentLike` is the same predicate in Go.
 ## 30. A role per user, the session epoch and the last Admin (T-R2.2)
 
 The expand half of moving users from `users.role` to `users.role_id` (plan 70
-§3, D-25). R3 validates the constraint, drops the sync trigger, `users.role`,
-`users_role_active_idx` and `app.user_role`.
+§3, D-25). v0.9.1 (73-r3.md T-R3.1) validates the constraint, drops the sync
+trigger, `users.role`, `users_role_active_idx` and `app.user_role`.
 
 - `00056_add_users_role_id.sql` adds `role_id uuid REFERENCES app.roles ON
   DELETE RESTRICT`, nullable, and backfills it: `admin` → the Admin role,
@@ -2061,7 +2061,7 @@ is set, as CI does.
 
 ## 31. Ownership (T-R2.9)
 
-The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). R3
+The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). v0.9.1
 validates every constraint below and drops the fill triggers and their
 functions (73-r3.md T-R3.2).
 
@@ -2089,8 +2089,8 @@ functions (73-r3.md T-R3.2).
   shows for every class. It raises if no active Admin exists and a class does.
   `classes_fill_teacher` (BEFORE INSERT) applies the same rule to the old
   binary's inserts; it and its function `app.classes_fill_teacher()` share the
-  name. It reads `users.role_id`, not the legacy `role`, so R3's `DROP COLUMN
-  role` cannot break it before R3 drops it.
+  name. It reads `users.role_id`, not the legacy `role`, so v0.9.1's `DROP COLUMN
+  role` cannot break it before v0.9.1 drops it.
 - `00066`–`00070` add the foreign keys, `<table>_owner_id_fkey` and
   `classes_teacher_id_fkey`, each `REFERENCES app.users ON DELETE RESTRICT`
   and each in its own file after the columns. A column file holds ACCESS

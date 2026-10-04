@@ -1,11 +1,21 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.46 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.47 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.46**
+
+R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), the screens and the engine
+as built (T-R3.5 to T-R3.11):
+
+- §7, §13.3, §15 v0.9.0 ships without R2's contract steps. The legacy `role`,
+  the `NOT VALID` owner constraints with their fill triggers and the `/admin`
+  alias stay until v0.9.1 (T-R3.1 to T-R3.3), no earlier than 2026-10-10.
 
 **Changes since v0.45**
 
-R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), as each task lands:
+R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), the contract (T-R3.4 and
+three fixes):
 
 - §15 A student's assignment card carries `liveAnsweredCount`, and the result
   carries the paper's `sections` with a `sectionId` on every question
@@ -647,7 +657,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
 Mirrors §13. IDs are UUID strings; timestamps ISO 8601 UTC.
 
 ```ts
-type Role = 'admin' | 'student';        // legacy: 'student' for a student-like role (§5.4), 'admin' for any other; R3 removes it
+type Role = 'admin' | 'student';        // legacy: 'student' for a student-like role (§5.4), 'admin' for any other; v0.9.1 (T-R3.1) removes it
 
 interface User {
   id; email; fullName; role: Role;
@@ -1309,7 +1319,7 @@ CREATE TABLE app.users (
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
   email         text NOT NULL,
   full_name     text NOT NULL,
-  role          app.user_role NOT NULL DEFAULT 'student',  -- legacy; R3 drops it
+  role          app.user_role NOT NULL DEFAULT 'student',  -- legacy; v0.9.1 (T-R3.1) drops it
   role_id       uuid NOT NULL REFERENCES app.roles(id) ON DELETE RESTRICT,
   password_hash text,                              -- NULL = Google-only account
   must_change_password boolean NOT NULL DEFAULT false,
@@ -1368,7 +1378,7 @@ CREATE TABLE app.role_permissions (
 
 `permissions` is plan 70 §4.1's catalogue. A migration writes the catalogue, the four built-in roles and their grants (`docs/plan/20-data-model.md` D-21). A custom role has no `builtin_key`, and no role's `builtin_key` changes. The Admin stores no grant but `learning.take_tests`: it holds every other key as the wildcard. Triggers refuse a hidden key for any role and keep `learning.take_tests` on the built-in Student, and every grant change bumps the role's `revision`. The view `app.student_like_roles` is the one definition of a strict student target (§5.4): the built-in Student, or a custom role holding nothing but `learning.take_tests`.
 
-`users.role_id` replaces `users.role`. Until R3 both exist, and a trigger keeps them in step for the v0.7.0 binary; `role_id` is `NOT NULL … NOT VALID` until R3 validates it and drops `role` and `app.user_role`. The trigger `users_last_admin` refuses a demotion, disable or delete that would leave no active Admin. An access token carries the user's `session_epoch`, and a token below the stored value is refused; a disable and a staff password reset bump it (§5). `created_by` names the staff member who created the account; it is NULL for an account older than R2 and for a Google self-join. Details: `docs/plan/20-data-model.md` §29–§30.
+`users.role_id` replaces `users.role`. Until v0.9.1 (T-R3.1) both exist, and a trigger keeps them in step for the v0.7.0 binary; `role_id` is `NOT NULL … NOT VALID` until v0.9.1 validates it and drops `role` and `app.user_role`. The trigger `users_last_admin` refuses a demotion, disable or delete that would leave no active Admin. An access token carries the user's `session_epoch`, and a token below the stored value is refused; a disable and a staff password reset bump it (§5). `created_by` names the staff member who created the account; it is NULL for an account older than R2 and for a Google self-join. Details: `docs/plan/20-data-model.md` §29–§30.
 
 **Classes and join codes** (§6):
 
@@ -1511,7 +1521,7 @@ test_version_blanks / test_version_blank_answers
 
 Snapshotting into **normalized rows** rather than one `jsonb` blob keeps per-question analytics a plain SQL query later. `source_question_id` preserves the bank link without coupling to it. `media_asset_id` points at the same immutable asset — the file is never copied.
 
-**Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Until R3 the owner columns are `NOT NULL … NOT VALID`, and triggers fill them for the v0.7.0 binary's inserts. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
+**Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Until v0.9.1 (T-R3.2) the owner columns are `NOT NULL … NOT VALID`, and triggers fill them for the v0.7.0 binary's inserts. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
 
 **Assignments and attempts:**
 
@@ -1748,7 +1758,7 @@ GET    /app/attempts/:id/result         → Attempt + review policy + sections +
 GET    /app/media/:assetId/url          → short-lived signed URL
 ```
 
-**Prefixes.** `/teacher/*` holds the teaching operations, `/admin/*` the platform's, `/app/*` the student's and `/auth/*` the caller's own session and account. Every operation that requires a bearer token declares its permission as `x-permission` (§5). Under `/teacher/*` and `/app/*`, an id the caller does not reach answers exactly as a missing one does. The v0.7.0 paths under `/admin/*` that moved still answer until R3: the server rewrites each to its new path (`DELETE /admin/students/:id` becomes `DELETE /admin/users/:id`) and logs `legacy_admin_path`.
+**Prefixes.** `/teacher/*` holds the teaching operations, `/admin/*` the platform's, `/app/*` the student's and `/auth/*` the caller's own session and account. Every operation that requires a bearer token declares its permission as `x-permission` (§5). Under `/teacher/*` and `/app/*`, an id the caller does not reach answers exactly as a missing one does. The v0.7.0 paths under `/admin/*` that moved still answer until v0.9.1 (T-R3.3): the server rewrites each to its new path (`DELETE /admin/students/:id` becomes `DELETE /admin/users/:id`) and logs `legacy_admin_path`.
 
 **`CurrentUser`** is `User`'s fields plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.
 

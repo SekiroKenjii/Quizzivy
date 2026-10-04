@@ -27,8 +27,11 @@ this file describe the code as it is and name the release that changes them.
 - **Since R2** (v0.8.0) permissions, not paths, gate the API, repositories
   scope rows to their owner, and teaching operations are under `/teacher/*`
   ("Authentication and authorization" below). The v0.7.0 `/admin/*` API paths
-  answer through an alias until R3.
-- **R3** replaces the student layout rules in "Design" below with the deck's.
+  answer through an alias until v0.9.1 (T-R3.1 to T-R3.3).
+- **v0.9.1** (T-R3.1 to T-R3.3, no earlier than 2026-10-10) removes that alias,
+  drops the legacy `users.role` column with its sync trigger, and validates the
+  owner constraints and drops their fill triggers. Until then all of them are
+  in the code.
 - **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
 
 ## Sources of truth, in order
@@ -146,7 +149,7 @@ module:
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
 | `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application) |
 | `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`), one module's handlers behind another's port (`Media`, `MediaKinds`), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver` |
-| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until R3), `RateLimits` for contract operations and `ServiceRateLimits` for the routes beside it |
+| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.1 to T-R3.3)), `RateLimits` for contract operations and `ServiceRateLimits` for the routes beside it |
 | `core/jobs` | background commands (`PruneRefreshTokens`) |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
@@ -216,7 +219,8 @@ unit, integration and end-to-end in that order.
   declares `x-resource-list`. `TestAnotherTeachersIdsAnswerAsMissingOnes`
   fails naming an operation the table lacks, and `resource_contract_test.go`
   a uuid without a kind.
-- **The v0.7.0 `/admin/*` teaching paths answer until R3.** The router
+- **The v0.7.0 `/admin/*` teaching paths answer until v0.9.1 (T-R3.1 to
+  T-R3.3).** The router
   rewrites each to its new path (`LegacyAdminPaths`: a `/teacher/*` path, and
   `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
   `legacy_admin_path`. A new operation never joins that table.
@@ -498,9 +502,10 @@ to these. Do not refactor them opportunistically while doing something else.
 refresh families, bumps `session_epoch` and calls `Principals.Forget` in one
 command (`docs/plan/70-redesign-overview.md` §4.2). Every insert names its
 owner itself: the `BEFORE INSERT` fill triggers exist only for the v0.7.0
-binary, and R3 drops them. A user write sets `role_id`, never `role`: 00056's
-trigger derives `role` until R3 drops the column. The `users_last_admin`
-trigger refuses any change that leaves no active Admin.
+binary, and v0.9.1 (T-R3.1 to T-R3.3) drops them. A user write sets `role_id`,
+never `role`: 00056's trigger derives `role` until v0.9.1 (T-R3.1 to T-R3.3)
+drops the column. The `users_last_admin` trigger refuses any change that leaves
+no active Admin.
 
 **Soft delete and the reference check are two tables, so the lock must be taken
 on both sides.** `SoftDelete` locks the row it is deleting and then counts
