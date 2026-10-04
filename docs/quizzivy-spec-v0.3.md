@@ -10,6 +10,10 @@ with six fixes to the web app:
 
 - §15 `ALREADY_ENROLLED` is removed from `ErrorCode`: no server version ever
   sent it (#315).
+- §15 A path outside the contract answers `404 NOT_FOUND` and a path under a
+  method it does not serve answers `405 METHOD_NOT_ALLOWED` with `Allow`, both
+  in the envelope. `HEAD` is answered as `GET` without a body on the operations
+  that need no token (#308).
 - §9 A draft a closed tab left behind is sent under the session that wrote it
   before "Tiếp tục làm bài" gives the student a new one. A refusal that can
   never become a save drops it; any other failure keeps it, and the attempt is
@@ -19,8 +23,13 @@ with six fixes to the web app:
 - §10.6 A question's audio player records `audio_ended` and `audio_blocked`
   beside `audio_play`. §10.4 A play with no recorded end shows no duration and
   is not called ongoing (#314).
+- §10.1, §11.4 A question's play is counted by
+  `POST /app/attempts/:id/audio-play`; the three audio events report it and
+  change no count.
 - §11.3 The total a player shows is the server's probed length when it is
   known (#321).
+- §11.3 The player's file is
+  `web/src/features/media/components/AudioPlayer.tsx`.
 - §9 Once the server has said the time is up, the timer and the Submit
   dialog's time left read 00:00 (#329).
 - §5.2 A sign-out closes the "Vui lòng đăng nhập lại" overlay if it was raised
@@ -1210,7 +1219,7 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 | `copy` / `cut` / `paste` | listeners on `document` | Always recorded; **blocked** only when `blockCopyPaste` is on. |
 | `context_menu` | `contextmenu` | Recorded; blocking off by default (it breaks assistive tooling). |
 | `network_offline` / `network_online` | `navigator.onLine` + fetch failures | Distinguishes cheating from bad wifi. Matters for fairness. |
-| `audio_play` / `audio_ended` / `audio_blocked` | player (§11.4) | Drives `maxPlays` and gives the teacher listening behaviour. |
+| `audio_play` / `audio_ended` / `audio_blocked` | player (§11.4) | Gives the teacher listening behaviour. The events only report: a question's play is counted by `POST /app/attempts/:id/audio-play`. |
 | `resume` | server-side | Re-entry into an `in_progress` attempt: reload, crash, device change. |
 | `session_takeover` | server-side | Attempt opened in another tab/device. |
 | `page_hide` | `pagehide` | Best-effort final flush via `navigator.sendBeacon`. |
@@ -1286,7 +1295,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 ### 11.3 Player component
 
-`features/media/AudioPlayer.tsx`. Custom controls over a native `<audio>`; no third-party audio library.
+`web/src/features/media/components/AudioPlayer.tsx`. Custom controls over a native `<audio>`; no third-party audio library.
 
 - Controls: play/pause, elapsed/total time, a progress bar that is **display-only when `allowSeek` is false**, and a plays-remaining indicator. The total shown is the server's probed length when it is known; the file's own length drives the track and the seek.
 - `preload="metadata"` so duration renders without downloading the file.
@@ -1300,7 +1309,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 The obvious client-side counter resets on reload, which makes the limit meaningless. So:
 
-- Each `play` sends an `audio_play` event; the server increments `attempt_audio_plays (attempt_id, question_id, plays)` and the count is returned in `GET /app/attempts/:id` as `audioPlays`.
+- Each `play` calls `POST /app/attempts/:id/audio-play`; the server increments `attempt_audio_plays (attempt_id, question_id, plays)` and the count is returned in `GET /app/attempts/:id` as `audioPlays`. The `audio_play` event the player records beside it (§10.6) only reports the play and changes no count.
 - Client renders remaining plays from the server value, optimistically decrements on play, and reconciles on the next fetch.
 - Playback is **optimistic**: a failed event POST does not block the audio. A student who goes offline to farm replays will show a gap in the event log, which is exactly what the integrity timeline is for. Blocking playback on a network round-trip would punish bad wifi far more often than it would catch anyone.
 - On submit, the server rejects nothing based on play count. Over-limit plays are reported to the teacher, not enforced retroactively.
@@ -1911,6 +1920,8 @@ GET    /app/media/:assetId/url          → short-lived signed URL
 `deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`, `deleteQuestionGroup`) answer `RESOURCE_REFERENCED` without details.
 
 **During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it. A `POST /auth/logout` refused this way still clears the refresh and docs cookies when it carried the refresh cookie. The family is not revoked: the device is signed out, but a copy of the token held elsewhere stays usable for as long as it is rotated, because each rotation renews the lifetime and the cleared cookie can no longer trigger reuse detection; only a password reset, a disable or a password change ends it. The same holds for a logout the limiter refuses (429) and one whose revoke fails (500).
+
+**A request the contract does not describe** is answered in the envelope, in the caller's language and with the request id. A path nothing serves answers `404 NOT_FOUND`, without the maintenance window being read. A path under a method it does not serve answers `405 METHOD_NOT_ALLOWED` with an `Allow` header naming the methods it does serve; during a window it answers the 503 as every request to that path does. `HEAD` is answered as `GET` without a body on the operations that need no token (`GET /public/status`), and on `/livez` and `/healthz` as before; on a `GET` that needs a token it answers the same 405, with or without a token. Neither answer reaches a handler or spends a rate-limit bucket.
 
 **`liveAnsweredCount`** on a student's assignment card is the number of the live attempt's saved answers that say something, by the rule the engine's navigator applies (`web/src/features/take-test/answered.ts`): a choice with an option picked, a true/false with a value, a text that is not blank, and a fill-in with every blank of the frozen question filled. Blank means empty after removing the whitespace JavaScript's `trim()` removes. An answer that exists only in the browser's draft is not counted. The field is absent when there is no live attempt. The teacher's monitor applies the same rule to a row's `answeredCount`, so a saved answer the student has since cleared counts on neither screen.
 
