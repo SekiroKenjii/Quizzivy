@@ -1786,6 +1786,12 @@ export interface paths {
          *     `acceptedAnswers` and no `transcript` — at any depth. This is asserted by
          *     a contract test over this file, a Go unit test that walks the live JSON,
          *     and E2E 9 (§13.5, §14). None of those three may be weakened.
+         *
+         *     A tab that names a session the attempt no longer has is answered with
+         *     the paper and `superseded: true`: it may read and may not write, until
+         *     the student continues the attempt there (`startOrResumeAttempt`). That
+         *     answer replaces no beacon token and records nothing. A tab that names
+         *     the attempt's session, or none, is answered as the tab that holds it.
          */
         get: operations["getAttempt"];
         put?: never;
@@ -3730,8 +3736,8 @@ export interface components {
             } | null;
         };
         /**
-         * @description Returned when an attempt is created or resumed. Everything the engine
-         *     needs to run authoritatively.
+         * @description Returned when an attempt is created, resumed or read. Everything the
+         *     engine needs to run authoritatively.
          */
         AttemptSession: {
             /** @description Additional attempts available after this one */
@@ -3768,6 +3774,13 @@ export interface components {
              *     beacon carries this in its body instead. Grants no read access.
              */
             beaconToken: string;
+            /**
+             * @description Present and true only in an answer of `getAttempt` to a tab that
+             *     named a session the attempt no longer has. `sessionId` is then the
+             *     session that tab named, `beaconToken` is empty, and every write
+             *     under that session answers `SESSION_SUPERSEDED`.
+             */
+            superseded?: boolean;
             serverTime: components["schemas"]["Timestamp"];
             /**
              * @description Keyed by question id. **Server-authoritative** — the client renders
@@ -7883,7 +7896,14 @@ export interface operations {
     };
     getAttempt: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description The session this tab holds for the attempt: the `sessionId` of the
+                 *     last answer it was given by this operation or by
+                 *     `startOrResumeAttempt`. A tab that holds none sends none.
+                 */
+                session?: components["schemas"]["Uuid"];
+            };
             header?: never;
             path: {
                 id: components["parameters"]["IdPath"];
@@ -7901,6 +7921,7 @@ export interface operations {
                     "application/json": components["schemas"]["AttemptSession"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
