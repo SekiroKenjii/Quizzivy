@@ -147,3 +147,35 @@ func TestAFailedLegacyRotationIsAWarningAndTheJobReturns(t *testing.T) {
 		t.Errorf("a failed run logged counts: %v", lines)
 	}
 }
+
+func TestARunThatRotatedNothingStillLogsItsCounts(t *testing.T) {
+	var run rotationRun
+	lines := runTheRotation(t, run.app(func(cmd classescommand.RotateLegacyJoinCodes) (classesdomain.LegacyRotation, error) {
+		cmd.Found(3)
+		return classesdomain.LegacyRotation{Found: 3}, nil
+	}))
+
+	rotated := logged(lines, "legacy_join_codes_rotated")
+	if len(rotated) != 1 || rotated[0]["found"] != float64(3) || rotated[0]["rotated"] != float64(0) {
+		t.Errorf("the job logged %v, want the counts of a run that found three classes and rotated none", lines)
+	}
+}
+
+func TestTheLegacyRotationIsCancelledWithTheProcess(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var stopped error
+	app := &classesapp.Application{Commands: classesapp.Commands{
+		RotateLegacyJoinCodes: cqrs.HandlerFunc[classescommand.RotateLegacyJoinCodes, classesdomain.LegacyRotation](
+			func(run context.Context, _ classescommand.RotateLegacyJoinCodes) (classesdomain.LegacyRotation, error) {
+				cancel()
+				stopped = run.Err()
+				return classesdomain.LegacyRotation{}, stopped
+			}),
+	}}
+	jobs.RotateLegacyJoinCodes(ctx, slog.New(slog.DiscardHandler), app)
+
+	if !errors.Is(stopped, context.Canceled) {
+		t.Errorf("once the process stopped the run's context reads %v, want context.Canceled", stopped)
+	}
+}
