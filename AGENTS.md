@@ -17,18 +17,22 @@ this file describe the code as it is and name the release that changes them.
 - **Since R1** (v0.7.0) the deck's tokens, Be Vietnam Pro and the primitives
   are in. Deck geometry that would change an existing primitive (control
   heights, radii, badge and card shapes) applies only inside
-  `data-scale="deck"`, which a rebuilt surface sets on its root. The old
-  consoles keep their layouts and force light (`useForcedLightTheme`) until
-  their release rebuilds them: R3 the student app and engine, R4 the teacher
-  console. R5 makes the deck geometry the default and removes `data-scale`
+  `data-scale="deck"`, which a rebuilt surface sets on its root. The student
+  app and the take-test engine are such surfaces since R3 (v0.9.0) and follow
+  the theme. The teacher console keeps its layout and forces light
+  (`useForcedLightTheme`) until R4 rebuilds it. R5 makes the deck geometry the
+  default and removes `data-scale`
   (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
   since the CSP allows no inline script. Do not restyle an old console's screen
   ad hoc: its release rebuilds it.
 - **Since R2** (v0.8.0) permissions, not paths, gate the API, repositories
   scope rows to their owner, and teaching operations are under `/teacher/*`
   ("Authentication and authorization" below). The v0.7.0 `/admin/*` API paths
-  answer through an alias until R3.
-- **R3** replaces the student layout rules in "Design" below with the deck's.
+  answer through an alias until v0.9.1 (T-R3.1 to T-R3.3).
+- **v0.9.1** (T-R3.1 to T-R3.3, no earlier than 2026-10-10) removes that alias,
+  drops the legacy `users.role` column with its sync trigger, and validates the
+  owner constraints and drops their fill triggers. Until then all of them are
+  in the code.
 - **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
 
 ## Sources of truth, in order
@@ -146,7 +150,7 @@ module:
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
 | `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application) |
 | `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`), one module's handlers behind another's port (`Media`, `MediaKinds`), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver` |
-| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until R3), `RateLimits` for contract operations and `ServiceRateLimits` for the routes beside it |
+| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.1 to T-R3.3)), `RateLimits` for contract operations and `ServiceRateLimits` for the routes beside it |
 | `core/jobs` | background commands (`PruneRefreshTokens`) |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
@@ -170,7 +174,8 @@ server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
   internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, ...)
   internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation, content,
-                     access (permission keys, Principal, Scope, CanActOn), visibility (who a teacher reaches)
+                     access (permission keys, Principal, Scope, CanActOn), visibility (who a teacher reaches),
+                     answered (when a saved answer counts as answered)
   internal/modules/  one directory per bounded context, four layers each:
                      domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/;
                      access (roles, grants, the principal cache) has no http/ until R5
@@ -216,7 +221,8 @@ unit, integration and end-to-end in that order.
   declares `x-resource-list`. `TestAnotherTeachersIdsAnswerAsMissingOnes`
   fails naming an operation the table lacks, and `resource_contract_test.go`
   a uuid without a kind.
-- **The v0.7.0 `/admin/*` teaching paths answer until R3.** The router
+- **The v0.7.0 `/admin/*` teaching paths answer until v0.9.1 (T-R3.1 to
+  T-R3.3).** The router
   rewrites each to its new path (`LegacyAdminPaths`: a `/teacher/*` path, and
   `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
   `legacy_admin_path`. A new operation never joins that table.
@@ -434,26 +440,51 @@ Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
 Continuous motion (the marquee on overflowing titles, the live dot) pauses on
 hover and focus and is static under `prefers-reduced-motion`.
 
-Integrity UI follows the deck (decided 2026-09-26): flags and "Flagged" in the
-teacher's roster, the red timer in the last five minutes, and "Your teacher has
-been told" once the allowance is used. The teacher judges; the app reports —
+Integrity UI follows the deck (decided 2026-09-26). On the student side: the
+red timer in the last five minutes, and "Your teacher has been told" once a
+student is past the allowance under `flag` or `auto_submit`; a `warn` policy
+never names the teacher. Flags and "Flagged" in the teacher's roster follow in
+R4 (T-R4.46). The teacher judges; the app reports —
 the product never concludes that a student cheated.
 
-**Until R3**, the student's navigation branches at 1024px in code
-(`useMediaQuery("(min-width: 1024px)")`), with one stable `StudentLayout`
-outlet so forms and filters survive resizing. A detail route declares
-`handle.detail` for the phone's back arrow. Home and classes use fluid grids;
-intro and results are centred at 720px without a right panel. Settings shares
-the teacher section navigation and preserves forms across section routes.
-The take-test engine keeps `FocusLayout` and its `PageAside` navigator, with
-the separate `studentNavigator` width preference. From R3 the deck's student
-shell replaces these rules. Unit tests of a phone board pin `viewport("phone")`
-(`tests/support/viewport.ts`); jsdom answers "wide" by default.
+The student app lives in `StudentLayout`, whose one outlet stays mounted at
+every width, so forms survive resizing. The shell branches at 768px in code
+(`useMediaQuery("(min-width: 768px)")` and `min-[768px]:`, never `md:`): the
+destinations sit in the top bar from 768 and in a bottom tab bar below it. A
+detail route declares `handle.detail`: below 768 the header swaps the logo for
+a back arrow and the title and the tab bar hides, and from 768 Intro and
+Result draw their own back link. Each page is one centred column with its own
+maximum width: Home and Classes 960px, Test intro 720px, Result 820px,
+Settings 760px. A new threshold inside a page that is not the shell's 768 is a
+container query on the container named `student`, which the roots of both
+student layouts declare; nothing queries it yet. The thresholds that exist
+beside 768 are not on it: `min-[360px]:` on the Test intro's facts strip, `lg:`
+(1024px, where the 44px floor ends) on the engine's blanks and answer field and
+on the audio player's seek track, and the load-error card's own container,
+`load-error`. `.student-surface`, on the
+shell's `<main>` and on `FocusLayout`, puts a 44px floor on buttons below
+1024px; a control the deck draws smaller opts out in its own classes. No `/app`
+route loads `SideColumn`, directly or through `PageAside`
+(`tests/units/student/side-column.test.ts`), and none imports
+`useColumnWidth`. `DeckDialog`
+(`components/shared/`) is the frame of the student's dialogs; the "You left
+the test" alert (`StrikeDialog`, 420px) and the question sheet draw their own
+on the dialog primitive.
+
+The take-test engine runs in `FocusLayout` and branches at the same 768px.
+From 768, a question whose group has something to read splits into a passage
+pane and a question pane, and the question pane's footer is Previous, a strip
+of numbered squares and Next. Below 768 a switcher shows one pane at a time,
+and the footer's count button opens the squares in a bottom sheet. There is no
+navigator column and no width preference. The timer draws each digit in a cell
+one zero wide, because Be Vietnam Pro has no tabular figures. Unit tests of a
+phone board pin `viewport("phone")` (`tests/support/viewport.ts`); jsdom
+answers "wide" by default.
 
 A paper's questions are dealt inside their section: `DealManager.Present`
-keeps section order and shuffles within each, so the navigator can group by
-part. A single-section paper deals exactly as it did before sections reached
-the payload.
+keeps section order and shuffles within each, so the strip can leave a gap
+between parts and the sheet can head each one. A single-section paper deals
+exactly as it did before sections reached the payload.
 
 ## Language
 
@@ -498,9 +529,10 @@ to these. Do not refactor them opportunistically while doing something else.
 refresh families, bumps `session_epoch` and calls `Principals.Forget` in one
 command (`docs/plan/70-redesign-overview.md` §4.2). Every insert names its
 owner itself: the `BEFORE INSERT` fill triggers exist only for the v0.7.0
-binary, and R3 drops them. A user write sets `role_id`, never `role`: 00056's
-trigger derives `role` until R3 drops the column. The `users_last_admin`
-trigger refuses any change that leaves no active Admin.
+binary, and v0.9.1 (T-R3.1 to T-R3.3) drops them. A user write sets `role_id`,
+never `role`: 00056's trigger derives `role` until v0.9.1 (T-R3.1 to T-R3.3)
+drops the column. The `users_last_admin` trigger refuses any change that leaves
+no active Admin.
 
 **Soft delete and the reference check are two tables, so the lock must be taken
 on both sides.** `SoftDelete` locks the row it is deleting and then counts
@@ -534,7 +566,7 @@ fix the cause, never the test:
   resumed attempt's timeline vanishing.
 - `web/tests/units/api/client.refresh.test.ts` — five concurrent 401s must issue
   exactly one refresh.
-- `tests/integration/router-chunks.test.ts` — the admin tree must stay out of
+- `web/tests/integration/router-chunks.test.ts` — the admin tree must stay out of
   the entry chunk. It runs a real build; reading the router and trusting `lazy`
   would not catch the regression that actually happens.
 

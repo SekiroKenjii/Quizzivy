@@ -56,6 +56,31 @@ superseded session can still prevent recovery. Explicit logout clears drafts;
 only the server confirms a save. Submission waits for in-flight saves and refuses
 to discard an unconfirmed edit after a network failure.
 
+**The rebuilt engine (R3, v0.9.0)** keeps those mitigations and adds three
+guards, each pinned by a test:
+
+- **The local draft's format is unchanged.** `take-test/draft.ts` and
+  `take-test/store.ts` are the files v0.8.0 shipped.
+  `web/tests/units/take-test/draft-compat.test.ts` restores a
+  `quizzivy.answer-draft.<attemptId>` entry and a `quizzivy.flags.<attemptId>`
+  entry as a v0.8.0 tab left them, and holds what this build writes to the same
+  bytes under the same keys. An attempt in progress at the deploy keeps its
+  unsent answers.
+- **A phone is told when its saves stop.** Below 768 the header has no save
+  line. `SaveStrip` (`take-test/components/SaveState.tsx`) draws one under the
+  header only when a save has failed, or the device is offline, while an answer
+  is unsaved. A save on its way draws nothing. Where the assignment counts
+  departures the strip also carries that count, and a locked paper shows why it
+  is locked in its place. "The header on a phone" in
+  `web/tests/units/take-test/header.test.tsx` pins each case.
+- **An unknown question type takes no answer.** A tab loaded before a release
+  that adds a type drew it as options and wrote a `choice` answer. `questionKind`
+  (`take-test/questionType.ts`) reads such a type as `unknown`: `QuestionSheet`
+  draws `UnknownType`, which names the question and offers a reload, and the
+  keys write nothing. `web/tests/units/take-test/renderers.test.tsx` ("a type
+  this page has no renderer for") and `panes.test.tsx` ("an unknown question
+  type") pin it with a fabricated type.
+
 ---
 
 ## R-02 — A join code leaks and strangers enrol
