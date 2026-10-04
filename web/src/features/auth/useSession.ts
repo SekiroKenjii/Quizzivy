@@ -75,11 +75,12 @@ function isUnanswered(cause: unknown): boolean {
 /**
  * §5.4's logout: revoke server-side, then forget everything client-side. A
  * "sign in again" overlay raised while the sign-out was on its way is closed
- * once the session is cleared.
+ * once the session is cleared. The session is ended as a sign-out, so no page
+ * of this user is offered to the next one.
  */
 export function useLogout() {
   const queryClient = useQueryClient();
-  const clearSession = useAuthStore((s) => s.clearSession);
+  const signOut = useAuthStore((s) => s.signOut);
   const navigate = useNavigate();
 
   return async function logout() {
@@ -89,7 +90,7 @@ export function useLogout() {
       // A failed server logout must not strand the user in a signed-in shell.
     }
     await navigate("/login", { replace: true });
-    clearSession();
+    signOut();
     if (useAppState.getState().overlay.kind === "expired") {
       useAppState.getState().closeOverlay();
     }

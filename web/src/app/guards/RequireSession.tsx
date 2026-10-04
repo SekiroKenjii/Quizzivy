@@ -11,12 +11,14 @@ export const CHANGE_PASSWORD_PATH = "/change-password";
  * Renders nothing while the session is bootstrapping, under the boot splash,
  * rather than redirecting, or a
  * reload would bounce every user to /login before `GET /auth/me` answers.
- * Carries the attempted path as `?next=` so sign-in can return to it.
+ * Carries the attempted path as `?next=` so sign-in can return to it, except
+ * after the user's own sign-out, when it sends the visitor to /login alone.
  */
 export function RequireSession() {
   const location = useLocation();
   const isBootstrapping = useAuthStore((s) => s.isBootstrapping);
   const user = useAuthStore((s) => s.user);
+  const signedOut = useAuthStore((s) => s.signedOut);
   const bootError = useAppState((s) => (s.bootPhase === "failed" ? s.bootError : null));
 
   if (bootError) throw bootError;
@@ -24,6 +26,7 @@ export function RequireSession() {
   if (isBootstrapping) return null;
 
   if (!user) {
+    if (signedOut) return <Navigate to="/login" replace />;
     const next = location.pathname + location.search;
     return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
   }
