@@ -24,6 +24,7 @@ import { scoreText } from "@/features/assignments/studentTime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { countdown, formatTime } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
+import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { useTick } from "@/hooks/useTick";
 import {
   getMonitor,
@@ -60,12 +61,14 @@ export function Monitor({
     null,
   );
 
+  const refetchInterval = useIdlePolling(POLL_MS, live);
   const monitor = useQuery({
     queryKey: monitorKey(assignment.id),
     queryFn: ({ signal }) => getMonitor(assignment.id, signal),
-    refetchInterval: live ? POLL_MS : false,
+    refetchInterval,
     refetchIntervalInBackground: false,
   });
+  useRefetchOnResume(monitor.refetch, live);
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: monitorKey(assignment.id) });
