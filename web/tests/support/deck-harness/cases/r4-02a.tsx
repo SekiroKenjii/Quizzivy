@@ -92,6 +92,18 @@ export const cases: Record<string, () => ReactElement> = {
 
   "row-menu-disabled": () => assignmentMenu(true),
 
+  "row-menu-bottom": () => (
+    <div className="flex min-h-[calc(100svh-3rem)] items-end justify-end">
+      {assignmentMenu(false)}
+    </div>
+  ),
+
+  "row-menu-middle": () => (
+    <div className="flex min-h-[calc(100svh-3rem)] items-center justify-end">
+      {assignmentMenu(false)}
+    </div>
+  ),
+
   "check-menu": function ClassFilter() {
     const [chosen, setChosen] = useState<readonly string[]>([]);
     return (
