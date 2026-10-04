@@ -18,6 +18,8 @@ as built (T-R3.5 to T-R3.11):
   links) and Settings (Profile, Sign-in, Appearance) as built. The engine has
   panes, a number strip or a question sheet, and the Submit dialog in place of
   the review page. Keys are A–E, F and the arrows, which stop at either end.
+  §7.3's sentence on learner material says the same: one pane at a time on a
+  phone, with no collapse state.
 - §10.1 The clipboard listeners are on `document`.
 - §10.2 The focus dialog's body is the deck's, without the seconds away or
   "the timer keeps running". The intro's start or resume click enters
@@ -990,9 +992,12 @@ port after attempt authorization. Shared media is reachable only through protect
 relational bindings on a version the learner has an attempt on; assignment
 targeting alone grants no media access. A missing context reader fails explicitly
 instead of serving grouped questions without their materials. Learner material
-uses the preview renderer: side-by-side with answers when space permits, above
-answers on phones with remembered collapse state. Shared audio controls remain
-available while material text is collapsed. Stable gap targets navigate to the
+is drawn by the renderer the teacher's preview shares: in a passage pane beside
+the question from 768px, and below 768px behind the "Ngữ liệu | Câu n" switcher,
+which shows one pane at a time, the question first (§9). Shared recordings are
+drawn in the question pane at every width, never in the passage, so their
+controls show whenever the question does; below 768px they are out of view while
+the passage is showing, and stay mounted. Stable gap targets navigate to the
 question or blank input without losing pending answers. Group players stay mounted
 across child navigation.
 
