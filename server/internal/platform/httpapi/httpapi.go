@@ -77,8 +77,8 @@ func NotFound(ctx context.Context, message string) openapi.ErrorResponse {
 }
 
 func BlankReason(ctx context.Context) openapi.ErrorResponse {
-	return ErrorWithDetails(ctx, openapi.VALIDATIONFAILED, "Cần ghi lý do.",
-		map[string]interface{}{"reason": "Lý do không được để trống."})
+	return ErrorWithDetails(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Cần ghi lý do.", "A reason is needed."),
+		map[string]interface{}{"reason": httpx.Text(ctx, "Lý do không được để trống.", "The reason cannot be empty.")})
 }
 
 // ParseUUID renders a stored id; ids never come from user input, so a bad one is the zero value, not a 500.

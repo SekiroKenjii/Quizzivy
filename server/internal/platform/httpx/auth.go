@@ -78,7 +78,7 @@ func bearerToken(r *http.Request) (string, bool) {
 func writeUnauthenticated(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("WWW-Authenticate", `Bearer realm="quizzivy"`)
 	WriteError(w, r, http.StatusUnauthorized, CodeUnauthorized,
-		"Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.")
+		TextFor(r, "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.", "Your session is not valid. Please sign in again."))
 }
 
 // OpenRoutes lists the operations that do NOT require the named security

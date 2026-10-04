@@ -39,25 +39,29 @@ func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLi
 				return
 			}
 			limit := requestBodyLimit(r.Pattern, defaultLimit, routeLimits)
-			message := fmt.Sprintf("Dữ liệu gửi lên vượt quá giới hạn %g MiB.", float64(limit)/(1<<20))
 			if r.ContentLength > limit {
-				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, message)
+				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, bodyTooLarge(r, limit))
 				return
 			}
 			body, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
 			_ = r.Body.Close()
 			if int64(len(body)) > limit {
-				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, message)
+				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, bodyTooLarge(r, limit))
 				return
 			}
 			if err != nil {
-				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, "Không đọc được dữ liệu gửi lên.")
+				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed,
+					TextFor(r, "Không đọc được dữ liệu gửi lên.", "The submitted data could not be read."))
 				return
 			}
 			r.Body = io.NopCloser(bytes.NewReader(body))
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func bodyTooLarge(r *http.Request, limit int64) string {
+	return fmt.Sprintf(TextFor(r, "Dữ liệu gửi lên vượt quá giới hạn %g MiB.", "The submitted data exceeds the %g MiB limit."), float64(limit)/(1<<20))
 }
 
 func streamingRequestBody(w http.ResponseWriter, r *http.Request, streaming map[string]struct{}, limits map[string]int64) bool {

@@ -46,7 +46,8 @@ func RequirePermission(requirements map[string]access.Requirement, resolver Prin
 				writeUnauthenticated(w, r)
 				return
 			case err != nil:
-				WriteError(w, r, http.StatusInternalServerError, CodeInternal, "Đã xảy ra lỗi. Vui lòng thử lại.")
+				WriteError(w, r, http.StatusInternalServerError, CodeInternal,
+					TextFor(r, "Đã xảy ra lỗi. Vui lòng thử lại.", "Something went wrong. Try again."))
 				return
 			case resolved.Disabled, caller.Epoch < resolved.Epoch:
 				writeUnauthenticated(w, r)
@@ -62,5 +63,6 @@ func RequirePermission(requirements map[string]access.Requirement, resolver Prin
 }
 
 func writeForbidden(w http.ResponseWriter, r *http.Request) {
-	WriteError(w, r, http.StatusForbidden, CodeForbidden, "Bạn không có quyền truy cập chức năng này.")
+	WriteError(w, r, http.StatusForbidden, CodeForbidden,
+		TextFor(r, "Bạn không có quyền truy cập chức năng này.", "You do not have permission to use this feature."))
 }

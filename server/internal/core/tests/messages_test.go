@@ -12,21 +12,26 @@ import (
 	"testing"
 )
 
-var localised = []string{
-	"internal/modules/identity/http",
-	"internal/modules/classes/http",
-	"internal/modules/media/http",
-	"internal/modules/imports/http",
-	"internal/modules/tests/http",
-	"internal/modules/attempts/http",
-	"internal/modules/assignments/http",
-	"internal/modules/questions/http",
+func transports(t *testing.T, server string) []string {
+	t.Helper()
+	modules, err := filepath.Glob(filepath.Join(server, "internal", "modules", "*", "http"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(modules) < 9 {
+		t.Fatalf("internal/modules/*/http matches %d directories, want the module transports, at least 9: %v", len(modules), modules)
+	}
+	dirs := make([]string, 0, len(modules)+3)
+	for _, module := range modules {
+		dirs = append(dirs, filepath.ToSlash(strings.TrimPrefix(module, server+string(filepath.Separator))))
+	}
+	return append(dirs, "internal/platform/httpx", "internal/platform/httpapi", "internal/core/router")
 }
 
 func TestNoTransportMessageIsVietnameseOnly(t *testing.T) {
 	server := filepath.Join("..", "..", "..")
 	var offenders []string
-	for _, dir := range localised {
+	for _, dir := range transports(t, server) {
 		checked := 0
 		err := filepath.WalkDir(filepath.Join(server, filepath.FromSlash(dir)), func(path string, d os.DirEntry, err error) error {
 			if err != nil {
@@ -69,7 +74,7 @@ func vietnameseOnly(path string) ([]string, error) {
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch node := n.(type) {
 		case *ast.CallExpr:
-			if !wordsAMessage(node) {
+			if !wordsAMessage(node, file.Name.Name) {
 				return true
 			}
 			for i, arg := range node.Args {
@@ -90,13 +95,15 @@ func vietnameseOnly(path string) ([]string, error) {
 	return offences, nil
 }
 
-func wordsAMessage(call *ast.CallExpr) bool {
-	selector, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return false
+func wordsAMessage(call *ast.CallExpr, pkg string) bool {
+	switch fun := call.Fun.(type) {
+	case *ast.SelectorExpr:
+		qualifier, ok := fun.X.(*ast.Ident)
+		return ok && qualifier.Name == "httpx" && (fun.Sel.Name == "Text" || fun.Sel.Name == "TextFor")
+	case *ast.Ident:
+		return pkg == "httpx" && (fun.Name == "Text" || fun.Name == "TextFor")
 	}
-	pkg, ok := selector.X.(*ast.Ident)
-	return ok && pkg.Name == "httpx" && (selector.Sel.Name == "Text" || selector.Sel.Name == "TextFor")
+	return false
 }
 
 func isBlank(arg ast.Expr) bool {

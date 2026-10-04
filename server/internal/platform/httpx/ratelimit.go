@@ -58,5 +58,6 @@ func writeRateLimited(w http.ResponseWriter, r *http.Request, seconds float64) {
 		retry = 1
 	}
 	w.Header().Set("Retry-After", strconv.Itoa(retry))
-	WriteError(w, r, http.StatusTooManyRequests, CodeRateLimited, "Bạn thao tác quá nhanh. Vui lòng thử lại sau.")
+	WriteError(w, r, http.StatusTooManyRequests, CodeRateLimited,
+		TextFor(r, "Bạn thao tác quá nhanh. Vui lòng thử lại sau.", "You are going too fast. Please try again later."))
 }
