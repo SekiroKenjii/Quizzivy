@@ -463,8 +463,9 @@ on the audio player's seek track, and the load-error card's own container,
 `load-error`. `.student-surface`, on the
 shell's `<main>` and on `FocusLayout`, puts a 44px floor on buttons below
 1024px; a control the deck draws smaller opts out in its own classes. No `/app`
-route loads `PageAside`, `SideColumn` or `useColumnWidth`
-(`tests/units/student/side-column.test.ts`). `DeckDialog`
+route loads `SideColumn`, directly or through `PageAside`
+(`tests/units/student/side-column.test.ts`), and none imports
+`useColumnWidth`. `DeckDialog`
 (`components/shared/`) is the frame of the student's dialogs.
 
 The take-test engine runs in `FocusLayout` and branches at the same 768px.
