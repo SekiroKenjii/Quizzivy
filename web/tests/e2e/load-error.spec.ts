@@ -1,21 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { sessionAs, studentUser, stubApi } from "./support/api";
+import { fits } from "./support/student";
 
 const requestId = "019535d9-3df7-79fb-b466-fa907fa17f9e";
-
-async function fits(page: Page) {
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        [
-          document.documentElement,
-          document.querySelector("[data-scale='deck']"),
-          document.querySelector("main"),
-        ].every((node) => node === null || node.scrollWidth <= node.clientWidth + 1),
-      ),
-    )
-    .toBe(true);
-}
 
 for (const width of [320, 360]) {
   test(`a failed student page fits a phone at ${width}px`, async ({ page }) => {

@@ -84,14 +84,13 @@ describe("the side panel", () => {
   // jsdom has no viewport, so this checks the class, not the layout.
   it("can be hidden below the large breakpoint", () => {
     render(
-      <PageAside label="Danh sách câu" hideBelow="lg">
-        <p>dots</p>
+      <PageAside label="Lịch sử phiên bản" hideBelow="lg">
+        <p>v2</p>
       </PageAside>,
     );
-    expect(screen.getByRole("complementary", { name: "Danh sách câu" })).toHaveClass(
-      "hidden",
-      "lg:block",
-    );
+    expect(
+      screen.getByRole("complementary", { name: "Lịch sử phiên bản" }),
+    ).toHaveClass("hidden", "lg:block");
   });
 });
 

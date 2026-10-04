@@ -1,85 +1,13 @@
-import { fileURLToPath } from "node:url";
-import { expect, test, type Page } from "@playwright/test";
-import { sessionAs, studentUser, stubApi } from "./support/api";
-import {
-  previewGroup,
-  previewQuestions,
-  previewSection,
-} from "../support/groupPreview";
-import type { components } from "../../src/lib/api/schema";
+import { expect, test } from "@playwright/test";
+import { engineFits, startGroupPaper } from "./support/engine";
+import { previewGroup, previewQuestions } from "../support/groupPreview";
 
-const attemptId = "01935000-0000-7000-8000-000000000088";
-const audio = fileURLToPath(new URL("./fixtures/unit5-listening.mp3", import.meta.url));
-const recordingId = previewGroup.recordings[0]!.id;
-
-async function setup(page: Page) {
-  const seen = new Set<string>();
-  let loseFirstResponse = true;
-  const now = new Date().toISOString();
-  const payload: components["schemas"]["AttemptSession"] = {
-    attempt: {
-      id: attemptId,
-      assignmentId: attemptId,
-      studentId: studentUser.id,
-      testVersionId: attemptId,
-      attemptNo: 1,
-      status: "in_progress",
-      startedAt: now,
-      deadlineAt: new Date(Date.now() + 3600000).toISOString(),
-    },
-    testTitle: "Đọc và nghe theo nhóm",
-    sections: [previewSection],
-    questions: previewQuestions.slice(1),
-    groups: [previewGroup],
-    audioPlays: {},
-    answers: {},
-    sessionId: attemptId,
-    beaconToken: "synthetic",
-    serverTime: now,
-    integrity: {
-      requireFullscreen: false,
-      blockCopyPaste: false,
-      maxFocusLoss: 0,
-      onLimitExceeded: "flag",
-      minAwayMs: 3000,
-    },
-  };
-  await stubApi(page, {
-    ...sessionAs(studentUser),
-    [`GET /app/attempts/${attemptId}`]: (route) =>
-      route.fulfill({
-        json: { ...payload, groupAudioPlays: { [recordingId]: seen.size } },
-      }),
-    [`PATCH /app/attempts/${attemptId}/answers`]: {
-      body: { savedAt: now, serverTime: now, deadlineAt: payload.attempt.deadlineAt },
-    },
-    [`POST /app/attempts/${attemptId}/group-audio-play`]: async (route) => {
-      const input = route
-        .request()
-        .postDataJSON() as components["schemas"]["GroupAudioPlayInput"];
-      seen.add(input.playId);
-      if (loseFirstResponse) {
-        loseFirstResponse = false;
-        await route.abort("failed");
-      } else
-        await route.fulfill({
-          json: { playId: input.playId, plays: seen.size, maxPlays: 2 },
-        });
-    },
-  });
-  await page.route("https://assets.example/synthetic.mp3", (route) =>
-    route.fulfill({ path: audio, contentType: "audio/mpeg" }),
-  );
-  await page.goto(`/app/attempts/${attemptId}`);
-  return seen;
-}
-
-for (const width of [320, 1440]) {
+for (const width of [320, 768, 1440]) {
   test(`shared materials, audio recovery and gap navigation at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const seen = await setup(page);
+    const seen = await startGroupPaper(page);
     const material = page.getByRole("heading", { name: previewGroup.title });
     const passageTab = page.getByRole("button", { name: "Ngữ liệu", exact: true });
     if (width === 320) {
@@ -125,11 +53,8 @@ for (const width of [320, 1440]) {
       "id",
       `answer-question-${previewQuestions[2]!.id}`,
     );
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth + 1,
-    );
-    expect(overflow).toBe(false);
-    if (width === 1440) {
+    await engineFits(page);
+    if (width >= 768) {
       const contextBox = await page
         .getByLabel(previewGroup.title, { exact: true })
         .boundingBox();

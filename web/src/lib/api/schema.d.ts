@@ -193,10 +193,14 @@ export interface paths {
          *     moment a user most wants to log out is the moment their session has
          *     gone strange.
          *
-         *     During a maintenance window the request is answered `503 MAINTENANCE`
-         *     like any other; when the request carried the refresh cookie, that
-         *     answer still clears the refresh and docs cookies; the family is not
-         *     revoked.
+         *     A logout that is refused or fails still clears the refresh and docs
+         *     cookies when the request carried the refresh cookie: during a
+         *     maintenance window (`503 MAINTENANCE`), over the rate limit
+         *     (`429 RATE_LIMITED`) and when the revoke fails (`500 INTERNAL`). In
+         *     none of the three is the family revoked: this device is signed out,
+         *     but a copy of the token held elsewhere stays usable for as long as it
+         *     is rotated, and only a password reset, a disable or a password change
+         *     ends it. A request without the cookie gets nothing cleared.
          */
         post: operations["logout"];
         delete?: never;
@@ -2183,9 +2187,18 @@ export interface components {
         ErrorDetail: {
             code: components["schemas"]["ErrorCode"];
             /**
-             * @description Already localized server-side from `Accept-Language`, `vi` by
-             *     default. Display it; do not build copy from `code`, except for the
-             *     two codes the `ErrorCode` description names.
+             * @description Copy for the user, written by the server; `vi` by default.
+             *     Localised from `Accept-Language` where an operation's own handler
+             *     writes the refusal, for: the auth, account, student and class
+             *     operations; the media and Word import operations; a refused Start
+             *     or Continue of a test and a result that cannot be shown yet; the
+             *     `RESOURCE_REFERENCED` refusal of `createDraftFromTestVersion`; the
+             *     maintenance answer; and request validation. The answers shared
+             *     middleware writes on every operation (401, 403, 413, 429, 500,
+             *     501, and the 400 for a body that cannot be read) and every other
+             *     refusal a handler writes are Vietnamese until issue 284 is fixed.
+             *     Display it; do not build copy from `code`, except for the two
+             *     codes the `ErrorCode` description names.
              * @example Mã lớp không hợp lệ.
              */
             message: string;
@@ -4843,7 +4856,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Group content, binding or media validation failed; no partial edit was saved. */
+            /** @description Group content, binding or media validation failed; no partial edit was saved. A member the new graph drops while something else still references it is refused here too, with `details.rule` `group_reference`. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4877,7 +4890,7 @@ export interface operations {
             };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description Stale revision, archived enclosing test, or bank group not archived. */
+            /** @description Stale revision, archived enclosing test, bank group not archived, or `RESOURCE_REFERENCED`: the group or one of its questions is still referenced elsewhere and nothing is deleted. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6245,7 +6258,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description IMPORT_NOT_READY — blocking findings remain or decisions are missing. */
+            /** @description `IMPORT_NOT_READY` — blocking findings remain or decisions are missing. `VALIDATION_FAILED` — the draft names a media asset that is gone, that the importer cannot read, or that is of another kind than its block; nothing is created. */
             422: {
                 headers: {
                     [name: string]: unknown;
