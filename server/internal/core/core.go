@@ -91,6 +91,7 @@ func (a *App) Serve(ctx context.Context) error {
 	}
 
 	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity)
+	go jobs.PruneNotifications(ctx, a.logger, a.assembly.Notifications)
 	if sweeper := a.assembly.ImportSweeper; sweeper != nil {
 		go jobs.SweepImportFiles(ctx, a.logger, sweeper.Sweep, jobs.ImportRetention{Every: 24 * time.Hour, Retry: time.Hour, Budget: 5 * time.Minute})
 	}
