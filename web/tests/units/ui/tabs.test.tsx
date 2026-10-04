@@ -107,7 +107,7 @@ describe("tabs on a deck surface", () => {
         "rounded-none",
         "px-0.5",
         "pb-2.5",
-        "leading-[1.265]",
+        "leading-4.5",
         "whitespace-nowrap",
         "-outline-offset-2!",
         "data-[state=active]:text-fg",

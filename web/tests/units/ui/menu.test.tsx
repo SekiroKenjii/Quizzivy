@@ -171,7 +171,7 @@ describe("the menu's rows", () => {
       expect(inside(item)).toEqual([
         "gap-2.25",
         "py-1.75",
-        "leading-[1.265]",
+        "leading-4",
         "data-[disabled]:opacity-45",
         "[&_svg:not([class*='size-'])]:size-3.5",
         "data-[variant=destructive]:text-danger-ink",
@@ -216,7 +216,7 @@ describe("the menu's rows", () => {
       "ml-auto",
       "flex-none",
       "text-xs",
-      "leading-[1.265]",
+      "leading-[0.9375rem]",
       "tabular-nums",
     ]);
     expect(item.lastElementChild).toBe(meta);
@@ -265,7 +265,7 @@ describe("the menu's rows", () => {
           "gap-2.25",
           "py-1.75",
           "pl-2",
-          "leading-[1.265]",
+          "leading-4",
           "data-[disabled]:opacity-45",
         ]);
         const box = row.firstElementChild!;

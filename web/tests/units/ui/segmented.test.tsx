@@ -269,7 +269,14 @@ describe("the two small sizes", () => {
     );
     const button = screen.getByRole("button", { name: "Tiếng Việt" });
     expect(plain(button)).toEqual(
-      expect.arrayContaining(["h-7", "px-2.5", "text-meta", "gap-1.5", "rounded-md"]),
+      expect.arrayContaining([
+        "h-7",
+        "px-2.5",
+        "text-meta",
+        "leading-4",
+        "gap-1.5",
+        "rounded-md",
+      ]),
     );
     expect(plain(button)).not.toContain("px-3");
     expect(plain(button)).not.toContain("text-[0.8125rem]");
@@ -292,7 +299,14 @@ describe("the two small sizes", () => {
     );
     const button = screen.getByRole("button", { name: "Tiếng Việt" });
     expect(plain(button)).toEqual(
-      expect.arrayContaining(["h-6.5", "px-2.5", "text-xs", "gap-1.25", "rounded-md"]),
+      expect.arrayContaining([
+        "h-6.5",
+        "px-2.5",
+        "text-xs",
+        "leading-[0.9375rem]",
+        "gap-1.25",
+        "rounded-md",
+      ]),
     );
     expect(plain(button)).not.toContain("h-7");
     expect(plain(button)).not.toContain("text-meta");
@@ -312,7 +326,12 @@ const SCROLL_TRACK = [
   "overflow-x-auto",
   "[&::-webkit-scrollbar]:hidden",
 ];
-const SCROLL_BUTTON = ["shrink-0", "whitespace-nowrap", "outline-offset-1!"];
+const SCROLL_BUTTON = [
+  "shrink-0",
+  "leading-4",
+  "whitespace-nowrap",
+  "outline-offset-1!",
+];
 
 function place(element: Element, left: number, right: number) {
   vi.spyOn(element, "getBoundingClientRect").mockReturnValue({

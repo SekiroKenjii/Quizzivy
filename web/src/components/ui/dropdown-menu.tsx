@@ -89,7 +89,7 @@ function DropdownMenuItem({
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "data-[variant=destructive]:text-destructive-ink data-[variant=destructive]:focus:bg-destructive/10",
         "[&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "in-data-[scale=deck]:gap-2.25 in-data-[scale=deck]:py-1.75 in-data-[scale=deck]:leading-[1.265] in-data-[scale=deck]:data-[disabled]:opacity-45 in-data-[scale=deck]:[&_svg:not([class*='size-'])]:size-3.5",
+        "in-data-[scale=deck]:gap-2.25 in-data-[scale=deck]:py-1.75 in-data-[scale=deck]:leading-4 in-data-[scale=deck]:data-[disabled]:opacity-45 in-data-[scale=deck]:[&_svg:not([class*='size-'])]:size-3.5",
         "in-data-[scale=deck]:data-[variant=destructive]:text-danger-ink in-data-[scale=deck]:data-[variant=destructive]:focus:bg-hover in-data-[scale=deck]:data-[variant=destructive]:focus:text-danger-ink",
         className,
       )}
@@ -116,7 +116,7 @@ function DropdownMenuCheckboxItem({
       className={cn(
         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-7 text-sm outline-none select-none",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        "in-data-[scale=deck]:gap-2.25 in-data-[scale=deck]:py-1.75 in-data-[scale=deck]:pl-2 in-data-[scale=deck]:leading-[1.265] in-data-[scale=deck]:data-[disabled]:opacity-45",
+        "in-data-[scale=deck]:gap-2.25 in-data-[scale=deck]:py-1.75 in-data-[scale=deck]:pl-2 in-data-[scale=deck]:leading-4 in-data-[scale=deck]:data-[disabled]:opacity-45",
         className,
       )}
       {...props}
@@ -164,7 +164,7 @@ function DropdownMenuMeta({ className, ...props }: React.ComponentProps<"span">)
     <span
       data-slot="dropdown-menu-meta"
       className={cn(
-        "text-muted-fg ml-auto flex-none text-xs leading-[1.265] tabular-nums",
+        "text-muted-fg ml-auto flex-none text-xs leading-[0.9375rem] tabular-nums",
         className,
       )}
       {...props}

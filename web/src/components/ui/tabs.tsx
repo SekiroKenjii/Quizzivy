@@ -47,7 +47,7 @@ function TabsTrigger({
       data-slot="tabs-trigger"
       className={cn(
         "text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-card inline-flex h-7 items-center gap-1.5 rounded-md border-0 bg-transparent px-3 text-[0.8125rem] font-medium transition-colors",
-        "in-data-[scale=deck]:text-muted-fg in-data-[scale=deck]:text-ui in-data-[scale=deck]:h-auto in-data-[scale=deck]:rounded-none in-data-[scale=deck]:px-0.5 in-data-[scale=deck]:pb-2.5 in-data-[scale=deck]:leading-[1.265] in-data-[scale=deck]:whitespace-nowrap in-data-[scale=deck]:-outline-offset-2!",
+        "in-data-[scale=deck]:text-muted-fg in-data-[scale=deck]:text-ui in-data-[scale=deck]:h-auto in-data-[scale=deck]:rounded-none in-data-[scale=deck]:px-0.5 in-data-[scale=deck]:pb-2.5 in-data-[scale=deck]:leading-4.5 in-data-[scale=deck]:whitespace-nowrap in-data-[scale=deck]:-outline-offset-2!",
         "in-data-[scale=deck]:data-[state=active]:text-fg in-data-[scale=deck]:data-[state=active]:bg-transparent in-data-[scale=deck]:data-[state=active]:shadow-[inset_0_-2px_0_var(--fg)]",
         className,
       )}
