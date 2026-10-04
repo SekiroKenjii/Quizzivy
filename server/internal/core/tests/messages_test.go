@@ -18,6 +18,7 @@ var localised = []string{
 	"internal/modules/media/http",
 	"internal/modules/imports/http",
 	"internal/modules/tests/http",
+	"internal/modules/attempts/http",
 }
 
 func TestNoTransportMessageIsVietnameseOnly(t *testing.T) {

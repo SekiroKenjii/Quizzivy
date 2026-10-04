@@ -23,7 +23,7 @@ export function QuestionAudio({
   const maxPlays = question.audio?.maxPlays ?? null;
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-1.5">
       <AudioPlayer
         src={question.media.url}
         label={t("takeTest.audioLabel")}
@@ -39,7 +39,7 @@ export function QuestionAudio({
         onRetry={onExpired}
       />
       {maxPlays !== null && played >= maxPlays && (
-        <p role="status" className="text-muted-foreground text-xs leading-relaxed">
+        <p role="status" className="text-muted-fg text-meta">
           {t("takeTest.extraPlaysRecorded")}
         </p>
       )}

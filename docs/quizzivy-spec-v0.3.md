@@ -1,7 +1,65 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.45 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.47 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.46**
+
+R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), the screens and the engine
+as built (T-R3.5 to T-R3.11):
+
+- §6.2 A signed-in student joins from the Join dialog on Classes and Home. A
+  member is told so from the preview's `classId`; a member's join answers 200,
+  and nothing sends `ALREADY_ENROLLED`. A lookup's answer is remembered for 30
+  seconds.
+- §6.5 The preview returns three fields, `classId` among them.
+- §9 The student shell branches at 768px, with bottom tabs below it. The
+  `/app` rows describe Home, the intro, the result, Classes (cards that are not
+  links) and Settings (Profile, Sign-in, Appearance) as built. The engine has
+  panes, a number strip or a question sheet, and the Submit dialog in place of
+  the review page. Keys are A–E, F and the arrows, which stop at either end.
+  §7.3's sentence on learner material says the same: one pane at a time on a
+  phone, with no collapse state.
+- §10.1 The clipboard listeners are on `document`.
+- §10.2 The focus dialog's body is the deck's, without the seconds away or
+  "the timer keeps running". The intro's start or resume click enters
+  fullscreen; Home's resume card does not, and the engine's bar offers it. The
+  engine leaves fullscreen once the attempt is submitted and records no
+  fullscreen change after that. A blocked copy or paste raises a toast. The
+  timer turns red under five minutes.
+- §10.6 The monitor owns every listener that records or stops a signal. Other
+  hooks listen to the same events and do neither: `useClipboardNotice` for the
+  toast, `useSaveStatus` for the save line, `useVersionWatch` for a newer build.
+  A question's audio player records `audio_play` through `recordAudioEvent`.
+- §12 The student rules: one breakpoint, the page widths, the 44px floor and
+  the controls that keep the deck's size, the dialog frame, the timer's digit
+  cells, larger text in tests. The integrity UI follows the deck on the
+  student side. The teacher console is the only one that still forces light.
+- §7, §13.3, §15 v0.9.0 ships without R2's contract steps. The legacy `role`,
+  the `NOT VALID` owner constraints with their fill triggers and the `/admin`
+  alias stay until v0.9.1 (T-R3.1 to T-R3.3), no earlier than 2026-10-10.
+
+**Changes since v0.45**
+
+R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), the contract (T-R3.4 and
+three fixes):
+
+- §15 A student's assignment card carries `liveAnsweredCount`, and the result
+  carries the paper's `sections` with a `sectionId` on every question
+  (T-R3.4).
+- §15 `startOrResumeAttempt` accepts `resume`; a Continue never starts an
+  attempt (#237).
+- §15 The monitor's `answeredCount` counts by the same rule as
+  `liveAnsweredCount` (#234).
+- §15 A student's assignment card carries `classIds` (#240).
+- §15 A logout the maintenance gate or the limiter refuses, or whose revoke
+  fails, still clears the session cookies (#188, #256).
+- §5.2 A sign-in stores its refresh token under the user's lock and is refused
+  if the account changed meanwhile; the rotations, reuse detections and
+  logouts of one user run one at a time (#248, #279).
+- §5.4 An individual target who is already on an assignment stays on it when
+  disabled (#210).
+- §15 `deleteQuestionGroup` answers `RESOURCE_REFERENCED` (#213).
 
 **Changes since v0.44**
 
@@ -39,7 +97,7 @@ R2, "Access" (v0.8.0, `docs/plan/72-r2.md`):
   owner columns and the join-code columns. §13.5 describes sealed join codes
   and the read-only access tables. §13.7 allows reference data in a migration.
 - §15 Teaching operations move to `/teacher/*`, and the v0.7.0 `/admin/*`
-  paths answer through an alias until R3. `/admin/*` keeps `deleteUser` and
+  paths answer through an alias until R3 (v0.9.1, since v0.47). `/admin/*` keeps `deleteUser` and
   the docs session. Adds `PATCH /auth/me`, `getJoinCode`, the guards' 403s
   and `RESOURCE_REFERENCED`'s `details.referencedBy`.
 - Word import: an import, its sources, review and commit belong to its
@@ -505,6 +563,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   - 503 `MAINTENANCE` → the maintenance overlay.
 - Every request sends `Accept-Language` set to the app's locale, so server messages match the UI rather than the browser.
 - Reuse detection: presenting an already-rotated token revokes the whole family and forces re-login.
+- **Races.** A sign-in stores its refresh token under a lock on the user and compares the account with what it read: if the password, the session epoch or the disabled state changed meanwhile, a password sign-in answers `INVALID_CREDENTIALS` and a Google sign-in reads the account again. A rotation and a logout take the lock an update of the user takes, so one user's rotations, reuse detections and logouts run one at a time and none overlaps a reset, a disable or a password change: a session never survives the event that should have ended it.
 - **Session epoch.** `users.session_epoch` ends live sessions at once. Sign-in, Google sign-in and refresh put the user's current epoch in the access token (claim `sep`; a token without it reads as 0), and a token older than the user's epoch is refused (§5). In R2 two writes move it, each in the same transaction that revokes every refresh family the student has: disabling a student (`updateStudent` with `disabled: true`) and resetting a student's password (`resetStudentPassword`). Enabling the account again does not bring those sessions back. R5's sign-out-everywhere, role changes and set-password links move it too (70 §4.2).
 - **A disabled user is refused on the next request.** Every gated request reads `disabled_at` through the principal cache (§5): at once on the machine that made the change, within 10 seconds on any other. Refresh refuses a disabled user and revokes the family, so the client's refresh ends the session.
 
@@ -541,7 +600,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   The contract enforces the first two (`400 VALIDATION_FAILED`) and the server the third (`400 PASSWORD_UNCHANGED`). Existing passwords are never re-validated. `/change-password` shows the rules and a strength meter.
 - `/forgot-password` makes no request. It tells a Google user that no password is needed, and everyone else to ask the front desk (§4, when configured) or their teacher.
 - **Guards that are not permissions** (70 §4.3), enforced by the server. A guard on a student runs after the student is found in the caller's scope, so another teacher's student answers `404`, never `403`.
-  - **Strict student targets.** Every student read and write (the Students list and record, update, reset and delete, class membership, individual assignment targets, the dashboard's counts and `maintenance anonymize-student`) accepts only a role in `app.student_like_roles`: the built-in Student, or a custom role granted nothing but `learning.take_tests`. An Admin with "Take tests" turned on is never a student target.
+  - **Strict student targets.** Every student read and write (the Students list and record, update, reset and delete, class membership, individual assignment targets, the dashboard's counts and `maintenance anonymize-student`) accepts only a role in `app.student_like_roles`: the built-in Student, or a custom role granted nothing but `learning.take_tests`. An Admin with "Take tests" turned on is never a student target. For an assignment's individual targets the rule applies to a target being added: a student who is already a target stays on the assignment when they are disabled or their role stops being student-like, so the teacher can still publish, edit and close it (#210).
   - **The subset rule.** `updateStudent`, `resetStudentPassword` and `deleteUser` need the target's permissions, without `learning.take_tests`, to be a subset of the caller's (`access.CanActOn`); otherwise `403 FORBIDDEN`. 70 §4.3 lists the R5 operations it will also cover.
   - **Disabling.** `updateStudent` with `disabled`, either value, also needs `people.users.manage`; otherwise `403 FORBIDDEN`.
   - **Shared students.** A reset, or a new `email`, by a caller without `people.users.manage` needs a student no one else reaches: every class they are in, archived ones included, is the caller's; no other account created them; no other account's assignment targets them individually; and a student in no class was created by the caller. Otherwise `403 STUDENT_SHARED`, and nothing is written. Sending the address the student already has is not a change. A new address could take the account over through Google sign-in, which links by email (§5.1).
@@ -583,14 +642,18 @@ A join code belongs to a class and is a **bearer secret**: whoever holds it can 
                      → signed in: POST /app/classes/join at once
                      → Joined: "Bạn đã vào lớp {class}", "Đến lớp của tôi" → /app/classes
 /join/:code/confirm  → redirects to /join/:code
+/app, /app/classes   → "Tham gia lớp" opens the Join dialog for a signed-in student:
+                       the same field and preview, then POST /app/classes/join
 ```
 
 The preview exists so the student sees **which class they are joining** before authenticating. Never create an account and enrol in one blind tap.
 
 - **Typing.** The field uppercases, drops spaces and dashes, and shows a dash after four characters. A character the alphabet never uses (`0`, `O`, `1`, `I`) marks the field invalid and sends nothing.
-- **Lookup.** One lookup runs per complete code, after a 250 ms debounce. Every failure (invalid, expired, exhausted, revoked) shows the same message, and nothing about any class reaches the page.
+- **Lookup.** One lookup runs per complete code, after a 250 ms debounce. Every failure (invalid, expired, exhausted, revoked) shows the same message, and nothing about any class reaches the page. An answer is remembered for 30 seconds, a refusal as much as a class, so retyping a code sends nothing. An edit does not abandon a lookup already out, which the server has counted. A lookup that could not be made is sent again only when the code is retyped.
 - **Signed out.** The join context (code, class name, teacher) is kept for 30 minutes in `sessionStorage` across sign-in. A must-change-password account goes through `/change-password` first, and the join then continues.
-- **Outcomes.** `ALREADY_ENROLLED` counts as joined. Any other enrolment failure shows its message on the Joined page. An account that is not a student is told that joining is for student accounts.
+- **In the app.** A signed-in student joins without leaving the page. "Tham gia lớp" on Classes, and on Home for a student in no class with nothing assigned, opens the Join dialog: the same field and lookup, the class found (name and teacher) and "Tham gia", which calls `POST /app/classes/join`. On success the class and assignment lists refetch, a toast says "Bạn đã vào lớp {class}" and the dialog closes; it waits for the class list first, for at most three seconds. A 429 shows the server's message with the wait from `Retry-After`. The typed code and the state of a join are forgotten when the dialog closes. `/join` and `/join/:code` stay for links and QR codes.
+- **Already a member.** The dialog compares the preview's `classId` with the student's own classes (`GET /app/classes`): a member reads "Bạn đã ở trong lớp này rồi." and cannot join. The server checks the code's state before membership, so a member who types a dead code reads the failure message. The enrolment is idempotent: a member's join answers 200 with the class and counts no use of the code, so on `/join` it reads as joined.
+- **Outcomes.** On `/join` an enrolment failure shows its message on the Joined page. In the dialog a code that died after the preview shows the failure message, and any other failure "Không thể tham gia lớp. Vui lòng thử lại." An account that is not a student is told that joining is for student accounts.
 
 ### 6.3 Why Google-only for self-join
 
@@ -621,7 +684,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
 - **Bounded bodies.** The four operations with a bucket keyed on a body field (login, Google sign-in, the preview and the in-app join) accept at most 8 KiB and answer `413` before any handler, so padding cannot hide the key from its bucket.
 - **Constant-time comparison** on code lookup; look up by a keyed hash (HMAC-SHA256) of the normalized code, not by plaintext equality. A code issued before v0.8.0 is found by its SHA-256 until R4 rotates it.
 - No audit row or log line carries a code, its ciphertext or its hash.
-- `POST /join/preview` returns **only** class name and teacher display name — never student names, never counts, never IDs. It is an unauthenticated endpoint.
+- `POST /join/preview` returns exactly three fields: the class's id, its name and the teacher's display name. Never student names, counts, a member list or assignment titles. The id is a uuidv7: it reveals only when the class was created and grants nothing by itself. The Join dialog uses it to tell a student who is already a member (§6.2). It is an unauthenticated endpoint.
 - Log every enrolment (`class_id`, `user_id`, `ip`, `user_agent`, `at`) to the audit table.
 - Expiry defaults to 30 days precisely so an abandoned code stops working on its own.
 
@@ -634,7 +697,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
 Mirrors §13. IDs are UUID strings; timestamps ISO 8601 UTC.
 
 ```ts
-type Role = 'admin' | 'student';        // legacy: 'student' for a student-like role (§5.4), 'admin' for any other; R3 removes it
+type Role = 'admin' | 'student';        // legacy: 'student' for a student-like role (§5.4), 'admin' for any other; v0.9.1 (T-R3.1) removes it
 
 interface User {
   id; email; fullName; role: Role;
@@ -938,9 +1001,12 @@ port after attempt authorization. Shared media is reachable only through protect
 relational bindings on a version the learner has an attempt on; assignment
 targeting alone grants no media access. A missing context reader fails explicitly
 instead of serving grouped questions without their materials. Learner material
-uses the preview renderer: side-by-side with answers when space permits, above
-answers on phones with remembered collapse state. Shared audio controls remain
-available while material text is collapsed. Stable gap targets navigate to the
+is drawn by the renderer the teacher's preview shares: in a passage pane beside
+the question from 768px, and below 768px behind the "Ngữ liệu | Câu n" switcher,
+which shows one pane at a time, the question first (§9). Shared recordings are
+drawn in the question pane at every width, never in the passage, so their
+controls show whenever the question does; below 768px they are out of view while
+the passage is showing, and stay mounted. Stable gap targets navigate to the
 question or blank input without losing pending answers. Group players stay mounted
 across child navigation.
 
@@ -991,25 +1057,29 @@ Admin list behaviour (approved change request, 2026-09-22):
 
 ## 9. Screens & routes — student and public
 
-`StudentLayout`: minimal top bar, no sidebar, mobile-first, safe-area padding.
-Navigation branches at 1024px; the route outlet stays mounted across that
-breakpoint. Home and classes fill the available width with adaptive card grids.
-Intro and results are centred at a maximum 720px reading width, with
-facts and primary actions in the same flow. The focus engine retains a separate
-resizable question navigator (256px default, 224–384px), with a preference
-independent of the teacher panel. `AuthLayout` is the brand frame for sign-in, forgot password, the Google callback, change password and join. The brand panel shows from 900px, except on join and its Joined state, which stay one column at every width. The system pages use `SystemFrame`.
+`StudentLayout` is the deck's student shell: a 60px top bar, no sidebar,
+safe-area padding, and one route outlet that stays mounted at every width. It
+branches at 768px. From 768 the bar holds the destinations beside the logo
+(Home, Classes). Below 768 they are a bottom tab bar (Home, Classes, Me), and a
+detail screen (the intro, the result, Settings) swaps the logo for a back arrow
+and its title and hides the tabs. A destination whose module has not shipped is
+absent: Learn, Grades, Messages and the bell in v0.9.0. Home's item carries a
+badge, the papers still to do that close within seven days (DG-82). The avatar
+button opens the account menu: Settings, the light or dark theme, Sign out.
+Each page is one centred column with its own maximum width (§12). The focus
+engine has no navigator column and no stored width. `AuthLayout` is the brand frame for sign-in, forgot password, the Google callback, change password and join. The brand panel shows from 900px, except on join and its Joined state, which stay one column at every width. The system pages use `SystemFrame`.
 
 | Route | Layout | Key behaviour |
 |---|---|---|
 | `/join`, `/join/:code` | Auth (one column) | §6.2: inline preview, then Joined. Every failed lookup shows one plain message, with no hint about which classes exist. `/join/:code/confirm` redirects to `/join/:code`. |
 | `/login` | Auth | Password form + "Tiếp tục với Google". One message for an unknown email, a wrong password and a disabled account; a 429 shows the server's message. In a join context the subtitle names the class and a successful sign-in continues the join. |
 | `/forgot-password` | Auth | Static help (§5.4); no request. |
-| `/app` | Student | All in-progress attempts ordered by deadline, then available / upcoming / completed (score if allowed). Class and status filters in the URL, clear-filter empty state. Available cards say "Xem chi tiết"; only the intro starts the clock. |
-| `/app/assignments/:id` | Student | Intro: title, instructions, duration, attempts used/allowed, review policy, **integrity rules stated plainly**, audio rules if any (the allowed plays and that additional plays are recorded, per §11.4). Start / Resume. A start that would run into a scheduled maintenance window is refused (`409 MAINTENANCE_SCHEDULED`) with the server's message. |
-| `/app/attempts/:id` | Focus | The engine. §10, §11.3. |
-| `/app/attempts/:id/result` | Student | Score (if allowed), per-question review honoring `review.*`, transcript if `showTranscriptAfterSubmit`. "Pending grading" notice when the score is published and `pendingManual > 0`. Summary above answers, full paper title on phones. Wrong-answer filters exist only when scores are published; empty filters explain why and offer all questions. |
-| `/app/classes` | Student | Classes joined with assignment counts and links to `/app?classId=…`; one join action → `/join`. |
-| `/app/settings/:section?` | Student | Profile (default), security and preferences share section navigation with teacher settings. Forms remain mounted while changing section or viewport; mobile uses a section select. |
+| `/app` | Student | Home. A greeting for the time of day and one line about what is next. The resume card for the attempt in progress that closes soonest; "Tiếp tục làm bài" resumes it at once. Coming up: every other paper still to do, each row a link to its intro, with a pill (in progress, due today or tomorrow inside 24 hours, open now, opens …). Recent results, newest first: the score if allowed, "being graded" or "submitted", each a link to its result. No filters. Only the intro starts the clock. A student in no class with nothing assigned is offered the Join dialog (§6.2). |
+| `/app/assignments/:id` | Student | Intro: class and title, three facts (time limit, questions, attempts used of allowed), and "Trước khi bắt đầu": **the rules stated plainly**, generated from the stored policy and dates (availability, the timer, fullscreen, copy and paste, leaving, the audio plays per §11.4, what the result shows). "Bắt đầu làm bài" asks "Bắt đầu ngay?" first; "Tiếp tục làm bài" resumes at once. A test not yet open, closed or with no attempts left says so in the button's place. A start the server refuses says why above the button: `409 MAINTENANCE_SCHEDULED`, for a start that would run into a maintenance window, with the server's message. |
+| `/app/attempts/:id` | Focus | The engine (below). §10, §11.3. |
+| `/app/attempts/:id/result` | Student | The summary card (the score ring if allowed, the class, the title, one sentence on where grading stands), tiles, then every answer honoring `review.*`, with the transcript if `showTranscriptAfterSubmit`. While answers wait for the teacher the ring shows the score so far and the tiles say what waits. A line names what the policy hides. Filters All / Wrong / Waiting: Wrong only when scores are shown, Waiting only when something waits; an empty filter says so and offers all questions. The phone header reads "Kết quả". |
+| `/app/classes` | Student | The classes joined, as cards: name, description, teacher, and "Next", the paper that comes next in that class. A card is not a link, and nothing here leaves a class. One action, "Tham gia lớp", opens the Join dialog (§6.2). |
+| `/app/settings/:section?` | Student | Profile (default: name, email read-only, language), Sign-in (password, Google) and Appearance (theme, "Chữ lớn hơn khi làm bài"), under a segmented switcher. Every section stays mounted, so a form survives a change of section or of width. The old slugs redirect: `security` to `sign-in`, `preferences` and any unknown slug to Profile. |
 
 Shared:
 
@@ -1029,7 +1099,7 @@ Shared:
 - **Slow:** eight seconds without a step shows "Tải lâu hơn bình thường" and "Tải lại".
 - **Offline:** a session restore that got no HTTP response shows "Mất kết nối" and retries after a ten-second countdown, or as soon as the browser is back online.
 
-**Overlays** stand over a mounted page, which becomes inert; focus moves into the overlay. Over the old consoles, which force light until their rebuild (R3, R4), the overlays are light too.
+**Overlays** stand over a mounted page, which becomes inert; focus moves into the overlay. Over the teacher console, which forces light until R4 rebuilds it, the overlays are light too.
 
 - **Maintenance** closes when `GET /public/status` reports no window under way. It checks on "Kiểm tra lại", and every minute while the user is active. Closing refetches everything.
 - **Sign in again** (§5.2).
@@ -1038,14 +1108,44 @@ Shared:
 
 ---
 
-Student answers awaiting server confirmation are cached locally per student,
-attempt and session until saved or closed. They may be restored before the
-server deadline after a reload; a superseded session must not overwrite a newer
-session's answers. Explicit sign-out clears the local cache. Manual submission
-waits for pending saves and stays open if the final answer cannot be saved.
-Keyboard A–D and F work after selecting an option; arrows navigate questions
-except inside text editors or other controls that own those keys. The last
-right-arrow opens review. Dialogs suspend shortcuts.
+**The engine** shows one question at a time.
+
+- **Header.** The ✕ ("Thoát khỏi bài làm"), from 768 the title over the save
+  line, the timer, and "Nộp bài". The ✕ asks first, except on a locked paper,
+  which it leaves at once and without saving. Leaving saves what is
+  unsaved and goes to `/app`; a save that fails keeps the student on the paper.
+  Below 768 the header has no save line. A strip under it carries one only when
+  a save has failed or the device is offline with an answer unsaved, never for
+  a save on its way, and carries the strike count where the assignment sets a
+  limit (§10.2). A locked paper (taken over, out of time, ended) says why in a
+  bar under the header at every width.
+- **Panes.** A question whose group has something to read shows a passage pane
+  beside the question pane from 768, each scrolling by itself. Below 768 a
+  "Ngữ liệu | Câu n" switcher shows one at a time, the question first and again
+  after every move.
+- **Footer.** Under the question pane: Previous, the questions, and Next, which
+  is "Hoàn tất" on the last question. From 768 the questions are a strip of
+  numbered squares. Below 768 a button ("4 / 8 · đã trả lời 3") opens them in a
+  bottom sheet. A square shows answered, current and flagged, and on a paper of
+  several parts the strip and the sheet keep the parts apart.
+- **Submitting.** "Nộp bài" in the header and "Hoàn tất" open the Submit
+  dialog, the only way a student hands a paper in: answered, flagged, time left, and a
+  "Đến câu" chip for each unanswered question. There is no review page.
+  Submitting saves what is unsaved first. A submission that fails says so in
+  the dialog, which stays open. The submitted screen offers Home and the
+  submitted paper.
+- **An unknown type.** A question of a type the page has no renderer for shows
+  a block that names it and offers a reload, and takes no answer.
+- **Local drafts.** Student answers awaiting server confirmation are cached
+  locally per student, attempt and session until saved or closed. They may be
+  restored before the server deadline after a reload; a superseded session must
+  not overwrite a newer session's answers. Explicit sign-out clears the local
+  cache.
+- **Keys.** A–E choose an option; a sixth has no key, because F flags the
+  question. The arrows move between questions and stop at either end. Esc
+  closes a dialog or the sheet. None acts in a text field or another control
+  that owns the key, with Ctrl, Alt or the command key held, while a dialog or
+  the question sheet is open, or on a locked paper.
 
 ## 10. Integrity monitoring (proctoring-lite)
 
@@ -1060,7 +1160,7 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 | `tab_hidden` / `tab_visible` | `document.visibilitychange` | Primary tab-switch signal; pair to compute away-duration. |
 | `window_blur` / `window_focus` | `window` blur/focus | Catches alt-tab to another **application** — the Visibility API alone misses this. |
 | `fullscreen_enter` / `fullscreen_exit` | Fullscreen API | Only when `requireFullscreen` is on. |
-| `copy` / `cut` / `paste` | listeners on the question container | Always recorded; **blocked** only when `blockCopyPaste` is on. |
+| `copy` / `cut` / `paste` | listeners on `document` | Always recorded; **blocked** only when `blockCopyPaste` is on. |
 | `context_menu` | `contextmenu` | Recorded; blocking off by default (it breaks assistive tooling). |
 | `network_offline` / `network_online` | `navigator.onLine` + fetch failures | Distinguishes cheating from bad wifi. Matters for fairness. |
 | `audio_play` / `audio_ended` / `audio_blocked` | player (§11.4) | Drives `maxPlays` and gives the teacher listening behaviour. |
@@ -1076,11 +1176,22 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 
 Announced, visible, never silent.
 
-- The intro page states the active rules in plain Vietnamese before starting. If `requireFullscreen` is on, the "Bắt đầu" click is what enters fullscreen (browsers require a gesture).
-- First violation: a non-dismissible dialog — what happened, strikes remaining, what happens at zero. The timer keeps running.
-- A small persistent indicator shows remaining strikes when a limit is set. `maxFocusLoss = 0` retains the unlimited default; `-1` permits no counted departure; positive values permit that many departures.
+- The intro page states the active rules in plain Vietnamese before starting, generated from the stored policy (§9). If `requireFullscreen` is on, the intro's click that starts or resumes the attempt is what enters fullscreen (browsers require a gesture): "Bắt đầu" in the "Bắt đầu ngay?" dialog, or the intro's "Tiếp tục làm bài". Home's "Tiếp tục làm bài" (§9) goes straight to the paper and does not ask for fullscreen: the engine opens outside it and shows the fullscreen bar described below. A browser with no fullscreen is told so and takes the test as normal.
+- Each counted absence opens the deck's `alertdialog` when the student returns: "Bạn vừa rời trang làm bài", one body and one button, "Quay lại bài làm". The body says where the student stands and what happens next, and only what the server does:
+  - within the allowance, "Lần này được tính là lần n trong m lần được phép…";
+  - past it under `flag`, that the teacher has been told and the answers are safe (D8);
+  - past it under `warn`, the count and that the answers are safe, never naming the teacher;
+  - with no absence allowed (`-1`), that leaving is not allowed, with no number;
+  - under `auto_submit`, that the test is submitted after the allowance, and at the last one that the next absence submits it;
+  - with no limit, that leaving is recorded, once a sitting.
+
+  The body does not state the seconds away or that the timer keeps running: the timer is on screen. The dialog does not close from the backdrop and has no close button; the button and `Esc` acknowledge it.
+- A small persistent indicator shows remaining strikes when a limit is set: after the save line from 768, in the strip under the header below it (§9). Past the allowance it reads "Giáo viên đã được báo" under `flag`. `maxFocusLoss = 0` retains the unlimited default; `-1` permits no counted departure; positive values permit that many departures.
 - `onLimitExceeded`: `warn` = dialog only; `flag` = attempt marked for the admin, student told; `auto_submit` = immediate submission on exceeding the count, retaining answers for grading and recording the violation. There is no cancellation or extra strike. The final answer/event batch is saved before the server grades and closes. While offline, the attempt is locked locally, pending answers are retained and submission is retried with a visible notice.
-- Fullscreen exit shows a "Quay lại toàn màn hình" button. Never trap the student: `Esc` always works and there is always a visible way to leave and submit.
+- Fullscreen exit shows a bar under the header with a "Quay lại toàn màn hình" button, or one sentence on a browser with no fullscreen. It is a bar, never a dialog. Never trap the student: `Esc` always works and there is always a visible way to leave and submit.
+- Once the attempt is submitted on an assignment that requires fullscreen, by the student, the timer or an auto-submit, the engine leaves fullscreen itself. That exit is the app's, so from then on no `fullscreen_enter` or `fullscreen_exit` is recorded, the student's own on the submitted screen included. A paper that is locked without a submit (taken over, already ended) stays as it is.
+- Under `blockCopyPaste`, a copy, cut or paste is stopped and recorded, and a danger toast says "Sao chép và dán đã bị tắt trong bài này": one toast, however often.
+- Under five minutes the timer takes the danger tones (D8). A polite live region says the time left once when it passes 5:00 and once when it passes 1:00.
 - While the maintenance or sign-in-again overlay (§9) covers the engine, no focus change is recorded. An away episode already open when one appears is dropped, so time on an overlay never counts against the student.
 - The engine adopts the server's deadline from every autosave (`deadlineAt`). It also adopts it from a timer submit that came too early (`409 DEADLINE_NOT_REACHED`; the server allows 5 s of grace). So a teacher's extension, or a maintenance window's, reaches an open attempt on its next autosave.
 
@@ -1098,7 +1209,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 ### 10.6 Client implementation
 
-- One `useIntegrityMonitor(attemptId, policy)` hook owns all listeners, registered and torn down in a single `useEffect`. No scattered listeners.
+- One `useIntegrityMonitor` hook owns every DOM listener that records a signal or stops one, registered and torn down in a single `useEffect`. One signal is recorded outside it: a question's audio player reports `audio_play` to the same buffer from its play callback, through `recordAudioEvent` (§11.4). Other hooks listen to some of the same events and record and stop nothing: `useClipboardNotice` has its own `copy`, `cut` and `paste` listeners on `document`, only to show §10.2's toast; `useSaveStatus` listens to `online` and `offline` on `window`, only for the save line (§9); `useVersionWatch` listens to `visibilitychange` on `document`, only to look for a newer build (§9). The monitor records and stops whether or not they run.
 - Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`.
 - `clientSeq` is monotonic so the server can order events despite clock skew.
 - Failed background event flushes do not block answering or manual submission.
@@ -1212,7 +1323,18 @@ Deliberate. Do not "improve" them with trendy defaults.
   - `--input`, input borders, 3:1 or more;
   - `--danger-solid` / `--danger-solid-fg`, danger buttons, 4.5:1 or more.
 - **Deck geometry that would change an existing primitive** (control heights, `--radius` and the sm/md/lg radii, the badge and card shapes) applies only inside `data-scale="deck"`, which rebuilt surfaces set on their root. The deck's type steps are global tokens, but the pre-R1 steps keep their values, so an old screen does not shift. Sizes that exist only in the deck have their geometry everywhere (button `md`, `xl` and `icon-xl`, the new avatar sizes, the toast).
-- **The old consoles** (the admin, student and focus layouts) keep their layouts and force light (`useForcedLightTheme`) until their release rebuilds them: R3 the student app and engine, R4 the teacher console. R5 makes the deck geometry the default and removes `data-scale` (T-R5.30).
+- **The teacher console** (the admin layout) keeps its layout and forces light (`useForcedLightTheme`) until R4 rebuilds it. The student and focus layouts are deck surfaces since R3 and follow the theme. R5 makes the deck geometry the default and removes `data-scale` (T-R5.30).
+
+**The student app and the engine, as built in R3 (v0.9.0).** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119).
+
+- **One breakpoint, 768px.** The shell and the engine change their chrome there and nowhere else: destinations in the top bar or bottom tabs, side-by-side panes or the pane switcher, the number strip or the count button with its sheet. A page keeps its state across it.
+- **One centred column per page:** Home and Classes at most 960px, the test intro 720px, the result 820px, Settings 760px. No page has a side panel. In the engine the passage column is at most 640px and the question column 600px.
+- **Classes** are cards in a grid that fills the row, with 280px as a card's least width. A card is not a link.
+- **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the strip's 34px squares, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the count button and the question sheet's squares are 44px. An option row is at least 52px high.
+- **Dialogs** use the deck's frame: 440px (420px for the "you left the test" alert) or the width less 24px, no close button, the actions at the right; the alert has one button, as wide as the dialog. A dialog with a field sits 12% from the top below 768, so the keyboard does not cover it (DG-103).
+- **The timer** is a pill centred in the header's free space. Each digit sits in a cell one zero wide, because Be Vietnam Pro has no tabular figures and the pill would otherwise change width every second. Under five minutes it takes the danger tones.
+- **Text in a test.** The passage is 16px on a 1.75 line and cannot be selected, the prompt 17px, an option 15px. "Chữ lớn hơn khi làm bài" raises them to 18, 19 and 17px; the choice is stored in this browser until R4's preferences.
+- **Content keeps a light paper surface in dark mode** (DG-35): images and rich tables in the engine and on the result.
 
 The rules below carry over from v0.43, restated in the deck's tokens, except that the shadow and radius limits now follow the deck. Typography, motion, the front door, dark mode and the lime accent are new in R1.
 
@@ -1220,11 +1342,11 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
 - **Primary action: the deck's charcoal `--primary` with `--primary-fg`.** Not blue, not purple, not indigo. The lime `--accent-c` (with its soft and ink tones) marks progress, counts and current states, never a primary button.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
-- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700; the CSP allows no font host). The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student phone buttons, icon controls and question navigation cells are at least 44px in both dimensions; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
+- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700; the CSP allows no font host). The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
-- **Density:** admin tables dense (~40px rows). Student discovery grids use one column on phones, two from 768px, three from 1536px. Reading pages are centred at 720px; settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows. Student test view stays spacious, one question centred at max-width ~720px beside the navigator. This approved review supersedes S-13–S-17's placement of ordinary page content in a right panel.
-- **Action hierarchy:** resume is primary; opening assignment details and entering a class are secondary. Deadline badges turn amber only within 24 hours. The 320px test footer has previous, an icon-only question-list control and a flexible next/review action. Review submission remains outside the scrolling summary. Submission confirmation offers the submitted paper directly.
-- **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. Restored answers say they were loaded; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
+- **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows, until R4 rebuilds them. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
+- **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the count button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
+- **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. The save line says saved, saving, offline or failed; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
 - **Motion.** The deck's keyframes, and what the old consoles still carry:
   - 150ms control feedback, and the settings panels' 150ms ease-out `settings-enter` entrance.
   - A 2px hover lift on cards, on pointer devices (ours; the deck changes the border instead).
@@ -1245,7 +1367,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
   - Content surfaces keep a light `--paper` surface in dark mode (DG-35). The tokens exist, and each surface adopts them when it is rebuilt.
 - **Empty states:** one short sentence + one primary action. No illustrations.
 - **Vietnamese first.** Design for longer Vietnamese strings; avoid fixed-width labels.
-- **Integrity UI is calm.** Plain dialogs, plain text. No alarm iconography, no shame. (D8, decided 2026-09-26, replaces this with the deck's integrity UI when R3 and R4 rebuild the engine and the teacher's roster; until then it holds.)
+- **Integrity UI follows the deck** (D8, decided 2026-09-26). On the student side since R3: the red timer under five minutes, the "Bạn vừa rời trang làm bài" dialog with its eye-off tile, "Giáo viên đã được báo" past the allowance under `flag`, and the danger toast for a blocked copy or paste (§10.2). The words stay plain: no sentence a student reads says "violation" or "cheating", and the product never concludes that a student cheated. The teacher's roster follows in R4; until then it keeps the calm rule: plain text, no alarm iconography.
 
 ---
 
@@ -1296,7 +1418,7 @@ CREATE TABLE app.users (
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
   email         text NOT NULL,
   full_name     text NOT NULL,
-  role          app.user_role NOT NULL DEFAULT 'student',  -- legacy; R3 drops it
+  role          app.user_role NOT NULL DEFAULT 'student',  -- legacy; v0.9.1 (T-R3.1) drops it
   role_id       uuid NOT NULL REFERENCES app.roles(id) ON DELETE RESTRICT,
   password_hash text,                              -- NULL = Google-only account
   must_change_password boolean NOT NULL DEFAULT false,
@@ -1355,7 +1477,7 @@ CREATE TABLE app.role_permissions (
 
 `permissions` is plan 70 §4.1's catalogue. A migration writes the catalogue, the four built-in roles and their grants (`docs/plan/20-data-model.md` D-21). A custom role has no `builtin_key`, and no role's `builtin_key` changes. The Admin stores no grant but `learning.take_tests`: it holds every other key as the wildcard. Triggers refuse a hidden key for any role and keep `learning.take_tests` on the built-in Student, and every grant change bumps the role's `revision`. The view `app.student_like_roles` is the one definition of a strict student target (§5.4): the built-in Student, or a custom role holding nothing but `learning.take_tests`.
 
-`users.role_id` replaces `users.role`. Until R3 both exist, and a trigger keeps them in step for the v0.7.0 binary; `role_id` is `NOT NULL … NOT VALID` until R3 validates it and drops `role` and `app.user_role`. The trigger `users_last_admin` refuses a demotion, disable or delete that would leave no active Admin. An access token carries the user's `session_epoch`, and a token below the stored value is refused; a disable and a staff password reset bump it (§5). `created_by` names the staff member who created the account; it is NULL for an account older than R2 and for a Google self-join. Details: `docs/plan/20-data-model.md` §29–§30.
+`users.role_id` replaces `users.role`. Until v0.9.1 (T-R3.1) both exist, and a trigger keeps them in step for the v0.7.0 binary; `role_id` is `NOT NULL … NOT VALID` until v0.9.1 validates it and drops `role` and `app.user_role`. The trigger `users_last_admin` refuses a demotion, disable or delete that would leave no active Admin. An access token carries the user's `session_epoch`, and a token below the stored value is refused; a disable and a staff password reset bump it (§5). `created_by` names the staff member who created the account; it is NULL for an account older than R2 and for a Google self-join. Details: `docs/plan/20-data-model.md` §29–§30.
 
 **Classes and join codes** (§6):
 
@@ -1498,7 +1620,7 @@ test_version_blanks / test_version_blank_answers
 
 Snapshotting into **normalized rows** rather than one `jsonb` blob keeps per-question analytics a plain SQL query later. `source_question_id` preserves the bank link without coupling to it. `media_asset_id` points at the same immutable asset — the file is never copied.
 
-**Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Until R3 the owner columns are `NOT NULL … NOT VALID`, and triggers fill them for the v0.7.0 binary's inserts. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
+**Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Until v0.9.1 (T-R3.2) the owner columns are `NOT NULL … NOT VALID`, and triggers fill them for the v0.7.0 binary's inserts. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
 
 **Assignments and attempts:**
 
@@ -1716,28 +1838,38 @@ POST   /admin/docs-session              opens the API reference for fifteen minu
 # student
 POST   /app/classes/join                {joinCode} → Class      (already-authed path)
 GET    /app/classes
-GET    /app/assignments                 → {dueNow,upcoming,completed}
+GET    /app/assignments                 → {dueNow,upcoming,completed}; a card with a live attempt
+                                          carries liveAnsweredCount
 GET    /app/assignments/:id
 POST   /app/assignments/:id/attempts    → create or resume → Attempt + ordered questions + sessionId
                                           409 MAINTENANCE_SCHEDULED {startsAt, endsAt} for a start
                                           that would run into a window
+                                          startOrResumeAttempt accepts resume; a Continue never
+                                          starts an attempt (#237)
 GET    /app/attempts/:id                → Attempt + questions + serverTime + audioPlays
 PATCH  /app/attempts/:id/answers        {sessionId,answers:[...],events:[...]} → {savedAt, serverTime, deadlineAt}
 POST   /app/attempts/:id/events         standalone flush (sendBeacon path)
 POST   /app/attempts/:id/audio-play     {questionId} → {plays, maxPlays}
 POST   /app/attempts/:id/submit         idempotent; 409 if already closed; 409 DEADLINE_NOT_REACHED
                                           {deadlineAt} for timer_expired more than 5 s early
-GET    /app/attempts/:id/result
+GET    /app/attempts/:id/result         → Attempt + review policy + sections + questions,
+                                          each question naming its sectionId
 GET    /app/media/:assetId/url          → short-lived signed URL
 ```
 
-**Prefixes.** `/teacher/*` holds the teaching operations, `/admin/*` the platform's, `/app/*` the student's and `/auth/*` the caller's own session and account. Every operation that requires a bearer token declares its permission as `x-permission` (§5). Under `/teacher/*` and `/app/*`, an id the caller does not reach answers exactly as a missing one does. The v0.7.0 paths under `/admin/*` that moved still answer until R3: the server rewrites each to its new path (`DELETE /admin/students/:id` becomes `DELETE /admin/users/:id`) and logs `legacy_admin_path`.
+**Prefixes.** `/teacher/*` holds the teaching operations, `/admin/*` the platform's, `/app/*` the student's and `/auth/*` the caller's own session and account. Every operation that requires a bearer token declares its permission as `x-permission` (§5). Under `/teacher/*` and `/app/*`, an id the caller does not reach answers exactly as a missing one does. The v0.7.0 paths under `/admin/*` that moved still answer until v0.9.1 (T-R3.3): the server rewrites each to its new path (`DELETE /admin/students/:id` becomes `DELETE /admin/users/:id`) and logs `legacy_admin_path`.
 
 **`CurrentUser`** is `User`'s fields plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.
 
-`deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`) answer `RESOURCE_REFERENCED` without details.
+`deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`, `deleteQuestionGroup`) answer `RESOURCE_REFERENCED` without details.
 
-**During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it.
+**During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it. A `POST /auth/logout` refused this way still clears the refresh and docs cookies when it carried the refresh cookie. The family is not revoked: the device is signed out, but a copy of the token held elsewhere stays usable for as long as it is rotated, because each rotation renews the lifetime and the cleared cookie can no longer trigger reuse detection; only a password reset, a disable or a password change ends it. The same holds for a logout the limiter refuses (429) and one whose revoke fails (500).
+
+**`liveAnsweredCount`** on a student's assignment card is the number of the live attempt's saved answers that say something, by the rule the engine's navigator applies (`web/src/features/take-test/answered.ts`): a choice with an option picked, a true/false with a value, a text that is not blank, and a fill-in with every blank of the frozen question filled. Blank means empty after removing the whitespace JavaScript's `trim()` removes. An answer that exists only in the browser's draft is not counted. The field is absent when there is no live attempt. The teacher's monitor applies the same rule to a row's `answeredCount`, so a saved answer the student has since cleared counts on neither screen.
+
+**`classIds`** on a student's assignment card is every class the assignment targets that contains the student and is not archived, empty for a student targeted only by name, so a paper given to two of the student's classes can be next on both class cards; `classId` and `className` are set only when it holds exactly one class.
+
+**The result's `sections`** are the paper's parts in test order, and every result question names its `sectionId`. Both are present under every review policy, because the attempt already showed the student its parts; the page sums a part's score from its questions' `earned`, which the policy still gates.
 
 List endpoints return `{ items, nextCursor }` (keyset, §13.8). Student payloads never include `isCorrect`, `sampleAnswer`, `acceptedAnswers`, or `transcript` (the last only per `showTranscriptAfterSubmit`, on the result endpoint).
 

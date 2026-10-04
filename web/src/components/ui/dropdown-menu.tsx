@@ -3,6 +3,7 @@ import { DropdownMenu as Primitive } from "radix-ui";
 
 import { Check } from "lucide-react";
 
+import { useDeckScale } from "@/components/ui/deck-scale";
 import { cn } from "@/lib/utils";
 
 function DropdownMenu(props: React.ComponentProps<typeof Primitive.Root>) {
@@ -18,10 +19,12 @@ function DropdownMenuContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof Primitive.Content>) {
+  const deck = useDeckScale();
   return (
     <Primitive.Portal>
       <Primitive.Content
         data-slot="dropdown-menu-content"
+        data-scale={deck ? "deck" : undefined}
         sideOffset={sideOffset}
         className={cn(
           "bg-popover text-popover-foreground z-50 min-w-40 overflow-hidden rounded-md border p-1 shadow-md",

@@ -192,6 +192,15 @@ export interface paths {
          *     access token must not be able to strand a live refresh family: the one
          *     moment a user most wants to log out is the moment their session has
          *     gone strange.
+         *
+         *     A logout that is refused or fails still clears the refresh and docs
+         *     cookies when the request carried the refresh cookie: during a
+         *     maintenance window (`503 MAINTENANCE`), over the rate limit
+         *     (`429 RATE_LIMITED`) and when the revoke fails (`500 INTERNAL`). In
+         *     none of the three is the family revoked: this device is signed out,
+         *     but a copy of the token held elsewhere stays usable for as long as it
+         *     is rotated, and only a password reset, a disable or a password change
+         *     ends it. A request without the cookie gets nothing cleared.
          */
         post: operations["logout"];
         delete?: never;
@@ -618,7 +627,9 @@ export interface paths {
         put?: never;
         /**
          * @description A-06a's "Nhân bản": copies the question, its options, blanks and
-         *     tags into a new bank row that no test references yet.
+         *     tags into a new bank row that no test references yet. A source whose
+         *     media asset has been deleted, or that no longer validates, answers
+         *     `VALIDATION_FAILED` as a create would; nothing is copied.
          */
         post: operations["duplicateQuestion"];
         delete?: never;
@@ -1746,6 +1757,10 @@ export interface paths {
          *     `min(now + durationMinutes, closesAt)` and is authoritative. The client
          *     derives remaining time from it plus the `serverTime` offset, never from
          *     the device clock.
+         *
+         *     A caller that means to continue a known attempt sends `resume`; a
+         *     Continue button must, so that an attempt whose time ran out while the
+         *     page was open is not answered with a new one.
          */
         post: operations["startOrResumeAttempt"];
         delete?: never;
@@ -2157,7 +2172,11 @@ export interface components {
         };
         /**
          * @description Stable, machine-readable. **The only thing clients branch on.** Copy is
-         *     driven by `message`, never reconstructed from this.
+         *     driven by `message`, never reconstructed from this, with two exceptions
+         *     the web app words itself, as the design deck draws them:
+         *     `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
+         *     the change-password forms. The server still sends a localised `message`
+         *     for both, for any other client.
          * @enum {string}
          */
         ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
@@ -2168,8 +2187,18 @@ export interface components {
         ErrorDetail: {
             code: components["schemas"]["ErrorCode"];
             /**
-             * @description Already localized server-side from `Accept-Language`, `vi` by
-             *     default. Display it; do not build copy from `code`.
+             * @description Copy for the user, written by the server; `vi` by default.
+             *     Localised from `Accept-Language` where an operation's own handler
+             *     writes the refusal, for: the auth, account, student and class
+             *     operations; the media and Word import operations; a refused Start
+             *     or Continue of a test and a result that cannot be shown yet; the
+             *     `RESOURCE_REFERENCED` refusal of `createDraftFromTestVersion`; the
+             *     maintenance answer; and request validation. The answers shared
+             *     middleware writes on every operation (401, 403, 413, 429, 500,
+             *     501, and the 400 for a body that cannot be read) and every other
+             *     refusal a handler writes are Vietnamese until issue 284 is fixed.
+             *     Display it; do not build copy from `code`, except for the two
+             *     codes the `ErrorCode` description names.
              * @example Mã lớp không hợp lệ.
              */
             message: string;
@@ -2692,8 +2721,9 @@ export interface components {
             usedIn?: components["schemas"]["ReferencingTest"][];
         };
         /**
-         * @description The intro screen's card: everything StudentAssignmentCard carries plus
-         *     the policies §10.2 states in plain Vietnamese before the student starts.
+         * @description The intro screen's card: what StudentAssignmentCard carries, without
+         *     `classId`, `classIds` and `liveAnsweredCount`, plus the policies §10.2 states in
+         *     plain Vietnamese before the student starts.
          */
         StudentAssignmentDetail: {
             id: components["schemas"]["Uuid"];
@@ -3276,6 +3306,8 @@ export interface components {
          */
         ResultQuestion: {
             id: components["schemas"]["Uuid"];
+            /** @description The part of the paper this question belongs to, one of the result's `sections`. Present under every review policy: the paper already showed the student which part a question was in. */
+            sectionId: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
@@ -3838,7 +3870,7 @@ export interface components {
             deadlineAt?: string | null;
             /** Format: date-time */
             submittedAt?: string | null;
-            /** @description Questions with a saved answer, against the response's `questionCount` (G-02's progress column). */
+            /** @description Questions whose saved answer says something, by the rule of `StudentAssignmentCard.liveAnsweredCount`, against the response's `questionCount` (G-02's progress column). */
             answeredCount?: number | null;
             score?: components["schemas"]["AttemptScore"] | null;
             focusLossCount?: number | null;
@@ -3895,13 +3927,15 @@ export interface components {
         StudentAssignmentCard: {
             id: components["schemas"]["Uuid"];
             testTitle: string;
-            /** @description The class this assignment reached the student through. Null unless exactly one targeted class contains them. */
+            /** @description The class this assignment reached the student through. Null unless exactly one targeted class that is not archived contains them. */
             className?: string | null;
             /**
              * Format: uuid
              * @description The id behind `className`, so S-17 can count a class's papers. Null when `className` is.
              */
             classId?: string | null;
+            /** @description Every class this assignment targets that contains the student and is not archived, so each class card can name its next paper. Empty for a student targeted only by name. */
+            classIds?: components["schemas"]["Uuid"][];
             status: components["schemas"]["AssignmentStatus"];
             opensAt: components["schemas"]["Timestamp"];
             closesAt: components["schemas"]["Timestamp"];
@@ -3923,9 +3957,11 @@ export interface components {
             hasLiveAttempt?: boolean;
             /**
              * Format: date-time
-             * @description The live attempt's deadline. Null exactly when `hasLiveAttempt` is false.
+             * @description The live attempt's deadline. Absent exactly when `hasLiveAttempt` is false.
              */
             liveDeadlineAt?: string | null;
+            /** @description How many of the live attempt's saved answers say something, by the rule the engine's navigator uses: a choice with an option picked, a true/false with a value, a text that is not blank, a fill-in with every blank filled. An answer that exists only in the browser's draft is not counted. Absent exactly when `hasLiveAttempt` is false. */
+            liveAnsweredCount?: number | null;
             /** @description Only when the assignment's `review.showScore` is on. */
             score?: components["schemas"]["AttemptScore"] | null;
         };
@@ -4128,7 +4164,7 @@ export interface operations {
                 "application/json": {
                     /**
                      * @description Accepted with or without the dash and in any case; normalized
-                     *     before hashing. Alphabet excludes `0/O` and `1/I/L` (§6.1).
+                     *     before lookup. The alphabet excludes `0`, `O`, `1` and `I` (§6.1).
                      * @example K7M3-P9QR
                      * @example k7m3p9qr
                      */
@@ -4820,7 +4856,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Group content, binding or media validation failed; no partial edit was saved. */
+            /** @description Group content, binding or media validation failed; no partial edit was saved. A member the new graph drops while something else still references it is refused here too, with `details.rule` `group_reference`. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4854,7 +4890,7 @@ export interface operations {
             };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description Stale revision, archived enclosing test, or bank group not archived. */
+            /** @description Stale revision, archived enclosing test, bank group not archived, or `RESOURCE_REFERENCED`: the group or one of its questions is still referenced elsewhere and nothing is deleted. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5606,6 +5642,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminQuestion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -6221,7 +6258,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description IMPORT_NOT_READY — blocking findings remain or decisions are missing. */
+            /** @description `IMPORT_NOT_READY` — blocking findings remain or decisions are missing. `VALIDATION_FAILED` — the draft names a media asset that is gone, that the importer cannot read, or that is of another kind than its block; nothing is created. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -7783,7 +7820,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The attempt the caller means to continue. With it the operation never starts an attempt: when this attempt is no longer the live one it answers `ATTEMPT_CLOSED`. */
+                    resume?: components["schemas"]["Uuid"];
+                };
+            };
+        };
         responses: {
             /** @description Created, or resumed. */
             200: {
@@ -7796,7 +7840,10 @@ export interface operations {
             };
             403: components["responses"]["Forbidden"];
             /**
-             * @description `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
+             * @description `ATTEMPT_CLOSED` — `resume` named an attempt that is no longer live;
+             *     nothing was started.
+             *
+             *     `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
              *
              *     `MAINTENANCE_SCHEDULED` — a new attempt would run into a maintenance
              *     window. `details.startsAt` and `details.endsAt` name it. Resuming an
@@ -8065,6 +8112,8 @@ export interface operations {
                         testTitle: string;
                         /** @description For "Lượt 1/2" under the score (S-09). */
                         maxAttempts: number;
+                        /** @description The paper's parts in test order, as the attempt showed them. The page sums each part's `earned` from the questions whose `sectionId` names it; no review policy hides a part's title or membership. */
+                        sections: components["schemas"]["StudentSection"][];
                         questions: components["schemas"]["ResultQuestion"][];
                         sharedContext?: components["schemas"]["SharedReviewContext"];
                     };

@@ -461,7 +461,6 @@ function daysUntil(expiresAt: string): number {
   return Math.max(0, Math.ceil(ms / 86_400_000));
 }
 
-/** The one moment the plaintext code exists (§13.3): dismissing this is the last look. */
 function FreshCodeDialog({
   code,
   joinUrl,

@@ -118,7 +118,7 @@ type RotateRequest struct {
 	UserAgent     string
 }
 
-// Rotated is the ONE time the plaintext exists outside the caller's browser.
+// Rotated is the newly issued code with its metadata.
 type Rotated struct {
 	Code      string
 	Hint      string

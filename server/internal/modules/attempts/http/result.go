@@ -27,11 +27,14 @@ func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttem
 	switch {
 	case errors.Is(err, domain.ErrForbidden), errors.Is(err, domain.ErrNotFound):
 		return openapi.GetAttemptResult403JSONResponse{ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-			httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền xem kết quả này."))}, nil
+			httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx,
+				"Bạn không có quyền xem kết quả này.", "You do not have permission to view this result.")))}, nil
 	case errors.Is(err, domain.ErrAttemptInProgress):
-		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS, "Bài chưa được nộp.")), nil
+		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS,
+			httpx.Text(ctx, "Bài chưa được nộp.", "This test has not been submitted yet."))), nil
 	case errors.Is(err, domain.ErrAttemptVoided):
-		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
+		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED,
+			httpx.Text(ctx, "Lượt làm này đã bị huỷ.", "This attempt was voided."))), nil
 	case errors.Is(err, domain.ErrUnsupportedDeliveryVersion), errors.Is(err, domain.ErrGroupContextUnavailable):
 		return nil, httpx.ErrNotImplemented
 	case err != nil:
@@ -66,6 +69,7 @@ func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttem
 		},
 		TestTitle:   result.TestTitle,
 		MaxAttempts: result.MaxAttempts,
+		Sections:    toAPISections(result.Sections),
 		Questions:   questions,
 	}, nil
 }
@@ -76,7 +80,7 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 		return openapi.ResultQuestion{}, err
 	}
 	out := openapi.ResultQuestion{
-		Id: base.Id, Type: base.Type, Prompt: base.Prompt, PromptContent: base.PromptContent, Points: base.Points,
+		Id: base.Id, SectionId: base.SectionId, Type: base.Type, Prompt: base.Prompt, PromptContent: base.PromptContent, Points: base.Points,
 		Media: base.Media, Options: base.Options, Blanks: base.Blanks,
 		Earned:             q.Earned,
 		PendingManual:      httpapi.Ptr(q.PendingManual),

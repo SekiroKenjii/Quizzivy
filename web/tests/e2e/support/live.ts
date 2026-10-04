@@ -38,7 +38,14 @@ export async function startAttempt(page: Page, assignmentId: string): Promise<st
     name: /^(Bắt đầu làm bài|Tiếp tục làm bài)$/,
   });
   await expect(start).toBeVisible();
+  const asks = ((await start.textContent()) ?? "").includes("Bắt đầu");
   await start.click();
+  if (asks) {
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Bắt đầu", exact: true })
+      .click();
+  }
   await expect(page).toHaveURL(/\/app\/attempts\/[0-9a-f-]+$/);
   return page.url().split("/").pop() ?? "";
 }
@@ -67,12 +74,14 @@ export async function freshAttempt(page: Page, assignmentId: string): Promise<st
   return startAttempt(page, assignmentId);
 }
 
-/** Takes the open attempt through the review screen, hands it in and goes home. */
+/** Hands the open attempt in through the Submit dialog and goes home. */
 export async function submitAttempt(page: Page) {
-  await page.getByRole("button", { name: "Xem lại & nộp" }).first().click();
-  await page.getByRole("button", { name: "Nộp bài", exact: true }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("Nộp bài?")).toBeVisible();
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: "Nộp bài", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: /^Nộp bài/ });
+  await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Nộp bài", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Bài đã được nộp." })).toBeVisible({
     timeout: 30_000,

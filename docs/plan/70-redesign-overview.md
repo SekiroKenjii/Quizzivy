@@ -41,6 +41,7 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | R1 | v0.7.0 | Foundations and front door | `71-r1.md` |
 | R2 | v0.8.0 | Access: permissions, ownership, `/teacher` rename, encrypted join codes (no screen changes) | `72-r2.md` |
 | R3 | v0.9.0 | Student console and the take-test engine | `73-r3.md` |
+| R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10 | `73-r3.md` |
 | R4 | v0.10.0 | Teacher workspace | `74-r4.md` |
 | R5 | v0.11.0 | Admin console and email | `75-r5.md` |
 | R6 | v0.12.0 | Question types and scoring | `76-r6.md` |
@@ -249,11 +250,30 @@ API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*
 | Students | `role='student'` → built-in Student. Memberships, attempts, answers and events are untouched. | R2 (done) |
 | Ownership | `owner_id` backfilled from `created_by` / `uploaded_by`; classes' `teacher_id` from the oldest active Admin, the teacher v0.7.0 shows, because `app.classes` has never recorded a creator (D-23, decided 2026-09-28). Each backfill raises if a row would stay NULL. | R2 (done) |
 | Join codes | New codes are encrypted from R2. Every legacy hashed code is rotated at the R4 release, when the new class screens can show codes (D5); legacy codes redeem until then. | R2 (done), R4 |
-| Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped in R3. | R2 (done), R3 |
+| Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped in v0.9.1 (T-R3.1). | R2 (done), v0.9.1 |
 | Attempts in flight | R3 reads the existing local answer drafts unchanged. Deploys happen outside exam windows. | R3 |
 | Assignment integrity | Existing assignments keep their stored policy; the wizard's new defaults apply to new assignments. | R4 |
 | Retention | O-23's fixed rules apply until an admin changes the R5 settings. | R5 |
-| Browser storage | `quizzivy.column.*` student keys go unused in R3; theme joins as `quizzivy.theme`; `quizzivy.locale` stays. | R1, R3 |
+| Browser storage | The student has no `quizzivy.column.*` key since R3: the engine's footer deletes `quizzivy.column.studentNavigator`, the only one, when it mounts. The theme is `quizzivy.theme` since R1; `quizzivy.locale` stays. The student's keys are listed below. | R1 (done), R3 |
+
+The student's browser storage in v0.9.0, as `web/src` reads and writes it:
+
+| Key | Store | Holds |
+|---|---|---|
+| `quizzivy.theme` | local | The theme preference: light, dark or system (R1). |
+| `quizzivy.locale` | local | The language, `vi` or `en`. |
+| `quizzivy.testText` | local | "Larger text in tests", `large` or `default`, until R4's `users.preferences` takes it (`73-r3.md`). |
+| `quizzivy.answer-draft.<attemptId>` | local | Answers the server has not confirmed. The format is v0.8.0's. |
+| `quizzivy.group-play.<playId>` | local | A play of a shared recording the server has not confirmed. |
+| `quizzivy.flags.<attemptId>` | session | The questions flagged for review. |
+| `quizzivy.integrity.<attemptId>` | session | The integrity event buffer and its sequence number. |
+| `quizzivy.join` | session | The class being joined, across sign-in, for 30 minutes. |
+| `quizzivy.oauth.pending` | session | The Google authorization in flight (PKCE). |
+
+Two keys are gone since R3: `quizzivy.column.studentNavigator` (local), and
+`quizzivy.material-collapsed.<groupId>` (session), which nothing writes now
+that the phone has no collapse button. The teacher console keeps
+`quizzivy.column.sidebar`, `rail`, `panel`, `outline` and `importSource`.
 
 ## 7. R0 — Groundwork
 
@@ -297,7 +317,7 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
 | PR-2 | A role or permission edit escalates privilege | Landed in R2: the subset rule (`access.CanActOn`) on every student write; strict student targets through `app.student_like_roles`; `people.users.manage` for a disable and for resetting or re-addressing a shared student; the `users_last_admin` trigger; grant triggers that keep the hidden keys ungranted and the Student's "Take tests" (T-R2.1, T-R2.2, T-R2.13); `escalation_test.go` with an Admin who takes tests and a custom role per matrix key as targets. R5 adds the role and matrix edits, the sign-in lockout guard and `admin_escalation_flow_test.go` |
 | PR-3 | The rebuilt take-test engine loses work | The five canaries before and after every PR; local drafts read unchanged; live E2E 5–8; deploy outside exam windows |
 | PR-4 | Rolling deploy breaks inserts from the old binary | Expand/contract with fill triggers; the old-binary insert test |
-| PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logs `legacy_admin_path` and lasts until R3 (T-R2.8); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
+| PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logs `legacy_admin_path` and lasts until v0.9.1 (T-R2.8, T-R3.3); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
 | PR-6 | Legacy join codes stop working unannounced | Rotation only at R4, with the release note and an in-app notice |
 | PR-7 | Polling keeps Neon awake | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4 and R7 |
 | PR-8 | English-only deck leaks English into the product | vi first per PR; `no-hardcoded-strings` and parity tests; a native review before v1.0 |

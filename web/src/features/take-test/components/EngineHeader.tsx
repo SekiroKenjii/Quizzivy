@@ -1,91 +1,94 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Clock } from "./Clock";
-import { SaveState } from "./SaveState";
+import { SaveAnnouncement, SaveState } from "./SaveState";
 import { useTakeTestStore } from "../store";
 
 /**
- * The engine's header, one height in every view so the timer never moves
- * (S-05, S-15). On a phone: the leading control, the counter, the clock. From
- * 1024px the row has room for everything S-08 puts there -- the test's title,
- * the save state, the strike count and the clock -- and the save strip goes.
+ * EngineHeader is the engine's 60px header, as the deck draws it: the leading
+ * control, from 768 the test's title over the save line, the timer centred in
+ * the space left, and Submit. The strike count, which the deck does not draw,
+ * follows the save line from 768. A locked paper has no save line: the strip
+ * under the header says why it is locked. A paper that has ended has no timer
+ * either; one another device took over, or one whose time is up, keeps it.
+ * `live` is false once the paper is submitted, when only the title is left.
  */
 export function EngineHeader({
   wide,
   leading,
-  counter,
-  progress,
   status = null,
   live = true,
+  onSubmit,
 }: Readonly<{
   wide: boolean;
-  /** "Thoát" on the paper, "Quay lại bài" on the review, nothing once submitted. */
   leading: ReactNode;
-  counter?: { n: number; total: number };
-  /** 0..1, or null for a view with no position in the paper. */
-  progress: number | null;
-  /** The strike indicator, when the assignment counts focus loss. */
   status?: ReactNode;
-  /** False after submission: the title stays, the clock and the save state go. */
   live?: boolean;
+  onSubmit?: (() => void) | undefined;
 }>) {
   const { t } = useTranslation();
   const title = useTakeTestStore((s) => s.testTitle);
+  const locked = useTakeTestStore((s) => s.lock !== null);
+  const closed = useTakeTestStore((s) => s.lock === "closed");
 
   return (
-    <header className="border-b">
-      <div
-        className={cn(
-          "flex h-12 items-center gap-3",
-          wide ? "px-5" : "mx-auto w-full max-w-[720px] px-4",
-        )}
-      >
-        {leading}
-        {wide ? (
-          <>
-            <span className="text-muted-foreground min-w-0 truncate text-xs">
-              {title}
+    <header
+      className={cn(
+        "flex h-15 flex-none items-center gap-3 border-b",
+        wide ? "px-6" : "px-3.5",
+      )}
+    >
+      {leading}
+      {wide && (
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-base leading-[1.3] font-semibold">
+            {title}
+          </span>
+          {live && !locked && (
+            <span className="text-muted-fg flex min-w-0 items-center gap-[5px] text-xs leading-[1.3]">
+              <SaveState />
+              {status !== null && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="flex-none">{status}</span>
+                </>
+              )}
             </span>
-            {live && (
-              <>
-                <Badge variant="outline" className="ml-auto shrink-0">
-                  <SaveState />
-                </Badge>
-                {status !== null && (
-                  <span className="text-muted-foreground shrink-0 text-xs">
-                    {status}
-                  </span>
-                )}
-                <span className="bg-border mx-1 h-4 w-px shrink-0" aria-hidden="true" />
-                <Clock />
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            {counter !== undefined && (
-              <span className="text-muted-foreground ml-auto text-xs tabular-nums">
-                {t("takeTest.questionCounter", counter)}
-              </span>
-            )}
-            {live && (
-              <span className={counter === undefined ? "ml-auto" : undefined}>
-                <Clock />
-              </span>
-            )}
-          </>
-        )}
-      </div>
-      {progress !== null && (
-        <div className="bg-secondary h-1">
-          <div
-            className="bg-primary h-full transition-[width]"
-            style={{ width: `${(progress * 100).toFixed(2)}%` }}
-          />
+          )}
         </div>
       )}
+      {live && !closed && <Clock />}
+      {live && !locked && <SaveAnnouncement />}
+      {onSubmit !== undefined && (
+        <Button
+          size="md"
+          className="min-h-0 min-w-0 px-4 text-base font-semibold"
+          onClick={onSubmit}
+        >
+          {t("takeTest.submit")}
+        </Button>
+      )}
     </header>
+  );
+}
+
+/**
+ * LeaveButton is the header's 36px ✕, named "Leave test". It asks before it
+ * leaves; the caller opens the Leave dialog.
+ */
+export function LeaveButton({ onClick }: Readonly<{ onClick: () => void }>) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      aria-label={t("takeTest.leave")}
+      className="hover:bg-hover grid size-9 min-h-0 min-w-0 flex-none place-items-center rounded-md"
+      onClick={onClick}
+    >
+      <X aria-hidden="true" className="size-4.5" />
+    </button>
   );
 }

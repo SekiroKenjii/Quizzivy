@@ -27,11 +27,12 @@ test("E2E 6: leaving the page warns the student and the count comes back from th
 
   await goAway(page, 500);
 
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("Bạn vừa rời khỏi trang làm bài")).toBeVisible();
-  // §10.2: the dialog states the consequence and the timer keeps running.
-  await expect(dialog.getByText(/Đồng hồ vẫn đang chạy/)).toBeVisible();
-  await dialog.getByRole("button", { name: "Tiếp tục làm bài" }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog.getByText("Bạn vừa rời trang làm bài")).toBeVisible();
+  await expect(
+    dialog.getByText(/Lần này được tính là lần 1 trong 1 lần được phép/),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "Quay lại bài làm" }).click();
   await expect(dialog).toBeHidden();
 
   // An answer, so the buffered events flush with the autosave batch.

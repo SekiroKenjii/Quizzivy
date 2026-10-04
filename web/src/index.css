@@ -61,6 +61,9 @@
   --paper-fg: #1b2123;
   --qr-bg: #ffffff;
   --qr-fg: #1b2123;
+  --swatch-light: #ffffff;
+  --swatch-dark: #0e1213;
+  --qz-shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.2);
 
   /* Beyond the deck, for contrast (DG-30, DG-31): the focus ring, input borders and destructive buttons. */
   --focus: var(--muted-fg);
@@ -190,9 +193,12 @@
   --color-paper-fg: var(--paper-fg);
   --color-qr-bg: var(--qr-bg);
   --color-qr-fg: var(--qr-fg);
+  --color-swatch-light: var(--swatch-light);
+  --color-swatch-dark: var(--swatch-dark);
 
   --shadow-card: var(--qz-shadow);
   --shadow-float: var(--qz-shadow-lg);
+  --shadow-thumb: var(--qz-shadow-thumb);
 
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
@@ -291,6 +297,12 @@
       min-width: 2.75rem;
     }
   }
+}
+
+/* The student's tab bar is 65px; the deck puts a toast 84px from the bottom
+   while it shows. */
+:root:has([data-slot="student-tabs"]) {
+  --toast-bottom: 84px;
 }
 
 :focus-visible {

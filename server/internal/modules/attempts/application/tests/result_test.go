@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -160,5 +161,41 @@ func TestAResultIsRefusedWhileTheAttemptIsLiveAndForbiddenToAnyoneElse(t *testin
 	auditRows(t, pool, session.Attempt.ID, "attempt.voided")
 	if _, err := svc.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student}); !errors.Is(err, domain.ErrAttemptVoided) {
 		t.Errorf("voided: %v, want ErrAttemptVoided", err)
+	}
+}
+
+func TestTheResultNamesThePapersPartsUnderEveryPolicy(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := submitted(t, pool)
+	ctx := context.Background()
+	if len(session.Sections) == 0 {
+		t.Fatal("the paper has no sections; this test is not reading what it thinks it is")
+	}
+	shown := map[string]string{}
+	for _, q := range session.Questions {
+		shown[q.ID] = q.SectionID
+	}
+
+	for _, tc := range []struct{ score, correct, explanations bool }{
+		{false, false, false}, {true, false, false}, {false, true, false}, {false, false, true},
+		{true, true, false}, {true, false, true}, {false, true, true}, {true, true, true},
+	} {
+		setReview(t, pool, w, tc.score, tc.correct, tc.explanations)
+		result, err := svc.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student})
+		if err != nil {
+			t.Fatalf("%+v: %v", tc, err)
+		}
+		if !reflect.DeepEqual(result.Sections, session.Sections) {
+			t.Errorf("%+v: sections %+v, want the attempt's %+v", tc, result.Sections, session.Sections)
+		}
+		parts := map[string]bool{}
+		for _, sec := range result.Sections {
+			parts[sec.ID] = true
+		}
+		for _, q := range result.Questions {
+			if q.SectionID != shown[q.ID] || !parts[q.SectionID] {
+				t.Errorf("%+v: question %s is in section %q, the attempt showed it in %q", tc, q.ID, q.SectionID, shown[q.ID])
+			}
+		}
 	}
 }

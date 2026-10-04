@@ -1,14 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
-import { createMemoryRouter, type DataRouter } from "react-router";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { createMemoryRouter, RouterProvider, type DataRouter } from "react-router";
 import { http } from "msw";
 import { AppStateLayer } from "@/app/boot/AppStateLayer";
 import { queryClient } from "@/app/queryClient";
+import { pending as pendingEvents } from "@/features/integrity/buffer";
+import TakeTestPage from "@/features/take-test/pages/TakeTestPage";
+import { useTakeTestStore } from "@/features/take-test/store";
+import FocusLayout from "@/layouts/FocusLayout";
+import { setMaintenanceHandler } from "@/lib/api/client";
 import { useAppState } from "@/stores/appState";
 import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { studentUser } from "@tests/support/fixtures";
+import { viewport } from "@tests/support/viewport";
+import {
+  DECK_ATTEMPT,
+  deckSaved,
+  deckSession,
+} from "@tests/units/take-test/deckSession";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
@@ -209,5 +221,190 @@ describe("which overlay wins", () => {
     const shown = useAppState.getState().overlay;
     act(() => showOverlay({ kind: "maintenance", window: { ...WINDOW } }));
     expect(useAppState.getState().overlay).toBe(shown);
+  });
+});
+
+describe.each(["desktop", "phone"] as const)("over the engine on a %s", (width) => {
+  const MINUTE = 60_000;
+  const DRAFT = `quizzivy.answer-draft.${DECK_ATTEMPT}`;
+  const FIRST = "018f0000-0000-7000-8000-00000000b001";
+  const FIFTH = "018f0000-0000-7000-8000-00000000b005";
+  const store = () => useTakeTestStore.getState();
+  const draft = () =>
+    (
+      JSON.parse(localStorage.getItem(DRAFT) ?? '{"answers":{}}') as {
+        answers: unknown;
+      }
+    ).answers;
+
+  function engine(left: number) {
+    const opened = new Date();
+    server.use(
+      http.get(`${BASE}/app/attempts/:id`, () =>
+        contractJson("/app/attempts/{id}", "get", 200, deckSession(opened, left)),
+      ),
+    );
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/app/attempts/:attemptId",
+          handle: { focus: true },
+          element: <FocusLayout />,
+          children: [{ index: true, element: <TakeTestPage /> }],
+        },
+        { path: "/login", element: <p>login page</p> },
+      ],
+      { initialEntries: [`/app/attempts/${DECK_ATTEMPT}`] },
+    );
+    const { container } = render(
+      <>
+        <RouterProvider router={router} />
+        <AppStateLayer router={router} />
+      </>,
+    );
+    return { page: container, deadline: opened.getTime() + left };
+  }
+
+  function saves(answer: () => Response) {
+    server.use(http.patch(`${BASE}/app/attempts/:id/answers`, answer));
+  }
+
+  function leaveAndReturn() {
+    act(() => {
+      window.dispatchEvent(new Event("blur"));
+      window.dispatchEvent(new Event("focus"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+  }
+
+  beforeEach(() => {
+    viewport(width);
+    localStorage.clear();
+    sessionStorage.clear();
+    store().reset();
+    setMaintenanceHandler((window) => {
+      useAppState.getState().showOverlay({ kind: "maintenance", window });
+    });
+  });
+
+  afterEach(() => {
+    store().reset();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps the engine mounted under maintenance, drafting every change, and adopts the later deadline after it", async () => {
+    saves(() =>
+      contractJson("/app/attempts/{id}/answers", "patch", 503, {
+        error: {
+          code: "MAINTENANCE",
+          message: "Hệ thống đang bảo trì.",
+          details: WINDOW,
+          requestId: "018f0000-0000-7000-8000-00000000ee01",
+        },
+      }),
+    );
+    const user = userEvent.setup();
+    const { page, deadline } = engine(4 * MINUTE);
+    await user.click(
+      await screen.findByRole("radio", {
+        name: /To compare parks in European and Asian cities/,
+      }),
+    );
+    expect(screen.getByRole("timer")).toHaveClass("bg-danger-soft");
+
+    await act(async () => {
+      await store().flush();
+    });
+    expect(
+      await screen.findByRole("dialog", { name: "Quizzivy đang được cập nhật" }),
+    ).toBeInTheDocument();
+    expect(page).toHaveAttribute("inert");
+    expect(
+      within(page).getByRole("timer", { hidden: true, name: "Thời gian còn lại" }),
+    ).toBeInTheDocument();
+    expect(store().dirty.has(FIRST)).toBe(true);
+    expect(draft()).toEqual({
+      [FIRST]: {
+        type: "choice",
+        optionIds: ["018f0000-0000-7000-8000-00000000c101"],
+      },
+    });
+
+    act(() => store().setAnswer(FIFTH, { type: "text", value: "public green space" }));
+    expect(draft()).toMatchObject({
+      [FIFTH]: { type: "text", value: "public green space" },
+    });
+
+    const recorded = pendingEvents().length;
+    leaveAndReturn();
+    expect(pendingEvents()).toHaveLength(recorded);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+
+    const later = new Date(deadline + 10 * MINUTE).toISOString();
+    saves(() =>
+      contractJson(
+        "/app/attempts/{id}/answers",
+        "patch",
+        200,
+        deckSaved(new Date(), later),
+      ),
+    );
+    status(null);
+    screen.getByRole("button", { name: "Kiểm tra lại" }).click();
+    await waitFor(() => expect(useAppState.getState().overlay.kind).toBe("none"));
+    expect(page).not.toHaveAttribute("inert");
+
+    await act(async () => {
+      await store().flush();
+    });
+    expect(store().deadlineAt).toBe(Date.parse(later));
+    expect(store().dirty.size).toBe(0);
+    expect(localStorage.getItem(DRAFT)).toBeNull();
+    expect(screen.getByRole("timer")).toHaveTextContent(/^13:\d\d$/);
+    expect(screen.getByRole("timer")).toHaveClass("bg-muted");
+    expect(screen.getByRole("timer")).not.toHaveClass("bg-danger-soft");
+  });
+
+  it("keeps the engine mounted under the sign-in overlay, drafting every change and counting no departure", async () => {
+    const { page } = engine(38 * MINUTE);
+    await screen.findByRole("radio", {
+      name: /To compare parks in European and Asian cities/,
+    });
+
+    act(() => useAuthStore.getState().expireSession());
+    act(() => useAppState.getState().showOverlay({ kind: "expired" }));
+    expect(screen.getByText("Vui lòng đăng nhập lại")).toBeInTheDocument();
+    expect(page).toHaveAttribute("inert");
+    expect(
+      within(page).getByRole("timer", { hidden: true, name: "Thời gian còn lại" }),
+    ).toBeInTheDocument();
+    expect(
+      within(page).getByRole("button", { hidden: true, name: "Thoát khỏi bài làm" }),
+    ).toBeInTheDocument();
+
+    act(() => store().setAnswer(FIFTH, { type: "text", value: "green space" }));
+    expect(draft()).toEqual({ [FIFTH]: { type: "text", value: "green space" } });
+    act(() => store().setAnswer(FIFTH, { type: "text", value: "public green space" }));
+    expect(draft()).toEqual({ [FIFTH]: { type: "text", value: "public green space" } });
+
+    leaveAndReturn();
+    expect(pendingEvents()).toEqual([]);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("counts a departure again once the overlay is gone", async () => {
+    engine(38 * MINUTE);
+    await screen.findByRole("radio", {
+      name: /To compare parks in European and Asian cities/,
+    });
+    act(() => useAppState.getState().showOverlay({ kind: "expired" }));
+    act(() => useAppState.getState().closeOverlay());
+
+    leaveAndReturn();
+    expect(pendingEvents().map((event) => event.kind)).toEqual([
+      "window_blur",
+      "window_focus",
+      "tab_visible",
+    ]);
   });
 });
