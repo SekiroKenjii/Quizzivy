@@ -82,7 +82,7 @@ R2, "Access" (v0.8.0, `docs/plan/72-r2.md`):
   owner columns and the join-code columns. §13.5 describes sealed join codes
   and the read-only access tables. §13.7 allows reference data in a migration.
 - §15 Teaching operations move to `/teacher/*`, and the v0.7.0 `/admin/*`
-  paths answer through an alias until R3. `/admin/*` keeps `deleteUser` and
+  paths answer through an alias until R3 (v0.9.1, since v0.47). `/admin/*` keeps `deleteUser` and
   the docs session. Adds `PATCH /auth/me`, `getJoinCode`, the guards' 403s
   and `RESOURCE_REFERENCED`'s `details.referencedBy`.
 - Word import: an import, its sources, review and commit belong to its
