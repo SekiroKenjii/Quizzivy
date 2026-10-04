@@ -691,6 +691,28 @@ func sealedInput(t *testing.T, classID string) domain.LegacyRotationInput {
 	}
 }
 
+func TestACodeThatHasExpiredAtTheRunsInstantIsLeftAlone(t *testing.T) {
+	pool := newPool(t)
+	classID, _, _ := legacyClassRow(t, pool)
+	before := codesOf(t, pool, classID)
+	later := time.Now().AddDate(0, 0, 31)
+
+	svc := rotationOver(pool, nil, classID)
+	svc.SetClock(func() time.Time { return later })
+	if run := rotateLegacy(t, svc); run != (domain.LegacyRotation{}) {
+		t.Errorf("the run answered %+v, want nothing found for a code that has expired at the run's instant", run)
+	}
+	in := sealedInput(t, classID)
+	in.Now = later
+	wrote, err := repositories.NewPostgres(db.NewContext(pool)).RotateLegacyCode(context.Background(), in)
+	if err != nil || wrote {
+		t.Errorf("rotating at an instant after the expiry answered %v (%v), want nothing written", wrote, err)
+	}
+	if got := codesOf(t, pool, classID); !slices.Equal(got, before) {
+		t.Errorf("the codes changed:\n%v\nwere\n%v", got, before)
+	}
+}
+
 func TestARotationThatFailsLeavesTheLegacyCodeInPlaceAndIsNotRetryable(t *testing.T) {
 	pool := newPool(t)
 	classID, _, _ := legacyClassRow(t, pool)
