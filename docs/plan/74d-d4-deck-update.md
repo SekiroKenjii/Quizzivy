@@ -46,9 +46,9 @@ Computer or Phone frame, with no saving, no integrity record and no play countin
 **Exit criteria:** every engine frame matches the fourth import at 360, 768, 1024, 1280 and
 1440 and at 419 / 420, 899 / 900 and 1179 / 1180, in light and dark (T-D4.12); the builder's
 group row, the Shared content dialog and the three previews match it at the five widths, and
-every difference left is a row in `docs/design/gaps.md`; the five canaries are green and their files are as they were at `v0.10.0`; a draft and a flag set
-written by v0.10.0 are read unchanged; no operation is added and `permissions.golden` is
-unchanged; every CI step of 70 §8 is green, `pnpm e2e:live` included; released as `v0.10.1`.
+every difference left is a row in `docs/design/gaps.md`; the five canaries are green and their files are as they were at `v0.10.0`; a draft, a flag set
+and an open-question id written by v0.10.0 are read unchanged; no operation is added and
+`permissions.golden` is unchanged; every CI step of 70 §8 is green, `pnpm e2e:live` included; released as `v0.10.1`.
 
 **Depends on:** v0.10.0 released: tagged, and `main` merged back into `develop`. D4 uses what R4
 leaves on `develop`: the numeric form of the `viewport()` test helper (T-R4.3a), `useMediaUpload`
@@ -143,8 +143,10 @@ T-D4.1 a builder makes it with
 names its place by something a reformat keeps: the script function, the element's id, class or
 ARIA name, or the text it shows. Code paths are under `web/src/` unless they start with
 `server/`, `api/`, `migrations/` or `docs/`. Code and contract line numbers are those of
-`develop` at `fd9c763a` (v0.9.0 and the fixes after it); R4 moves some of them, so each is
-quoted beside an identifier.
+`develop` at `fd9c763a` (v0.9.0 and the fixes after it). Two later fixes already move some:
+since #315's, `api/openapi.yaml` is one line shorter past line 492, and since #320's
+(`49c9f0e1`), `TakeTestPage.tsx` is up to twenty lines longer past line 45. R4 moves more, so
+each number is quoted beside an identifier.
 
 **The gap rows.** T-D4.1 opens fourteen rows in `docs/design/gaps.md`. Their ids are the next
 free ones when it runs: `develop` ends at DG-119 today, the R4 branch holds DG-122 and reserves
@@ -675,13 +677,17 @@ Rules for every task in this section (AGENTS.md, "High-risk areas"):
   `web/tests/units/api/client.refresh.test.ts`, `publish_snapshot_test.go`,
   `web/tests/integration/router-chunks.test.ts`.
 - Frozen unless a task says otherwise: `take-test/{store,draft,strandedDraft,groupPlayback,
-  groupPlaybackDraft,saveStatus}.ts`, `take-test/useLeave.ts`, `features/integrity/**`, the
+  groupPlaybackDraft,saveStatus,openQuestion}.ts`, `take-test/useLeave.ts`,
+  `features/integrity/**`, the
   four answer shapes of the contract (`choice`, `true_false`, `fill_blank`, `text`;
   `api/openapi.yaml` 2724-2737: a draft or an older attempt may still hold `true_false` with a
   boolean, which `answered.ts:18-19` and `grading.go` read, and `draft-compat.test.ts` is the
   proof it survives), `answered()`'s boolean rule, the flags key
   `sessionStorage['quizzivy.flags.<attemptId>']`, the draft key
-  `quizzivy.answer-draft.<attemptId>`. Their suites pass untouched: `draft.test.ts`,
+  `quizzivy.answer-draft.<attemptId>`, and the open-question key
+  `sessionStorage['quizzivy.open-question.<attemptId>']`, which holds a question's id and is
+  written from `TakeTestPage` on every move and read on load (#320, on `develop` since
+  `49c9f0e1`). Their suites pass untouched: `open-question.test.tsx`, `draft.test.ts`,
   `draft-compat.test.ts`, `stranded-draft.test.ts`, `submit.test.ts`, `resume.test.ts`,
   `leave.test.tsx`, `leave-events.test.tsx`, `flags.test.ts`, `answered.test.ts`,
   `sections.test.ts`, `timer.test.ts`, `deadline.test.ts`, `end-states.test.tsx`,
@@ -710,7 +716,8 @@ Rules for every task in this section (AGENTS.md, "High-risk areas"):
       `useTakeTestStore`, `useGroupPlaybackStore` and `useSaveStatus`. After this task no file
       under `components/` that `Paper` mounts imports a store: today `Clock`, `EngineHeader`,
       `GroupContext`, `QuestionAudio`, `QuestionCard` and `SaveState` do, and `Paper` itself
-      (`TakeTestPage.tsx:347-353`). The stores are not edited.
+      (`TakeTestPage.tsx:347-353`). The stores are not edited. The open question's restore
+      and its write (`openQuestion.ts`) stay in `TakeTestPage`, outside the source.
 - [ ] The timer comes through the source too. `Clock` reads `deadlineAt`, `offsetMs` and the
       deadline lock from it, and its one-second tick calls a stable `timeLeft()` reader the
       source carries, so it still reads the live store on every tick and never a value
@@ -1150,6 +1157,10 @@ five prompts.
       answer. Previous and Next and the arrows move by stop; a square, a "Go to" chip or a gap
       in the passage opens the run on that member's gap. A to E choose for the open gap; F
       flags its question.
+- [ ] The open-question key keeps holding a question's id: on a run it is the open gap's
+      member, written on every change of gap. A reload reopens the run on the gap of the
+      stored question, and `cloze.test.tsx` has the case. `open-question.test.tsx` passes
+      untouched.
 - [ ] In the passage, a material that holds a gap is drawn in the deck's card (padding 18px
       20px, 1px border, radius 12, `--card`, line-height 2.3). A gap bound to a choice question
       is the chip: at least 76px wide, 30px high, radius 7, 1.5px border, the 20px primary
@@ -1552,8 +1563,8 @@ fullscreen, play counting); `preview.ts`'s stripping of keys and transcripts.
 **Done when:**
 - [ ] `EnginePreview` mounts `Paper` from a paper source held in component state and a width
       source that measures its frame (T-D4.3's two seams). It imports no store, starts no
-      autosave, writes no draft, mounts no integrity monitor, asks for no fullscreen and counts
-      no play; a unit test spies on each and finds no call.
+      autosave, writes no draft and no open-question key, mounts no integrity monitor, asks
+      for no fullscreen and counts no play; a unit test spies on each and finds no call.
 - [ ] Its header has no leave button and no Submit, and shows the chip "Student view" (30px,
       radius 999, `--info-soft` / `--info-ink`, 12.5px 600, a 14px eye). Finish raises the
       info toast "This is a preview. Students submit here."
@@ -1670,8 +1681,9 @@ fullscreen, play counting); `preview.ts`'s stripping of keys and transcripts.
       question's and a group's audio policy, and a "cannot pause" set from a new tab survives
       that save: an absent field keeps the stored value (`allow_pause_test.go`, case c).
 - [ ] Attempts in progress at the deploy keep their answers, flags and play counts. The draft
-      and flag formats did not change (`draft-compat.test.ts`, `flags.test.ts`). A play in
-      progress at the reload costs one play (T-D4.8), and the release notes say so.
+      and flag formats and the open-question key did not change (`draft-compat.test.ts`,
+      `flags.test.ts`, `open-question.test.tsx`). A play in progress at the reload costs one
+      play (T-D4.8), and the release notes say so.
 - [ ] A read-only review of everything since `v0.10.0`, by three reviewers (a student in the
       middle of a test and the answer key; listening and its counts; access and the contract),
       finds no blocker.
@@ -2017,9 +2029,10 @@ listed), DG-60, DG-63, DG-68, DG-69, DG-111, DG-113, DG-115, DG-116 and DG-36.
   merges, and T-D4.13 corrects them.
 - **Migration numbers.** T-R4.49 (R2's contract steps), R4's lane and T-D4.13 all number above
   `develop`'s last file. Numbers are assigned at merge.
-- **Line numbers of code.** They are those of `develop` at `fd9c763a`. R4 rewrites the
-  builder, `StudentPreview` and the media block, so a D4 builder finds each place by the
-  identifier quoted beside the number.
+- **Line numbers of code.** They are those of `develop` at `fd9c763a`. The fixes for #315 and
+  #320 have moved the contract and `TakeTestPage.tsx` since, and R4 rewrites the builder,
+  `StudentPreview` and the media block, so a D4 builder finds each place by the identifier
+  quoted beside the number.
 - **Builders.** The engine chain takes one builder for its whole length and, at times, a
   second for T-D4.6 or T-D4.11; the server task, the builder chain and the preview chain take
   one each.
