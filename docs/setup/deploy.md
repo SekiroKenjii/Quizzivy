@@ -228,6 +228,24 @@ still boot on the new schema, but it cannot redeem a code v0.8.0 issued, and
 `00078`'s Down refuses while one is live. Recover from a v0.8.0 problem with a
 hotfix.
 
+## Rolling out v0.9.0 (R3)
+
+Nothing to set before the merge. v0.9.0 needs no new secret, variable or bucket.
+Its one migration, `00079`, revokes `TEMPORARY` on the database from `PUBLIC`
+where the migration role owns the database, and changes nothing where it does
+not. After the deploy, run the check in `operations.md`: the application role
+must not hold `TEMPORARY`; if it does, the database's owner revokes it once.
+
+The API deploys first and the web second, so the v0.8.0 bundle meets the v0.9.0
+API for a few minutes, and for longer in tabs left open. The contract's changes
+are additive, and a student in the middle of a test is not reloaded. A tab
+opened on v0.8.0 is asked to reload when it leaves the engine, or when a lazy
+chunk it asks for is gone.
+
+If the API is ever rolled back to v0.8.0, roll Pages back to its previous
+deployment with it: the v0.9.0 result page reads `sections`, which v0.8.0 does
+not send, and a graded result would not open. Prefer a hotfix.
+
 ## Interrupted index builds in v0.8.0 (R2)
 
 R2 (v0.8.0) builds eight indexes `CONCURRENTLY`, one per file: `00057` and
