@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import TestBuilderPage from "@/features/tests/pages/TestBuilderPage";
+import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
 import { emptyGroup, newGroupQuestion } from "@/features/question-groups/model";
 import type { StoredGroup } from "@/features/question-groups/api";
 import type { Test } from "@/features/tests/api";

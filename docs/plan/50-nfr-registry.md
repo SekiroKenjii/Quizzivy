@@ -130,7 +130,7 @@ at the end says how much is covered and what the next round is.
 | ID | Requirement | Source | Status | Evidence / gap |
 |---|---|---|---|---|
 | NFR-I01 | Vietnamese first: every string through `t()`, both locales, no key missing on either side, no empty string | §14 DoD, §18 | ✅ | `tests/units/i18n/parity.test.ts`, `no-hardcoded-strings.test.ts` |
-| NFR-I02 | Server error messages are localised by `Accept-Language`, `vi` default | overview §7 | ✅ | `httpx/errors.go` |
+| NFR-I02 | Server error messages are localised by `Accept-Language`, `vi` default | overview §7 | 🟡 | Every `message`: `httpx/language.go` (`Text`, `TextFor`), held for every transport by `server/internal/core/tests/messages_test.go`. The per-field sentences in `details` that the rules word, and the publish violations they word, are Vietnamese only (#284) |
 | NFR-I03 | Store UTC, render `Asia/Ho_Chi_Minh` everywhere, through one module | #68 | ✅ | `lib/i18n/datetime.ts`, `datetime.test.ts` |
 | NFR-I04 | Search is accent-insensitive on both sides (`pg_trgm`, client `fold`) | §13.8, D-11 | ✅ | Trigram index; `lib/fold.ts` |
 | NFR-I05 | A native review of every `vi` string, prioritising join, integrity and intro copy; layouts hold with the longest strings | T-5.8 | ⬜ | Not done |
@@ -184,11 +184,11 @@ at the end says how much is covered and what the next round is.
 | E. Performance | 5 | 1 | 2 | 0 | 0 | 8 |
 | F. Accessibility | 3 | 2 | 1 | 0 | 0 | 6 |
 | G. Usability | 8 | 2 | 0 | 0 | 0 | 10 |
-| H. i18n | 4 | 0 | 1 | 0 | 0 | 5 |
+| H. i18n | 3 | 1 | 1 | 0 | 0 | 5 |
 | I. Compatibility | 3 | 2 | 0 | 0 | 0 | 5 |
 | J. Maintainability | 12 | 0 | 0 | 0 | 0 | 12 |
 | K. Observability | 3 | 1 | 0 | 0 | 0 | 4 |
-| **Total** | **73** | **16** | **4** | **0** | **1** | **94** |
+| **Total** | **72** | **17** | **4** | **0** | **1** | **94** |
 
 Counts include all twelve maintainability requirements. Implemented mechanisms
 remain partial where deployment, notification delivery or device evidence is

@@ -139,3 +139,64 @@ describe("the integrity timeline", () => {
     expect(screen.getAllByText("—")).toHaveLength(6);
   });
 });
+
+describe("audio plays", () => {
+  const QUESTION = "018f0000-0000-7000-8000-0000000000c1";
+
+  function audio(
+    id: number,
+    kind: "audio_play" | "audio_ended" | "audio_blocked",
+    durationMs: number | null = null,
+  ): IntegrityEvent {
+    return event({ id, kind, questionId: QUESTION, durationMs });
+  }
+
+  it("shows a finished play with its duration and hides the end", () => {
+    const rows = timelineRows(
+      [audio(1, "audio_play", 7000), audio(2, "audio_ended")],
+      "all",
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.event.kind).toBe("audio_play");
+    expect(rows[0]?.event.durationMs).toBe(7000);
+    expect(rows[0]?.ongoing).toBe(false);
+    expect(rows[0]?.playNo).toBe(1);
+  });
+
+  it("keeps a play that never ended, without calling it ongoing", () => {
+    const rows = timelineRows([audio(1, "audio_play")], "all");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.ongoing).toBe(false);
+  });
+
+  it("keeps a play stopped early when a later play of the same question ended", () => {
+    const rows = timelineRows(
+      [audio(1, "audio_play"), audio(2, "audio_play", 7000), audio(3, "audio_ended")],
+      "all",
+    );
+    expect(rows.map((row) => row.playNo)).toEqual([1, 2]);
+    expect(rows.map((row) => row.ongoing)).toEqual([false, false]);
+  });
+
+  it("shows a blocked play as its own row", () => {
+    const rows = timelineRows(
+      [audio(1, "audio_play"), audio(2, "audio_blocked")],
+      "all",
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows[1]?.event.kind).toBe("audio_blocked");
+  });
+
+  it("leaves an away episode ongoing as before", () => {
+    const rows = timelineRows(EVENTS, "all");
+    expect(rows.at(-1)?.event.kind).toBe("window_blur");
+    expect(rows.at(-1)?.ongoing).toBe(true);
+  });
+
+  it("draws a play that never ended with no duration and no open-ended mark", async () => {
+    renderTimeline([audio(1, "audio_play")]);
+    const row = await screen.findByRole("row", { name: /Phát âm thanh · lần 1/ });
+    expect(within(row).getAllByRole("cell")[3]).toHaveTextContent(/^—$/);
+    expect(screen.queryByText(/đang tiếp diễn/)).not.toBeInTheDocument();
+  });
+});

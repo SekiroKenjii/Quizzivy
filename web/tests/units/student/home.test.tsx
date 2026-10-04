@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
@@ -15,6 +23,7 @@ import {
   ASSIGNMENT,
   ATTEMPT,
   BASE,
+  STUDENT,
   attemptSession,
   card,
   mockStart,
@@ -116,6 +125,51 @@ function mockContinue(status: 200 | 409 = 200) {
     }),
   );
   return sent;
+}
+
+const DRAFT_KEY = `quizzivy.answer-draft.${ATTEMPT}`;
+const DRAFT = {
+  sessionId: "018f0000-0000-7000-8000-0000000000b7",
+  answers: { [id(701)]: { type: "text", value: "typed offline" } },
+};
+
+function strand() {
+  const stored = JSON.stringify({
+    studentId: STUDENT.id,
+    sessionId: DRAFT.sessionId,
+    deadlineAt: Date.parse("2026-08-29T10:45:00Z"),
+    answers: DRAFT.answers,
+  });
+  localStorage.setItem(DRAFT_KEY, stored);
+  onTestFinished(() => localStorage.removeItem(DRAFT_KEY));
+  return stored;
+}
+
+function mockSaveThenContinue(save?: () => Response) {
+  const calls: { call: string; body: unknown }[] = [];
+  server.use(
+    http.patch(`${BASE}/app/attempts/${ATTEMPT}/answers`, async ({ request }) => {
+      calls.push({ call: "save", body: await request.json() });
+      return (
+        save?.() ??
+        contractJson("/app/attempts/{id}/answers", "patch", 200, {
+          serverTime: "2026-08-29T10:00:00Z",
+          savedAt: "2026-08-29T10:00:00Z",
+          deadlineAt: "2026-08-29T10:45:00Z",
+        })
+      );
+    }),
+    http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, async ({ request }) => {
+      calls.push({ call: "resume", body: await request.json() });
+      return contractJson(
+        "/app/assignments/{id}/attempts",
+        "post",
+        200,
+        attemptSession(),
+      );
+    }),
+  );
+  return calls;
 }
 
 function done(n: number, over: Record<string, unknown> = {}) {
@@ -436,6 +490,91 @@ describe("the resume card", () => {
     expect(within(row("Later")).getByText("Đang làm")).toHaveClass("bg-info-soft");
     expect(row("Later").querySelector("[aria-hidden='true']")).toHaveClass("bg-muted");
     expect(screen.getByText("2 bài")).toBeInTheDocument();
+  });
+
+  it("saves what a closed tab left before it asks for a new session", async () => {
+    const user = userEvent.setup();
+    strand();
+    const calls = mockSaveThenContinue();
+    const router = home({ dueNow: [live()] });
+    await user.click(await screen.findByRole("button", { name: "Tiếp tục làm bài" }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
+    );
+    expect(calls).toEqual([
+      { call: "save", body: DRAFT },
+      { call: "resume", body: { resume: ATTEMPT } },
+    ]);
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("resumes without a save when the browser holds no draft", async () => {
+    const user = userEvent.setup();
+    const calls = mockSaveThenContinue();
+    const router = home({ dueNow: [live()] });
+    await user.click(await screen.findByRole("button", { name: "Tiếp tục làm bài" }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
+    );
+    expect(calls).toEqual([{ call: "resume", body: { resume: ATTEMPT } }]);
+  });
+
+  it("still resumes when another device has taken the attempt, and forgets the draft", async () => {
+    const user = userEvent.setup();
+    strand();
+    const calls = mockSaveThenContinue(() =>
+      contractJson("/app/attempts/{id}/answers", "patch", 409, {
+        error: {
+          code: "SESSION_SUPERSEDED",
+          message: "Bài làm này đã được mở ở nơi khác.",
+          requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+        },
+      }),
+    );
+    const router = home({ dueNow: [live()] });
+    await user.click(await screen.findByRole("button", { name: "Tiếp tục làm bài" }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/app/attempts/${ATTEMPT}`),
+    );
+    expect(calls.map(({ call }) => call)).toEqual(["save", "resume"]);
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("stays on Home and keeps the draft when the save gets no answer", async () => {
+    const user = userEvent.setup();
+    const stored = strand();
+    const calls = mockSaveThenContinue(() => HttpResponse.error());
+    const router = home({ dueNow: [live()] });
+    const resume = await screen.findByRole("button", { name: "Tiếp tục làm bài" });
+    await user.click(resume);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không bắt đầu được. Hãy thử lại.",
+    );
+    await waitFor(() => expect(asked).toBe(2));
+    await waitFor(() => expect(resume).toBeEnabled());
+    expect(calls.map(({ call }) => call)).toEqual(["save"]);
+    expect(router.state.location.pathname).toBe("/app");
+    expect(localStorage.getItem(DRAFT_KEY)).toBe(stored);
+  });
+
+  it("stays on Home and keeps the draft when a 409 is not the server's own", async () => {
+    const user = userEvent.setup();
+    const stored = strand();
+    const calls = mockSaveThenContinue(
+      () =>
+        new HttpResponse("<html>conflict</html>", {
+          status: 409,
+          headers: { "Content-Type": "text/html" },
+        }),
+    );
+    const router = home({ dueNow: [live()] });
+    const resume = await screen.findByRole("button", { name: "Tiếp tục làm bài" });
+    await user.click(resume);
+    await waitFor(() => expect(asked).toBe(2));
+    await waitFor(() => expect(resume).toBeEnabled());
+    expect(calls.map(({ call }) => call)).toEqual(["save"]);
+    expect(router.state.location.pathname).toBe("/app");
+    expect(localStorage.getItem(DRAFT_KEY)).toBe(stored);
   });
 });
 
