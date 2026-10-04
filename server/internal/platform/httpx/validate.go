@@ -227,8 +227,7 @@ func uniqueMembers(bodies map[string]struct{}) func(http.Handler) http.Handler {
 func repeatedMember(body []byte) (top string, repeated bool) {
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
-	var open []map[string]struct{}
-	name := false
+	var walk memberWalk
 	for {
 		token, err := decoder.Token()
 		if errors.Is(err, io.EOF) {
@@ -237,38 +236,72 @@ func repeatedMember(body []byte) (top string, repeated bool) {
 		if err != nil {
 			return "", true
 		}
-		switch value := token.(type) {
-		case json.Delim:
-			switch value {
-			case '{':
-				open = append(open, map[string]struct{}{})
-				name = true
-				continue
-			case '[':
-				open = append(open, nil)
-				name = false
-				continue
-			}
-			open = open[:len(open)-1]
-		case string:
-			if name {
-				if len(open) == 1 {
-					top = value
-				}
-				members := open[len(open)-1]
-				if _, seen := members[value]; seen {
-					return top, true
-				}
-				members[value] = struct{}{}
-				name = false
-				continue
-			}
+		repeated, done := walk.read(token)
+		if repeated {
+			return walk.top, true
 		}
-		if len(open) == 0 {
+		if done {
 			return "", false
 		}
-		name = open[len(open)-1] != nil
 	}
+}
+
+type memberWalk struct {
+	open []map[string]struct{}
+	name bool
+	top  string
+}
+
+func (w *memberWalk) read(token json.Token) (repeated, done bool) {
+	if w.opens(token) {
+		return false, false
+	}
+	if named, again := w.names(token); named {
+		return again, false
+	}
+	return false, w.completes(token)
+}
+
+func (w *memberWalk) opens(token json.Token) bool {
+	delim, ok := token.(json.Delim)
+	if !ok || (delim != '{' && delim != '[') {
+		return false
+	}
+	if delim == '{' {
+		w.open = append(w.open, map[string]struct{}{})
+	} else {
+		w.open = append(w.open, nil)
+	}
+	w.name = delim == '{'
+	return true
+}
+
+func (w *memberWalk) names(token json.Token) (named, repeated bool) {
+	value, ok := token.(string)
+	if !ok || !w.name {
+		return false, false
+	}
+	if len(w.open) == 1 {
+		w.top = value
+	}
+	members := w.open[len(w.open)-1]
+	if _, seen := members[value]; seen {
+		return true, true
+	}
+	members[value] = struct{}{}
+	w.name = false
+	return true, false
+}
+
+func (w *memberWalk) completes(token json.Token) bool {
+	if _, closes := token.(json.Delim); closes {
+		w.open = w.open[:len(w.open)-1]
+	}
+	if len(w.open) == 0 {
+		return true
+	}
+	w.name = w.open[len(w.open)-1] != nil
+	return false
 }
 
 func validationMessage(r *http.Request, err error) string {
