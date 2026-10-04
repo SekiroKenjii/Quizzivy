@@ -19,13 +19,16 @@ function DropdownMenuTrigger(props: React.ComponentProps<typeof Primitive.Trigge
  * surface it carries `data-scale="deck"` itself and is the deck's container:
  * the card fill, a 10px radius, the float shadow, 5px of padding and a height
  * capped at 60% of the viewport and at the room beside its trigger, past which
- * it scrolls. It sets no width. A caller overrides this geometry with a
+ * it scrolls. There it also keeps 8px clear of the window's edges, flipping
+ * or shifting before it would come closer, unless `collisionPadding` says
+ * otherwise. It sets no width. A caller overrides this geometry with a
  * `data-[scale=deck]:` class, because the content has no deck ancestor in the
  * DOM.
  */
 function DropdownMenuContent({
   className,
   sideOffset = 4,
+  collisionPadding,
   ...props
 }: React.ComponentProps<typeof Primitive.Content>) {
   const deck = useDeckScale();
@@ -35,6 +38,7 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         data-scale={deck ? "deck" : undefined}
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding ?? (deck ? 8 : 0)}
         className={cn(
           "bg-popover text-popover-foreground z-50 min-w-40 overflow-hidden rounded-md border p-1 shadow-md",
           "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",

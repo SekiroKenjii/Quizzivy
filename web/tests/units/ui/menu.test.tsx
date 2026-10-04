@@ -148,6 +148,20 @@ describe("the menu's surface", () => {
     ]);
   });
 
+  it.each([
+    ["none off a deck surface", false, "0px"] as const,
+    ["8px on each side on one", true, "-16px"] as const,
+  ])("keeps clear of the window's edges: %s", async (_, deck, room) => {
+    if (deck) onDeck(<Parts />);
+    else render(<Parts />);
+    const wrapper = screen.getByRole("menu").parentElement!;
+    await waitFor(() =>
+      expect(wrapper.style.getPropertyValue("--radix-popper-available-width")).toBe(
+        room,
+      ),
+    );
+  });
+
   it("writes every deck class of the portalled element for the element itself", () => {
     onDeck(<Parts />);
     const menu = screen.getByRole("menu");
