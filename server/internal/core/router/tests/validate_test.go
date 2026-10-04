@@ -10,8 +10,12 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/getkin/kin-openapi/openapi3"
+
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/access"
 )
 
 // api/openapi.yaml is the source of truth, but oapi-codegen only generates
@@ -237,7 +241,7 @@ func TestABrokenPasswordRuleIsStatedInTheCallersLanguage(t *testing.T) {
 	}
 }
 
-func TestOtherValidationFailuresKeepTheirSentence(t *testing.T) {
+func TestOtherValidationFailuresNameTheirField(t *testing.T) {
 	issuer := testIssuer(t)
 	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
 	if err != nil {
@@ -245,20 +249,24 @@ func TestOtherValidationFailuresKeepTheirSentence(t *testing.T) {
 	}
 	handler := newAuthTestRouter(t, issuer)
 
-	const generic = "Dữ liệu gửi lên không hợp lệ."
 	for _, tc := range []struct {
-		name string
-		path string
-		body string
-		want string
+		name           string
+		path           string
+		body           string
+		acceptLanguage string
+		want           string
 	}{
-		{name: "another operation's password", path: "/auth/login", body: `{"email":"a@b.com","password":"short"}`, want: generic},
-		{name: "newPassword absent", path: "/auth/change-password", body: `{"currentPassword":"matkhau1"}`, want: generic},
-		{name: "another field beside a good newPassword", path: "/auth/change-password", body: `{"currentPassword":5,"newPassword":"matkhau1"}`, want: generic},
-		{name: "a field the validator names", path: "/teacher/students", body: `{"email":"a@b.com","fullName":""}`, want: `Trường "fullName" không hợp lệ.`},
+		{name: "another operation's password", path: "/auth/login", body: `{"email":"a@b.com","password":"short"}`, acceptLanguage: "en", want: `The field "password" is not valid.`},
+		{name: "newPassword absent", path: "/auth/change-password", body: `{"currentPassword":"matkhau1"}`, acceptLanguage: "en", want: `The field "newPassword" is not valid.`},
+		{name: "another field beside a good newPassword", path: "/auth/change-password", body: `{"currentPassword":5,"newPassword":"matkhau1"}`, acceptLanguage: "en", want: `The field "currentPassword" is not valid.`},
+		{name: "a field the validator names", path: "/teacher/students", body: `{"email":"a@b.com","fullName":""}`, acceptLanguage: "en", want: `The field "fullName" is not valid.`},
+		{name: "another operation's password, no language asked", path: "/auth/login", body: `{"email":"a@b.com","password":"short"}`, want: `Trường "password" không hợp lệ.`},
+		{name: "newPassword absent, no language asked", path: "/auth/change-password", body: `{"currentPassword":"matkhau1"}`, want: `Trường "newPassword" không hợp lệ.`},
+		{name: "another field beside a good newPassword, no language asked", path: "/auth/change-password", body: `{"currentPassword":5,"newPassword":"matkhau1"}`, want: `Trường "currentPassword" không hợp lệ.`},
+		{name: "a field the validator names, no language asked", path: "/teacher/students", body: `{"email":"a@b.com","fullName":""}`, want: `Trường "fullName" không hợp lệ.`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			rec := postJSONAs(t, handler, tc.path, tc.body, token, "en")
+			rec := postJSONAs(t, handler, tc.path, tc.body, token, tc.acceptLanguage)
 
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400", rec.Code)
@@ -271,6 +279,96 @@ func TestOtherValidationFailuresKeepTheirSentence(t *testing.T) {
 				t.Errorf("message = %q, want %q", message, tc.want)
 			}
 		})
+	}
+}
+
+const saveAnswersPath = "/app/attempts/019535d9-3df7-79fb-b466-fa907fa17f9e/answers"
+
+func saveAnswersKeyedBy(t *testing.T, key string) string {
+	t.Helper()
+	quoted, err := json.Marshal(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{` + string(quoted) + `:{"type":"choice","optionIds":[]}}}`
+}
+
+func TestAnAnswerKeyThatIsNotAUuidIsRefusedBeforeTheHandler(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	for name, body := range map[string]string{
+		"not a uuid":             saveAnswersKeyedBy(t, "not-a-uuid"),
+		"braced":                 saveAnswersKeyedBy(t, "{019535d9-3df7-79fb-b466-fa907fa17f9e}"),
+		"urn":                    saveAnswersKeyedBy(t, "urn:uuid:019535d9-3df7-79fb-b466-fa907fa17f9e"),
+		"no hyphens":             saveAnswersKeyedBy(t, "019535d93df779fbb466fa907fa17f9e"),
+		"empty":                  saveAnswersKeyedBy(t, ""),
+		"36 characters, not hex": saveAnswersKeyedBy(t, "019535d9-3df7-79fb-b466-fa907fa17f9g"),
+		"beside a uuid":          `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{"019535d9-3df7-79fb-b466-fa907fa17fa0":{"type":"choice","optionIds":[]},"not-a-uuid":{"type":"choice","optionIds":[]}}}`,
+		"in a repeated member":   `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{"not-a-uuid":{"type":"choice","optionIds":[]}},"answers":{}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := sendAs(t, handler, issuer, http.MethodPatch, saveAnswersPath, studentUser, body)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			code, message := errorCodeAndMessage(t, rec)
+			if code != "VALIDATION_FAILED" {
+				t.Errorf("error code = %q, want VALIDATION_FAILED", code)
+			}
+			if want := `Trường "answers" không hợp lệ.`; message != want {
+				t.Errorf("message = %q, want %q", message, want)
+			}
+		})
+	}
+}
+
+func TestAWellFormedAnswerKeyReachesTheHandler(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	for name, body := range map[string]string{
+		"a hyphenated uuid": saveAnswersKeyedBy(t, "019535d9-3df7-79fb-b466-fa907fa17fa0"),
+		"no answers":        `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f"}`,
+		"an empty map":      `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := sendAs(t, handler, issuer, http.MethodPatch, saveAnswersPath, studentUser, body)
+
+			if rec.Code != http.StatusNotImplemented {
+				t.Fatalf("status = %d, want 501 from a router with no attempts module: %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestOnlySaveAnswersIsKeyedByUuidToday(t *testing.T) {
+	spec, err := openapi.GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var keyed []string
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op.RequestBody == nil || op.RequestBody.Value == nil {
+				continue
+			}
+			for mediaType, media := range op.RequestBody.Value.Content {
+				found := map[string]bool{}
+				uuidPointers(media.Schema, "", map[*openapi3.Schema]bool{}, found)
+				for pointer := range found {
+					if strings.HasSuffix(pointer, "/+") {
+						keyed = append(keyed, method+" "+path+" "+mediaType+" "+pointer)
+					}
+				}
+			}
+		}
+	}
+	slices.Sort(keyed)
+	if want := []string{"PATCH /app/attempts/{id}/answers application/json /answers/+"}; !slices.Equal(keyed, want) {
+		t.Fatalf("body maps keyed by uuid = %v, want %v", keyed, want)
 	}
 }
 
@@ -309,5 +407,360 @@ func TestThePasswordRuleSentenceMatchesTheContract(t *testing.T) {
 	if rule.MinLength != 8 || maxLength != 512 || rule.Pattern != `[\p{N}\p{P}\p{S}]` {
 		t.Errorf("newPassword rule = %d to %d characters matching %q, want 8 to 512 matching %q, which is what the sentence states",
 			rule.MinLength, maxLength, rule.Pattern, `[\p{N}\p{P}\p{S}]`)
+	}
+}
+
+const genericValidationSentence = "Dữ liệu gửi lên không hợp lệ."
+
+func sendIn(t *testing.T, handler http.Handler, method, path, token, acceptLanguage, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if acceptLanguage != "" {
+		req.Header.Set("Accept-Language", acceptLanguage)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
+func wantValidationFailure(t *testing.T, rec *httptest.ResponseRecorder, want string) {
+	t.Helper()
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+	code, message := errorCodeAndMessage(t, rec)
+	if code != "VALIDATION_FAILED" {
+		t.Errorf("error code = %q, want VALIDATION_FAILED", code)
+	}
+	if message != want {
+		t.Errorf("message = %q, want %q", message, want)
+	}
+}
+
+var unnamed = map[string]string{}
+
+func wrongTypedFirstProperty(t *testing.T, op *openapi3.Operation) (property, body string, ok bool) {
+	t.Helper()
+	if op.RequestBody == nil || op.RequestBody.Value == nil {
+		return "", "", false
+	}
+	media := op.RequestBody.Value.Content.Get("application/json")
+	if media == nil || media.Schema == nil || media.Schema.Value == nil || len(media.Schema.Value.Properties) == 0 {
+		return "", "", false
+	}
+	names := make([]string, 0, len(media.Schema.Value.Properties))
+	for name := range media.Schema.Value.Properties {
+		names = append(names, name)
+	}
+	property = slices.Min(names)
+	var wrong any = "x"
+	if schema := media.Schema.Value.Properties[property].Value; schema != nil && schema.Type != nil && schema.Type.Includes("string") {
+		wrong = 5
+	}
+	encoded, err := json.Marshal(map[string]any{property: wrong})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return property, string(encoded), true
+}
+
+func pathWithParameters(path string, item *openapi3.PathItem, op *openapi3.Operation) string {
+	for _, parameters := range []openapi3.Parameters{item.Parameters, op.Parameters} {
+		for _, parameter := range parameters {
+			if parameter.Value == nil || parameter.Value.In != "path" {
+				continue
+			}
+			value := "x"
+			if schema := parameter.Value.Schema; schema != nil && schema.Value != nil {
+				switch {
+				case schema.Value.Format == "uuid":
+					value = "019535d9-3df7-79fb-b466-fa907fa17f9e"
+				case schema.Value.Type != nil && schema.Value.Type.Includes("integer"):
+					value = "1"
+				}
+			}
+			path = strings.ReplaceAll(path, "{"+parameter.Value.Name+"}", value)
+		}
+	}
+	return path
+}
+
+func TestEveryJSONBodyOperationNamesAFieldWithTheWrongType(t *testing.T) {
+	spec, err := openapi.GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirements, err := httpx.PermissionRequirements(spec, "bearerAuth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := httpx.OpenRoutes(spec, "bearerAuth")
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	checked := map[string]bool{}
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			property, body, ok := wrongTypedFirstProperty(t, op)
+			if !ok {
+				continue
+			}
+			checked[op.OperationID] = true
+			pattern := method + " " + path
+			user := adminUser
+			if _, isOpen := open[pattern]; isOpen {
+				user = ""
+			} else if slices.Contains(requirements[pattern].Keys(), access.LearningTakeTests) {
+				user = studentUser
+			}
+			t.Run(op.OperationID, func(t *testing.T) {
+				rec := sendAs(t, handler, issuer, method, pathWithParameters(path, item, op), user, body)
+
+				want := `Trường "` + property + `" không hợp lệ.`
+				answer := rec.Body.String()
+				var code, message string
+				if rec.Code == http.StatusBadRequest {
+					code, message = errorCodeAndMessage(t, rec)
+				}
+				named := code == "VALIDATION_FAILED" && message == want
+				reason, excused := unnamed[op.OperationID]
+				switch {
+				case excused && named:
+					t.Errorf("%s names its field now; take it out of unnamed (%s)", pattern, reason)
+				case !excused && !named:
+					t.Errorf("%s with %s: status = %d, answer = %s, want 400 VALIDATION_FAILED %q", pattern, body, rec.Code, answer, want)
+				}
+			})
+		}
+	}
+
+	for operation := range unnamed {
+		if !checked[operation] {
+			t.Errorf("unnamed lists %s, which is not an operation with a JSON body in the contract", operation)
+		}
+	}
+	if len(checked) < 40 {
+		t.Errorf("only %d operations were checked; the walk is not reading what it thinks it is", len(checked))
+	}
+}
+
+func TestTwoFailingFieldsAlwaysNameTheSame(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	for attempt := range 50 {
+		rec := sendAs(t, handler, issuer, http.MethodPost, "/teacher/classes", adminUser, `{"name": 5, "selfJoinEnabled": 5}`)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("attempt %d: status = %d, want 400", attempt, rec.Code)
+		}
+		if _, message := errorCodeAndMessage(t, rec); message != `Trường "name" không hợp lệ.` {
+			t.Fatalf("attempt %d: message = %q, want the field \"name\"", attempt, message)
+		}
+	}
+}
+
+func TestAMissingRequiredPropertyIsNamedOnBothValidatorPaths(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	admin, err := issuer.Issue(adminUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name           string
+		path           string
+		token          string
+		body           string
+		acceptLanguage string
+		want           string
+	}{
+		{name: "one of two absent", path: "/auth/login", body: `{"password":"long-enough"}`, want: `Trường "email" không hợp lệ.`},
+		{name: "both absent names the contract's first", path: "/auth/login", body: `{}`, want: `Trường "email" không hợp lệ.`},
+		{name: "a value that breaks a rule comes first", path: "/auth/login", body: `{"password": 5}`, want: `Trường "password" không hợp lệ.`},
+		{name: "the built-in validator agrees", path: "/teacher/students", token: admin, body: `{"email":"a@b.com"}`, want: `Trường "fullName" không hợp lệ.`},
+		{name: "an unknown property", path: "/auth/login", body: `{"email":"a@b.com","password":"long-enough","admin":true}`, want: genericValidationSentence},
+		{name: "an unknown property on the built-in validator", path: "/teacher/students", token: admin, body: `{"email":"a@b.com","fullName":"An","admin":true}`, want: genericValidationSentence},
+		{name: "a null body", path: "/auth/login", body: `null`, want: genericValidationSentence},
+		{name: "an array body", path: "/auth/login", body: `[]`, want: genericValidationSentence},
+		{name: "English preferred", path: "/auth/login", body: `{"password":"long-enough"}`, acceptLanguage: "en", want: `The field "email" is not valid.`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wantValidationFailure(t, sendIn(t, handler, http.MethodPost, tc.path, tc.token, tc.acceptLanguage, tc.body), tc.want)
+		})
+	}
+}
+
+func TestAMalformedAnswerKeyIsNamedInEnglishWhenAsked(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	student, err := issuer.Issue(studentUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rec := sendIn(t, handler, http.MethodPatch, saveAnswersPath, student, "en", saveAnswersKeyedBy(t, "not-a-uuid"))
+	wantValidationFailure(t, rec, `The field "answers" is not valid.`)
+}
+
+const (
+	classMembersPath = "/teacher/classes/019535d9-3df7-79fb-b466-fa907fa17f9e/members"
+	groupCopyPath    = "/teacher/question-groups/019535d9-3df7-79fb-b466-fa907fa17f9e/copy"
+)
+
+func TestAMalformedEmailInABodyNamesItsField(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	admin, err := issuer.Issue(adminUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name           string
+		path           string
+		token          string
+		body           string
+		acceptLanguage string
+		want           string
+	}{
+		{name: "sign-in", path: "/auth/login", body: `{"email":"not-an-email","password":"long-enough"}`, want: `Trường "email" không hợp lệ.`},
+		{name: "sign-in, English preferred", path: "/auth/login", body: `{"email":"not-an-email","password":"long-enough"}`, acceptLanguage: "en", want: `The field "email" is not valid.`},
+		{name: "a new student", path: "/teacher/students", token: admin, body: `{"email":"not-an-email","fullName":"An"}`, want: `Trường "email" không hợp lệ.`},
+		{name: "a new student, English preferred", path: "/teacher/students", token: admin, body: `{"email":"not-an-email","fullName":"An"}`, acceptLanguage: "en", want: `The field "email" is not valid.`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wantValidationFailure(t, sendIn(t, handler, http.MethodPost, tc.path, tc.token, tc.acceptLanguage, tc.body), tc.want)
+		})
+	}
+
+	for name, body := range map[string]string{
+		"a plain address":      `{"email":"a@b.com","password":"long-enough"}`,
+		"an address in angles": `{"email":"An <a@b.com>","password":"long-enough"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if rec := sendIn(t, handler, http.MethodPost, "/auth/login", "", "", body); rec.Code == http.StatusBadRequest {
+				t.Fatalf("an address the decoder accepts was refused: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestADecodeFailureNeverEchoesTheDecoder(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	admin, err := issuer.Issue(adminUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	student, err := issuer.Issue(studentUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		method string
+		path   string
+		token  string
+		body   string
+	}{
+		{name: "a uuid the built-in validator let through", method: http.MethodPost, path: classMembersPath, token: admin, body: `{"userId":"nope"}`},
+		{name: "a uuid the 2020-12 validator let through", method: http.MethodPost, path: groupCopyPath, token: admin, body: `{"expectedRevision":1,"ownerSectionId":"nope"}`},
+		{name: "a session id", method: http.MethodPatch, path: saveAnswersPath, token: student, body: `{"sessionId":"nope"}`},
+		{name: "a day the month does not have", method: http.MethodPost, path: "/teacher/assignments/019535d9-3df7-79fb-b466-fa907fa17f9e/reopen", token: admin, body: `{"closesAt":"2026-02-30T00:00:00Z","reason":"Mở lại cho lớp"}`},
+	} {
+		for _, language := range []struct {
+			name           string
+			acceptLanguage string
+			want           string
+		}{
+			{name: "no language asked", want: genericValidationSentence},
+			{name: "English preferred", acceptLanguage: "en", want: "The submitted data is not valid."},
+		} {
+			t.Run(tc.name+", "+language.name, func(t *testing.T) {
+				rec := sendIn(t, handler, tc.method, tc.path, tc.token, language.acceptLanguage, tc.body)
+
+				if rec.Code != http.StatusBadRequest {
+					t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+				}
+				code, message := errorCodeAndMessage(t, rec)
+				if code != "VALIDATION_FAILED" {
+					t.Errorf("error code = %q, want VALIDATION_FAILED", code)
+				}
+				if message != language.want {
+					t.Errorf("message = %q, want %q", message, language.want)
+				}
+				for _, leak := range []string{"decode", "unmarshal", "invalid", "parsing"} {
+					if strings.Contains(strings.ToLower(message), leak) {
+						t.Errorf("message %q carries the decoder's %q", message, leak)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestTheValidatorRefusesNoIdTheDecoderAccepts(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	for name, userID := range map[string]string{
+		"hyphenated": "019535d9-3df7-79fb-b466-fa907fa17f9f",
+		"braced":     "{019535d9-3df7-79fb-b466-fa907fa17f9f}",
+		"urn":        "urn:uuid:019535d9-3df7-79fb-b466-fa907fa17f9f",
+		"no hyphens": "019535d93df779fbb466fa907fa17f9f",
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := sendAs(t, handler, issuer, http.MethodPost, classMembersPath, adminUser, `{"userId":"`+userID+`"}`)
+
+			if rec.Code != http.StatusNotImplemented {
+				t.Fatalf("status = %d, want 501 from a router with no classes module: %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	t.Run("an option id inside an answer, which the handler reads", func(t *testing.T) {
+		body := `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{"019535d9-3df7-79fb-b466-fa907fa17fa0":{"type":"choice","optionIds":["not-a-uuid"]}}}`
+		rec := sendAs(t, handler, issuer, http.MethodPatch, saveAnswersPath, studentUser, body)
+
+		if rec.Code != http.StatusNotImplemented {
+			t.Fatalf("status = %d, want 501 from a router with no attempts module: %s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
+func TestAMalformedParameterNamesTheParameter(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	admin, err := issuer.Issue(adminUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name           string
+		path           string
+		token          string
+		acceptLanguage string
+		want           string
+	}{
+		{name: "a path parameter", path: "/teacher/classes/not-a-uuid", token: admin, want: `Tham số "id" không hợp lệ.`},
+		{name: "a path parameter, English preferred", path: "/teacher/classes/not-a-uuid", token: admin, acceptLanguage: "en", want: `The parameter "id" is not valid.`},
+		{name: "a path parameter from nobody", path: "/teacher/classes/not-a-uuid", want: `Tham số "id" không hợp lệ.`},
+		{name: "a path parameter from nobody, English preferred", path: "/teacher/classes/not-a-uuid", acceptLanguage: "en", want: `The parameter "id" is not valid.`},
+		{name: "a query parameter that does not bind", path: "/teacher/classes?limit=abc", token: admin, want: `Tham số "limit" không hợp lệ.`},
+		{name: "a query parameter the validator refuses", path: "/teacher/classes?limit=100000", token: admin, want: `Tham số "limit" không hợp lệ.`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wantValidationFailure(t, sendIn(t, handler, http.MethodGet, tc.path, tc.token, tc.acceptLanguage, ""), tc.want)
+		})
 	}
 }

@@ -308,4 +308,7 @@ func TestALogoutOutsideAWindowIsNotTouchedByTheGate(t *testing.T) {
 	if rec.Code == http.StatusServiceUnavailable {
 		t.Error("status = 503 outside a window, want the route's own answer")
 	}
+	if got := rec.Header().Values("Set-Cookie"); len(got) != 0 {
+		t.Errorf("Set-Cookie %v outside a window, want none: the hook runs only on a refused request", got)
+	}
 }

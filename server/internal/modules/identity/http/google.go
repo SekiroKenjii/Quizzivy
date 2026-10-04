@@ -40,24 +40,29 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 		errors.Is(err, domain.ErrGoogleRedirectNotAllowed),
 		errors.Is(err, domain.ErrGoogleTokenInvalid):
 		return openapi.GoogleAuth401JSONResponse(httpapi.Error(ctx, openapi.INVALIDCREDENTIALS,
-			"Đăng nhập bằng Google không thành công. Vui lòng thử lại.")), nil
+			httpx.Text(ctx, "Đăng nhập bằng Google không thành công. Vui lòng thử lại.",
+				"Google sign-in did not work. Please try again."))), nil
 	case errors.Is(err, domain.ErrGoogleEmailUnverified):
 		return openapi.GoogleAuth401JSONResponse(httpapi.Error(ctx, openapi.EMAILNOTVERIFIED,
-			"Địa chỉ email Google của bạn chưa được xác minh. Vui lòng xác minh với Google rồi thử lại.")), nil
+			httpx.Text(ctx, "Địa chỉ email Google của bạn chưa được xác minh. Vui lòng xác minh với Google rồi thử lại.",
+				"Your Google email address is not verified. Please verify it with Google and try again."))), nil
 
 	case errors.Is(err, domain.ErrAccountNotProvisioned):
 		return openapi.GoogleAuth403JSONResponse(httpapi.Error(ctx, openapi.ACCOUNTNOTPROVISIONED,
-			"Tài khoản này chưa được đăng ký. Bạn cần mã lớp từ giáo viên để tham gia.")), nil
+			httpx.Text(ctx, "Tài khoản này chưa được đăng ký. Bạn cần mã lớp từ giáo viên để tham gia.",
+				"This account is not registered. You need a class code from your teacher to join."))), nil
 
 	case errors.Is(err, domain.ErrAccountDisabled):
 		return openapi.GoogleAuth403JSONResponse(httpapi.Error(ctx, openapi.ACCOUNTDISABLED,
-			"Tài khoản của bạn đã bị vô hiệu hoá. Vui lòng liên hệ giáo viên.")), nil
+			httpx.Text(ctx, "Tài khoản của bạn đã bị vô hiệu hoá. Vui lòng liên hệ giáo viên.",
+				"Your account has been disabled. Please contact your teacher."))), nil
 	case errors.As(err, &rejected):
 		return openapi.GoogleAuth404JSONResponse(classeshttp.JoinCodeError(ctx, rejected.Outcome)), nil
 
 	case errors.Is(err, domain.ErrIdentityAlreadyLinked):
 		return openapi.GoogleAuth403JSONResponse(httpapi.Error(ctx, openapi.IDENTITYALREADYLINKED,
-			"Tài khoản này đã được liên kết với một tài khoản Google khác.")), nil
+			httpx.Text(ctx, "Tài khoản này đã được liên kết với một tài khoản Google khác.",
+				"This account is already linked to another Google account."))), nil
 	case errors.Is(err, domain.ErrGoogleUnavailable), errors.Is(err, domain.ErrSelfEnrolNotAvailable):
 		return nil, httpx.ErrNotImplemented
 
@@ -104,17 +109,20 @@ func (h Identity) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequ
 	case errors.Is(err, domain.ErrIdentityAlreadyLinked),
 		errors.Is(err, domain.ErrEmailBelongsToAnotherUser):
 		return openapi.LinkGoogle409JSONResponse(httpapi.Error(ctx, openapi.IDENTITYALREADYLINKED,
-			"Tài khoản Google này không thể liên kết với tài khoản của bạn.")), nil
+			httpx.Text(ctx, "Tài khoản Google này không thể liên kết với tài khoản của bạn.",
+				"This Google account cannot be linked to your account."))), nil
 
 	case errors.Is(err, domain.ErrGoogleEmailUnverified):
 		return openapi.LinkGoogle401JSONResponse(httpapi.Error(ctx, openapi.EMAILNOTVERIFIED,
-			"Địa chỉ email Google của bạn chưa được xác minh. Vui lòng xác minh với Google rồi thử lại.")), nil
+			httpx.Text(ctx, "Địa chỉ email Google của bạn chưa được xác minh. Vui lòng xác minh với Google rồi thử lại.",
+				"Your Google email address is not verified. Please verify it with Google and try again."))), nil
 
 	case errors.Is(err, domain.ErrGoogleExchangeFailed),
 		errors.Is(err, domain.ErrGoogleRedirectNotAllowed),
 		errors.Is(err, domain.ErrGoogleTokenInvalid):
 		return openapi.LinkGoogle401JSONResponse(httpapi.Error(ctx, openapi.INVALIDCREDENTIALS,
-			"Liên kết Google không thành công. Vui lòng thử lại.")), nil
+			httpx.Text(ctx, "Liên kết Google không thành công. Vui lòng thử lại.",
+				"Linking Google did not work. Please try again."))), nil
 
 	case errors.Is(err, domain.ErrAccountDisabled), errors.Is(err, domain.ErrUserNotFound):
 		return openapi.LinkGoogle401JSONResponse(sessionInvalid(ctx)), nil
@@ -144,7 +152,8 @@ func (h Identity) UnlinkGoogle(ctx context.Context, _ openapi.UnlinkGoogleReques
 		return openapi.UnlinkGoogle204Response{}, nil
 	case errors.Is(err, domain.ErrLastLoginMethod):
 		return openapi.UnlinkGoogle409JSONResponse(httpapi.Error(ctx, openapi.LASTLOGINMETHOD,
-			"Bạn cần đặt mật khẩu trước khi bỏ liên kết Google, nếu không sẽ không còn cách nào đăng nhập.")), nil
+			httpx.Text(ctx, "Bạn cần đặt mật khẩu trước khi bỏ liên kết Google, nếu không sẽ không còn cách nào đăng nhập.",
+				"You need to set a password before unlinking Google, or there will be no way left to sign in."))), nil
 	case errors.Is(err, domain.ErrAccountDisabled), errors.Is(err, domain.ErrUserNotFound):
 		return openapi.UnlinkGoogle401JSONResponse{
 			UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx)),

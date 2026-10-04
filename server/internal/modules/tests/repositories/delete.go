@@ -33,7 +33,7 @@ func (s *Postgres) Delete(ctx context.Context, req domain.Request, now time.Time
 		return referenceError(err)
 	}
 	if err := clearTestGroups(ctx, tx, req.ID); err != nil {
-		return err
+		return referenceError(err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM app.tests WHERE id = $1`, req.ID); err != nil {
 		return referenceError(err)

@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"quizzivy/internal/modules/identity/application/model"
@@ -21,6 +22,7 @@ import (
 type fakeAuth struct {
 	refreshToken string
 	presented    string
+	logoutErr    error
 }
 
 func (f *fakeAuth) app() *application.Application {
@@ -33,7 +35,7 @@ func (f *fakeAuth) app() *application.Application {
 	}
 	logout := func(_ context.Context, cmd command.Logout) (cqrs.Nothing, error) {
 		f.presented = cmd.Token
-		return cqrs.Nothing{}, nil
+		return cqrs.Nothing{}, f.logoutErr
 	}
 	return &application.Application{Commands: application.Commands{
 		Login:   cqrs.HandlerFunc[command.Login, model.Session](login),
@@ -129,6 +131,77 @@ func TestLogoutClearsTheCookieItReplaces(t *testing.T) {
 	docs := cookies["quizzivy_docs"]
 	if docs == nil || docs.Path != "/docs" || docs.Value != "" || docs.MaxAge >= 0 || !docs.HttpOnly || !docs.Secure || docs.SameSite != http.SameSiteStrictMode {
 		t.Errorf("signing out left the API reference session open: %+v", docs)
+	}
+}
+
+func TestAFailedLogoutRendersItsErrorAfterTheClears(t *testing.T) {
+	revoke := errors.New("revoke failed")
+	h := identityhttp.NewIdentity((&fakeAuth{logoutErr: revoke}).app(), time.Hour, true, nil)
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	req.AddCookie(&http.Cookie{Name: "quizzivy_refresh", Value: "the-token"})
+
+	var resp openapi.LogoutResponseObject
+	var err error
+	identityhttp.WithRefreshCookie(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		resp, err = h.Logout(r.Context(), openapi.LogoutRequestObject{})
+	})).ServeHTTP(httptest.NewRecorder(), req)
+	if err != nil {
+		t.Fatalf("Logout: %v, want the failure carried by the response so the clears are sent with it", err)
+	}
+	if resp == nil {
+		t.Fatal("Logout answered nothing for a revoke that failed")
+	}
+	rec := httptest.NewRecorder()
+	if got := resp.VisitLogoutResponse(rec); !errors.Is(got, revoke) {
+		t.Fatalf("the response rendered %v, want the revoke's error for the router's 500", got)
+	}
+	cookies := map[string]*http.Cookie{}
+	for _, c := range rec.Result().Cookies() {
+		cookies[c.Name] = c
+	}
+	cleared := cookies["quizzivy_refresh"]
+	if cleared == nil {
+		t.Fatalf("a failed logout did not clear quizzivy_refresh: %v", rec.Header().Values("Set-Cookie"))
+	}
+	if cleared.Value != "" || cleared.Path != "/auth" || cleared.MaxAge >= 0 {
+		t.Errorf("cleared cookie still lives: value %q path %q max-age %d", cleared.Value, cleared.Path, cleared.MaxAge)
+	}
+	if !cleared.HttpOnly || !cleared.Secure {
+		t.Error("cleared cookie dropped HttpOnly/Secure; some browsers refuse the overwrite")
+	}
+	docs := cookies["quizzivy_docs"]
+	if docs == nil || docs.Path != "/docs" || docs.Value != "" || docs.MaxAge >= 0 {
+		t.Errorf("a failed logout left the API reference session open: %+v", docs)
+	}
+	if rec.Body.Len() != 0 {
+		t.Errorf("the response wrote %q, want nothing: the router writes the 500", rec.Body.String())
+	}
+}
+
+func TestTheRefusedLogoutClearFollowsTheSecureSetting(t *testing.T) {
+	for _, secure := range []bool{true, false} {
+		req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+		req.AddCookie(&http.Cookie{Name: "quizzivy_refresh", Value: "x"})
+		rec := httptest.NewRecorder()
+		identityhttp.NewIdentity(nil, time.Hour, secure, nil).ClearSessionOnRefusedLogout(rec, req)
+
+		cookies := map[string]*http.Cookie{}
+		for _, c := range rec.Result().Cookies() {
+			cookies[c.Name] = c
+		}
+		cleared := cookies["quizzivy_refresh"]
+		if cleared == nil {
+			t.Fatalf("secure=%t: the refused logout did not clear quizzivy_refresh: %v", secure, rec.Header().Values("Set-Cookie"))
+		}
+		if cleared.Secure != secure {
+			t.Errorf("secure=%t: the clear's Secure is %t; a browser refuses a clear that does not match the cookie it replaces", secure, cleared.Secure)
+		}
+		if !cleared.HttpOnly || cleared.Path != "/auth" {
+			t.Errorf("secure=%t: the clear is %+v, want HttpOnly on /auth", secure, cleared)
+		}
+		if cookies["quizzivy_docs"] == nil {
+			t.Errorf("secure=%t: the refused logout did not clear quizzivy_docs: %v", secure, rec.Header().Values("Set-Cookie"))
+		}
 	}
 }
 

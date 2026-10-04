@@ -11,6 +11,11 @@ var ErrUserNotFound = errors.New("user not found")
 // password.
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
+// ErrAccountChanged means the account was disabled or deleted, or its
+// password or session epoch changed, between a sign-in's read of it and the
+// storing of its refresh token.
+var ErrAccountChanged = errors.New("account changed during sign-in")
+
 // ErrPasswordUnchanged means the new password is the one it would replace: the
 // verified current password, or, while the account must change its password,
 // the temporary one.
