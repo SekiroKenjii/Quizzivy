@@ -72,6 +72,9 @@ rolling deploy without a fill trigger):
 | `NNNNN_add_group_recordings_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_test_version_group_recordings_allow_pause.sql` | T-D4.13 |
 
+D4 contracts nothing and owes no contract step to a later release. R4's contract steps stay
+T-R5.1 (`75-r5.md`), which now follows v0.10.1.
+
 **Branches.** `work/deck-d4` is cut from `develop` after `v0.10.0` is back-merged. Every task,
 the import included, is `feature/t-d4-<nn>-<slug>` off `work/deck-d4` and merges into it;
 `develop` is merged into it at least weekly and before every verification run (70 §3). So
@@ -103,7 +106,8 @@ the engine task that is open re-checks the frame it touched.
 
 - Four lanes, each serial: the engine chain (one builder, and a second for T-D4.6 and
   T-D4.11), the server task, the builder chain, the preview chain. A lane never has two pull
-  requests open on the same file.
+  requests open on the same file. At most four agents work at once (70 §3): the second
+  engine builder runs only while another lane is idle.
 - One contract pull request at a time. T-D4.13 is D4's only one, and the `StudentSection`
   description that T-D4.5 corrects rides in it. If another release's contract lane is open on
   `develop` at the same time, the two take turns, and whoever merges second reruns `make gen`.
@@ -1298,9 +1302,8 @@ would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
       `20-data-model.md` record the four columns and why two are nullable; §15 documents the
       two shapes.
 - [ ] `74-r4.md`'s open item ""Students can pause", "Matching" and "Not given"" and 70 §10's
-      item on the content editor no longer say that "Students can pause" is unbuilt in every
-      release: both name `allowPause`, this task and DG+2. DG-111's row in `gaps.md` says the
-      same.
+      item on the content editor say that "Students can pause" is built: both name
+      `allowPause`, this task and DG+2. DG-111's row in `gaps.md` says the same.
 - [ ] Rehearsed on a Neon branch of production; the timing goes in the release PR.
 
 ---
@@ -1644,10 +1647,13 @@ fullscreen, play counting); `preview.ts`'s stripping of keys and transcripts.
 
 ### T-D4.18 — Release v0.10.1
 **Depends on:** T-D4.1 to T-D4.16, T-D4.19
-**Touches:** `web/package.json`, `docs/plan/74d-d4-deck-update.md` (the checklist), `docs/plan/70-redesign-overview.md` (§2: D4 released), release notes
+**Touches:** `web/package.json`, `docs/plan/74d-d4-deck-update.md` (the checklist), `docs/plan/70-redesign-overview.md` (§2: D4 released), `docs/plan/75-r5.md`, release notes
 **Size:** S
 **Done when:**
 - [ ] The release checklist below is complete, with Thuong's go before `main`
+- [ ] `75-r5.md` names the release R5 follows: under "Schema changes", "the v0.10.0 binary
+      keeps inserting" reads "the v0.10.1 binary", and T-R5.1's "Depends on" reads "v0.10.1
+      (D4) in production". The steps are still the ones R4 owes; D4 adds none.
 
 ---
 
@@ -2025,9 +2031,9 @@ listed), DG-60, DG-63, DG-68, DG-69, DG-111, DG-113, DG-115, DG-116 and DG-36.
 - **The preview's 45:00 timer.** A test has no time limit until it is assigned, so no answer
   from the design team alone makes the deck's timer buildable; it needs a field on the test
   (Q11).
-- **`70-redesign-overview.md` §10** still says "Students can pause" is unbuilt in every
-  release, and `74-r4.md`'s open items say the same for R4. Both stay true until T-D4.13
-  merges, and T-D4.13 corrects them.
+- **"Students can pause" in the other documents.** `70-redesign-overview.md` §10 says it is
+  unbuilt until D4, and `74-r4.md`'s open items say R4 does not build it. T-D4.13 corrects
+  both when it merges. If the owner declines Q4, 70 §10 records the D1 exception instead.
 - **Migration numbers.** T-R4.49 (R2's contract steps), R4's lane and T-D4.13 all number above
   `develop`'s last file. Numbers are assigned at merge.
 - **Line numbers of code.** They are those of `develop` at `fd9c763a`. The fixes for #315 and
@@ -2036,4 +2042,4 @@ listed), DG-60, DG-63, DG-68, DG-69, DG-111, DG-113, DG-115, DG-116 and DG-36.
   quoted beside the number.
 - **Builders.** The engine chain takes one builder for its whole length and, at times, a
   second for T-D4.6 or T-D4.11; the server task, the builder chain and the preview chain take
-  one each.
+  one each. Never more than four work at once (70 §3).
