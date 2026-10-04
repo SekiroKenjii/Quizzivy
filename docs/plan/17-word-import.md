@@ -1204,14 +1204,16 @@ the scope.
   like any original. Quotas and retention (§1.38) apply unchanged, and
   "Download original" returns the `.txt`. A pasted import may still take an
   answer-key file through the API.
-- **Conventions for text sources only.** The recognizer learns the forms the
-  paste page tells the teacher to type: `*` on the correct option, an
-  `Answer: B` line under a question, a one-line key such as
-  `Answer key: 1-B 2-C`, and the looser labels and the three-underscore gap
-  that T-R4.56 lists. They are gated on the text evidence version, so Word and
-  PDF results and the corpus harness do not change. They are text, not
-  formatting, so §1.32's rule stands: formatting is never evidence of
-  correctness.
+- **Conventions for text sources only, with one exception.** The recognizer
+  learns the forms the paste page tells the teacher to type: `*` on the
+  correct option, an `Answer: B` line under a question, a one-line key such
+  as `Answer key: 1-B 2-C`, and the looser labels and the three-underscore
+  gap that T-R4.56 lists. They are gated on the text evidence version, so
+  Word and PDF results do not change, except for the one-line key, which is
+  read for every evidence version (#233, decided 2026-10-04): the corpus
+  harness may report keys that are now read, and nothing else. They are
+  text, not formatting, so §1.32's rule stands: formatting is never evidence
+  of correctness.
 - **Versions.** `recognition.Version` becomes `rules-v3` and `PipelineVersion`
   `word-pipeline-v3`. A run still queued under v2 at the deploy retires with
   `PIPELINE_RETIRED` and is retried, as at the PDF release.
@@ -1634,7 +1636,7 @@ deploy and verify backup/restore before enabling production writes.
 | D-08 | Retention/cleanup | **Decided 2026-09-25:** files and draft kept 30 days after commit and 7 after cancel; imports idle 60 days are closed and their files removed; history rows kept (§1.38) | Thuong |
 | D-09 | Quality and pilot | Verified real corpus, holdout, matched manual baseline and explicit release thresholds | Thuong + pilot teachers; W-01 baseline, thresholds before holdout |
 | D-10 | PDF input | **Decided 2026-09-25:** text-layer PDFs are accepted beside `.docx`; scans are refused without OCR; underline, bold and colour are not read; keys come from a key file or explicit lines (§1.39) | Thuong |
-| D-11 | Pasted text input | **Decided 2026-10-03:** a test pasted as plain text is accepted as an exam source beside `.docx` and PDF, up to 100,000 characters; no formatting is read; the answer conventions the paste page states are read for text sources only; built in R4 (§1.41) | Thuong (delegated); R4 |
+| D-11 | Pasted text input | **Decided 2026-10-03:** a test pasted as plain text is accepted as an exam source beside `.docx` and PDF, up to 100,000 characters; no formatting is read; the answer conventions the paste page states are read for text sources only, except the one-line answer key, which is read in Word and PDF files too (#233, decided 2026-10-04); built in R4 (§1.41) | Thuong (delegated); R4 |
 
 First checkpoint deliverables are W-01–04: source family/coverage inventory,
 proposed contracts with concrete examples, extraction/editor/provider comparisons,
