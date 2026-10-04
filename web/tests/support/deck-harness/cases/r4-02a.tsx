@@ -2,7 +2,11 @@ import { useState, type ReactElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import {
+  ArrowLeftRight,
   ArrowUpRight,
+  ChevronDown,
+  CircleCheck,
+  CircleDot,
   CircleStop,
   ClipboardPaste,
   Clock,
@@ -10,6 +14,9 @@ import {
   FileCode,
   FileUp,
   Pencil,
+  SquareCheck,
+  TextAlignStart,
+  TextCursorInput,
   Type,
   X,
 } from "lucide-react";
@@ -23,6 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuItemText,
   DropdownMenuLabel,
+  DropdownMenuMeta,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -50,6 +58,22 @@ const STUDENT = {
   permissions: ["learning.take_tests" as const],
   workspaces: ["app" as const],
 };
+
+const QUESTION_TYPES = [
+  { label: "Single choice", icon: CircleDot },
+  { label: "Multiple choice", icon: SquareCheck },
+  { label: "True / False", icon: CircleCheck },
+  { label: "Fill in the blank", icon: TextCursorInput },
+  { label: "Short answer", icon: TextAlignStart },
+  { label: "Matching", icon: ArrowLeftRight },
+];
+
+const LONG_STATUSES = [
+  { value: "live", label: "Đang mở cho học viên làm bài", count: 12 },
+  { value: "scheduled", label: "Đã lên lịch", count: 0 },
+  { value: "closed", label: "Đã đóng và đã chấm xong", count: 120 },
+  { value: "draft", label: "Bản nháp", count: 3 },
+];
 
 function toggled(chosen: readonly string[], name: string) {
   return chosen.includes(name)
@@ -135,6 +159,100 @@ export const cases: Record<string, () => ReactElement> = {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+    );
+  },
+
+  "meta-menu": () => (
+    <div className="flex justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm">
+            <CircleDot aria-hidden="true" />
+            Single choice
+            <ChevronDown aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="data-[scale=deck]:w-62.5">
+          <DropdownMenuLabel>Question type</DropdownMenuLabel>
+          {QUESTION_TYPES.map(({ label, icon: Icon }, index) => (
+            <DropdownMenuItem key={label}>
+              <Icon aria-hidden="true" />
+              <DropdownMenuItemText>{label}</DropdownMenuItemText>
+              {index === 0 && <DropdownMenuMeta>Current</DropdownMenuMeta>}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  ),
+
+  "long-labels": function LongLabels() {
+    const [status, setStatus] = useState("live");
+    const [chosen, setChosen] = useState<readonly string[]>([]);
+    const first = "Lớp luyện thi IELTS 6.5 buổi tối thứ Hai, thứ Tư và thứ Sáu";
+    const second = "Lớp TOEIC 600 cuối tuần";
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between gap-3">
+          <Segmented
+            label="Trạng thái"
+            scroll
+            value={status}
+            onChange={setStatus}
+            options={LONG_STATUSES}
+          />
+          <RowMenu title="Bài đã giao: Đề thi thử giữa kỳ kỹ năng Đọc hiểu, đợt tháng Mười">
+            <DropdownMenuItem>
+              <ArrowUpRight aria-hidden="true" />
+              <DropdownMenuItemText>
+                Mở trang theo dõi bài làm của cả lớp
+              </DropdownMenuItemText>
+              <DropdownMenuMeta>24</DropdownMenuMeta>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Clock aria-hidden="true" />
+              Gia hạn thời gian nộp bài cho những học viên chưa nộp
+            </DropdownMenuItem>
+            <DropdownMenuCheckboxItem
+              checked={chosen.includes(first)}
+              onCheckedChange={() => setChosen(toggled(chosen, first))}
+            >
+              <DropdownMenuItemText>{first}</DropdownMenuItemText>
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={chosen.includes(second)}
+              onCheckedChange={() => setChosen(toggled(chosen, second))}
+            >
+              <DropdownMenuItemText>{second}</DropdownMenuItemText>
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive">
+              <CircleStop aria-hidden="true" />
+              <DropdownMenuItemText>Đóng bài sớm</DropdownMenuItemText>
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" disabled>
+              <X aria-hidden="true" />
+              <DropdownMenuItemText>Xoá bài đã giao</DropdownMenuItemText>
+            </DropdownMenuItem>
+          </RowMenu>
+        </div>
+        <Tabs defaultValue="students" className="flex flex-col gap-4">
+          <TabsList aria-label="Bài đã giao">
+            <TabsTrigger value="students">Học viên và tiến độ làm bài</TabsTrigger>
+            <TabsTrigger value="questions">Câu hỏi và phân tích từng câu</TabsTrigger>
+            <TabsTrigger value="settings">Cài đặt bài đã giao</TabsTrigger>
+          </TabsList>
+          <TabsContent value="students">Học viên</TabsContent>
+          <TabsContent value="questions">Câu hỏi</TabsContent>
+          <TabsContent value="settings">Cài đặt</TabsContent>
+        </Tabs>
+        <div className="text-ui flex items-center gap-2">
+          <Checkbox id="long-labels-notify" defaultChecked />
+          <label htmlFor="long-labels-notify">
+            Thông báo cho học viên qua email khi có thay đổi
+          </label>
+        </div>
       </div>
     );
   },
