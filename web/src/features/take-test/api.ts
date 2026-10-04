@@ -20,6 +20,7 @@ export function startOrResumeAttempt(assignmentId: string, signal?: AbortSignal)
 export function getAttempt(attemptId: string, signal?: AbortSignal) {
   return api("get", "/app/attempts/{id}", {
     path: { id: attemptId },
+    query: {},
     ...(signal ? { signal } : {}),
   });
 }

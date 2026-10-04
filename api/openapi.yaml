@@ -2815,8 +2815,8 @@ components:
     AttemptSession:
       type: object
       description: |
-        Returned when an attempt is created or resumed. Everything the engine
-        needs to run authoritatively.
+        Returned when an attempt is created, resumed or read. Everything the
+        engine needs to run authoritatively.
       required: [attempt, testTitle, sections, questions, sessionId, beaconToken, serverTime, audioPlays, answers, integrity]
       additionalProperties: false
       properties:
@@ -2858,6 +2858,13 @@ components:
             `navigator.sendBeacon` cannot set an `Authorization` header and the
             15-minute access token has usually expired by `pagehide`, so the
             beacon carries this in its body instead. Grants no read access.
+        superseded:
+          type: boolean
+          description: |
+            Present and true only in an answer of `getAttempt` to a tab that
+            named a session the attempt no longer has. `sessionId` is then the
+            session that tab named, `beaconToken` is empty, and every write
+            under that session answers `SESSION_SUPERSEDED`.
         serverTime:
           $ref: '#/components/schemas/Timestamp'
         audioPlays:
@@ -6660,6 +6667,7 @@ paths:
       operationId: getAttempt
       x-resource:
         - { in: path, name: id, kind: attempt }
+        - { in: query, name: session, kind: none }
       x-permission: learning.take_tests
       tags: [take-test]
       summary: The take-test payload
@@ -6670,12 +6678,28 @@ paths:
         `acceptedAnswers` and no `transcript` — at any depth. This is asserted by
         a contract test over this file, a Go unit test that walks the live JSON,
         and E2E 9 (§13.5, §14). None of those three may be weakened.
+
+        A tab that names a session the attempt no longer has is answered with
+        the paper and `superseded: true`: it may read and may not write, until
+        the student continues the attempt there (`startOrResumeAttempt`). That
+        answer replaces no beacon token and records nothing. A tab that names
+        the attempt's session, or none, is answered as the tab that holds it.
+      parameters:
+        - name: session
+          in: query
+          required: false
+          description: |
+            The session this tab holds for the attempt: the `sessionId` of the
+            last answer it was given by this operation or by
+            `startOrResumeAttempt`. A tab that holds none sends none.
+          schema: { $ref: '#/components/schemas/Uuid' }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AttemptSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 

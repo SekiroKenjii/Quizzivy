@@ -59,7 +59,10 @@ export async function _invalid() {
  * off the take-test response must not compile.
  */
 export async function _studentPayloadHasNoGradingKey() {
-  const session = await api("get", "/app/attempts/{id}", { path: { id: "a" } });
+  const session = await api("get", "/app/attempts/{id}", {
+    path: { id: "a" },
+    query: {},
+  });
   const question = session.questions[0]!;
 
   const _prompt: string = question.prompt;
