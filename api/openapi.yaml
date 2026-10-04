@@ -19,6 +19,8 @@ info:
 
     Non-upload request bodies are capped at 1 MiB before schema validation;
     oversized bodies receive HTTP 413 with the standard validation-error envelope.
+    A body the server could not finish reading receives HTTP 408 with
+    `REQUEST_INCOMPLETE`.
     Multipart media uploads retain their separate upload limits.
 
     ## Reading this file
@@ -478,6 +480,10 @@ components:
         `METHOD_NOT_ALLOWED` (405, with an `Allow` header) for a path of it
         under a method the path does not serve. `HEAD` is served as `GET`
         without a body on the operations that need no token.
+
+        `REQUEST_INCOMPLETE` (408) answers a request whose body the server
+        could not finish reading, on any operation that takes one. It says
+        nothing about the body: the same request may be sent again.
       enum:
         # auth
         - INVALID_CREDENTIALS
@@ -543,6 +549,7 @@ components:
         - MAINTENANCE_SCHEDULED
         # generic
         - VALIDATION_FAILED
+        - REQUEST_INCOMPLETE
         - NOT_FOUND
         - METHOD_NOT_ALLOWED
         - UNAUTHORIZED
