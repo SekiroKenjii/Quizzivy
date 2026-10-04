@@ -5,6 +5,17 @@
 
 **Changes since v0.47**
 
+The contract's descriptions, brought level with four fixes:
+
+- §15 An error's `message` follows `Accept-Language` on every operation; the
+  field sentences and publish violations the rules word do not yet (#284).
+- §15 `publishTest` reports a question whose media file was deleted as a
+  violation, not a 500 (#287).
+- §15 A JSON body that repeats a member name is refused, unless the server
+  filled a default into it (#288).
+- §15 `createDraftFromTestVersion` answers `RESOURCE_REFERENCED` when a
+  question of the draft's groups is still used elsewhere (#296).
+
 R4, "Teacher workspace" (v0.10.0, `docs/plan/74-r4.md`):
 
 - §6.5 The signed-in operations that hand out a credential are limited per
