@@ -9,13 +9,16 @@ import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useAuthStore } from "@/stores/auth";
 import { ApiError } from "@/lib/api/errors";
-import { createGroup, getGroup, updateGroup, type StoredGroup } from "../api";
-import { groupIssue } from "../model";
-import { independentBundle } from "../recovery";
-import { GroupRecoveryGate, type RecoveryState } from "../components/GroupRecoveryGate";
-import { useGroupEditor } from "../useGroupEditor";
-import { GroupPreviewDialog } from "../components/GroupPreviewDialog";
-import { GroupComposer } from "../components/GroupComposer";
+import { createGroup, getGroup, updateGroup, type StoredGroup } from "../../api";
+import { groupIssue } from "../../model";
+import { independentBundle } from "../../recovery";
+import {
+  GroupRecoveryGate,
+  type RecoveryState,
+} from "../../components/GroupRecoveryGate";
+import { useGroupEditor } from "../../useGroupEditor";
+import { GroupPreviewDialog } from "../../components/GroupPreviewDialog";
+import { GroupComposer } from "../../components/GroupComposer";
 
 export default function GroupEditorPage() {
   const { t } = useTranslation();

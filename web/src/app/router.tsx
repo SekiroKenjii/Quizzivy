@@ -53,102 +53,136 @@ const adminTree: RouteObject = {
         { index: true, lazy: page(() => import("@/app/pages/AdminDashboardPage")) },
         {
           path: "tests",
-          lazy: page(() => import("@/features/tests/pages/TestsListPage")),
+          lazy: page(() => import("@/features/tests/pages/teacher/TestsListPage")),
         },
         {
           path: "tests/:id",
-          lazy: page(() => import("@/features/tests/pages/TestDetailPage")),
+          lazy: page(() => import("@/features/tests/pages/teacher/TestDetailPage")),
         },
 
         {
           path: "tests/:id/edit",
-          lazy: page(() => import("@/features/tests/pages/TestBuilderPage")),
+          lazy: page(() => import("@/features/tests/pages/teacher/TestBuilderPage")),
         },
         {
           path: "imports",
-          lazy: page(() => import("@/features/imports/pages/ImportsGate")),
+          lazy: page(() => import("@/features/imports/pages/teacher/ImportsGate")),
           children: [
             {
               index: true,
-              lazy: page(() => import("@/features/imports/pages/ImportsListPage")),
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/ImportsListPage"),
+              ),
             },
             {
               path: "new",
-              lazy: page(() => import("@/features/imports/pages/NewImportPage")),
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/NewImportPage"),
+              ),
             },
             {
               path: ":id",
-              lazy: page(() => import("@/features/imports/pages/ImportDetailPage")),
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/ImportDetailPage"),
+              ),
             },
             {
               path: ":id/review",
-              lazy: page(() => import("@/features/imports/pages/ImportReviewPage")),
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/ImportReviewPage"),
+              ),
             },
           ],
         },
         {
           path: "question-bank",
-          lazy: page(() => import("@/features/question-bank/pages/QuestionBankPage")),
+          lazy: page(
+            () => import("@/features/question-bank/pages/teacher/QuestionBankPage"),
+          ),
         },
         {
           path: "question-bank/groups",
-          lazy: page(() => import("@/features/question-groups/pages/GroupsListPage")),
+          lazy: page(
+            () => import("@/features/question-groups/pages/teacher/GroupsListPage"),
+          ),
         },
         {
           path: "question-bank/groups/:id",
-          lazy: page(() => import("@/features/question-groups/pages/GroupEditorPage")),
+          lazy: page(
+            () => import("@/features/question-groups/pages/teacher/GroupEditorPage"),
+          ),
         },
         {
           path: "question-bank/new",
-          lazy: page(() => import("@/features/question-bank/pages/QuestionEditorPage")),
+          lazy: page(
+            () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
+          ),
         },
         {
           path: "question-bank/:id",
-          lazy: page(() => import("@/features/question-bank/pages/QuestionEditorPage")),
+          lazy: page(
+            () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
+          ),
         },
         {
           path: "media",
-          lazy: page(() => import("@/features/media/pages/MediaLibraryPage")),
+          lazy: page(() => import("@/features/media/pages/teacher/MediaLibraryPage")),
         },
         {
           path: "assignments",
-          lazy: page(() => import("@/features/assignments/pages/AssignmentsListPage")),
+          lazy: page(
+            () => import("@/features/assignments/pages/teacher/AssignmentsListPage"),
+          ),
         },
         {
           path: "assignments/new",
-          lazy: page(() => import("@/features/assignments/pages/AssignmentFormPage")),
+          lazy: page(
+            () => import("@/features/assignments/pages/teacher/AssignmentFormPage"),
+          ),
         },
         {
           path: "assignments/:id",
-          lazy: page(() => import("@/features/assignments/pages/AssignmentDetailPage")),
+          lazy: page(
+            () => import("@/features/assignments/pages/teacher/AssignmentDetailPage"),
+          ),
         },
         {
           path: "assignments/:id/edit",
-          lazy: page(() => import("@/features/assignments/pages/AssignmentFormPage")),
+          lazy: page(
+            () => import("@/features/assignments/pages/teacher/AssignmentFormPage"),
+          ),
         },
         {
           path: "assignments/:id/attempts",
-          lazy: page(() => import("@/features/attempts/pages/AssignmentAttemptsPage")),
+          lazy: page(
+            () => import("@/features/attempts/pages/teacher/AssignmentAttemptsPage"),
+          ),
         },
         {
           path: "attempts/:id",
-          lazy: page(() => import("@/features/attempts/pages/AttemptReviewPage")),
+          lazy: page(
+            () => import("@/features/attempts/pages/teacher/AttemptReviewPage"),
+          ),
         },
         {
           path: "grading",
-          lazy: page(() => import("@/features/attempts/pages/GradingQueuePage")),
+          lazy: page(
+            () => import("@/features/attempts/pages/teacher/GradingQueuePage"),
+          ),
         },
         {
           path: "students",
-          lazy: page(() => import("@/features/students/pages/StudentsListPage")),
+          lazy: page(
+            () => import("@/features/students/pages/teacher/StudentsListPage"),
+          ),
         },
         {
           path: "classes",
-          lazy: page(() => import("@/features/classes/pages/ClassesListPage")),
+          lazy: page(() => import("@/features/classes/pages/teacher/ClassesListPage")),
         },
         {
           path: "classes/:id",
-          lazy: page(() => import("@/features/classes/pages/ClassDetailPage")),
+          lazy: page(() => import("@/features/classes/pages/teacher/ClassDetailPage")),
         },
         {
           path: "settings/:section?",

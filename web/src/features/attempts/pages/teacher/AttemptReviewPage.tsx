@@ -37,12 +37,12 @@ import {
   type AdminQuestion,
   type AttemptReview,
   type ReviewAnswer,
-} from "../api";
-import { monitorKey, reviewKey } from "../keys";
-import { AnswerReview } from "../components/AnswerReview";
-import { GradeByQuestion } from "../components/GradeByQuestion";
-import { GradingCard } from "../components/GradingCard";
-import { DOT, type Verdict } from "../components/answerStyles";
+} from "../../api";
+import { monitorKey, reviewKey } from "../../keys";
+import { AnswerReview } from "../../components/AnswerReview";
+import { GradeByQuestion } from "../../components/GradeByQuestion";
+import { GradingCard } from "../../components/GradingCard";
+import { DOT, type Verdict } from "../../components/answerStyles";
 
 type Tab = "paper" | "integrity";
 

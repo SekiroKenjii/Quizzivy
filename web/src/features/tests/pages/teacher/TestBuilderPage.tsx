@@ -1,4 +1,4 @@
-import { publishProblem } from "../publishProblem";
+import { publishProblem } from "../../publishProblem";
 import {
   lazy,
   Suspense,
@@ -58,9 +58,12 @@ import {
   type StoredGroup,
 } from "@/features/question-groups/api";
 import { emptyGroup } from "@/features/question-groups/model";
-import { BuilderGroupPane, type GroupPaneBridge } from "../components/BuilderGroupPane";
-import { GroupPickerDialog } from "../components/GroupPickerDialog";
-import { BuilderWrites } from "../BuilderWrites";
+import {
+  BuilderGroupPane,
+  type GroupPaneBridge,
+} from "../../components/BuilderGroupPane";
+import { GroupPickerDialog } from "../../components/GroupPickerDialog";
+import { BuilderWrites } from "../../BuilderWrites";
 import {
   editableOutline,
   findUnit,
@@ -69,7 +72,7 @@ import {
   sectionQuestionIds,
   unitsOf,
   withUnits,
-} from "../outlineUnits";
+} from "../../outlineUnits";
 import { ApiError } from "@/lib/api/errors";
 
 /**
