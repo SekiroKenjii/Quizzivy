@@ -4,16 +4,16 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-// Density comes from docs/design/mockups (00-foundations, F-04): admin tables
-// are 13px text, 36px header rows, 40px body rows and 12px cell padding. The
-// upstream shadcn defaults are 14px with 8px padding.
-
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div data-slot="table-container" className="relative w-full overflow-x-auto">
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-[0.8125rem]", className)}
+        className={cn(
+          "w-full caption-bottom text-[0.8125rem]",
+          "in-data-[scale=deck]:text-ui in-data-[scale=deck]:leading-normal",
+          className,
+        )}
         {...props}
       />
     </div>
@@ -24,7 +24,11 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      className={cn(
+        "[&_tr]:border-b",
+        "in-data-[scale=deck]:[&_tr]:border-b-0",
+        className,
+      )}
       {...props}
     />
   );
@@ -59,6 +63,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
       data-slot="table-row"
       className={cn(
         "hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
+        "in-data-[scale=deck]:hover:bg-muted in-data-[scale=deck]:border-b-0",
         className,
       )}
       {...props}
@@ -72,6 +77,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
       data-slot="table-head"
       className={cn(
         "text-muted-foreground h-9 px-3 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "in-data-[scale=deck]:bg-muted in-data-[scale=deck]:text-meta in-data-[scale=deck]:h-10 in-data-[scale=deck]:px-4 in-data-[scale=deck]:leading-normal",
         className,
       )}
       {...props}
@@ -84,8 +90,8 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        // F-14: a bare icon in a cell is 14px; buttons and badges size their own.
         "h-10 px-3 align-middle whitespace-nowrap [&_svg:not([class*='size-']):not([data-slot=badge]_svg):not(button_svg):not(a_svg)]:size-3.5 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "in-data-[scale=deck]:h-auto in-data-[scale=deck]:border-t in-data-[scale=deck]:px-4 in-data-[scale=deck]:py-2.5",
         className,
       )}
       {...props}
