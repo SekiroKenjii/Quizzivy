@@ -160,3 +160,27 @@ export async function startGroupPaper(page: Page) {
   await page.goto(`/app/attempts/${groupAttemptId}`);
   return seen;
 }
+
+/**
+ * engineFits waits until nothing in the engine scrolls sideways: the
+ * document, the deck surface, `<main>` and every scroller inside it, which is
+ * where a pane's overflow goes. A rich table's own scroll box is left out,
+ * because scrolling there is how a wide table is read.
+ */
+export async function engineFits(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const scrolls = (node: Element) =>
+          /auto|scroll/.test(getComputedStyle(node).overflowX) &&
+          node.closest(".content-table-scroll") === null;
+        return [
+          document.documentElement,
+          document.querySelector("[data-scale='deck']"),
+          document.querySelector("main"),
+          ...[...document.querySelectorAll("main *")].filter(scrolls),
+        ].every((node) => node === null || node.scrollWidth <= node.clientWidth + 1);
+      }),
+    )
+    .toBe(true);
+}

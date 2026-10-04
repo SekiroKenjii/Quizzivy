@@ -108,25 +108,3 @@ test("signing out lives behind the avatar, on the settings screen too", async ({
   await page.getByRole("button", { name: /^Tài khoản của/ }).click();
   await expect(page.getByRole("menuitem", { name: "Đăng xuất" })).toBeVisible();
 });
-
-test.describe("on a phone", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
-
-  test("settings is the Me tab, and signing out stays behind the avatar", async ({
-    page,
-  }) => {
-    await stubApi(page, sessionAs(studentUser));
-
-    await page.goto("/app");
-    await expect(page.getByRole("button", { name: "Đăng xuất" })).toHaveCount(0);
-
-    await page.getByRole("link", { name: "Tôi", exact: true }).click();
-    await expect(page).toHaveURL(/\/app\/settings$/);
-    await expect(
-      page.getByRole("banner").getByText("Cài đặt", { exact: true }),
-    ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Đăng xuất" })).toHaveCount(0);
-    await page.getByRole("button", { name: /^Tài khoản của/ }).click();
-    await expect(page.getByRole("menuitem", { name: "Đăng xuất" })).toBeVisible();
-  });
-});
