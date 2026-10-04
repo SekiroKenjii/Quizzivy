@@ -22,8 +22,12 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 	}
 
 	limits := RateLimits()
+	principalLimits := PrincipalRateLimits()
 
 	if err := httpx.AssertPublicRoutesLimited(spec, limits); err != nil {
+		return nil, err
+	}
+	if err := httpx.AssertPrincipalRoutesGated(spec, "bearerAuth", principalLimits); err != nil {
 		return nil, err
 	}
 	if deps.Principals == nil {
@@ -78,6 +82,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			identityhttp.WithRefreshCookie,
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
 			httpx.RequirePermission(requirements, deps.Principals),
+			httpx.PrincipalRateLimit(principalLimits),
 			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20, httpx.RequestBodyLimits(spec)),
 			validate,
 		),
