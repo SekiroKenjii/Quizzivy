@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const loaded = vi.hoisted(() => ({ sideColumn: false }));
-
-vi.mock("@/components/shared/SideColumn", () => {
-  loaded.sideColumn = true;
-  return { SideColumn: () => null };
-});
+const loaded = { sideColumn: false };
 
 interface RouteNode {
   path?: string | undefined;
@@ -47,6 +42,10 @@ async function routesUnder(prefix: string) {
 beforeEach(() => {
   vi.resetModules();
   loaded.sideColumn = false;
+  vi.doMock("@/components/shared/SideColumn", () => {
+    loaded.sideColumn = true;
+    return { SideColumn: () => null };
+  });
 });
 
 describe("the student tree", () => {
@@ -72,13 +71,17 @@ describe("the student tree", () => {
     expect(loaded.sideColumn).toBe(false);
   }, 60_000);
 
-  it("would be caught: the teacher's layout, walked the same way, loads one", async () => {
-    const routes = await routesUnder("admin");
-    const layout = routes.find((route) => route.load !== null);
-    expect(layout?.path).toBe("admin");
-    expect(loaded.sideColumn).toBe(false);
+  it.each(["the first time", "and every time after"])(
+    "would be caught %s: the teacher's layout, walked the same way, loads one",
+    async () => {
+      const routes = await routesUnder("admin");
+      const layout = routes.find((route) => route.load !== null);
+      expect(layout?.path).toBe("admin");
+      expect(loaded.sideColumn).toBe(false);
 
-    await layout?.load?.();
-    expect(loaded.sideColumn).toBe(true);
-  }, 60_000);
+      await layout?.load?.();
+      expect(loaded.sideColumn).toBe(true);
+    },
+    60_000,
+  );
 });
