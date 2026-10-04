@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -18,7 +19,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check.
+// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check. A refusal names the field or parameter whose value broke its rule or, when no value did, the required top-level property the body lacks; an unknown property and a body that is not an object get the generic sentence. The sentences are Vietnamese or, when Accept-Language prefers it, English.
 func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error) {
 	stripped := *spec
 	stripped.Servers = nil
@@ -48,7 +49,7 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 			},
 			ErrorHandlerWithOpts: func(_ context.Context, err error, w http.ResponseWriter, r *http.Request, opts nethttpmiddleware.ErrorHandlerOpts) {
 				if opts.StatusCode == http.StatusNotFound {
-					WriteError(w, r, http.StatusNotFound, CodeNotFound, "Không tìm thấy đường dẫn.")
+					WriteError(w, r, http.StatusNotFound, CodeNotFound, TextFor(r, "Không tìm thấy đường dẫn.", "The path was not found."))
 					return
 				}
 				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, validationMessage(r, err))
@@ -99,8 +100,7 @@ func uuidMapKeys(keyed map[string][][]string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if path, found := malformedKeyPath(r, keyed[r.Pattern]); found {
-				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed,
-					"Trường \""+strings.Join(path, ".")+"\" không hợp lệ.")
+				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, fieldSentence(r, strings.Join(path, ".")))
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -155,23 +155,36 @@ func uuidKeysOfMember(name string, value []byte, path []string) bool {
 }
 
 func validationMessage(r *http.Request, err error) string {
-	const generic = "Dữ liệu gửi lên không hợp lệ."
-
 	var reqErr *openapi3filter.RequestError
 	if !errors.As(err, &reqErr) {
-		return generic
+		return genericSentence(r)
 	}
 
 	if failsAtNewPassword(reqErr) {
 		return newPasswordRule(r)
 	}
 	if field := failingField(reqErr); field != "" {
-		return "Trường \"" + field + "\" không hợp lệ."
+		return fieldSentence(r, field)
+	}
+	if field := missingProperty(r, reqErr); field != "" {
+		return fieldSentence(r, field)
 	}
 	if reqErr.Parameter != nil {
-		return "Tham số \"" + reqErr.Parameter.Name + "\" không hợp lệ."
+		return parameterSentence(r, reqErr.Parameter.Name)
 	}
-	return generic
+	return genericSentence(r)
+}
+
+func genericSentence(r *http.Request) string {
+	return TextFor(r, "Dữ liệu gửi lên không hợp lệ.", "The submitted data is not valid.")
+}
+
+func fieldSentence(r *http.Request, field string) string {
+	return fmt.Sprintf(TextFor(r, "Trường \"%s\" không hợp lệ.", "The field \"%s\" is not valid."), field)
+}
+
+func parameterSentence(r *http.Request, name string) string {
+	return fmt.Sprintf(TextFor(r, "Tham số \"%s\" không hợp lệ.", "The parameter \"%s\" is not valid."), name)
 }
 
 func failsAtNewPassword(reqErr *openapi3filter.RequestError) bool {
@@ -202,15 +215,62 @@ func failingField(reqErr *openapi3filter.RequestError) string {
 			return strings.Join(pointer, ".")
 		}
 	}
-	var multi openapi3.MultiError
-	if errors.As(reqErr.Err, &multi) {
-		for _, e := range multi {
-			var se *openapi3.SchemaError
-			if errors.As(e, &se) {
-				if pointer := se.JSONPointer(); len(pointer) > 0 {
-					return strings.Join(pointer, ".")
-				}
-			}
+	var failures openapi3.MultiError
+	if !errors.As(reqErr.Err, &failures) {
+		return ""
+	}
+	var fields []string
+	for _, failure := range failures {
+		var located *openapi3.SchemaError
+		if !errors.As(failure, &located) {
+			continue
+		}
+		if pointer := located.JSONPointer(); len(pointer) > 0 {
+			fields = append(fields, strings.Join(pointer, "."))
+			continue
+		}
+		if field := locatedField(located.Reason); field != "" {
+			fields = append(fields, field)
+		}
+	}
+	if len(fields) == 0 {
+		return ""
+	}
+	return slices.Min(fields)
+}
+
+func locatedField(reason string) string {
+	rest, ok := strings.CutPrefix(reason, `error at "`)
+	if !ok {
+		return ""
+	}
+	pointer, _, ok := strings.Cut(rest, `": `)
+	if !ok {
+		return ""
+	}
+	return strings.ReplaceAll(strings.TrimPrefix(pointer, "/"), "/", ".")
+}
+
+func missingProperty(r *http.Request, reqErr *openapi3filter.RequestError) string {
+	var schemaErr *openapi3.SchemaError
+	if reqErr.RequestBody == nil || r.Body == nil || !errors.As(reqErr.Err, &schemaErr) {
+		return ""
+	}
+	media := reqErr.RequestBody.Content.Get("application/json")
+	if media == nil || media.Schema == nil || media.Schema.Value == nil {
+		return ""
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return ""
+	}
+	var object map[string]json.RawMessage
+	if json.Unmarshal(body, &object) != nil || object == nil {
+		return ""
+	}
+	for _, name := range media.Schema.Value.Required {
+		if _, present := object[name]; !present {
+			return name
 		}
 	}
 	return ""

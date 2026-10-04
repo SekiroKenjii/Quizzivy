@@ -14,6 +14,8 @@ import (
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/access"
 )
 
 // api/openapi.yaml is the source of truth, but oapi-codegen only generates
@@ -239,7 +241,7 @@ func TestABrokenPasswordRuleIsStatedInTheCallersLanguage(t *testing.T) {
 	}
 }
 
-func TestOtherValidationFailuresKeepTheirSentence(t *testing.T) {
+func TestOtherValidationFailuresNameTheirField(t *testing.T) {
 	issuer := testIssuer(t)
 	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
 	if err != nil {
@@ -247,20 +249,24 @@ func TestOtherValidationFailuresKeepTheirSentence(t *testing.T) {
 	}
 	handler := newAuthTestRouter(t, issuer)
 
-	const generic = "Dữ liệu gửi lên không hợp lệ."
 	for _, tc := range []struct {
-		name string
-		path string
-		body string
-		want string
+		name           string
+		path           string
+		body           string
+		acceptLanguage string
+		want           string
 	}{
-		{name: "another operation's password", path: "/auth/login", body: `{"email":"a@b.com","password":"short"}`, want: generic},
-		{name: "newPassword absent", path: "/auth/change-password", body: `{"currentPassword":"matkhau1"}`, want: generic},
-		{name: "another field beside a good newPassword", path: "/auth/change-password", body: `{"currentPassword":5,"newPassword":"matkhau1"}`, want: generic},
-		{name: "a field the validator names", path: "/teacher/students", body: `{"email":"a@b.com","fullName":""}`, want: `Trường "fullName" không hợp lệ.`},
+		{name: "another operation's password", path: "/auth/login", body: `{"email":"a@b.com","password":"short"}`, acceptLanguage: "en", want: `The field "password" is not valid.`},
+		{name: "newPassword absent", path: "/auth/change-password", body: `{"currentPassword":"matkhau1"}`, acceptLanguage: "en", want: `The field "newPassword" is not valid.`},
+		{name: "another field beside a good newPassword", path: "/auth/change-password", body: `{"currentPassword":5,"newPassword":"matkhau1"}`, acceptLanguage: "en", want: `The field "currentPassword" is not valid.`},
+		{name: "a field the validator names", path: "/teacher/students", body: `{"email":"a@b.com","fullName":""}`, acceptLanguage: "en", want: `The field "fullName" is not valid.`},
+		{name: "another operation's password, no language asked", path: "/auth/login", body: `{"email":"a@b.com","password":"short"}`, want: `Trường "password" không hợp lệ.`},
+		{name: "newPassword absent, no language asked", path: "/auth/change-password", body: `{"currentPassword":"matkhau1"}`, want: `Trường "newPassword" không hợp lệ.`},
+		{name: "another field beside a good newPassword, no language asked", path: "/auth/change-password", body: `{"currentPassword":5,"newPassword":"matkhau1"}`, want: `Trường "currentPassword" không hợp lệ.`},
+		{name: "a field the validator names, no language asked", path: "/teacher/students", body: `{"email":"a@b.com","fullName":""}`, want: `Trường "fullName" không hợp lệ.`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			rec := postJSONAs(t, handler, tc.path, tc.body, token, "en")
+			rec := postJSONAs(t, handler, tc.path, tc.body, token, tc.acceptLanguage)
 
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400", rec.Code)
@@ -402,4 +408,204 @@ func TestThePasswordRuleSentenceMatchesTheContract(t *testing.T) {
 		t.Errorf("newPassword rule = %d to %d characters matching %q, want 8 to 512 matching %q, which is what the sentence states",
 			rule.MinLength, maxLength, rule.Pattern, `[\p{N}\p{P}\p{S}]`)
 	}
+}
+
+const genericValidationSentence = "Dữ liệu gửi lên không hợp lệ."
+
+func sendIn(t *testing.T, handler http.Handler, method, path, token, acceptLanguage, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if acceptLanguage != "" {
+		req.Header.Set("Accept-Language", acceptLanguage)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
+func wantValidationFailure(t *testing.T, rec *httptest.ResponseRecorder, want string) {
+	t.Helper()
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+	code, message := errorCodeAndMessage(t, rec)
+	if code != "VALIDATION_FAILED" {
+		t.Errorf("error code = %q, want VALIDATION_FAILED", code)
+	}
+	if message != want {
+		t.Errorf("message = %q, want %q", message, want)
+	}
+}
+
+var unnamed = map[string]string{}
+
+func wrongTypedFirstProperty(t *testing.T, op *openapi3.Operation) (property, body string, ok bool) {
+	t.Helper()
+	if op.RequestBody == nil || op.RequestBody.Value == nil {
+		return "", "", false
+	}
+	media := op.RequestBody.Value.Content.Get("application/json")
+	if media == nil || media.Schema == nil || media.Schema.Value == nil || len(media.Schema.Value.Properties) == 0 {
+		return "", "", false
+	}
+	names := make([]string, 0, len(media.Schema.Value.Properties))
+	for name := range media.Schema.Value.Properties {
+		names = append(names, name)
+	}
+	property = slices.Min(names)
+	var wrong any = "x"
+	if schema := media.Schema.Value.Properties[property].Value; schema != nil && schema.Type != nil && schema.Type.Includes("string") {
+		wrong = 5
+	}
+	encoded, err := json.Marshal(map[string]any{property: wrong})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return property, string(encoded), true
+}
+
+func pathWithParameters(path string, item *openapi3.PathItem, op *openapi3.Operation) string {
+	for _, parameters := range []openapi3.Parameters{item.Parameters, op.Parameters} {
+		for _, parameter := range parameters {
+			if parameter.Value == nil || parameter.Value.In != "path" {
+				continue
+			}
+			value := "x"
+			if schema := parameter.Value.Schema; schema != nil && schema.Value != nil {
+				switch {
+				case schema.Value.Format == "uuid":
+					value = "019535d9-3df7-79fb-b466-fa907fa17f9e"
+				case schema.Value.Type != nil && schema.Value.Type.Includes("integer"):
+					value = "1"
+				}
+			}
+			path = strings.ReplaceAll(path, "{"+parameter.Value.Name+"}", value)
+		}
+	}
+	return path
+}
+
+func TestEveryJSONBodyOperationNamesAFieldWithTheWrongType(t *testing.T) {
+	spec, err := openapi.GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirements, err := httpx.PermissionRequirements(spec, "bearerAuth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := httpx.OpenRoutes(spec, "bearerAuth")
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	checked := map[string]bool{}
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			property, body, ok := wrongTypedFirstProperty(t, op)
+			if !ok {
+				continue
+			}
+			checked[op.OperationID] = true
+			pattern := method + " " + path
+			user := adminUser
+			if _, isOpen := open[pattern]; isOpen {
+				user = ""
+			} else if slices.Contains(requirements[pattern].Keys(), access.LearningTakeTests) {
+				user = studentUser
+			}
+			t.Run(op.OperationID, func(t *testing.T) {
+				rec := sendAs(t, handler, issuer, method, pathWithParameters(path, item, op), user, body)
+
+				want := `Trường "` + property + `" không hợp lệ.`
+				answer := rec.Body.String()
+				var code, message string
+				if rec.Code == http.StatusBadRequest {
+					code, message = errorCodeAndMessage(t, rec)
+				}
+				named := code == "VALIDATION_FAILED" && message == want
+				reason, excused := unnamed[op.OperationID]
+				switch {
+				case excused && named:
+					t.Errorf("%s names its field now; take it out of unnamed (%s)", pattern, reason)
+				case !excused && !named:
+					t.Errorf("%s with %s: status = %d, answer = %s, want 400 VALIDATION_FAILED %q", pattern, body, rec.Code, answer, want)
+				}
+			})
+		}
+	}
+
+	for operation := range unnamed {
+		if !checked[operation] {
+			t.Errorf("unnamed lists %s, which is not an operation with a JSON body in the contract", operation)
+		}
+	}
+	if len(checked) < 40 {
+		t.Errorf("only %d operations were checked; the walk is not reading what it thinks it is", len(checked))
+	}
+}
+
+func TestTwoFailingFieldsAlwaysNameTheSame(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	for attempt := range 50 {
+		rec := sendAs(t, handler, issuer, http.MethodPost, "/teacher/classes", adminUser, `{"name": 5, "selfJoinEnabled": 5}`)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("attempt %d: status = %d, want 400", attempt, rec.Code)
+		}
+		if _, message := errorCodeAndMessage(t, rec); message != `Trường "name" không hợp lệ.` {
+			t.Fatalf("attempt %d: message = %q, want the field \"name\"", attempt, message)
+		}
+	}
+}
+
+func TestAMissingRequiredPropertyIsNamedOnBothValidatorPaths(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	admin, err := issuer.Issue(adminUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name           string
+		path           string
+		token          string
+		body           string
+		acceptLanguage string
+		want           string
+	}{
+		{name: "one of two absent", path: "/auth/login", body: `{"password":"long-enough"}`, want: `Trường "email" không hợp lệ.`},
+		{name: "both absent names the contract's first", path: "/auth/login", body: `{}`, want: `Trường "email" không hợp lệ.`},
+		{name: "a value that breaks a rule comes first", path: "/auth/login", body: `{"password": 5}`, want: `Trường "password" không hợp lệ.`},
+		{name: "the built-in validator agrees", path: "/teacher/students", token: admin, body: `{"email":"a@b.com"}`, want: `Trường "fullName" không hợp lệ.`},
+		{name: "an unknown property", path: "/auth/login", body: `{"email":"a@b.com","password":"long-enough","admin":true}`, want: genericValidationSentence},
+		{name: "an unknown property on the built-in validator", path: "/teacher/students", token: admin, body: `{"email":"a@b.com","fullName":"An","admin":true}`, want: genericValidationSentence},
+		{name: "a null body", path: "/auth/login", body: `null`, want: genericValidationSentence},
+		{name: "an array body", path: "/auth/login", body: `[]`, want: genericValidationSentence},
+		{name: "English preferred", path: "/auth/login", body: `{"password":"long-enough"}`, acceptLanguage: "en", want: `The field "email" is not valid.`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wantValidationFailure(t, sendIn(t, handler, http.MethodPost, tc.path, tc.token, tc.acceptLanguage, tc.body), tc.want)
+		})
+	}
+}
+
+func TestAMalformedAnswerKeyIsNamedInEnglishWhenAsked(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	student, err := issuer.Issue(studentUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rec := sendIn(t, handler, http.MethodPatch, saveAnswersPath, student, "en", saveAnswersKeyedBy(t, "not-a-uuid"))
+	wantValidationFailure(t, rec, `The field "answers" is not valid.`)
 }
