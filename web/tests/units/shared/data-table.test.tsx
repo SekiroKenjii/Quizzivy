@@ -617,6 +617,34 @@ describe("roles", () => {
     expect(screen.getByRole("columnheader", { name: MENU })).toBeInTheDocument();
   });
 
+  it("hides the menu column's header text and lines the checkboxes and the menu up in their cells", () => {
+    contentWidth(1200);
+    renderAssignments();
+    expect(
+      screen.getByRole("columnheader", { name: MENU }).firstElementChild,
+    ).toHaveClass("sr-only");
+    expect(screen.getAllByRole("columnheader")[0]).toHaveClass("flex");
+    const cells = within(bodyRows()[0]!).getAllByRole("cell");
+    expect(cells[0]).toHaveClass("flex");
+    expect(cells[6]).toHaveClass("flex");
+  });
+
+  it("gives each row's menu its own row", () => {
+    const menu = vi.fn((row: Assignment) => (
+      <DropdownMenuItem>Nhân bản {row.title}</DropdownMenuItem>
+    ));
+    render(
+      <DataTable
+        label="Bài giao"
+        columns={COLUMNS}
+        rows={ROWS}
+        rowSize={{ minHeight: 60 }}
+        menu={menu}
+      />,
+    );
+    expect(menu.mock.calls).toEqual(ROWS.map((row) => [row]));
+  });
+
   it("names a row by its first cell", () => {
     contentWidth(1200);
     renderAssignments();
@@ -835,6 +863,60 @@ describe("opening a row", () => {
     );
     await user.click(screen.getByText("Vùng cuộn a1"));
     await user.click(screen.getByText("Nhãn a2"));
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, ReactNode]>([
+    [
+      "a select",
+      <select key="c" data-testid="control">
+        <option>Học viên</option>
+      </select>,
+    ],
+    ["a textarea", <textarea key="c" data-testid="control" />],
+    [
+      "a summary",
+      <details key="c">
+        <summary data-testid="control">Chi tiết</summary>
+      </details>,
+    ],
+    [
+      "an editable region",
+      <div key="c" data-testid="control" contentEditable suppressContentEditableWarning>
+        Ghi chú
+      </div>,
+    ],
+    [
+      "a link",
+      <a key="c" data-testid="control" href="#ghi-chu">
+        Ghi chú
+      </a>,
+    ],
+    ...["button", "link", "checkbox", "switch", "combobox"].map(
+      (role): [string, ReactNode] => [
+        `an element with the ${role} role`,
+        <span key="c" data-testid="control" role={role}>
+          Bật
+        </span>,
+      ],
+    ),
+  ])("stays shut on %s a cell draws", async (_, control) => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const columns: readonly DataColumn<Assignment>[] = [
+      COLUMNS[0]!,
+      { id: "note", header: "Ghi chú", track: "160px", cell: () => control },
+    ];
+    render(
+      <DataTable
+        label="Bài giao"
+        columns={columns}
+        rows={ROWS.slice(0, 1)}
+        rowSize={{ padY: 10 }}
+        onOpen={onOpen}
+      />,
+    );
+    await user.click(screen.getByTestId("control"));
     expect(onOpen).not.toHaveBeenCalled();
   });
 
@@ -1155,6 +1237,27 @@ describe("below 768", () => {
     expect(line.compareDocumentPosition(screen.getByText("0 trên 0"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
+  });
+
+  it("shows no empty line on a phone while there are rows", () => {
+    viewport("phone");
+    renderAssignments({ card, empty: "Không có bài giao nào ở đây." });
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.queryByText("Không có bài giao nào ở đây.")).toBeNull();
+  });
+
+  it("says the list is empty inside the joined card", () => {
+    viewport("phone");
+    const { container } = renderAssignments({
+      rows: [],
+      card,
+      cardLayout: "joined",
+      empty: "Không có bài giao nào ở đây.",
+    });
+    const line = screen.getByText("Không có bài giao nào ở đây.");
+    expect(frame(container)).toContainElement(line);
+    expect(line.parentElement).toBe(frame(container));
+    expect(line).not.toHaveClass("border-t");
   });
 });
 
