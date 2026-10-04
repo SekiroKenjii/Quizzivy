@@ -5,7 +5,7 @@ export type TimelineFilter = "all" | "away" | "audio" | "network";
 
 const AWAY_OPENERS = new Set(["tab_hidden", "window_blur", "fullscreen_exit"]);
 const AWAY_CLOSERS = new Set(["tab_visible", "window_focus", "fullscreen_enter"]);
-const AUDIO = new Set(["audio_play", "audio_ended", "audio_blocked"]);
+const AUDIO = new Set(["audio_play", "audio_ended", "audio_blocked", "audio_seek"]);
 const NETWORK = new Set(["network_offline", "network_online"]);
 const CLOSERS = new Set([...AWAY_CLOSERS, "network_online", "audio_ended"]);
 

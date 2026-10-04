@@ -193,6 +193,28 @@ describe("audio plays", () => {
     expect(rows.at(-1)?.ongoing).toBe(true);
   });
 
+  it("lists a seek under the audio chip", () => {
+    const rows = timelineRows(
+      [
+        audio(1, "audio_play"),
+        event({ id: 2, kind: "audio_seek", questionId: QUESTION }),
+      ],
+      "audio",
+    );
+    expect(rows.map((row) => row.event.kind)).toEqual(["audio_play", "audio_seek"]);
+    expect(rows[1]?.ongoing).toBe(false);
+    expect(rows[1]?.playNo).toBeNull();
+  });
+
+  it("names a seek in the table", async () => {
+    renderTimeline([event({ id: 1, kind: "audio_seek", questionId: QUESTION })]);
+    const row = await screen.findByRole("row", {
+      name: /Tua bài nghe khi không được tua/,
+    });
+    expect(row).toBeInTheDocument();
+    expect(screen.queryByText(/audio_seek/)).not.toBeInTheDocument();
+  });
+
   it("draws a play that never ended with no duration and no open-ended mark", async () => {
     renderTimeline([audio(1, "audio_play")]);
     const row = await screen.findByRole("row", { name: /Phát âm thanh · lần 1/ });
