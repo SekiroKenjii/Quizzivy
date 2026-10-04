@@ -12,8 +12,9 @@ import { useTakeTestStore } from "../store";
  * control, from 768 the test's title over the save line, the timer centred in
  * the space left, and Submit. The strike count, which the deck does not draw,
  * follows the save line from 768. A locked paper has no save line: the strip
- * under the header says why it is locked. `live` is false once the paper is
- * submitted, when only the title is left.
+ * under the header says why it is locked. A paper that has ended has no timer
+ * either; one another device took over, or one whose time is up, keeps it.
+ * `live` is false once the paper is submitted, when only the title is left.
  */
 export function EngineHeader({
   wide,
@@ -31,6 +32,7 @@ export function EngineHeader({
   const { t } = useTranslation();
   const title = useTakeTestStore((s) => s.testTitle);
   const locked = useTakeTestStore((s) => s.lock !== null);
+  const closed = useTakeTestStore((s) => s.lock === "closed");
 
   return (
     <header
@@ -58,7 +60,7 @@ export function EngineHeader({
           )}
         </div>
       )}
-      {live && <Clock />}
+      {live && !closed && <Clock />}
       {live && !locked && <SaveAnnouncement />}
       {onSubmit !== undefined && (
         <Button
