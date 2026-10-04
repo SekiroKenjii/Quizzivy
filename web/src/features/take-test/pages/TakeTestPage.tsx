@@ -27,7 +27,7 @@ import { SaveStrip } from "../components/SaveState";
 import { SectionInstructions } from "../components/SectionInstructions";
 import { SubmitDialog } from "../components/SubmitDialog";
 import { SubmittedScreen } from "../components/SubmittedScreen";
-import { clearSession } from "@/features/integrity/buffer";
+import { releaseSession } from "@/features/integrity/release";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
 import { exitFullscreen } from "@/features/integrity/fullscreen";
 import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
@@ -146,7 +146,16 @@ export default function TakeTestPage() {
   }, [attemptId, reloads, hydrate]);
   useEffect(
     () => () => {
-      if (attemptId !== undefined) clearSession(attemptId);
+      if (attemptId !== undefined) {
+        const state = useTakeTestStore.getState();
+        const mine = state.attemptId === attemptId;
+        releaseSession({
+          attemptId,
+          sessionId: mine ? state.sessionId : null,
+          beaconToken: mine ? state.beaconToken : "",
+          ended: mine && (state.submitState === "done" || state.lock === "closed"),
+        });
+      }
       reset({ keepDraft: true });
     },
     [attemptId, reset],

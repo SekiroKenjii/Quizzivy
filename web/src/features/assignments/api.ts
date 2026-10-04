@@ -1,3 +1,4 @@
+import { saveStrandedDraft } from "@/features/take-test/strandedDraft";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 
@@ -69,10 +70,13 @@ export function getMyAssignment(id: string, signal?: AbortSignal) {
 }
 
 /**
- * continueAttempt resumes the named attempt and never starts one: a 409
- * `ATTEMPT_CLOSED` means it has ended.
+ * continueAttempt first sends the answers a closed tab left in this browser,
+ * through `saveStrandedDraft`, then resumes the named attempt and never starts
+ * one: a 409 `ATTEMPT_CLOSED` means it has ended. It rejects without resuming
+ * when those answers could not be sent.
  */
-export function continueAttempt(assignmentId: string, attemptId: string) {
+export async function continueAttempt(assignmentId: string, attemptId: string) {
+  await saveStrandedDraft(attemptId);
   return api("post", "/app/assignments/{id}/attempts", {
     path: { id: assignmentId },
     body: { resume: attemptId },

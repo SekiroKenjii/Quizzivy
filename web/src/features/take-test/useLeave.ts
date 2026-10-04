@@ -47,9 +47,9 @@ function phaseOf(
  * unsaved, is blocked and taken as the answer "leave". Either way the unsaved
  * answers are sent before the route changes: to `/app` from the ✕, to
  * wherever the blocked navigation was going otherwise. With no answer
- * unsaved, Leave goes at once and sends nothing: it never waits on a request
- * that would carry only what the integrity monitor has buffered. A save that
- * fails keeps the student on the paper with the dialog saying so, and nothing
+ * unsaved, Leave goes at once and waits on nothing: what the integrity monitor
+ * has buffered goes by the beacon as the page unmounts. A save that fails
+ * keeps the student on the paper with the dialog saying so, and nothing
  * navigates until a retry succeeds or the student stays; if the store's own
  * retry lands first, the dialog goes back to asking. A locked paper (ended,
  * out of time, or taken over by another device) has nothing this tab can
