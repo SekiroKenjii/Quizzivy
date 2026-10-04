@@ -34,6 +34,9 @@ this file describe the code as it is and name the release that changes them.
   owner constraints and drops their fill triggers. Until then all of them are
   in the code.
 - **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
+- **The design team's fourth export (2026-10-04) is not the deck of record.**
+  R4 builds from `docs/design/deck/` as it is, and D4 imports the export after
+  v0.10.0 (`docs/plan/74d-d4-deck-update.md`).
 
 ## Sources of truth, in order
 
@@ -423,7 +426,9 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
   off `develop`.
 - Phase R tasks are `T-R<k>.<n>` on `feature/t-r<k>-<nn>-<slug>`, off the
   release's integration branch `work/redesign-r<k>`, which is cut from `develop`
-  and merged back `--no-ff` when the release is complete.
+  and merged back `--no-ff` when the release is complete. D4 runs the same way
+  under its own names: `T-D4.<n>` on `feature/t-d4-<nn>-<slug>`, off
+  `work/deck-d4`.
 - A release is `release/<version>` → `main` → back-merge to `develop`. Merging to
   `main` deploys to production.
 - `hotfix/<slug>` off `main`, merged to both.
