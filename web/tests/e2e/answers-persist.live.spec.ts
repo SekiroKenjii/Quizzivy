@@ -57,12 +57,14 @@ test("E2E 2: an answer survives a reload, and the result shows what was earned",
   // By URL: the fixture allows fifty attempts, so after one the home still
   // offers the assignment as due rather than filing it under completed.
   await page.goto(`/app/attempts/${attemptId}/result`);
-  await expect(page.getByText("Điểm tạm tính")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("Còn 1 câu giáo viên đang chấm")).toBeVisible();
-  await expect(page.getByText("2/4", { exact: true })).toBeVisible();
+  await expect(page.getByText("trên 2, tạm tính")).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByText("1 câu đã được chấm tự động. Giáo viên sẽ chấm 1 câu tự luận."),
+  ).toBeVisible();
+  await expect(page.getByText("2 / 2", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(draft, { exact: true })).toBeVisible();
-  await expect(page.getByText(/Lượt \d+\/50/)).toBeVisible();
-  // The choice given before the reload is marked as the student's own.
-  await expect(page.getByText("bạn chọn").first()).toBeVisible();
+  await expect(page.getByText(/lượt \d+\/50/)).toBeVisible();
+  // The choice given before the reload is written as the student's own answer.
+  await expect(page.getByText("Bạn trả lời").first()).toBeVisible();
   await expect(page.getByText("went")).toBeVisible();
 });

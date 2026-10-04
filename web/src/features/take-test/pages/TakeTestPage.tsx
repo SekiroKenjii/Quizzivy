@@ -9,31 +9,31 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
-import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { useBlocker, useNavigate, useParams } from "react-router";
-import { ChevronLeft, ChevronRight, Flag, List, X } from "lucide-react";
+import { useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { LoadError } from "@/components/shared/ListState";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
-import { EngineHeader } from "../components/EngineHeader";
-import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
-import { GroupContext } from "../components/GroupContext";
+import { EngineHeader, LeaveButton } from "../components/EngineHeader";
+import { LeaveDialog } from "../components/LeaveDialog";
+import { Navigator, type DotState } from "../components/Navigator";
+import { GroupContext, GroupListening } from "../components/GroupContext";
 import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
 import { QuestionCard } from "../components/QuestionCard";
-import { ReviewScreen } from "../components/ReviewScreen";
 import { SaveStrip } from "../components/SaveState";
 import { SectionInstructions } from "../components/SectionInstructions";
+import { SubmitDialog } from "../components/SubmitDialog";
 import { SubmittedScreen } from "../components/SubmittedScreen";
 import { clearSession } from "@/features/integrity/buffer";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
+import { exitFullscreen } from "@/features/integrity/fullscreen";
 import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
 import { StrikeIndicator } from "@/features/integrity/components/StrikeIndicator";
 import { strikeState } from "@/features/integrity/strikes";
+import { useClipboardNotice } from "@/features/integrity/useClipboardNotice";
 import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { answered } from "../answered";
 import { getAttempt, type Answer, type StudentQuestion } from "../api";
@@ -43,27 +43,38 @@ import {
   sectionAt,
   type SectionGroup,
 } from "../sections";
+import { hasPassage, questionShowing, useKeptScroll } from "../panes";
+import { questionKind } from "../questionType";
 import { useTakeTestStore } from "../store";
-import { worth } from "../worth";
+import { useLeave } from "../useLeave";
+
+const PICK_KEYS = "abcde";
 
 /**
- * S-05's engine, one question at a time -- and S-06's two other views of the
- * same attempt: the navigator (a sheet in thumb range, a rail from 1024px)
- * and the review before submitting. From 1024px the chrome is S-08's: one
- * header row, no save strip, no sticky footer, the two buttons under the
- * answer at their own width.
+ * TakeTestPage is the engine, one question at a time, with the navigator as
+ * the footer of the question pane (a strip of numbered squares from 768px, a
+ * button that opens the question sheet below it) and the deck's Submit dialog
+ * over it, which is the only way to hand the paper in. The header is the
+ * deck's at every width; below 768px a strip under it says when a save has
+ * failed or the device is offline, and is otherwise absent. The keys are the
+ * deck's: the arrows move and stop at either end, A to E choose, F flags.
+ * None acts in a text field, while a dialog or the question sheet is open, or
+ * on a locked paper. Once the attempt is submitted, by the student, the timer
+ * or an auto-submit, the page shows the submitted screen and leaves the
+ * fullscreen the assignment asked for. From then on no fullscreen change is
+ * recorded, so that exit is never noted as the student's.
  */
 export default function TakeTestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { attemptId } = useParams<{ attemptId: string }>();
-  const wide = useMediaQuery("(min-width: 1024px)");
+  const wide = useMediaQuery("(min-width: 768px)");
 
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [loadError, setLoadError] = useState<unknown>(null);
   const [index, setIndex] = useState(0);
-  const [view, setView] = useState<"question" | "review">("question");
-  const [navOpen, setNavOpen] = useState(false);
+  const [submitAsked, setSubmitAsked] = useState(false);
+  const [jumps, countJump] = useReducer((n: number) => n + 1, 0);
 
   const questions = useTakeTestStore((s) => s.questions);
   const sections = useTakeTestStore((s) => s.sections);
@@ -81,28 +92,7 @@ export default function TakeTestPage() {
   const setAnswer = useTakeTestStore((s) => s.setAnswer);
   const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
   const reset = useTakeTestStore((s) => s.reset);
-  const flush = useTakeTestStore((s) => s.flush);
-  const dirty = useTakeTestStore((s) => s.dirty.size);
-  const flushing = useTakeTestStore((s) => s.flushInFlight);
-  const blocker = useBlocker(dirty > 0 && lock === null);
-  const blocked = blocker.state === "blocked";
-  const proceed = blocked ? blocker.proceed : undefined;
-  useEffect(() => {
-    if (proceed === undefined) return;
-    let active = true;
-    void flush().then((saved) => {
-      if (active && saved && useTakeTestStore.getState().dirty.size === 0) proceed();
-    });
-    return () => {
-      active = false;
-    };
-  }, [proceed, flush]);
-  useEffect(() => {
-    if (dirty === 0) return;
-    const beforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [dirty]);
+  const leave = useLeave();
 
   const [reloads, reload] = useReducer((n: number) => n + 1, 0);
   const groups = useMemo(
@@ -110,17 +100,31 @@ export default function TakeTestPage() {
     [sections, questions],
   );
   const question = questions[Math.min(index, questions.length - 1)];
+  const ended = submitState === "done";
 
-  // Every §10 listener, in one place.
-  const { strikes, lastAwayMs, fullscreen } = useIntegrityMonitor({
+  const { strikes, fullscreen } = useIntegrityMonitor({
     attemptId: attemptId ?? null,
     sessionId,
     beaconToken,
-    policy: integrity,
-    questionId: view === "question" ? (question?.id ?? null) : null,
+    policy:
+      ended && integrity !== null
+        ? { ...integrity, requireFullscreen: false }
+        : integrity,
+    questionId: question?.id ?? null,
   });
 
   const autoSubmitting = useIntegrityAutoSubmit(focusLossCount + strikes);
+  useClipboardNotice(
+    attemptId !== undefined && sessionId !== null && integrity?.blockCopyPaste === true,
+  );
+
+  const sealed = lock === "superseded" || lock === "closed";
+  if (sealed && submitAsked) setSubmitAsked(false);
+
+  const asksFullscreen = integrity?.requireFullscreen === true;
+  useEffect(() => {
+    if (ended && asksFullscreen) void exitFullscreen();
+  }, [ended, asksFullscreen]);
 
   useEffect(() => {
     if (attemptId === undefined) return;
@@ -149,14 +153,7 @@ export default function TakeTestPage() {
   );
 
   const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
-    if (
-      view !== "question" ||
-      navOpen ||
-      lock !== null ||
-      submitState !== "idle" ||
-      question === undefined
-    )
-      return;
+    if (lock !== null || submitState !== "idle" || question === undefined) return;
     if (
       event.defaultPrevented ||
       event.isComposing ||
@@ -175,8 +172,7 @@ export default function TakeTestPage() {
     switch (event.key) {
       case "ArrowRight":
         event.preventDefault();
-        if (index === questions.length - 1) setView("review");
-        else setIndex(index + 1);
+        setIndex(Math.min(questions.length - 1, index + 1));
         return;
       case "ArrowLeft":
         event.preventDefault();
@@ -185,12 +181,18 @@ export default function TakeTestPage() {
       case "f":
       case "F":
         event.preventDefault();
-        if (!event.repeat) toggleFlag(question.id);
+        if (!event.repeat && questionShowing(question.id)) toggleFlag(question.id);
         return;
     }
-    const pick = "abcd".indexOf(event.key.toLowerCase());
+    const pick = PICK_KEYS.indexOf(event.key.toLowerCase());
     const option = question.options?.[pick];
-    if (pick >= 0 && option !== undefined && !event.repeat) {
+    if (
+      pick >= 0 &&
+      option !== undefined &&
+      !event.repeat &&
+      questionKind(question) === "choice" &&
+      questionShowing(question.id)
+    ) {
       event.preventDefault();
       setAnswer(question.id, chooseOption(question, answers[question.id], option.id));
     }
@@ -203,8 +205,8 @@ export default function TakeTestPage() {
 
   const jump = useCallback((i: number) => {
     setIndex(i);
-    setNavOpen(false);
-    setView("question");
+    setSubmitAsked(false);
+    countJump();
   }, []);
 
   if (status === "loading") {
@@ -235,7 +237,7 @@ export default function TakeTestPage() {
   if (submitState === "done" && submittedAt !== null) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        {wide && <EngineHeader wide leading={null} progress={null} live={false} />}
+        {wide && <EngineHeader wide leading={null} live={false} />}
         <SubmittedScreen
           reason={submitReason ?? "manual"}
           submittedAt={submittedAt}
@@ -258,53 +260,19 @@ export default function TakeTestPage() {
     ? strikeState(integrity, focusLossCount + strikes)
     : null;
   const strikeDialog = strikeStatus !== null && (
-    <StrikeDialog state={strikeStatus} strikes={strikes} lastAwayMs={lastAwayMs} />
+    <StrikeDialog state={strikeStatus} strikes={strikes} />
   );
   const strikeIndicator =
-    strikeStatus === null ? null : <StrikeIndicator state={strikeStatus} />;
-
-  const leaveDialog = (
-    <ConfirmDialog
-      className="student-surface"
-      open={blocked}
-      onOpenChange={(open) => {
-        if (!open && blocked) blocker.reset();
-      }}
-      title={t("takeTest.leaveUnsavedTitle")}
-      description={t("takeTest.leaveUnsavedDescription")}
-      confirmLabel={t("takeTest.retrySave")}
-      cancelLabel={t("takeTest.keepWorking")}
-      pending={flushing}
-      onConfirm={() => {
-        void flush().then((saved) => {
-          if (saved && useTakeTestStore.getState().dirty.size === 0) proceed?.();
-        });
-      }}
-    />
-  );
-
-  if (view === "review") {
-    return (
-      <>
-        <ReviewScreen
-          wide={wide}
-          dots={dots}
-          groups={groups}
-          status={strikeIndicator}
-          onBack={() => setView("question")}
-          onJump={jump}
-        />
-        {strikeDialog}
-        {leaveDialog}
-      </>
+    strikeStatus === null || strikeStatus.limit === null ? null : (
+      <StrikeIndicator state={strikeStatus} />
     );
-  }
 
   return (
     <>
       <Paper
         wide={wide}
         index={index}
+        jumps={jumps}
         question={question}
         total={questions.length}
         group={sectionAt(groups, index)}
@@ -313,24 +281,28 @@ export default function TakeTestPage() {
         groups={groups}
         status={strikeIndicator}
         fullscreenBar={watching && integrity.requireFullscreen && !fullscreen}
-        navOpen={navOpen}
-        onNavOpen={setNavOpen}
-        onExit={() => void navigate("/app")}
+        onLeave={leave.ask}
         onMove={setIndex}
         onJump={jump}
-        onReview={() => setView("review")}
+        onSubmit={() => setSubmitAsked(true)}
         onReload={reload}
       />
+      <SubmitDialog
+        open={submitAsked}
+        dots={dots}
+        onClose={() => setSubmitAsked(false)}
+        onGo={jump}
+      />
       {strikeDialog}
-      {leaveDialog}
+      <LeaveDialog leave={leave} />
     </>
   );
 }
 
-/** The paper itself: header, strip, one question, the way to the next. */
 function Paper({
   wide,
   index,
+  jumps,
   question,
   total,
   group,
@@ -339,40 +311,34 @@ function Paper({
   groups,
   status,
   fullscreenBar,
-  navOpen,
-  onNavOpen,
-  onExit,
+  onLeave,
   onMove,
   onJump,
-  onReview,
+  onSubmit,
   onReload,
 }: Readonly<{
   wide: boolean;
   index: number;
+  jumps: number;
   question: StudentQuestion;
   total: number;
   group: SectionGroup | null;
-  /** More than one part: the meta line names the part (S-08). */
   sectioned: boolean;
   dots: DotState[];
   groups: SectionGroup[];
   status: ReactNode;
   fullscreenBar: boolean;
-  navOpen: boolean;
-  onNavOpen: (open: boolean) => void;
-  onExit: () => void;
+  onLeave: () => void;
   onMove: (index: number) => void;
   onJump: (index: number) => void;
-  onReview: () => void;
+  onSubmit: () => void;
   onReload: () => void;
 }>) {
   const { t } = useTranslation();
-  const flagged = useTakeTestStore((s) => s.flags.has(question.id));
-  const lock = useTakeTestStore((s) => s.lock);
-  const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
-  const last = index >= total - 1;
-  const choice = (question.options?.length ?? 0) > 0;
-  const paper = useRef<HTMLElement>(null);
+  const sealed = useTakeTestStore(
+    (state) => state.lock === "superseded" || state.lock === "closed",
+  );
+  const submit = sealed ? undefined : onSubmit;
   const answerPanel = useRef<HTMLDivElement>(null);
   const sharedGroups = useTakeTestStore((state) => state.groups);
   const questions = useTakeTestStore((state) => state.questions);
@@ -390,265 +356,214 @@ function Paper({
     [questions],
   );
   const context = contexts.get(question.id);
-  const contextClasses = paperColumns(context !== undefined);
-  const previousContext = useRef<string | undefined>(undefined);
-  const focusTarget = useRef<string | null>(null);
-  const [focusRequest, requestFocus] = useReducer((n: number) => n + 1, 0);
-  const revealAnswerPanel = useEffectEvent(() => {
-    if (!wide) answerPanel.current?.scrollIntoView?.({ block: "start" });
-  });
-  useEffect(() => {
-    const target = focusTarget.current;
-    focusTarget.current = null;
-    if (target !== null) {
-      const element = document.getElementById(target) ?? answerPanel.current;
-      element?.focus({ preventScroll: true });
-      element?.scrollIntoView?.({ block: "nearest" });
-    } else if (context?.id && previousContext.current === context.id) {
-      answerPanel.current?.focus({ preventScroll: true });
-      revealAnswerPanel();
-    } else if (paper.current) {
-      paper.current.scrollTop = 0;
-      paper.current.focus({ preventScroll: true });
-    }
-    previousContext.current = context?.id;
-  }, [question.id, context?.id, focusRequest]);
+  const passage = hasPassage(context) ? context : undefined;
+  const visit = `${question.id}:${jumps}`;
+  const [readingFor, setReadingFor] = useState<string | null>(null);
+  if (readingFor !== null && readingFor !== visit) setReadingFor(null);
+  const reading = !wide && passage !== undefined && readingFor === visit;
+  const sheet = useRef<HTMLDivElement>(null);
+  const onSheetScroll = useKeptScroll(sheet, reading, question.id);
+  const landOn = useLanding(visit, sheet, answerPanel);
 
   const jumpToGap = useCallback(
     (gap: MaterialGap) => {
-      const number = numbers.get(gap.questionId);
-      if (number === undefined) return;
-      const targetQuestion = questions[number - 1];
-      const blank =
-        gap.kind === "blank"
-          ? targetQuestion?.blanks?.find((item) => item.gapId === gap.blankGapId)
-          : undefined;
-      focusTarget.current = blank
-        ? `answer-blank-${blank.id}`
-        : `answer-question-${gap.questionId}`;
-      requestFocus();
-      onJump(number - 1);
+      const landing = gapLanding(gap, questions, numbers);
+      if (landing === null) return;
+      setReadingFor(null);
+      landOn(landing.target);
+      onJump(landing.index);
     },
-    [numbers, questions, onJump],
+    [numbers, questions, onJump, landOn],
   );
 
-  const flag = (
-    <Button
-      variant="ghost"
-      size={wide ? "sm" : "icon-sm"}
-      className="text-muted-foreground min-h-11 min-w-11 shrink-0 lg:min-h-0 lg:min-w-0"
-      aria-pressed={flagged}
-      aria-label={t(flagged ? "takeTest.unflagThis" : "takeTest.flagThis")}
-      disabled={lock !== null}
-      onClick={() => toggleFlag(question.id)}
-    >
-      <Flag className={flagged ? "fill-current" : undefined} aria-hidden="true" />
-      {wide && t("takeTest.flag")}
-    </Button>
-  );
-  const previous = (
-    <Button
-      variant="outline"
-      size={wide ? "default" : "icon"}
-      className={wide ? undefined : "size-11"}
-      aria-label={wide ? undefined : t("takeTest.previous")}
-      disabled={index === 0}
-      onClick={() => onMove(Math.max(0, index - 1))}
-    >
-      <ChevronLeft aria-hidden="true" />
-      {wide && t("takeTest.previous")}
-    </Button>
-  );
-  const next = last ? (
-    <Button
-      className={wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal"}
-      onClick={onReview}
-    >
-      {t("takeTest.reviewAndSubmit")}
-    </Button>
-  ) : (
-    <Button
-      className={wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal"}
-      onClick={() => onMove(index + 1)}
-    >
-      {t("takeTest.next")}
-      <ChevronRight aria-hidden="true" />
-    </Button>
-  );
+  const part = sectioned && passage === undefined ? group?.section.title : undefined;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <EngineHeader
         wide={wide}
-        counter={{ n: index + 1, total }}
-        progress={(index + 1) / total}
         status={status}
-        leading={
-          <Button
-            variant="ghost"
-            size="xs"
-            className="text-muted-foreground h-11 px-1 lg:h-7"
-            onClick={onExit}
-          >
-            <X aria-hidden="true" />
-            {t("takeTest.exit")}
-          </Button>
-        }
+        leading={<LeaveButton onClick={onLeave} />}
+        onSubmit={submit}
       />
       <SaveStrip wide={wide} indicator={status} />
       {fullscreenBar && <FullscreenBar />}
+      {!wide && passage !== undefined && (
+        <PaneSwitch
+          number={index + 1}
+          reading={reading}
+          onRead={(on) => setReadingFor(on ? visit : null)}
+        />
+      )}
 
-      <div data-columns className="flex min-h-0 flex-1">
-        <main
-          ref={paper}
-          tabIndex={-1}
-          aria-label={t("takeTest.dotLabel", { n: index + 1 })}
-          data-resize-middle
-          className={cn(
-            "@container/paper min-w-0 flex-1 overflow-y-auto outline-none",
-            wide ? "p-8" : "p-4",
-          )}
+      <main
+        tabIndex={-1}
+        aria-label={t("takeTest.dotLabel", { n: index + 1 })}
+        className="flex min-h-0 min-w-0 flex-1 outline-none!"
+      >
+        {passage !== undefined && (
+          <GroupContext
+            key={passage.id}
+            group={passage}
+            eyebrow={group?.section.title}
+            numbers={numbers}
+            onGap={jumpToGap}
+            onRetryMedia={onReload}
+            wide={wide}
+            hidden={!wide && !reading}
+          />
+        )}
+        <section
+          hidden={reading}
+          className="bg-sidebar flex min-w-0 flex-[1_1_0] flex-col"
         >
           <div
-            className={cn("mx-auto flex w-full flex-col gap-5", contextClasses.width)}
+            ref={sheet}
+            onScroll={onSheetScroll}
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto",
+              wide ? "px-8 py-7" : "px-4 py-4.5",
+            )}
           >
-            {wide && (
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-muted-foreground text-xs">
-                  {metaLine(t, question, index, total, sectioned ? group : null)}
+            <div
+              ref={answerPanel}
+              id={`answer-question-${question.id}`}
+              tabIndex={-1}
+              aria-label={t("takeTest.dotLabel", { n: index + 1 })}
+              className="mx-auto flex w-full max-w-150 flex-col gap-4.5 outline-none!"
+            >
+              {part ? (
+                <p className="text-muted-fg text-meta leading-normal font-semibold tracking-[0.02em] uppercase">
+                  {part}
                 </p>
-                {flag}
-              </div>
-            )}
-            {group !== null && opensSection(group, index) && (
-              <SectionInstructions
-                group={group}
-                audio={question.media?.kind === "audio"}
+              ) : null}
+              <QuestionCard
+                question={question}
+                number={index + 1}
+                total={total}
+                onAudioExpired={onReload}
+                lead={
+                  <>
+                    {group !== null && opensSection(group, index) && (
+                      <SectionInstructions
+                        group={group}
+                        audio={question.media?.kind === "audio"}
+                      />
+                    )}
+                    {context && (
+                      <GroupListening
+                        key={context.id}
+                        group={context}
+                        onRetryMedia={onReload}
+                      />
+                    )}
+                  </>
+                }
               />
-            )}
-            <div className={contextClasses.grid}>
-              {context && (
-                <GroupContext
-                  key={context.id}
-                  group={context}
-                  numbers={numbers}
-                  onGap={jumpToGap}
-                  onRetryMedia={onReload}
-                  wide={wide}
-                />
-              )}
-              <div
-                ref={answerPanel}
-                id={`answer-question-${question.id}`}
-                tabIndex={-1}
-                aria-label={t("takeTest.dotLabel", { n: index + 1 })}
-                className="flex min-w-0 flex-col gap-5 outline-none"
-              >
-                <QuestionCard
-                  question={question}
-                  onAudioExpired={onReload}
-                  action={wide ? undefined : flag}
-                />
-                {wide && (
-                  <div className="flex flex-wrap items-center gap-2 pt-2">
-                    {previous}
-                    {next}
-                    <p className="text-muted-foreground ml-3 flex items-center gap-1 text-xs">
-                      {t("takeTest.shortcuts")}
-                      {choice && (
-                        <>
-                          {" "}
-                          <Kbd>{KEY.a}</Kbd>
-                          {KEY.dash}
-                          <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
-                        </>
-                      )}{" "}
-                      <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd>{" "}
-                      {t("takeTest.shortcutMove")} {KEY.dot} <Kbd>{KEY.f}</Kbd>{" "}
-                      {t("takeTest.shortcutFlag")}
-                    </p>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
-        </main>
-        {wide && (
-          <NavigatorRail
+          <Navigator
+            wide={wide}
             dots={dots}
             current={index}
             groups={groups}
+            onMove={onMove}
             onJump={onJump}
-            onReview={onReview}
+            onFinish={submit}
           />
-        )}
-      </div>
-
-      {!wide && (
-        <footer
-          className="flex shrink-0 items-center gap-2 border-t p-3"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        >
-          {previous}
-          <Button
-            variant="outline"
-            className="size-11 shrink-0"
-            size="icon"
-            aria-label={t("takeTest.questionList")}
-            onClick={() => onNavOpen(true)}
-          >
-            <List aria-hidden="true" />
-          </Button>
-          {next}
-        </footer>
-      )}
-
-      <NavigatorSheet
-        open={navOpen}
-        onOpenChange={onNavOpen}
-        dots={dots}
-        current={index}
-        groups={groups}
-        onJump={onJump}
-        onReview={() => {
-          onNavOpen(false);
-          onReview();
-        }}
-      />
+        </section>
+      </main>
     </div>
   );
 }
 
-/** S-08's line above the stem: the part when there is more than one, the position, the worth. */
-function metaLine(
-  t: TFunction,
-  question: StudentQuestion,
-  index: number,
-  total: number,
-  group: SectionGroup | null,
-): string {
-  const points = worth(question, t);
-  if (group === null) {
-    return t("takeTest.questionMeta", { n: index + 1, total, points });
-  }
-  return t("takeTest.sectionMeta", {
-    section: group.section.title,
-    n: index + 1,
-    total,
-    points,
-  });
+function gapLanding(
+  gap: MaterialGap,
+  questions: StudentQuestion[],
+  numbers: ReadonlyMap<string, number>,
+): { index: number; target: string } | null {
+  const number = numbers.get(gap.questionId);
+  if (number === undefined) return null;
+  const blank =
+    gap.kind === "blank"
+      ? questions[number - 1]?.blanks?.find((item) => item.gapId === gap.blankGapId)
+      : undefined;
+  return {
+    index: number - 1,
+    target: blank ? `answer-blank-${blank.id}` : `answer-question-${gap.questionId}`,
+  };
 }
 
-/** The key caps S-08 draws. Not translated: they are the keys. */
-const KEY = {
-  a: "A",
-  d: "D",
-  dash: "–",
-  dot: "·",
-  left: "←",
-  right: "→",
-  f: "F",
-} as const;
+function useLanding(
+  visit: string,
+  sheetRef: RefObject<HTMLDivElement | null>,
+  panelRef: RefObject<HTMLDivElement | null>,
+) {
+  const target = useRef<string | null>(null);
+  const [request, ask] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const id = target.current;
+    target.current = null;
+    if (id === null) {
+      if (sheetRef.current) sheetRef.current.scrollTop = 0;
+      panelRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    const element = document.getElementById(id) ?? panelRef.current;
+    element?.focus({ preventScroll: true });
+    element?.scrollIntoView?.({ block: "nearest" });
+  }, [visit, request, sheetRef, panelRef]);
+  return useCallback((id: string) => {
+    target.current = id;
+    ask();
+  }, []);
+}
+
+function PaneSwitch({
+  number,
+  reading,
+  onRead,
+}: Readonly<{
+  number: number;
+  reading: boolean;
+  onRead: (reading: boolean) => void;
+}>) {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="group"
+      aria-label={t("takeTest.paneSwitch")}
+      className="flex flex-none gap-1.5 border-b px-3.5 py-2"
+    >
+      <PaneTab on={reading} onClick={() => onRead(true)}>
+        {t("takeTest.passage")}
+      </PaneTab>
+      <PaneTab on={!reading} onClick={() => onRead(false)}>
+        {t("takeTest.dotLabel", { n: number })}
+      </PaneTab>
+    </div>
+  );
+}
+
+function PaneTab({
+  on,
+  onClick,
+  children,
+}: Readonly<{ on: boolean; onClick: () => void; children: string }>) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      className={cn(
+        "text-ui h-8.5 min-h-0 min-w-0 flex-1 rounded-md leading-none font-medium",
+        on ? "bg-primary text-primary-fg" : "bg-muted text-fg",
+      )}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
 
 function typingIn(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -665,7 +580,6 @@ function typingIn(target: EventTarget | null): boolean {
   );
 }
 
-/** A–D on a choice question: a single picks, a multiple toggles. */
 function chooseOption(
   question: StudentQuestion,
   current: Answer | undefined,
@@ -689,13 +603,4 @@ function Notice({ children }: Readonly<{ children: string }>) {
       <p className="text-muted-foreground text-sm leading-relaxed">{children}</p>
     </main>
   );
-}
-
-function paperColumns(shared: boolean) {
-  return shared
-    ? {
-        width: "max-w-none",
-        grid: "grid min-w-0 items-start gap-6 @min-[800px]/paper:grid-cols-2",
-      }
-    : { width: "max-w-[720px]", grid: undefined };
 }

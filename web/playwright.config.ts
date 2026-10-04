@@ -32,6 +32,18 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      testIgnore: [/\.live\.spec\.ts$/, /\.phone\.spec\.ts$/],
+    },
+    /**
+     * The student console on a phone: Pixel 5's viewport, touch and user
+     * agent. It runs the files named `*.phone.spec.ts` and nothing else, and
+     * `chromium` leaves those out. A phone spec never sets a viewport: the
+     * device is what it tests.
+     */
+    {
+      name: "mobile-chromium",
+      use: { ...devices["Pixel 5"] },
+      testMatch: /\.phone\.spec\.ts$/,
       testIgnore: /\.live\.spec\.ts$/,
     },
     /**
@@ -49,9 +61,6 @@ export default defineConfig({
       testMatch: /\.live\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"] },
     },
-    // §16 requires 360px mobile QA and §11.3 calls out iOS Safari specifically.
-    // Enabled in T-5.6; declared here so the shape is already right.
-    // { name: "mobile-safari", use: { ...devices["iPhone 13"] } },
   ],
 
   webServer: {

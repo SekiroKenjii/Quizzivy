@@ -208,8 +208,11 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await expect(page).toHaveURL((url) => url.pathname === `/admin/tests/${id}`);
   await page.getByRole("button", { name: "Quay lại", exact: true }).click();
   await expect(page.getByPlaceholder("Tìm theo tên đề")).toHaveValue(title);
-  for (const checkbox of await copies.getByRole("checkbox").all())
-    await checkbox.check();
+  await expect(copies).toHaveCount(2);
+  for (const copy of await copies.all()) await copy.getByRole("checkbox").check();
+  await expect(
+    page.getByRole("button", { name: "Lưu trữ các mục đã chọn", exact: true }),
+  ).toBeVisible();
   await page
     .getByRole("button", { name: "Lưu trữ các mục đã chọn", exact: true })
     .click();
@@ -239,7 +242,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   ).toBeVisible({ timeout: 15_000 });
   await expect(
     page.getByText(
-      "Bài đã được tự nộp do vượt giới hạn rời trang. Câu trả lời được giữ để chấm và vi phạm đã được ghi nhận.",
+      "Bạn đã rời trang làm bài quá số lần được phép nên bài đã được nộp. Câu trả lời của bạn được giữ lại để chấm. Giáo viên đã được báo.",
       { exact: true },
     ),
   ).toBeVisible();

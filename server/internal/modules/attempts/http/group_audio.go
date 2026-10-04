@@ -25,15 +25,15 @@ func (h Attempts) RecordGroupAudioPlay(ctx context.Context, request openapi.Reco
 	}})
 	switch {
 	case errors.Is(err, domain.ErrForbidden):
-		return openapi.RecordGroupAudioPlay403JSONResponse{ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền nghe bản ghi này."))}, nil
+		return openapi.RecordGroupAudioPlay403JSONResponse{ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx, "Bạn không có quyền nghe bản ghi này.", "You do not have permission to listen to this recording.")))}, nil
 	case errors.Is(err, domain.ErrAttemptClosed):
-		return openapi.RecordGroupAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTCLOSED, "Bài làm này đã kết thúc.")), nil
+		return openapi.RecordGroupAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTCLOSED, httpx.Text(ctx, "Bài làm này đã kết thúc.", "This attempt has ended."))), nil
 	case errors.Is(err, domain.ErrSessionSuperseded):
-		return openapi.RecordGroupAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.SESSIONSUPERSEDED, "Bài làm này đã được mở ở nơi khác.")), nil
+		return openapi.RecordGroupAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.SESSIONSUPERSEDED, httpx.Text(ctx, "Bài làm này đã được mở ở nơi khác.", "This attempt was opened somewhere else."))), nil
 	case errors.Is(err, domain.ErrDeadlinePassed):
-		return openapi.RecordGroupAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.DEADLINEPASSED, "Đã hết giờ làm bài.")), nil
+		return openapi.RecordGroupAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.DEADLINEPASSED, httpx.Text(ctx, "Đã hết giờ làm bài.", "Time is up."))), nil
 	case errors.Is(err, domain.ErrPlayIDConflict):
-		return openapi.RecordGroupAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.PLAYIDCONFLICT, "Mã lượt nghe đã được dùng cho bản ghi khác. Vui lòng tải lại bài làm.")), nil
+		return openapi.RecordGroupAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.PLAYIDCONFLICT, httpx.Text(ctx, "Mã lượt nghe đã được dùng cho bản ghi khác. Vui lòng tải lại bài làm.", "This play id was already used for another recording. Please reload the attempt."))), nil
 	case err != nil:
 		return nil, err
 	}

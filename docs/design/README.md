@@ -31,7 +31,7 @@ relative name.
 | `Quizzivy Splash.dc.html` | Everyone | App boot | Loading steps, skeleton hand-off per shell, slow, offline, new version, session expired; en + vi copy |
 | `Quizzivy System pages.dc.html` | Everyone | `*`, `/403`, error boundary, maintenance | 404, no access, unexpected error, maintenance |
 | `Quizzivy Student.dc.html` | Student | `/app/*` | Home, classes, join dialog, test intro, take test, result, learn, course, lesson, flashcards, grades, messages, this week, settings |
-| `Quizzivy Teacher.dc.html` | Teacher (and Admin) | `/teacher/*` | Dashboard, calendar, messages, assignments, grading, classes, students, attendance, tests, shared with me, question bank, media, courses, vocabulary, gradebook, reports, imports, settings |
+| `Quizzivy Teacher.dc.html` | Teacher (and Admin) | `/teacher/*` | Dashboard, calendar, messages, assignments, grading, classes, students, attendance, tests, shared with me, question bank, media, courses, vocabulary, gradebook, reports, imports (a Word or PDF file, or pasted text), settings |
 | `Quizzivy Admin.dc.html` | Admin | `/admin/*` | Overview, users, roles and permissions, all classes, audit log, API reference, system settings |
 
 Supporting files: `support.js` is the Claude Design canvas runtime (nothing in it is product
@@ -48,15 +48,34 @@ Each `.dc.html` is one `<x-dc>` template followed by one `<script type="text/x-d
 - The script holds the fixtures (which show the data model), the state, every handler and
   `renderVals()`. Most option sets, labels, defaults and breakpoints live here, not in the
   template. The Teacher page builds its screens in layers (`renderValsInner → wire → … →
-  shareVals`); the last layer wins, so a dialog is built from the layer that overrides the
-  `toast*` stub beneath it.
+  shareVals → peVals`); the last layer wins, so a dialog is built from the layer that overrides
+  the `toast*` stub beneath it. `peVals` (2026-10-04) is the content editor: it feeds the
+  builder's "Prompt", "Explanation" and "Question media", the review's "Question" field and the
+  two dialogs they open.
 - Breakpoints are measured from the page's own width with a ResizeObserver: `< 768` is mobile,
   `>= 1024` is wide, and most tables drop columns by the content width
   (`width − sidebar − padding`).
 
 **Prototype chrome never ships:** the floating screen-switcher pills, the demo accounts box and
 the "Try T6NB-4WLQ" hint on Sign in, the canvas theme buttons, the `frame: mobile` prop, the
-Teacher page's "Coming next" screen, `RULES_UNUSED`, and the Word-import "Use a sample" slot.
+Teacher page's "Coming next" screen, `RULES_UNUSED`, and the import page's "Use a sample" buttons
+(one in each file slot and one in the paste box, which loads `WI_PZ_SAMPLE`).
+
+A pasted import's numbers are demo data, not behaviour: fixture row `i9` ("Pasted text", 1,186
+characters), the counts the prototype copies from its own quick count (`WI_detect`) into the
+history row, the stages and the Ready card after Start, beside a hard-coded "1 to confirm" and
+"1 note", and the fixed date of the fallback title ("Pasted test · 2 Oct"). The product reads the
+counts from the server's review summary and puts the day of the import in the fallback title.
+
+The content editor's engine and data are a prototype too (2026-10-04 export). `PE_LIB` (the
+eight Media files, their counts and their "Used in …" and "Shared by …" lines), `B_BLANK_DEF`,
+`B_MATCH_DEF`, the sample answer of question 6, the option list every question shares and the
+prompts seeded from question titles are demo data. The upload that always succeeds after about
+a second, the playback that jumps to 0:34, the name "pasted-image-{n}.png" and the `media:{file
+name}` addresses in Markdown are stand-ins. The rich mode runs on `document.execCommand`; the
+product's editor is TipTap (`web/src/components/shared/content/editor/`), and the drawing
+specifies the controls, not the engine. In the review the prototype saves the editor's plain
+text only; the product stores the content.
 
 ## Where the product departs from the deck
 
@@ -77,6 +96,45 @@ Decided with Thuong on 2026-09-26. The design team has these as requests
 - **Media replace and delete follow the publish snapshot:** a replaced file reaches drafts and
   bank questions only, and a file in use cannot be deleted. The deck's copy says otherwise.
 
+Decided on 2026-10-03, with the second import (DG-12 to DG-19 in `docs/design/gaps.md`):
+
+- **A pasted test is plain text.** The paste box keeps no formatting, so its kind pill has one
+  state and the "Formatting kept from …" lines do not ship.
+- **The paste box's quick count follows the server's recognition rules,** not the prototype's
+  `WI_detect`, so the page and the review cannot disagree.
+- **Status filters are a group of toggle buttons with counts,** not a `tablist`, and the counts
+  follow the search (in the audit log, the date range as well).
+- **The Imports history switches between its grid and its cards by a container query** at 960px
+  of the list's own width, not by the deck's viewport arithmetic.
+- **The To review chips and the Ready card's pill read "{n} need action" for every import,**
+  pasted or not (DG-14).
+
+Defaults taken on 2026-10-04, with the third import (DG-108 to DG-116 in `docs/design/gaps.md`).
+Thuong has not decided these; the plan builds them until he or the design team answers:
+
+- **The toolbar's "Image" and "Audio" are not built in R4.** A prompt and an explanation hold no
+  media in the contract, so a pasted or dropped file is refused with a notice, and audio or an
+  image is attached as question media (DG-109).
+- **The editing mode is the form the field is stored in.** Rich text is stored content, Markdown
+  is the stored Markdown string, and nothing converts without the teacher's "Switch to Markdown"
+  or "Apply conversion". The prototype opens every question in Rich text (DG-110).
+- **One question editor serves the builder and the bank.** The builder's drawing of the prompt,
+  the explanation, the answer areas and the question media is built on both pages; the bank's
+  Question editor screen was not redrawn (DG-108).
+- **The type menu offers the five types the product stores.** "Matching" and the "Include “Not
+  given”" switch arrive with R6 (DG-60, DG-113).
+- **"Students can pause" is not built;** "Allow skipping ahead" and "Show transcript after
+  submitting" stay. Audio is MP3 or M4A up to 50 MB and an image JPG, PNG or WebP up to 10 MB;
+  the builder's "25 MB", "WAV" and "GIF" do not ship (DG-63, DG-111).
+- **"Choose from Media" lists the caller's own files.** Media is not a shared kind, so "files
+  other teachers shared with you" and "Shared by …" do not ship (DG-112).
+- **A pasted image is left out and counted.** Today a paste that holds an image is refused
+  whole (spec §7.1). The converter keeps every other refusal, and the paste preview says how
+  many images were left out (DG-115).
+- **The review's "Question" editor keeps what the product has:** stored content, gaps for a
+  fill-in-the-blank item, a read view where the review is read-only, and no Markdown mode
+  (DG-114).
+
 ## Updating the deck
 
 A new export from Claude Design (project `49cb45cb-7a21-441e-bb39-4261e0f38372`) replaces the
@@ -87,15 +145,17 @@ files in `deck/` byte for byte:
 2. Regenerate the manifest:
    `cd docs/design/deck && find . -type f ! -name MANIFEST.sha256 | sed 's|^\./||' | LC_ALL=C sort | while IFS= read -r f; do sha256sum "$f"; done > MANIFEST.sha256`
 3. `node scripts/check-design-deck.mjs` — it checks the manifest, that every page is one
-   template and one script, and that every file a page references is in the deck.
+   template and one script, and that every file a page references is in the deck. A `src` or
+   `href` that a page's script builds (its target holds a quote or a `$`) is not read as a file
+   reference.
 4. Add a line to the log below, and say in the PR which screens changed.
 
 ## Not imported
 
 - `screenshots/` holds Claude Design's own before-and-after captures at about 924px, several of
   them broken intermediate renders. They are not a reference.
-- `uploads/` holds eight red-pen markups on an earlier revision. All eight are resolved in the
-  deck as imported:
+- `uploads/` holds ten red-pen markups on earlier revisions. All ten are resolved in the deck as
+  imported:
 
   | Markup | Resolved as |
   |---|---|
@@ -107,6 +167,8 @@ files in `deck/` byte for byte:
   | Test builder under a very long title | Marquee titles, points never wrap, "Drag questions here" in an empty group |
   | New assignment stepper: truncated summaries | Four steps (test, students, schedule, rules) with marquee summaries |
   | Test builder title row: badges drifted right | Status and save state sit beside the title |
+  | Imports history: the action column and the row menu clipped at the card's right edge | No sideways scroll: a grid from 960px of content width, stacked cards below |
+  | Imports history: a cramped row of search and six filter chips | Segmented status tabs with counts on the left, the search on the right |
 
 ## Log
 
@@ -115,6 +177,32 @@ files in `deck/` byte for byte:
   day; the 18:06 export differs by a few hundred bytes in the Admin and Student pages and about
   3 KB in the Teacher page, so each release re-reads its screens from this deck, not from the
   inventories.
+- 2026-10-03 — Second import, from Thuong's 09:55 export. Two pages changed: Teacher (sha256
+  `12767a0c…`) and Admin (`72d4837a…`); the other thirteen files are byte-identical. Teacher:
+  "Paste a test" (a button on the Tests list and on the Imports history, the Source switch
+  "Upload a file | Paste text" on the import page, and the pasted variants of processing, the
+  Ready card and the review's source pane); the Imports history no longer scrolls sideways (a
+  grid from 960px of content width, stacked cards below), and its status filters are segmented
+  tabs with counts, with the search on the right. Admin: the Audit log filters are the same
+  segmented tabs with counts. The decisions taken with this import are DG-12 to DG-19 in
+  `gaps.md`.
+- 2026-10-04 — Third import, from Thuong's 01:14 export. Two files changed: the Teacher page
+  (sha256 `44342870…`, 658,831 to 781,532 bytes) and `github.md`; the other thirteen are
+  byte-identical. Teacher, Test builder: "Prompt" and "Explanation" are a rich content editor
+  with a "Rich text | Markdown" switch, a toolbar (marks, heading, lists, "Link", "Image",
+  "Audio", "Insert table", "Insert gap"), table tools, a notice band and a "{n} words" footer;
+  the answer area has one block for each of six types, with a grading note, and the type menu
+  gains "True / False" and "Short answer"; a "Question media" block attaches audio or an image
+  ("Plays", "Students can pause", "Transcript", alt text); two dialogs are new, "Preview
+  content after pasting" and "Choose from Media". Teacher, Review workspace: the question
+  card's "Question" field is the same editor, with the same two dialogs. Nothing else on the
+  page moved: the bank's Question editor screen, the builder's outline, title bar and publish
+  dialog, the Student preview and the rest of the review are as they were. `github.md` records
+  a sync of 2026-10-03 against `develop` and maps the editor to
+  `web/src/components/shared/content/editor/` and the question bank's editor components. The
+  check script changed with this import: a `src` or `href` built in a page's script is not
+  read as a file reference. What the export answers and leaves open is DG-108 to DG-116 in
+  `gaps.md`, with notes on DG-35, DG-36, DG-60, DG-63, DG-69, DG-80, DG-83 and DG-90.
 
 ## The brand
 

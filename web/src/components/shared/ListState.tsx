@@ -55,23 +55,24 @@ export function LoadError({
   const { t } = useTranslation();
   const requestId = error instanceof ApiError ? error.requestId : undefined;
   return (
-    <div role="alert" className="rounded-lg border p-5">
+    <div role="alert" className="@container/load-error rounded-lg border p-5">
       <p className="text-sm font-medium">{children}</p>
-      <div className="mt-4 flex items-center justify-between gap-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <Button variant="outline" size="sm" onClick={onRetry}>
           {t("common.retry")}
         </Button>
         {requestId === undefined ? null : (
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">
+          <div className="flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+            <span className="text-muted-foreground shrink-0 text-xs whitespace-nowrap">
               {t("common.requestId")}
             </span>
-            <code className="rounded-sm border px-1.5 py-0.5 font-mono text-xs">
+            <code className="order-last min-w-0 basis-full rounded-sm border px-1.5 py-0.5 font-mono text-xs break-all @md/load-error:order-none @md/load-error:basis-auto">
               {requestId}
             </code>
             <Button
               variant="ghost"
               size="xs"
+              className="shrink-0"
               onClick={() => {
                 void navigator.clipboard.writeText(requestId);
                 toast(t("common.copied"));

@@ -1,7 +1,7 @@
 {
   "name": "quizzivy-web",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,7 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test --project=chromium",
+    "e2e": "playwright test --project=chromium --project=mobile-chromium",
     "e2e:live": "playwright test --project=live",
     "e2e:ui": "playwright test --ui",
     "test:unit": "vitest run tests/units",

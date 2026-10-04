@@ -12,7 +12,8 @@ security headers. The same script without `--headers` is the availability probe.
 The deploy workflow checks that the built `_headers` matches the source file.
 The CSP allows the actual PKCE flow and private R2 media, including blob previews;
 it does not load Google's GIS SDK. Test login, image display, audio playback and
-upload previews on the deployed origin before closing #78.
+upload previews on the deployed origin before closing #78. The headers
+themselves were observed on 2026-10-04; see the last section.
 
 Fly's own check calls `/livez`, which never touches the database, so Neon's
 compute can suspend after five idle minutes. `/healthz` is the database-aware
@@ -84,6 +85,11 @@ For a local logical-backup rehearsal, stop application writes, capture evidence,
 use PG18 `pg_dump --format=custom`, restore into a new empty database owned by
 `quizzivy_migrate`, and compare the evidence. Preserve roles/ACLs; never use
 `--clean` against the source. This proves the local procedure, not Neon PITR.
+A database-level privilege is restored only by `pg_restore --create`, which
+this procedure does not use: after restoring into a new database, run
+`REVOKE TEMPORARY ON DATABASE <database> FROM PUBLIC;` as its owner, or the
+restored database holds goose's record of migration 00079 without its effect
+(#194).
 
 Local rehearsal on 2026-09-22: PG18 custom-format dump restored into a new
 empty database, verifier matched the checkpoint before and after migration
@@ -252,5 +258,29 @@ and tell the teachers to share the new codes.
 - Neon project/branch and observed history window: pending access.
 - PITR drill, application checks and private media restoration: pending access.
 - Monitor recipient and delivered test notification: pending owner setup.
-- Header/CSP behavior after deployment: pending deployment.
+  `PRODUCTION_MONITOR_ENABLED` is not set (checked 2026-10-04), so the monitor
+  has never run on its schedule (#81).
+- Response headers: observed on 2026-10-04 with `curl -sI`.
+  `https://app.quizzivy.com/` sends HSTS, the CSP, `nosniff`, `Referrer-Policy`
+  and `Permissions-Policy` exactly as `web/public/_headers` states them.
+  `https://api.quizzivy.com/livez` sends HSTS, `nosniff`,
+  `Referrer-Policy: no-referrer` and
+  `Content-Security-Policy: frame-ancestors 'none'; base-uri 'none'; object-src 'none'`.
+- Sign-in, image display, audio playback and upload preview under that CSP:
+  pending the owner's check on the deployed site (#78).
+- `/boot.js` is served with `cache-control: max-age=14400` (observed 2026-09-27
+  and 2026-10-04) although `_headers` asks for `no-cache`: the zone's Browser
+  Cache TTL overrides it. `https://quizzivy-web.pages.dev/boot.js` sends
+  `no-cache` (2026-10-04), so the header is rewritten in the zone, not by Pages.
+  A changed `boot.js` can reach a browser up to four hours late. Owner:
+  Cloudflare dashboard, Caching, Configuration, Browser Cache TTL, "Respect
+  Existing Headers"; then `curl -sI https://app.quizzivy.com/boot.js` must show
+  `no-cache` (#191).
+- `TEMPORARY` on the production database (#194): to be checked after the
+  release that carries the migration revoking it from `PUBLIC`.
+  `SELECT has_database_privilege('quizzivy_app', current_database(), 'TEMPORARY');`
+  must answer false. If it answers true, the migration role does not own the
+  database there, and its owner runs
+  `REVOKE TEMPORARY ON DATABASE <database> FROM PUBLIC;` once; the query must
+  then answer false. Pending.
 - Maintenance dry-run review and first authorized production batch: pending.

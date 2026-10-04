@@ -78,12 +78,13 @@ func RequireDocsSession(docs *token.Issuer, resolver httpx.PrincipalResolver) fu
 			case errors.Is(err, httpx.ErrUnknownPrincipal):
 				writeDocsUnauthenticated(w, r)
 			case err != nil:
-				httpx.WriteError(w, r, http.StatusInternalServerError, httpx.CodeInternal, "Đã xảy ra lỗi. Vui lòng thử lại.")
+				httpx.WriteError(w, r, http.StatusInternalServerError, httpx.CodeInternal,
+					httpx.TextFor(r, "Đã xảy ra lỗi. Vui lòng thử lại.", "Something went wrong. Try again."))
 			case resolved.Disabled, claims.Epoch < resolved.Epoch:
 				writeDocsUnauthenticated(w, r)
 			case !resolved.Permissions.Has(access.SystemAPIReference):
 				httpx.WriteError(w, r, http.StatusForbidden, httpx.CodeForbidden,
-					"Bạn không có quyền xem tài liệu API.")
+					httpx.TextFor(r, "Bạn không có quyền xem tài liệu API.", "You do not have permission to view the API reference."))
 			default:
 				next.ServeHTTP(w, r)
 			}
@@ -93,5 +94,5 @@ func RequireDocsSession(docs *token.Issuer, resolver httpx.PrincipalResolver) fu
 
 func writeDocsUnauthenticated(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteError(w, r, http.StatusUnauthorized, httpx.CodeUnauthorized,
-		"Hãy mở tài liệu API từ trang Cài đặt của Quizzivy.")
+		httpx.TextFor(r, "Hãy mở tài liệu API từ trang Cài đặt của Quizzivy.", "Open the API reference from Quizzivy's Settings page."))
 }

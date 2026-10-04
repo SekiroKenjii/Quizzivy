@@ -27,7 +27,7 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 	part, err := nextFilePart(request.Body)
 	if err != nil {
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			"Không tìm thấy tệp trong yêu cầu tải lên.")), nil
+			httpx.Text(ctx, "Không tìm thấy tệp trong yêu cầu tải lên.", "The upload request holds no file."))), nil
 	}
 	defer func() { _ = part.Close() }()
 
@@ -43,18 +43,22 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 
 	case errors.Is(err, domain.ErrTooLarge):
 		return openapi.UploadMedia413JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLARGE,
-			"Tệp vượt quá 10 MB. Vui lòng nén hoặc cắt ngắn tệp.")), nil
+			httpx.Text(ctx, "Tệp vượt quá 10 MB. Vui lòng nén hoặc cắt ngắn tệp.",
+				"The file is larger than 10 MB. Please compress or shorten it."))), nil
 
 	case errors.Is(err, domain.ErrTooLong):
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLONG,
-			"Tệp âm thanh dài hơn 5 phút. Vui lòng cắt ngắn.")), nil
+			httpx.Text(ctx, "Tệp âm thanh dài hơn 5 phút. Vui lòng cắt ngắn.",
+				"The audio file is longer than 5 minutes. Please shorten it."))), nil
 	case errors.Is(err, domain.ErrUnmeasurable):
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIAUNREADABLE,
-			"Không đọc được tệp âm thanh này. Tệp có thể bị lỗi hoặc chưa tải lên hết.")), nil
+			httpx.Text(ctx, "Không đọc được tệp âm thanh này. Tệp có thể bị lỗi hoặc chưa tải lên hết.",
+				"This audio file cannot be read. It may be damaged or not fully uploaded."))), nil
 
 	case errors.Is(err, domain.ErrUnsupportedType):
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIATYPEUNSUPPORTED,
-			"Chỉ hỗ trợ mp3, m4a và ảnh png/jpg/webp.")), nil
+			httpx.Text(ctx, "Chỉ hỗ trợ mp3, m4a và ảnh png/jpg/webp.",
+				"Only mp3, m4a and png, jpg or webp images are supported."))), nil
 
 	default:
 		return nil, err
@@ -179,13 +183,15 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 
 	case errors.Is(err, domain.ErrReferenced):
 		resp := httpapi.Error(ctx, openapi.MEDIAREFERENCED,
-			"Tệp đang được dùng trong một đề đã xuất bản nên không thể xoá.")
+			httpx.Text(ctx, "Tệp đang được dùng trong một đề đã xuất bản nên không thể xoá.",
+				"The file is used in a published test, so it cannot be deleted."))
 		var blocked *domain.ReferencedError
 		if errors.As(err, &blocked) {
 			refs := ToAPIReferencingTests(blocked.Tests)
 			details := map[string]interface{}{"tests": refs}
 			if len(blocked.Groups) > 0 {
-				resp.Error.Message = "Tệp đang được dùng trong nhóm câu hỏi hoặc đề đã xuất bản nên không thể xoá."
+				resp.Error.Message = httpx.Text(ctx, "Tệp đang được dùng trong nhóm câu hỏi hoặc đề đã xuất bản nên không thể xoá.",
+					"The file is used in a question group or a published test, so it cannot be deleted.")
 				details["groups"] = groupReferences(blocked.Groups)
 			}
 			resp.Error.Details = &details
@@ -194,7 +200,7 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.DeleteMedia404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy tệp."))}, nil
+			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy tệp.", "The file was not found.")))}, nil
 
 	default:
 		return nil, err
@@ -227,7 +233,8 @@ func (h Media) GetMediaUrl(ctx context.Context, request openapi.GetMediaUrlReque
 	result, err := h.app.Queries.MintForStudent.Handle(ctx, query.MintForStudent{StudentID: principal.UserID, AssetID: request.AssetId.String()})
 	if errors.Is(err, domain.ErrForbidden) {
 		return openapi.GetMediaUrl403JSONResponse{ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-			httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền truy cập tệp này."))}, nil
+			httpapi.Error(ctx, openapi.FORBIDDEN,
+				httpx.Text(ctx, "Bạn không có quyền truy cập tệp này.", "You do not have permission to access this file.")))}, nil
 	}
 	if err != nil {
 		return nil, err

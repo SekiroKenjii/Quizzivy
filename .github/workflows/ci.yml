@@ -1,13 +1,18 @@
 name: CI
 
+# How this workflow decides what to run is in docs/setup/ci.md. In short: Plan
+# hashes the files each job reads, and a job is skipped when its newest marker
+# for that hash is a pass. Every job checks out only those files, so the hash
+# covers everything the job can see. Each job ends by recording its outcome.
 on:
   pull_request:
-    branches: [develop, main, "work/word-import-*", "work/redesign-*"]
   push:
-    branches: [develop, main]
+    branches: [main, develop, "work/**"]
 
-# A newer push supersedes an in-flight run on the same ref, except on the
-# protected branches where every commit's result is worth keeping.
+# A newer push supersedes an in-flight run on the same pull request. On a
+# branch a run in progress is never cancelled, but runs go one at a time and
+# only the newest waiting one is kept: a push that arrives while another
+# waits replaces it.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -24,72 +29,339 @@ env:
   GO_VERSION: "1.27"
 
 jobs:
-  deck:
-    name: Deck
+  # ------------------------------------------------------------------- plan
+  plan:
+    name: Plan
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
     steps:
       - uses: actions/checkout@v7
+
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - run: node scripts/check-design-deck.mjs
 
-  # ---------------------------------------------------------------- contract
-  # api/openapi.yaml is the single source of truth (T-0.7/T-0.8). This job is
-  # what stops it drifting from the code generated out of it: it regenerates
-  # both sides and fails if the committed output differs. Without it the
-  # generated files are just files someone remembered to update.
-  contract:
-    name: Contract
+      - name: Test the plan
+        run: node --test "scripts/ci/tests/*.test.mjs"
+
+      - name: Decide which jobs run
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci/plan.mjs
+
+  # ------------------------------------------------------------------- deck
+  deck:
+    name: Deck
+    needs: plan
+    if: fromJSON(needs.plan.outputs.plan).jobs.deck.run
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      JOB: ${{ toJSON(fromJSON(needs.plan.outputs.plan).jobs.deck) }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - run: node scripts/check-design-deck.mjs
+
+      - uses: ./.github/actions/record
+        if: always()
+        with:
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
+
+  # --------------------------------------------------------------- contract
+  # api/openapi.yaml is the single source of truth. This job lints it, asserts
+  # its invariants, regenerates both sides and fails if the committed output
+  # differs. `make gen-check` runs `make contract` first.
+  contract:
+    name: Contract
+    needs: plan
+    if: fromJSON(needs.plan.outputs.plan).jobs.contract.run
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JOB: ${{ toJSON(fromJSON(needs.plan.outputs.plan).jobs.contract) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: server/go.sum
 
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/web
         with:
-          version: ${{ env.PNPM_VERSION }}
+          node: ${{ env.NODE_VERSION }}
+          pnpm: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-
-      - name: Install web dependencies
-        working-directory: web
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint the contract and assert its invariants
-        run: make contract
-
-      - name: Regenerate and fail on drift
+      - name: Lint the contract, regenerate and fail on drift
         run: make gen-check
 
-  # -------------------------------------------------------------------- web
-  web:
-    name: Web
+      - uses: ./.github/actions/record
+        if: always()
+        with:
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
+
+  # ------------------------------------------------------------ server lint
+  server-lint:
+    name: Server lint
+    needs: plan
+    if: fromJSON(needs.plan.outputs.plan).jobs['server-lint'].run
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JOB: ${{ toJSON(fromJSON(needs.plan.outputs.plan).jobs['server-lint']) }}
     steps:
       - uses: actions/checkout@v7
-
-      - uses: pnpm/action-setup@v6
         with:
-          version: ${{ env.PNPM_VERSION }}
+          sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
+          sparse-checkout-cone-mode: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-go@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
 
-      - name: Install
-        working-directory: web
-        run: pnpm install --frozen-lockfile
+      - name: Vet
+        working-directory: server
+        run: go vet ./...
+
+      # SA1019 is what enforces AGENTS.md's "never use a deprecated
+      # identifier"; go vet does not check that.
+      - name: Staticcheck
+        working-directory: server
+        run: go tool staticcheck ./...
+
+      # server/.golangci.yml carries the Sonar-shaped rules (cognitive
+      # complexity, nesting, duplication, unused parameters) so a finding fails
+      # here, before it reaches SonarLint or SonarCloud. The web job gets the
+      # same from eslint-plugin-sonarjs inside `pnpm lint`. Same pin as the
+      # Makefile's GOLANGCI_VERSION.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
+          working-directory: server
+          args: --build-tags integration,e2e
+
+      - name: Check formatting
+        working-directory: server
+        run: |
+          unformatted=$(gofmt -l . | grep -v '^gen/' || true)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt would change these files:"; echo "$unformatted"; exit 1
+          fi
+
+      - uses: ./.github/actions/record
+        if: always()
+        with:
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
+
+  # ----------------------------------------------------------- server tests
+  server-test:
+    name: Server tests
+    needs: plan
+    if: fromJSON(needs.plan.outputs.plan).jobs['server-test'].run
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+
+    services:
+      postgres:
+        # Pinned to 18: uuidv7() and virtual generated columns do not exist
+        # before it, and internal/db/pg18_test.go asserts the major version.
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      JOB: ${{ toJSON(fromJSON(needs.plan.outputs.plan).jobs['server-test']) }}
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      TEST_DATABASE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable
+      # Enables the migration round trip, which drops and recreates schema app.
+      # Safe here -- the service container is thrown away after the job. Locally
+      # it is off by default so `go test ./...` cannot wipe a seeded database.
+      TEST_DESTRUCTIVE: "1"
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
+
+      - uses: ./.github/actions/db-tools
+
+      # The same script docker/initdb calls locally, so the two cannot drift.
+      - name: Provision roles and database
+        run: ./scripts/provision-db.sh
+
+      # Migrations run BEFORE the tests, not by one of them: `go test ./...`
+      # runs packages in parallel, and only internal/db applies migrations --
+      # every other database-backed package opens a pool and assumes the tables
+      # are there. This makes the schema a precondition of the step rather than
+      # a race one package usually wins, and matches `make migrate` before
+      # `make test-api`.
+      - name: Apply migrations
+        run: goose -dir migrations postgres "$TEST_DATABASE_URL" up
+
+      # The three tiers the test taxonomy names, each its own step so a failure
+      # says which tier fell: unit (no database), integration (repositories
+      # and use cases against Postgres and the object store), end-to-end (the
+      # whole application in-process over HTTP). The converter tests are
+      # integration tests that need the converter image and a step of their
+      # own. Each step writes its own coverage profile; Sonar reads all four.
+      - name: Unit tests
+        working-directory: server
+        run: go test ./... -covermode=atomic -coverprofile=coverage-unit.out
+
+      # Up before the integration tier: the storage client's tests and the
+      # import intake, artifact and PDF pipeline tests store real objects, and
+      # so does the end-to-end tier after them.
+      - name: Start MinIO
+        uses: ./.github/actions/minio
+        with:
+          token: ${{ github.token }}
+
+      # S3_* is set on the steps that use the object store, never on the job:
+      # one storage test file carries no build tag, so the unit tier compiles
+      # it too and has to skip it there, before MinIO is up. The bucket is the
+      # private one imports are kept in.
+      - name: Integration tests
+        working-directory: server
+        env:
+          S3_ENDPOINT: http://localhost:9000
+          S3_REGION: us-east-1
+          S3_BUCKET: quizzivy-imports
+          S3_ACCESS_KEY_ID: quizzivy
+          S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
+          S3_FORCE_PATH_STYLE: "true"
+        run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
+
+      # The converter refuses a tag and takes an image id, so the id is what
+      # the next step is given.
+      - name: Build the Word converter image
+        id: converter
+        run: |
+          docker build --tag quizzivy-word-converter:ci docker/word-converter
+          image="$(docker image inspect --format '{{.Id}}' quizzivy-word-converter:ci)"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      # The tests that run LibreOffice in that image, and the pipeline test
+      # that takes a paper through it; the integration tier skips them for
+      # want of TEST_WORD_CONVERTER_IMAGE, and -run keeps this step to them.
+      # A conversion holds one Docker-wide slot, a container with a fixed
+      # name, and a second one that finds it taken answers busy. The tests
+      # live in two packages, one of which occupies the slot on purpose, so
+      # -p 1 runs the packages one after the other. Without an image id every
+      # one of these tests skips and the packages still read ok, so the step
+      # fails before go test when it has none.
+      - name: Import converter tests
+        working-directory: server
+        env:
+          S3_ENDPOINT: http://localhost:9000
+          S3_REGION: us-east-1
+          S3_BUCKET: quizzivy-imports
+          S3_ACCESS_KEY_ID: quizzivy
+          S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
+          S3_FORCE_PATH_STYLE: "true"
+          TEST_WORD_CONVERTER_IMAGE: ${{ steps.converter.outputs.image }}
+        run: |
+          case "$TEST_WORD_CONVERTER_IMAGE" in
+            sha256:*) ;;
+            *) echo "::error::no converter image id, so every converter test would skip"; exit 1 ;;
+          esac
+          go test -tags integration -p 1 -count=1 -run '^(TestDocker|TestRealPipeline)' \
+            ./internal/platform/wordconvert/... ./internal/modules/imports/repositories/... \
+            -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-converter.out
+
+      # The two-teacher isolation suite uploads real images, audio and Word
+      # sources. Its harness defaults to the compose endpoint, credentials and
+      # buckets.
+      - name: End-to-end tests
+        working-directory: server
+        run: go test -tags e2e ./tests/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-e2e.out
+
+      # Explicitly re-run the round trip against a database that has never seen
+      # these migrations, which is the state that matters for a first deploy.
+      - name: Migrations apply and reverse on a clean database
+        env:
+          MIGRATION_DATABASE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy_migration_roundtrip?sslmode=disable
+        run: |
+          createdb --owner=quizzivy_migrate quizzivy_migration_roundtrip
+          goose -dir migrations postgres "$MIGRATION_DATABASE_URL" up
+          goose -dir migrations postgres "$MIGRATION_DATABASE_URL" reset
+          goose -dir migrations postgres "$MIGRATION_DATABASE_URL" up
+
+      # always(): a failing test still produced a profile for everything that
+      # did run, and that is exactly the run where Sonar's view is worth most.
+      # Kept as long as a marker, because Sonar reads the profile of the run
+      # that proved these files when this job is skipped.
+      - name: Upload Go coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: go-coverage
+          path: server/coverage-*.out
+          retention-days: 30
+          overwrite: true
+
+      - uses: ./.github/actions/record
+        if: always()
+        with:
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
+
+  # ------------------------------------------------------------- web checks
+  web-check:
+    name: Web checks
+    needs: plan
+    if: fromJSON(needs.plan.outputs.plan).jobs['web-check'].run
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JOB: ${{ toJSON(fromJSON(needs.plan.outputs.plan).jobs['web-check']) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
+          sparse-checkout-cone-mode: false
+
+      - uses: ./.github/actions/web
+        with:
+          node: ${{ env.NODE_VERSION }}
+          pnpm: ${{ env.PNPM_VERSION }}
 
       # §2: "CI fails on lint errors."
       - name: Lint
@@ -104,10 +376,6 @@ jobs:
         working-directory: web
         run: pnpm format:check
 
-      - name: Unit tests
-        working-directory: web
-        run: pnpm test:unit
-
       - name: Integration tests
         working-directory: web
         run: pnpm test:integration
@@ -116,26 +384,67 @@ jobs:
         working-directory: web
         run: pnpm build
 
+      - uses: ./.github/actions/record
+        if: always()
+        with:
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
+
+  # --------------------------------------------------------- web unit tests
+  # Split into shards because the suite is the longest single step on the web
+  # side. scripts/ci/plan.mjs sets the number of shards. The name carries no
+  # expression: GitHub appends the shard itself, and a skipped job would show
+  # an expression unexpanded.
+  web-unit:
+    name: Web unit
+    needs: plan
+    if: fromJSON(needs.plan.outputs.plan).jobs['web-unit'].run
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.plan).jobs['web-unit'].shards }}
+    env:
+      JOB: ${{ toJSON(fromJSON(needs.plan.outputs.plan).jobs['web-unit']) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
+          sparse-checkout-cone-mode: false
+
+      - uses: ./.github/actions/web
+        with:
+          node: ${{ env.NODE_VERSION }}
+          pnpm: ${{ env.PNPM_VERSION }}
+
+      - name: Unit tests
+        working-directory: web
+        run: pnpm test:unit --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
+      - uses: ./.github/actions/record
+        if: always()
+        with:
+          marker: ${{ fromJSON(env.JOB).outcomes[strategy.job-index][job.status] }}
+
   # -------------------------------------------------------------------- e2e
   e2e:
     name: E2E
+    needs: plan
+    if: fromJSON(needs.plan.outputs.plan).jobs.e2e.run
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JOB: ${{ toJSON(fromJSON(needs.plan.outputs.plan).jobs.e2e) }}
     steps:
       - uses: actions/checkout@v7
-
-      - uses: pnpm/action-setup@v6
         with:
-          version: ${{ env.PNPM_VERSION }}
+          sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
+          sparse-checkout-cone-mode: false
 
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/web
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-
-      - name: Install
-        working-directory: web
-        run: pnpm install --frozen-lockfile
+          node: ${{ env.NODE_VERSION }}
+          pnpm: ${{ env.PNPM_VERSION }}
 
       - name: Install Chromium
         working-directory: web
@@ -159,19 +468,29 @@ jobs:
             web/playwright-report/
             web/test-results/
           retention-days: 7
+          overwrite: true
+
+      - uses: ./.github/actions/record
+        if: always()
+        with:
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
 
   # --------------------------------------------------------------- e2e-live
-  # E2E 1a (§14) is the one browser test that talks to a real API, because the
-  # phase-2 exit criterion is about the §11.1 audio pipeline running end to end:
-  # magic-byte sniff, size and duration checks, the pure-Go probe, the object
-  # landing in storage. A mocked upload would assert that the frontend renders
-  # whatever the mock returned, which is not the same claim.
+  # The one browser suite that talks to a real API (§14), because its claims
+  # are about the two halves meeting: E2E 1a uploads a real mp3 so the §11.1
+  # sniff, size check and duration probe run rather than being mocked.
   #
-  # Separate from `e2e` so the stubbed suite stays fast and independent of
-  # postgres, MinIO and a Go build.
+  # Separate from `e2e` so the stubbed suite stays independent of postgres,
+  # MinIO and a Go build.
   e2e-live:
     name: E2E (live API)
+    needs: plan
+    if: fromJSON(needs.plan.outputs.plan).jobs['e2e-live'].run
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: read
 
     services:
       postgres:
@@ -188,6 +507,7 @@ jobs:
           --health-retries 30
 
     env:
+      JOB: ${{ toJSON(fromJSON(needs.plan.outputs.plan).jobs['e2e-live']) }}
       PGHOST: localhost
       PGPORT: "5432"
       PGUSER: postgres
@@ -214,53 +534,33 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: server/go.sum
 
-      - uses: pnpm/action-setup@v6
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-
-      - name: Install psql 18
-        run: |
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
-            https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
-            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
-            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-18
+      - uses: ./.github/actions/db-tools
 
       # MinIO comes from the repo's own compose file rather than a service
       # container: a service container cannot override the image command, and
-      # minio/minio needs `server /data`. Reusing compose also means CI and a
-      # developer's machine start the same MinIO with the same bucket, created
+      # MinIO needs `server /data`. Reusing compose also means CI and a
+      # developer's machine start the same MinIO with the same buckets, created
       # and made private by the same minio-init step.
-      # `--wait` on minio only: it treats a one-shot container's clean exit as
-      # a failure, so waiting on minio-init fails the step after it has done
-      # its job. `run --rm` gives its exit code back directly instead.
       - name: Start MinIO
-        run: |
-          docker compose up -d --build --wait minio
-          docker compose run --rm minio-init
+        uses: ./.github/actions/minio
+        with:
+          token: ${{ github.token }}
 
       - name: Provision roles and database
         run: ./scripts/provision-db.sh
 
       - name: Apply migrations and seed
         run: |
-          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
-            -dir "$PWD/migrations" postgres "$MIGRATE_URL" up
+          goose -dir migrations postgres "$MIGRATE_URL" up
           for f in seed/*.sql; do psql "$MIGRATE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 
       # Built rather than `go run`, so a compile error fails here with a clear
@@ -275,15 +575,16 @@ jobs:
           done
           echo "API did not become healthy"; cat "$RUNNER_TEMP/api.log"; exit 1
 
-      - name: Install
-        working-directory: web
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/web
+        with:
+          node: ${{ env.NODE_VERSION }}
+          pnpm: ${{ env.PNPM_VERSION }}
 
       - name: Install Chromium
         working-directory: web
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run the live E2Es (1a, 2's middle, 5, 6, 7, 8)
+      - name: Run the live E2Es
         working-directory: web
         run: pnpm e2e:live
 
@@ -297,178 +598,59 @@ jobs:
           name: playwright-report-live
           path: web/playwright-report/
           retention-days: 7
+          overwrite: true
 
-  # ----------------------------------------------------------------- server
-  server:
-    name: Server
+      - uses: ./.github/actions/record
+        if: always()
+        with:
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
+
+  # ----------------------------------------------------------------- result
+  # The one check the branch rules require. always(): a job skipped by its `if`
+  # counts as passed for a required check, so this must run and fail when a
+  # needed job failed, was cancelled, or never started.
+  #
+  # Only a pull request's run reports it under the required name. The head of
+  # a pull request from main, develop or a work branch also has a push run,
+  # which tests the branch and not the merge; its green result must not stand
+  # in for the merge's.
+  result:
+    name: ${{ github.event_name == 'pull_request' && 'CI result' || 'CI result (push)' }}
+    needs: [plan, deck, contract, server-lint, server-test, web-check, web-unit, e2e, e2e-live]
+    if: always()
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        # Pinned to 18: uuidv7() and virtual generated columns do not exist
-        # before it, and internal/db/pg18_test.go asserts the major version.
-        image: postgres:18
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_DB: postgres
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 2s
-          --health-timeout 3s
-          --health-retries 30
-
-    env:
-      PGHOST: localhost
-      PGPORT: "5432"
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      TEST_DATABASE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable
-      # Enables the migration round trip, which drops and recreates schema app.
-      # Safe here -- the service container is thrown away after the job. Locally
-      # it is off by default so `go test ./...` cannot wipe a seeded database.
-      TEST_DESTRUCTIVE: "1"
-
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: server/go.sum
+          sparse-checkout: scripts/ci
 
-      - name: Install psql 18
-        run: |
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
-            https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
-            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
-            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-18
-
-      # The same script docker/initdb calls locally, so the two cannot drift.
-      - name: Provision roles and database
-        run: ./scripts/provision-db.sh
-
-      # Migrations run BEFORE the tests, not by one of them.
-      #
-      # `go test ./...` runs packages in parallel, and only internal/db applies
-      # migrations -- every other DB-backed package (classes, join, media, auth)
-      # opens a pool and assumes the tables are there. That worked only because
-      # internal/db usually won the race to goose.Up, which is not a guarantee
-      # and is invisible until it loses: "relation app.users does not exist" in
-      # whichever package happened to query first.
-      #
-      # Applying them here makes the schema a precondition of the step rather
-      # than a side effect of one package's tests, and matches what a developer
-      # does locally (`make migrate` before `make test-api`).
-      - name: Apply migrations
-        run: |
-          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
-            -dir "$PWD/migrations" postgres "$TEST_DATABASE_URL" up
-
-      - name: Vet
-        working-directory: server
-        run: go vet ./...
-
-      - name: Staticcheck
-        # SA1019 is what enforces AGENTS.md's "never use a deprecated
-        # identifier"; go vet does not check that.
-        working-directory: server
-        run: go tool staticcheck ./...
-
-      # server/.golangci.yml carries the Sonar-shaped rules (cognitive
-      # complexity, nesting, duplication, unused parameters) so a finding fails
-      # here, before it reaches SonarLint or SonarCloud. The web job gets the
-      # same from eslint-plugin-sonarjs inside `pnpm lint`. Same pin as the
-      # Makefile's GOLANGCI_VERSION.
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.13.2
-          working-directory: server
-          args: --build-tags integration,e2e
-
-      - name: Check formatting
-        working-directory: server
-        run: |
-          unformatted=$(gofmt -l . | grep -v '^gen/' || true)
-          if [ -n "$unformatted" ]; then
-            echo "gofmt would change these files:"; echo "$unformatted"; exit 1
-          fi
-
-      # The three tiers the test taxonomy names, each its own step so a failure
-      # says which tier fell: unit (no database), integration (repositories
-      # and use cases against Postgres), end-to-end (the whole application
-      # in-process over HTTP). Each writes its own coverage profile; Sonar
-      # reads all three.
-      - name: Unit tests
-        working-directory: server
-        run: go test ./... -covermode=atomic -coverprofile=coverage-unit.out
-
-      - name: Integration tests
-        working-directory: server
-        run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
-
-      # The two-teacher isolation suite uploads real images, audio and Word
-      # sources, so this tier needs the MinIO the live E2E job starts. Its
-      # harness defaults to the compose endpoint, credentials and buckets.
-      - name: Start MinIO
-        run: |
-          docker compose up -d --build --wait minio
-          docker compose run --rm minio-init
-
-      - name: End-to-end tests
-        working-directory: server
-        run: go test -tags e2e ./tests/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-e2e.out
-
-      # Explicitly re-run the round trip against a database that has never seen
-      # these migrations, which is the state that matters for a first deploy.
-      - name: Migrations apply and reverse on a clean database
+      - name: Compare what ran with the plan
         env:
-          MIGRATION_DATABASE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy_migration_roundtrip?sslmode=disable
-        run: |
-          createdb --owner=quizzivy_migrate quizzivy_migration_roundtrip
-          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
-            -dir "$PWD/migrations" postgres "$MIGRATION_DATABASE_URL" up
-          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
-            -dir "$PWD/migrations" postgres "$MIGRATION_DATABASE_URL" reset
-          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
-            -dir "$PWD/migrations" postgres "$MIGRATION_DATABASE_URL" up
+          NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci/gate.mjs
 
-      - name: Upload Go coverage
-        # always(): a failing test still produced a profile for everything that
-        # did run, and that is exactly the run where Sonar's view is worth most.
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: go-coverage
-          path: server/coverage-*.out
-          retention-days: 1
-
-  # --------------------------------------------------------------------- sonar
+  # ------------------------------------------------------------------ sonar
   # Static analysis on top of the language-specific jobs above, not instead of
   # them: `go vet`, eslint and tsc stay authoritative for their own languages
   # and fail fast. This adds the cross-cutting things they do not look for --
   # duplication, complexity, and coverage on new code.
   sonar:
     name: Sonar
-    runs-on: ubuntu-latest
     # needs: only to order this after the coverage upload -- NOT to make the
-    # analysis conditional on the tests passing. Without !cancelled() a failing
-    # Server job skips this one, which is backwards: a red build is when static
-    # analysis has the most to say, and `develop` can stay red for a long time.
-    needs: [server]
+    # analysis conditional on the tests passing. A red build is when static
+    # analysis has the most to say.
+    needs: [plan, server-test]
     # develop only, until the plan allows reading non-main branches.
     # SonarCloud's main branch is the only one this organization can read, so
     # `develop` is set as the main branch there -- and an analysis submitted
-    # for any OTHER branch lands somewhere nobody can open. A push to `main`
-    # would do exactly that, so it does not run here rather than filling the
-    # project with branches that cannot be read.
-    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+    # for any OTHER branch lands somewhere nobody can open.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
@@ -478,14 +660,17 @@ jobs:
           # attribute issues. A shallow clone silently makes every line look new.
           fetch-depth: 0
 
+      # Coverage is an input to the scan, not a precondition for it. When the
+      # server tests were skipped, the profile comes from the run that proved
+      # the same server files; if there is none, analyse without it.
       - name: Download Go coverage
-        # Coverage is an input to the scan, not a precondition for it. If the
-        # Server job died before producing a profile, analyse without it.
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
           name: go-coverage
           path: server
+          run-id: ${{ fromJSON(needs.plan.outputs.plan).jobs['server-test'].proof || github.run_id }}
+          github-token: ${{ github.token }}
 
       # Skips rather than fails while SONAR_TOKEN is unset, so this job can be
       # merged before the SonarCloud project exists.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/shared/answered"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,17 +20,23 @@ const targeted = `
 	                   JOIN app.class_members m ON m.class_id = ac.class_id
 	                  WHERE ac.assignment_id = a.id AND m.user_id = $1::uuid)))`
 
-const studentCardColumns = `
+var studentCardColumns = `
 	SELECT a.id::text, t.title,
 	       (SELECT CASE WHEN count(*) = 1 THEN min(c.name) END
 	          FROM app.assignment_classes ac
-	          JOIN app.classes c ON c.id = ac.class_id
+	          JOIN app.classes c ON c.id = ac.class_id AND c.archived_at IS NULL
 	          JOIN app.class_members m ON m.class_id = ac.class_id
 	                                  AND m.user_id = $1::uuid
 	         WHERE ac.assignment_id = a.id),
 	       (SELECT CASE WHEN count(*) = 1 THEN min(c.id::text) END
 	          FROM app.assignment_classes ac
-	          JOIN app.classes c ON c.id = ac.class_id
+	          JOIN app.classes c ON c.id = ac.class_id AND c.archived_at IS NULL
+	          JOIN app.class_members m ON m.class_id = ac.class_id
+	                                  AND m.user_id = $1::uuid
+	         WHERE ac.assignment_id = a.id),
+	       (SELECT coalesce(array_agg(c.id::text ORDER BY c.name, c.id), '{}')
+	          FROM app.assignment_classes ac
+	          JOIN app.classes c ON c.id = ac.class_id AND c.archived_at IS NULL
 	          JOIN app.class_members m ON m.class_id = ac.class_id
 	                                  AND m.user_id = $1::uuid
 	         WHERE ac.assignment_id = a.id),
@@ -53,6 +60,12 @@ const studentCardColumns = `
 	                  AND at.status = 'in_progress' AND at.deadline_at > now()),
 	       -- The same WHERE as the EXISTS above, so the two cannot disagree.
 	       (SELECT at.deadline_at FROM app.attempts at
+	         WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
+	           AND at.status = 'in_progress' AND at.deadline_at > now()
+	         ORDER BY at.deadline_at DESC LIMIT 1),
+	       (SELECT (SELECT count(*) FROM app.attempt_answers ans
+	                 WHERE ans.attempt_id = at.id AND ` + answered.SaysSomething("ans") + `)
+	          FROM app.attempts at
 	         WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
 	           AND at.status = 'in_progress' AND at.deadline_at > now()
 	         ORDER BY at.deadline_at DESC LIMIT 1),
@@ -101,11 +114,11 @@ func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 		showScore bool
 		l         lastAttempt
 	)
-	err := row.Scan(&c.ID, &c.TestTitle, &c.ClassName, &c.ClassID,
+	err := row.Scan(&c.ID, &c.TestTitle, &c.ClassName, &c.ClassID, &c.ClassIDs,
 		&c.OpensAt, &c.ClosesAt, &c.ClosedAt, &c.PublishedAt,
 		&c.DurationMin, &c.MaxAttempts, &showScore,
 		&c.QuestionCount, &c.TotalPoints,
-		&c.AttemptsUsed, &c.HasLiveAttempt, &c.LiveDeadlineAt,
+		&c.AttemptsUsed, &c.HasLiveAttempt, &c.LiveDeadlineAt, &c.LiveAnsweredCount,
 		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending)
 	if err != nil {
 		return domain.StudentCard{}, err
@@ -167,11 +180,11 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 	       audio.max_plays`+studentCardFrom+studentAudioSummary+`
 	 WHERE a.id = $2::uuid AND a.published_at IS NOT NULL AND `+targeted,
 		studentID, id).Scan(
-		&d.ID, &d.TestTitle, &d.ClassName, &d.ClassID,
+		&d.ID, &d.TestTitle, &d.ClassName, &d.ClassID, &d.ClassIDs,
 		&d.OpensAt, &d.ClosesAt, &d.ClosedAt, &d.PublishedAt,
 		&d.DurationMin, &d.MaxAttempts, &showScore,
 		&d.QuestionCount, &d.TotalPoints,
-		&d.AttemptsUsed, &d.HasLiveAttempt, &d.LiveDeadlineAt,
+		&d.AttemptsUsed, &d.HasLiveAttempt, &d.LiveDeadlineAt, &d.LiveAnsweredCount,
 		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending,
 		&d.TeacherName,
 		&d.Review.ShowCorrectAnswers, &d.Review.ShowExplanations,

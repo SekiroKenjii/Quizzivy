@@ -68,6 +68,7 @@ type fixture struct {
 	assignment string
 	attempt    string
 	student    string
+	author     string
 }
 
 func seed(t *testing.T, db db.Querier, opensAt, closesAt time.Time, flagged bool) fixture {
@@ -130,7 +131,7 @@ func seed(t *testing.T, db db.Querier, opensAt, closesAt time.Time, flagged bool
 		return err
 	}())
 
-	return fixture{assignment: assignmentID, attempt: attemptID, student: student}
+	return fixture{assignment: assignmentID, attempt: attemptID, student: student, author: author}
 }
 
 func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
@@ -213,10 +214,18 @@ func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 		t.Errorf("flagged: want +1, got +%d", got)
 	}
 
+	own, err := store.Summary(ctx, access.Scope{UserID: f.author})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(own.Recent) != 1 {
+		t.Errorf("recent under the author's scope: want 1 row, got %d", len(own.Recent))
+	}
+
 	var found *domain.Recent
-	for i := range after.Recent {
-		if after.Recent[i].ID == f.attempt {
-			found = &after.Recent[i]
+	for i := range own.Recent {
+		if own.Recent[i].ID == f.attempt {
+			found = &own.Recent[i]
 		}
 	}
 	if found == nil {

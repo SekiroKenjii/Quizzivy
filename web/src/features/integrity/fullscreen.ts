@@ -26,3 +26,20 @@ export async function enterFullscreen(): Promise<void> {
     // Refused, or the gesture had already been spent.
   }
 }
+
+/**
+ * exitFullscreen leaves the fullscreen the engine asked for, best effort,
+ * once an attempt has ended, and reports whether it did. It does nothing
+ * when the document is not in fullscreen, and a refusal is swallowed: a paper
+ * that is already handed in must not fail on the way out. Unlike entering,
+ * leaving needs no gesture, so an effect may call it.
+ */
+export async function exitFullscreen(): Promise<boolean> {
+  if (!isFullscreen()) return false;
+  try {
+    await document.exitFullscreen();
+    return true;
+  } catch {
+    return false;
+  }
+}

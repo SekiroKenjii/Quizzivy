@@ -108,22 +108,28 @@ func toAPIStudentCards(cards []domain.StudentCard, now time.Time) []openapi.Stud
 
 func toAPIStudentCard(c domain.StudentCard, now time.Time) openapi.StudentAssignmentCard {
 	live := c.HasLiveAttempt
+	classIDs := make([]openapi.Uuid, 0, len(c.ClassIDs))
+	for _, id := range c.ClassIDs {
+		classIDs = append(classIDs, httpapi.ParseUUID(id))
+	}
 	out := openapi.StudentAssignmentCard{
-		Id:              httpapi.ParseUUID(c.ID),
-		TestTitle:       c.TestTitle,
-		ClassName:       c.ClassName,
-		ClassId:         parseOptionalUUID(c.ClassID),
-		Status:          openapi.AssignmentStatus(domain.Schedule.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)),
-		OpensAt:         c.OpensAt,
-		ClosesAt:        c.ClosesAt,
-		DurationMinutes: c.DurationMin,
-		QuestionCount:   c.QuestionCount,
-		TotalPoints:     c.TotalPoints,
-		AttemptsUsed:    c.AttemptsUsed,
-		MaxAttempts:     c.MaxAttempts,
-		HasLiveAttempt:  &live,
-		LiveDeadlineAt:  c.LiveDeadlineAt,
-		LastSubmittedAt: c.LastSubmittedAt,
+		Id:                httpapi.ParseUUID(c.ID),
+		TestTitle:         c.TestTitle,
+		ClassName:         c.ClassName,
+		ClassId:           parseOptionalUUID(c.ClassID),
+		ClassIds:          &classIDs,
+		Status:            openapi.AssignmentStatus(domain.Schedule.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)),
+		OpensAt:           c.OpensAt,
+		ClosesAt:          c.ClosesAt,
+		DurationMinutes:   c.DurationMin,
+		QuestionCount:     c.QuestionCount,
+		TotalPoints:       c.TotalPoints,
+		AttemptsUsed:      c.AttemptsUsed,
+		MaxAttempts:       c.MaxAttempts,
+		HasLiveAttempt:    &live,
+		LiveDeadlineAt:    c.LiveDeadlineAt,
+		LiveAnsweredCount: c.LiveAnsweredCount,
+		LastSubmittedAt:   c.LastSubmittedAt,
 	}
 	if c.LastAttemptID != nil {
 		id := httpapi.ParseUUID(*c.LastAttemptID)

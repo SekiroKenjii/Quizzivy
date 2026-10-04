@@ -2,6 +2,7 @@ package support
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	classescommand "quizzivy/internal/modules/classes/application/command"
 	classesdomain "quizzivy/internal/modules/classes/domain"
@@ -90,6 +91,16 @@ func (s *Service) GoogleSession(ctx context.Context, user domain.User, in Google
 		return model.GoogleSignInResult{}, domain.ErrAccountDisabled
 	}
 	session, err := s.IssueSession(ctx, user, in.UserAgent, in.IP)
+	if errors.Is(err, domain.ErrAccountChanged) {
+		user, err = s.Users.FindUserByID(ctx, user.ID)
+		if err != nil {
+			return model.GoogleSignInResult{}, fmt.Errorf("reload signing-in user: %w", err)
+		}
+		if user.Disabled() {
+			return model.GoogleSignInResult{}, domain.ErrAccountDisabled
+		}
+		session, err = s.IssueSession(ctx, user, in.UserAgent, in.IP)
+	}
 	if err != nil {
 		return model.GoogleSignInResult{}, err
 	}
@@ -140,7 +151,7 @@ func (s *Service) IssueSession(ctx context.Context, user domain.User, userAgent,
 	if ip != "" {
 		rec.IP = &ip
 	}
-	if err := s.Users.CreateRefreshToken(ctx, rec); err != nil {
+	if err := s.Users.CreateRefreshToken(ctx, rec, domain.SessionBasis{Epoch: user.SessionEpoch, PasswordHash: user.PasswordHash}); err != nil {
 		return model.Session{}, fmt.Errorf("store refresh token: %w", err)
 	}
 

@@ -68,6 +68,17 @@ export function getMyAssignment(id: string, signal?: AbortSignal) {
   );
 }
 
+/**
+ * continueAttempt resumes the named attempt and never starts one: a 409
+ * `ATTEMPT_CLOSED` means it has ended.
+ */
+export function continueAttempt(assignmentId: string, attemptId: string) {
+  return api("post", "/app/assignments/{id}/attempts", {
+    path: { id: assignmentId },
+    body: { resume: attemptId },
+  });
+}
+
 export function deleteAssignment(id: string) {
   return api("delete", "/teacher/assignments/{id}", { path: { id } });
 }

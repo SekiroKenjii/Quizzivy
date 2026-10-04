@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
@@ -12,6 +12,11 @@ import { contractJson } from "@tests/support/contractResponse";
 import { sampleClass, studentUser } from "@tests/support/fixtures";
 import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
+
+vi.mock("@/features/auth/home", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/features/auth/home")>();
+  return { ...actual, preloadStudentHome: vi.fn() };
+});
 
 const BASE = "http://localhost:8080";
 const CODE = "K7QM2PXA";

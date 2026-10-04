@@ -2,8 +2,10 @@ package adapters
 
 import (
 	"context"
+	"errors"
 	importsdomain "quizzivy/internal/modules/imports/domain"
 	importsrepo "quizzivy/internal/modules/imports/repositories"
+	mediadomain "quizzivy/internal/modules/media/domain"
 	questionsapp "quizzivy/internal/modules/questions/application"
 	questionscmd "quizzivy/internal/modules/questions/application/command"
 	questionsdomain "quizzivy/internal/modules/questions/domain"
@@ -45,6 +47,10 @@ func (c ImportCommitter) Materialize(ctx context.Context, plan importsdomain.Com
 		testID = id
 		return record(ctx, importsrepo.NewPostgres(scoped), id)
 	})
+	var invalid *testsdomain.GroupError
+	if errors.Is(err, mediadomain.ErrNotFound) || errors.Is(err, questionsdomain.ErrMediaNotFound) || errors.As(err, &invalid) {
+		return "", importsdomain.ErrBadDraft
+	}
 	return testID, err
 }
 

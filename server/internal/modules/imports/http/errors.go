@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"golang.org/x/text/language"
 	"net/http"
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/imports/domain"
@@ -13,7 +12,6 @@ import (
 )
 
 var errMultipart = errors.New("imports: malformed multipart")
-var importLanguages = language.NewMatcher([]language.Tag{language.Vietnamese, language.English})
 
 type failure struct {
 	status int
@@ -45,34 +43,30 @@ func (f *failure) VisitAdoptWordImportReprocessedResponse(w http.ResponseWriter)
 
 func importFailure(ctx context.Context, err error) (*failure, error) {
 	type translation struct {
-		err    error
-		status int
-		code   openapi.ErrorCode
-		vi, en string
+		err     error
+		status  int
+		code    openapi.ErrorCode
+		message string
 	}
 	messages := []translation{
-		{domain.ErrNotFound, 404, openapi.NOTFOUND, "Không tìm thấy lượt nhập hoặc tệp đã hoàn tất.", "The import or completed source was not found."},
-		{domain.ErrNoDraft, 404, openapi.IMPORTNOTPROCESSED, "Tài liệu chưa được xử lý xong nên chưa có bản rà soát.", "The document has not finished processing, so there is nothing to review yet."},
-		{domain.ErrStale, 409, openapi.STALEWRITE, "Bản nhập đã thay đổi ở nơi khác. Hãy tải lại để xem bản mới nhất.", "The import was changed elsewhere. Reload to see the latest version."},
-		{domain.ErrNotReady, 422, openapi.IMPORTNOTREADY, "Vẫn còn mục cần xử lý hoặc cần xác nhận trước khi tạo đề.", "Some items still need fixing or a decision before the test can be created."},
-		{domain.ErrBadDraft, 422, openapi.VALIDATIONFAILED, "Bản rà soát gửi lên không hợp lệ. Hãy tải lại trang và thử lại.", "The submitted review is malformed. Reload the page and try again."},
-		{domain.ErrConflict, 409, openapi.IMPORTCONFLICT, "Lượt nhập đã thay đổi hoặc mã tải lên đã được dùng. Hãy tải lại dữ liệu trước khi tiếp tục.", "The import changed or the upload identity was already used. Reload before continuing."},
-		{domain.ErrQuota, 429, openapi.IMPORTQUOTAEXCEEDED, "Đã đạt giới hạn lưu trữ hoặc số lượt nhập. Vui lòng liên hệ quản trị viên.", "The storage or import quota has been reached. Contact your administrator."},
-		{domain.ErrBusy, 429, openapi.IMPORTBUSY, "Hệ thống đang xử lý tệp khác. Vui lòng thử lại sau.", "The system is busy processing another file. Please retry later."},
-		{domain.ErrTooLarge, 413, openapi.IMPORTSOURCETOOLARGE, "Tệp vượt giới hạn 25 MiB hoặc có cấu trúc quá lớn. Hãy chia nhỏ tài liệu.", "The file exceeds 25 MiB or its expanded structure is too large. Split the document."},
-		{domain.ErrUnsupported, 415, openapi.IMPORTSOURCEUNSUPPORTED, "Hãy dùng tệp Word (.docx, hoặc .doc khi máy chủ hỗ trợ) hoặc PDF, không có mật khẩu, macro hoặc đối tượng thực thi.", "Use an unprotected Word file (.docx, or .doc where the server supports it) or PDF, without macros or active objects."},
-		{domain.ErrInvalid, 415, openapi.IMPORTSOURCEINVALID, "Không đọc được cấu trúc tệp. Hãy mở tệp trong Word và lưu lại dưới dạng .docx, hoặc xuất lại PDF.", "The file's structure cannot be read. Open it in Word and save a new .docx copy, or export the PDF again."},
-		{domain.ErrProcessingOff, 503, openapi.IMPORTPROCESSINGUNAVAILABLE, "Máy chủ này chưa bật xử lý tài liệu nên chưa thể xử lý lượt nhập. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được.", "Document processing is not enabled on this server, so the import cannot be processed. Imports that already finished processing can still be reviewed and turned into tests."},
-		{domain.ErrFilesRemoved, 410, openapi.IMPORTFILESREMOVED, "Tệp gốc và bản rà soát của lượt nhập này đã được xoá theo chính sách lưu trữ.", "This import's original files and review were removed under the retention policy."},
-		{errMultipart, 400, openapi.VALIDATIONFAILED, "Yêu cầu phải chứa đúng một tệp trong trường file.", "The request must contain exactly one file part named file."},
+		{domain.ErrNotFound, 404, openapi.NOTFOUND, httpx.Text(ctx, "Không tìm thấy lượt nhập hoặc tệp đã hoàn tất.", "The import or completed source was not found.")},
+		{domain.ErrNoDraft, 404, openapi.IMPORTNOTPROCESSED, httpx.Text(ctx, "Tài liệu chưa được xử lý xong nên chưa có bản rà soát.", "The document has not finished processing, so there is nothing to review yet.")},
+		{domain.ErrStale, 409, openapi.STALEWRITE, httpx.Text(ctx, "Bản nhập đã thay đổi ở nơi khác. Hãy tải lại để xem bản mới nhất.", "The import was changed elsewhere. Reload to see the latest version.")},
+		{domain.ErrNotReady, 422, openapi.IMPORTNOTREADY, httpx.Text(ctx, "Vẫn còn mục cần xử lý hoặc cần xác nhận trước khi tạo đề.", "Some items still need fixing or a decision before the test can be created.")},
+		{domain.ErrBadDraft, 422, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Bản rà soát gửi lên không hợp lệ. Hãy tải lại trang và thử lại.", "The submitted review is malformed. Reload the page and try again.")},
+		{domain.ErrConflict, 409, openapi.IMPORTCONFLICT, httpx.Text(ctx, "Lượt nhập đã thay đổi hoặc mã tải lên đã được dùng. Hãy tải lại dữ liệu trước khi tiếp tục.", "The import changed or the upload identity was already used. Reload before continuing.")},
+		{domain.ErrQuota, 429, openapi.IMPORTQUOTAEXCEEDED, httpx.Text(ctx, "Đã đạt giới hạn lưu trữ hoặc số lượt nhập. Vui lòng liên hệ quản trị viên.", "The storage or import quota has been reached. Contact your administrator.")},
+		{domain.ErrBusy, 429, openapi.IMPORTBUSY, httpx.Text(ctx, "Hệ thống đang xử lý tệp khác. Vui lòng thử lại sau.", "The system is busy processing another file. Please retry later.")},
+		{domain.ErrTooLarge, 413, openapi.IMPORTSOURCETOOLARGE, httpx.Text(ctx, "Tệp vượt giới hạn 25 MiB hoặc có cấu trúc quá lớn. Hãy chia nhỏ tài liệu.", "The file exceeds 25 MiB or its expanded structure is too large. Split the document.")},
+		{domain.ErrUnsupported, 415, openapi.IMPORTSOURCEUNSUPPORTED, httpx.Text(ctx, "Hãy dùng tệp Word (.docx, hoặc .doc khi máy chủ hỗ trợ) hoặc PDF, không có mật khẩu, macro hoặc đối tượng thực thi.", "Use an unprotected Word file (.docx, or .doc where the server supports it) or PDF, without macros or active objects.")},
+		{domain.ErrInvalid, 415, openapi.IMPORTSOURCEINVALID, httpx.Text(ctx, "Không đọc được cấu trúc tệp. Hãy mở tệp trong Word và lưu lại dưới dạng .docx, hoặc xuất lại PDF.", "The file's structure cannot be read. Open it in Word and save a new .docx copy, or export the PDF again.")},
+		{domain.ErrProcessingOff, 503, openapi.IMPORTPROCESSINGUNAVAILABLE, httpx.Text(ctx, "Máy chủ này chưa bật xử lý tài liệu nên chưa thể xử lý lượt nhập. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được.", "Document processing is not enabled on this server, so the import cannot be processed. Imports that already finished processing can still be reviewed and turned into tests.")},
+		{domain.ErrFilesRemoved, 410, openapi.IMPORTFILESREMOVED, httpx.Text(ctx, "Tệp gốc và bản rà soát của lượt nhập này đã được xoá theo chính sách lưu trữ.", "This import's original files and review were removed under the retention policy.")},
+		{errMultipart, 400, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Yêu cầu phải chứa đúng một tệp trong trường file.", "The request must contain exactly one file part named file.")},
 	}
 	for _, m := range messages {
 		if errors.Is(err, m.err) {
-			message := m.vi
-			if _, index := language.MatchStrings(importLanguages, httpx.RequestMetaFromContext(ctx).Language); index == 1 {
-				message = m.en
-			}
-			return &failure{status: m.status, body: httpapi.Error(ctx, m.code, message)}, nil
+			return &failure{status: m.status, body: httpapi.Error(ctx, m.code, m.message)}, nil
 		}
 	}
 	return nil, err

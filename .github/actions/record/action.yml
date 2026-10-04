@@ -1,0 +1,34 @@
+name: Record the outcome
+description: >-
+  Uploads the marker of how this job ended on the files it read. A pass lets a
+  later run skip the job while those files are unchanged; a failure withdraws
+  an earlier pass, so the newest outcome is the one that counts. It is the
+  last step of a job and runs whatever came before; a cancelled job has no
+  marker name and records nothing.
+
+inputs:
+  marker:
+    description: >-
+      The name scripts/ci/plan.mjs gave this job's outcome, from
+      `outcomes[shard][job.status]`. Empty for a status the plan does not name.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.marker != ''
+      shell: bash
+      env:
+        MARKER: ${{ inputs.marker }}
+      run: |
+        mkdir -p "$RUNNER_TEMP/ci-outcome"
+        printf '%s\n%s\n' "$MARKER" "$GITHUB_SHA" > "$RUNNER_TEMP/ci-outcome/$MARKER.txt"
+
+    - if: inputs.marker != ''
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.marker }}
+        path: ${{ runner.temp }}/ci-outcome/${{ inputs.marker }}.txt
+        retention-days: 30
+        overwrite: true

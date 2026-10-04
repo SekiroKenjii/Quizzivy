@@ -1184,6 +1184,15 @@ Note the ordering: the blanket `GRANT … ON ALL TABLES` runs first and the two
 
 The app role never owns anything and cannot run DDL, per §13.5.
 
+### `00079_revoke_temporary_from_public.sql`
+
+It revokes `TEMPORARY` on the database from `PUBLIC`, so `quizzivy_app` can
+create nothing in `pg_temp`, the schema a `SECURITY DEFINER` function with a
+loose `search_path` is attacked from (PR #193 closed one such hole); the
+application creates no temporary object. The database's owner keeps the
+privilege, so the migrate role's own temporary tables (`pg18_test.go`) still
+work.
+
 ### The student-payload rule (§13.5)
 
 `sample_answer`, `transcript`, `is_correct`, and accepted blank answers must
@@ -1240,7 +1249,7 @@ listed here matches the spec.
 | D-22 | `tests`, `questions`, `question_groups` and `media_assets` gain `owner_id` beside `created_by` / `uploaded_by`; `users` gains a nullable `created_by` | Ownership is who a row belongs to and provenance is who made it. R5's ownership transfer and R7's co-editing move the first and must not rewrite the second (T-R2.9) |
 | D-23 | `classes.teacher_id` is backfilled from the oldest active Admin, with no `classes.created_by` | `app.classes` never recorded a creator, and the oldest active Admin is who v0.7.0 shows as every class's teacher, so no teacher changes; a class's creator from R2 on is its `class.created` audit row (Thuong, 2026-09-28; T-R2.9) |
 | D-24 | Add the view `app.student_like_roles`, the one strict-student predicate: the built-in Student, or a custom role holding nothing but `learning.take_tests`; the other built-in roles are excluded by key | The Admin stores only its "Take tests" cell, so a predicate on grants alone would make it a student target; every student read and write, the legacy-role sync and the anonymiser use this one definition (plan 70 §4.3, T-R2.1) |
-| D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum, expand half: added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step until R3 drops the column and the enum | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
+| D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum, expand half: added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step until v0.9.1 (T-R3.1) drops the column and the enum | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
 | D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
 | D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
 
@@ -1331,6 +1340,7 @@ the file it adds.
 | `00076_index_users_created_by.sql` | `users_created_by_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00077_index_assignments_creator.sql` | `assignments_creator_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00078_add_join_code_encryption.sql` | `class_join_codes.code_ciphertext`, `key_id`, `lookup_scheme` and their four checks; Down refuses a live scheme-2 code | R2 (T-R2.14a), D5, D-27 |
+| `00079_revoke_temporary_from_public.sql` | revokes `TEMPORARY` on the database from `PUBLIC`; a no-op with a notice where the migration role does not own the database | fix for #194 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1348,7 +1358,7 @@ Notes on migration mechanics (§13.7):
   Every column of a new table says `NOT NULL` inline at `CREATE TABLE`, where
   it is free. R2 is the first to need the PG18 construct (§13.6): `00056`,
   `00060`–`00063` and `00065` backfill a new column, add `NOT NULL … NOT
-  VALID`, and leave validation to R3 (§30, §31). T-0.16 proved it before it
+  VALID`, and leave validation to v0.9.1 (§30, §31). T-0.16 proved it before it
   was needed.
 - **`00009` runs in Phase 1, not last.** It was originally scheduled for Phase 3
   on the reasoning that `GRANT … ON ALL TABLES` must follow the tables. That is
@@ -1980,8 +1990,8 @@ from `quizzivy_app`. `access.IsStudentLike` is the same predicate in Go.
 ## 30. A role per user, the session epoch and the last Admin (T-R2.2)
 
 The expand half of moving users from `users.role` to `users.role_id` (plan 70
-§3, D-25). R3 validates the constraint, drops the sync trigger, `users.role`,
-`users_role_active_idx` and `app.user_role`.
+§3, D-25). v0.9.1 (73-r3.md T-R3.1) validates the constraint, drops the sync
+trigger, `users.role`, `users_role_active_idx` and `app.user_role`.
 
 - `00056_add_users_role_id.sql` adds `role_id uuid REFERENCES app.roles ON
   DELETE RESTRICT`, nullable, and backfills it: `admin` → the Admin role,
@@ -2026,7 +2036,7 @@ The expand half of moving users from `users.role` to `users.role_id` (plan 70
     another Admin's departure (and two transfers cannot deadlock).
   - No column list: the v0.7.0 binary demotes by writing `role`, and a column
     list matches the columns an UPDATE names, not those a BEFORE trigger sets.
-    Naming `role` would also make R3's `DROP COLUMN role` depend on the trigger.
+    Naming `role` would also make v0.9.1's `DROP COLUMN role` depend on the trigger.
 - **The schema's first `SECURITY DEFINER` function (D-26).** The row lock
   needs UPDATE privilege on `app.roles`, which `00054` revokes from
   `quizzivy_app`. Running as the invoker, R5's demote and disable would fail
@@ -2051,7 +2061,7 @@ is set, as CI does.
 
 ## 31. Ownership (T-R2.9)
 
-The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). R3
+The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). v0.9.1
 validates every constraint below and drops the fill triggers and their
 functions (73-r3.md T-R3.2).
 
@@ -2079,8 +2089,8 @@ functions (73-r3.md T-R3.2).
   shows for every class. It raises if no active Admin exists and a class does.
   `classes_fill_teacher` (BEFORE INSERT) applies the same rule to the old
   binary's inserts; it and its function `app.classes_fill_teacher()` share the
-  name. It reads `users.role_id`, not the legacy `role`, so R3's `DROP COLUMN
-  role` cannot break it before R3 drops it.
+  name. It reads `users.role_id`, not the legacy `role`, so v0.9.1's `DROP COLUMN
+  role` cannot break it before v0.9.1 drops it.
 - `00066`–`00070` add the foreign keys, `<table>_owner_id_fkey` and
   `classes_teacher_id_fkey`, each `REFERENCES app.users ON DELETE RESTRICT`
   and each in its own file after the columns. A column file holds ACCESS

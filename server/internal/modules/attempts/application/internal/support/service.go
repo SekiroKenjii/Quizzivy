@@ -49,7 +49,7 @@ func NewService(store domain.Repository) *Service {
 	}
 }
 
-func (s *Service) StartOrResume(ctx context.Context, assignmentID, studentID string) (domain.Session, error) {
+func (s *Service) StartOrResume(ctx context.Context, assignmentID, studentID, resume string) (domain.Session, error) {
 	rules, err := s.Store.Rules(ctx, assignmentID, studentID)
 	if err != nil {
 		return domain.Session{}, err
@@ -58,9 +58,12 @@ func (s *Service) StartOrResume(ctx context.Context, assignmentID, studentID str
 		return domain.Session{}, domain.ErrForbidden
 	}
 
-	session, resumed, err := s.ResumeIfLive(ctx, assignmentID, studentID, rules)
+	session, resumed, err := s.ResumeIfLive(ctx, assignmentID, studentID, resume, rules)
 	if err != nil || resumed {
 		return session, err
+	}
+	if resume != "" {
+		return domain.Session{}, domain.ErrAttemptClosed
 	}
 
 	if err := s.CanStart(rules); err != nil {
@@ -71,7 +74,7 @@ func (s *Service) StartOrResume(ctx context.Context, assignmentID, studentID str
 		return domain.Session{}, err
 	}
 	if tally.Spent >= rules.MaxAttempts {
-		session, resumed, err := s.ResumeIfLive(ctx, assignmentID, studentID, rules)
+		session, resumed, err := s.ResumeIfLive(ctx, assignmentID, studentID, resume, rules)
 		if err != nil || resumed {
 			return session, err
 		}
@@ -80,7 +83,7 @@ func (s *Service) StartOrResume(ctx context.Context, assignmentID, studentID str
 	return s.Create(ctx, assignmentID, studentID, tally.Next, rules)
 }
 
-func (s *Service) ResumeIfLive(ctx context.Context, assignmentID, studentID string, r domain.Rules) (domain.Session, bool, error) {
+func (s *Service) ResumeIfLive(ctx context.Context, assignmentID, studentID, resume string, r domain.Rules) (domain.Session, bool, error) {
 	live, err := s.Store.Live(ctx, assignmentID, studentID)
 	if errors.Is(err, domain.ErrNotFound) {
 		return domain.Session{}, false, nil
@@ -94,6 +97,9 @@ func (s *Service) ResumeIfLive(ctx context.Context, assignmentID, studentID stri
 			return domain.Session{}, false, err
 		}
 		return domain.Session{}, false, nil
+	}
+	if resume != "" && live.ID != resume {
+		return domain.Session{}, false, domain.ErrAttemptClosed
 	}
 
 	session, err := s.Resume(ctx, live, r)

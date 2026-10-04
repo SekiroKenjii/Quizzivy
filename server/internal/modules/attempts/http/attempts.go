@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/text/language"
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/query"
@@ -27,7 +26,11 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 		return nil, httpx.ErrNotImplemented
 	}
 
-	session, err := h.app.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: request.Id.String(), StudentID: principal.UserID})
+	cmd := command.StartOrResume{AssignmentID: request.Id.String(), StudentID: principal.UserID}
+	if request.Body != nil && request.Body.Resume != nil {
+		cmd.Resume = request.Body.Resume.String()
+	}
+	session, err := h.app.Commands.StartOrResume.Handle(ctx, cmd)
 	var scheduled *domain.MaintenanceScheduledError
 	switch {
 	case errors.As(err, &scheduled):
@@ -40,14 +43,21 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 
 		return openapi.StartOrResumeAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền làm bài này.")),
+				httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx,
+					"Bạn không có quyền làm bài này.", "You do not have access to this test."))),
 		}, nil
 	case errors.Is(err, domain.ErrAssignmentClosed):
 		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
-			openapi.ASSIGNMENTNOTOPEN, "Bài thi này hiện không mở.")), nil
+			openapi.ASSIGNMENTNOTOPEN, httpx.Text(ctx,
+				"Bài thi này hiện không mở.", "This test is not open right now."))), nil
 	case errors.Is(err, domain.ErrLimitReached):
 		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
-			openapi.ATTEMPTLIMITREACHED, "Bạn đã dùng hết số lượt làm bài.")), nil
+			openapi.ATTEMPTLIMITREACHED, httpx.Text(ctx,
+				"Bạn đã dùng hết số lượt làm bài.", "You have used all your attempts."))), nil
+	case errors.Is(err, domain.ErrAttemptClosed):
+		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
+			openapi.ATTEMPTCLOSED, httpx.Text(ctx,
+				"Bài làm này đã kết thúc.", "This attempt has ended."))), nil
 	case (errors.Is(err, domain.ErrGroupContextUnavailable) || errors.Is(err, domain.ErrUnsupportedDeliveryVersion)):
 		return nil, httpx.ErrNotImplemented
 	case err != nil:
@@ -77,7 +87,8 @@ func (h Attempts) GetAttempt(ctx context.Context, request openapi.GetAttemptRequ
 	if errors.Is(err, domain.ErrForbidden) || errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền xem bài làm này.")),
+				httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx,
+					"Bạn không có quyền xem bài làm này.", "You do not have permission to view this attempt."))),
 		}, nil
 	}
 	if errors.Is(err, domain.ErrGroupContextUnavailable) || errors.Is(err, domain.ErrUnsupportedDeliveryVersion) {
@@ -119,14 +130,7 @@ func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in 
 		return openapi.AttemptSession{}, err
 	}
 
-	sections := make([]openapi.StudentSection, len(in.Sections))
-	for i, sec := range in.Sections {
-		sections[i] = openapi.StudentSection{
-			Id:           httpapi.ParseUUID(sec.ID),
-			Title:        sec.Title,
-			Instructions: sec.Instructions,
-		}
-	}
+	sections := toAPISections(in.Sections)
 
 	return openapi.AttemptSession{
 		RemainingAttempts: &in.RemainingAttempts,
@@ -227,6 +231,18 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 	return out, nil
 }
 
+func toAPISections(in []domain.Section) []openapi.StudentSection {
+	sections := make([]openapi.StudentSection, len(in))
+	for i, sec := range in {
+		sections[i] = openapi.StudentSection{
+			Id:           httpapi.ParseUUID(sec.ID),
+			Title:        sec.Title,
+			Instructions: sec.Instructions,
+		}
+	}
+	return sections
+}
+
 func toAPIAnswers(stored map[string][]byte) (map[string]openapi.Answer, error) {
 	out := make(map[string]openapi.Answer, len(stored))
 	for questionID, payload := range stored {
@@ -268,17 +284,18 @@ func (h Attempts) SaveAnswers(ctx context.Context, request openapi.SaveAnswersRe
 	case errors.Is(err, domain.ErrForbidden):
 		return openapi.SaveAnswers403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền ghi vào bài làm này.")),
+				httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx,
+					"Bạn không có quyền ghi vào bài làm này.", "You do not have permission to save to this attempt."))),
 		}, nil
 	case errors.Is(err, domain.ErrSessionSuperseded):
 		return openapi.SaveAnswers409JSONResponse(httpapi.Error(ctx, openapi.SESSIONSUPERSEDED,
-			"Bài làm này đã được mở ở nơi khác.")), nil
+			httpx.Text(ctx, "Bài làm này đã được mở ở nơi khác.", "This attempt was opened somewhere else."))), nil
 	case errors.Is(err, domain.ErrDeadlinePassed):
 		return openapi.SaveAnswers409JSONResponse(httpapi.Error(ctx, openapi.DEADLINEPASSED,
-			"Đã hết giờ làm bài.")), nil
+			httpx.Text(ctx, "Đã hết giờ làm bài.", "Time is up."))), nil
 	case errors.Is(err, domain.ErrAttemptClosed):
 		return openapi.SaveAnswers409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTCLOSED,
-			"Bài làm này đã kết thúc.")), nil
+			httpx.Text(ctx, "Bài làm này đã kết thúc.", "This attempt has ended."))), nil
 	case err != nil:
 		return nil, err
 	}
@@ -355,7 +372,8 @@ func (h Attempts) RecordAudioPlay(ctx context.Context, request openapi.RecordAud
 	if errors.Is(err, domain.ErrForbidden) {
 		return openapi.RecordAudioPlay403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền nghe câu hỏi này.")),
+				httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx,
+					"Bạn không có quyền nghe câu hỏi này.", "You do not have permission to listen to this question."))),
 		}, nil
 	}
 	if err != nil {
@@ -425,7 +443,8 @@ func (h Attempts) FlushEvents(ctx context.Context, request openapi.FlushEventsRe
 func forbiddenFlush(ctx context.Context) openapi.FlushEvents403JSONResponse {
 	return openapi.FlushEvents403JSONResponse{
 		ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-			httpapi.Error(ctx, openapi.FORBIDDEN, "Không ghi được nhật ký cho bài làm này.")),
+			httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx,
+				"Không ghi được nhật ký cho bài làm này.", "The log for this attempt could not be written."))),
 	}
 }
 
@@ -449,27 +468,25 @@ func (h Attempts) SubmitAttempt(ctx context.Context, request openapi.SubmitAttem
 	switch {
 	case errors.As(err, &early):
 		return openapi.SubmitAttempt409JSONResponse(httpapi.ErrorWithDetails(ctx, openapi.DEADLINENOTREACHED,
-			"Chưa hết giờ: thời gian làm bài đã được gia hạn.",
+			httpx.Text(ctx, "Chưa hết giờ: thời gian làm bài đã được gia hạn.", "Time is not up yet: the attempt has been extended."),
 			map[string]interface{}{"deadlineAt": early.DeadlineAt.UTC().Format(time.RFC3339Nano)})), nil
 	case errors.Is(err, domain.ErrForbidden):
 		return openapi.SubmitAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền nộp bài làm này.")),
+				httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx,
+					"Bạn không có quyền nộp bài làm này.", "You do not have permission to submit this attempt."))),
 		}, nil
 	case errors.Is(err, domain.ErrAttemptClosed):
 		return openapi.SubmitAttempt409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTCLOSED,
-			"Bài làm này đã được nộp.")), nil
+			httpx.Text(ctx, "Bài làm này đã được nộp.", "This attempt has already been submitted."))), nil
 	case err != nil:
 		return nil, err
 	}
 	return openapi.SubmitAttempt200JSONResponse(toAPIAttempt(closed)), nil
 }
 
-var attemptLanguages = language.NewMatcher([]language.Tag{language.Vietnamese, language.English})
-
 func scheduledMessage(ctx context.Context) string {
-	if _, index := language.MatchStrings(attemptLanguages, httpx.RequestMetaFromContext(ctx).Language); index == 1 {
-		return "Quizzivy will be updated before this attempt would end. Start it once the update is over."
-	}
-	return "Quizzivy sắp được cập nhật trước khi bài làm kết thúc. Hãy bắt đầu sau khi cập nhật xong."
+	return httpx.Text(ctx,
+		"Quizzivy sắp được cập nhật trước khi bài làm kết thúc. Hãy bắt đầu sau khi cập nhật xong.",
+		"Quizzivy will be updated before this attempt would end. Start it once the update is over.")
 }

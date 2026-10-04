@@ -1,11 +1,26 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuestionBody } from "@/features/take-test/components/QuestionBody";
 import { QuestionCard } from "@/features/take-test/components/QuestionCard";
+import { QuestionSheet } from "@/features/take-test/components/QuestionSheet";
+import { UnknownType } from "@/features/take-test/components/UnknownType";
+import { questionKind, questionLine } from "@/features/take-test/questionType";
+import { useTakeTestStore } from "@/features/take-test/store";
 import type { Answer, StudentQuestion } from "@/features/take-test/api";
-import "@/lib/i18n";
+import { writeLargerTestText } from "@/lib/testText";
+import i18n from "@/lib/i18n";
+
+beforeEach(() => {
+  localStorage.clear();
+  useTakeTestStore.getState().reset();
+});
+afterEach(() => {
+  act(() => writeLargerTestText(false));
+  localStorage.clear();
+  useTakeTestStore.getState().reset();
+});
 
 function question(
   over: Partial<StudentQuestion> & { type: StudentQuestion["type"] },
@@ -59,6 +74,76 @@ describe("single_choice", () => {
     });
     expect(screen.getByRole("radio", { name: /have lived/ })).toBeChecked();
   });
+
+  it("keeps the options in the order the server sent them", () => {
+    renderQuestion(
+      question({
+        type: "single_choice",
+        options: [options[2]!, options[0]!, options[1]!],
+      }),
+    );
+    expect(
+      screen.getAllByRole("radio").map((radio) => radio.parentElement?.textContent),
+    ).toEqual(["Ais living", "Bhas been living", "Chave lived"]);
+  });
+
+  it("draws each option as a row at least 52px high with a round letter marker", () => {
+    renderQuestion(question({ type: "single_choice", options }));
+    const row = screen.getByRole("radio", { name: "have lived" }).parentElement!;
+    expect(row).toHaveClass(
+      "min-h-13",
+      "rounded-[11px]",
+      "border-[1.5px]",
+      "border-border",
+      "bg-card",
+      "px-3.5",
+      "py-2.5",
+      "text-md",
+      "leading-[1.45]",
+      "hover:border-ring",
+    );
+    const marker = within(row).getByText("B");
+    expect(marker).toHaveClass(
+      "size-6.5",
+      "rounded-full",
+      "border-ring",
+      "text-muted-fg",
+    );
+    expect(marker).toHaveAttribute("aria-hidden", "true");
+    expect(marker.querySelector("svg")).toBeNull();
+  });
+
+  it("gives the chosen option a primary border and a check in place of its letter", () => {
+    renderQuestion(question({ type: "single_choice", options }), {
+      type: "choice",
+      optionIds: ["o2"],
+    });
+    const row = screen.getByRole("radio", { name: "have lived" }).parentElement!;
+    expect(row).toHaveClass("border-primary");
+    expect(row).not.toHaveClass("border-border");
+    expect(row).not.toHaveClass("hover:border-ring");
+    const marker = row.querySelector<HTMLElement>("span[aria-hidden]")!;
+    expect(marker).toHaveClass("border-primary", "bg-primary", "text-primary-fg");
+    expect(marker).not.toHaveTextContent("B");
+    expect(marker.querySelector("svg")).toHaveClass("size-3.5");
+    const other = screen.getByRole("radio", { name: "is living" }).parentElement!;
+    expect(other).toHaveClass("border-border");
+    expect(within(other).getByText("C")).toBeInTheDocument();
+  });
+
+  it("says how to answer to a screen reader only, as the line above the question says it", () => {
+    renderQuestion(question({ type: "single_choice", options }));
+    expect(screen.getByText("Chọn một đáp án.")).toHaveClass("sr-only");
+  });
+
+  it("draws the prompt at 17px, medium, on a 1.6 line", () => {
+    renderQuestion(question({ type: "single_choice", options }));
+    expect(screen.getByText("Prompt").parentElement).toHaveClass(
+      "text-lg",
+      "leading-[1.6]!",
+      "font-medium",
+    );
+  });
 });
 
 describe("multiple_choice", () => {
@@ -87,6 +172,29 @@ describe("multiple_choice", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: /has been living/ }));
     expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["o3"] });
   });
+
+  it("draws square markers, and shows the instruction as the hint under the prompt", () => {
+    renderQuestion(question({ type: "multiple_choice", options }), {
+      type: "choice",
+      optionIds: ["o1"],
+    });
+    const chosen = screen.getByRole("checkbox", {
+      name: "has been living",
+    }).parentElement!;
+    expect(chosen.querySelector("span[aria-hidden]")).toHaveClass(
+      "rounded-[6px]",
+      "bg-primary",
+    );
+    expect(within(chosen.parentElement!).getByText("B")).toHaveClass("rounded-[6px]");
+    expect(within(chosen.parentElement!).getByText("B")).not.toHaveClass(
+      "rounded-full",
+    );
+    const hint = screen.getByText(
+      "Chọn các đáp án bạn cho là đúng. Bạn có thể chọn nhiều đáp án.",
+    );
+    expect(hint).toHaveClass("text-muted-fg", "text-sm", "-mt-2");
+    expect(hint).not.toHaveClass("sr-only");
+  });
 });
 
 describe("true_false", () => {
@@ -101,6 +209,21 @@ describe("true_false", () => {
       }),
     );
     expect(screen.getAllByRole("radio")).toHaveLength(2);
+  });
+
+  it("writes the choice answer it has always written", async () => {
+    const onAnswer = renderQuestion(
+      question({
+        type: "true_false",
+        options: [
+          { id: "t", text: "True" },
+          { id: "f", text: "False" },
+        ],
+      }),
+    );
+    await userEvent.click(screen.getByRole("radio", { name: "False" }));
+    expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["f"] });
+    expect(onAnswer).toHaveBeenCalledOnce();
   });
 });
 
@@ -215,6 +338,47 @@ describe("short_answer", () => {
     renderQuestion(question({ type: "short_answer" }), { type: "text", value: "   " });
     expect(screen.getByText("0 từ")).toBeInTheDocument();
   });
+
+  it("is the deck's 52px field, one line that grows, with its count line under it", () => {
+    renderQuestion(question({ type: "short_answer" }));
+    const field = screen.getByRole("textbox", { name: "Bài làm của bạn" });
+    expect(field.tagName).toBe("TEXTAREA");
+    expect(field).toHaveAttribute("rows", "1");
+    expect(field).toHaveAttribute("placeholder", "Nhập câu trả lời");
+    expect(field).toHaveClass(
+      "min-h-13",
+      "field-sizing-content",
+      "rounded-[11px]",
+      "border-[1.5px]",
+      "border-border",
+      "bg-card",
+      "px-3.5",
+      "py-[13px]",
+      "leading-[1.45]",
+      "focus:border-primary",
+      "lg:text-md",
+    );
+    expect(screen.getByText("0 từ")).toHaveClass("text-meta", "text-muted-fg");
+  });
+
+  it("keeps an answer written on several lines", async () => {
+    const onAnswer = renderQuestion(question({ type: "short_answer" }), {
+      type: "text",
+      value: "First line\nSecond line",
+    });
+    expect(screen.getByRole("textbox")).toHaveValue("First line\nSecond line");
+    await userEvent.type(screen.getByRole("textbox"), "!");
+    expect(onAnswer).toHaveBeenLastCalledWith({
+      type: "text",
+      value: "First line\nSecond line!",
+    });
+  });
+
+  it("reports what was typed as a text answer", async () => {
+    const onAnswer = renderQuestion(question({ type: "short_answer" }));
+    await userEvent.type(screen.getByRole("textbox"), "a");
+    expect(onAnswer).toHaveBeenCalledWith({ type: "text", value: "a" });
+  });
 });
 
 describe("a locked paper", () => {
@@ -228,6 +392,23 @@ describe("a locked paper", () => {
       />,
     );
     expect(screen.getByRole("radio", { name: /has been living/ })).toBeChecked();
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toBeDisabled();
+      expect(radio.parentElement).not.toHaveClass("hover:border-ring");
+    }
+  });
+
+  it("refuses edits through the card once the store is locked", () => {
+    render(
+      <QuestionCard
+        question={question({ type: "single_choice", options })}
+        number={1}
+        total={1}
+        onAudioExpired={vi.fn()}
+      />,
+    );
+    for (const radio of screen.getAllByRole("radio")) expect(radio).toBeEnabled();
+    act(() => useTakeTestStore.getState().lockNow("superseded"));
     for (const radio of screen.getAllByRole("radio")) expect(radio).toBeDisabled();
   });
 });
@@ -274,7 +455,7 @@ describe("blank ordering", () => {
  */
 describe("what the question says it is worth", () => {
   const render1 = (q: StudentQuestion) =>
-    render(<QuestionCard question={q} onAudioExpired={vi.fn()} />);
+    render(<QuestionCard question={q} number={1} total={1} onAudioExpired={vi.fn()} />);
 
   it("names the per-blank share, as S-05 writes it", () => {
     render1(
@@ -316,11 +497,33 @@ describe("what the question says it is worth", () => {
     render1(question({ type: "single_choice", points: 1, options }));
     expect(screen.getByText("1 điểm")).toBeInTheDocument();
   });
+
+  it("counts points in the singular and the plural in English", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      const { unmount } = render1(
+        question({ type: "single_choice", points: 1, options }),
+      );
+      expect(screen.getByText("1 point")).toBeInTheDocument();
+      unmount();
+      render1(
+        question({
+          type: "fill_blank",
+          points: 1.5,
+          prompt: "{{1}}",
+          blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
+        }),
+      );
+      expect(screen.getByText("1,5 points · 1,5 per blank")).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
 });
 
 describe("the fill-blank matching rule (S-05)", () => {
   const render1 = (q: StudentQuestion) =>
-    render(<QuestionCard question={q} onAudioExpired={vi.fn()} />);
+    render(<QuestionCard question={q} number={1} total={1} onAudioExpired={vi.fn()} />);
 
   it("says capitals do not matter when no blank is case-sensitive", () => {
     render1(
@@ -356,5 +559,261 @@ describe("the fill-blank matching rule (S-05)", () => {
     const row = screen.getByText("5 điểm · giáo viên chấm tay").parentElement!;
     expect(row).toHaveTextContent("0 từ");
     expect(screen.queryByRole("note")).toBeNull();
+  });
+});
+
+describe("larger text in tests", () => {
+  it("raises the prompt to 19px and the options to 17px", () => {
+    localStorage.setItem("quizzivy.testText", "large");
+    renderQuestion(question({ type: "single_choice", options }));
+    const prompt = screen.getByText("Prompt").parentElement!;
+    expect(prompt).toHaveClass("text-[1.1875rem]", "leading-[1.6]!");
+    expect(prompt).not.toHaveClass("text-lg");
+    const row = screen.getByRole("radio", { name: "have lived" }).parentElement!;
+    expect(row).toHaveClass("text-lg", "leading-[1.45]");
+    expect(row).not.toHaveClass("text-md");
+  });
+
+  it("raises the blanks and the answer field to 17px", () => {
+    localStorage.setItem("quizzivy.testText", "large");
+    const { unmount } = render(
+      <QuestionBody
+        question={question({
+          type: "fill_blank",
+          prompt: "If it {{1}} tomorrow.",
+          blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
+        })}
+        answer={undefined}
+        onAnswer={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("textbox")).toHaveClass("text-lg");
+    unmount();
+    renderQuestion(question({ type: "short_answer" }));
+    expect(screen.getByRole("textbox")).toHaveClass("text-lg", "py-3", "min-h-13");
+    expect(screen.getByRole("textbox")).not.toHaveClass("py-[13px]");
+  });
+
+  it("ignores a stored value that is not the setting", () => {
+    localStorage.setItem("quizzivy.testText", "default");
+    renderQuestion(question({ type: "single_choice", options }));
+    expect(screen.getByText("Prompt").parentElement).toHaveClass("text-lg");
+  });
+});
+
+describe("a fill-in's blanks", () => {
+  const fill = question({
+    type: "fill_blank",
+    prompt: "If it {{1}} tomorrow.",
+    blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
+  });
+
+  it("sit in the sentence as deck fields, never under 16px where a phone would zoom", () => {
+    renderQuestion(fill);
+    const blank = screen.getByRole("textbox", { name: "Chỗ trống 1" });
+    expect(blank).toHaveClass(
+      "inline-block",
+      "h-11",
+      "lg:h-10",
+      "w-32",
+      "rounded-ctl",
+      "border-[1.5px]",
+      "bg-card",
+      "focus:border-primary",
+      "text-[length:var(--text-input)]",
+      "lg:text-md",
+    );
+    expect(blank.closest("p")).toHaveTextContent("If it tomorrow.");
+  });
+
+  it("stay legible in a rich table on the paper surface", () => {
+    const { container } = render(
+      <QuestionBody question={fill} answer={undefined} onAnswer={vi.fn()} />,
+    );
+    expect(container.firstElementChild).toHaveClass(
+      "[&_.content-table-scroll_input]:bg-paper",
+      "[&_.content-table-scroll_input]:text-paper-fg",
+      "[&_.content-table-scroll_input:focus]:border-paper-fg",
+    );
+  });
+
+  it("states the case rule as the hint under the sentence", () => {
+    renderQuestion(fill);
+    expect(screen.getByRole("note")).toHaveClass("text-muted-fg", "text-sm", "-mt-2");
+  });
+});
+
+describe("a type this page has no renderer for", () => {
+  const unknown = question({
+    type: "matching" as StudentQuestion["type"],
+    options,
+    blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
+  });
+
+  it("is told apart from the five the page knows", () => {
+    expect(questionKind(unknown)).toBe("unknown");
+    expect(
+      (
+        [
+          "single_choice",
+          "multiple_choice",
+          "true_false",
+          "fill_blank",
+          "short_answer",
+        ] as const
+      ).map((type) => questionKind({ type })),
+    ).toEqual(["choice", "choice", "choice", "fill_blank", "short_answer"]);
+    expect(questionKind({ type: "toString" as StudentQuestion["type"] })).toBe(
+      "unknown",
+    );
+  });
+
+  it("labels each of the five types in English", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      expect(
+        (
+          [
+            "single_choice",
+            "multiple_choice",
+            "true_false",
+            "fill_blank",
+            "short_answer",
+          ] as const
+        ).map((type) => questionLine({ type }, 4, 8, i18n.t)),
+      ).toEqual([
+        "Question 4 of 8 · Choose one",
+        "Question 4 of 8 · Choose one or more",
+        "Question 4 of 8 · True or false",
+        "Question 4 of 8 · Fill in the blanks",
+        "Question 4 of 8 · Short answer",
+      ]);
+      expect(questionLine(unknown, 4, 8, i18n.t)).toBe("Question 4 of 8");
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
+  it("draws no answer control in the body and writes nothing", async () => {
+    const onAnswer = vi.fn();
+    const { container } = render(
+      <QuestionBody question={unknown} answer={undefined} onAnswer={onAnswer} />,
+    );
+    expect(container).toBeEmptyDOMElement();
+    expect(onAnswer).not.toHaveBeenCalled();
+  });
+
+  it("gets the block that names the question and offers to reload, and claims no worth", async () => {
+    const onAnswer = vi.fn();
+    render(
+      <QuestionSheet
+        question={unknown}
+        number={3}
+        total={8}
+        answer={{ type: "choice", optionIds: ["o1"] }}
+        onAnswer={onAnswer}
+      />,
+    );
+    expect(screen.getByText("Câu 3 trên 8")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Câu 3 thuộc dạng câu hỏi mới mà trang này chưa hiển thị được. Hãy tải lại trang để làm câu này; các câu trả lời của bạn vẫn được giữ.",
+    );
+    expect(screen.getByRole("button", { name: "Tải lại trang" })).toBeEnabled();
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByText("Prompt")).toBeNull();
+    expect(screen.queryByText(/điểm/)).toBeNull();
+    expect(onAnswer).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing to the store through the card, which keeps the flag toggle", () => {
+    render(
+      <QuestionCard question={unknown} number={3} total={8} onAudioExpired={vi.fn()} />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Câu 3 thuộc dạng câu hỏi mới",
+    );
+    expect(screen.getByRole("button", { name: "Đánh dấu xem lại" })).toBeEnabled();
+    expect(useTakeTestStore.getState().answers).toEqual({});
+    expect(useTakeTestStore.getState().dirty.size).toBe(0);
+  });
+
+  it("reloads from its one action", async () => {
+    const onReload = vi.fn();
+    render(<UnknownType number={3} onReload={onReload} />);
+    await userEvent.click(screen.getByRole("button", { name: "Tải lại trang" }));
+    expect(onReload).toHaveBeenCalledOnce();
+  });
+
+  it("reloads the page from the sheet, which gives the block no handler", async () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    try {
+      render(
+        <QuestionSheet
+          question={unknown}
+          number={3}
+          total={8}
+          answer={undefined}
+          onAnswer={vi.fn()}
+        />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Tải lại trang" }));
+      expect(reload).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("the question sheet", () => {
+  it("has no flag toggle and no heading id unless the caller gives them", () => {
+    render(
+      <QuestionSheet
+        question={question({ type: "single_choice", options })}
+        number={2}
+        total={5}
+        answer={undefined}
+        onAnswer={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button")).toBeNull();
+    const line = screen.getByText("Câu 2 trên 5 · Chọn một đáp án");
+    expect(line).not.toHaveAttribute("id");
+    expect(line).not.toHaveAttribute("tabindex");
+  });
+
+  it("says the worth under the answer at every width", () => {
+    render(
+      <QuestionSheet
+        question={question({ type: "single_choice", points: 2, options })}
+        number={1}
+        total={1}
+        answer={undefined}
+        onAnswer={vi.fn()}
+      />,
+    );
+    const worth = screen.getByText("2 điểm");
+    expect(worth).toHaveClass("text-meta", "text-muted-fg");
+    expect(worth.className).not.toMatch(/hidden/);
+    expect(
+      screen.getByRole("radiogroup").compareDocumentPosition(worth) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("is read-only when disabled", () => {
+    render(
+      <QuestionSheet
+        question={question({ type: "short_answer" })}
+        number={1}
+        total={1}
+        answer={{ type: "text", value: "kept" }}
+        onAnswer={vi.fn()}
+        disabled
+      />,
+    );
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(screen.getByRole("textbox")).toHaveValue("kept");
   });
 });

@@ -5,6 +5,7 @@ import {
   readThemePreference,
   useForcedLightTheme,
   useResolvedTheme,
+  useThemePreference,
   writeThemePreference,
 } from "@/lib/theme";
 
@@ -81,6 +82,19 @@ describe("theme preference", () => {
     expect(result.current).toBe("light");
   });
 
+  it("reports the preference itself, device included, to a mounted reader", () => {
+    const { result } = renderHook(() => useThemePreference());
+    expect(result.current).toBe("light");
+    act(() => deviceTurns(true));
+    act(() => writeThemePreference("system"));
+    expect(result.current).toBe("system");
+    act(() => writeThemePreference("dark"));
+    expect(result.current).toBe("dark");
+    expect(isDark()).toBe(true);
+    act(() => writeThemePreference("light"));
+    expect(result.current).toBe("light");
+  });
+
   it("keeps a screen light while it forces it, then restores the preference", () => {
     act(() => writeThemePreference("dark"));
     const reader = renderHook(() => useResolvedTheme());
@@ -90,5 +104,29 @@ describe("theme preference", () => {
     forced.unmount();
     expect(isDark()).toBe(true);
     expect(reader.result.current).toBe("dark");
+  });
+
+  it("applies a theme the browser refuses to store, for as long as the page lives", () => {
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("storage is off");
+    });
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("storage is off");
+    });
+    const { result } = renderHook(() => useResolvedTheme());
+
+    act(() => writeThemePreference("dark"));
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(result.current).toBe("dark");
+    expect(readThemePreference()).toBe("dark");
+
+    act(() => writeThemePreference("light"));
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(result.current).toBe("light");
+
+    get.mockRestore();
+    set.mockRestore();
+    act(() => writeThemePreference("light"));
+    expect(localStorage.getItem("quizzivy.theme")).toBe("light");
   });
 });

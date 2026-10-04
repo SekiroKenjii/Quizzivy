@@ -15,7 +15,9 @@ function subscribe(onChange: () => void) {
   };
 }
 
+const idle = () => () => {};
 const second = () => Math.floor(Date.now() / 1000);
+const minute = () => Math.floor(Date.now() / 60_000);
 const frozen = () => 0;
 
 /**
@@ -24,8 +26,14 @@ const frozen = () => 0;
  * not see a store that changes on every read.
  */
 export function useTick(live: boolean): number {
-  return useSyncExternalStore(
-    live ? subscribe : () => () => {},
-    live ? second : frozen,
-  );
+  return useSyncExternalStore(live ? subscribe : idle, live ? second : frozen);
+}
+
+/**
+ * useMinute is the current minute, re-rendering when it changes while `live`.
+ * It shares useTick's interval, so a page that only has to notice the hour or
+ * the day passing does not repaint every second.
+ */
+export function useMinute(live: boolean): number {
+  return useSyncExternalStore(live ? subscribe : idle, live ? minute : frozen);
 }

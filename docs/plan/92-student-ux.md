@@ -1,5 +1,11 @@
 # Student layouts and interaction rules
 
+> **Superseded by R3 (v0.9.0).** The student app and the take-test engine are
+> built from the design deck, `docs/design/deck/Quizzivy Student.dc.html`, as
+> `73-r3.md` records. This file is the layout that release replaced, kept as a
+> record. The rules in force are in spec §9 and §12 and in AGENTS.md, "Design";
+> where this file differs from them, it is wrong.
+
 This plan implements the student design contract in spec v0.7, §9 and §12.
 
 ## Layout and navigation

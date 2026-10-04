@@ -18,11 +18,12 @@ Gitflow.
 ```bash
 git checkout -b feature/t-1-04-google-oauth develop
 # ... work, commit ...
-git checkout develop && git merge --no-ff feature/t-1-04-google-oauth
-git branch -d feature/t-1-04-google-oauth
+git push -u origin feature/t-1-04-google-oauth
+gh pr create --base develop
 ```
 
-`--no-ff` always, so each task stays a visible unit in the history.
+Merge the pull request with a merge commit, never a squash, so each task stays
+a visible unit in the history.
 
 ## One task, one PR
 
@@ -42,11 +43,11 @@ boundary. Do not merge a task whose dependencies are unmerged.
 When every task in a phase is merged to `develop`:
 
 ```bash
-git checkout -b release/phase-2 develop
+git checkout -b release/0.9.0 develop
 # fix only what the exit criteria surface
-git checkout main && git merge --no-ff release/phase-2 && git tag v0.2.0
-git checkout develop && git merge --no-ff release/phase-2
-git branch -d release/phase-2
+git push -u origin release/0.9.0 && gh pr create --base main      # merge commit
+git fetch origin && git tag v0.9.0 origin/main && git push origin v0.9.0
+gh pr create --base develop --head main                           # back-merge
 ```
 
 A phase is done when its **exit criteria** pass — the E2E tests named in the
@@ -68,7 +69,10 @@ make lint
 ```
 
 CI runs the same checks plus a codegen drift check and a migration up/down/up
-against `postgres:18`. A red CI blocks merge.
+against `postgres:18`. `main`, `develop` and `work/**` accept changes only by
+pull request, and `develop` and `work/**` need the **CI result** check to
+pass. A job whose files already passed is skipped; `docs/setup/ci.md` explains
+how, and how to force a full run.
 
 ## Things that will get a PR sent back
 

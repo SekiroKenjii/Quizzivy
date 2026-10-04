@@ -26,9 +26,13 @@ interface AudioPlayerProps {
   onRetry?: (() => void) | undefined;
 }
 
+const PADDING = "p-3.5 px-4 in-data-[scale=deck]:px-3.5 in-data-[scale=deck]:py-2.5";
+
 /**
  * The deck's `AudioPlayer` (foundations, §11.3): a round play button, one flat
- * track, and a time readout. Monochrome — no waveform, no equaliser.
+ * track, and a time readout. Monochrome — no waveform, no equaliser. On a deck
+ * surface it takes the frame of the engine's answer rows: the card colour, a
+ * 1.5px border, an 11px radius and a 40px button.
  */
 export function AudioPlayer({
   src,
@@ -108,10 +112,13 @@ export function AudioPlayer({
         role="alert"
         className={cn(
           "border-destructive/25 bg-destructive/5 flex items-center gap-3 rounded-lg border",
-          size === "sm" ? "px-3 py-2.5" : "p-3.5 px-4",
+          "in-data-[scale=deck]:border-danger/25 in-data-[scale=deck]:bg-danger-soft in-data-[scale=deck]:rounded-[11px] in-data-[scale=deck]:border-[1.5px]",
+          size === "sm" ? "px-3 py-2.5" : PADDING,
         )}
       >
-        <p className="min-w-0 flex-1 text-xs leading-relaxed">{t("media.expired")}</p>
+        <p className="in-data-[scale=deck]:text-meta min-w-0 flex-1 text-xs leading-relaxed">
+          {t("media.expired")}
+        </p>
         {onRetry === undefined ? null : (
           <Button
             variant="outline"
@@ -132,7 +139,8 @@ export function AudioPlayer({
     <div
       className={cn(
         "bg-background flex items-center gap-3.5 rounded-lg border",
-        size === "sm" ? "px-3 py-2.5" : "p-3.5 px-4",
+        "in-data-[scale=deck]:bg-card in-data-[scale=deck]:gap-3 in-data-[scale=deck]:rounded-[11px] in-data-[scale=deck]:border-[1.5px]",
+        size === "sm" ? "px-3 py-2.5" : PADDING,
       )}
     >
       <button
@@ -142,7 +150,7 @@ export function AudioPlayer({
         aria-label={playing ? t("media.pause") : t("media.play")}
         className={cn(
           "bg-primary text-primary-foreground grid flex-none place-content-center rounded-full",
-          size === "sm" ? "size-9" : "size-11",
+          size === "sm" ? "size-9" : "size-11 in-data-[scale=deck]:size-10",
         )}
       >
         {playing ? (
@@ -194,7 +202,7 @@ export function AudioPlayer({
             size === "sm" ? "mt-1.5" : "mt-2",
           )}
         >
-          <span className="text-muted-foreground shrink-0 text-xs whitespace-nowrap tabular-nums">
+          <span className="text-muted-foreground in-data-[scale=deck]:text-meta shrink-0 text-xs whitespace-nowrap tabular-nums">
             {clock(position)}
             {" / "}
             {clock(total)}
@@ -202,7 +210,7 @@ export function AudioPlayer({
           {hint === undefined ? null : (
             <span
               aria-live="polite"
-              className="text-muted-foreground text-xs wrap-break-word"
+              className="text-muted-foreground in-data-[scale=deck]:text-meta text-xs wrap-break-word"
             >
               {hint}
             </span>
@@ -231,7 +239,9 @@ export function AudioPlayer({
 }
 
 function iconSize(size: "default" | "sm"): string {
-  return size === "sm" ? "size-4 fill-current" : "size-5 fill-current";
+  return size === "sm"
+    ? "size-4 fill-current"
+    : "size-5 fill-current in-data-[scale=deck]:size-[17px]";
 }
 
 function clock(seconds: number): string {

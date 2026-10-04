@@ -4,6 +4,11 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { clean, CODE_LENGTH, EXAMPLE_CODE, group } from "../code";
 
+const SIZE = {
+  page: "text-stat h-[58px] rounded-xl",
+  dialog: "h-13 rounded-[11px] text-xl",
+} as const;
+
 const TONE = {
   idle: "border-border",
   success: "border-success",
@@ -15,18 +20,21 @@ const TONE = {
  * that upper-cases what is typed, drops spaces and dashes, stops at eight
  * characters and shows the dash after the fourth. `value` and `onChange` carry
  * the cleaned code without its dash; `tone` colours the border for a found or a
- * failed code, and `errorId` names the line that explains a failure.
+ * failed code, and `errorId` names the line that explains a failure. `size` is
+ * the public page's 58px field or the student dialog's 52px one.
  */
 export function JoinCodeField({
   value,
   onChange,
   tone,
   errorId,
+  size = "page",
 }: Readonly<{
   value: string;
   onChange: (code: string) => void;
   tone: keyof typeof TONE;
   errorId?: string | undefined;
+  size?: keyof typeof SIZE;
 }>) {
   const { t } = useTranslation();
 
@@ -59,7 +67,8 @@ export function JoinCodeField({
       autoCorrect="off"
       spellCheck={false}
       className={cn(
-        "bg-bg text-fg placeholder:text-muted-fg/70 text-stat h-[58px] w-full rounded-xl border-[1.5px] px-3.5 text-center font-mono font-semibold tracking-[0.14em] outline-none",
+        "bg-bg text-fg placeholder:text-muted-fg/70 w-full border-[1.5px] px-3.5 text-center font-mono font-semibold tracking-[0.14em] outline-none",
+        SIZE[size],
         TONE[tone],
       )}
     />

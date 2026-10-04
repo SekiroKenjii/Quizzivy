@@ -463,7 +463,11 @@ components:
       type: string
       description: |
         Stable, machine-readable. **The only thing clients branch on.** Copy is
-        driven by `message`, never reconstructed from this.
+        driven by `message`, never reconstructed from this, with two exceptions
+        the web app words itself, as the design deck draws them:
+        `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
+        the change-password forms. The server still sends a localised `message`
+        for both, for any other client.
       enum:
         # auth
         - INVALID_CREDENTIALS
@@ -548,8 +552,18 @@ components:
         message:
           type: string
           description: |
-            Already localized server-side from `Accept-Language`, `vi` by
-            default. Display it; do not build copy from `code`.
+            Copy for the user, written by the server; `vi` by default.
+            Localised from `Accept-Language` where an operation's own handler
+            writes the refusal, for: the auth, account, student and class
+            operations; the media and Word import operations; a refused Start
+            or Continue of a test and a result that cannot be shown yet; the
+            `RESOURCE_REFERENCED` refusal of `createDraftFromTestVersion`; the
+            maintenance answer; and request validation. The answers shared
+            middleware writes on every operation (401, 403, 413, 429, 500,
+            501, and the 400 for a body that cannot be read) and every other
+            refusal a handler writes are Vietnamese until issue 284 is fixed.
+            Display it; do not build copy from `code`, except for the two
+            codes the `ErrorCode` description names.
           examples: ['Mã lớp không hợp lệ.']
         details:
           type: object
@@ -1319,8 +1333,9 @@ components:
     StudentAssignmentDetail:
       type: object
       description: |
-        The intro screen's card: everything StudentAssignmentCard carries plus
-        the policies §10.2 states in plain Vietnamese before the student starts.
+        The intro screen's card: what StudentAssignmentCard carries, without
+        `classId`, `classIds` and `liveAnsweredCount`, plus the policies §10.2 states in
+        plain Vietnamese before the student starts.
       required:
         [id, testTitle, status, opensAt, closesAt, durationMinutes,
          attemptsUsed, maxAttempts, questionCount, totalPoints, review,
@@ -2181,10 +2196,16 @@ components:
         The post-submission view. Every revealing field is gated by the
         assignment's review policy and simply absent when the policy is off —
         the client has no fallback that could surface a suppressed value.
-      required: [id, type, prompt, points, answer]
+      required: [id, sectionId, type, prompt, points, answer]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
+        sectionId:
+          $ref: '#/components/schemas/Uuid'
+          description: >-
+            The part of the paper this question belongs to, one of the result's
+            `sections`. Present under every review policy: the paper already
+            showed the student which part a question was in.
         type: { $ref: '#/components/schemas/QuestionType' }
         promptContent:
           oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
@@ -2948,7 +2969,10 @@ components:
         answeredCount:
           type: [integer, 'null']
           minimum: 0
-          description: Questions with a saved answer, against the response's `questionCount` (G-02's progress column).
+          description: >-
+            Questions whose saved answer says something, by the rule of
+            `StudentAssignmentCard.liveAnsweredCount`, against the response's
+            `questionCount` (G-02's progress column).
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
         focusLossCount: { type: [integer, 'null'] }
         flagged: { type: boolean }
@@ -3019,11 +3043,18 @@ components:
           type: [string, 'null']
           description: >-
             The class this assignment reached the student through. Null unless
-            exactly one targeted class contains them.
+            exactly one targeted class that is not archived contains them.
         classId:
           type: [string, 'null']
           format: uuid
           description: The id behind `className`, so S-17 can count a class's papers. Null when `className` is.
+        classIds:
+          type: array
+          items: { $ref: '#/components/schemas/Uuid' }
+          description: >-
+            Every class this assignment targets that contains the student and is
+            not archived, so each class card can name its next paper. Empty for
+            a student targeted only by name.
         status: { $ref: '#/components/schemas/AssignmentStatus' }
         opensAt: { $ref: '#/components/schemas/Timestamp' }
         closesAt: { $ref: '#/components/schemas/Timestamp' }
@@ -3046,7 +3077,16 @@ components:
         liveDeadlineAt:
           type: [string, 'null']
           format: date-time
-          description: The live attempt's deadline. Null exactly when `hasLiveAttempt` is false.
+          description: The live attempt's deadline. Absent exactly when `hasLiveAttempt` is false.
+        liveAnsweredCount:
+          type: [integer, 'null']
+          minimum: 0
+          description: >-
+            How many of the live attempt's saved answers say something, by the
+            rule the engine's navigator uses: a choice with an option picked, a
+            true/false with a value, a text that is not blank, a fill-in with
+            every blank filled. An answer that exists only in the browser's
+            draft is not counted. Absent exactly when `hasLiveAttempt` is false.
         score:
           oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
           description: Only when the assignment's `review.showScore` is on.
@@ -3214,7 +3254,7 @@ paths:
                   maxLength: 9
                   description: |
                     Accepted with or without the dash and in any case; normalized
-                    before hashing. Alphabet excludes `0/O` and `1/I/L` (§6.1).
+                    before lookup. The alphabet excludes `0`, `O`, `1` and `I` (§6.1).
                   examples: ['K7M3-P9QR', 'k7m3p9qr']
       responses:
         '200':
@@ -3552,6 +3592,15 @@ paths:
         access token must not be able to strand a live refresh family: the one
         moment a user most wants to log out is the moment their session has
         gone strange.
+
+        A logout that is refused or fails still clears the refresh and docs
+        cookies when the request carried the refresh cookie: during a
+        maintenance window (`503 MAINTENANCE`), over the rate limit
+        (`429 RATE_LIMITED`) and when the revoke fails (`500 INTERNAL`). In
+        none of the three is the family revoked: this device is signed out,
+        but a copy of the token held elsewhere stays usable for as long as it
+        is rotated, and only a password reset, a disable or a password change
+        ends it. A request without the cookie gets nothing cleared.
       tags: [auth]
       summary: Revoke the refresh family and clear the cookie
       security:
@@ -3860,7 +3909,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '422':
-          description: Group content, binding or media validation failed; no partial edit was saved.
+          description: Group content, binding or media validation failed; no partial edit was saved. A member the new graph drops while something else still references it is refused here too, with `details.rule` `group_reference`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -3879,7 +3928,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: Stale revision, archived enclosing test, or bank group not archived.
+          description: 'Stale revision, archived enclosing test, bank group not archived, or `RESOURCE_REFERENCED`: the group or one of its questions is still referenced elsewhere and nothing is deleted.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -4569,13 +4618,16 @@ paths:
       tags: [teacher-questions]
       description: |
         A-06a's "Nhân bản": copies the question, its options, blanks and
-        tags into a new bank row that no test references yet.
+        tags into a new bank row that no test references yet. A source whose
+        media asset has been deleted, or that no longer validates, answers
+        `VALIDATION_FAILED` as a create would; nothing is copied.
       responses:
         '201':
           description: Created.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   # =============================================================== teacher/media
@@ -5047,7 +5099,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '422':
-          description: IMPORT_NOT_READY — blocking findings remain or decisions are missing.
+          description: '`IMPORT_NOT_READY` — blocking findings remain or decisions are missing. `VALIDATION_FAILED` — the draft names a media asset that is gone, that the importer cannot read, or that is of another kind than its block; nothing is created.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -6526,6 +6578,7 @@ paths:
       operationId: startOrResumeAttempt
       x-resource:
         - { in: path, name: id, kind: assignment }
+        - { in: body, name: /resume, kind: attempt }
       x-permission: learning.take_tests
       tags: [take-test]
       summary: Create or resume an attempt
@@ -6543,6 +6596,23 @@ paths:
         `min(now + durationMinutes, closesAt)` and is authoritative. The client
         derives remaining time from it plus the `serverTime` offset, never from
         the device clock.
+
+        A caller that means to continue a known attempt sends `resume`; a
+        Continue button must, so that an attempt whose time ran out while the
+        page was open is not answered with a new one.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                resume:
+                  $ref: '#/components/schemas/Uuid'
+                  description: >-
+                    The attempt the caller means to continue. With it the
+                    operation never starts an attempt: when this attempt is no
+                    longer the live one it answers `ATTEMPT_CLOSED`.
       responses:
         '200':
           description: Created, or resumed.
@@ -6552,6 +6622,9 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: |
+            `ATTEMPT_CLOSED` — `resume` named an attempt that is no longer live;
+            nothing was started.
+
             `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
 
             `MAINTENANCE_SCHEDULED` — a new attempt would run into a maintenance
@@ -6859,13 +6932,21 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [attempt, review, testTitle, maxAttempts, questions]
+                required: [attempt, review, testTitle, maxAttempts, sections, questions]
                 additionalProperties: false
                 properties:
                   attempt: { $ref: '#/components/schemas/Attempt' }
                   review: { $ref: '#/components/schemas/ReviewPolicy' }
                   testTitle: { type: string }
                   maxAttempts: { type: integer, minimum: 1, description: For "Lượt 1/2" under the score (S-09). }
+                  sections:
+                    type: array
+                    items: { $ref: '#/components/schemas/StudentSection' }
+                    description: >-
+                      The paper's parts in test order, as the attempt showed
+                      them. The page sums each part's `earned` from the
+                      questions whose `sectionId` names it; no review policy
+                      hides a part's title or membership.
                   questions: { type: array, items: { $ref: '#/components/schemas/ResultQuestion' } }
                   sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
         '403': { $ref: '#/components/responses/Forbidden' }

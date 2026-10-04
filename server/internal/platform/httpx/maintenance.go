@@ -16,6 +16,10 @@ type MaintenanceSource interface {
 	ActiveWindow(ctx context.Context) (startsAt, endsAt time.Time, active bool)
 }
 
+// MaintenanceRefusal runs on a request the maintenance gate refuses, before
+// the 503 is written, so a caller can add headers to that answer.
+type MaintenanceRefusal func(w http.ResponseWriter, r *http.Request)
+
 var maintenanceLanguages = language.NewMatcher([]language.Tag{language.Vietnamese, language.English})
 
 var maintenanceExempt = map[string]bool{"/livez": true, "/healthz": true, "/public/status": true}
@@ -27,8 +31,8 @@ var maintenanceExempt = map[string]bool{"/livez": true, "/healthz": true, "/publ
 // pass and a client can ask when the window ends. It belongs between CORS and
 // the router: CORS answers preflights and labels the 503 so the SPA can read
 // it, and no route, however authenticated, gets past it. A nil source is no
-// gate.
-func Maintenance(source MaintenanceSource) func(http.Handler) http.Handler {
+// gate. Each onRefuse runs on a refused request before the answer is written.
+func Maintenance(source MaintenanceSource, onRefuse ...MaintenanceRefusal) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		if source == nil {
 			return next
@@ -45,6 +49,9 @@ func Maintenance(source MaintenanceSource) func(http.Handler) http.Handler {
 			}
 			wait := int(math.Ceil(time.Until(endsAt).Seconds()))
 			w.Header().Set("Retry-After", strconv.Itoa(max(wait, 1)))
+			for _, refuse := range onRefuse {
+				refuse(w, r)
+			}
 			WriteErrorWithDetails(w, r, http.StatusServiceUnavailable, CodeMaintenance, maintenanceMessage(r),
 				map[string]any{
 					"startsAt": startsAt.UTC().Format(time.RFC3339),

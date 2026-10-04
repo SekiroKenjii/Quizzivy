@@ -25,7 +25,7 @@ func (h Tests) DeleteTestVersion(ctx context.Context, request openapi.DeleteTest
 		return openapi.DeleteTestVersion204Response{}, nil
 	}
 	if errors.Is(err, domain.ErrNotFound) {
-		return openapi.DeleteTestVersion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgTestNotFound))}, nil
+		return openapi.DeleteTestVersion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgTestNotFound(ctx)))}, nil
 	}
 	if response, ok := versionConflict(ctx, err); ok {
 		return openapi.DeleteTestVersion409JSONResponse(response), nil
@@ -65,7 +65,7 @@ type versionChangeResponse struct {
 
 func versionReply(ctx context.Context, result domain.Test, err error) (*versionChangeResponse, error) {
 	if errors.Is(err, domain.ErrNotFound) {
-		problem := httpapi.NotFound(ctx, msgTestNotFound)
+		problem := httpapi.NotFound(ctx, msgTestNotFound(ctx))
 		return &versionChangeResponse{status: nethttp.StatusNotFound, problem: &problem}, nil
 	}
 	if problem, ok := versionConflict(ctx, err); ok {
@@ -98,13 +98,15 @@ func (r *versionChangeResponse) write(w nethttp.ResponseWriter) error {
 func versionConflict(ctx context.Context, err error) (openapi.ErrorResponse, bool) {
 	switch {
 	case errors.Is(err, domain.ErrArchived):
-		return httpapi.Error(ctx, openapi.TESTARCHIVED, "Hãy khôi phục đề đã lưu trữ trước khi thay đổi phiên bản mặc định hoặc tạo bản nháp."), true
+		return httpapi.Error(ctx, openapi.TESTARCHIVED, httpx.Text(ctx, "Hãy khôi phục đề đã lưu trữ trước khi thay đổi phiên bản mặc định hoặc tạo bản nháp.", "Restore the archived test before changing the default version or creating a draft.")), true
 	case errors.Is(err, domain.ErrStaleWrite):
-		return httpapi.Error(ctx, openapi.STALEWRITE, "Đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi tiếp tục."), true
+		return httpapi.Error(ctx, openapi.STALEWRITE, httpx.Text(ctx, "Đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi tiếp tục.", "The test was edited elsewhere. Please reload before continuing.")), true
 	case errors.Is(err, domain.ErrCurrentVersion):
-		return httpapi.Error(ctx, openapi.VERSIONISCURRENT, "Hãy chọn một phiên bản mặc định khác trước khi xoá phiên bản này."), true
+		return httpapi.Error(ctx, openapi.VERSIONISCURRENT, httpx.Text(ctx, "Hãy chọn một phiên bản mặc định khác trước khi xoá phiên bản này.", "Choose another default version before deleting this one.")), true
 	case errors.Is(err, domain.ErrReferenced):
-		return httpapi.Error(ctx, openapi.RESOURCEREFERENCED, "Phiên bản đã được bài giao hoặc bài làm sử dụng nên không thể xoá."), true
+		return httpapi.Error(ctx, openapi.RESOURCEREFERENCED, httpx.Text(ctx, "Phiên bản đã được bài giao hoặc bài làm sử dụng nên không thể xoá.", "The version is used by an assignment or an attempt, so it cannot be deleted.")), true
+	case errors.Is(err, domain.ErrDraftReferenced):
+		return httpapi.Error(ctx, openapi.RESOURCEREFERENCED, httpx.Text(ctx, "Không thể thay bản nháp vì một câu hỏi trong nhóm của bản nháp vẫn đang được dùng ở nơi khác.", "The draft cannot be replaced because a question in one of its groups is still used elsewhere.")), true
 	default:
 		return openapi.ErrorResponse{}, false
 	}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	questionsdomain "quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/content"
+	"strings"
 )
 
 // PublishManager holds the rules a draft must pass to become a version, and the totals frozen with it.
@@ -61,6 +63,68 @@ func (PublishManager) Validate(d DraftContent) error {
 		return &PublishValidationError{Violations: violations}
 	}
 	return nil
+}
+
+// MissingMedia is the publish refusal for a draft that names media assets the
+// library no longer holds: one violation for each question whose attachment is
+// among missing, and one for each group whose materials name one. It is nil
+// when nothing in the draft names any of them.
+func (PublishManager) MissingMedia(d DraftContent, missing []string) error {
+	gone := make(map[string]bool, len(missing))
+	for _, id := range missing {
+		gone[strings.ToLower(id)] = true
+	}
+	var violations []Violation
+	for _, section := range d.Sections {
+		for _, q := range section.Questions {
+			if q.MediaAssetID == nil || !gone[strings.ToLower(*q.MediaAssetID)] {
+				continue
+			}
+			violations = append(violations, Violation{
+				Rule:       missingAttachmentRule(q),
+				Message:    "Tệp đính kèm của câu hỏi không tồn tại hoặc đã bị xoá. Hãy chọn tệp khác.",
+				SectionID:  section.ID,
+				QuestionID: q.SourceID,
+			})
+		}
+		for _, group := range section.Groups {
+			if !materialsName(group, gone) {
+				continue
+			}
+			violations = append(violations, Violation{
+				Rule:      GroupValid,
+				Message:   "Một tệp ngữ liệu của nhóm không tồn tại hoặc đã bị xoá. Hãy chọn tệp khác.",
+				SectionID: section.ID,
+				GroupID:   group.Group.ID,
+			})
+		}
+	}
+	if len(violations) > 0 {
+		return &PublishValidationError{Violations: violations}
+	}
+	return nil
+}
+
+func missingAttachmentRule(q DraftQuestion) Rule {
+	if q.MediaAssetKind != nil && *q.MediaAssetKind == "audio" {
+		return AudioQuestionHasAsset
+	}
+	return QuestionValid
+}
+
+func materialsName(group GroupBundle, assets map[string]bool) bool {
+	for _, material := range group.Group.Stimuli {
+		document, err := content.Parse(material.Content)
+		if err != nil {
+			continue
+		}
+		for _, asset := range document.Assets() {
+			if assets[strings.ToLower(asset.ID)] {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 var Publishing PublishManager

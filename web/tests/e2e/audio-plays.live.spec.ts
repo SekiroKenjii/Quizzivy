@@ -74,10 +74,14 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
 
     const page = await student.newPage();
     await signInAsStudent(page);
-    const card = page.locator("[data-slot='card']").filter({ hasText: title });
-    await expect(card).toBeVisible({ timeout: 30_000 });
-    await card.getByRole("link", { name: "Xem chi tiết" }).click();
+    const paper = page.getByRole("main").getByRole("link").filter({ hasText: title });
+    await expect(paper).toBeVisible({ timeout: 30_000 });
+    await paper.click();
     await page.getByRole("button", { name: "Bắt đầu làm bài" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Bắt đầu", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/app\/attempts\/[0-9a-f-]+$/);
 
     const play = page.getByRole("button", { name: "Phát" });

@@ -1,0 +1,30 @@
+name: MinIO
+description: >-
+  Starts the compose MinIO and creates its private buckets. The image comes
+  from the registry, where .github/workflows/minio-image.yml publishes it under
+  a hash of docker/minio; when that hash is not published yet, it is built from
+  source as docker/minio/README.md describes.
+
+inputs:
+  token:
+    description: A token that may read this repository's packages.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        TOKEN: ${{ inputs.token }}
+        GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+      run: |
+        image="$(scripts/ci/minio-image.sh)"
+        if echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null 2>&1 \
+          && docker pull --quiet "$image"; then
+          docker tag "$image" quizzivy-minio:development
+        else
+          echo "::notice::$image is not published; building MinIO from source"
+          docker compose build minio
+        fi
+        docker compose up -d --wait minio
+        docker compose run --rm minio-init

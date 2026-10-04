@@ -12,6 +12,8 @@ import (
 type StartOrResume struct {
 	AssignmentID string
 	StudentID    string
+	// Resume, when set, is the attempt the caller means to continue; nothing is started.
+	Resume string
 }
 
 type StartOrResumeHandler struct {
@@ -22,7 +24,7 @@ func (s StartOrResumeHandler) Handle(ctx context.Context, cmd StartOrResume) (do
 	var err error
 	for range 3 {
 		var session domain.Session
-		session, err = s.StartOrResume(ctx, cmd.AssignmentID, cmd.StudentID)
+		session, err = s.StartOrResume(ctx, cmd.AssignmentID, cmd.StudentID, cmd.Resume)
 		if !errors.Is(err, domain.ErrRaceLost) {
 			return session, err
 		}

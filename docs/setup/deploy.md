@@ -11,7 +11,14 @@ feature/*  →  develop  →  release/x.y  →  main  →  CI  →  Deploy
 
 `.github/workflows/deploy.yml` runs on `workflow_run` after **CI** concludes on
 `main`, not on the push itself. That ordering is the point: a merge that breaks
-something is not deployed while its own test run is still red.
+something is not deployed while its own test run is still red. CI runs every
+job on a push to `main`, whatever passed before (`docs/setup/ci.md`).
+
+Only the CI run of a **push** deploys, and only while its commit is still the
+tip of `main`. The back-merge pull request from `main` to `develop` has `main`
+as its head branch too, and through v0.8.0 its CI run deployed the same commit
+a second time. Re-running an older CI run of `main` to green completes it again;
+the tip check is what keeps that from putting an earlier release back.
 
 ## What it does
 
@@ -21,9 +28,12 @@ something is not deployed while its own test run is still red.
 | `web` | Cloudflare Pages `quizzivy-web` | `pnpm build` then `wrangler pages deploy` |
 
 The API goes first. The SPA is the half that calls the other, so the window
-between the two deploys is old-SPA-against-new-API rather than the reverse — and
-the OpenAPI contract only ever grows, so that direction is safe. The reverse is
-not: a new SPA calling an endpoint that has not shipped yet is a broken screen.
+between the two deploys is old-SPA-against-new-API rather than the reverse. That
+is safe while a release only adds to the contract. A release that tightens a
+request or adds a refusal (v0.7.0 did both) needs a server message an older tab
+can show as it is, and a line in the release notes for tabs loaded before the
+deploy. The reverse is never safe: a new SPA calling an endpoint that has not
+shipped yet is a broken screen.
 
 Migrations ride along with the API. `fly.toml`'s `release_command` applies them
 before the new version takes traffic and rolls the deploy back if they fail,
@@ -102,16 +112,16 @@ Two reasons this exists:
 ## Cutting a release
 
 ```bash
-git checkout -b release/0.1 develop
+git checkout -b release/0.9.0 develop
 # only fixes on this branch -- no new features
-git checkout main && git merge --no-ff release/0.1
-git push origin main            # CI runs, then Deploy
-git checkout develop && git merge --no-ff release/0.1
-git branch -d release/0.1
+git push -u origin release/0.9.0 && gh pr create --base main   # merging it pushes main: CI runs, then Deploy
+git fetch origin && git tag v0.9.0 origin/main && git push origin v0.9.0
+gh pr create --base develop --head main                        # back-merge; its CI run does not deploy
 ```
 
 Merge back into `develop` too, or fixes made on the release branch are lost from
-the next one.
+the next one. `main` and `develop` take changes only by pull request
+(`ci.md`, "Branch rules").
 
 ## Verifying afterwards
 
@@ -210,12 +220,31 @@ While v0.7.0 and v0.8.0 machines overlap:
   out until the old machine is gone.
 
 Tabs still open on v0.7.0 keep working: the `/admin` alias serves the old
-teaching paths and logs `legacy_admin_path`. R3 removes it.
+teaching paths and logs `legacy_admin_path`. v0.9.1 removes it
+(`docs/plan/73-r3.md` T-R3.3).
 
 Roll forward, never back. The migrations are the expand half, so v0.7.0 would
 still boot on the new schema, but it cannot redeem a code v0.8.0 issued, and
 `00078`'s Down refuses while one is live. Recover from a v0.8.0 problem with a
 hotfix.
+
+## Rolling out v0.9.0 (R3)
+
+Nothing to set before the merge. v0.9.0 needs no new secret, variable or bucket.
+Its one migration, `00079`, revokes `TEMPORARY` on the database from `PUBLIC`
+where the migration role owns the database, and changes nothing where it does
+not. After the deploy, run the check in `operations.md`: the application role
+must not hold `TEMPORARY`; if it does, the database's owner revokes it once.
+
+The API deploys first and the web second, so the v0.8.0 bundle meets the v0.9.0
+API for a few minutes, and for longer in tabs left open. The contract's changes
+are additive, and a student in the middle of a test is not reloaded. A tab
+opened on v0.8.0 is asked to reload when it leaves the engine, or when a lazy
+chunk it asks for is gone.
+
+If the API is ever rolled back to v0.8.0, roll Pages back to its previous
+deployment with it: the v0.9.0 result page reads `sections`, which v0.8.0 does
+not send, and a graded result would not open. Prefer a hotfix.
 
 ## Interrupted index builds in v0.8.0 (R2)
 

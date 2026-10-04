@@ -35,6 +35,9 @@ function result(): AttemptResult {
     maxAttempts: 1,
     review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
     sharedContext,
+    sections: [...new Set(questions.map((question) => question.sectionId))].map(
+      (id, index) => ({ id, title: `Phần ${index + 1}`, instructions: null }),
+    ),
     questions: questions.map((question, index) => ({
       ...question,
       answer: { type: "choice", optionIds: [question.options![0]!.id] },
@@ -136,9 +139,13 @@ async function setup(page: Page, teacher: boolean) {
 
 async function checkLayout(page: Page, name: string) {
   expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth + 1,
-    ),
+    await page.evaluate(() => {
+      const main = document.querySelector("main");
+      return (
+        document.documentElement.scrollWidth > window.innerWidth + 1 ||
+        (main !== null && main.scrollWidth > main.clientWidth + 1)
+      );
+    }),
   ).toBe(false);
   await page.screenshot({ path: test.info().outputPath(`${name}.png`) });
 }
