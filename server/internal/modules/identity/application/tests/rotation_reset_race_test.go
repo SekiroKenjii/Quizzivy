@@ -45,7 +45,7 @@ func TestARefreshWaitsForAResetInFlightAndThenFindsItsTokenRevoked(t *testing.T)
 	const waiters = `
 		SELECT count(*) FROM pg_stat_activity
 		 WHERE wait_event_type = 'Lock'
-		   AND query LIKE '%app.users%FOR SHARE%'
+		   AND query LIKE '%app.users%FOR NO KEY UPDATE%'
 		   AND pid <> pg_backend_pid()`
 	deadline := time.Now().Add(5 * time.Second)
 	for {
