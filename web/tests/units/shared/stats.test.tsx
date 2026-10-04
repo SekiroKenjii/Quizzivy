@@ -438,6 +438,40 @@ describe("Meter", () => {
     expect(meter).toHaveAttribute("aria-valuenow", "0");
     expect(meter).toBeEmptyDOMElement();
   });
+
+  it("does not count a negative part in its value", () => {
+    render(
+      <Meter
+        label="Dung lượng"
+        valueText="Đã dùng 2 GB trên 4 GB"
+        max={4}
+        parts={[
+          { key: "audio", value: -1, tone: "accent" },
+          { key: "images", value: 2, tone: "info" },
+        ]}
+      />,
+    );
+    const meter = screen.getByRole("meter");
+    expect(meter).toHaveAttribute("aria-valuenow", "2");
+    expect(parts(meter).map((part) => part.style.width)).toEqual(["0%", "50%"]);
+  });
+
+  it("leaves a part that is not a number out of its value, as out of its fill", () => {
+    render(
+      <Meter
+        label="Dung lượng"
+        valueText={STORAGE_TEXT}
+        max={5}
+        parts={[
+          { key: "audio", value: Number.NaN, tone: "accent" },
+          { key: "images", value: 2, tone: "info" },
+        ]}
+      />,
+    );
+    const meter = screen.getByRole("meter");
+    expect(meter).toHaveAttribute("aria-valuenow", "2");
+    expect(parts(meter).map((part) => part.style.width)).toEqual(["0%", "40%"]);
+  });
 });
 
 describe("shares", () => {

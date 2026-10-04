@@ -38,15 +38,16 @@ export type MeterProps = Readonly<{
  * parts drawn one after another from the start of the track. It is a meter
  * named by `label` whose value is the sum of its parts, never more than
  * `max`, and whose text is `valueText`. A part's width is its share of `max`
- * and a part that would run past the end is cut there. It is built of spans;
- * a caller gives it its width with `className`.
+ * and a part that would run past the end is cut there; a part that is
+ * negative or not a number adds nothing to the value or to the fill. It is
+ * built of spans; a caller gives it its width with `className`.
  */
 export function Meter({ label, valueText, max, parts, className }: MeterProps) {
   const widths = shares(
     parts.map((part) => part.value),
     max,
   );
-  const used = parts.reduce((sum, part) => sum + Math.max(0, part.value), 0);
+  const used = parts.reduce((sum, part) => sum + (part.value > 0 ? part.value : 0), 0);
   return (
     <span
       role="meter"
