@@ -125,3 +125,21 @@ describe("the account menu on a console not yet rebuilt", () => {
     expect(itemNames()).toEqual(["Cài đặt", "Đăng xuất"]);
   });
 });
+
+describe("the account menu's Settings link", () => {
+  it("opens the teacher's settings where a console names no other", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <AccountMenu />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await userEvent.setup().click(trigger());
+    expect(screen.getByRole("menuitem", { name: "Cài đặt" })).toHaveAttribute(
+      "href",
+      "/teacher/settings",
+    );
+  });
+});
