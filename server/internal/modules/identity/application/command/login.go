@@ -48,5 +48,9 @@ func (s LoginHandler) Handle(ctx context.Context, cmd Login) (model.Session, err
 		return model.Session{}, domain.ErrInvalidCredentials
 	}
 
-	return s.IssueSession(ctx, user, cmd.UserAgent, cmd.IP)
+	session, err := s.IssueSession(ctx, user, cmd.UserAgent, cmd.IP)
+	if errors.Is(err, domain.ErrAccountChanged) {
+		return model.Session{}, domain.ErrInvalidCredentials
+	}
+	return session, err
 }

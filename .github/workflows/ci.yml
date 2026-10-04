@@ -239,25 +239,77 @@ jobs:
 
       # The three tiers the test taxonomy names, each its own step so a failure
       # says which tier fell: unit (no database), integration (repositories
-      # and use cases against Postgres), end-to-end (the whole application
-      # in-process over HTTP). Each writes its own coverage profile; Sonar
-      # reads all three.
+      # and use cases against Postgres and the object store), end-to-end (the
+      # whole application in-process over HTTP). The converter tests are
+      # integration tests that need the converter image and a step of their
+      # own. Each step writes its own coverage profile; Sonar reads all four.
       - name: Unit tests
         working-directory: server
         run: go test ./... -covermode=atomic -coverprofile=coverage-unit.out
 
-      - name: Integration tests
-        working-directory: server
-        run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
-
-      # The two-teacher isolation suite uploads real images, audio and Word
-      # sources. Its harness defaults to the compose endpoint, credentials and
-      # buckets.
+      # Up before the integration tier: the storage client's tests and the
+      # import intake, artifact and PDF pipeline tests store real objects, and
+      # so does the end-to-end tier after them.
       - name: Start MinIO
         uses: ./.github/actions/minio
         with:
           token: ${{ github.token }}
 
+      # S3_* is set on the steps that use the object store, never on the job:
+      # one storage test file carries no build tag, so the unit tier compiles
+      # it too and has to skip it there, before MinIO is up. The bucket is the
+      # private one imports are kept in.
+      - name: Integration tests
+        working-directory: server
+        env:
+          S3_ENDPOINT: http://localhost:9000
+          S3_REGION: us-east-1
+          S3_BUCKET: quizzivy-imports
+          S3_ACCESS_KEY_ID: quizzivy
+          S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
+          S3_FORCE_PATH_STYLE: "true"
+        run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
+
+      # The converter refuses a tag and takes an image id, so the id is what
+      # the next step is given.
+      - name: Build the Word converter image
+        id: converter
+        run: |
+          docker build --tag quizzivy-word-converter:ci docker/word-converter
+          image="$(docker image inspect --format '{{.Id}}' quizzivy-word-converter:ci)"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      # The tests that run LibreOffice in that image, and the pipeline test
+      # that takes a paper through it; the integration tier skips them for
+      # want of TEST_WORD_CONVERTER_IMAGE, and -run keeps this step to them.
+      # A conversion holds one Docker-wide slot, a container with a fixed
+      # name, and a second one that finds it taken answers busy. The tests
+      # live in two packages, one of which occupies the slot on purpose, so
+      # -p 1 runs the packages one after the other. Without an image id every
+      # one of these tests skips and the packages still read ok, so the step
+      # fails before go test when it has none.
+      - name: Import converter tests
+        working-directory: server
+        env:
+          S3_ENDPOINT: http://localhost:9000
+          S3_REGION: us-east-1
+          S3_BUCKET: quizzivy-imports
+          S3_ACCESS_KEY_ID: quizzivy
+          S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
+          S3_FORCE_PATH_STYLE: "true"
+          TEST_WORD_CONVERTER_IMAGE: ${{ steps.converter.outputs.image }}
+        run: |
+          case "$TEST_WORD_CONVERTER_IMAGE" in
+            sha256:*) ;;
+            *) echo "::error::no converter image id, so every converter test would skip"; exit 1 ;;
+          esac
+          go test -tags integration -p 1 -count=1 -run '^(TestDocker|TestRealPipeline)' \
+            ./internal/platform/wordconvert/... ./internal/modules/imports/repositories/... \
+            -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-converter.out
+
+      # The two-teacher isolation suite uploads real images, audio and Word
+      # sources. Its harness defaults to the compose endpoint, credentials and
+      # buckets.
       - name: End-to-end tests
         working-directory: server
         run: go test -tags e2e ./tests/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-e2e.out

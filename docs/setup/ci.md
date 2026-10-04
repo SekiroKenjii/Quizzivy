@@ -12,7 +12,7 @@ rules require; it passes only when every job did what the plan asked of it.
 | Deck | `deck` | `scripts/check-design-deck.mjs` |
 | Contract | `code` | `make gen-check`: lint the contract, regenerate, fail on drift |
 | Server lint | `server` | vet, staticcheck, golangci-lint, gofmt |
-| Server tests | `server` | unit, integration and end-to-end tiers; migrations up, down, up |
+| Server tests | `server` | unit, integration and end-to-end tiers, the Word converter tests; migrations up, down, up |
 | Web checks | `web` | eslint, typecheck, prettier, integration tests, build |
 | Web unit | `web` | the unit suite, in shards |
 | E2E | `web` | Playwright against a production build, API stubbed |
@@ -57,8 +57,9 @@ Three cases never use earlier proof:
   job until it passes again.
 
 What the hash cannot see is anything outside the tree: the runner image, the
-`postgres:18` image, tools fetched at run time. The 30-day expiry and the full
-run on `main` are what bring a job back in front of those.
+`postgres:18` image, the Debian packages the Word converter image installs,
+tools fetched at run time. The 30-day expiry and the full run on `main` are
+what bring a job back in front of those.
 
 A skipped job writes no toolchain cache. After a pull request changes
 `server/go.sum` or `web/pnpm-lock.yaml`, its merge is skipped as proven, so
@@ -69,17 +70,20 @@ some tens of seconds and no result.
 
 ## How long it takes
 
-Measured on 2026-10-03 on GitHub's hosted runners. The old workflow took
-between 7 min 40 s and 10 min 33 s for every run.
+Measured on GitHub's hosted runners: the first row on 2026-10-04, after the
+server job began building the import converter's image and running its tests;
+the other two on 2026-10-03, before it did. The old workflow took between
+7 min 40 s and 10 min 33 s for every run.
 
 | Run | Time |
 |---|---|
-| Every job runs | 4 min 39 s |
+| Every job runs | 4 min 25 s |
 | Every job runs and MinIO is built from source, the first run after `docker/minio` changes | 8 min 43 s |
 | No job has anything new to run | 18 s |
 
-E2E (live API) is the longest job, a little over four minutes; a faster run
-starts there.
+E2E (live API) is the longest job, a little over four minutes (4 min 3 s in
+that run), and Server tests the next (3 min 40 s, the converter image and its
+nine tests included); a faster run starts with those two.
 
 ## When a job needs a file outside its set
 
@@ -93,7 +97,7 @@ Today's cross-tree reads:
 |---|---|
 | `web/tests/units/join/code.test.ts` | `server/internal/modules/classes/domain/joincode.go` |
 | `server/tests/isolation_world_test.go` | `web/tests/e2e/fixtures/unit5-listening.mp3` |
-| Server tests | `api/`, `migrations/`, `fly.toml`, `Dockerfile`, `.github/workflows/deploy.yml` |
+| Server tests | `api/`, `migrations/`, `fly.toml`, `Dockerfile`, `docker/word-converter/`, `.github/workflows/deploy.yml` |
 | Web tests | `api/openapi.yaml`, `api/testdata/` |
 
 A test must not treat a missing file as a reason to skip itself: in CI that
@@ -125,6 +129,40 @@ own merge commit, so its green **CI result** says only what its own files
 chose to check. Read a fork's pull request before merging it, whatever CI
 says. Its markers are never proof for another run, and its token cannot write
 packages.
+
+## The object store and the Word converter in Server tests
+
+Server tests starts MinIO after the unit tier, so the integration tier runs
+with a real object store: the storage client's tests and the import intake,
+artifact and PDF pipeline tests store and read real objects. The storage
+settings (`S3_*`) are set on the steps that use them, not on the job.
+`server/internal/platform/storage/tests/s3_test.go` carries no build tag, so
+the unit tier compiles it too, and there it has to skip. The bucket is
+`quizzivy-imports`, the private one imports are kept in.
+
+After the integration tier one step builds `docker/word-converter` and the next,
+**Import converter tests**, runs the tests that need that image: the
+converter's own (`internal/platform/wordconvert/tests`) and the test that takes
+a synthetic paper through the real pipeline
+(`internal/modules/imports/repositories/tests`). The tests are given the
+image's id, because the converter refuses a tag. The step fails before
+`go test` when it has no id, rather than skip every test in it and pass.
+
+They run one package at a time (`-p 1`). A conversion takes one Docker-wide
+slot, a container with a fixed name, and a conversion that finds the slot taken
+answers busy. `go test` runs packages in parallel, the converter tests live in
+two packages, and one of them occupies the slot on purpose, so run together
+they would pass or fail by timing. In the integration tier these tests skip,
+because `TEST_WORD_CONVERTER_IMAGE` is not set there.
+
+A test that needs the object store or the image skips when its variable is
+unset, and `go test` reports a package whose tests all skipped as `ok`. The
+image id is the one such value that comes from another step, and an expression
+that names a renamed step or a mistyped output is empty without an error; that
+is why **Import converter tests** checks it first. The storage settings are
+written on the steps themselves. The steps do not print each test; to see by
+name which of these tests ran, add `-v` to the step's `go test` for one run, as
+the pull request that added the steps did.
 
 ## MinIO
 

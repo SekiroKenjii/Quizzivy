@@ -176,34 +176,46 @@ func TestDockerRenditionProducesBoundedPrivatePagesAndRemovesJob(t *testing.T) {
 	}
 }
 
-func TestDockerConversionTimeoutAndSingleSlot(t *testing.T) {
-	c, root := configured(t, time.Second)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	source := fixture(t)
-	finished := make(chan error, 1)
-	go func() {
-		result, err := c.Convert(ctx, bytes.NewReader(source), "docx")
-		if result != nil {
-			_ = result.Close()
-		}
-		finished <- err
-	}()
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		entries, err := os.ReadDir(root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(entries) > 0 {
-			break
-		}
-		time.Sleep(time.Millisecond)
+func stalled(t *testing.T, timeout time.Duration) (*wordconvert.Converter, string) {
+	t.Helper()
+	_, root := configured(t, timeout)
+	docker, err := exec.LookPath("docker")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := c.Convert(ctx, bytes.NewReader(source), "docx"); !errors.Is(err, wordconvert.ErrBusy) {
-		t.Fatalf("second conversion was not bounded: %v", err)
+	python, err := exec.LookPath("python3")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := <-finished; !errors.Is(err, context.DeadlineExceeded) {
+	t.Setenv("WORD_TEST_DOCKER", docker)
+	wrapper := filepath.Join(t.TempDir(), "docker-wrapper")
+	script := "#!" + python + "\nimport os,sys\nargs=sys.argv[1:]\nif args[0]=='run': args=args[:-2]+['--entrypoint','python3',args[-2],'-c','import time; time.sleep(60)']\nos.execv(os.environ['WORD_TEST_DOCKER'],[os.environ['WORD_TEST_DOCKER']]+args)\n"
+	if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	c, err := wordconvert.New(root, wrapper, os.Getenv("TEST_WORD_CONVERTER_IMAGE"), timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c, root
+}
+
+func runningConverter(t *testing.T) string {
+	t.Helper()
+	output, err := exec.Command("docker", "ps", "--filter", "label=quizzivy.word-converter=true", "--format", "{{.Names}}").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(output))
+}
+
+func TestDockerConversionTimeoutDoesNotLeaveContainerOrStaging(t *testing.T) {
+	c, root := stalled(t, time.Second)
+	result, err := c.Convert(context.Background(), bytes.NewReader(fixture(t)), "docx")
+	if result != nil {
+		_ = result.Close()
+	}
+	if !errors.Is(err, wordconvert.ErrTimeout) {
 		t.Fatalf("timeout not enforced: %v", err)
 	}
 	entries, err := os.ReadDir(root)
@@ -217,6 +229,42 @@ func TestDockerConversionTimeoutAndSingleSlot(t *testing.T) {
 	output, err := exec.Command(binary, "ps", "--filter", "label=quizzivy.word-converter=true", "--format", "{{.Names}}").Output()
 	if err != nil || strings.TrimSpace(string(output)) != "" {
 		t.Fatalf("converter survived timeout: %v", err)
+	}
+}
+
+func TestDockerHeldSlotRefusesSecondConversion(t *testing.T) {
+	c, root := stalled(t, time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	source := fixture(t)
+	finished := make(chan error, 1)
+	go func() {
+		result, err := c.Convert(ctx, bytes.NewReader(source), "docx")
+		if result != nil {
+			_ = result.Close()
+		}
+		finished <- err
+	}()
+	for runningConverter(t) == "" {
+		select {
+		case err := <-finished:
+			t.Fatalf("first conversion ended before it held the slot: %v", err)
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	if _, err := c.Convert(ctx, bytes.NewReader(source), "docx"); !errors.Is(err, wordconvert.ErrBusy) {
+		t.Fatalf("second conversion was not bounded: %v", err)
+	}
+	cancel()
+	if err := <-finished; !errors.Is(err, context.Canceled) {
+		t.Fatalf("held conversion was not released: %v", err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 0 {
+		t.Fatal("refused or released job staging retained")
+	}
+	if runningConverter(t) != "" {
+		t.Fatal("held container survived its release")
 	}
 }
 

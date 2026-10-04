@@ -12,10 +12,10 @@ import (
 )
 
 // Rotate consumes one refresh token and issues its successor, atomically. It
-// locks the token's owner before the token, the order in which a password
-// reset, a disable and a password change write, so a rotation never overlaps
-// one of them: a rotation behind a revocation finds its token revoked, and a
-// revocation behind a rotation sees the successor.
+// locks the token's owner before the token, in the mode an update of the user
+// takes, so the rotations, reuse detections and logouts of one user run one at
+// a time, and none overlaps a password reset, a disable or a password change:
+// whichever comes second sees what the first committed.
 func (s *Users) Rotate(ctx context.Context, tokenHash []byte, next domain.RefreshTokenRecord, now time.Time) (domain.RotateResult, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -78,7 +78,7 @@ func lockTokenOwner(ctx context.Context, tx pgx.Tx, tokenHash []byte) (string, e
 	}
 	var locked bool
 	if err := tx.QueryRow(ctx,
-		`SELECT true FROM app.users WHERE id = $1::uuid FOR SHARE`, owner).Scan(&locked); err != nil {
+		`SELECT true FROM app.users WHERE id = $1::uuid FOR NO KEY UPDATE`, owner).Scan(&locked); err != nil {
 		return "", err
 	}
 	return owner, nil
@@ -164,43 +164,36 @@ func issueSuccessor(ctx context.Context, tx pgx.Tx, claimed claimedToken, next d
 // RevokeFamilyByToken ends every session descended from the same login. It is
 // what logout does, and it does not care whether the presented token is still
 // live: revoking an already-revoked family is a no-op, and refusing to would
-// make logout fail exactly when the user needs it most.
+// make logout fail exactly when the user needs it most. It takes the lock a
+// rotation takes, so a rotation in flight is waited for and its successor is
+// revoked with the rest.
 func (s *Users) RevokeFamilyByToken(ctx context.Context, tokenHash []byte, now time.Time) (string, error) {
-	const q = `
-		WITH presented AS (
-			SELECT family_id FROM app.refresh_tokens WHERE token_hash = $1
-		)
-		UPDATE app.refresh_tokens t
-		   SET revoked_at = $2
-		  FROM presented p
-		 WHERE t.family_id = p.family_id AND t.revoked_at IS NULL
-		RETURNING t.family_id::text`
-
-	rows, err := s.Query(ctx, q, tokenHash, now)
+	tx, err := s.Begin(ctx)
 	if err != nil {
-		return "", fmt.Errorf("revoke family: %w", err)
+		return "", fmt.Errorf("begin family revocation: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := lockTokenOwner(ctx, tx, tokenHash); errors.Is(err, pgx.ErrNoRows) {
+		return "", domain.ErrRefreshTokenNotFound
+	} else if err != nil {
+		return "", fmt.Errorf("lock token owner: %w", err)
+	}
 
 	var familyID string
-	for rows.Next() {
-		if err := rows.Scan(&familyID); err != nil {
-			return "", fmt.Errorf("revoke family: %w", err)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return "", fmt.Errorf("revoke family: %w", err)
-	}
-	if familyID != "" {
-		return familyID, nil
-	}
-	const lookup = `SELECT family_id::text FROM app.refresh_tokens WHERE token_hash = $1`
-	err = s.QueryRow(ctx, lookup, tokenHash).Scan(&familyID)
+	err = tx.QueryRow(ctx,
+		`SELECT family_id::text FROM app.refresh_tokens WHERE token_hash = $1`, tokenHash).Scan(&familyID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", domain.ErrRefreshTokenNotFound
 	}
 	if err != nil {
 		return "", fmt.Errorf("revoke family: %w", err)
+	}
+	if err := revokeFamily(ctx, tx, familyID, now); err != nil {
+		return "", err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("commit family revocation: %w", err)
 	}
 	return familyID, nil
 }
