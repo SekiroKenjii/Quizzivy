@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 )
 
 var (
@@ -10,6 +11,25 @@ var (
 	ErrTooLarge        = errors.New("media: file is larger than the limit")
 	ErrTooLong         = errors.New("media: audio is longer than the limit")
 )
+
+// ErrImageTooLarge is ErrTooLarge for a file identified as an image and over
+// the image limit, so the refusal can name that limit.
+var ErrImageTooLarge = fmt.Errorf("%w: an image over the image limit", ErrTooLarge)
+
+// ErrQuotaExceeded refuses a file that would take its owner's library past the quota.
+var ErrQuotaExceeded = errors.New("media: the owner's library would exceed its quota")
+
+// ErrPlayLimitOnImage refuses a default play limit on anything but audio.
+var ErrPlayLimitOnImage = errors.New("media: only audio takes a play limit")
+
+// ErrInvalidPlayLimit refuses a default play limit outside 0 to MaxDefaultPlays.
+var ErrInvalidPlayLimit = errors.New("media: the play limit is out of range")
+
+// ErrInvalidName refuses a display name that is blank once trimmed or longer than MaxDisplayNameLength.
+var ErrInvalidName = errors.New("media: the display name is blank or too long")
+
+// ErrNothingToUpdate refuses an update that names no change.
+var ErrNothingToUpdate = errors.New("media: the update changes nothing")
 
 // ErrReferenced rejects deletion while a published version or independent group still depends on the asset.
 var ErrReferenced = errors.New("media: asset is referenced by assessment content")

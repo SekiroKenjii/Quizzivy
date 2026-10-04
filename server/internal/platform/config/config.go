@@ -27,6 +27,7 @@ type Config struct {
 	S3SecretAccessKey           string
 	S3ForcePathStyle            bool
 	SignedURLTTL                time.Duration
+	MediaOwnerQuotaMiB          int
 	ImportBucket                string
 	ImportWorkDir               string
 	ImportActorCount            int
@@ -50,6 +51,11 @@ type Config struct {
 }
 
 const defaultMaxConcurrentPasswordHashes = 4
+
+const (
+	defaultMediaOwnerQuotaMiB = 5120
+	maxMediaOwnerQuotaMiB     = 1048576
+)
 
 const joinCodeKeyBytes = 32
 
@@ -275,6 +281,18 @@ func loadMedia(cfg *Config) error {
 		return err
 	}
 	cfg.SignedURLTTL = ttl
+	return loadMediaQuota(cfg)
+}
+
+func loadMediaQuota(cfg *Config) error {
+	quota, err := getenvInt("MEDIA_OWNER_QUOTA_MIB", defaultMediaOwnerQuotaMiB)
+	if err != nil {
+		return err
+	}
+	if quota < 1 || quota > maxMediaOwnerQuotaMiB {
+		return fmt.Errorf("MEDIA_OWNER_QUOTA_MIB must be between 1 and %d", maxMediaOwnerQuotaMiB)
+	}
+	cfg.MediaOwnerQuotaMiB = quota
 	return nil
 }
 
