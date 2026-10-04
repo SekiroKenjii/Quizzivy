@@ -150,14 +150,34 @@ the first free id), and T-D4.1 replaces each label here with its id.
 
 **If Thuong allows the documents to go ahead of R4.** The lead has asked whether the import and
 a documents-only amendment of the six R4 tasks may still happen before those tasks are built.
-This file is written for "no". On "yes": T-D4.1 and T-D4.19 run at once and merge into
-`develop`, the six tasks in `74-r4.md` take the text of T-D4.2a, T-D4.2b and T-D4.2c and the
-first bullet of T-D4.15 as their own bullets, and those three tasks and that bullet leave this
-file. T-D4.15 keeps the pause switch, T-D4.12 adds no closing lines to `74-r4.md`, and T-D4.14
-and T-D4.16 depend on the amended R4 tasks. `gaps.md` then gains a fifteenth row for the weeks
-in which the deck is ahead of the engine: an engine change is compared with the Student page
-at tag `v0.9.0` until the engine chain ships. Nothing else in this file changes; every build
-task still runs after v0.10.0.
+This file is written for "no". On "yes" every build task still runs after v0.10.0, and these
+change:
+
+- **The import goes to `develop` at once.** T-D4.1 and T-D4.19 depend on nothing and their pull
+  requests target `develop`. With them change T-D4.1's "Depends on" and its last bullet, the
+  "Branches" paragraph, the decision "The import lands on `work/deck-d4`", section A's
+  opening paragraph and step 1 of "Order of work". The gap rows take their ids on that day, so
+  the `DG+n` labels, "The gap rows" and fact 7 go.
+- **A fifteenth gap row returns**, for the weeks in which the deck is ahead of the engine: an
+  engine change is compared with the Student page at tag `v0.9.0` until the engine chain
+  ships. It returns with its bullet in AGENTS.md.
+- **The six tasks in `74-r4.md` are amended**, with what T-D4.2a, T-D4.2b, T-D4.2c and the
+  first bullet of T-D4.15 build, written as a first build: no bullet then names what R4 left,
+  what a frame stands "in place of", or a key that is removed. Those three tasks and that
+  bullet leave this file. With them go the table and the paragraph under "What that order
+  costs"; the group's row and the previews' frame in "Deliverable" and "Exit criteria"; the
+  verdict "reopens R4" and the "Task" entries of S-32, B-02, B-03, B-07, B-09, B-13, T-01
+  and T-02, and B-15's "Task" entry; the "Built by" entries of DG+5, DG+6 and DG+7; the three
+  tasks' names in Q8, Q11 and Q26; and their entries in step 4 of "Order of work", in
+  "Lanes", in the high-risk rules and in the release checklist.
+- **T-D4.15** loses its "Reopens" line and keeps the pause switch. **T-D4.14** depends on
+  T-R4.31a and T-R4.34, and **T-D4.16** on T-R4.31b, T-R4.30 and T-R4.39.
+- **T-D4.12** adds no closing lines to `74-r4.md`. T-R4.51 compares the group's row, the gap
+  row and the previews' bar and frame; T-D4.12 keeps the Shared content dialog, the pause
+  switch and the engine in the frame.
+- **Outside this file:** AGENTS.md's bullet on the fourth export and ordering rule 10 of
+  `70-redesign-overview.md` are reworded. Both say today that the export is imported after
+  v0.10.0 and that no R4 task is amended.
 
 **Decisions taken in this file, worth a second look.** Each is a default, with its question
 under "Open items".
