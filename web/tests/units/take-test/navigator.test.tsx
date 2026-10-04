@@ -173,6 +173,7 @@ describe("the footer below 768", () => {
       "font-medium",
     );
     expect(next).toHaveAccessibleName("Câu sau");
+    expect(next).toHaveTextContent(/^Sau$/);
     expect(next).toHaveClass(
       "h-11",
       "flex-none",
@@ -644,13 +645,14 @@ describe("the footer from 768", () => {
 
     const controls = footer().getAllByRole("button");
     expect(controls.map((control) => control.textContent)).toEqual([
-      "Câu trước",
+      "Trước",
       "1",
       "2",
       "3",
-      "Câu sau",
+      "Sau",
     ]);
     expect(controls[0]).toHaveAccessibleName("Câu trước");
+    expect(controls[4]).toHaveAccessibleName("Câu sau");
     expect(controls[0]).toBeDisabled();
     expect(controls[0]).toHaveClass(
       "h-11",
@@ -897,7 +899,7 @@ describe.each(["superseded", "closed"] as const)(
         footer()
           .getAllByRole("button")
           .map((control) => control.textContent),
-      ).toEqual(["Câu trước", "1", "2", "3"]);
+      ).toEqual(["Trước", "1", "2", "3"]);
       expect(
         within(screen.getByRole("banner")).queryByRole("button", { name: "Nộp bài" }),
       ).toBeNull();
@@ -960,14 +962,16 @@ describe("the footer in English", () => {
     expect(bar.getByRole("button", { name: "Previous question" })).toHaveTextContent(
       /^Previous$/,
     );
-    expect(bar.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    expect(bar.getByRole("button", { name: "Next question" })).toHaveTextContent(
+      /^Next$/,
+    );
     expect(bar.getByRole("button", { name: "Question 1, current, answered" })).toBe(
       squares(screen.getByRole("navigation"))[0],
     );
     expect(bar.getByRole("button", { name: "Question 4" })).toBeInTheDocument();
 
     await user.click(bar.getByRole("button", { name: "Question 8" }));
-    expect(bar.queryByRole("button", { name: "Next" })).toBeNull();
+    expect(bar.queryByRole("button", { name: "Next question" })).toBeNull();
     expect(bar.getByRole("button", { name: "Finish" })).toBeInTheDocument();
   });
 
@@ -975,7 +979,7 @@ describe("the footer in English", () => {
     const user = userEvent.setup();
     await open(deckSession(new Date(now)));
     for (let moves = 0; moves < 3; moves++) {
-      await user.click(screen.getByRole("button", { name: "Next" }));
+      await user.click(screen.getByRole("button", { name: "Next question" }));
     }
     const count = screen.getByRole("button", { name: /^Questions: / });
     expect(count).toHaveTextContent("4 / 8 · 3 answered");

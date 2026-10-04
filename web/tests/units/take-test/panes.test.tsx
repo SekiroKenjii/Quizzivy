@@ -260,7 +260,7 @@ describe("the panes from 768", () => {
     const user = userEvent.setup();
     await open(deckSession(NOW));
     for (let moves = 0; moves < 3; moves++) {
-      await user.click(screen.getByRole("button", { name: "Next" }));
+      await user.click(screen.getByRole("button", { name: "Next question" }));
     }
     expect(screen.getByText("Question 4 of 8 · Choose one or more")).toBeVisible();
     expect(screen.getByRole("button", { name: "Flag for review" })).toBeVisible();

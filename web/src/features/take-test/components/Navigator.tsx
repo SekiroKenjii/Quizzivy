@@ -103,19 +103,23 @@ export function Navigator({
       {last ? (
         onFinish !== undefined && <Step onClick={onFinish}>{t("takeTest.finish")}</Step>
       ) : (
-        <Step onClick={() => onMove(current + 1)}>{t("takeTest.next")}</Step>
+        <Step label={t("takeTest.nextQuestion")} onClick={() => onMove(current + 1)}>
+          {t("takeTest.next")}
+        </Step>
       )}
     </nav>
   );
 }
 
 function Step({
+  label,
   onClick,
   children,
-}: Readonly<{ onClick: () => void; children: ReactNode }>) {
+}: Readonly<{ label?: string; onClick: () => void; children: ReactNode }>) {
   return (
     <button
       type="button"
+      aria-label={label}
       className={cn(
         STEP,
         "bg-primary text-primary-fg px-4 font-semibold whitespace-nowrap hover:opacity-90",

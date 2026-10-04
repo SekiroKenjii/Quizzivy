@@ -1356,6 +1356,7 @@
     "previous": "Previous",
     "next": "Next",
     "previousQuestion": "Previous question",
+    "nextQuestion": "Next question",
     "finish": "Finish",
     "loading": "Opening your test…",
     "loadFailed": "This attempt could not be opened. Please reload the page.",
