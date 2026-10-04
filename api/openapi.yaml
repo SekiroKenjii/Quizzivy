@@ -489,7 +489,6 @@ components:
         - JOIN_CODE_EXPIRED
         - JOIN_CODE_EXHAUSTED
         - JOIN_CODE_REVOKED
-        - ALREADY_ENROLLED
         # students
         - EMAIL_TAKEN
         - STUDENT_SHARED
