@@ -17,10 +17,11 @@ this file describe the code as it is and name the release that changes them.
 - **Since R1** (v0.7.0) the deck's tokens, Be Vietnam Pro and the primitives
   are in. Deck geometry that would change an existing primitive (control
   heights, radii, badge and card shapes) applies only inside
-  `data-scale="deck"`, which a rebuilt surface sets on its root. The old
-  consoles keep their layouts and force light (`useForcedLightTheme`) until
-  their release rebuilds them: R3 the student app and engine, R4 the teacher
-  console. R5 makes the deck geometry the default and removes `data-scale`
+  `data-scale="deck"`, which a rebuilt surface sets on its root. The student
+  app and the take-test engine are such surfaces since R3 (v0.9.0) and follow
+  the theme. The teacher console keeps its layout and forces light
+  (`useForcedLightTheme`) until R4 rebuilds it. R5 makes the deck geometry the
+  default and removes `data-scale`
   (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
   since the CSP allows no inline script. Do not restyle an old console's screen
   ad hoc: its release rebuilds it.
@@ -440,24 +441,41 @@ hover and focus and is static under `prefers-reduced-motion`.
 
 Integrity UI follows the deck (decided 2026-09-26): flags and "Flagged" in the
 teacher's roster, the red timer in the last five minutes, and "Your teacher has
-been told" once the allowance is used. The teacher judges; the app reports —
+been told" once a student is past the allowance. The teacher judges; the app
+reports —
 the product never concludes that a student cheated.
 
-**Until R3**, the student's navigation branches at 1024px in code
-(`useMediaQuery("(min-width: 1024px)")`), with one stable `StudentLayout`
-outlet so forms and filters survive resizing. A detail route declares
-`handle.detail` for the phone's back arrow. Home and classes use fluid grids;
-intro and results are centred at 720px without a right panel. Settings shares
-the teacher section navigation and preserves forms across section routes.
-The take-test engine keeps `FocusLayout` and its `PageAside` navigator, with
-the separate `studentNavigator` width preference. From R3 the deck's student
-shell replaces these rules. Unit tests of a phone board pin `viewport("phone")`
-(`tests/support/viewport.ts`); jsdom answers "wide" by default.
+The student app lives in `StudentLayout`, whose one outlet stays mounted at
+every width, so forms survive resizing. The shell branches at 768px in code
+(`useMediaQuery("(min-width: 768px)")` and `min-[768px]:`, never `md:`): the
+destinations sit in the top bar from 768 and in a bottom tab bar below it. A
+detail route declares `handle.detail`: below 768 the header swaps the logo for
+a back arrow and the title and the tab bar hides, and from 768 Intro and
+Result draw their own back link. Each page is one centred column with its own
+maximum width: Home and Classes 960px, Test intro 720px, Result 820px,
+Settings 760px. A threshold inside a page that is not the shell's 768 is a
+container query on the container named `student`, which the roots of both
+student layouts declare; no page needs one yet. `.student-surface`, on the
+shell's `<main>` and on `FocusLayout`, puts a 44px floor on buttons below
+1024px; a control the deck draws smaller opts out in its own classes. No `/app`
+route loads `PageAside`, `SideColumn` or `useColumnWidth`
+(`tests/units/student/side-column.test.ts`). `DeckDialog`
+(`components/shared/`) is the frame of the student's dialogs.
+
+The take-test engine runs in `FocusLayout` and branches at the same 768px.
+From 768, a question whose group has something to read splits into a passage
+pane and a question pane, and the question pane's footer is Previous, a strip
+of numbered squares and Next. Below 768 a switcher shows one pane at a time,
+and the footer's count button opens the squares in a bottom sheet. There is no
+navigator column and no width preference. The timer draws each digit in a cell
+one zero wide, because Be Vietnam Pro has no tabular figures. Unit tests of a
+phone board pin `viewport("phone")` (`tests/support/viewport.ts`); jsdom
+answers "wide" by default.
 
 A paper's questions are dealt inside their section: `DealManager.Present`
-keeps section order and shuffles within each, so the navigator can group by
-part. A single-section paper deals exactly as it did before sections reached
-the payload.
+keeps section order and shuffles within each, so the strip can leave a gap
+between parts and the sheet can head each one. A single-section paper deals
+exactly as it did before sections reached the payload.
 
 ## Language
 
@@ -539,7 +557,7 @@ fix the cause, never the test:
   resumed attempt's timeline vanishing.
 - `web/tests/units/api/client.refresh.test.ts` — five concurrent 401s must issue
   exactly one refresh.
-- `tests/integration/router-chunks.test.ts` — the admin tree must stay out of
+- `web/tests/integration/router-chunks.test.ts` — the admin tree must stay out of
   the entry chunk. It runs a real build; reading the router and trusting `lazy`
   would not catch the regression that actually happens.
 
