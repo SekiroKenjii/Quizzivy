@@ -12,12 +12,16 @@ import (
 // per-address bucket, then each keyed bucket in order. It records the client
 // address on the request, so a composite key can read it through
 // ratelimit.Address, and passes that same request on, since a body key
-// restores the body on it.
-func RateLimit(reg *ratelimit.Registry, clientIP ratelimit.KeyFunc) func(http.Handler) http.Handler {
+// restores the body on it. Each onRefuse runs on a refused request before the
+// 429 is written, so a caller can add headers to that answer.
+func RateLimit(reg *ratelimit.Registry, clientIP ratelimit.KeyFunc, onRefuse ...func(http.ResponseWriter, *http.Request)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r = ratelimit.WithAddress(r, clientIP(r))
 			if retry, limited := exceeded(reg, r); limited {
+				for _, refuse := range onRefuse {
+					refuse(w, r)
+				}
 				writeRateLimited(w, r, retry.Seconds())
 				return
 			}

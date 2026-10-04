@@ -73,7 +73,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 	handler := openapi.HandlerWithOptions(strict, openapi.StdHTTPServerOptions{
 		BaseRouter: mux,
 		Middlewares: inExecutionOrder(
-			httpx.RateLimit(limits, ratelimit.ClientIP(clientIPHeader)),
+			httpx.RateLimit(limits, ratelimit.ClientIP(clientIPHeader), deps.Modules.Identity.ClearSessionOnRefusedLogout),
 			httpx.WithRequestMeta(ratelimit.ClientIP(clientIPHeader)),
 			identityhttp.WithRefreshCookie,
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),

@@ -14,6 +14,14 @@ type RefreshTokenRecord struct {
 	IP        *string
 }
 
+// SessionBasis is the account state a sign-in was decided on: the session
+// epoch its access token carries and the password hash it read, nil for an
+// account without a password.
+type SessionBasis struct {
+	Epoch        int
+	PasswordHash *string
+}
+
 // RotateOutcome classifies a presented refresh token. Rotate returns one of
 // these rather than an error for the non-OK cases: "this token was reused" is a
 // normal, expected result that the caller must act on, not a fault.
