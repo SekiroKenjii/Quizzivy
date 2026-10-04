@@ -155,6 +155,16 @@ function CellContent<T>({
 
 const Cell = memo(CellContent) as typeof CellContent;
 
+function AsideContent<T>({
+  column,
+  row,
+  shown,
+}: Readonly<{ column: DataColumn<T>; row: T; shown: ReadonlySet<string> }>) {
+  return column.aside?.(row, shown);
+}
+
+const Aside = memo(AsideContent) as typeof AsideContent;
+
 function HeaderRow<T extends Item>({
   visible,
   rows,
@@ -272,6 +282,9 @@ function BodyRow<T extends Item>({
           ) : (
             <Cell column={column} row={row} shown={shown} />
           )}
+          {column.aside === undefined ? null : (
+            <Aside column={column} row={row} shown={shown} />
+          )}
         </div>
       ))}
       {menu === undefined ? null : (
@@ -349,14 +362,15 @@ function CardList<T extends Item>({
  * gives one. Every cell is told the visible set, which keeps its identity
  * until it changes, and a cell renders again only when its row, its column or
  * that set does: whatever else a cell draws from belongs in a component of
- * its own. A row that opens holds a real link or button around its first
- * cell, which names the row and is what the keyboard reaches, so that cell
- * holds no control of its own. A click elsewhere on the row presses it,
- * unless the click landed on another control in the row or outside the row,
- * as one in an open menu does. The row itself is never focusable. Below 768px
- * a table that has `card` renders a list of cards instead, without checkboxes
- * or menus. Content wider than the table scrolls sideways inside it. Loading
- * and failure stay with the screen.
+ * its own. A row that opens holds a real link or button around what its first
+ * column's `cell` draws, which is what the keyboard reaches, so that `cell`
+ * holds no control: one goes in the column's `aside`. The first cell, aside
+ * included, names the row. A click elsewhere on the row presses the link or
+ * button, unless the click landed on another control in the row or outside
+ * the row, as one in an open menu does. The row itself is never focusable.
+ * Below 768px a table that has `card` renders a list of cards instead,
+ * without checkboxes, menus or asides. Content wider than the table scrolls
+ * sideways inside it. Loading and failure stay with the screen.
  */
 export function DataTable<T extends Item>(props: DataTableProps<T>) {
   const {

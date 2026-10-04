@@ -705,6 +705,83 @@ describe("opening a row", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
+  it("stays shut on a control in the first column's aside and opens on its text", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const onRemove = vi.fn();
+    const aside = vi.fn((row: Assignment) => (
+      <span>
+        <span>reading</span>
+        <button type="button" aria-label={`Gỡ nhãn ${row.id}`} onClick={onRemove} />
+      </span>
+    ));
+    const columns: readonly DataColumn<Assignment>[] = [
+      { ...COLUMNS[0]!, aside },
+      COLUMNS[2]!,
+    ];
+    const table = (label: string) => (
+      <DataTable
+        label={label}
+        columns={columns}
+        rows={ROWS}
+        rowSize={{ padY: 10 }}
+        onOpen={onOpen}
+      />
+    );
+    contentWidth(600);
+    const { rerender } = render(table("Bài giao"));
+    expect(aside.mock.calls).toEqual(ROWS.map((row) => [row, new Set(["title"])]));
+    rerender(table("Bài giao đang mở"));
+    expect(screen.getByRole("table", { name: "Bài giao đang mở" })).toBeInTheDocument();
+    expect(aside).toHaveBeenCalledTimes(3);
+    const opener = screen.getByRole("button", { name: /Mid-term Reading Mock/ });
+    const remove = screen.getByRole("button", { name: "Gỡ nhãn a1" });
+    expect(remove.closest('[data-slot="data-table-open"]')).toBeNull();
+    expect(remove.closest('[role="cell"]')).toBe(opener.parentElement);
+    expect(opener.nextElementSibling).toContainElement(remove);
+    await user.click(remove);
+    expect(onRemove).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+    await user.click(screen.getAllByText("reading")[0]!);
+    expect(onOpen.mock.calls).toEqual([[ROWS[0]]]);
+  });
+
+  it("keeps the aside out of a row's link and draws it on a row that opens nothing", () => {
+    const columns: readonly DataColumn<Assignment>[] = [
+      {
+        ...COLUMNS[0]!,
+        aside: (row) => (
+          <button type="button" aria-label={`Gỡ nhãn ${row.id}`} onClick={() => {}} />
+        ),
+      },
+    ];
+    const { unmount } = render(
+      <MemoryRouter>
+        <DataTable
+          label="Bài giao"
+          columns={columns}
+          rows={ROWS}
+          rowSize={{ padY: 10 }}
+          rowHref={(row) => `/teacher/assignments/${row.id}`}
+        />
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole("link", { name: /Mid-term Reading Mock/ });
+    expect(link).not.toContainElement(
+      screen.getByRole("button", { name: "Gỡ nhãn a1" }),
+    );
+    unmount();
+    render(
+      <DataTable
+        label="Bài giao"
+        columns={columns}
+        rows={ROWS}
+        rowSize={{ padY: 10 }}
+      />,
+    );
+    expect(screen.getAllByRole("button", { name: /Gỡ nhãn/ })).toHaveLength(3);
+  });
+
   it("stays shut on a focusable element and on a label a cell draws", async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();

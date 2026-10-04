@@ -8,7 +8,8 @@ import type { ReactNode } from "react";
  * shows; without it the column always shows. `align: "end"` right-aligns the
  * header and the cell. `cell` draws the row's cell and is told which columns
  * are shown, so the first column can draw the table's sub-line for the ones
- * that are not.
+ * that are not. `aside` draws under `cell` in the same cell, outside the link
+ * or button that opens the row: the place for a control in the first column.
  */
 export interface DataColumn<T> {
   readonly id: string;
@@ -17,6 +18,7 @@ export interface DataColumn<T> {
   readonly showFrom?: number;
   readonly align?: "end";
   readonly cell: (row: T, shown: ReadonlySet<string>) => ReactNode;
+  readonly aside?: (row: T, shown: ReadonlySet<string>) => ReactNode;
 }
 
 /**
