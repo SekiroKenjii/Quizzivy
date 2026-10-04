@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderHook } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import {
   registerContentElement,
@@ -352,6 +352,24 @@ describe("the contentWidth helper", () => {
     observer.observe(document.body);
     area.resize(900);
     expect(other).not.toHaveBeenCalled();
+  });
+
+  it("holds its width for a shell that registers its own main, and resizes that one", () => {
+    function Shell() {
+      const columns = useContentBand(COLUMNS);
+      return (
+        <main ref={registerContentElement}>
+          <output>{columns}</output>
+        </main>
+      );
+    }
+    const area = contentWidth(859);
+    render(<Shell />);
+    expect(screen.getByRole("status")).toHaveTextContent("3");
+    area.resize(1200);
+    expect(screen.getByRole("status")).toHaveTextContent("4");
+    area.resize(600);
+    expect(screen.getByRole("status")).toHaveTextContent("1");
   });
 
   describe("called from beforeEach", () => {
