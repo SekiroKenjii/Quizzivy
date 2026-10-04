@@ -48,7 +48,8 @@ func groupListReply(result query.GroupsResult) (*groupResponse, error) {
 func groupFailure(ctx context.Context, err error) (*groupResponse, error) {
 	status := http.StatusConflict
 	code := openapi.GROUPCONFLICT
-	message := "Nhóm hoặc một định danh đã thay đổi. Vui lòng tải lại trước khi lưu."
+	message := httpx.Text(ctx, "Nhóm hoặc một định danh đã thay đổi. Vui lòng tải lại trước khi lưu.",
+		"The group or one of its ids has changed. Please reload before saving.")
 	var invalid *domain.GroupError
 	switch {
 	case errors.Is(err, domain.ErrGroupUnavailable):
@@ -56,38 +57,47 @@ func groupFailure(ctx context.Context, err error) (*groupResponse, error) {
 	case errors.Is(err, domain.ErrNotFound):
 		status = http.StatusNotFound
 		code = openapi.NOTFOUND
-		message = "Không tìm thấy nhóm câu hỏi."
+		message = httpx.Text(ctx, "Không tìm thấy nhóm câu hỏi.", "The question group was not found.")
 	case errors.Is(err, domain.ErrForbidden):
 		status = http.StatusForbidden
 		code = openapi.FORBIDDEN
-		message = "Bạn không có quyền sửa loại nhóm câu hỏi này."
+		message = httpx.Text(ctx, "Bạn không có quyền sửa loại nhóm câu hỏi này.",
+			"You do not have permission to edit this kind of question group.")
 	case errors.Is(err, domain.ErrStaleWrite):
 		code = openapi.STALEWRITE
-		message = "Nhóm hoặc đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi lưu."
+		message = httpx.Text(ctx, "Nhóm hoặc đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi lưu.",
+			"The group or the test was edited elsewhere. Please reload before saving.")
 	case errors.Is(err, domain.ErrNotArchived):
 		code = openapi.RESOURCENOTARCHIVED
-		message = "Hãy lưu trữ nhóm trước khi xoá vĩnh viễn."
+		message = httpx.Text(ctx, "Hãy lưu trữ nhóm trước khi xoá vĩnh viễn.",
+			"Archive the group before deleting it permanently.")
 	case errors.Is(err, domain.ErrReferenced):
 		code = openapi.RESOURCEREFERENCED
-		message = "Không thể xoá nhóm vì nhóm hoặc câu hỏi trong nhóm vẫn đang được dùng ở nơi khác."
+		message = httpx.Text(ctx, "Không thể xoá nhóm vì nhóm hoặc câu hỏi trong nhóm vẫn đang được dùng ở nơi khác.",
+			"The group cannot be deleted because it, or one of its questions, is still used elsewhere.")
 	case errors.Is(err, domain.ErrGroupConflict):
 	case errors.Is(err, questionsdomain.ErrMediaNotFound), errors.Is(err, mediadomain.ErrNotFound):
 		status = http.StatusUnprocessableEntity
 		code = openapi.VALIDATIONFAILED
-		message = "Một tệp ngữ liệu không tồn tại hoặc đã bị xoá."
+		message = httpx.Text(ctx, "Một tệp ngữ liệu không tồn tại hoặc đã bị xoá.",
+			"A material file does not exist or has been deleted.")
 	case errors.As(err, &invalid):
 		switch invalid.Rule {
 		case "group_owner_archived":
 			code = openapi.TESTARCHIVED
-			message = "Hãy khôi phục đề đã lưu trữ trước khi thay đổi nhóm."
+			message = httpx.Text(ctx, "Hãy khôi phục đề đã lưu trữ trước khi thay đổi nhóm.",
+				"Restore the archived test before changing the group.")
 		case "group_archived":
-			message = "Hãy khôi phục nhóm đã lưu trữ trước khi chỉnh sửa."
+			message = httpx.Text(ctx, "Hãy khôi phục nhóm đã lưu trữ trước khi chỉnh sửa.",
+				"Restore the archived group before editing it.")
 		case "group_bank_only":
-			message = "Nhóm thuộc đề theo trạng thái lưu trữ của đề."
+			message = httpx.Text(ctx, "Nhóm thuộc đề theo trạng thái lưu trữ của đề.",
+				"A group that belongs to a test follows the test's archive state.")
 		default:
 			status = http.StatusUnprocessableEntity
 			code = openapi.VALIDATIONFAILED
-			message = "Nội dung hoặc liên kết của nhóm chưa hợp lệ. Hãy kiểm tra câu hỏi và ngữ liệu."
+			message = httpx.Text(ctx, "Nội dung hoặc liên kết của nhóm chưa hợp lệ. Hãy kiểm tra câu hỏi và ngữ liệu.",
+				"The group's content or links are not valid. Check its questions and materials.")
 		}
 	default:
 		return nil, err

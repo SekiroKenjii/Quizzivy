@@ -20,7 +20,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check. A refusal names the field or parameter whose value broke its rule or, when no value did, the required top-level property the body lacks; an unknown property and a body that is not an object get the generic sentence. The sentences are Vietnamese or, when Accept-Language prefers it, English.
+// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check. It also refuses a JSON body in which an object repeats a member name, which the schema validator reads as its last occurrence and the handler's decoder merges; a body the validator re-encoded to fill a default is passed on as the validator read it, without the repeat. A refusal names the field or parameter whose value broke its rule or, when no value did, the required top-level property the body lacks; an unknown property and a body that is not an object get the generic sentence. The sentences are Vietnamese or, when Accept-Language prefers it, English.
 func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error) {
 	stripped := *spec
 	stripped.Servers = nil
@@ -63,7 +63,8 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 			},
 		})
 	keys := uuidMapKeys(uuidKeyedMaps(&stripped))
-	return func(next http.Handler) http.Handler { return validator(keys(next)) }, nil
+	members := uniqueMembers(jsonBodies(&stripped))
+	return func(next http.Handler) http.Handler { return validator(members(keys(next))) }, nil
 }
 
 // WriteMalformedBody answers 400 VALIDATION_FAILED with the generic
@@ -177,6 +178,130 @@ func uuidKeysOfMember(name string, value []byte, path []string) bool {
 		return len(name) == 36 && uuid.Validate(name) == nil
 	}
 	return name != path[0] || uuidKeys(value, path[1:])
+}
+
+func jsonBodies(spec *openapi3.T) map[string]struct{} {
+	bodies := map[string]struct{}{}
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
+				continue
+			}
+			if op.RequestBody.Value.Content.Get("application/json") != nil {
+				bodies[method+" "+path] = struct{}{}
+			}
+		}
+	}
+	return bodies
+}
+
+func uniqueMembers(bodies map[string]struct{}) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			media, _, _ := strings.Cut(r.Header.Get("Content-Type"), ";")
+			if _, declared := bodies[r.Pattern]; !declared || r.Body == nil || media != "application/json" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			body, err := io.ReadAll(r.Body)
+			_ = r.Body.Close()
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			if err != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+			top, repeated := repeatedMember(body)
+			if !repeated {
+				next.ServeHTTP(w, r)
+				return
+			}
+			message := genericSentence(r)
+			if top != "" {
+				message = fieldSentence(r, top)
+			}
+			WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, message)
+		})
+	}
+}
+
+func repeatedMember(body []byte) (top string, repeated bool) {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	var walk memberWalk
+	for {
+		token, err := decoder.Token()
+		if errors.Is(err, io.EOF) {
+			return "", false
+		}
+		if err != nil {
+			return "", true
+		}
+		repeated, done := walk.read(token)
+		if repeated {
+			return walk.top, true
+		}
+		if done {
+			return "", false
+		}
+	}
+}
+
+type memberWalk struct {
+	open []map[string]struct{}
+	name bool
+	top  string
+}
+
+func (w *memberWalk) read(token json.Token) (repeated, done bool) {
+	if w.opens(token) {
+		return false, false
+	}
+	if named, again := w.names(token); named {
+		return again, false
+	}
+	return false, w.completes(token)
+}
+
+func (w *memberWalk) opens(token json.Token) bool {
+	delim, ok := token.(json.Delim)
+	if !ok || (delim != '{' && delim != '[') {
+		return false
+	}
+	if delim == '{' {
+		w.open = append(w.open, map[string]struct{}{})
+	} else {
+		w.open = append(w.open, nil)
+	}
+	w.name = delim == '{'
+	return true
+}
+
+func (w *memberWalk) names(token json.Token) (named, repeated bool) {
+	value, ok := token.(string)
+	if !ok || !w.name {
+		return false, false
+	}
+	if len(w.open) == 1 {
+		w.top = value
+	}
+	members := w.open[len(w.open)-1]
+	if _, seen := members[value]; seen {
+		return true, true
+	}
+	members[value] = struct{}{}
+	w.name = false
+	return true, false
+}
+
+func (w *memberWalk) completes(token json.Token) bool {
+	if _, closes := token.(json.Delim); closes {
+		w.open = w.open[:len(w.open)-1]
+	}
+	if len(w.open) == 0 {
+		return true
+	}
+	w.name = w.open[len(w.open)-1] != nil
+	return false
 }
 
 func validationMessage(r *http.Request, err error) string {
