@@ -539,6 +539,30 @@ describe("the intro", () => {
       panel.getByRole("heading", { name: "Trước khi bắt đầu" }),
     ).toBeInTheDocument();
   });
+
+  it.each([
+    ["desktop", "pb-12", "after:h-12"],
+    ["phone", "pb-7", "after:h-7"],
+  ] as const)(
+    "covers under its action what the shell pads below it on a %s",
+    async (width, padding, cover) => {
+      viewport(width);
+      server.use(
+        http.get(`${BASE}/app/assignments/${ASSIGNMENT}`, () =>
+          contractJson("/app/assignments/{id}", "get", 200, detail()),
+        ),
+      );
+      shell(
+        `/app/assignments/${ASSIGNMENT}`,
+        <AssignmentIntroPage />,
+        { detail: { titleKey: "student.shell.test", back: "/app" } },
+        "/app/assignments/:id",
+      );
+      const start = await screen.findByRole("button", { name: "Bắt đầu làm bài" });
+      expect(screen.getByRole("main")).toHaveClass(padding);
+      expect(start.parentElement).toHaveClass(cover);
+    },
+  );
 });
 
 describe("classes", () => {

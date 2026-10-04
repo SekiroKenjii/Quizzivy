@@ -37,12 +37,13 @@ import {
   formatTime,
   weekdayName,
 } from "@/lib/i18n/datetime";
+import { cn } from "@/lib/utils";
 import { continueAttempt, getMyAssignment, type StudentAssignmentDetail } from "../api";
 import { studentRules, type RuleKind } from "../studentRules";
 
 const COLUMN = "mx-auto flex w-full max-w-180 flex-col gap-4.5";
 const ACTION =
-  "to-bg sticky bottom-0 flex flex-col gap-2 bg-linear-to-b from-transparent to-30% pt-3 pb-1";
+  "to-bg after:bg-bg sticky bottom-0 flex flex-col gap-2 bg-linear-to-b from-transparent to-30% pt-3 pb-1 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:content-['']";
 const CTA = "text-title h-12.5 w-full gap-2 rounded-[11px]";
 const HINT = "text-muted-fg text-meta text-center leading-normal";
 const ROWS = ["first", "second", "third", "fourth"] as const;
@@ -58,6 +59,10 @@ const ICON: Record<RuleKind, LucideIcon> = {
 };
 
 type Detail = StudentAssignmentDetail;
+
+function actionBar(wide: boolean): string {
+  return cn(ACTION, wide ? "after:h-12" : "after:h-7");
+}
 
 function refusal(cause: unknown, t: TFunction): string {
   if (!(cause instanceof ApiError)) return t("student.intro.startFailed");
@@ -261,7 +266,7 @@ export default function AssignmentIntroPage() {
           })}
         </ul>
       </section>
-      <Action key={a.id} assignment={a} now={now} />
+      <Action key={a.id} assignment={a} now={now} wide={wide} />
     </div>
   );
 }
@@ -296,8 +301,13 @@ function IntroSkeleton() {
   );
 }
 
-function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date }>) {
+function Action({
+  assignment: a,
+  now,
+  wide,
+}: Readonly<{ assignment: Detail; now: Date; wide: boolean }>) {
   const { t, i18n } = useTranslation();
+  const bar = actionBar(wide);
   const locale = i18n.language as Locale;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -345,7 +355,7 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
 
   if (live)
     return (
-      <div className={ACTION}>
+      <div className={bar}>
         {alert}
         <Button
           size="xl"
@@ -369,7 +379,7 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
 
   if (blocked)
     return (
-      <div className={ACTION}>
+      <div className={bar}>
         <p
           key="blocked"
           ref={box}
@@ -387,7 +397,7 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
 
   if (a.status !== "open")
     return (
-      <div className={ACTION}>
+      <div className={bar}>
         <Button
           size="xl"
           aria-disabled="true"
@@ -403,7 +413,7 @@ function Action({ assignment: a, now }: Readonly<{ assignment: Detail; now: Date
   const from = asked !== null && asked > now ? asked : now;
 
   return (
-    <div className={ACTION}>
+    <div className={bar}>
       {alert}
       <Button
         size="xl"
