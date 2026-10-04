@@ -1119,6 +1119,14 @@ function Gated({ allowed }: Readonly<{ allowed: boolean }>) {
       selection={allowed ? selection : undefined}
       rowName={(row) => row.title}
       onOpen={allowed ? undefined : vi.fn()}
+      menu={allowed ? () => <DropdownMenuItem>Nhân bản</DropdownMenuItem> : undefined}
+      card={allowed ? undefined : card}
+      dense={allowed ? undefined : true}
+      shown={undefined}
+      menuTrack={undefined}
+      padX={undefined}
+      cardLayout={undefined}
+      framed={undefined}
     />
   );
 }
@@ -1131,14 +1139,23 @@ describe("the props type", () => {
     rowSize: { minHeight: 60 },
   } as const;
 
-  it("takes a selection or an opener that a permission may leave undefined", () => {
+  it("takes undefined for whatever a permission or a preference may leave out", () => {
     const { unmount } = render(<Gated allowed />);
     expect(screen.getAllByRole("checkbox")).toHaveLength(4);
-    expect(screen.queryByRole("button")).toBeNull();
-    unmount();
-    render(<Gated allowed={false} />);
-    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getAllByRole("button", { name: MENU })).toHaveLength(3);
     expect(screen.getAllByRole("button")).toHaveLength(3);
+    expect(screen.getAllByRole("row")[1]).toHaveStyle({
+      minHeight: "60px",
+      paddingLeft: "16px",
+    });
+    expect(templates()[0]!.endsWith(" 44px")).toBe(true);
+    unmount();
+    const { container } = render(<Gated allowed={false} />);
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("button", { name: MENU })).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(3);
+    expect(screen.getAllByRole("row")[1]).toHaveStyle({ minHeight: "44px" });
+    expect(frame(container)).toHaveClass("rounded-xl", "border");
   });
 
   it("refuses both ways to open a row and a selection without names", () => {
