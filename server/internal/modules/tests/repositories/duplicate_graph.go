@@ -21,8 +21,12 @@ func (s *Postgres) copyDraftGraph(ctx context.Context, tx pgx.Tx, testID, owner 
 		}
 		protected.Sections = append(protected.Sections, owned)
 	}
-	if err := lockMediaAssets(ctx, tx, protected, s.media); err != nil {
+	missing, err := lockMediaAssets(ctx, tx, protected, s.media)
+	if err != nil {
 		return err
+	}
+	if len(missing) > 0 {
+		return goneAsset(missing[0])
 	}
 	for _, section := range draft.Sections {
 		if err := s.copyDraftSection(ctx, tx, testID, owner, section, in); err != nil {

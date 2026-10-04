@@ -2,7 +2,9 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	mediadomain "quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/shared/content"
 	"slices"
@@ -13,8 +15,15 @@ import (
 
 // snapshot freezes the draft into the version tables.
 func snapshot(ctx context.Context, tx pgx.Tx, versionID string, d domain.DraftContent, media MediaLocks) error {
-	if err := lockMediaAssets(ctx, tx, d, media); err != nil {
+	missing, err := lockMediaAssets(ctx, tx, d, media)
+	if err != nil {
 		return err
+	}
+	if len(missing) > 0 {
+		if refusal := domain.Publishing.MissingMedia(d, missing); refusal != nil {
+			return refusal
+		}
+		return goneAsset(missing[0])
 	}
 
 	for _, section := range d.Sections {
@@ -42,20 +51,29 @@ func freezeSection(ctx context.Context, tx pgx.Tx, versionID string, section dom
 
 // lockMediaAssets takes every asset lock the snapshot needs, up front and in
 // sorted order.
-func lockMediaAssets(ctx context.Context, tx pgx.Tx, d domain.DraftContent, media MediaLocks) error {
+func lockMediaAssets(ctx context.Context, tx pgx.Tx, d domain.DraftContent, media MediaLocks) (missing []string, err error) {
 	ids, err := snapshotMediaIDs(d)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(ids) > 0 && media == nil {
-		return fmt.Errorf("publish: media reference locks unavailable")
+		return nil, fmt.Errorf("publish: media reference locks unavailable")
 	}
 	for _, id := range ids {
-		if err := media.LockForVersionUse(ctx, tx, id); err != nil {
-			return fmt.Errorf("publish: media asset %s: %w", id, err)
+		err := media.LockForVersionUse(ctx, tx, id)
+		if errors.Is(err, mediadomain.ErrNotFound) {
+			missing = append(missing, id)
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("publish: media asset %s: %w", id, err)
 		}
 	}
-	return nil
+	return missing, nil
+}
+
+func goneAsset(id string) error {
+	return fmt.Errorf("publish: media asset %s: %w", id, mediadomain.ErrNotFound)
 }
 
 func freezeQuestion(ctx context.Context, tx pgx.Tx, sectionID string, q domain.DraftQuestion) (string, error) {
