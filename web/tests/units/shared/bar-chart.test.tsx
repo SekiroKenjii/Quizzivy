@@ -93,6 +93,17 @@ describe("BarChart's drawing", () => {
     );
   });
 
+  it("takes a class from the caller on its root", () => {
+    const { container } = chart({ className: "mt-4.5" });
+    expect(container.firstElementChild).toHaveClass("mt-4.5", "relative");
+  });
+
+  it("gives each column the row's full height for its bar to be a share of", () => {
+    const { columns } = chart();
+    expect(columns).toHaveLength(14);
+    for (const column of columns) expect(column).toHaveClass("h-full");
+  });
+
   it("scales the bars to the largest value", () => {
     const { bars } = chart();
     expect(bars[10]!.style.height).toBe("100%");

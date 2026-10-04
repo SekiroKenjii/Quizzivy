@@ -389,6 +389,11 @@ describe("EventList", () => {
       expect(item).toHaveClass("pb-3.5");
   });
 
+  it("takes a class from the caller on the list", () => {
+    render(<EventList label={TIMELINE} items={FLAGGED} className="mt-2" />);
+    expect(screen.getByRole("list", { name: TIMELINE })).toHaveClass("mt-2");
+  });
+
   it("takes a node as an event's text", () => {
     render(
       <EventList

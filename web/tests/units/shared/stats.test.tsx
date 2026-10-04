@@ -264,6 +264,11 @@ describe("StatStrip", () => {
     strip();
     expect(screen.getAllByRole("definition")[1]!.querySelector("span")).toBeNull();
   });
+
+  it("takes a class from the caller on the strip", () => {
+    const { container } = render(<StatStrip items={STATS} className="mt-4" />);
+    expect(container.querySelector("dl")).toHaveClass("mt-4", "grid");
+  });
 });
 
 function bar(name: string) {
@@ -488,6 +493,19 @@ describe("Meter", () => {
     const meter = screen.getByRole("meter");
     expect(meter).toHaveAttribute("aria-valuenow", "2");
     expect(parts(meter).map((part) => part.style.width)).toEqual(["0%", "40%"]);
+  });
+
+  it("takes its place in a row from the caller", () => {
+    render(
+      <Meter
+        className="flex-[1_1_200px]"
+        label="Dung lượng"
+        valueText={STORAGE_TEXT}
+        max={5}
+        parts={STORAGE}
+      />,
+    );
+    expect(screen.getByRole("meter")).toHaveClass("flex-[1_1_200px]", "flex", "h-2");
   });
 });
 
