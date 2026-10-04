@@ -147,6 +147,30 @@ describe("the monitor", () => {
     expect(fetches).toBe(2);
   });
 
+  it("refetches once when the tab comes back after ten hidden minutes, and polls from there without an input", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = renderMonitor(true);
+    expect(await screen.findByText("Phạm Gia Hân")).toBeInTheDocument();
+    expect(fetches).toBe(1);
+
+    setVisibility("hidden");
+    await advance(IDLE_AFTER_MS + 60_000);
+    expect(fetches).toBe(1);
+
+    setVisibility("visible");
+    expect(client.isFetching()).toBe(1);
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(fetches).toBe(2);
+
+    fireEvent.keyDown(window, { key: "Shift" });
+    expect(client.isFetching()).toBe(0);
+
+    await advance(12_000);
+    expect(fetches).toBe(2);
+    await advance(3_100);
+    await waitFor(() => expect(fetches).toBe(3));
+  });
+
   it("sends nothing on a key press or a return to the tab once the assignment is closed", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const client = renderMonitor(false);

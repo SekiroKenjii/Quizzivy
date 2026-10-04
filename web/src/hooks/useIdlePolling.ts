@@ -49,6 +49,13 @@ function onVisibility() {
   const was = hidden;
   hidden = document.visibilityState === "hidden";
   if (was === hidden) return;
+  if (!hidden) {
+    lastInputAt = Date.now();
+    if (idle) {
+      idle = false;
+      timer = setTimeout(expire, IDLE_AFTER_MS);
+    }
+  }
   tell(watchers);
   if (!hidden) tell(resumers);
 }
@@ -87,9 +94,9 @@ const awakeOnServer = () => true;
  * somebody who is there: `ms` while `enabled`, the tab is visible and the user
  * has pressed a key, moved or pressed the pointer, turned the wheel or touched
  * the screen within IDLE_AFTER_MS, and `false` otherwise. The clock starts
- * when the first consumer mounts. Every consumer shares one set of window
- * listeners and one timer, and re-renders only when the answer flips, never
- * on an input.
+ * when the first consumer mounts and again when a hidden tab becomes visible.
+ * Every consumer shares one set of window listeners and one timer, and
+ * re-renders only when the answer flips, never on an input.
  */
 export function useIdlePolling(ms: number, enabled = true): number | false {
   const there = useSyncExternalStore(enabled ? watch : unwatched, awake, awakeOnServer);

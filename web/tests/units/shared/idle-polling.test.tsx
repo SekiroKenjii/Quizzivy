@@ -205,14 +205,38 @@ describe("useIdlePolling", () => {
     expect(hook.result.current).toBe(15_000);
   });
 
-  it("stays without an interval when an idle user's tab becomes visible, until an input", () => {
+  it("brings the interval back when an idle user's tab becomes visible", () => {
     const hook = poller();
     turn("hidden");
     pass(TEN_MINUTES);
     turn("visible");
-    expect(hook.result.current).toBe(false);
-    input();
     expect(hook.result.current).toBe(15_000);
+    pass(TEN_MINUTES - 1);
+    expect(hook.result.current).toBe(15_000);
+    pass(1);
+    expect(hook.result.current).toBe(false);
+  });
+
+  it("starts the ten minutes again when the tab becomes visible", () => {
+    const hook = poller();
+    turn("hidden");
+    pass(TEN_MINUTES - 1_000);
+    turn("visible");
+    expect(vi.getTimerCount()).toBe(1);
+    pass(TEN_MINUTES - 1);
+    expect(hook.result.current).toBe(15_000);
+    pass(1);
+    expect(hook.result.current).toBe(false);
+  });
+
+  it("does not count a visibility event that changes nothing as a return", () => {
+    const hook = poller();
+    pass(TEN_MINUTES - 1_000);
+    turn("visible");
+    pass(1_000);
+    expect(hook.result.current).toBe(false);
+    turn("visible");
+    expect(hook.result.current).toBe(false);
   });
 
   it("shares one set of passive listeners between two consumers and removes it after the last", () => {
@@ -429,7 +453,7 @@ describe("useRefetchOnResume", () => {
     expect(second).toHaveBeenCalledTimes(1);
   });
 
-  it("refetches once on visibility and once more on the first input when an idle user's tab comes back", () => {
+  it("refetches once when an idle user's tab comes back, and not on the input after it", () => {
     const refetch = vi.fn();
     resumer(refetch);
     turn("hidden");
@@ -437,7 +461,7 @@ describe("useRefetchOnResume", () => {
     turn("visible");
     expect(refetch).toHaveBeenCalledTimes(1);
     input();
-    expect(refetch).toHaveBeenCalledTimes(2);
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it("keeps listening after the last poller has left", () => {
