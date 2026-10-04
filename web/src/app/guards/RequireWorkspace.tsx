@@ -23,7 +23,7 @@ export function StudentArea() {
     return <Outlet />;
   }
   if (teacher || admin) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/teacher" replace />;
   }
   return <ForbiddenPage />;
 }
