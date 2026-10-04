@@ -10,7 +10,11 @@ import {
   type Json,
   type Operation,
 } from "@tests/support/openapi";
-import { MAX_BYTES, MAX_DURATION_MS } from "@/features/media/limits";
+import {
+  MAX_AUDIO_BYTES,
+  MAX_DURATION_MS,
+  MAX_IMAGE_BYTES,
+} from "@/features/media/limits";
 
 /**
  * Structural invariants of api/openapi.yaml. Ported from api/contract_check.py,
@@ -280,12 +284,26 @@ describe("§11.1's upload limits agree across the layers", () => {
     Json
   >;
   const properties = asset["properties"] as Record<string, Record<string, Json>>;
+  const limits = asset["x-media-limits"] as Record<string, Json>;
 
-  it("MAX_BYTES matches MediaAsset.bytes.maximum", () => {
-    expect(properties["bytes"]?.["maximum"]).toBe(MAX_BYTES);
+  it("the three constants are MediaAsset's x-media-limits", () => {
+    expect(limits).toEqual({
+      audioBytes: MAX_AUDIO_BYTES,
+      imageBytes: MAX_IMAGE_BYTES,
+      durationMs: MAX_DURATION_MS,
+    });
+  });
+
+  it("MAX_AUDIO_BYTES matches MediaAsset.bytes.maximum", () => {
+    expect(properties["bytes"]?.["maximum"]).toBe(MAX_AUDIO_BYTES);
   });
 
   it("MAX_DURATION_MS matches MediaAsset.durationMs.maximum", () => {
     expect(properties["durationMs"]?.["maximum"]).toBe(MAX_DURATION_MS);
+  });
+
+  it("the transport lets through the largest audio and its multipart framing", () => {
+    const upload = ops.find((o) => o.op["operationId"] === "uploadMedia");
+    expect(upload?.op["x-max-body-bytes"]).toBe(MAX_AUDIO_BYTES + 128 * 1024);
   });
 });
