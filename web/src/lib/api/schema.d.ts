@@ -994,13 +994,15 @@ export interface paths {
          *     stored (D-18). The list holds the assignments the caller created and
          *     those that target a class the caller teaches, for every caller:
          *     `scope.all` does not widen it. A row names only the target classes and
-         *     students the caller reaches, and `targetCount` counts those;
-         *     `getAssignment` names every target for a caller who holds `scope.all`.
+         *     students the caller reaches, and `targetCount` counts those; for a
+         *     caller who holds `scope.all` that is every target, as in
+         *     `getAssignment`.
          *     `classId` narrows the list to assignments that target
          *     that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
          *     tab counts are the class's and never disagree with the rows. A class
          *     the caller does not teach lists nothing, as a missing class does,
-         *     whatever the caller holds.
+         *     unless the caller holds `scope.all`: it then lists those of the
+         *     caller's own assignments that target it.
          */
         get: operations["listAssignments"];
         put?: never;
