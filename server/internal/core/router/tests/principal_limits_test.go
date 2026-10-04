@@ -254,6 +254,45 @@ func TestTheRouterAssertsThePrincipalRegistryItEnforces(t *testing.T) {
 	}
 }
 
+func TestTheRouterStopsOnThePrincipalAssertionsError(t *testing.T) {
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", "router.go"), nil, 0)
+	if err != nil {
+		t.Fatalf("parse router.go: %v", err)
+	}
+	returned := false
+	ast.Inspect(file, func(n ast.Node) bool {
+		check, ok := n.(*ast.IfStmt)
+		if !ok {
+			return true
+		}
+		assign, ok := check.Init.(*ast.AssignStmt)
+		if !ok || len(assign.Rhs) != 1 {
+			return true
+		}
+		call, ok := assign.Rhs[0].(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		fn, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || fn.Sel.Name != "AssertPrincipalRoutesGated" {
+			return true
+		}
+		for _, stmt := range check.Body.List {
+			ret, ok := stmt.(*ast.ReturnStmt)
+			if !ok || len(ret.Results) != 2 {
+				continue
+			}
+			if failure, ok := ret.Results[1].(*ast.Ident); ok && failure.Name == "err" {
+				returned = true
+			}
+		}
+		return true
+	})
+	if !returned {
+		t.Error("router.go does not return the error of httpx.AssertPrincipalRoutesGated: a bad entry would not stop the start-up")
+	}
+}
+
 func TestEveryAuthenticatedCredentialMinterIsLimitedPerActorOnly(t *testing.T) {
 	spec := freshSpec(t)
 	open := openPatterns(spec)
