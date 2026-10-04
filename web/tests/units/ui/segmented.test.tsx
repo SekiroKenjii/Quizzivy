@@ -399,6 +399,14 @@ describe("a track that scrolls", () => {
     expect(track.scrollLeft).toBe(133);
   });
 
+  it("brings a newly pressed option cut by the right edge fully into view", async () => {
+    const user = userEvent.setup();
+    render(<Scrolling start="scheduled" />);
+    const track = screen.getByRole("group", { name: "Trạng thái" });
+    await user.click(screen.getByRole("button", { name: "Đã đóng 120" }));
+    expect(track.scrollLeft).toBe(43);
+  });
+
   it("leaves the track where it is without the scroll option", async () => {
     const user = userEvent.setup();
     const view = render(<Statuses onChange={() => {}} />);
