@@ -1342,8 +1342,8 @@ the file it adds.
 | `00077_index_assignments_creator.sql` | `assignments_creator_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00078_add_join_code_encryption.sql` | `class_join_codes.code_ciphertext`, `key_id`, `lookup_scheme` and their four checks; Down refuses a live scheme-2 code | R2 (T-R2.14a), D5, D-27 |
 | `00079_revoke_temporary_from_public.sql` | revokes `TEMPORARY` on the database from `PUBLIC`; a no-op with a notice where the migration role does not own the database | fix for #194 |
-| `NNNNN_create_notifications.sql` | `notifications`, its four checks, `UNIQUE (user_id, dedupe_key)`, three indexes and the `updated_at` trigger; numbered at merge | R4 (T-R4.10a), D-28 |
-| `NNNNN_create_notification_preferences.sql` | `notification_preferences`, `notification_preferences_event_check` and the `updated_at` trigger; numbered at merge | R4 (T-R4.10a), D-28 |
+| `00080_create_notifications.sql` | `notifications`, its four checks, `UNIQUE (user_id, dedupe_key)`, three indexes and the `updated_at` trigger | R4 (T-R4.10a), D-28 |
+| `00081_create_notification_preferences.sql` | `notification_preferences`, `notification_preferences_event_check` and the `updated_at` trigger | R4 (T-R4.10a), D-28 |
 
 Notes on migration mechanics (§13.7):
 
