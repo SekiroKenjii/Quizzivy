@@ -3,9 +3,9 @@ package httpx_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/platform/ratelimit"
@@ -40,7 +40,11 @@ func TestThePrincipalLimiterCountsPerUserWhateverTheAddress(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	h := gateBefore(principals, httpx.PrincipalRateLimit(perActor("GET /self", 2))(next))
+	reg := perActor("GET /self", 2)
+	route, _ := reg.Lookup("GET /self")
+	now := time.Date(2026, 10, 4, 9, 0, 0, 0, time.UTC)
+	route.Keyed[0].Limiter.SetClock(func() time.Time { return now })
+	h := gateBefore(principals, httpx.PrincipalRateLimit(reg)(next))
 
 	for i, address := range []string{"198.51.100.1", "198.51.100.2"} {
 		if rec := callFrom(h, "GET /self", "grader@0", address); rec.Code != http.StatusNoContent {
@@ -51,8 +55,8 @@ func TestThePrincipalLimiterCountsPerUserWhateverTheAddress(t *testing.T) {
 	if refused.Code != http.StatusTooManyRequests {
 		t.Fatalf("the third request of one user, from a third address: %d, want 429", refused.Code)
 	}
-	if seconds, err := strconv.Atoi(refused.Header().Get("Retry-After")); err != nil || seconds < 1 {
-		t.Errorf("Retry-After = %q, want whole seconds of at least 1", refused.Header().Get("Retry-After"))
+	if got := refused.Header().Get("Retry-After"); got != "30" {
+		t.Errorf("Retry-After = %q, want 30: the seconds until one token of two a minute returns", got)
 	}
 	if reached != 2 {
 		t.Errorf("the handler ran %d times, want 2: a refused request must not reach it", reached)
