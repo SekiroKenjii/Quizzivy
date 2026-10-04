@@ -265,6 +265,13 @@ describe("StatStrip", () => {
     expect(screen.getAllByRole("definition")[1]!.querySelector("span")).toBeNull();
   });
 
+  it("keeps the text colour on a value whose tone is default", () => {
+    render(<StatStrip items={[{ label: "Bị gắn cờ", value: "0", tone: "default" }]} />);
+    const value = screen.getByRole("definition");
+    expect(value).toHaveClass("text-fg");
+    expect(value).not.toHaveClass("text-danger-ink");
+  });
+
   it("takes a class from the caller on the strip", () => {
     const { container } = render(<StatStrip items={STATS} className="mt-4" />);
     expect(container.querySelector("dl")).toHaveClass("mt-4", "grid");
