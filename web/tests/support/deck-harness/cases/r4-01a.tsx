@@ -3,16 +3,29 @@ import { MemoryRouter } from "react-router";
 import {
   ArrowUpRight,
   ChartColumn,
+  CircleDot,
   CircleStop,
   Clock,
   Copy,
+  Headphones,
   Pencil,
+  X,
+  type LucideIcon,
 } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/shared/data/DataTable";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
   registerContentElement,
   useContentBand,
@@ -124,7 +137,7 @@ const ASSIGNMENT_COLUMNS: readonly DataColumn<Assignment>[] = [
     header: "Closes",
     track: "120px",
     showFrom: 700,
-    cell: (row) => <span className="text-sm leading-normal">{row.when}</span>,
+    cell: (row) => <span className="block text-sm leading-normal">{row.when}</span>,
   },
   {
     id: "submitted",
@@ -278,7 +291,7 @@ const STUDENT_COLUMNS: readonly DataColumn<Student>[] = [
     track: "110px",
     showFrom: 920,
     cell: (row) => (
-      <span className="text-muted-fg text-sm leading-normal">{row.last}</span>
+      <span className="text-muted-fg block text-sm leading-normal">{row.last}</span>
     ),
   },
   {
@@ -387,7 +400,7 @@ const MEMBER_COLUMNS: readonly DataColumn<Member>[] = [
     header: "Joined",
     track: "80px",
     cell: (row) => (
-      <span className="text-muted-fg text-sm leading-normal whitespace-nowrap">
+      <span className="text-muted-fg block text-sm leading-normal whitespace-nowrap">
         {row.at}
       </span>
     ),
@@ -411,6 +424,183 @@ const MEMBER_COLUMNS: readonly DataColumn<Member>[] = [
     ),
   },
 ];
+
+interface Question {
+  id: string;
+  prompt: string;
+  type: string;
+  icon: LucideIcon;
+  level: string;
+  used: number;
+  updated: string;
+  tags: readonly string[];
+}
+
+const QUESTIONS: readonly Question[] = [
+  {
+    id: "q1",
+    prompt: "Choose the correct form: She ___ in Hanoi since 2019.",
+    type: "Single choice",
+    icon: CircleDot,
+    level: "A2",
+    used: 4,
+    updated: "2 d ago",
+    tags: ["grammar", "present perfect"],
+  },
+  {
+    id: "q2",
+    prompt: "Listen and label the map: where is the post office?",
+    type: "Audio · labelling",
+    icon: Headphones,
+    level: "B1",
+    used: 2,
+    updated: "1 w ago",
+    tags: ["listening", "map"],
+  },
+];
+
+const QUESTION_COLUMNS: readonly DataColumn<Question>[] = [
+  {
+    id: "question",
+    header: "Question",
+    track: "minmax(220px,3fr)",
+    cell: (row, shown) => (
+      <span className="block min-w-0">
+        <span className="block truncate">{row.prompt}</span>
+        {shown.has("type") ? null : (
+          <span className="text-muted-fg mt-0.5 flex items-center gap-1.5 text-xs leading-normal">
+            <row.icon aria-hidden="true" className="size-3" />
+            {row.type} · {row.level}
+          </span>
+        )}
+      </span>
+    ),
+    aside: (row) => (
+      <span className="mt-0.75 flex flex-wrap gap-1.25">
+        {row.tags.map((tag) => (
+          <span
+            key={tag}
+            className="bg-muted inline-flex h-5.5 items-center gap-0.5 rounded-full border pr-0.75 pl-2 text-xs leading-none font-medium whitespace-nowrap"
+          >
+            {tag}
+            <button
+              type="button"
+              aria-label={`Remove tag ${tag}`}
+              className="text-muted-fg hover:bg-hover hover:text-fg grid size-4 flex-none cursor-pointer place-items-center rounded-full"
+            >
+              <X aria-hidden="true" className="size-2.75" />
+            </button>
+          </span>
+        ))}
+      </span>
+    ),
+  },
+  {
+    id: "type",
+    header: "Type",
+    track: "140px",
+    showFrom: 640,
+    cell: (row) => (
+      <span className="flex items-center gap-1.75 text-sm leading-normal">
+        <row.icon aria-hidden="true" className="text-muted-fg size-3.5" />
+        {row.type}
+      </span>
+    ),
+  },
+  {
+    id: "level",
+    header: "Level",
+    track: "70px",
+    showFrom: 540,
+    cell: (row) => <span className="block text-sm leading-normal">{row.level}</span>,
+  },
+  {
+    id: "used",
+    header: "Used",
+    track: "80px",
+    showFrom: 780,
+    cell: (row) => (
+      <span className="text-muted-fg block text-sm leading-normal tabular-nums">
+        {row.used} tests
+      </span>
+    ),
+  },
+  {
+    id: "updated",
+    header: "Updated",
+    track: "90px",
+    showFrom: 900,
+    cell: (row) => (
+      <span className="text-muted-fg block text-sm leading-normal">{row.updated}</span>
+    ),
+  },
+];
+
+const LONG_ASSIGNMENTS: readonly Assignment[] = [
+  {
+    id: "l1",
+    title:
+      "Bài kiểm tra giữa kỳ kỹ năng Đọc hiểu dành cho lớp luyện thi IELTS 6.5 buổi tối, đợt tháng Mười",
+    classes:
+      "Luyện thi IELTS 6.5 buổi tối thứ Hai, thứ Tư, thứ Sáu, Tiếng Anh thiếu nhi Starters B",
+    when: "Hôm nay, 21:00",
+    meta: "Đề v3 · 40 câu hỏi",
+    submitted: 18,
+    target: 24,
+    toGrade: 6,
+  },
+  {
+    id: "l2",
+    title: "Nghe",
+    classes: "Nền tảng A",
+    when: "Thứ Sáu, 26 tháng 9",
+    meta: "Đề v1 · 20 câu hỏi",
+    submitted: 0,
+    target: 0,
+    toGrade: 0,
+  },
+];
+
+const LONG_COLUMNS: readonly DataColumn<Assignment>[] = ASSIGNMENT_COLUMNS.map(
+  (column) => ({
+    ...column,
+    header:
+      {
+        title: "Bài giao",
+        classes: "Giao cho",
+        when: "Đóng lúc",
+        submitted: "Đã nộp",
+        status: "Trạng thái",
+      }[column.id] ?? column.header,
+  }),
+);
+
+const LONG_STUDENTS: readonly Student[] = [
+  {
+    id: "v1",
+    name: "Công Tằng Tôn Nữ Nguyễn Thị Hoàng Bảo Ngọc Phương Anh",
+    user: "@congtangtonnu.nguyenthihoangbaongocphuonganh",
+    classes: ["Luyện thi IELTS 6.5 buổi tối", "Tiếng Anh thiếu nhi Starters B"],
+    average: "100%",
+    last: "5 phút trước",
+  },
+  {
+    id: "v2",
+    name: "Lê Nam",
+    user: "@nam.le",
+    classes: ["Nền tảng A"],
+    average: "7%",
+    last: "Vừa xong",
+  },
+];
+
+function footerLine(text: string): ReactNode {
+  return (
+    <div className="text-muted-fg sticky left-0 border-t px-4 py-2.5 text-sm leading-normal">
+      {text}
+    </div>
+  );
+}
 
 const MEMBER_BANDS = [520, 620, 720, 1000, 1080] as const;
 
@@ -500,4 +690,169 @@ export const cases: Record<string, () => ReactElement> = {
       </div>
     );
   },
+
+  bank: function BankTable() {
+    const selection = useBulkSelection<Question>();
+    const wide = useMediaQuery("(min-width: 1024px)");
+    return (
+      <div ref={registerContentElement} className="flex items-start gap-3.5">
+        {wide ? <div className="w-55 flex-none" /> : null}
+        <div className="min-w-0 flex-1">
+          <DataTable
+            label="Questions"
+            columns={QUESTION_COLUMNS}
+            rows={QUESTIONS}
+            rowSize={{ padY: 10 }}
+            onOpen={openNothing}
+            selection={selection}
+            rowName={(row) => row.prompt}
+          />
+        </div>
+      </div>
+    );
+  },
+
+  "long-vi": function LongVietnamese() {
+    const assignments = useBulkSelection<Assignment>();
+    const students = useBulkSelection<Student>();
+    return (
+      <MemoryRouter>
+        <div ref={registerContentElement} className="flex flex-col gap-4">
+          <DataTable
+            label="Bài giao"
+            columns={LONG_COLUMNS}
+            rows={LONG_ASSIGNMENTS}
+            rowSize={{ minHeight: 60 }}
+            rowHref={(row) => `/teacher/assignments/${row.id}`}
+            selection={assignments}
+            rowName={(row) => row.title}
+            menu={assignmentMenu}
+            card={assignmentCard}
+            footer={footerLine("1–2 trên 2 bài giao")}
+          />
+          <DataTable
+            label="Học viên"
+            columns={STUDENT_COLUMNS}
+            rows={LONG_STUDENTS}
+            rowSize={{ height: 56 }}
+            onOpen={openNothing}
+            selection={students}
+            rowName={(row) => row.name}
+            menu={resultsMenu}
+            card={studentCard}
+            cardLayout="joined"
+            footer={footerLine("1–2 trên 2 học viên")}
+          />
+        </div>
+      </MemoryRouter>
+    );
+  },
+
+  empty: function EmptyTables() {
+    const assignments = useBulkSelection<Assignment>();
+    const students = useBulkSelection<Student>();
+    return (
+      <MemoryRouter>
+        <div ref={registerContentElement} className="flex flex-col gap-4">
+          <DataTable
+            label="Bài giao"
+            columns={LONG_COLUMNS}
+            rows={[]}
+            rowSize={{ minHeight: 60 }}
+            rowHref={(row) => `/teacher/assignments/${row.id}`}
+            selection={assignments}
+            rowName={(row) => row.title}
+            menu={assignmentMenu}
+            card={assignmentCard}
+            empty="Chưa có bài giao nào ở đây."
+            footer={footerLine("Không có bài giao nào")}
+          />
+          <DataTable
+            label="Học viên"
+            columns={STUDENT_COLUMNS}
+            rows={[]}
+            rowSize={{ height: 56 }}
+            onOpen={openNothing}
+            selection={students}
+            rowName={(row) => row.name}
+            menu={resultsMenu}
+            card={studentCard}
+            cardLayout="joined"
+            empty="Chưa có học viên nào khớp với bộ lọc này."
+            footer={footerLine("Không có học viên nào")}
+          />
+        </div>
+      </MemoryRouter>
+    );
+  },
+
+  dense: function DenseTables() {
+    const assignments = useBulkSelection<Assignment>();
+    const students = useBulkSelection<Student>();
+    const questions = useBulkSelection<Question>();
+    return (
+      <MemoryRouter>
+        <div ref={registerContentElement} className="flex flex-col gap-4">
+          <DataTable
+            label="Bài giao"
+            columns={LONG_COLUMNS}
+            rows={LONG_ASSIGNMENTS}
+            rowSize={{ minHeight: 60 }}
+            dense
+            rowHref={(row) => `/teacher/assignments/${row.id}`}
+            selection={assignments}
+            rowName={(row) => row.title}
+            menu={assignmentMenu}
+          />
+          <DataTable
+            label="Học viên"
+            columns={STUDENT_COLUMNS}
+            rows={LONG_STUDENTS}
+            rowSize={{ height: 56 }}
+            dense
+            selection={students}
+            rowName={(row) => row.name}
+            menu={resultsMenu}
+          />
+          <DataTable
+            label="Câu hỏi"
+            columns={QUESTION_COLUMNS}
+            rows={QUESTIONS}
+            rowSize={{ padY: 10 }}
+            dense
+            onOpen={openNothing}
+            selection={questions}
+            rowName={(row) => row.prompt}
+          />
+        </div>
+      </MemoryRouter>
+    );
+  },
+
+  primitive: () => (
+    <div className="bg-card shadow-card overflow-hidden rounded-xl border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Question</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Level</TableHead>
+            <TableHead>Used</TableHead>
+            <TableHead>Updated</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {QUESTIONS.map((row) => (
+            <TableRow key={row.id}>
+              <TableCell>{row.prompt}</TableCell>
+              <TableCell>{row.type}</TableCell>
+              <TableCell>{row.level}</TableCell>
+              <TableCell>{row.used} tests</TableCell>
+              <TableCell>{row.updated}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  ),
 };
