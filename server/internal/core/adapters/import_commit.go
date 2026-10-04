@@ -47,7 +47,8 @@ func (c ImportCommitter) Materialize(ctx context.Context, plan importsdomain.Com
 		testID = id
 		return record(ctx, importsrepo.NewPostgres(scoped), id)
 	})
-	if errors.Is(err, mediadomain.ErrNotFound) || errors.Is(err, questionsdomain.ErrMediaNotFound) {
+	var invalid *testsdomain.GroupError
+	if errors.Is(err, mediadomain.ErrNotFound) || errors.Is(err, questionsdomain.ErrMediaNotFound) || errors.As(err, &invalid) {
 		return "", importsdomain.ErrBadDraft
 	}
 	return testID, err

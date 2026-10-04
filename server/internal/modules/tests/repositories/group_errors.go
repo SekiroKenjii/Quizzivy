@@ -14,7 +14,7 @@ func groupWriteError(err error) error {
 	switch constraint.Code {
 	case "23505":
 		return domain.ErrGroupConflict
-	case "23503", "23514":
+	case "23503", "23001", "23514":
 		return &domain.GroupError{Rule: "group_reference"}
 	default:
 		return err
