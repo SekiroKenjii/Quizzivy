@@ -1108,6 +1108,7 @@ describe("below 768", () => {
       "py-3",
       "text-base",
       "leading-normal",
+      "-outline-offset-2!",
     );
     expect(row).not.toHaveClass("rounded-xl");
     expect(row).not.toHaveClass("shadow-card");

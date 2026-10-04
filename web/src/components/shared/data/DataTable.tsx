@@ -99,7 +99,7 @@ const STACKED_CARD =
   "bg-card shadow-card text-ui flex w-full flex-col gap-2.5 rounded-xl border p-3.5 text-left leading-[normal]";
 
 const JOINED_ROW =
-  "flex w-full items-center gap-3 px-3.5 py-3 text-left text-base leading-normal";
+  "flex w-full items-center gap-3 px-3.5 py-3 text-left text-base leading-normal -outline-offset-2!";
 
 function openFromRow(event: MouseEvent<HTMLElement>) {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
