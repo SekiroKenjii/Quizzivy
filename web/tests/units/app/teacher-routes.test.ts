@@ -85,6 +85,11 @@ function routesOf(source: string): string[][] {
   });
 }
 
+function depthsOf(source: string): number[] {
+  const tree = treeOf(source, "teacherTree");
+  return [...tree.matchAll(ROUTE)].map((match) => depthAt(tree, match.index));
+}
+
 function swapped(source: string, one: string, other: string): string {
   return source
     .replace(`import("@/${one}")`, "import(#)")
@@ -103,6 +108,16 @@ describe("the teacher's route table", () => {
     ];
     expect(imports.map((match) => match[1])).toEqual(
       TEACHER_TREE.map(([, module]) => module),
+    );
+  });
+
+  it("keeps every page inside the layout, and the import pages inside their gate", () => {
+    const gate = TEACHER_TREE.findIndex(([path]) => path === "/teacher/imports");
+    expect(depthsOf(ROUTER)).toEqual(
+      TEACHER_TREE.map(([path], row) => {
+        if (row === 0) return 1;
+        return row > gate && path!.startsWith("/teacher/imports") ? 4 : 3;
+      }),
     );
   });
 
@@ -164,5 +179,6 @@ describe("the teacher's route table", () => {
     );
     expect(withHandles).not.toBe(ROUTER);
     expect(routesOf(withHandles)).toEqual(TEACHER_TREE);
+    expect(depthsOf(withHandles)).toEqual(depthsOf(ROUTER));
   });
 });
