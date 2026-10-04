@@ -11,7 +11,9 @@ import (
 	"quizzivy/internal/platform/httpx"
 )
 
-const msgNoActiveCode = "Lớp này chưa có mã tham gia."
+func msgNoActiveCode(ctx context.Context) string {
+	return httpx.Text(ctx, "Lớp này chưa có mã tham gia.", "This class has no join code yet.")
+}
 
 // GetJoinCode implements GET /teacher/classes/{id}/join-code (D5): the active
 // code of a class the caller reaches, never cached. Another teacher's class
@@ -24,11 +26,11 @@ func (h Classes) GetJoinCode(ctx context.Context, request openapi.GetJoinCodeReq
 	switch {
 	case errors.Is(err, domain.ErrClassNotFound):
 		return openapi.GetJoinCode404JSONResponse{
-			NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
+			NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound(ctx))),
 		}, nil
 	case errors.Is(err, domain.ErrNoActiveCode):
 		return openapi.GetJoinCode404JSONResponse{
-			NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgNoActiveCode)),
+			NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgNoActiveCode(ctx))),
 		}, nil
 	case err != nil:
 		return nil, err
@@ -74,7 +76,7 @@ func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinC
 	if err != nil {
 		if errors.Is(err, domain.ErrClassNotFound) {
 			return openapi.RotateJoinCode404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound(ctx))),
 			}, nil
 		}
 		return nil, err
@@ -107,7 +109,7 @@ func (h Classes) RevokeJoinCode(ctx context.Context, request openapi.RevokeJoinC
 	if err != nil {
 		if errors.Is(err, domain.ErrClassNotFound) {
 			return openapi.RevokeJoinCode404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound(ctx))),
 			}, nil
 		}
 		return nil, err
@@ -141,16 +143,20 @@ func JoinCodeError(ctx context.Context, outcome domain.PreviewOutcome) openapi.E
 	switch outcome {
 	case domain.PreviewRevoked:
 		return httpapi.Error(ctx, openapi.JOINCODEREVOKED,
-			"Mã lớp này đã bị thu hồi. Vui lòng xin giáo viên mã mới.")
+			httpx.Text(ctx, "Mã lớp này đã bị thu hồi. Vui lòng xin giáo viên mã mới.",
+				"This class code has been revoked. Please ask your teacher for a new one."))
 	case domain.PreviewExpired:
 		return httpapi.Error(ctx, openapi.JOINCODEEXPIRED,
-			"Mã lớp này đã hết hạn. Vui lòng xin giáo viên mã mới.")
+			httpx.Text(ctx, "Mã lớp này đã hết hạn. Vui lòng xin giáo viên mã mới.",
+				"This class code has expired. Please ask your teacher for a new one."))
 	case domain.PreviewExhausted:
 		return httpapi.Error(ctx, openapi.JOINCODEEXHAUSTED,
-			"Mã lớp này đã hết lượt sử dụng. Vui lòng xin giáo viên mã mới.")
+			httpx.Text(ctx, "Mã lớp này đã hết lượt sử dụng. Vui lòng xin giáo viên mã mới.",
+				"This class code has no uses left. Please ask your teacher for a new one."))
 	default:
 		return httpapi.Error(ctx, openapi.JOINCODEINVALID,
-			"Mã lớp không đúng. Vui lòng kiểm tra lại.")
+			httpx.Text(ctx, "Mã lớp không đúng. Vui lòng kiểm tra lại.",
+				"That class code is not right. Please check it."))
 	}
 }
 

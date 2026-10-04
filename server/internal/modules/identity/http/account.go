@@ -49,7 +49,7 @@ func (h Identity) UpdateCurrentUser(ctx context.Context, request openapi.UpdateC
 	}
 	if request.Body == nil {
 		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			"Thiếu họ và tên.")), nil
+			httpx.Text(ctx, "Thiếu họ và tên.", "The name is missing."))), nil
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
@@ -65,11 +65,11 @@ func (h Identity) UpdateCurrentUser(ctx context.Context, request openapi.UpdateC
 
 	case errors.Is(err, domain.ErrNameRequired):
 		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			"Họ và tên không được để trống.")), nil
+			httpx.Text(ctx, "Họ và tên không được để trống.", "Enter your name."))), nil
 
 	case errors.Is(err, domain.ErrNameTooLong):
 		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			"Họ và tên quá dài.")), nil
+			httpx.Text(ctx, "Họ và tên quá dài.", "The name is too long."))), nil
 
 	case errors.Is(err, domain.ErrAccountDisabled), errors.Is(err, domain.ErrUserNotFound):
 		return openapi.UpdateCurrentUser401JSONResponse{
@@ -94,7 +94,7 @@ func (h Identity) ChangePassword(ctx context.Context, request openapi.ChangePass
 	}
 	if request.Body == nil {
 		return openapi.ChangePassword400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			"Thiếu thông tin mật khẩu.")), nil
+			httpx.Text(ctx, "Thiếu thông tin mật khẩu.", "The password details are missing."))), nil
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
@@ -112,23 +112,26 @@ func (h Identity) ChangePassword(ctx context.Context, request openapi.ChangePass
 
 	case errors.Is(err, domain.ErrInvalidCredentials):
 		return openapi.ChangePassword400JSONResponse(httpapi.Error(ctx, openapi.INVALIDCREDENTIALS,
-			"Mật khẩu hiện tại không đúng.")), nil
+			httpx.Text(ctx, "Mật khẩu hiện tại không đúng.", "The current password is incorrect."))), nil
 
 	case errors.Is(err, domain.ErrNoPasswordSet):
 		return openapi.ChangePassword400JSONResponse(httpapi.Error(ctx, openapi.PASSWORDREQUIRED,
-			"Tài khoản này đăng nhập bằng Google và chưa có mật khẩu.")), nil
+			httpx.Text(ctx, "Tài khoản này đăng nhập bằng Google và chưa có mật khẩu.",
+				"This account signs in with Google and has no password yet."))), nil
 
 	case errors.Is(err, domain.ErrPasswordUnchanged):
 		return openapi.ChangePassword400JSONResponse(httpapi.Error(ctx, openapi.PASSWORDUNCHANGED,
-			"Mật khẩu mới phải khác mật khẩu hiện tại.")), nil
+			httpx.Text(ctx, "Mật khẩu mới phải khác mật khẩu hiện tại.",
+				"The new password must be different from the current one."))), nil
 
 	case errors.Is(err, domain.ErrPasswordTooShort):
 		return openapi.ChangePassword400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			"Mật khẩu mới phải có ít nhất 8 ký tự.")), nil
+			httpx.Text(ctx, "Mật khẩu mới phải có ít nhất 8 ký tự.",
+				"The new password must have at least 8 characters."))), nil
 
 	case errors.Is(err, domain.ErrPasswordTooLong):
 		return openapi.ChangePassword400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			"Mật khẩu mới quá dài.")), nil
+			httpx.Text(ctx, "Mật khẩu mới quá dài.", "The new password is too long."))), nil
 
 	case errors.Is(err, domain.ErrAccountDisabled), errors.Is(err, domain.ErrUserNotFound):
 		return openapi.ChangePassword401JSONResponse{
@@ -141,5 +144,7 @@ func (h Identity) ChangePassword(ctx context.Context, request openapi.ChangePass
 }
 
 func sessionInvalid(ctx context.Context) openapi.ErrorResponse {
-	return httpapi.Error(ctx, openapi.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.")
+	return httpapi.Error(ctx, openapi.UNAUTHORIZED,
+		httpx.Text(ctx, "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.",
+			"Your session is not valid. Please sign in again."))
 }

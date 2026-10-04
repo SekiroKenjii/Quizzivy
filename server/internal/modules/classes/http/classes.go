@@ -13,9 +13,13 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-const msgClassNotFound = "Không tìm thấy lớp học."
+func msgClassNotFound(ctx context.Context) string {
+	return httpx.Text(ctx, "Không tìm thấy lớp học.", "The class was not found.")
+}
 
-const msgStudentNotFound = "Không tìm thấy học viên."
+func msgStudentNotFound(ctx context.Context) string {
+	return httpx.Text(ctx, "Không tìm thấy học viên.", "The student was not found.")
+}
 
 // GetClass implements GET /teacher/classes/{id} (§6.4).
 func (h Classes) GetClass(ctx context.Context, request openapi.GetClassRequestObject) (openapi.GetClassResponseObject, error) {
@@ -26,7 +30,7 @@ func (h Classes) GetClass(ctx context.Context, request openapi.GetClassRequestOb
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return openapi.GetClass404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound(ctx))),
 			}, nil
 		}
 		return nil, err
@@ -62,7 +66,7 @@ func (h Classes) UpdateClass(ctx context.Context, request openapi.UpdateClassReq
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return openapi.UpdateClass404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound(ctx))),
 			}, nil
 		}
 		return nil, err
@@ -173,10 +177,10 @@ func (h Classes) AddClassMember(ctx context.Context, request openapi.AddClassMem
 	case err == nil:
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.AddClassMember404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgClassNotFound))}, nil
+			httpapi.NotFound(ctx, msgClassNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrNotAStudent):
 		return openapi.AddClassMember404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgStudentNotFound))}, nil
+			httpapi.NotFound(ctx, msgStudentNotFound(ctx)))}, nil
 	default:
 		return nil, err
 	}
@@ -211,7 +215,7 @@ func (h Classes) RemoveClassMember(ctx context.Context, request openapi.RemoveCl
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return openapi.RemoveClassMember404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound)),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound(ctx))),
 			}, nil
 		}
 		return nil, err
