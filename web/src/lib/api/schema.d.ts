@@ -2196,7 +2196,7 @@ export interface components {
              *     maintenance answer; and request validation. The answers shared
              *     middleware writes on every operation (401, 403, 413, 429, 500,
              *     501, and the 400 for a body that cannot be read) and every other
-             *     refusal a handler writes are Vietnamese until issue #284 is fixed.
+             *     refusal a handler writes are Vietnamese until issue 284 is fixed.
              *     Display it; do not build copy from `code`, except for the two
              *     codes the `ErrorCode` description names.
              * @example Mã lớp không hợp lệ.
