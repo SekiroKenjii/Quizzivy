@@ -47,15 +47,15 @@ afterEach(() => {
 
 describe("where a signed-in user lands", () => {
   it.each([
-    ["a teacher", teacherUser, "/teacher"],
-    ["an assistant", assistantUser, "/teacher"],
-    ["the admin", adminUser, "/teacher"],
-    ["a user with the admin workspace alone", adminOnly, "/teacher"],
-    ["an admin who takes tests", adminWhoTakesTests, "/teacher"],
-    ["a student", studentUser, "/app"],
-    ["a user with no workspace", nobody, "/app"],
-    ["nobody", null, "/app"],
-  ])("sends %s home to %s", (_who, user, home) => {
+    ["a teacher", "/teacher", teacherUser],
+    ["an assistant", "/teacher", assistantUser],
+    ["the admin", "/teacher", adminUser],
+    ["a user with the admin workspace alone", "/teacher", adminOnly],
+    ["an admin who takes tests", "/teacher", adminWhoTakesTests],
+    ["a student", "/app", studentUser],
+    ["a user with no workspace", "/app", nobody],
+    ["nobody", "/app", null],
+  ])("sends %s home to %s", (_who, home, user) => {
     expect(homePathFor(user)).toBe(home);
   });
 });
