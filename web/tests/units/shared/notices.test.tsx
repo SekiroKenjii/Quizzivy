@@ -156,6 +156,30 @@ describe("Callout", () => {
     expect(screen.getByText(LEAVE).className).toBe("min-w-0");
   });
 
+  it.each([null, false] as const)(
+    "does not wrap or stretch its text when actions is %s",
+    (actions) => {
+      const { container } = render(<Callout actions={actions}>{LEAVE}</Callout>);
+      expect(container.firstElementChild).not.toHaveClass("flex-wrap");
+      expect(screen.getByText(LEAVE).className).toBe("min-w-0");
+    },
+  );
+
+  it("keeps the 280px text basis when it has actions and a dismiss button", () => {
+    render(
+      <Callout
+        actions={<button type="button">Xem bản nháp</button>}
+        onDismiss={vi.fn()}
+      >
+        {LEAVE}
+      </Callout>,
+    );
+    expect(screen.getByText(LEAVE)).toHaveClass("flex-[1_1_17.5rem]");
+    const [action, dismiss] = screen.getAllByRole("button");
+    expect(action).toHaveTextContent("Xem bản nháp");
+    expect(dismiss).toHaveAccessibleName("Ẩn thông báo");
+  });
+
   it("has a dismiss button, named in Vietnamese, that calls onDismiss", async () => {
     const user = userEvent.setup();
     const onDismiss = vi.fn();
@@ -252,6 +276,12 @@ describe("Callout", () => {
       expect(icon).toHaveAttribute("aria-hidden", "true");
     },
   );
+
+  it("is neutral unless given a tone", () => {
+    const { container } = render(<Callout>{LEAVE}</Callout>);
+    expect(container.firstElementChild).toHaveClass("bg-muted", "[&>svg]:text-fg");
+    expect(container.querySelector("svg")).toHaveClass("lucide-info");
+  });
 
   it("takes an icon in place of its tone's", () => {
     const { container } = render(<Callout icon={ShieldCheck}>{LEAVE}</Callout>);
