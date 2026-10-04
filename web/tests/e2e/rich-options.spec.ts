@@ -109,7 +109,7 @@ test("builder flushes rich edits before switching questions and previews the sav
       await route.fulfill({ json: question });
     },
   });
-  await page.goto(`/admin/tests/${testID}/edit`);
+  await page.goto(`/teacher/tests/${testID}/edit`);
   await page.getByRole("button", { name: "Sửa định dạng phương án 1" }).click();
   const editor = page.getByRole("textbox", {
     name: "Nội dung lựa chọn 1",
@@ -215,7 +215,7 @@ test("bank formatting survives save and reload without changing the answer key",
     },
   });
   await page.setViewportSize({ width: 768, height: 900 });
-  await page.goto(`/admin/question-bank/${QUESTION_ID}`);
+  await page.goto(`/teacher/question-bank/${QUESTION_ID}`);
   await page.getByRole("button", { name: "Sửa định dạng phương án 1" }).click();
   const editor = page.getByRole("textbox", {
     name: "Nội dung lựa chọn 1",

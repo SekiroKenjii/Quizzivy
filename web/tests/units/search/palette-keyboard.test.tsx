@@ -87,11 +87,11 @@ function renderPalette() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin", element: <CommandPalette open onOpenChange={() => {}} /> },
-      { path: "/admin/tests/:id", element: <p>trang đề thi</p> },
-      { path: "/admin/question-bank/:id", element: <p>trang câu hỏi</p> },
+      { path: "/teacher", element: <CommandPalette open onOpenChange={() => {}} /> },
+      { path: "/teacher/tests/:id", element: <p>trang đề thi</p> },
+      { path: "/teacher/question-bank/:id", element: <p>trang câu hỏi</p> },
     ],
-    { initialEntries: ["/admin"] },
+    { initialEntries: ["/teacher"] },
   );
   render(
     <QueryClientProvider client={client}>

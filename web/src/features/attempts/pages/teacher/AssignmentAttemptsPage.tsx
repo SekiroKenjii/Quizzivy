@@ -90,7 +90,7 @@ export default function AssignmentAttemptsPage() {
       <EmptyState
         action={
           <Button variant="outline" size="sm" asChild>
-            <Link to="/admin/assignments">{t("assignments.detail.backToList")}</Link>
+            <Link to="/teacher/assignments">{t("assignments.detail.backToList")}</Link>
           </Button>
         }
       >
@@ -129,7 +129,7 @@ export default function AssignmentAttemptsPage() {
     <>
       <PageHeader
         title={t("papers.title", { title: a.testTitle })}
-        backTo={`/admin/assignments/${a.id}`}
+        backTo={`/teacher/assignments/${a.id}`}
         backLabel={t("papers.backToAssignment")}
         meta={
           <>
@@ -317,7 +317,7 @@ function Row({
             </span>
             {row.score.pendingManual > 0 && row.attemptId ? (
               <Link
-                to={`/admin/attempts/${row.attemptId}`}
+                to={`/teacher/attempts/${row.attemptId}`}
                 className={cn(badgeVariants({ variant: "outline" }), "hover:bg-accent")}
               >
                 {t("monitor.pendingBadge", { count: row.score.pendingManual })}
@@ -331,7 +331,7 @@ function Row({
       <TableCell className="text-right">
         <RowMenu>
           <DropdownMenuItem asChild>
-            <Link to={`/admin/students?studentId=${row.studentId}`}>
+            <Link to={`/teacher/students?studentId=${row.studentId}`}>
               <Eye aria-hidden="true" />
               {t("papers.viewStudent")}
             </Link>
@@ -339,7 +339,7 @@ function Row({
           {row.attemptId ? (
             <>
               <DropdownMenuItem asChild>
-                <Link to={`/admin/attempts/${row.attemptId}`}>
+                <Link to={`/teacher/attempts/${row.attemptId}`}>
                   <Eye aria-hidden="true" />
                   {t("monitor.menu.view")}
                 </Link>

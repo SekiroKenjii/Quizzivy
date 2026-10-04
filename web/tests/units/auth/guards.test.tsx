@@ -33,7 +33,7 @@ function renderAt(path: string) {
       children: [
         { path: "/change-password-guarded", element: <p>change password page</p> },
         {
-          path: "/admin",
+          path: "/teacher",
           element: <TeacherWorkspace />,
           children: [
             {
@@ -125,10 +125,10 @@ describe("role guards", () => {
       accessToken: "t",
       user: studentUser,
     });
-    const router = renderAt("/admin");
+    const router = renderAt("/teacher");
     expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument();
     expect(screen.queryByText("admin home")).not.toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/admin");
+    expect(router.state.location.pathname).toBe("/teacher");
   });
 
   it("lets a teacher into the admin tree", async () => {
@@ -137,7 +137,7 @@ describe("role guards", () => {
       accessToken: "t",
       user: adminUser,
     });
-    renderAt("/admin");
+    renderAt("/teacher");
     expect(await screen.findByText("admin home")).toBeInTheDocument();
   });
 
@@ -150,7 +150,7 @@ describe("role guards", () => {
     const router = renderAt("/app");
 
     expect(await screen.findByText("admin home")).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/admin");
+    expect(router.state.location.pathname).toBe("/teacher");
   });
 
   it("lets a student into the student tree", async () => {
@@ -170,29 +170,29 @@ describe.each([
   {
     who: "the Admin",
     user: adminUser,
-    home: "/admin",
+    home: "/teacher",
     admin: "admin home",
-    app: "/admin",
+    app: "/teacher",
   },
   {
     who: "a Teacher",
     user: teacherUser,
-    home: "/admin",
+    home: "/teacher",
     admin: "admin home",
-    app: "/admin",
+    app: "/teacher",
   },
   {
     who: "an Assistant",
     user: assistantUser,
-    home: "/admin",
+    home: "/teacher",
     admin: "admin home",
-    app: "/admin",
+    app: "/teacher",
   },
   { who: "a Student", user: studentUser, home: "/app", admin: "403", app: "/app" },
   {
     who: "an Admin who takes tests",
     user: adminWhoTakesTests,
-    home: "/admin",
+    home: "/teacher",
     admin: "admin home",
     app: "/app",
   },
@@ -223,11 +223,11 @@ describe.each([
     await waitFor(() => expect(router.state.location.pathname).toBe(home));
   });
 
-  it(`answers /admin with ${admin}`, async () => {
+  it(`answers /teacher with ${admin}`, async () => {
     signIn();
-    const router = renderAt("/admin");
+    const router = renderAt("/teacher");
     if (admin === "403") {
-      await expectForbidden(router, "/admin");
+      await expectForbidden(router, "/teacher");
       return;
     }
     expect(await screen.findByText(admin)).toBeInTheDocument();
@@ -254,7 +254,7 @@ describe("signing out", () => {
       accessToken: "t",
       user: adminUser,
     });
-    const router = renderAt("/admin");
+    const router = renderAt("/teacher");
     expect(await screen.findByText("admin home")).toBeInTheDocument();
 
     // The order useLogout uses: leave first, forget second.

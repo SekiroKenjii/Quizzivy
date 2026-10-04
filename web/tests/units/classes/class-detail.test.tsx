@@ -185,8 +185,8 @@ beforeEach(() => {
 function renderDetail() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/classes/:id", element: <ClassDetailPage /> }],
-    { initialEntries: [`/admin/classes/${CLASS_ID}`] },
+    [{ path: "/teacher/classes/:id", element: <ClassDetailPage /> }],
+    { initialEntries: [`/teacher/classes/${CLASS_ID}`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -257,12 +257,12 @@ describe("the class's assignments (G-06)", () => {
       within(card).getByRole("link", { name: "Unit 4 — Past simple review" }),
     ).toHaveAttribute(
       "href",
-      "/admin/assignments/018f0000-0000-7000-8000-0000000000d2",
+      "/teacher/assignments/018f0000-0000-7000-8000-0000000000d2",
     );
     expect(within(card).getByText("18/18")).toBeInTheDocument();
     expect(within(card).getByRole("link", { name: "Xem tất cả" })).toHaveAttribute(
       "href",
-      `/admin/assignments?classId=${CLASS_ID}`,
+      `/teacher/assignments?classId=${CLASS_ID}`,
     );
   });
 });

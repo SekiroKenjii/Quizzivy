@@ -406,7 +406,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         queryClient.invalidateQueries({ queryKey: ["admin-test-preview", test.id] }),
         queryClient.invalidateQueries({ queryKey: ["admin-tests"] }),
       ]);
-      await navigate(`/admin/tests/${test.id}`);
+      await navigate(`/teacher/tests/${test.id}`);
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "PUBLISH_VALIDATION_FAILED") {
         setViolations(cause.violations);
@@ -681,7 +681,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           variant="ghost"
           size="icon-sm"
           aria-label={t("common.back")}
-          onClick={() => void navigate("/admin/tests")}
+          onClick={() => void navigate("/teacher/tests")}
         >
           <ArrowLeft aria-hidden="true" />
         </Button>
@@ -718,7 +718,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             size="sm"
             className="text-muted-foreground"
             aria-label={t("builder.versions")}
-            onClick={() => void navigate(`/admin/tests/${test.id}#versions`)}
+            onClick={() => void navigate(`/teacher/tests/${test.id}#versions`)}
           >
             <History aria-hidden="true" />
             <span className="hidden lg:inline">{t("builder.versions")}</span>

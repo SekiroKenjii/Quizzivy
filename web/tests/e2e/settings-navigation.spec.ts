@@ -7,7 +7,7 @@ test("teacher settings retain draft fields between sections and respect reduced 
   await stubApi(page, sessionAs(adminUser));
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/admin/settings");
+  await page.goto("/teacher/settings");
   await expect
     .poll(() =>
       page

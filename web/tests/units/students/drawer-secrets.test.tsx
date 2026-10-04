@@ -75,8 +75,8 @@ beforeEach(() => {
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/students", element: <StudentsListPage /> }],
-    { initialEntries: ["/admin/students"] },
+    [{ path: "/teacher/students", element: <StudentsListPage /> }],
+    { initialEntries: ["/teacher/students"] },
   );
   render(
     <QueryClientProvider client={client}>

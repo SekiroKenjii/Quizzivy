@@ -35,12 +35,12 @@ beforeEach(() => {
   );
 });
 
-function renderHistory(entry = "/admin/imports") {
+function renderHistory(entry = "/teacher/imports") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/imports", element: <ImportsListPage /> },
-      { path: "/admin/imports/new", element: <p>new import</p> },
+      { path: "/teacher/imports", element: <ImportsListPage /> },
+      { path: "/teacher/imports/new", element: <p>new import</p> },
     ],
     { initialEntries: [entry] },
   );
@@ -89,18 +89,18 @@ describe("the Word import history", () => {
       within(row("Đề A")).getByRole("link", { name: "Tiếp tục rà soát Đề A" }),
     ).toHaveAttribute(
       "href",
-      "/admin/imports/018f0000-0000-7000-8000-000000000101/review",
+      "/teacher/imports/018f0000-0000-7000-8000-000000000101/review",
     );
     expect(
       within(row("Đề B")).getByRole("link", { name: "Xem tiến trình của Đề B" }),
     ).toBeInTheDocument();
     expect(
       within(row("Đề C")).getByRole("link", { name: "Mở đề đã tạo từ Đề C" }),
-    ).toHaveAttribute("href", `/admin/tests/${TEST_ID}/edit`);
+    ).toHaveAttribute("href", `/teacher/tests/${TEST_ID}/edit`);
     expect(
       within(table).getByRole("link", { name: "Đề C" }),
       "the title opens the import itself, with its original files",
-    ).toHaveAttribute("href", "/admin/imports/018f0000-0000-7000-8000-000000000103");
+    ).toHaveAttribute("href", "/teacher/imports/018f0000-0000-7000-8000-000000000103");
     expect(within(row("Đề D")).getByText("Xử lý không thành công")).toBeInTheDocument();
     expect(
       within(row("Đề D")).getByRole("link", { name: "Xem lỗi của Đề D" }),
@@ -151,7 +151,7 @@ describe("the Word import history", () => {
 
   it("reads its filters from the URL and offers to clear them when nothing matches", async () => {
     items = [wordImport()];
-    const { user, router } = renderHistory("/admin/imports?status=failed&q=hk1");
+    const { user, router } = renderHistory("/teacher/imports?status=failed&q=hk1");
     expect(
       await screen.findByText("Không có lần nhập nào khớp bộ lọc."),
     ).toBeInTheDocument();

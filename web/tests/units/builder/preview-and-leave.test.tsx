@@ -89,11 +89,11 @@ async function renderBuilder() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/tests/:id/edit", element: <TestBuilderPage /> },
-      { path: "/admin/tests/:id", element: <p>detail page</p> },
-      { path: "/admin/tests", element: <p>tests list</p> },
+      { path: "/teacher/tests/:id/edit", element: <TestBuilderPage /> },
+      { path: "/teacher/tests/:id", element: <p>detail page</p> },
+      { path: "/teacher/tests", element: <p>tests list</p> },
     ],
-    { initialEntries: [`/admin/tests/${TEST_ID}/edit`] },
+    { initialEntries: [`/teacher/tests/${TEST_ID}/edit`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -128,7 +128,7 @@ describe("the builder's bar", () => {
     await user.click(screen.getByRole("button", { name: "Phiên bản" }));
 
     await waitFor(() => expect(router.state.location.hash).toBe("#versions"));
-    expect(router.state.location.pathname).toBe(`/admin/tests/${TEST_ID}`);
+    expect(router.state.location.pathname).toBe(`/teacher/tests/${TEST_ID}`);
   });
 
   it("asks before leaving while a save is still in flight, and stays on Ở lại", async () => {
@@ -144,12 +144,12 @@ describe("the builder's bar", () => {
     ).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Ở lại" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(router.state.location.pathname).toBe(`/admin/tests/${TEST_ID}/edit`);
+    expect(router.state.location.pathname).toBe(`/teacher/tests/${TEST_ID}/edit`);
 
     await user.click(screen.getByRole("button", { name: "Quay lại" }));
     await user.click(
       within(await screen.findByRole("dialog")).getByRole("button", { name: "Rời đi" }),
     );
-    await waitFor(() => expect(router.state.location.pathname).toBe("/admin/tests"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/teacher/tests"));
   });
 });

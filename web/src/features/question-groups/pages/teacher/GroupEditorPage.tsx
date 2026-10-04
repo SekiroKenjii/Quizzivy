@@ -108,7 +108,7 @@ function Editor({
       client.setQueryData(["admin-group", saved.bundle.group.id], saved);
       void client.invalidateQueries({ queryKey: ["admin-groups"] });
       leaving.current = true;
-      void navigate(`/admin/question-bank/groups/${saved.bundle.group.id}`);
+      void navigate(`/teacher/question-bank/groups/${saved.bundle.group.id}`);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : t("groups.saveFailed"));
     } finally {
@@ -125,7 +125,7 @@ function Editor({
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
         title={editor.bundle.group.title || t("groups.newGroup")}
-        backTo="/admin/question-bank/groups"
+        backTo="/teacher/question-bank/groups"
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => setPreview(true)}>

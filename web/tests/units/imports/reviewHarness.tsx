@@ -174,12 +174,12 @@ export async function renderReview() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/imports/:id/review", element: <ImportReviewPage /> },
-      { path: "/admin/imports/:id", element: <p>import detail</p> },
-      { path: "/admin/imports", element: <p>history</p> },
-      { path: "/admin/tests/:id/edit", element: <p>builder</p> },
+      { path: "/teacher/imports/:id/review", element: <ImportReviewPage /> },
+      { path: "/teacher/imports/:id", element: <p>import detail</p> },
+      { path: "/teacher/imports", element: <p>history</p> },
+      { path: "/teacher/tests/:id/edit", element: <p>builder</p> },
     ],
-    { initialEntries: [`/admin/imports/${IMPORT_ID}/review`] },
+    { initialEntries: [`/teacher/imports/${IMPORT_ID}/review`] },
   );
   render(
     <QueryClientProvider client={client}>

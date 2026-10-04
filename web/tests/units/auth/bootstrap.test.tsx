@@ -28,14 +28,14 @@ function Harness() {
             element: <RequireSession />,
             children: [
               {
-                path: "/admin",
+                path: "/teacher",
                 element: <Outlet />,
                 children: [{ index: true, element: <p>admin home</p> }],
               },
             ],
           },
         ],
-        { initialEntries: ["/admin"] },
+        { initialEntries: ["/teacher"] },
       )}
     />
   );

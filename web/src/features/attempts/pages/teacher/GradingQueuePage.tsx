@@ -95,7 +95,7 @@ export default function GradingQueuePage() {
             <EmptyState
               action={
                 <Button size="sm" variant="outline" asChild>
-                  <Link to="/admin/assignments">{t("queue.toAssignments")}</Link>
+                  <Link to="/teacher/assignments">{t("queue.toAssignments")}</Link>
                 </Button>
               }
             >
@@ -147,7 +147,7 @@ function Row({ row, locale }: Readonly<{ row: AttemptListRow; locale: "vi" | "en
       </TableCell>
       <TableCell className="text-muted-foreground">
         <Link
-          to={`/admin/assignments/${row.assignmentId}`}
+          to={`/teacher/assignments/${row.assignmentId}`}
           className="hover:text-foreground"
         >
           {row.testTitle}
@@ -172,7 +172,7 @@ function Row({ row, locale }: Readonly<{ row: AttemptListRow; locale: "vi" | "en
       </TableCell>
       <TableCell className="text-right">
         <Button size="sm" variant="outline" asChild>
-          <Link to={`/admin/attempts/${row.id}`}>{t("queue.open")}</Link>
+          <Link to={`/teacher/attempts/${row.id}`}>{t("queue.open")}</Link>
         </Button>
       </TableCell>
     </TableRow>

@@ -92,8 +92,8 @@ beforeEach(() => {
 async function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/tests/:id/edit", element: <TestBuilderPage /> }],
-    { initialEntries: [`/admin/tests/${TEST_ID}/edit`] },
+    [{ path: "/teacher/tests/:id/edit", element: <TestBuilderPage /> }],
+    { initialEntries: [`/teacher/tests/${TEST_ID}/edit`] },
   );
   render(
     <QueryClientProvider client={client}>

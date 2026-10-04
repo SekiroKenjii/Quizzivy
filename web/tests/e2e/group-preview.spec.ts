@@ -54,7 +54,7 @@ async function setup(page: Page) {
     },
   });
   await page.route("https://assets.example/**", (route) => route.abort());
-  await page.goto(`/admin/tests/${testID}`);
+  await page.goto(`/teacher/tests/${testID}`);
 }
 
 for (const width of [768, 1440]) {

@@ -113,10 +113,10 @@ function renderDetail() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/tests/:id", element: <TestDetailPage /> },
-      { path: "/admin/tests/:id/edit", element: <p>builder</p> },
+      { path: "/teacher/tests/:id", element: <TestDetailPage /> },
+      { path: "/teacher/tests/:id/edit", element: <p>builder</p> },
     ],
-    { initialEntries: [`/admin/tests/${TEST_ID}`] },
+    { initialEntries: [`/teacher/tests/${TEST_ID}`] },
   );
   render(
     <QueryClientProvider client={client}>

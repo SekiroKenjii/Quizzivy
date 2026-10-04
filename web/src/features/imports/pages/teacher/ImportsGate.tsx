@@ -18,7 +18,7 @@ export default function ImportsGate() {
       <>
         <PageHeader
           title={t("imports.availability.offTitle")}
-          backTo="/admin/tests"
+          backTo="/teacher/tests"
           backLabel={t("imports.backToTests")}
         />
         <EmptyState hint={t("imports.availability.offHint")}>

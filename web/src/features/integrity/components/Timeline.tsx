@@ -20,6 +20,7 @@ import {
 } from "@/features/attempts/api";
 import { POLL_MS, eventsKey } from "@/features/attempts/keys";
 import { TeacherNoteCard } from "@/features/attempts/components/TeacherNoteCard";
+import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { formatInTimeZone } from "date-fns-tz";
 import { APP_TIME_ZONE } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
@@ -53,12 +54,14 @@ export function Timeline({
 }>) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<TimelineFilter>("all");
+  const refetchInterval = useIdlePolling(POLL_MS, live);
   const events = useQuery({
     queryKey: eventsKey(attemptId),
     queryFn: ({ signal }) => getAttemptEvents(attemptId, signal),
-    refetchInterval: live ? POLL_MS : false,
+    refetchInterval,
     refetchIntervalInBackground: false,
   });
+  useRefetchOnResume(events.refetch, live);
 
   if (events.isPending) return <TimelineSkeleton />;
   if (events.isError) {

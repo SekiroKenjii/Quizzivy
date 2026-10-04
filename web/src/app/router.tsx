@@ -5,9 +5,10 @@ import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
 import { StudentArea, TeacherWorkspace } from "@/app/guards/RequireWorkspace";
 import { HomeRedirect } from "@/app/guards/HomeRedirect";
+import { LegacyTeacherRedirect } from "@/app/LegacyTeacherRedirect";
 
 /**
- * §3's three route trees: public, /admin for the teacher, /app for students.
+ * §3's three route trees: public, /teacher for the teacher, /app for students.
  *
  * Guards are pathless routes so the tree structure states who may see what,
  * rather than each page re-checking.
@@ -43,8 +44,8 @@ const authTree: RouteObject = {
   ],
 };
 
-const adminTree: RouteObject = {
-  path: "admin",
+const teacherTree: RouteObject = {
+  path: "teacher",
   element: <TeacherWorkspace />,
   children: [
     {
@@ -261,7 +262,7 @@ const protectedTree: RouteObject = {
       path: "change-password",
       lazy: page(() => import("@/features/auth/pages/ChangePasswordPage")),
     },
-    adminTree,
+    teacherTree,
     studentTree,
     takeTestTree,
   ],
@@ -274,6 +275,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomeRedirect /> },
       authTree,
+      { path: "admin/*", element: <LegacyTeacherRedirect /> },
       protectedTree,
       // Eager, like the guard that also renders it.
       { path: "403", element: <ForbiddenPage /> },
