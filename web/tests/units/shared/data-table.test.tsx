@@ -653,6 +653,20 @@ describe("opening a row", () => {
     expect(opened()).toBe("/teacher/assignments/a3");
   });
 
+  it.each(["Control", "Meta", "Shift", "Alt"])(
+    "stays shut on a click off the link while %s is held",
+    async (key) => {
+      const user = userEvent.setup();
+      renderAssignments();
+      await user.keyboard(`{${key}>}`);
+      await user.click(within(bodyRows()[2]!).getByText("Fri 26 Sep"));
+      await user.keyboard(`{/${key}}`);
+      expect(opened()).toBeNull();
+      await user.click(within(bodyRows()[2]!).getByText("Fri 26 Sep"));
+      expect(opened()).toBe("/teacher/assignments/a3");
+    },
+  );
+
   it("stays shut on the checkbox", async () => {
     const user = userEvent.setup();
     renderAssignments();

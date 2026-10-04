@@ -102,6 +102,7 @@ const JOINED_ROW =
   "flex w-full items-center gap-3 px-3.5 py-3 text-left text-base leading-normal";
 
 function openFromRow(event: MouseEvent<HTMLElement>) {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   const row = event.currentTarget;
   const target = event.target;
   if (!(target instanceof Element) || !row.contains(target)) return;
@@ -366,11 +367,12 @@ function CardList<T extends Item>({
  * column's `cell` draws, which is what the keyboard reaches, so that `cell`
  * holds no control: one goes in the column's `aside`. The first cell, aside
  * included, names the row. A click elsewhere on the row presses the link or
- * button, unless the click landed on another control in the row or outside
- * the row, as one in an open menu does. The row itself is never focusable.
- * Below 768px a table that has `card` renders a list of cards instead,
- * without checkboxes, menus or asides. Content wider than the table scrolls
- * sideways inside it. Loading and failure stay with the screen.
+ * button, unless a modifier key is held or the click landed on another
+ * control in the row or outside the row, as one in an open menu does. The row
+ * itself is never focusable. Below 768px a table that has `card` renders a
+ * list of cards instead, without checkboxes, menus or asides. Content wider
+ * than the table scrolls sideways inside it. Loading and failure stay with
+ * the screen.
  */
 export function DataTable<T extends Item>(props: DataTableProps<T>) {
   const {
