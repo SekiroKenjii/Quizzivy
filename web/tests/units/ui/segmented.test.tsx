@@ -235,23 +235,23 @@ describe("an option's icon", () => {
     expect(plain(bare)).not.toContain("gap-1.75");
   });
 
-  it("is 13px in the two small rows", () => {
-    for (const size of ["sm", "xs"] as const) {
-      const view = render(
-        <Segmented
-          label="Nguồn"
-          size={size}
-          value="file"
-          options={SOURCES}
-          onChange={() => {}}
-        />,
-      );
-      const icon = screen.getByRole("button", {
-        name: "Tải tệp lên",
-      }).firstElementChild!;
-      expect(classes(icon)).toContain("size-[0.8125rem]");
-      view.unmount();
-    }
+  it.each([
+    ["default", "size-[0.9375rem]", "gap-1.5"],
+    ["sm", "size-[0.8125rem]", "gap-1.5"],
+    ["xs", "size-[0.8125rem]", "gap-1.25"],
+  ] as const)("keeps the %s row's own icon size and gap", (size, icon, gap) => {
+    render(
+      <Segmented
+        label="Nguồn"
+        size={size}
+        value="file"
+        options={SOURCES}
+        onChange={() => {}}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Tải tệp lên" });
+    expect(classes(button.firstElementChild!)).toContain(icon);
+    expect(plain(button).filter((c) => c.startsWith("gap-"))).toEqual([gap]);
   });
 });
 
