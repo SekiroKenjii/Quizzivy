@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { useImportAvailability, useImportRetention } from "../availability";
-import { SourceIntake } from "../components/SourceIntake";
-import { storeImport } from "../queries";
+import { useImportAvailability, useImportRetention } from "../../availability";
+import { SourceIntake } from "../../components/SourceIntake";
+import { storeImport } from "../../queries";
 
 export default function NewImportPage() {
   const { t } = useTranslation();

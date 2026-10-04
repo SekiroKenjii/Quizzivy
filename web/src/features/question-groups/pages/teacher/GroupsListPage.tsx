@@ -44,9 +44,9 @@ import {
   deleteGroup,
   listGroups,
   type GroupSummary,
-} from "../api";
-import { emptyGroup } from "../model";
-import { BankNavigation } from "../components/BankNavigation";
+} from "../../api";
+import { emptyGroup } from "../../model";
+import { BankNavigation } from "../../components/BankNavigation";
 
 type Action = { kind: "archive" | "restore" | "delete"; group: GroupSummary };
 export default function GroupsListPage() {

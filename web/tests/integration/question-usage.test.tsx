@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
 import { expect, it } from "vitest";
-import QuestionBankPage from "@/features/question-bank/pages/QuestionBankPage";
+import QuestionBankPage from "@/features/question-bank/pages/teacher/QuestionBankPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 
