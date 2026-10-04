@@ -17,7 +17,6 @@ import (
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 	"github.com/google/uuid"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
-	"golang.org/x/text/language"
 )
 
 // ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check. It also refuses a JSON body in which an object repeats a member name, which the schema validator reads as its last occurrence and the handler's decoder merges; a body the validator re-encoded to fill a default is passed on as the validator read it, without the repeat. A refusal names the field or parameter whose value broke its rule or, when no value did, the required top-level property the body lacks; an unknown property and a body that is not an object get the generic sentence. The sentences are Vietnamese or, when Accept-Language prefers it, English.
@@ -352,10 +351,7 @@ func failsAtNewPassword(reqErr *openapi3filter.RequestError) bool {
 }
 
 func newPasswordRule(r *http.Request) string {
-	if _, index := language.MatchStrings(maintenanceLanguages, r.Header.Get("Accept-Language")); index == 1 {
-		return "The new password needs 8 to 512 characters and a number or symbol."
-	}
-	return "Mật khẩu mới cần từ 8 đến 512 ký tự và có số hoặc ký hiệu."
+	return TextFor(r, "Mật khẩu mới cần từ 8 đến 512 ký tự và có số hoặc ký hiệu.", "The new password needs 8 to 512 characters and a number or symbol.")
 }
 
 func failingField(reqErr *openapi3filter.RequestError) string {

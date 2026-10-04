@@ -32,7 +32,7 @@ func AssertPublicRoutesLimited(spec *openapi3.T, reg *ratelimit.Registry) error 
 	}
 	sort.Strings(missing)
 	return fmt.Errorf(
-		"these operations are public in api/openapi.yaml but have no rate limit (§6.5, §14):\n  %s",
+		"these operations are public in api/openapi.yaml but have no rate limit (spec 6.5 and 14):\n  %s",
 		strings.Join(missing, "\n  "),
 	)
 }

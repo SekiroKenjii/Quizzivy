@@ -49,12 +49,12 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			if errors.Is(err, httpx.ErrNotImplemented) {
 				httpx.WriteError(w, r, http.StatusNotImplemented, httpx.CodeInternal,
-					"Chức năng này chưa được xây dựng.")
+					httpx.TextFor(r, "Chức năng này chưa được xây dựng.", "This feature has not been built yet."))
 				return
 			}
 			logger.Error("handler", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 			httpx.WriteError(w, r, http.StatusInternalServerError, httpx.CodeInternal,
-				"Đã xảy ra lỗi. Vui lòng thử lại.")
+				httpx.TextFor(r, "Đã xảy ra lỗi. Vui lòng thử lại.", "Something went wrong. Try again."))
 		},
 	})
 
