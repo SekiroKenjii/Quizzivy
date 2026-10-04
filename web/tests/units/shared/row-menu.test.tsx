@@ -289,4 +289,20 @@ describe("a row menu inside a row that opens on click", () => {
     expect(screen.getByRole("menu")).toBeInTheDocument();
     expect(onOpen).not.toHaveBeenCalled();
   });
+
+  it("lets a press and a key inside the menu reach the row too", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const onPress = vi.fn();
+    const onKey = vi.fn();
+    render(<Row onOpen={onOpen} onPress={onPress} onKey={onKey} />);
+    await user.click(trigger());
+    onPress.mockClear();
+    onKey.mockClear();
+    await user.keyboard("{ArrowDown}");
+    expect(onKey).toHaveBeenCalledWith("ArrowDown");
+    await user.click(screen.getByRole("menuitem", { name: "Nhân bản" }));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
 });
