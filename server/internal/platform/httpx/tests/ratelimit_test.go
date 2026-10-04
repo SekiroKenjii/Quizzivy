@@ -79,3 +79,38 @@ func TestAnEmptyKeySkipsItsBucket(t *testing.T) {
 		}
 	}
 }
+
+func TestARefusalHookRunsOnlyOnARefusedRequestAndBeforeTheAnswer(t *testing.T) {
+	reg := ratelimit.NewRegistry()
+	reg.Add("POST /auth/login", 100, ratelimit.PerMinute(1))
+	hook := func(w http.ResponseWriter, _ *http.Request) { w.Header().Add("X-Refused", "yes") }
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	h := httpx.RateLimit(reg, ratelimit.ClientIP(""), hook)(next)
+	attempt := func() *http.Response {
+		r := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+		r.Pattern = "POST /auth/login"
+		r.RemoteAddr = "198.51.100.20:1234"
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, r)
+		return rec.Result()
+	}
+
+	through := attempt()
+	if through.StatusCode != http.StatusNoContent {
+		t.Fatalf("the first request: %d, want it through", through.StatusCode)
+	}
+	if got := through.Header.Values("X-Refused"); len(got) != 0 {
+		t.Errorf("X-Refused %v on a request that was let through, want the hook not to run", got)
+	}
+
+	refused := attempt()
+	if refused.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("the second request: %d, want 429", refused.StatusCode)
+	}
+	if got := refused.Header.Get("X-Refused"); got != "yes" {
+		t.Errorf("X-Refused = %q on the 429, want yes: the hook runs before the answer is written", got)
+	}
+	if refused.Header.Get("Retry-After") == "" {
+		t.Error("the 429 carries no Retry-After")
+	}
+}
