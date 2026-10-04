@@ -9,7 +9,7 @@ const ALLOWED_FILES = new Set([
   "lib/api/schema.d.ts",
 ]);
 const ALLOWED_LITERALS = new Set(["/admin/docs-session", "/admin/users/{id}"]);
-const LITERAL = /(["'`])(\/admin(?=[/"'`?#$]|$)[^"'`]*)/g;
+const LITERAL = /(["'`])(\/admin(?=[/"'`?#$]|$)[^"'`]*)/gi;
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -59,6 +59,7 @@ describe("the teacher's routes live at /teacher", () => {
   it.each([
     ['<Link to="/admin">', "the bare prefix"],
     ["navigate('/admin/tests')", "single quotes"],
+    ['<Link to="/Admin/tests">', "another letter case, which the router also matches"],
     ["navigate(`/admin/tests/${id}/edit`)", "a template"],
     ["navigate(`/admin${search}`)", "a template that goes on with a value"],
     ['href="/admin?tab=draft"', "a query"],

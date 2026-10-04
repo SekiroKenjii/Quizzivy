@@ -140,6 +140,7 @@ describe("the old /admin addresses in the app's own route table", () => {
     ["/admin/assignments/new?classId=c1", "/teacher/assignments/new?classId=c1"],
     ["/admin/settings/security", "/teacher/settings/security"],
     ["/admin/tests/abc#versions", "/teacher/tests/abc#versions"],
+    ["/Admin/Tests/ABC", "/teacher/Tests/ABC"],
   ])("opens %s as %s for a teacher", async (from, to) => {
     signIn(teacherUser);
     const router = show(routes, [from]);

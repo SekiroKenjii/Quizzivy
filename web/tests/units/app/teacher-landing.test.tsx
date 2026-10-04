@@ -110,7 +110,15 @@ describe("the splash hand-off for the teacher's tree", () => {
       expect(screen.getByText("khung giáo viên"), path).toBeInTheDocument();
       unmount();
     }
-    for (const path of ["/teachers", "/teacher-old", "/app", "/login", "/"]) {
+    for (const path of [
+      "/teachers",
+      "/teacher-old",
+      "/admin",
+      "/admin/tests",
+      "/app",
+      "/login",
+      "/",
+    ]) {
       expect(skeletonFor(path), path).toBeNull();
     }
   });
