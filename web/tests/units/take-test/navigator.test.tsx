@@ -827,7 +827,7 @@ describe("the footer from 768", () => {
     ]);
   });
 
-  it("keeps a long paper's strip within three rows and brings the open question into view", async () => {
+  it("keeps a long paper's strip within four rows and brings the open question into view", async () => {
     const seen: Element[] = [];
     const scrollIntoView = vi.fn(function (this: Element) {
       seen.push(this);
@@ -839,7 +839,7 @@ describe("the footer from 768", () => {
 
       const strip = squares(nav())[0]?.parentElement;
       expect(squares(nav())).toHaveLength(40);
-      expect(strip).toHaveClass("max-h-30", "overflow-y-auto", "flex-wrap");
+      expect(strip).toHaveClass("max-h-40", "overflow-y-auto", "flex-wrap");
       expect(seen.at(-1)).toBe(squares(nav())[0]);
       expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "nearest" });
 

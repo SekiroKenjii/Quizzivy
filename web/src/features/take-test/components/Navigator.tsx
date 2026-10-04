@@ -45,7 +45,7 @@ interface Squares {
  * Navigator is the engine's footer, under the question pane: Previous, the
  * questions, and Next, which on the last question is Finish and asks to hand
  * the paper in. From 768 the questions are a strip of numbered squares that
- * wraps and, past three rows, scrolls inside itself. Below 768 one button
+ * wraps and, past four rows, scrolls inside itself. Below 768 one button
  * says which question is open and how many are answered, and opens the same
  * squares in a bottom sheet. A square is filled when its question is
  * answered, has the accent border when it is the one on screen and an amber
@@ -135,7 +135,7 @@ function Strip({ dots, current, groups, onJump }: Readonly<Squares>) {
   }, [current]);
 
   return (
-    <div className="-m-1 flex max-h-30 min-w-0 flex-1 flex-wrap justify-center gap-[5px] overflow-y-auto p-1">
+    <div className="-m-1 flex max-h-40 min-w-0 flex-1 flex-wrap justify-center gap-[5px] overflow-y-auto p-1">
       {partsOf(groups, dots).flatMap((part, at) =>
         part.squares.map(({ dot, index }, place) => (
           <Square
