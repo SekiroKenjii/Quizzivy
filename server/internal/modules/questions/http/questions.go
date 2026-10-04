@@ -13,6 +13,10 @@ import (
 	"strconv"
 )
 
+func msgQuestionNotFound(ctx context.Context) string {
+	return httpx.Text(ctx, "Không tìm thấy câu hỏi.", "The question was not found.")
+}
+
 // ListQuestions implements GET /teacher/questions -- the §8 bank, with type and
 // tag filters plus accent-insensitive search (D-11).
 func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuestionsRequestObject) (openapi.ListQuestionsResponseObject, error) {
@@ -94,7 +98,7 @@ func (h Questions) GetQuestion(ctx context.Context, request openapi.GetQuestionR
 	q, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
+			httpapi.NotFound(ctx, msgQuestionNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -141,7 +145,7 @@ func (h Questions) DuplicateQuestion(ctx context.Context, request openapi.Duplic
 	q, err := h.app.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: req})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.DuplicateQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
+			httpapi.NotFound(ctx, msgQuestionNotFound(ctx)))}, nil
 	}
 	if resp, handled := questionWriteError(ctx, err); handled {
 		return openapi.DuplicateQuestion400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(resp)}, nil
@@ -168,7 +172,7 @@ func (h Questions) UpdateQuestion(ctx context.Context, request openapi.UpdateQue
 	q, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.UpdateQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
+			httpapi.NotFound(ctx, msgQuestionNotFound(ctx)))}, nil
 	}
 	if resp, handled := questionWriteError(ctx, err); handled {
 		return openapi.UpdateQuestion400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(resp)}, nil
@@ -198,7 +202,8 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 		return openapi.DeleteQuestion204Response{}, nil
 	case errors.Is(err, domain.ErrReferenced):
 		resp := httpapi.Error(ctx, openapi.QUESTIONREFERENCED,
-			"Câu hỏi đang được dùng trong một đề nháp nên không thể xoá.")
+			httpx.Text(ctx, "Câu hỏi đang được dùng trong một đề nháp nên không thể xoá.",
+				"The question is used in a draft test, so it cannot be deleted."))
 		var blocked *domain.ReferencedError
 		if errors.As(err, &blocked) {
 			refs := make([]openapi.ReferencingTest, len(blocked.Tests))
@@ -210,7 +215,7 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 		return openapi.DeleteQuestion409JSONResponse(resp), nil
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.DeleteQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
+			httpapi.NotFound(ctx, msgQuestionNotFound(ctx)))}, nil
 	default:
 		return nil, err
 	}
@@ -219,7 +224,8 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, bool) {
 	var invalid *domain.ValidationError
 	if errors.As(err, &invalid) {
-		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Dữ liệu câu hỏi không hợp lệ.")
+		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			httpx.Text(ctx, "Dữ liệu câu hỏi không hợp lệ.", "The question data is not valid."))
 		details := map[string]interface{}{}
 		for _, f := range invalid.Fields {
 			if _, seen := details[f.Field]; !seen {
@@ -230,8 +236,9 @@ func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, 
 		return resp, true
 	}
 	if errors.Is(err, domain.ErrMediaNotFound) {
-		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Không tìm thấy tệp đính kèm.")
-		resp.Error.Details = &map[string]interface{}{"mediaAssetId": "Tệp không tồn tại hoặc đã bị xoá."}
+		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			httpx.Text(ctx, "Không tìm thấy tệp đính kèm.", "The attachment was not found."))
+		resp.Error.Details = &map[string]interface{}{"mediaAssetId": httpx.Text(ctx, "Tệp không tồn tại hoặc đã bị xoá.", "The file does not exist or has been deleted.")}
 		return resp, true
 	}
 	return openapi.ErrorResponse{}, false
