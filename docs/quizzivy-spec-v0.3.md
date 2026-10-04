@@ -20,9 +20,11 @@ as built (T-R3.5 to T-R3.11):
   the review page. Keys are A–E, F and the arrows, which stop at either end.
 - §10.1 The clipboard listeners are on `document`.
 - §10.2 The focus dialog's body is the deck's, without the seconds away or
-  "the timer keeps running". The engine leaves fullscreen once the attempt is
-  submitted and records no fullscreen change after that. A blocked copy or
-  paste raises a toast. The timer turns red under five minutes.
+  "the timer keeps running". The intro's start or resume click enters
+  fullscreen; Home's resume card does not, and the engine's bar offers it. The
+  engine leaves fullscreen once the attempt is submitted and records no
+  fullscreen change after that. A blocked copy or paste raises a toast. The
+  timer turns red under five minutes.
 - §10.6 `useClipboardNotice` has its own clipboard listeners, for the toast.
 - §12 The student rules: one breakpoint, the page widths, the 44px floor and
   the controls that keep the deck's size, the dialog frame, the timer's digit
@@ -1156,7 +1158,7 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 
 Announced, visible, never silent.
 
-- The intro page states the active rules in plain Vietnamese before starting, generated from the stored policy (§9). If `requireFullscreen` is on, the click that starts or resumes the attempt is what enters fullscreen (browsers require a gesture): "Bắt đầu" in the "Bắt đầu ngay?" dialog, or "Tiếp tục làm bài". A browser with no fullscreen is told so and takes the test as normal.
+- The intro page states the active rules in plain Vietnamese before starting, generated from the stored policy (§9). If `requireFullscreen` is on, the intro's click that starts or resumes the attempt is what enters fullscreen (browsers require a gesture): "Bắt đầu" in the "Bắt đầu ngay?" dialog, or the intro's "Tiếp tục làm bài". Home's "Tiếp tục làm bài" (§9) goes straight to the paper and does not ask for fullscreen: the engine opens outside it and shows the fullscreen bar described below. A browser with no fullscreen is told so and takes the test as normal.
 - Each counted absence opens the deck's `alertdialog` when the student returns: "Bạn vừa rời trang làm bài", one body and one button, "Quay lại bài làm". The body says where the student stands and what happens next, and only what the server does:
   - within the allowance, "Lần này được tính là lần n trong m lần được phép…";
   - past it under `flag`, that the teacher has been told and the answers are safe (D8);
