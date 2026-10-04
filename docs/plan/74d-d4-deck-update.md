@@ -130,7 +130,10 @@ and puts both runs in its pull request:
 - autosave's two flushes (on unmount and before publish): `builder/autosave-unmount.test.tsx`,
   `builder/autosave-flush.test.tsx`, `tests/units/question-groups/*` and
   `builder-group-recovery.spec.ts` for T-D4.2a, T-D4.2b, T-D4.2c, T-D4.14 and T-D4.15;
-- the server task: the Go unit tests of `questions`, `tests` and `attempts`.
+- the server task: `make test-api-integration`, which holds the two server canaries and the
+  two lock tests of `questions` and `media` (all four carry the `integration` tag, so
+  `make test-api-unit` runs none of them), and the Go unit tests of `questions`, `tests`,
+  `attempts` and `media`.
 
 **Reading the references.** "S 1631" and "T 6986" are line numbers in the *pretty* form of the
 imported Student and Teacher pages, the page with a newline between every two tags. After
@@ -1212,8 +1215,16 @@ would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
 **Touches:** `api/openapi.yaml` (`AudioPolicy`, a new `StudentAudioPolicy`, `StudentQuestion.audio`, `StudentGroupRecording.policy`, the `StudentSection` description), `server/gen/openapi/`, `web/src/lib/api/schema.d.ts`, `migrations/NNNNN_add_questions_audio_allow_pause.sql`, `NNNNN_add_test_version_questions_audio_allow_pause.sql`, `NNNNN_add_group_recordings_allow_pause.sql`, `NNNNN_add_test_version_group_recordings_allow_pause.sql` (new; numbered at merge), `server/internal/modules/questions/{domain/question.go,http/{input,questions}.go,repositories/store.go}`, `server/internal/modules/tests/{domain/{draft,publish_validation}.go,http/{tests,preview_groups}.go,repositories/{group_assets,group_frozen,group_read,preview,preview_groups,publish_groups,publish_group_snapshot,publish_load,publish_snapshot,version_draft}.go}` and the group write, duplicate and group-copy paths, `server/internal/modules/attempts/{domain/paper.go,http/{attempts,admin_attempts}.go,repositories/{store,review_review}.go}`, the import commit's default, `seed/`, the student-shaped fixtures `web/tests/support/groupPreview.ts`, `web/tests/units/take-test/{panes.test.tsx,question-audio-events.test.tsx,deckSession.ts}`, `web/tests/units/builder/group-preview.test.tsx`, `web/tests/e2e/audio-events.spec.ts` and the MSW fixtures of a session, `server/internal/modules/tests/application/tests/allow_pause_test.go` (new), `docs/plan/20-data-model.md`, `docs/quizzivy-spec-v0.3.md` §11.1, §13, §15, `docs/plan/74-r4.md` and `docs/plan/70-redesign-overview.md` (their open items on "Students can pause")
 **Size:** M
 **Done when:**
-- [ ] The publish-snapshot and attempts canaries and the Go unit tests of `questions`, `tests`
-      and `attempts` run on the branch point and on the last commit (high-risk area).
+- [ ] `make test-api-integration` and the Go unit tests of `questions`, `tests`, `attempts`
+      and `media` run on the branch point and on the last commit, both runs in the PR
+      (high-risk area). The integration run is the one that holds `publish_snapshot_test.go`,
+      `attempts/application/tests/events_test.go`,
+      `TestLockForVersionUseSerialisesAgainstDelete` and
+      `TestLockForDraftUseSerialisesAgainstDelete`; the PR names the four as passed.
+- [ ] The task adds a column to the rows these paths insert and changes no lock: every insert
+      into `app.test_version_questions` still follows `media.LockForVersionUse`, and every
+      insert into `app.test_section_questions` still follows `questions.LockForDraftUse`
+      (AGENTS.md, "High-risk areas").
 - [ ] Four migrations, one concern each, each with a working Down, goose up/down/up in CI:
       `questions.audio_allow_pause boolean` and `test_version_questions.audio_allow_pause
       boolean`, both nullable with `CHECK (audio_allow_pause IS NULL OR media_asset_kind IS NOT
@@ -1264,7 +1275,8 @@ would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
       update reads true.
 - [ ] No operation is added or changes its `x-permission`; `permissions.golden` and the
       isolation suite are unchanged, and the PR says so. The existing second-teacher cases for
-      `updateQuestion` and `updateQuestionGroup` cover the field.
+      `updateQuestion` and `updateQuestionGroup` cover the field. No `x-resource` entry is
+      added or changed: `allowPause` is a boolean, not an id.
 - [ ] Leak review in the PR: `allowPause` is a rule a student is meant to read, not a key. The
       four forbidden keys are unchanged; `StudentAudioPolicy` holds none of them;
       `payload_test.go`, `openapi-contract.test.ts` and E2E 9 pass with their key lists
