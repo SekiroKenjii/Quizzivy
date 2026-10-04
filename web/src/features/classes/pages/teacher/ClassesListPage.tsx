@@ -279,7 +279,7 @@ function Row({
   const { t } = useTranslation();
   const archived = klass.archivedAt !== null;
   const muted = archived ? "text-muted-foreground" : undefined;
-  const href = `/admin/classes/${klass.id}`;
+  const href = `/teacher/classes/${klass.id}`;
 
   return (
     <TableRow>
@@ -329,7 +329,7 @@ function Row({
             {archived ? null : (
               <>
                 <DropdownMenuItem asChild>
-                  <Link to={`/admin/assignments/new?classId=${klass.id}`}>
+                  <Link to={`/teacher/assignments/new?classId=${klass.id}`}>
                     <Send className="text-muted-foreground" aria-hidden="true" />
                     {t("classes.assign")}
                   </Link>

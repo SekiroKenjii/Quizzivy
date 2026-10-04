@@ -20,6 +20,7 @@ const (
 	CodeUnauthorized     ErrorCode = "UNAUTHORIZED"
 	CodeForbidden        ErrorCode = "FORBIDDEN"
 	CodeNotFound         ErrorCode = "NOT_FOUND"
+	CodeMethodNotAllowed ErrorCode = "METHOD_NOT_ALLOWED"
 	CodeRateLimited      ErrorCode = "RATE_LIMITED"
 	CodeInternal         ErrorCode = "INTERNAL"
 	CodeMaintenance      ErrorCode = "MAINTENANCE"

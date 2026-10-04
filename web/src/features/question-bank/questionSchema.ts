@@ -185,7 +185,7 @@ function validateChoice(
   if (value.type !== "multiple_choice" && correct > 1) issue("options", "oneCorrect");
 }
 
-/** A blank single-choice question -- what /admin/question-bank/new starts from. */
+/** A blank single-choice question -- what /teacher/question-bank/new starts from. */
 export function emptyQuestion(): QuestionValues {
   return {
     type: "single_choice",

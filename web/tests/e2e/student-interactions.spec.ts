@@ -74,7 +74,6 @@ test("rich table blanks preserve frozen answer bindings and reload on a 320px ph
   await expect(page.locator("table input").first()).toHaveValue("two");
   await engineFits(page);
   await page.reload();
-  await page.getByRole("button", { name: "Câu sau", exact: true }).click();
   await expect(first).toHaveValue("one");
   await expect(second).toHaveValue("two");
   await page.screenshot({
@@ -166,3 +165,15 @@ for (const [width, floored] of [
     else expect(box.height).toBeLessThan(44);
   });
 }
+
+test("a reload opens the question that was open", async ({ page }) => {
+  await start(page);
+  const next = page.getByRole("button", { name: "Câu sau", exact: true });
+  await next.click();
+  await next.click();
+  const third = page.getByText("Viết một câu", { exact: true });
+  await expect(third).toBeVisible();
+  await page.reload();
+  await expect(third).toBeVisible();
+  await expect(page.getByText("Chọn đáp án", { exact: true })).toBeHidden();
+});

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -10,6 +17,7 @@ import {
   RouterProvider,
   type DataRouter,
 } from "react-router";
+import { RequireSession } from "@/app/guards/RequireSession";
 import GoogleCallbackPage from "@/features/auth/pages/GoogleCallbackPage";
 import LoginPage from "@/features/auth/pages/LoginPage";
 import { rememberPending } from "@/features/auth/google/pkce";
@@ -447,5 +455,175 @@ describe("a 401 that arrives after signing out", () => {
       expired: false,
     });
     expect(useAppState.getState().overlay.kind).toBe("none");
+  });
+});
+
+const MAINTENANCE = {
+  startsAt: "2026-10-04T10:00:00Z",
+  endsAt: "2026-10-04T11:00:00Z",
+};
+
+function SignOut({ onSignedOut }: Readonly<{ onSignedOut: () => void }>) {
+  const logout = useLogout();
+  return (
+    <button type="button" onClick={() => void logout().then(onSignedOut)}>
+      sign out
+    </button>
+  );
+}
+
+function openSignedIn() {
+  const page = gate();
+  const signedOut = vi.fn<() => void>();
+  const router = createMemoryRouter(
+    [
+      {
+        element: <RequireSession />,
+        children: [{ path: "/app", element: <SignOut onSignedOut={signedOut} /> }],
+      },
+      {
+        path: "/login",
+        lazy: async () => {
+          await page.opened;
+          return { element: <p>login page</p> };
+        },
+      },
+    ],
+    { initialEntries: ["/app"] },
+  );
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return { router, page, signedOut };
+}
+
+function classesRefusedAfter(opened: Promise<void>) {
+  return http.get(`${BASE}/app/classes`, async () => {
+    await opened;
+    return unauthorized();
+  });
+}
+
+function expectSignedOutOnTheLoginPage(router: DataRouter) {
+  expect(useAppState.getState().overlay.kind).toBe("none");
+  expect(router.state.location.pathname).toBe("/login");
+  expect(useAuthStore.getState()).toMatchObject({
+    accessToken: null,
+    user: null,
+    expired: false,
+  });
+}
+
+describe("a 401 handled while signing out", () => {
+  beforeEach(() => {
+    useAuthStore.getState().setSession("token-a", studentUser);
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("leaves no sign-in-again overlay on the login page when the refusal lands before the session is cleared", async () => {
+    const late = gate();
+    server.use(
+      classesRefusedAfter(late.opened),
+      http.post(`${BASE}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
+      http.post(`${BASE}/auth/refresh`, () => refreshRefused()),
+    );
+    const user = userEvent.setup();
+    const { router, page, signedOut } = openSignedIn();
+
+    const failure = api("get", "/app/classes").catch((cause: unknown) => cause);
+    await user.click(await screen.findByRole("button", { name: "sign out" }));
+    await waitFor(() => expect(router.state.navigation.state).not.toBe("idle"));
+    late.open();
+    await waitFor(() => expect(lost).toHaveBeenCalled());
+    expect(useAppState.getState().overlay.kind).toBe("expired");
+    page.open();
+    expect(await screen.findByText("login page")).toBeInTheDocument();
+    await waitFor(() => expect(signedOut).toHaveBeenCalled());
+
+    expectSignedOutOnTheLoginPage(router);
+    expect(await failure).toBeInstanceOf(ApiError);
+  });
+
+  it("leaves none when the refusal lands while the logout request is still out", async () => {
+    const late = gate();
+    const logoutAsked = gate();
+    const logout = gate();
+    server.use(
+      classesRefusedAfter(late.opened),
+      http.post(`${BASE}/auth/logout`, async () => {
+        logoutAsked.open();
+        await logout.opened;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post(`${BASE}/auth/refresh`, () => refreshRefused()),
+    );
+    const user = userEvent.setup();
+    const { router, page, signedOut } = openSignedIn();
+
+    const failure = api("get", "/app/classes").catch((cause: unknown) => cause);
+    await user.click(await screen.findByRole("button", { name: "sign out" }));
+    await logoutAsked.opened;
+    late.open();
+    await waitFor(() => expect(lost).toHaveBeenCalled());
+    expect(useAppState.getState().overlay.kind).toBe("expired");
+    expect(router.state.navigation.state).toBe("idle");
+    logout.open();
+    await waitFor(() => expect(router.state.navigation.state).not.toBe("idle"));
+    page.open();
+    expect(await screen.findByText("login page")).toBeInTheDocument();
+    await waitFor(() => expect(signedOut).toHaveBeenCalled());
+
+    expectSignedOutOnTheLoginPage(router);
+    expect(await failure).toBeInstanceOf(ApiError);
+  });
+
+  it("leaves a maintenance overlay alone", async () => {
+    server.use(
+      http.post(`${BASE}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
+    );
+    const user = userEvent.setup();
+    const { router, page, signedOut } = openSignedIn();
+    useAppState.getState().showOverlay({ kind: "maintenance", window: MAINTENANCE });
+
+    await user.click(await screen.findByRole("button", { name: "sign out" }));
+    await waitFor(() => expect(router.state.navigation.state).not.toBe("idle"));
+    page.open();
+    expect(await screen.findByText("login page")).toBeInTheDocument();
+    await waitFor(() => expect(signedOut).toHaveBeenCalled());
+
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAppState.getState().overlay).toEqual({
+      kind: "maintenance",
+      window: MAINTENANCE,
+    });
+  });
+
+  it("still raises the overlay for a refusal when nobody is signing out", async () => {
+    const late = gate();
+    server.use(
+      classesRefusedAfter(late.opened),
+      http.post(`${BASE}/auth/refresh`, () => refreshRefused()),
+    );
+    const { router, signedOut } = openSignedIn();
+    expect(await screen.findByRole("button", { name: "sign out" })).toBeInTheDocument();
+
+    const failure = api("get", "/app/classes").catch((cause: unknown) => cause);
+    late.open();
+
+    expect(await failure).toBeInstanceOf(ApiError);
+    expect(lost).toHaveBeenCalledOnce();
+    expect(signedOut).not.toHaveBeenCalled();
+    expect(router.state.location.pathname).toBe("/app");
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: null,
+      user: studentUser,
+      expired: true,
+    });
+    expect(useAppState.getState().overlay.kind).toBe("expired");
   });
 });

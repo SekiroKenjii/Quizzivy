@@ -151,7 +151,7 @@ module:
 | `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application) |
 | `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`), one module's handlers behind another's port (`Media`, `MediaKinds`), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver` |
 | `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.1 to T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
-| `core/jobs` | background commands (`PruneRefreshTokens`) |
+| `core/jobs` | background commands (`PruneRefreshTokens`, `PruneNotifications`) |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
 A new module is wired in `wiring/<module>.go`. An optional dependency stays a
@@ -278,9 +278,14 @@ time once: a type-level contract assertion was silently never evaluated.
   authentication: during a window every route answers `503 MAINTENANCE`, an
   expired token included, and only `GET`/`HEAD` `/livez`, `/healthz` and
   `/public/status` pass. It runs only when the path matches a route under some
-  method (`routedOnly` in `router.go`): a path no route serves gets the mux's
-  404 without a read of the window snapshot, so scanners cannot wake Neon
-  through it. `maintenance_gate_test.go` pins its position.
+  method (`routedOnly` in `router.go`): a path no route serves gets the
+  envelope's `404 NOT_FOUND` without a read of the window snapshot, so scanners
+  cannot wake Neon through it. Inside the gate, `servedMethodOnly` answers a
+  known path under a method it does not serve with `405 METHOD_NOT_ALLOWED` and
+  `Allow`, and serves `HEAD` on an open `GET` as that `GET` without a body;
+  `HEAD` on a `GET` that needs a token is the same 405.
+  `maintenance_gate_test.go` pins its position and `unrouted_test.go` these
+  answers.
 - **The contract is enforced at runtime, once, in `httpx.ValidateRequests`.**
   Do not hand-write `required` / length / format checks in a handler; put the
   constraint in `api/openapi.yaml` and it is enforced everywhere. Handlers still

@@ -93,7 +93,7 @@ export default function TestDetailPage() {
         queryClient.invalidateQueries({ queryKey: ["admin-questions"] }),
       ]);
       toast(t("tests.versionActionSaved"));
-      if (input.kind === "draft") void navigate(`/admin/tests/${id}/edit`);
+      if (input.kind === "draft") void navigate(`/teacher/tests/${id}/edit`);
     },
     onError: (cause) =>
       setActionError(
@@ -119,7 +119,7 @@ export default function TestDetailPage() {
     <>
       <PageHeader
         title={test.data.title}
-        backTo="/admin/tests"
+        backTo="/teacher/tests"
         meta={<StatusBadge kind="test" status={test.data.status} />}
         actions={
           <>
@@ -133,7 +133,7 @@ export default function TestDetailPage() {
               {t("tests.versionHistory")}
             </Button>
             <Button asChild size="sm" variant="outline">
-              <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
+              <Link to={`/teacher/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
             </Button>
           </>
         }
@@ -155,7 +155,7 @@ export default function TestDetailPage() {
           <div className="space-y-3">
             <p className="text-muted-foreground text-sm">{t("tests.notPublished")}</p>
             <Button asChild size="sm">
-              <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
+              <Link to={`/teacher/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
             </Button>
           </div>
         ) : (

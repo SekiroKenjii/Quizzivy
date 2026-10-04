@@ -69,10 +69,10 @@ function renderBank() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/question-bank", element: <QuestionBankPage /> },
-      { path: "/admin/question-bank/:id", element: <p>editor</p> },
+      { path: "/teacher/question-bank", element: <QuestionBankPage /> },
+      { path: "/teacher/question-bank/:id", element: <p>editor</p> },
     ],
-    { initialEntries: ["/admin/question-bank"] },
+    { initialEntries: ["/teacher/question-bank"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -90,7 +90,7 @@ describe("a bank row (A-06a)", () => {
       await screen.findByRole("link", {
         name: "The letter ___ yesterday by the manager.",
       }),
-    ).toHaveAttribute("href", `/admin/question-bank/${ID}`);
+    ).toHaveAttribute("href", `/teacher/question-bank/${ID}`);
 
     await user.click(screen.getByRole("button", { name: "Thao tác" }));
     const menu = await screen.findByRole("menu");
@@ -116,7 +116,7 @@ describe("a bank row (A-06a)", () => {
     });
     expect(links).toHaveLength(2);
     const copy = links.find(
-      (link) => link.getAttribute("href") === `/admin/question-bank/${COPY}`,
+      (link) => link.getAttribute("href") === `/teacher/question-bank/${COPY}`,
     );
     expect(copy).toBeInTheDocument();
     expect(within(copy!.closest("tr")!).getByText("Vừa nhân bản")).toBeInTheDocument();

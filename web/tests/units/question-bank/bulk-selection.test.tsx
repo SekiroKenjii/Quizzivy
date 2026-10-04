@@ -61,8 +61,8 @@ beforeEach(() => {
 function renderBank() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/question-bank", element: <QuestionBankPage /> }],
-    { initialEntries: ["/admin/question-bank"] },
+    [{ path: "/teacher/question-bank", element: <QuestionBankPage /> }],
+    { initialEntries: ["/teacher/question-bank"] },
   );
   render(
     <QueryClientProvider client={client}>

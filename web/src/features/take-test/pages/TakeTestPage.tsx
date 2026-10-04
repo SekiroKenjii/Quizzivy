@@ -43,6 +43,11 @@ import {
   sectionAt,
   type SectionGroup,
 } from "../sections";
+import {
+  clearOpenQuestion,
+  readOpenQuestion,
+  writeOpenQuestion,
+} from "../openQuestion";
 import { hasPassage, questionShowing, useKeptScroll } from "../panes";
 import { questionKind } from "../questionType";
 import { useTakeTestStore } from "../store";
@@ -126,6 +131,7 @@ export default function TakeTestPage() {
     if (ended && asksFullscreen) void exitFullscreen();
   }, [ended, asksFullscreen]);
 
+  const restoredFor = useRef<string | null>(null);
   useEffect(() => {
     if (attemptId === undefined) return;
     const abort = new AbortController();
@@ -133,6 +139,12 @@ export default function TakeTestPage() {
       .then((session) => {
         if (abort.signal.aborted) return;
         hydrate(session);
+        if (restoredFor.current !== attemptId) {
+          restoredFor.current = attemptId;
+          const stored = readOpenQuestion(attemptId);
+          const at = session.questions.findIndex((item) => item.id === stored);
+          if (at >= 0) setIndex(at);
+        }
         setStatus("ready");
       })
       .catch((cause: unknown) => {
@@ -160,6 +172,14 @@ export default function TakeTestPage() {
     },
     [attemptId, reset],
   );
+
+  const openId = question?.id;
+  const ready = status === "ready";
+  useEffect(() => {
+    if (attemptId === undefined) return;
+    if (ended) clearOpenQuestion(attemptId);
+    else if (ready && openId !== undefined) writeOpenQuestion(attemptId, openId);
+  }, [attemptId, openId, ready, ended]);
 
   const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
     if (lock !== null || submitState !== "idle" || question === undefined) return;

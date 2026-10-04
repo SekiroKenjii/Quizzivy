@@ -427,7 +427,7 @@ describe("a review that cannot be edited", () => {
     await renderReview();
     expect(screen.getByRole("link", { name: "Xem lần nhập" })).toHaveAttribute(
       "href",
-      `/admin/imports/${IMPORT_ID}`,
+      `/teacher/imports/${IMPORT_ID}`,
     );
     expect(screen.queryByRole("link", { name: "Xem tiến trình" })).toBeNull();
   });
@@ -441,8 +441,8 @@ describe("the review's data", () => {
       draft: { ...baseline().draft, title: "Bản cũ trước khi xử lý lại" },
     });
     const router = createMemoryRouter(
-      [{ path: "/admin/imports/:id/review", element: <ImportReviewPage /> }],
-      { initialEntries: [`/admin/imports/${IMPORT_ID}/review`] },
+      [{ path: "/teacher/imports/:id/review", element: <ImportReviewPage /> }],
+      { initialEntries: [`/teacher/imports/${IMPORT_ID}/review`] },
     );
     render(
       <QueryClientProvider client={client}>
@@ -513,11 +513,11 @@ function renderWithDetail() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/imports/:id/review", element: <ImportReviewPage /> },
-      { path: "/admin/imports/:id", element: <p>import detail</p> },
-      { path: "/admin/imports", element: <p>history</p> },
+      { path: "/teacher/imports/:id/review", element: <ImportReviewPage /> },
+      { path: "/teacher/imports/:id", element: <p>import detail</p> },
+      { path: "/teacher/imports", element: <p>history</p> },
     ],
-    { initialEntries: [`/admin/imports/${IMPORT_ID}/review`] },
+    { initialEntries: [`/teacher/imports/${IMPORT_ID}/review`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -571,7 +571,7 @@ describe("a review that retention removed", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Xem lượt nhập" })).toHaveAttribute(
       "href",
-      `/admin/imports/${IMPORT_ID}`,
+      `/teacher/imports/${IMPORT_ID}`,
     );
   });
 });
@@ -738,10 +738,10 @@ describe("reprocessing with a chosen key paper", () => {
     await choosePaper(user);
     await waitFor(() => expect(posts).toBe(1));
 
-    await act(() => router.navigate("/admin/imports"));
+    await act(() => router.navigate("/teacher/imports"));
     expect(await screen.findByText("history")).toBeInTheDocument();
     gate.resolve();
     await vi.advanceTimersByTimeAsync(200);
-    expect(router.state.location.pathname).toBe("/admin/imports");
+    expect(router.state.location.pathname).toBe("/teacher/imports");
   });
 });

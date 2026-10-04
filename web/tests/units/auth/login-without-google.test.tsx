@@ -15,7 +15,7 @@ vi.mock("@/features/auth/google/useGoogleSignIn", async (importOriginal) => ({
 function renderLogin() {
   const routes: RouteObject[] = [
     { path: "/login", element: <LoginPage /> },
-    { path: "/admin", element: <p>admin home</p> },
+    { path: "/teacher", element: <p>admin home</p> },
     { path: "/app", element: <p>student home</p> },
   ];
   render(

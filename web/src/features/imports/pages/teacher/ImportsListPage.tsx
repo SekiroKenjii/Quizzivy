@@ -90,7 +90,7 @@ export default function ImportsListPage() {
     );
   const start = (
     <Button asChild size="sm">
-      <Link to="/admin/imports/new">
+      <Link to="/teacher/imports/new">
         <FileUp aria-hidden="true" />
         {t("imports.start")}
       </Link>
@@ -158,7 +158,7 @@ export default function ImportsListPage() {
     <div className="space-y-4">
       <PageHeader
         title={t("imports.historyTitle")}
-        backTo="/admin/tests"
+        backTo="/teacher/tests"
         backLabel={t("imports.backToTests")}
         actions={canStart ? start : undefined}
       />

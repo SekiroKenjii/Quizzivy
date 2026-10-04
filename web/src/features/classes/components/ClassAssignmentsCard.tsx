@@ -36,7 +36,7 @@ export function ClassAssignmentsCard({ classId }: Readonly<{ classId: string }>)
   const items = [...(assignments.data?.items ?? [])]
     .sort((a, b) => ORDER[statusAt(a, now)] - ORDER[statusAt(b, now)])
     .slice(0, SHOWN);
-  const listHref = `/admin/assignments?classId=${classId}`;
+  const listHref = `/teacher/assignments?classId=${classId}`;
 
   return (
     <Card asChild className="gap-0 py-0">
@@ -77,7 +77,7 @@ export function ClassAssignmentsCard({ classId }: Readonly<{ classId: string }>)
                 <EmptyState
                   action={
                     <Button variant="outline" size="sm" asChild>
-                      <Link to={`/admin/assignments/new?classId=${classId}`}>
+                      <Link to={`/teacher/assignments/new?classId=${classId}`}>
                         <ClipboardList aria-hidden="true" />
                         {t("classDetail.assignToClass")}
                       </Link>
@@ -130,7 +130,7 @@ function Row({
     <TableRow>
       <TableCell>
         <Link
-          to={`/admin/assignments/${assignment.id}`}
+          to={`/teacher/assignments/${assignment.id}`}
           className="truncate font-medium hover:underline"
         >
           {assignment.testTitle}

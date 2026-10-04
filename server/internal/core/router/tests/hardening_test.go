@@ -24,8 +24,8 @@ func TestBodyLimitPrecedesJSONValidation(t *testing.T) {
 }
 
 func TestSecurityHeadersOnSuccessFailureAndPreflight(t *testing.T) {
-	private := map[string]bool{"/auth/login": true, "/app/assignments": true, "/teacher/dashboard": true, "/admin/docs-session": true}
-	for _, path := range []string{"/livez", "/healthz", "/app/assignments", "/auth/login", "/teacher/dashboard", "/admin/docs-session", "/missing"} {
+	private := map[string]bool{"/auth/login": true, "/app/assignments": true, "/teacher/dashboard": true, "/admin/docs-session": true, "/me/summary": true}
+	for _, path := range []string{"/livez", "/healthz", "/app/assignments", "/auth/login", "/teacher/dashboard", "/admin/docs-session", "/me/summary", "/missing"} {
 		t.Run(path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			newTestRouter(t, fakeDB{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))

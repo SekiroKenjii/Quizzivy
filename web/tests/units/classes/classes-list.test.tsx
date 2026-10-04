@@ -101,10 +101,10 @@ function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/classes", element: <ClassesListPage /> },
-      { path: "/admin/classes/:id", element: <p>class page</p> },
+      { path: "/teacher/classes", element: <ClassesListPage /> },
+      { path: "/teacher/classes/:id", element: <p>class page</p> },
     ],
-    { initialEntries: ["/admin/classes"] },
+    { initialEntries: ["/teacher/classes"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -166,7 +166,7 @@ describe("the classes list", () => {
     );
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(
-        "/admin/classes/018f0000-0000-7000-8000-0000000000c9",
+        "/teacher/classes/018f0000-0000-7000-8000-0000000000c9",
       ),
     );
   });

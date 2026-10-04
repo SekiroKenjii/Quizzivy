@@ -17,8 +17,8 @@ function openPreferencesAs(signedIn: components["schemas"]["CurrentUser"]) {
   useAuthStore.getState().setUser(signedIn);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/settings/:section?", element: <AdminSettingsPage /> }],
-    { initialEntries: ["/admin/settings/preferences"] },
+    [{ path: "/teacher/settings/:section?", element: <AdminSettingsPage /> }],
+    { initialEntries: ["/teacher/settings/preferences"] },
   );
   return render(
     <QueryClientProvider client={client}>

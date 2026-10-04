@@ -1,10 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { http } from "msw";
 import { Monitor } from "@/features/attempts/components/Monitor";
+import { POLL_MS } from "@/features/attempts/keys";
+import { IDLE_AFTER_MS } from "@/hooks/useIdlePolling";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -44,6 +54,7 @@ function renderMonitor(live: boolean) {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return client;
 }
 
 function setVisibility(state: "visible" | "hidden") {
@@ -51,7 +62,13 @@ function setVisibility(state: "visible" | "hidden") {
     value: state,
     configurable: true,
   });
-  document.dispatchEvent(new Event("visibilitychange"));
+  act(() => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+}
+
+function advance(ms: number) {
+  return act(() => vi.advanceTimersByTimeAsync(ms));
 }
 
 describe("the monitor", () => {
@@ -61,6 +78,7 @@ describe("the monitor", () => {
     serve();
   });
   afterEach(() => {
+    cleanup();
     setVisibility("visible");
     vi.useRealTimers();
   });
@@ -87,6 +105,87 @@ describe("the monitor", () => {
     expect(fetches).toBe(1);
   });
 
+  it("stops polling after ten idle minutes, refetches at once on a key press and polls from there", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = renderMonitor(true);
+    expect(await screen.findByText("Phạm Gia Hân")).toBeInTheDocument();
+
+    await advance(IDLE_AFTER_MS);
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    const whenIdle = fetches;
+    expect(whenIdle).toBeGreaterThan(1);
+    await advance(5 * 60_000);
+    expect(client.isFetching()).toBe(0);
+    expect(fetches).toBe(whenIdle);
+
+    const pressedAt = Date.now();
+    fireEvent.keyDown(window, { key: "Shift" });
+    expect(client.isFetching()).toBe(1);
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(fetches).toBe(whenIdle + 1);
+    expect(Date.now() - pressedAt).toBeLessThan(POLL_MS);
+
+    await advance(12_000);
+    expect(fetches).toBe(whenIdle + 1);
+    await advance(3_100);
+    await waitFor(() => expect(fetches).toBe(whenIdle + 2));
+  });
+
+  it("refetches at once when the tab becomes visible again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = renderMonitor(true);
+    expect(await screen.findByText("Phạm Gia Hân")).toBeInTheDocument();
+    expect(fetches).toBe(1);
+
+    setVisibility("hidden");
+    await advance(31_000);
+    expect(fetches).toBe(1);
+
+    setVisibility("visible");
+    expect(client.isFetching()).toBe(1);
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(fetches).toBe(2);
+  });
+
+  it("refetches once when the tab comes back after ten hidden minutes, and polls from there without an input", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = renderMonitor(true);
+    expect(await screen.findByText("Phạm Gia Hân")).toBeInTheDocument();
+    expect(fetches).toBe(1);
+
+    setVisibility("hidden");
+    await advance(IDLE_AFTER_MS + 60_000);
+    expect(fetches).toBe(1);
+
+    setVisibility("visible");
+    expect(client.isFetching()).toBe(1);
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(fetches).toBe(2);
+
+    fireEvent.keyDown(window, { key: "Shift" });
+    expect(client.isFetching()).toBe(0);
+
+    await advance(12_000);
+    expect(fetches).toBe(2);
+    await advance(3_100);
+    await waitFor(() => expect(fetches).toBe(3));
+  });
+
+  it("sends nothing on a key press or a return to the tab once the assignment is closed", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = renderMonitor(false);
+    expect(await screen.findByText("Phạm Gia Hân")).toBeInTheDocument();
+
+    await advance(IDLE_AFTER_MS);
+    fireEvent.keyDown(window, { key: "Shift" });
+    expect(client.isFetching()).toBe(0);
+    setVisibility("hidden");
+    setVisibility("visible");
+    expect(client.isFetching()).toBe(0);
+    await advance(31_000);
+    expect(fetches).toBe(1);
+  });
+
   it("draws every targeted student, including the one who has not started", async () => {
     renderMonitor(true);
     expect(await screen.findByText("Hoàng Tiến Dũng")).toBeInTheDocument();
@@ -94,7 +193,7 @@ describe("the monitor", () => {
     expect(within(row).getByText("Chưa bắt đầu")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "chờ chấm 2" })).toHaveAttribute(
       "href",
-      "/admin/attempts/018f0000-0000-7000-8000-0000000000a8",
+      "/teacher/attempts/018f0000-0000-7000-8000-0000000000a8",
     );
     expect(screen.getByLabelText("8 trên 24 câu đã trả lời")).toBeInTheDocument();
   });

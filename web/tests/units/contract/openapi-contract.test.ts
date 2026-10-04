@@ -72,6 +72,31 @@ describe("§13.5: the student-payload boundary", () => {
     expect(leaks).toEqual([]);
   });
 
+  it("exposes no grading key from any /me/* success response, the notifications among them", () => {
+    const mine = ops.filter(({ path }) => path.startsWith("/me/"));
+    const list = mine.find(({ op }) => op.operationId === "listNotifications");
+    expect(list?.path).toBe("/me/notifications");
+    const walked = propertyNames(doc, jsonResponseSchema(list?.op, 200));
+    for (const reached of ["items", "kind", "params", "title", "studentName", "target"])
+      expect(walked.has(reached), `the walk does not reach ${reached}`).toBe(true);
+    expect(mine.flatMap(leaksIn)).toEqual([]);
+  });
+
+  it("finds a grading key under /me/* when one is there", () => {
+    const leaky = structuredClone(doc);
+    leaky.components.schemas.NotificationParams.properties.sampleAnswer = {
+      type: "string",
+    };
+    const found = operations(leaky)
+      .filter(({ path }) => path.startsWith("/me/"))
+      .flatMap((o) =>
+        successStatuses(o.op).filter((status) =>
+          propertyNames(leaky, jsonResponseSchema(o.op, status)).has("sampleAnswer"),
+        ),
+      );
+    expect(found).toEqual(["200"]);
+  });
+
   it("keeps StudentQuestion clean in isolation", () => {
     const names = propertyNames(doc, doc.components.schemas.StudentQuestion);
     for (const bad of FORBIDDEN)

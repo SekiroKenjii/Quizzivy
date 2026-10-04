@@ -276,7 +276,7 @@ describe("the splash hand-off", () => {
     expect(
       skeletonFor("/app/attempts/018f0000-0000-7000-8000-0000000000e1"),
     ).toBeNull();
-    expect(skeletonFor("/admin")).toBeNull();
+    expect(skeletonFor("/teacher")).toBeNull();
     expect(
       skeletonFor("/app/attempts/018f0000-0000-7000-8000-0000000000e1/result"),
     ).not.toBeNull();

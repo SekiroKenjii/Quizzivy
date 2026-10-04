@@ -67,19 +67,21 @@ describe("workspaces", () => {
 });
 
 describe("home", () => {
-  it("sends the teacher and admin workspaces to /admin and everyone else to /app", () => {
-    expect(homePathFor(adminUser)).toBe("/admin");
-    expect(homePathFor(teacherUser)).toBe("/admin");
-    expect(homePathFor(assistantUser)).toBe("/admin");
-    expect(homePathFor({ ...adminUser, workspaces: ["admin"] })).toBe("/admin");
+  it("sends the teacher and admin workspaces to /teacher and everyone else to /app", () => {
+    expect(homePathFor(adminUser)).toBe("/teacher");
+    expect(homePathFor(teacherUser)).toBe("/teacher");
+    expect(homePathFor(assistantUser)).toBe("/teacher");
+    expect(homePathFor({ ...adminUser, workspaces: ["admin"] })).toBe("/teacher");
     expect(homePathFor(studentUser)).toBe("/app");
     expect(homePathFor({ ...studentUser, workspaces: [] })).toBe("/app");
     expect(homePathFor(null)).toBe("/app");
   });
 
   it("prefers a same-site next over the home", () => {
-    expect(destinationAfterSignIn("/admin/tests", studentUser)).toBe("/admin/tests");
-    expect(destinationAfterSignIn("//evil.example", teacherUser)).toBe("/admin");
+    expect(destinationAfterSignIn("/teacher/tests", studentUser)).toBe(
+      "/teacher/tests",
+    );
+    expect(destinationAfterSignIn("//evil.example", teacherUser)).toBe("/teacher");
     expect(destinationAfterSignIn(null, studentUser)).toBe("/app");
   });
 });

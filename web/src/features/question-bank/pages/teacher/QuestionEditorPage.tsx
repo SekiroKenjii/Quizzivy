@@ -85,7 +85,7 @@ function Editor({
     onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
       toast(t("questionEditor.saved"));
-      void navigate(`/admin/question-bank/${saved.id}`, { replace: true });
+      void navigate(`/teacher/question-bank/${saved.id}`, { replace: true });
     },
     onError: (cause) => {
       setError(
@@ -114,7 +114,7 @@ function Editor({
             ? t("questionEditor.newTitle")
             : t("questionEditor.editTitle")
         }
-        backTo="/admin/question-bank"
+        backTo="/teacher/question-bank"
         actions={
           <>
             {blocked === null ? null : (

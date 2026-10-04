@@ -15,7 +15,7 @@ export function TargetsLine({ assignment }: Readonly<{ assignment: Assignment }>
       {classes.map((c) => (
         <Link
           key={c.id}
-          to={`/admin/classes/${c.id}`}
+          to={`/teacher/classes/${c.id}`}
           className={cn(badgeVariants({ variant: "secondary" }), "hover:bg-accent")}
         >
           <GraduationCap aria-hidden="true" />

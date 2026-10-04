@@ -50,8 +50,8 @@ it("loads attached tests on expansion and renders links in a nested table", asyn
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/question-bank", element: <QuestionBankPage /> }],
-    { initialEntries: ["/admin/question-bank"] },
+    [{ path: "/teacher/question-bank", element: <QuestionBankPage /> }],
+    { initialEntries: ["/teacher/question-bank"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -67,7 +67,7 @@ it("loads attached tests on expansion and renders links in a nested table", asyn
   });
   expect(within(table).getByRole("link", { name: "Grammar outline" })).toHaveAttribute(
     "href",
-    `/admin/tests/${testId}/edit`,
+    `/teacher/tests/${testId}/edit`,
   );
   expect(details).toBe(1);
   expect(toggle).toHaveAttribute("aria-expanded", "true");

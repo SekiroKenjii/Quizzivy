@@ -13,9 +13,9 @@ test("mixed builder saves new sections, moves complete groups, copies context an
 }, testInfo) => {
   test.setTimeout(150_000);
   await signInAsAdmin(page);
-  await page.goto("/admin/tests");
+  await page.goto("/teacher/tests");
   await page.getByRole("button", { name: "Đề thi mới", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+\/edit$/);
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
   const builderPath = new URL(page.url()).pathname;
   await page
     .getByRole("textbox", { name: "Tên đề thi", exact: true })

@@ -16,6 +16,9 @@ GET /app/attempts/{id}/result learning.take_tests
 GET /app/classes learning.take_tests
 GET /app/media/{assetId}/url learning.take_tests
 GET /auth/me self
+GET /me/notification-preferences self
+GET /me/notifications self
+GET /me/summary self
 GET /teacher/assignments workspace.teacher
 GET /teacher/assignments/{id} workspace.teacher
 GET /teacher/assignments/{id}/answers teaching.grading
@@ -63,6 +66,7 @@ POST /app/attempts/{id}/submit learning.take_tests
 POST /app/classes/join learning.take_tests
 POST /auth/change-password self
 POST /auth/google/link self
+POST /me/notifications/read self
 POST /teacher/assignments teaching.assignments.write
 POST /teacher/assignments/{id}/reopen teaching.assignments.write
 POST /teacher/attempts/{id}/extend teaching.attempts.intervene
@@ -93,5 +97,6 @@ POST /teacher/tests/{id}/duplicate content.tests.write
 POST /teacher/tests/{id}/publish content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/current content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/draft content.tests.write
+PUT /me/notification-preferences self
 PUT /teacher/imports/{id}/review content.tests.write
 PUT /teacher/question-groups/{id} content.questions.write | content.tests.write

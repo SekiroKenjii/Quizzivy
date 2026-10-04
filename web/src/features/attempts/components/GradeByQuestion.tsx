@@ -92,7 +92,7 @@ export function GradeByQuestion({
     <>
       <PageHeader
         title={t("byQuestion.title")}
-        backTo={`/admin/assignments/${assignmentId}`}
+        backTo={`/teacher/assignments/${assignmentId}`}
         meta={
           data ? (
             <span className="text-muted-foreground text-xs">

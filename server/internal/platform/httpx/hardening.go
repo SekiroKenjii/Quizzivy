@@ -85,7 +85,7 @@ func requestBodyLimit(pattern string, fallback int64, limits map[string]int64) i
 	return fallback
 }
 
-var privateTrees = []string{"/auth/", "/app/", "/teacher/", "/admin/"}
+var privateTrees = []string{"/auth/", "/app/", "/teacher/", "/admin/", "/me/"}
 
 func privateTree(path string) bool {
 	for _, prefix := range privateTrees {

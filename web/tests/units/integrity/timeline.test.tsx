@@ -1,10 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
 import { Timeline } from "@/features/integrity/components/Timeline";
 import { timelineRows, hasOpenEpisode } from "@/features/integrity/timeline";
 import type { IntegrityEvent } from "@/features/attempts/api";
+import { POLL_MS } from "@/features/attempts/keys";
+import { IDLE_AFTER_MS } from "@/hooks/useIdlePolling";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -198,5 +208,93 @@ describe("audio plays", () => {
     const row = await screen.findByRole("row", { name: /Phát âm thanh · lần 1/ });
     expect(within(row).getAllByRole("cell")[3]).toHaveTextContent(/^—$/);
     expect(screen.queryByText(/đang tiếp diễn/)).not.toBeInTheDocument();
+  });
+});
+
+describe("the integrity timeline's poll", () => {
+  let fetches = 0;
+
+  function renderPolled(live: boolean) {
+    fetches = 0;
+    server.use(
+      http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}/events`, () => {
+        fetches += 1;
+        return contractJson("/teacher/attempts/{id}/events", "get", 200, {
+          startedAt: "2026-09-04T02:10:00Z",
+          events: EVENTS,
+          summary: {
+            totalAwayMs: 72_000,
+            awayEpisodes: 2,
+            pasteCount: 1,
+            resumeCount: 0,
+            audioReplays: 0,
+            offlineEpisodes: 1,
+          },
+        });
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <Timeline
+          attemptId={ATTEMPT_ID}
+          questions={[]}
+          live={live}
+          note={null}
+          onViewPaper={() => {}}
+        />
+      </QueryClientProvider>,
+    );
+    return client;
+  }
+
+  function advance(ms: number) {
+    return act(() => vi.advanceTimersByTimeAsync(ms));
+  }
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  it("polls a live attempt every 15s, stops after ten idle minutes, refetches at once on a key press and polls from there", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = renderPolled(true);
+    await screen.findByRole("table");
+    expect(fetches).toBe(1);
+
+    await advance(POLL_MS + 100);
+    await waitFor(() => expect(fetches).toBe(2));
+
+    await advance(IDLE_AFTER_MS);
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    const whenIdle = fetches;
+    await advance(5 * 60_000);
+    expect(client.isFetching()).toBe(0);
+    expect(fetches).toBe(whenIdle);
+
+    const pressedAt = Date.now();
+    fireEvent.keyDown(window, { key: "Shift" });
+    expect(client.isFetching()).toBe(1);
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(fetches).toBe(whenIdle + 1);
+    expect(Date.now() - pressedAt).toBeLessThan(POLL_MS);
+
+    await advance(12_000);
+    expect(fetches).toBe(whenIdle + 1);
+    await advance(3_100);
+    await waitFor(() => expect(fetches).toBe(whenIdle + 2));
+  });
+
+  it("sends nothing on a key press once the attempt is over", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = renderPolled(false);
+    await screen.findByRole("table");
+
+    await advance(IDLE_AFTER_MS);
+    fireEvent.keyDown(window, { key: "Shift" });
+    expect(client.isFetching()).toBe(0);
+    await advance(31_000);
+    expect(fetches).toBe(1);
   });
 });
