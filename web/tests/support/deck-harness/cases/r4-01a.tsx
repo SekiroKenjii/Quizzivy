@@ -305,6 +305,8 @@ function studentCard(row: Student): ReactNode {
   );
 }
 
+function openNothing() {}
+
 function resultsMenu(): ReactNode {
   return (
     <DropdownMenuItem>
@@ -452,6 +454,7 @@ export const cases: Record<string, () => ReactElement> = {
           columns={STUDENT_COLUMNS}
           rows={STUDENTS}
           rowSize={{ height: 56 }}
+          onOpen={openNothing}
           selection={selection}
           rowName={(row) => row.name}
           menu={resultsMenu}
