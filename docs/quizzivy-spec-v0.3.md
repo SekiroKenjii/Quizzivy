@@ -1097,7 +1097,8 @@ Shared:
 **The engine** shows one question at a time.
 
 - **Header.** The ✕ ("Thoát khỏi bài làm"), from 768 the title over the save
-  line, the timer, and "Nộp bài". The ✕ asks first. Leaving saves what is
+  line, the timer, and "Nộp bài". The ✕ asks first, except on a locked paper,
+  which it leaves at once and without saving. Leaving saves what is
   unsaved and goes to `/app`; a save that fails keeps the student on the paper.
   Below 768 the header has no save line. A strip under it carries one only when
   a save has failed or the device is offline with an answer unsaved, never for
