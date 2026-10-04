@@ -829,26 +829,23 @@ describe("the footer from 768", () => {
 
   it("keeps a long paper's strip within four rows and brings the open question into view", async () => {
     const seen: Element[] = [];
-    const scrollIntoView = vi.fn(function (this: Element) {
-      seen.push(this);
-    });
-    Element.prototype.scrollIntoView = scrollIntoView;
-    try {
-      const user = userEvent.setup();
-      await open(long(40));
+    const scrollIntoView = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(function (this: Element) {
+        seen.push(this);
+      });
+    const user = userEvent.setup();
+    await open(long(40));
 
-      const strip = squares(nav())[0]?.parentElement;
-      expect(squares(nav())).toHaveLength(40);
-      expect(strip).toHaveClass("max-h-40", "overflow-y-auto", "flex-wrap");
-      expect(seen.at(-1)).toBe(squares(nav())[0]);
-      expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "nearest" });
+    const strip = squares(nav())[0]?.parentElement;
+    expect(squares(nav())).toHaveLength(40);
+    expect(strip).toHaveClass("max-h-40", "overflow-y-auto", "flex-wrap");
+    expect(seen.at(-1)).toBe(squares(nav())[0]);
+    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "nearest" });
 
-      await user.click(footer().getByRole("button", { name: "Câu 37" }));
-      expect(seen.at(-1)).toBe(squares(nav())[36]);
-      expect(seen.at(-1)).toHaveAttribute("aria-current", "true");
-    } finally {
-      Reflect.deleteProperty(Element.prototype, "scrollIntoView");
-    }
+    await user.click(footer().getByRole("button", { name: "Câu 37" }));
+    expect(seen.at(-1)).toBe(squares(nav())[36]);
+    expect(seen.at(-1)).toHaveAttribute("aria-current", "true");
   });
 
   it("swaps the strip for the count button when the window shrinks below 768", async () => {
