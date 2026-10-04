@@ -257,12 +257,21 @@ describe("signing out", () => {
     const router = renderAt("/admin");
     expect(await screen.findByText("admin home")).toBeInTheDocument();
 
-    // The order useLogout uses: leave first, forget second.
-    await router.navigate("/login", { replace: true });
-    useAuthStore.getState().clearSession();
+    try {
+      await router.navigate("/login", { replace: true });
+      useAuthStore.getState().signOut();
+      await waitFor(() => {
+        expect(router.state.navigation.state).toBe("idle");
+        expect(router.state.location.pathname).toBe("/login");
+      });
+      await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+      await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 
-    expect(router.state.location.pathname).toBe("/login");
-    expect(router.state.location.search).toBe("");
+      expect(router.state.location.pathname).toBe("/login");
+      expect(router.state.location.search).toBe("");
+    } finally {
+      useAuthStore.setState({ signedOut: false });
+    }
   });
 });
 
