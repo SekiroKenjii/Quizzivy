@@ -13,9 +13,14 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-const msgStudentNotFound = "Không tìm thấy học viên."
+func msgStudentNotFound(ctx context.Context) string {
+	return httpx.Text(ctx, "Không tìm thấy học viên.", "The student was not found.")
+}
 
-const msgStudentForbidden = "Bạn không có quyền thao tác trên tài khoản này."
+func msgStudentForbidden(ctx context.Context) string {
+	return httpx.Text(ctx, "Bạn không có quyền thao tác trên tài khoản này.",
+		"You do not have permission to act on this account.")
+}
 
 // ListStudents backs §8's students table (G-07) and the two pickers that add a
 // student to a class (G-06) or to an assignment (G-01), over the students the
@@ -76,7 +81,7 @@ func (h Identity) GetStudent(ctx context.Context, request openapi.GetStudentRequ
 	student, err := h.app.Queries.GetStudent.Handle(ctx, query.GetStudent{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrStudentNotFound) {
 		return openapi.GetStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgStudentNotFound))}, nil
+			httpapi.NotFound(ctx, msgStudentNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -108,10 +113,11 @@ func (h Identity) CreateStudent(ctx context.Context, request openapi.CreateStude
 	case err == nil:
 	case errors.Is(err, domain.ErrClassNotFound):
 		return openapi.CreateStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy lớp học."))}, nil
+			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy lớp học.", "The class was not found.")))}, nil
 	case errors.Is(err, domain.ErrEmailTaken):
 		return openapi.CreateStudent409JSONResponse(httpapi.Error(ctx, openapi.EMAILTAKEN,
-			"Địa chỉ email này đã được dùng cho một tài khoản khác.")), nil
+			httpx.Text(ctx, "Địa chỉ email này đã được dùng cho một tài khoản khác.",
+				"This email address is already used by another account."))), nil
 	default:
 		return nil, err
 	}
@@ -146,15 +152,17 @@ func (h Identity) UpdateStudent(ctx context.Context, request openapi.UpdateStude
 	case err == nil:
 	case errors.Is(err, domain.ErrStudentNotFound):
 		return openapi.UpdateStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgStudentNotFound))}, nil
+			httpapi.NotFound(ctx, msgStudentNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrEmailTaken):
 		return openapi.UpdateStudent409JSONResponse(httpapi.Error(ctx, openapi.EMAILTAKEN,
-			"Địa chỉ email này đã được dùng cho một tài khoản khác.")), nil
+			httpx.Text(ctx, "Địa chỉ email này đã được dùng cho một tài khoản khác.",
+				"This email address is already used by another account."))), nil
 	case errors.Is(err, domain.ErrForbidden):
-		return openapi.UpdateStudent403JSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, msgStudentForbidden)), nil
+		return openapi.UpdateStudent403JSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, msgStudentForbidden(ctx))), nil
 	case errors.Is(err, domain.ErrStudentShared):
 		return openapi.UpdateStudent403JSONResponse(httpapi.Error(ctx, openapi.STUDENTSHARED,
-			"Học viên này còn thuộc lớp hoặc bài giao của giáo viên khác, hoặc do người khác tạo, nên chỉ quản trị viên mới đổi được email.")), nil
+			httpx.Text(ctx, "Học viên này còn thuộc lớp hoặc bài giao của giáo viên khác, hoặc do người khác tạo, nên chỉ quản trị viên mới đổi được email.",
+				"This student is still in another teacher's class or assignment, or was created by someone else, so only an admin can change the email."))), nil
 	default:
 		return nil, err
 	}
@@ -178,12 +186,13 @@ func (h Identity) ResetStudentPassword(ctx context.Context, request openapi.Rese
 		return openapi.ResetStudentPassword200JSONResponse{TemporaryPassword: temporary}, nil
 	case errors.Is(err, domain.ErrStudentNotFound):
 		return openapi.ResetStudentPassword404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgStudentNotFound))}, nil
+			httpapi.NotFound(ctx, msgStudentNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrForbidden):
-		return openapi.ResetStudentPassword403JSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, msgStudentForbidden)), nil
+		return openapi.ResetStudentPassword403JSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, msgStudentForbidden(ctx))), nil
 	case errors.Is(err, domain.ErrStudentShared):
 		return openapi.ResetStudentPassword403JSONResponse(httpapi.Error(ctx, openapi.STUDENTSHARED,
-			"Học viên này còn thuộc lớp hoặc bài giao của giáo viên khác, hoặc do người khác tạo, nên chỉ quản trị viên mới đặt lại được mật khẩu.")), nil
+			httpx.Text(ctx, "Học viên này còn thuộc lớp hoặc bài giao của giáo viên khác, hoặc do người khác tạo, nên chỉ quản trị viên mới đặt lại được mật khẩu.",
+				"This student is still in another teacher's class or assignment, or was created by someone else, so only an admin can reset the password."))), nil
 	default:
 		return nil, err
 	}
