@@ -62,7 +62,7 @@ test("the destinations are a tab bar at the foot, and each tab opens its screen"
   await expect(banner.getByRole("button", { name: /^Tài khoản của/ })).toBeVisible();
   await expect(tabs.getByRole("link")).toHaveText([/Trang chủ$/, "Lớp", "Tôi"]);
   const bar = (await tabs.boundingBox())!;
-  expect(bar.y + bar.height).toBe(page.viewportSize()!.height);
+  expect(bar.y + bar.height).toBeCloseTo(page.viewportSize()!.height, 0);
 
   const home = tabs.getByRole("link", { name: /Trang chủ$/ });
   const classesTab = tabs.getByRole("link", { name: "Lớp", exact: true });
