@@ -128,15 +128,18 @@ let onMaintenance: (window: { startsAt: string; endsAt: string }) => void = () =
 
 /**
  * setSessionLostHandler registers what runs when the session is refused. A
- * signed-in user is kept, with the token dropped and the session marked
- * expired, so the page under the "sign in again" overlay stays mounted; anyone
- * else is cleared.
+ * refusal counts only against the session its request was sent under: when the
+ * store's token is no longer the one that request carried, the store is left
+ * alone and the handler does not run. Otherwise a signed-in user is kept, with
+ * the token dropped and the session marked expired, so the page under the
+ * "sign in again" overlay stays mounted; anyone else is cleared.
  */
 export function setSessionLostHandler(handler: () => void) {
   onSessionLost = handler;
 }
 
-function loseSession() {
+function loseSession(sentWith: string | null) {
+  if (authStore.getAccessToken() !== sentWith) return;
   if (authStore.isSignedIn()) {
     authStore.expire();
   } else {
@@ -223,6 +226,13 @@ function isAuthEntryPoint(path: string): boolean {
   return path === "/auth/refresh" || path === "/auth/login" || path === "/auth/google";
 }
 
+/**
+ * api sends one request typed against the contract and returns its JSON body.
+ * A 401 outside the auth entry points waits for the shared refresh and is sent
+ * once more with the new token. A refused refresh, or a 401 for that second
+ * send, loses the session only when the store still holds the token the
+ * refused request was sent with; either way the 401 is thrown to the caller.
+ */
 export async function api<P extends keyof paths, M extends MethodsOf<P>>(
   method: M,
   path: P,
@@ -237,12 +247,11 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
   };
   const url = buildUrl(path as string, opts.path, opts.query);
 
-  const send = async (): Promise<Response> => {
+  const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Accept-Language": language(),
     };
-    const token = authStore.getAccessToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
     if (opts.body !== undefined) headers["Content-Type"] = "application/json";
 
@@ -256,19 +265,21 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
     });
   };
 
-  let response = await send();
+  let sentWith = authStore.getAccessToken();
+  let response = await send(sentWith);
 
   if (response.status === 401 && !isAuthEntryPoint(path as string)) {
     if (authStore.isExpired()) throw await toApiError(response);
     const outcome = await refreshSession();
     if (outcome.kind === "unavailable") throw outcome.error;
     if (outcome.kind === "refused") {
-      loseSession();
+      loseSession(sentWith);
       throw await toApiError(response);
     }
-    response = await send();
+    sentWith = authStore.getAccessToken();
+    response = await send(sentWith);
     if (response.status === 401) {
-      loseSession();
+      loseSession(sentWith);
       throw await toApiError(response);
     }
   }
@@ -288,8 +299,9 @@ export interface UploadOptions {
 }
 
 /**
- * Uploads one file as multipart/form-data, sharing this module's token and
- * single-flight refresh.
+ * uploadFile uploads one file as multipart/form-data, sharing this module's
+ * token and single-flight refresh. Like `api`, it loses the session over a 401
+ * only when the store still holds the token that request was sent with.
  */
 export async function uploadFile<T>(
   path: string,
@@ -298,14 +310,13 @@ export async function uploadFile<T>(
 ): Promise<T> {
   const url = buildUrl(path);
 
-  const send = () =>
+  const send = (token: string | null) =>
     new Promise<{ status: number; body: string }>((resolve, reject) => {
       const request = new XMLHttpRequest();
       request.open("POST", url);
       request.withCredentials = true;
       request.setRequestHeader("Accept", "application/json");
       request.setRequestHeader("Accept-Language", language());
-      const token = authStore.getAccessToken();
       if (token) request.setRequestHeader("Authorization", `Bearer ${token}`);
 
       if (options.onProgress) {
@@ -331,18 +342,20 @@ export async function uploadFile<T>(
       request.send(form);
     });
 
-  let response = await send();
+  let sentWith = authStore.getAccessToken();
+  let response = await send(sentWith);
   if (response.status === 401) {
     if (authStore.isExpired()) throw toUploadError(response);
     const outcome = await refreshSession();
     if (outcome.kind === "unavailable") throw outcome.error;
     if (outcome.kind === "refused") {
-      loseSession();
+      loseSession(sentWith);
       throw toUploadError(response);
     }
-    response = await send();
+    sentWith = authStore.getAccessToken();
+    response = await send(sentWith);
     if (response.status === 401) {
-      loseSession();
+      loseSession(sentWith);
       throw toUploadError(response);
     }
   }

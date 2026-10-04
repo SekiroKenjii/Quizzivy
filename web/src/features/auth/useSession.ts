@@ -11,10 +11,11 @@ import { useAuthStore } from "@/stores/auth";
 
 /**
  * useBootstrapSession restores the session on app load (§5.4), and again each
- * time `retryBoot` asks. A 401 means signed out. A request that got no answer
- * leaves the session as it was and marks boot `offline`; a 503 `MAINTENANCE`
- * raises the maintenance overlay; anything else marks boot `failed` with the
- * error, for the unexpected-error page.
+ * time `retryBoot` asks. A 401 means signed out, unless a user is in the store
+ * when it is handled: a sign-in that finished while the request was out is
+ * kept. A request that got no answer leaves the session as it was and marks
+ * boot `offline`; a 503 `MAINTENANCE` raises the maintenance overlay; anything
+ * else marks boot `failed` with the error, for the unexpected-error page.
  */
 export function useBootstrapSession() {
   const setSessionUser = useAuthStore((s) => s.setUser);
@@ -38,7 +39,7 @@ export function useBootstrapSession() {
         if (window) {
           showOverlay({ kind: "maintenance", window });
         } else if (isSignedOut(cause)) {
-          clearSession();
+          if (useAuthStore.getState().user === null) clearSession();
           setBootPhase("ready");
         } else if (isUnanswered(cause)) {
           setBootPhase("offline");
