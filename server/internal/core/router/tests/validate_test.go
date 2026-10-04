@@ -1,6 +1,7 @@
 package router_test
 
 import (
+	"cmp"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -762,5 +763,135 @@ func TestAMalformedParameterNamesTheParameter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			wantValidationFailure(t, sendIn(t, handler, http.MethodGet, tc.path, tc.token, tc.acceptLanguage, ""), tc.want)
 		})
+	}
+}
+
+const (
+	repeatedAnswersBody = `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{"019535d9-3df7-79fb-b466-fa907fa17fa0":5},"answers":{}}`
+	textBeaconPath      = "/app/attempts/019535d9-3df7-79fb-b466-fa907fa17f9e/events"
+)
+
+func saveAnswersWithEvent(event string) string {
+	return `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","events":[` + event + `]}`
+}
+
+func TestABodyThatRepeatsAMemberNameIsRefused(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	admin, err := issuer.Issue(adminUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	student, err := issuer.Issue(studentUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name           string
+		method         string
+		path           string
+		token          string
+		contentType    string
+		acceptLanguage string
+		body           string
+		want           string
+	}{
+		{name: "at the top level, on the 2020-12 validator", method: http.MethodPost, path: "/teacher/classes", token: admin, body: `{"name":"Lớp A","name":"Lớp B"}`, want: `Trường "name" không hợp lệ.`},
+		{name: "at the top level, on the built-in validator", method: http.MethodPost, path: "/teacher/students", token: admin, body: `{"email":"a@b.com","fullName":"An","fullName":"Bình"}`, want: `Trường "fullName" không hợp lệ.`},
+		{name: "a name written with an escape", method: http.MethodPost, path: "/teacher/classes", token: admin, body: `{"name":"Lớp A","n\u0061me":"Lớp B"}`, want: `Trường "name" không hợp lệ.`},
+		{name: "nested in an object", method: http.MethodPatch, path: saveAnswersPath, token: student, body: `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{"019535d9-3df7-79fb-b466-fa907fa17fa0":{"type":"choice","optionIds":[],"optionIds":[]}}}`, want: `Trường "answers" không hợp lệ.`},
+		{name: "nested in an array", method: http.MethodPatch, path: saveAnswersPath, token: student, body: saveAnswersWithEvent(`{"kind":"paste","kind":"paste","occurredAt":"2026-10-04T08:00:00Z","clientSeq":0}`), want: `Trường "events" không hợp lệ.`},
+		{name: "an earlier occurrence the contract refuses", method: http.MethodPatch, path: saveAnswersPath, token: student, body: repeatedAnswersBody, want: `Trường "answers" không hợp lệ.`},
+		{name: "under a Content-Type whose parameters repeat", method: http.MethodPatch, path: saveAnswersPath, token: student, contentType: "application/json; charset=a; charset=b", body: repeatedAnswersBody, want: `Trường "answers" không hợp lệ.`},
+		{name: "English preferred", method: http.MethodPost, path: "/teacher/classes", token: admin, acceptLanguage: "en", body: `{"name":"Lớp A","name":"Lớp B"}`, want: `The field "name" is not valid.`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", cmp.Or(tc.contentType, "application/json"))
+			req.Header.Set("Authorization", "Bearer "+tc.token)
+			if tc.acceptLanguage != "" {
+				req.Header.Set("Accept-Language", tc.acceptLanguage)
+			}
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			wantValidationFailure(t, rec, tc.want)
+		})
+	}
+}
+
+func TestANestedRepeatOnAFlatOperationIsRefusedByTheSchema(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	rec := sendAs(t, handler, issuer, http.MethodPost, "/teacher/classes", adminUser, `{"name":"Lớp A","description":{"a":1,"a":2}}`)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+	if code, _ := errorCodeAndMessage(t, rec); code != "VALIDATION_FAILED" {
+		t.Errorf("error code = %q, want VALIDATION_FAILED", code)
+	}
+}
+
+func TestAPropertyThatDiffersOnlyInCaseIsRefusedAsUnknown(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	rec := sendAs(t, handler, issuer, http.MethodPost, "/teacher/classes", adminUser, `{"name":"Lớp A","Name":"Lớp B"}`)
+
+	wantValidationFailure(t, rec, genericValidationSentence)
+}
+
+func TestABodyThatRepeatsNoMemberReachesTheHandler(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	for _, tc := range []struct {
+		name   string
+		method string
+		path   string
+		user   string
+		body   string
+	}{
+		{name: "the same names in sibling objects", method: http.MethodPatch, path: saveAnswersPath, user: studentUser, body: `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{"019535d9-3df7-79fb-b466-fa907fa17fa0":{"type":"choice","optionIds":[]},"019535d9-3df7-79fb-b466-fa907fa17fa1":{"type":"choice","optionIds":[]}},"events":[{"kind":"paste","occurredAt":"2026-10-04T08:00:00Z","clientSeq":0},{"kind":"paste","occurredAt":"2026-10-04T08:00:01Z","clientSeq":1}]}`},
+		{name: "a nested name that is also a top-level one", method: http.MethodPatch, path: saveAnswersPath, user: studentUser, body: saveAnswersWithEvent(`{"kind":"paste","occurredAt":"2026-10-04T08:00:00Z","clientSeq":0,"meta":{"sessionId":"x"}}`)},
+		{name: "a string twice after an object in an array", method: http.MethodPatch, path: saveAnswersPath, user: studentUser, body: saveAnswersWithEvent(`{"kind":"paste","occurredAt":"2026-10-04T08:00:00Z","clientSeq":0,"meta":{"a":[{"b":1},"s","s"]}}`)},
+		{name: "a string after an empty object in an array", method: http.MethodPatch, path: saveAnswersPath, user: studentUser, body: saveAnswersWithEvent(`{"kind":"paste","occurredAt":"2026-10-04T08:00:00Z","clientSeq":0,"meta":{"a":[{},"s"]}}`)},
+		{name: "names that differ only in case in a free-form object", method: http.MethodPatch, path: saveAnswersPath, user: studentUser, body: saveAnswersWithEvent(`{"kind":"paste","occurredAt":"2026-10-04T08:00:00Z","clientSeq":0,"meta":{"a":1,"A":2}}`)},
+		{name: "a null member", method: http.MethodPost, path: "/teacher/classes", user: adminUser, body: `{"name":"Lớp A","description":null}`},
+		{name: "one value", method: http.MethodPost, path: "/teacher/classes", user: adminUser, body: `{"name":"Lớp A"}`},
+		{name: "bytes after the first value", method: http.MethodPost, path: "/teacher/classes", user: adminUser, body: `{"name":"Lớp A"} x`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := sendAs(t, handler, issuer, tc.method, tc.path, tc.user, tc.body)
+
+			if rec.Code != http.StatusNotImplemented {
+				t.Fatalf("status = %d, want 501 from a router with no modules: %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestTheTextBeaconIsNotReadForRepeats(t *testing.T) {
+	handler := newAuthTestRouter(t, testIssuer(t))
+	send := func(body string) int {
+		req := httptest.NewRequest(http.MethodPost, textBeaconPath, strings.NewReader(body))
+		req.Header.Set("Content-Type", "text/plain")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	const rest = `"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","events":[{"kind":"paste","occurredAt":"2026-10-04T08:00:00Z","clientSeq":0}]}`
+
+	once := send(`{"beaconToken":"t",` + rest)
+	twice := send(`{"beaconToken":"t","beaconToken":"t",` + rest)
+
+	if once == http.StatusBadRequest {
+		t.Fatalf("status = %d, want the text beacon to reach its handler", once)
+	}
+	if twice != once {
+		t.Fatalf("status with beaconToken twice = %d, want %d as with it once", twice, once)
 	}
 }
