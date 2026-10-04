@@ -1,5 +1,6 @@
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
+import { heldSession, holdSession } from "./heldSession";
 
 export type AttemptSession = components["schemas"]["AttemptSession"];
 export type StudentQuestion = components["schemas"]["StudentQuestion"];
@@ -10,19 +11,37 @@ export type Attempt = components["schemas"]["Attempt"];
 export type IntegrityPolicy = components["schemas"]["IntegrityPolicy"];
 export type IntegrityEventInput = components["schemas"]["IntegrityEventInput"];
 
-export function startOrResumeAttempt(assignmentId: string, signal?: AbortSignal) {
-  return api("post", "/app/assignments/{id}/attempts", {
+/**
+ * startOrResumeAttempt starts the assignment's attempt, or resumes the live
+ * one, and resolves to its session. The tab then holds that session: the
+ * server gave it to this request, so every later read of the attempt names it.
+ */
+export async function startOrResumeAttempt(assignmentId: string, signal?: AbortSignal) {
+  const session = await api("post", "/app/assignments/{id}/attempts", {
     path: { id: assignmentId },
     ...(signal ? { signal } : {}),
   });
+  holdSession(session.attempt.id, session.sessionId);
+  return session;
 }
 
-export function getAttempt(attemptId: string, signal?: AbortSignal) {
-  return api("get", "/app/attempts/{id}", {
+/**
+ * getAttempt reads the take-test payload, naming the session this tab holds
+ * for the attempt, or none when it holds none. The tab then holds the session
+ * of the answer when the attempt is in progress and the answer does not say
+ * `superseded`; a superseded answer, or one of an attempt that has ended,
+ * changes nothing the tab holds.
+ */
+export async function getAttempt(attemptId: string, signal?: AbortSignal) {
+  const held = heldSession(attemptId);
+  const session = await api("get", "/app/attempts/{id}", {
     path: { id: attemptId },
-    query: {},
+    query: held === null ? {} : { session: held },
     ...(signal ? { signal } : {}),
   });
+  if (session.attempt.status === "in_progress" && session.superseded !== true)
+    holdSession(attemptId, session.sessionId);
+  return session;
 }
 
 export function saveAnswers(
