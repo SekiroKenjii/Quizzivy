@@ -32,11 +32,11 @@ func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestReque
 	case err == nil:
 	case errors.Is(err, domain.ErrDraftNotFound):
 		return openapi.PublishTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy đề."))}, nil
+			httpapi.NotFound(ctx, msgTestNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrNoContent):
 		return publishViolations(ctx, []domain.Violation{{
 			Rule:    domain.SectionNotEmpty,
-			Message: "Đề chưa có phần nào để xuất bản.",
+			Message: httpx.Text(ctx, "Đề chưa có phần nào để xuất bản.", "The test has no sections to publish."),
 		}}), nil
 	default:
 		var invalid *domain.PublishValidationError
@@ -55,7 +55,8 @@ func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestReque
 
 func publishViolations(ctx context.Context, violations []domain.Violation) openapi.PublishTest409JSONResponse {
 	body := httpapi.Error(ctx, openapi.PUBLISHVALIDATIONFAILED,
-		"Đề chưa thể xuất bản. Vui lòng sửa các vấn đề được đánh dấu.")
+		httpx.Text(ctx, "Đề chưa thể xuất bản. Vui lòng sửa các vấn đề được đánh dấu.",
+			"The test cannot be published yet. Please fix the marked problems."))
 
 	out := make([]openapi.PublishValidationError, len(violations))
 	for i, v := range violations {
