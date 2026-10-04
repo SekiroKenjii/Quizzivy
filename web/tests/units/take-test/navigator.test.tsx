@@ -320,7 +320,10 @@ describe("the question sheet", () => {
       "left-0",
       "max-h-[85svh]",
       "max-w-none",
+      "sm:max-w-none",
+      "translate-x-0",
       "translate-y-0",
+      "flex",
       "flex-col",
       "gap-3.5",
       "rounded-t-3xl",
@@ -621,7 +624,13 @@ describe("the footer from 768", () => {
     await open();
 
     expect(nav().parentElement).toBe(panel("q1")?.closest("section"));
-    expect(nav()).toHaveClass("bg-bg", "gap-2.5", "border-t", "pt-2.5", "px-6");
+    expect(nav()).toHaveClass("bg-bg", "flex", "gap-2.5", "border-t", "pt-2.5", "px-6");
+    expect(screen.getByRole("main")).toHaveClass(
+      "flex",
+      "min-h-0",
+      "min-w-0",
+      "flex-1",
+    );
     expect(nav()).not.toHaveClass("px-3.5");
 
     const controls = footer().getAllByRole("button");
