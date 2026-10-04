@@ -83,7 +83,11 @@ func (h Attempts) GetAttempt(ctx context.Context, request openapi.GetAttemptRequ
 		return nil, httpx.ErrNotImplemented
 	}
 
-	session, err := h.app.Queries.Get.Handle(ctx, query.Get{AttemptID: request.Id.String(), StudentID: principal.UserID})
+	q := query.Get{AttemptID: request.Id.String(), StudentID: principal.UserID}
+	if request.Params.Session != nil {
+		q.HeldSession = request.Params.Session.String()
+	}
+	session, err := h.app.Queries.Get.Handle(ctx, q)
 	if errors.Is(err, domain.ErrForbidden) || errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
@@ -132,7 +136,7 @@ func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in 
 
 	sections := toAPISections(in.Sections)
 
-	return openapi.AttemptSession{
+	out := openapi.AttemptSession{
 		RemainingAttempts: &in.RemainingAttempts,
 		Attempt:           toAPIAttempt(in.Attempt),
 		TestTitle:         in.TestTitle,
@@ -152,7 +156,11 @@ func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in 
 			OnLimitExceeded:   openapi.IntegrityPolicyOnLimitExceeded(in.Integrity.OnLimitExceeded),
 			MinAwayMs:         in.Integrity.MinAwayMs,
 		},
-	}, nil
+	}
+	if in.Superseded {
+		out.Superseded = &in.Superseded
+	}
+	return out, nil
 }
 
 func toAPIAttempt(a domain.Attempt) openapi.Attempt {
