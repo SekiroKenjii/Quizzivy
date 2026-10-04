@@ -143,6 +143,16 @@ describe("useIdlePolling", () => {
     expect(hook.result.current).toBe(false);
   });
 
+  it("counts the ten minutes from an input early in the window", () => {
+    const hook = poller();
+    pass(1);
+    input();
+    pass(TEN_MINUTES - 1);
+    expect(hook.result.current).toBe(15_000);
+    pass(1);
+    expect(hook.result.current).toBe(false);
+  });
+
   it("does not count an event that is not input", () => {
     const hook = poller();
     pass(TEN_MINUTES - 1_000);
@@ -319,6 +329,14 @@ describe("useRefetchOnResume", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
     input("keydown");
     input("pointermove");
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("is enabled when no second argument is given", () => {
+    const refetch = vi.fn();
+    renderHook(() => useRefetchOnResume(refetch));
+    pass(TEN_MINUTES);
+    input();
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
