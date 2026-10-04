@@ -220,7 +220,8 @@ While v0.7.0 and v0.8.0 machines overlap:
   out until the old machine is gone.
 
 Tabs still open on v0.7.0 keep working: the `/admin` alias serves the old
-teaching paths and logs `legacy_admin_path`. R3 removes it.
+teaching paths and logs `legacy_admin_path`. v0.9.1 removes it
+(`docs/plan/73-r3.md` T-R3.3).
 
 Roll forward, never back. The migrations are the expand half, so v0.7.0 would
 still boot on the new schema, but it cannot redeem a code v0.8.0 issued, and
