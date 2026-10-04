@@ -406,6 +406,23 @@ describe("the header and the three facts", () => {
     await screen.findByRole("heading", { level: 1 });
     expect(screen.queryByRole("link", { name: "Trang chủ" })).toBeNull();
   });
+
+  it("covers the shell's bottom padding under the action, 48px from 768 and 28px below", async () => {
+    show();
+    const wide = (await screen.findByRole("button", { name: /Bắt đầu làm bài/ }))
+      .parentElement;
+    expect(wide).toHaveClass("sticky", "after:top-full", "after:bg-bg", "after:h-12");
+    expect(wide).not.toHaveClass("after:h-7");
+  });
+
+  it("covers 28px under the action on a phone, for every state of the action", async () => {
+    viewport("phone");
+    show({ attemptsUsed: 2, maxAttempts: 2 });
+    const spent = (await screen.findByText("Bạn đã dùng hết số lượt làm bài."))
+      .parentElement;
+    expect(spent).toHaveClass("sticky", "after:top-full", "after:bg-bg", "after:h-7");
+    expect(spent).not.toHaveClass("after:h-12");
+  });
 });
 
 describe("a paper that has not opened", () => {
