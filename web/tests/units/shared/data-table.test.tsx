@@ -1187,6 +1187,27 @@ describe("the empty line and the footer", () => {
     expect(screen.queryByText("Không có bài giao nào ở đây.")).toBeNull();
   });
 
+  it.each([null, false, ""] as const)(
+    "draws no empty line for an empty of %j, in the grid or below 768",
+    (blank) => {
+      const grid = renderAssignments({ rows: [], empty: blank });
+      expect(frame(grid.container).children).toHaveLength(1);
+      expect(frame(grid.container).firstElementChild).toBe(screen.getByRole("table"));
+      grid.unmount();
+      viewport("phone");
+      const stacked = renderAssignments({ rows: [], card, empty: blank });
+      expect(frame(stacked.container)).toBeEmptyDOMElement();
+      stacked.unmount();
+      const joined = renderAssignments({
+        rows: [],
+        card,
+        cardLayout: "joined",
+        empty: blank,
+      });
+      expect(frame(joined.container)).toBeEmptyDOMElement();
+    },
+  );
+
   it("renders the footer after the rows, inside the card", () => {
     const { container } = renderAssignments({ footer: <p>1–3 trên 3</p> });
     const footer = screen.getByText("1–3 trên 3");

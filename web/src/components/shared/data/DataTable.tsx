@@ -63,8 +63,8 @@ type Select<T extends Item> = Readonly<{
  * list: separate cards, or with `cardLayout="joined"` the rows of one card.
  * Without `card` the grid stays at every width. `framed={false}` leaves out
  * the card around the table, for a table inside a section that is one.
- * `empty` stands in for the rows when there are none, and `footer` follows
- * them.
+ * `empty` stands in for the rows when there are none; `null`, `false` or an
+ * empty string draws no line. `footer` follows the rows.
  */
 export type DataTableProps<T extends Item> = Opening<T> &
   Selecting<T> & {
@@ -100,6 +100,10 @@ const STACKED_CARD =
 
 const JOINED_ROW =
   "flex w-full items-center gap-3 px-3.5 py-3 text-left text-base leading-normal -outline-offset-2!";
+
+function drawsNothing(node: ReactNode) {
+  return node == null || typeof node === "boolean" || node === "";
+}
 
 function openFromRow(event: MouseEvent<HTMLElement>) {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -334,7 +338,7 @@ function CardList<T extends Item>({
       </ul>
     );
   const none =
-    rows.length > 0 || empty === undefined ? null : (
+    rows.length > 0 || drawsNothing(empty) ? null : (
       <div className={EMPTY_LINE}>{empty}</div>
     );
   if (joined) {
@@ -469,7 +473,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
           </div>
         )}
       </div>
-      {rows.length > 0 || empty === undefined ? null : (
+      {rows.length > 0 || drawsNothing(empty) ? null : (
         <div className={cn(EMPTY_LINE, "border-t")}>{empty}</div>
       )}
       {footer}
