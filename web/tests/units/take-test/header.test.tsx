@@ -88,7 +88,7 @@ const line = (label: string) =>
   banner().getByText(label, { ignore: '[role="status"]' });
 const timer = () => screen.getByRole("timer", { name: "Thời gian còn lại" });
 const strip = () => document.querySelector<HTMLElement>('[data-slot="save-strip"]');
-const columns = () => screen.getByRole("main").parentElement;
+const columns = () => screen.getByRole("main");
 const announced = () =>
   screen
     .getAllByRole("status")

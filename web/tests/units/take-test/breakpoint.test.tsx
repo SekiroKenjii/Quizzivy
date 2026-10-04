@@ -79,6 +79,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const strip = () => screen.queryByRole("button", { name: "Câu 2" });
+const countButton = () => screen.queryByRole("button", { name: /^Danh sách câu: / });
+
 function mount() {
   const router = createMemoryRouter(
     [{ path: "/app/attempts/:attemptId", element: <TakeTestPage /> }],
@@ -97,11 +100,13 @@ it("keeps the answer focused when the window crosses the wide breakpoint", async
   expect(answer).toHaveFocus();
 
   resize(600);
-  expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+  expect(countButton()).toBeInTheDocument();
+  expect(strip()).toBeNull();
   expect(screen.getByRole("textbox")).toHaveFocus();
 
   resize(1280);
-  expect(screen.queryByRole("contentinfo")).toBeNull();
+  expect(countButton()).toBeNull();
+  expect(strip()).toBeInTheDocument();
   expect(screen.getByRole("textbox")).toHaveFocus();
   expect(screen.getByRole("textbox")).toHaveValue("We went");
 });
@@ -110,20 +115,20 @@ it("is the wide engine from 768px and the phone engine below it", async () => {
   const resize = resizableViewport(768);
   mount();
   await screen.findByText("Describe your weekend");
-  const rail = () => screen.queryByRole("complementary", { name: "Danh sách câu" });
-  expect(rail()).toBeInTheDocument();
-  expect(rail()).not.toHaveClass("hidden");
-  expect(screen.queryByRole("contentinfo")).toBeNull();
+  expect(strip()).toBeInTheDocument();
+  expect(countButton()).toBeNull();
+  expect(screen.queryByRole("complementary")).toBeNull();
   expect(screen.getByText("Câu 1 trên 2 · Trả lời ngắn")).toBeInTheDocument();
   expect(screen.getAllByText("1 điểm · giáo viên chấm tay")).toHaveLength(1);
 
   resize(767);
-  expect(rail()).toBeNull();
-  expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+  expect(strip()).toBeNull();
+  expect(countButton()).toBeInTheDocument();
+  expect(screen.queryByRole("complementary")).toBeNull();
   expect(screen.getByText("Câu 1 trên 2 · Trả lời ngắn")).toBeInTheDocument();
   expect(screen.getAllByText("1 điểm · giáo viên chấm tay")).toHaveLength(1);
 
   resize(1023);
-  expect(rail()).toBeInTheDocument();
-  expect(screen.queryByRole("contentinfo")).toBeNull();
+  expect(strip()).toBeInTheDocument();
+  expect(countButton()).toBeNull();
 });

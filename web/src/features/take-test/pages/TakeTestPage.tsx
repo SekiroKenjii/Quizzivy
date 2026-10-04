@@ -13,15 +13,13 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
-import { ChevronLeft, ChevronRight, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
 import { LoadError } from "@/components/shared/ListState";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { EngineHeader, LeaveButton } from "../components/EngineHeader";
 import { LeaveDialog } from "../components/LeaveDialog";
-import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
+import { Navigator, type DotState } from "../components/Navigator";
 import { GroupContext, GroupListening } from "../components/GroupContext";
 import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
 import { QuestionCard } from "../components/QuestionCard";
@@ -50,14 +48,18 @@ import { questionKind } from "../questionType";
 import { useTakeTestStore } from "../store";
 import { useLeave } from "../useLeave";
 
+const PICK_KEYS = "abcde";
+
 /**
- * TakeTestPage is the engine, one question at a time, with the navigator
- * beside it (a sheet in thumb range, a rail from 768px) and the deck's Submit
- * dialog over it, which is the only way to hand the paper in. The header is
- * the deck's at every width. From 768px there is no sticky footer and the two
- * buttons sit under the answer at their own width; below it a strip under the
- * header says when a save has failed or the device is offline, and is
- * otherwise absent. Once the attempt is submitted, by the student, the timer
+ * TakeTestPage is the engine, one question at a time, with the navigator as
+ * the footer of the question pane (a strip of numbered squares from 768px, a
+ * button that opens the question sheet below it) and the deck's Submit dialog
+ * over it, which is the only way to hand the paper in. The header is the
+ * deck's at every width; below 768px a strip under it says when a save has
+ * failed or the device is offline, and is otherwise absent. The keys are the
+ * deck's: the arrows move and stop at either end, A to E choose, F flags.
+ * None acts in a text field, while a dialog or the question sheet is open, or
+ * on a locked paper. Once the attempt is submitted, by the student, the timer
  * or an auto-submit, the page shows the submitted screen and leaves the
  * fullscreen the assignment asked for. From then on no fullscreen change is
  * recorded, so that exit is never noted as the student's.
@@ -72,7 +74,6 @@ export default function TakeTestPage() {
   const [loadError, setLoadError] = useState<unknown>(null);
   const [index, setIndex] = useState(0);
   const [submitAsked, setSubmitAsked] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
   const [jumps, countJump] = useReducer((n: number) => n + 1, 0);
 
   const questions = useTakeTestStore((s) => s.questions);
@@ -152,8 +153,7 @@ export default function TakeTestPage() {
   );
 
   const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
-    if (navOpen || lock !== null || submitState !== "idle" || question === undefined)
-      return;
+    if (lock !== null || submitState !== "idle" || question === undefined) return;
     if (
       event.defaultPrevented ||
       event.isComposing ||
@@ -172,8 +172,7 @@ export default function TakeTestPage() {
     switch (event.key) {
       case "ArrowRight":
         event.preventDefault();
-        if (index === questions.length - 1) setSubmitAsked(true);
-        else setIndex(index + 1);
+        setIndex(Math.min(questions.length - 1, index + 1));
         return;
       case "ArrowLeft":
         event.preventDefault();
@@ -185,7 +184,7 @@ export default function TakeTestPage() {
         if (!event.repeat && questionShowing(question.id)) toggleFlag(question.id);
         return;
     }
-    const pick = "abcd".indexOf(event.key.toLowerCase());
+    const pick = PICK_KEYS.indexOf(event.key.toLowerCase());
     const option = question.options?.[pick];
     if (
       pick >= 0 &&
@@ -206,7 +205,6 @@ export default function TakeTestPage() {
 
   const jump = useCallback((i: number) => {
     setIndex(i);
-    setNavOpen(false);
     setSubmitAsked(false);
     countJump();
   }, []);
@@ -283,12 +281,10 @@ export default function TakeTestPage() {
         groups={groups}
         status={strikeIndicator}
         fullscreenBar={watching && integrity.requireFullscreen && !fullscreen}
-        navOpen={navOpen}
-        onNavOpen={setNavOpen}
         onLeave={leave.ask}
         onMove={setIndex}
         onJump={jump}
-        onReview={() => setSubmitAsked(true)}
+        onSubmit={() => setSubmitAsked(true)}
         onReload={reload}
       />
       <SubmitDialog
@@ -315,12 +311,10 @@ function Paper({
   groups,
   status,
   fullscreenBar,
-  navOpen,
-  onNavOpen,
   onLeave,
   onMove,
   onJump,
-  onReview,
+  onSubmit,
   onReload,
 }: Readonly<{
   wide: boolean;
@@ -334,18 +328,17 @@ function Paper({
   groups: SectionGroup[];
   status: ReactNode;
   fullscreenBar: boolean;
-  navOpen: boolean;
-  onNavOpen: (open: boolean) => void;
   onLeave: () => void;
   onMove: (index: number) => void;
   onJump: (index: number) => void;
-  onReview: () => void;
+  onSubmit: () => void;
   onReload: () => void;
 }>) {
   const { t } = useTranslation();
-  const lock = useTakeTestStore((s) => s.lock);
-  const choice =
-    questionKind(question) === "choice" && (question.options?.length ?? 0) > 0;
+  const sealed = useTakeTestStore(
+    (state) => state.lock === "superseded" || state.lock === "closed",
+  );
+  const submit = sealed ? undefined : onSubmit;
   const answerPanel = useRef<HTMLDivElement>(null);
   const sharedGroups = useTakeTestStore((state) => state.groups);
   const questions = useTakeTestStore((state) => state.questions);
@@ -383,21 +376,6 @@ function Paper({
     [numbers, questions, onJump, landOn],
   );
 
-  const previous = (
-    <PreviousButton
-      wide={wide}
-      disabled={index === 0}
-      onClick={() => onMove(Math.max(0, index - 1))}
-    />
-  );
-  const next = (
-    <NextButton
-      wide={wide}
-      last={index >= total - 1}
-      onNext={() => onMove(index + 1)}
-      onReview={onReview}
-    />
-  );
   const part = sectioned && passage === undefined ? group?.section.title : undefined;
 
   return (
@@ -406,7 +384,7 @@ function Paper({
         wide={wide}
         status={status}
         leading={<LeaveButton onClick={onLeave} />}
-        onSubmit={lock === "superseded" || lock === "closed" ? undefined : onReview}
+        onSubmit={submit}
       />
       <SaveStrip wide={wide} indicator={status} />
       {fullscreenBar && <FullscreenBar />}
@@ -418,175 +396,84 @@ function Paper({
         />
       )}
 
-      <div data-columns className="flex min-h-0 flex-1">
-        <main
-          tabIndex={-1}
-          aria-label={t("takeTest.dotLabel", { n: index + 1 })}
-          data-resize-middle
-          className="flex min-w-0 flex-1 outline-none!"
+      <main
+        tabIndex={-1}
+        aria-label={t("takeTest.dotLabel", { n: index + 1 })}
+        className="flex min-h-0 min-w-0 flex-1 outline-none!"
+      >
+        {passage !== undefined && (
+          <GroupContext
+            key={passage.id}
+            group={passage}
+            eyebrow={group?.section.title}
+            numbers={numbers}
+            onGap={jumpToGap}
+            onRetryMedia={onReload}
+            wide={wide}
+            hidden={!wide && !reading}
+          />
+        )}
+        <section
+          hidden={reading}
+          className="bg-sidebar flex min-w-0 flex-[1_1_0] flex-col"
         >
-          {passage !== undefined && (
-            <GroupContext
-              key={passage.id}
-              group={passage}
-              eyebrow={group?.section.title}
-              numbers={numbers}
-              onGap={jumpToGap}
-              onRetryMedia={onReload}
-              wide={wide}
-              hidden={!wide && !reading}
-            />
-          )}
-          <section
-            hidden={reading}
-            className="bg-sidebar flex min-w-0 flex-[1_1_0] flex-col"
+          <div
+            ref={sheet}
+            onScroll={onSheetScroll}
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto",
+              wide ? "px-8 py-7" : "px-4 py-4.5",
+            )}
           >
             <div
-              ref={sheet}
-              onScroll={onSheetScroll}
-              className={cn(
-                "min-h-0 flex-1 overflow-y-auto",
-                wide ? "px-8 py-7" : "px-4 py-4.5",
-              )}
+              ref={answerPanel}
+              id={`answer-question-${question.id}`}
+              tabIndex={-1}
+              aria-label={t("takeTest.dotLabel", { n: index + 1 })}
+              className="mx-auto flex w-full max-w-150 flex-col gap-4.5 outline-none!"
             >
-              <div
-                ref={answerPanel}
-                id={`answer-question-${question.id}`}
-                tabIndex={-1}
-                aria-label={t("takeTest.dotLabel", { n: index + 1 })}
-                className="mx-auto flex w-full max-w-150 flex-col gap-4.5 outline-none!"
-              >
-                {part ? (
-                  <p className="text-muted-fg text-meta leading-normal font-semibold tracking-[0.02em] uppercase">
-                    {part}
-                  </p>
-                ) : null}
-                <QuestionCard
-                  question={question}
-                  number={index + 1}
-                  total={total}
-                  onAudioExpired={onReload}
-                  lead={
-                    <>
-                      {group !== null && opensSection(group, index) && (
-                        <SectionInstructions
-                          group={group}
-                          audio={question.media?.kind === "audio"}
-                        />
-                      )}
-                      {context && (
-                        <GroupListening
-                          key={context.id}
-                          group={context}
-                          onRetryMedia={onReload}
-                        />
-                      )}
-                    </>
-                  }
-                />
-                {wide && (
-                  <div className="flex flex-wrap items-center gap-2 pt-2">
-                    {previous}
-                    {next}
-                    <Shortcuts choice={choice} />
-                  </div>
-                )}
-              </div>
+              {part ? (
+                <p className="text-muted-fg text-meta leading-normal font-semibold tracking-[0.02em] uppercase">
+                  {part}
+                </p>
+              ) : null}
+              <QuestionCard
+                question={question}
+                number={index + 1}
+                total={total}
+                onAudioExpired={onReload}
+                lead={
+                  <>
+                    {group !== null && opensSection(group, index) && (
+                      <SectionInstructions
+                        group={group}
+                        audio={question.media?.kind === "audio"}
+                      />
+                    )}
+                    {context && (
+                      <GroupListening
+                        key={context.id}
+                        group={context}
+                        onRetryMedia={onReload}
+                      />
+                    )}
+                  </>
+                }
+              />
             </div>
-          </section>
-        </main>
-        {wide && (
-          <NavigatorRail
+          </div>
+          <Navigator
+            wide={wide}
             dots={dots}
             current={index}
             groups={groups}
+            onMove={onMove}
             onJump={onJump}
-            onReview={onReview}
+            onFinish={submit}
           />
-        )}
-      </div>
-
-      {!wide && !reading && (
-        <footer
-          className="flex shrink-0 items-center gap-2 border-t p-3"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        >
-          {previous}
-          <Button
-            variant="outline"
-            className="size-11 shrink-0"
-            size="icon"
-            aria-label={t("takeTest.questionList")}
-            onClick={() => onNavOpen(true)}
-          >
-            <List aria-hidden="true" />
-          </Button>
-          {next}
-        </footer>
-      )}
-
-      <NavigatorSheet
-        open={navOpen}
-        onOpenChange={onNavOpen}
-        dots={dots}
-        current={index}
-        groups={groups}
-        onJump={onJump}
-        onReview={() => {
-          onNavOpen(false);
-          onReview();
-        }}
-      />
+        </section>
+      </main>
     </div>
-  );
-}
-
-function PreviousButton({
-  wide,
-  disabled,
-  onClick,
-}: Readonly<{ wide: boolean; disabled: boolean; onClick: () => void }>) {
-  const { t } = useTranslation();
-  return (
-    <Button
-      variant="outline"
-      size={wide ? "default" : "icon"}
-      className={wide ? undefined : "size-11"}
-      aria-label={wide ? undefined : t("takeTest.previous")}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      <ChevronLeft aria-hidden="true" />
-      {wide && t("takeTest.previous")}
-    </Button>
-  );
-}
-
-function NextButton({
-  wide,
-  last,
-  onNext,
-  onReview,
-}: Readonly<{
-  wide: boolean;
-  last: boolean;
-  onNext: () => void;
-  onReview: () => void;
-}>) {
-  const { t } = useTranslation();
-  const className = wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal";
-  if (last) {
-    return (
-      <Button className={className} onClick={onReview}>
-        {t("takeTest.reviewAndSubmit")}
-      </Button>
-    );
-  }
-  return (
-    <Button className={className} onClick={onNext}>
-      {t("takeTest.next")}
-      <ChevronRight aria-hidden="true" />
-    </Button>
   );
 }
 
@@ -630,25 +517,6 @@ function useLanding(
     target.current = id;
     ask();
   }, []);
-}
-
-function Shortcuts({ choice }: Readonly<{ choice: boolean }>) {
-  const { t } = useTranslation();
-  return (
-    <p className="text-muted-foreground ml-3 flex min-w-0 flex-wrap items-center gap-1 text-xs">
-      {t("takeTest.shortcuts")}
-      {choice && (
-        <>
-          {" "}
-          <Kbd>{KEY.a}</Kbd>
-          {KEY.dash}
-          <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
-        </>
-      )}{" "}
-      <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd> {t("takeTest.shortcutMove")}{" "}
-      {KEY.dot} <Kbd>{KEY.f}</Kbd> {t("takeTest.shortcutFlag")}
-    </p>
-  );
 }
 
 function PaneSwitch({
@@ -697,17 +565,6 @@ function PaneTab({
   );
 }
 
-/** The key caps S-08 draws. Not translated: they are the keys. */
-const KEY = {
-  a: "A",
-  d: "D",
-  dash: "–",
-  dot: "·",
-  left: "←",
-  right: "→",
-  f: "F",
-} as const;
-
 function typingIn(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return (
@@ -723,7 +580,6 @@ function typingIn(target: EventTarget | null): boolean {
   );
 }
 
-/** A–D on a choice question: a single picks, a multiple toggles. */
 function chooseOption(
   question: StudentQuestion,
   current: Answer | undefined,

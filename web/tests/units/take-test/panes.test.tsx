@@ -58,6 +58,7 @@ const sheet = () => document.querySelector<HTMLElement>('[id^="answer-question-"
 const questionPane = () => sheet().closest("section")!;
 const switcher = () => screen.queryByRole("group", { name: SWITCHER });
 const next = () => screen.getByRole("button", { name: "Câu sau" });
+const footer = () => screen.queryByRole("navigation", { name: "Danh sách câu" });
 
 function twoParts(paper: AttemptSession): AttemptSession {
   const second = "018f0000-0000-7000-8000-00000000a002";
@@ -519,11 +520,11 @@ describe("the panes below 768", () => {
     expect(passage()).not.toHaveClass("border-r");
     expect(questionPane()).not.toBeVisible();
     expect(read).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(footer()).toBeNull();
 
     await user.click(answer!);
     expect(questionPane()).toBeVisible();
-    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+    expect(footer()).toBeInTheDocument();
   });
 
   it("is the deck's switcher in English", async () => {
@@ -593,7 +594,7 @@ describe("the panes below 768", () => {
     await user.keyboard("{ArrowLeft}");
     expect(screen.getByRole("main", { name: "Câu 1" })).toBeInTheDocument();
     expect(questionPane()).toBeVisible();
-    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+    expect(footer()).toBeInTheDocument();
   });
 
   it("shows the question again on coming back by touch after the window was wide", async () => {
@@ -629,7 +630,7 @@ describe("the panes below 768", () => {
       "true",
     );
     expect(sheet()).toHaveFocus();
-    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+    expect(footer()).toBeInTheDocument();
   });
 
   it("keeps the student's place in the question while the passage is showing", async () => {
@@ -765,7 +766,6 @@ describe("an unknown question type", () => {
       screen.queryByText("To compare parks in European and Asian cities"),
     ).toBeNull();
     expect(screen.queryByText(/1 điểm/)).toBeNull();
-    expect(screen.getByText(/Phím tắt/)).not.toHaveTextContent("chọn đáp án");
   });
 
   it("writes no answer from the keys either", async () => {

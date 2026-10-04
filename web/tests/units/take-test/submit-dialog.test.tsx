@@ -511,9 +511,9 @@ describe("the Submit dialog", () => {
     expect(header().queryByRole("button", { name: SUBMIT })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Câu 8" }));
-    fireEvent.click(
-      within(screen.getByRole("main")).getByRole("button", { name: "Xem lại & nộp" }),
-    );
+    expect(onQuestion(8)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hoàn tất" })).toBeNull();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
     await pass(0);
     noDialog();
     expect(submitAttempt).not.toHaveBeenCalled();
@@ -557,11 +557,16 @@ describe("the Submit dialog", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens from the last question's button and from the right arrow there, and keys rest while it is open", async () => {
+  it("opens from Finish on the last question, where the right arrow opens nothing, and keys rest while it is open", async () => {
     await open();
     fireEvent.click(screen.getByRole("button", { name: "Câu 8" }));
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await pass(0);
+    noDialog();
+    expect(onQuestion(8)).toBeInTheDocument();
+
     fireEvent.click(
-      within(screen.getByRole("main")).getByRole("button", { name: "Xem lại & nộp" }),
+      within(screen.getByRole("main")).getByRole("button", { name: "Hoàn tất" }),
     );
     await pass(0);
     expect(dialog()).toHaveAccessibleName(UNANSWERED);
@@ -576,25 +581,23 @@ describe("the Submit dialog", () => {
     fireEvent.click(inDialog().getByRole("button", { name: KEEP }));
     await pass(0);
     noDialog();
-
-    fireEvent.keyDown(window, { key: "ArrowRight" });
-    await pass(0);
-    expect(dialog()).toHaveAccessibleName(UNANSWERED);
     expect(onQuestion(8)).toBeInTheDocument();
   });
 
-  it("opens from the rail's button, with the rail still beside the paper", async () => {
+  it("stays over the paper it was opened from, with the strip and the header still under it", async () => {
     await open();
-    const rail = () =>
-      within(
-        screen.getByRole("complementary", { name: "Danh sách câu", hidden: true }),
-      );
-    fireEvent.click(rail().getByRole("button", { name: "Xem lại & nộp" }));
+    const strip = () =>
+      within(screen.getByRole("navigation", { name: "Danh sách câu", hidden: true }));
+    fireEvent.click(strip().getByRole("button", { name: "Câu 8" }));
+    fireEvent.click(strip().getByRole("button", { name: "Hoàn tất" }));
     await pass(0);
 
     expect(dialog()).toHaveAccessibleName(UNANSWERED);
     expect(
-      rail().getByRole("button", { name: "Xem lại & nộp", hidden: true }),
+      strip().getByRole("button", { name: "Hoàn tất", hidden: true }),
+    ).toBeInTheDocument();
+    expect(
+      strip().getByRole("button", { name: "Câu 8, đang xem", hidden: true }),
     ).toBeInTheDocument();
     expect(
       header().getByRole("button", { name: "Thoát khỏi bài làm", hidden: true }),
@@ -669,7 +672,7 @@ describe("the Submit dialog on a phone", () => {
     viewport("phone");
   });
 
-  it("opens from the header and from the question sheet's button, which closes first", async () => {
+  it("opens from the header and from Finish on the last question, and the question sheet has no button for it", async () => {
     await open();
     await ask();
     expect(dialog()).toHaveAccessibleName(UNANSWERED);
@@ -678,11 +681,16 @@ describe("the Submit dialog on a phone", () => {
     await pass(0);
     noDialog();
 
-    fireEvent.click(screen.getByRole("button", { name: "Danh sách câu" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Danh sách câu: / }));
     await pass(0);
-    fireEvent.click(inDialog().getByRole("button", { name: "Xem lại & nộp" }));
+    expect(dialog()).toHaveAccessibleName("Danh sách câu");
+    expect(inDialog().queryByRole("button", { name: /nộp|hoàn tất/i })).toBeNull();
+    fireEvent.click(inDialog().getByRole("button", { name: "Câu 8" }));
     await pass(0);
+    noDialog();
 
+    fireEvent.click(screen.getByRole("button", { name: "Hoàn tất" }));
+    await pass(0);
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
     expect(dialog()).toHaveAccessibleName(UNANSWERED);
   });

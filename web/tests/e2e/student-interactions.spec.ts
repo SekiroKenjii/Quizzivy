@@ -192,16 +192,11 @@ for (const width of [320, 360, 1024, 1440]) {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);
-    const next = page
-      .getByRole("button", { name: "Xem lại & nộp", exact: true })
-      .last();
-    const bounds = await next.boundingBox();
+    const finish = page.getByRole("button", { name: "Hoàn tất", exact: true });
+    const bounds = await finish.boundingBox();
     expect(bounds).not.toBeNull();
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-    await page
-      .getByRole("button", { name: "Xem lại & nộp", exact: true })
-      .first()
-      .click();
+    await finish.click();
     const dialog = page.getByRole("dialog", { name: /^Nộp bài/ });
     await expect(dialog).toBeVisible();
     await expect(
@@ -222,10 +217,9 @@ test("a long paper keeps the Submit dialog's actions reachable on a 320px phone"
     id: `question-${index}`,
   }));
   await start(page, data);
-  await page.getByRole("button", { name: "Danh sách câu", exact: true }).click();
   await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Xem lại & nộp", exact: true })
+    .getByRole("banner")
+    .getByRole("button", { name: "Nộp bài", exact: true })
     .click();
   const dialog = page.getByRole("dialog", { name: /^Nộp bài/ });
   await expect(dialog).toContainText("Nộp bài khi còn 80 câu chưa trả lời?");
