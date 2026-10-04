@@ -25,7 +25,10 @@ as built (T-R3.5 to T-R3.11):
   engine leaves fullscreen once the attempt is submitted and records no
   fullscreen change after that. A blocked copy or paste raises a toast. The
   timer turns red under five minutes.
-- §10.6 `useClipboardNotice` has its own clipboard listeners, for the toast.
+- §10.6 The monitor owns every listener that records or stops a signal. Other
+  hooks listen to the same events and do neither: `useClipboardNotice` for the
+  toast, `useSaveStatus` for the save line, `useVersionWatch` for a newer build.
+  A question's audio player records `audio_play` through `recordAudioEvent`.
 - §12 The student rules: one breakpoint, the page widths, the 44px floor and
   the controls that keep the deck's size, the dialog frame, the timer's digit
   cells, larger text in tests. The integrity UI follows the deck on the
@@ -1191,7 +1194,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 ### 10.6 Client implementation
 
-- One `useIntegrityMonitor` hook owns every listener that records or blocks, registered and torn down in a single `useEffect`. One hook listens beside it: `useClipboardNotice` has its own `copy`, `cut` and `paste` listeners on `document`, only to show §10.2's toast. It records nothing and stops nothing; the monitor does both whether or not it runs. No other listeners.
+- One `useIntegrityMonitor` hook owns every DOM listener that records a signal or stops one, registered and torn down in a single `useEffect`. One signal is recorded outside it: a question's audio player reports `audio_play` to the same buffer from its play callback, through `recordAudioEvent` (§11.4). Other hooks listen to some of the same events and record and stop nothing: `useClipboardNotice` has its own `copy`, `cut` and `paste` listeners on `document`, only to show §10.2's toast; `useSaveStatus` listens to `online` and `offline` on `window`, only for the save line (§9); `useVersionWatch` listens to `visibilitychange` on `document`, only to look for a newer build (§9). The monitor records and stops whether or not they run.
 - Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`.
 - `clientSeq` is monotonic so the server can order events despite clock skew.
 - Failed background event flushes do not block answering or manual submission.
