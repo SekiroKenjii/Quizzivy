@@ -77,7 +77,7 @@ export function Navigator({
     <nav
       aria-label={t("takeTest.navTitle")}
       className={cn(
-        "bg-bg flex flex-none items-center gap-2.5 border-t pt-2.5",
+        "bg-bg flex flex-none items-center gap-2.5 border-t pt-2.5 pb-2.5",
         wide ? "px-6" : "px-3.5",
       )}
       style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}

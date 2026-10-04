@@ -138,6 +138,7 @@ describe("the footer below 768", () => {
       "gap-2.5",
       "border-t",
       "pt-2.5",
+      "pb-2.5",
       "px-3.5",
     );
 
@@ -624,7 +625,15 @@ describe("the footer from 768", () => {
     await open();
 
     expect(nav().parentElement).toBe(panel("q1")?.closest("section"));
-    expect(nav()).toHaveClass("bg-bg", "flex", "gap-2.5", "border-t", "pt-2.5", "px-6");
+    expect(nav()).toHaveClass(
+      "bg-bg",
+      "flex",
+      "gap-2.5",
+      "border-t",
+      "pt-2.5",
+      "pb-2.5",
+      "px-6",
+    );
     expect(screen.getByRole("main")).toHaveClass(
       "flex",
       "min-h-0",
