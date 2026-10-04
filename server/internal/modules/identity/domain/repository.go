@@ -13,7 +13,7 @@ type Users interface {
 	FindUserByEmail(ctx context.Context, email string) (User, error)
 	FindUserByID(ctx context.Context, id string) (User, error)
 	FindUserByProviderIdentity(ctx context.Context, provider, providerUserID string) (User, error)
-	CreateRefreshToken(ctx context.Context, in RefreshTokenRecord) error
+	CreateRefreshToken(ctx context.Context, in RefreshTokenRecord, basis SessionBasis) error
 	LinkIdentity(ctx context.Context, userID, provider, providerUserID, emailAtLink string) error
 	UnlinkIdentity(ctx context.Context, userID, provider string) (bool, error)
 	WriteAudit(ctx context.Context, e audit.Entry) error
