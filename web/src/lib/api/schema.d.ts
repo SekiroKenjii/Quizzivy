@@ -1999,6 +1999,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notifications, newest first
+         * @description The caller's own notifications and nobody else's, read or unread,
+         *     newest first. A notification first written more than 180 days ago is
+         *     deleted, once a day.
+         *
+         *     Paged by a cursor, not by a page number: ask again with `before` set
+         *     to `nextBefore` for the next older page. Ids are time-ordered, so a
+         *     notification written while the caller pages never moves a row from one
+         *     page to the next.
+         */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark the caller's notifications read
+         * @description With `ids`, marks those of the caller's notifications that are unread;
+         *     without it, every unread one. A notification already read keeps the
+         *     time it was first read.
+         *
+         *     It marks the caller's own notifications only. An id that is another
+         *     user's, already read or not a notification at all is skipped, and the
+         *     answer is the same 204 whatever matched, so it tells the caller
+         *     nothing about an id that is not theirs.
+         */
+        post: operations["markNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The counts the caller's shell shows
+         * @description How many of the caller's notifications are unread: the dot on the
+         *     bell. One count over the caller's own rows, cheap enough to poll.
+         */
+        get: operations["getMySummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notification switches
+         * @description All five switches, whatever the caller's role. One the caller never
+         *     saved answers its default: `inApp` true and `email` false.
+         */
+        get: operations["getNotificationPreferences"];
+        /**
+         * Replace the caller's notification switches
+         * @description Takes all five switches at once, each event exactly once and in any
+         *     order, and stores them for the caller. A client that draws only some
+         *     of them sends the others back as it read them.
+         */
+        put: operations["updateNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3964,6 +4066,104 @@ export interface components {
             liveAnsweredCount?: number | null;
             /** @description Only when the assignment's `review.showScore` is on. */
             score?: components["schemas"]["AttemptScore"] | null;
+        };
+        /**
+         * @description What a notification is about. The server sends no sentence: the client
+         *     words the item from `kind` and `params` in the reader's language.
+         *
+         *     Each kind carries exactly these `params`:
+         *
+         *     | Kind | For | Params |
+         *     |---|---|---|
+         *     | `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |
+         *     | `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |
+         *     | `assignment.closing` | a teacher | `title`, `notSubmitted` |
+         *     | `class.joined` | a teacher | `studentName`, `className` |
+         *     | `join_codes.rotated` | a teacher | `count`, `classNames` |
+         *     | `assignment.opened` | a student | `title`, `closesAt` |
+         *     | `assignment.due_soon` | a student | `title`, `closesAt` |
+         *     | `assignment.extended` | a student | `title`, `closesAt` |
+         *     | `result.ready` | a student | `title` |
+         * @enum {string}
+         */
+        NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready";
+        /**
+         * @description One switch of the notification settings. `attempt.submitted`,
+         *     `attempt.flagged` and `assignment.closing` are the teacher's;
+         *     `assignment.due_soon` and `result.ready` the student's. A switch
+         *     governs the kind of the same name, and `assignment.due_soon` also
+         *     governs `assignment.opened` and `assignment.extended`. `class.joined`
+         *     and `join_codes.rotated` have no switch.
+         * @enum {string}
+         */
+        NotificationEvent: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "assignment.due_soon" | "result.ready";
+        /**
+         * @description What the client builds a notification's sentence from. One closed set
+         *     of fields for every kind; `NotificationKind` says which of them a kind
+         *     carries. Plain values only: never markup, never a score, a band or an
+         *     answer. A name is a copy taken when the notification was written.
+         */
+        NotificationParams: {
+            /** @description The title of the test the assignment gives. */
+            title?: string;
+            /** @description Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`). */
+            count?: number;
+            /** @description Of the papers handed in, those with an answer waiting for a mark. */
+            toGrade?: number;
+            /** @description Times the student left the test. */
+            focusLost?: number;
+            /** @description Students who have not handed in. */
+            notSubmitted?: number;
+            studentName?: string;
+            className?: string;
+            /** @description At most five names; `count` holds how many classes there are. */
+            classNames?: string[];
+            closesAt?: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description Where a click on the notification goes: a page the client resolves from
+         *     `route`, never a URL. `assignmentId` is present for `assignment` and
+         *     `studentAssignment`, and `attemptId` for `attempt` and `result`; either
+         *     may accompany any other route.
+         */
+        NotificationTarget: {
+            /**
+             * @description `assignment`, `attempt`, `grading` and `classes` are pages of the
+             *     teaching workspace; `result` and `studentAssignment` are the
+             *     student's result and the student's page of an assignment.
+             * @enum {string}
+             */
+            route: "assignment" | "attempt" | "grading" | "classes" | "result" | "studentAssignment";
+            assignmentId?: components["schemas"]["Uuid"];
+            attemptId?: components["schemas"]["Uuid"];
+        };
+        Notification: {
+            id: components["schemas"]["Uuid"];
+            kind: components["schemas"]["NotificationKind"];
+            params: components["schemas"]["NotificationParams"];
+            /** @description Null when the notification leads nowhere. */
+            target: components["schemas"]["NotificationTarget"] | null;
+            createdAt: components["schemas"]["Timestamp"];
+            /**
+             * Format: date-time
+             * @description When the caller marked it read; null while it is unread. A
+             *     notification that is written again after it was read, as a count
+             *     that grew is, is unread again.
+             */
+            readAt: string | null;
+        };
+        NotificationPreference: {
+            event: components["schemas"]["NotificationEvent"];
+            /** @description While false, no notification this switch governs is written for the caller. */
+            inApp: boolean;
+            /** @description Stored and returned. Nothing is sent by email yet. */
+            email: boolean;
+        };
+        /** @description Every `NotificationEvent` once. The server answers them in the enum's order. */
+        NotificationPreferences: components["schemas"]["NotificationPreference"][];
+        /** @description What the caller's shell shows before any page is open. */
+        MySummary: {
+            unreadNotifications: number;
         };
         /**
          * @description Create/update body for a bank question. Cross-field rules that a single
@@ -8163,6 +8363,142 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                /**
+                 * @description A notification id, as `nextBefore` gave it: the page holds the
+                 *     caller's notifications older than it. It is a position in the
+                 *     caller's own list and never a lookup: an id the caller does not
+                 *     hold, another user's or nobody's, only bounds the page, which
+                 *     still holds the caller's rows alone.
+                 */
+                before?: components["schemas"]["Uuid"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page. An empty `items` when the caller has none, or none older than `before`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Notification"][];
+                        /**
+                         * Format: uuid
+                         * @description The id of the last item when older notifications exist, else null.
+                         */
+                        nextBefore: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    markNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Absent means every unread notification the caller has. */
+                    ids?: components["schemas"]["Uuid"][];
+                };
+            };
+        };
+        responses: {
+            204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getMySummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferences"];
+            };
+        };
+        responses: {
+            /** @description Saved. The five switches as stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description `VALIDATION_FAILED`: an event is unknown, repeated or missing, or the body is not the five switches. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
 }
