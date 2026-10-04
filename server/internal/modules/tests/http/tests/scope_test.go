@@ -8,6 +8,7 @@ import (
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/tests/application"
+	"quizzivy/internal/modules/tests/application/command"
 	"quizzivy/internal/modules/tests/application/query"
 	"quizzivy/internal/modules/tests/domain"
 	testshttp "quizzivy/internal/modules/tests/http"
@@ -45,6 +46,15 @@ func recordingReads(seen map[string]access.Scope) *application.Application {
 			seen["listTestVersions"] = q.Scope
 			return nil, nil
 		}),
+		Preview: cqrs.HandlerFunc[query.Preview, query.PreviewResult](func(_ context.Context, q query.Preview) (query.PreviewResult, error) {
+			seen["previewTest"] = q.Scope
+			return query.PreviewResult{}, domain.ErrNotPublished
+		}),
+	}, Commands: application.Commands{
+		Publish: cqrs.HandlerFunc[command.Publish, domain.Version](func(_ context.Context, c command.Publish) (domain.Version, error) {
+			seen["publishTest"] = c.Request.Scope
+			return domain.Version{}, domain.ErrDraftNotFound
+		}),
 	}}
 }
 
@@ -70,6 +80,12 @@ func TestTheTestAndGroupListsRunInTheCallersOwnScopeAndReadsByIdInTheCallersScop
 				"listTestVersions": func() (any, error) {
 					return h.ListTestVersions(ctx, openapi.ListTestVersionsRequestObject{Id: id})
 				},
+				"previewTest": func() (any, error) {
+					return h.PreviewTest(ctx, openapi.PreviewTestRequestObject{Id: id})
+				},
+				"publishTest": func() (any, error) {
+					return h.PublishTest(ctx, openapi.PublishTestRequestObject{Id: id})
+				},
 			} {
 				if _, err := call(); err != nil {
 					t.Fatalf("%s: %v", op, err)
@@ -82,7 +98,7 @@ func TestTheTestAndGroupListsRunInTheCallersOwnScopeAndReadsByIdInTheCallersScop
 				}
 			}
 			byID := access.Scope{UserID: principal.UserID, All: principal.Permissions.Has(access.ScopeAll)}
-			for _, op := range []string{"getTest", "getQuestionGroup", "listTestVersions"} {
+			for _, op := range []string{"getTest", "getQuestionGroup", "listTestVersions", "previewTest", "publishTest"} {
 				if got, ok := seen[op]; !ok || got != byID {
 					t.Errorf("%s ran in %+v (reached %v), want the caller's scope %+v", op, got, ok, byID)
 				}
