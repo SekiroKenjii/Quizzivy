@@ -1,7 +1,20 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.47 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.48 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.47**
+
+The contract's descriptions, brought level with four fixes:
+
+- §15 An error's `message` follows `Accept-Language` on every operation; the
+  field sentences and publish violations the rules word do not yet (#284).
+- §15 `publishTest` reports a question whose media file was deleted as a
+  violation, not a 500 (#287).
+- §15 A JSON body that repeats a member name is refused, unless the server
+  filled a default into it (#288).
+- §15 `createDraftFromTestVersion` answers `RESOURCE_REFERENCED` when a
+  question of the draft's groups is still used elsewhere (#296).
 
 **Changes since v0.46**
 
