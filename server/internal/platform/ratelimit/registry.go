@@ -21,8 +21,9 @@ type Route struct {
 	Keyed []Keyed
 }
 
-// Keyed is one keyed bucket. Name is the bucket's name in the contract's
-// x-rate-limit block; a Key that yields "" skips the bucket for that request.
+// Keyed is one keyed bucket. Name identifies it, and is its name in the
+// contract's x-rate-limit block where the operation declares one; a Key that
+// yields "" skips the bucket for that request.
 type Keyed struct {
 	Name    string
 	Key     KeyFunc
