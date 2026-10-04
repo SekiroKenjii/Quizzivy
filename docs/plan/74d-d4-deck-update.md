@@ -32,7 +32,13 @@ shows the third import's builder and previews, and the student engine is R3's.
 **No fix-only release, so the id T-D4.17 is not used.** The fixes merged into `develop` since
 v0.9.0 (#330, #331, #314, #321, #329, #328, #320, the units of #284, #315) reach production with
 v0.10.0, because `work/redesign-r4` takes `develop` by sync. R2's contract steps (T-R3.1 to
-T-R3.3) run as T-R4.49 if v0.9.1 has not shipped before R4 (`74-r4.md`).
+T-R3.3) run as T-R4.49 if v0.9.1 has not shipped before R4 (`74-r4.md`). Three things the
+fixes owe a release go on v0.10.0's checklist (T-R4.52), and the lead carries them to the R4
+branch: release notes for the student-facing fixes (answers typed offline, the timer at 00:00,
+sign-out, a recording's length, the language of errors); a smoke step for #330, one answer
+typed in airplane mode on a phone; and the v0.9.0 items still open with the owner, closed or
+carried (the two sign-ins, the short test, the `TEMPORARY` check of
+`docs/setup/operations.md`, #194).
 
 **Deliverable:** the take-test engine as the fourth export draws it: a sections rail from 900
 (1180 beside shared content), a grid button and a question sheet everywhere else, a drawer for
