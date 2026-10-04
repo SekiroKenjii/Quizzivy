@@ -2,8 +2,9 @@
 
 The programme that rebuilds Quizzivy to the new design deck (`docs/design/deck/`), splits the
 Admin role from the Teacher role, makes every resource owned by a teacher, and builds every
-capability the deck draws. Release files are `71-r1.md` … `81-r11.md`; groundwork (R0) is
-recorded here. Design requests are in `docs/design/gaps.md`.
+capability the deck draws. Release files are `71-r1.md` … `81-r11.md`, with
+`74d-d4-deck-update.md` for the deck update between R4 and R5; groundwork (R0) is recorded here.
+Design requests are in `docs/design/gaps.md`.
 
 Where this file and a release file disagree, this file wins until the release file is corrected.
 Where either disagrees with the spec, the spec wins and the plan is corrected (AGENTS.md).
@@ -43,6 +44,7 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | R3 | v0.9.0 | Student console and the take-test engine | `73-r3.md` |
 | R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10 | `73-r3.md` |
 | R4 | v0.10.0 | Teacher workspace | `74-r4.md` |
+| D4 | v0.10.1 | Deck update: the fourth export (2026-10-04). The take-test engine, the builder's shared content and the three previews, rebuilt to it | `74d-d4-deck-update.md` |
 | R5 | v0.11.0 | Admin console and email | `75-r5.md` |
 | R6 | v0.12.0 | Question types and scoring | `76-r6.md` |
 | R7 | v0.13.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
@@ -70,6 +72,9 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
    it. Class staff (D14, DG-04) is the case today: until then every release only hides
    Assistant from role pickers, and if DG-04 is still open at T-R11.14 class staff goes on the
    post-1.0 list (§10).
+10. D4 follows R4 and comes before R5 (Thuong, 2026-10-04). R4 builds from the deck of record
+    as it stands. The fourth export is imported by D4's first task, after v0.10.0, and no R4
+    task is amended to it while R4 is in flight.
 
 ## 3. How the work is run
 
@@ -77,8 +82,10 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 - **Integration branches.** For R1–R11, `work/redesign-r<k>` is cut from `develop`; feature PRs
   target it; `develop` is merged into it at least weekly and before every verification run.
   When every task is ticked, `work/redesign-r<k>` → `develop` (`--no-ff`), then
-  `release/0.<x>.0` → `main`. R0 PRs go straight to `develop`. Merging to `main` deploys, so it
-  waits for Thuong's go every time.
+  `release/0.<x>.0` → `main`. R0 PRs go straight to `develop`. D4 runs the same way under its
+  own names: tasks `T-D4.<n>`, branches `feature/t-d4-<nn>-<slug>`, the integration branch
+  `work/deck-d4`, and `release/0.10.1`. Merging to `main` deploys, so it waits for Thuong's go
+  every time.
 - **One task, one branch, one PR**, under ~800 non-generated lines; XL tasks split into lettered
   sub-PRs under one id.
 - **Mechanical sweeps are their own commits** with no behaviour inside: path renames, test
@@ -304,8 +311,8 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
    `getBoundingClientRect`, not screenshots alone.
 3. Security: the isolation suite (R2 on), escalation tests (R2, R5), the leak E2E that asserts
    student payloads carry no `isCorrect`, `sampleAnswer`, `acceptedAnswers` or `transcript` in
-   every release that adds or changes an `/app/*` or `/me/*` response (R3, R4, R6, R7, R8, R9,
-   R10), rate-limit tests for every new public operation.
+   every release that adds or changes an `/app/*` or `/me/*` response (R3, R4, D4, R6, R7, R8,
+   R9, R10), rate-limit tests for every new public operation.
 4. Release: migrations rehearsed on a Neon branch; deploy API then Pages; smoke `/healthz`,
    `/livez` and a sign-in per role; roll forward only; release notes; tag.
 
