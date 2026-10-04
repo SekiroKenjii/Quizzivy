@@ -1,82 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { sessionAs, studentUser, stubApi } from "./support/api";
-import type { components } from "../../src/lib/api/schema";
-
-type Session = components["schemas"]["AttemptSession"];
-function paper(): Session {
-  const now = new Date().toISOString();
-  return {
-    attempt: {
-      id: "paper",
-      assignmentId: "assignment",
-      studentId: studentUser.id,
-      testVersionId: "version",
-      attemptNo: 1,
-      status: "in_progress",
-      startedAt: now,
-      deadlineAt: new Date(Date.now() + 3600000).toISOString(),
-    },
-    testTitle: "Bài kiểm tra thao tác",
-    sections: [{ id: "part", title: "Phần 1", instructions: null }],
-    questions: [
-      {
-        id: "q1",
-        sectionId: "part",
-        type: "single_choice",
-        prompt: "Chọn đáp án",
-        points: 1,
-        options: [
-          { id: "a", text: "Đáp án A" },
-          { id: "b", text: "Đáp án B" },
-        ],
-      },
-      {
-        id: "q2",
-        sectionId: "part",
-        type: "fill_blank",
-        prompt: "She {{1}} yesterday.",
-        points: 1,
-        blanks: [{ id: "blank", ordinal: 1, caseSensitive: false }],
-      },
-      {
-        id: "q3",
-        sectionId: "part",
-        type: "short_answer",
-        prompt: "Viết một câu",
-        points: 1,
-      },
-    ],
-    sessionId: "session",
-    beaconToken: "beacon",
-    serverTime: now,
-    audioPlays: {},
-    answers: {},
-    remainingAttempts: 1,
-    integrity: {
-      requireFullscreen: false,
-      blockCopyPaste: false,
-      maxFocusLoss: 0,
-      onLimitExceeded: "warn",
-      minAwayMs: 3000,
-    },
-  };
-}
-async function start(page: Page, data: Session = paper()) {
-  await stubApi(page, {
-    ...sessionAs(studentUser),
-    "GET /app/attempts/paper": { body: data },
-    "PATCH /app/attempts/paper/answers": {
-      body: {
-        serverTime: data.serverTime,
-        savedAt: data.serverTime,
-        deadlineAt: data.attempt.deadlineAt,
-      },
-    },
-    "POST /app/attempts/paper/events": { body: {} },
-  });
-  await page.goto("/app/attempts/paper");
-  await expect(page.getByRole("radio", { name: "Đáp án A" })).toBeVisible();
-}
+import { expect, test } from "@playwright/test";
+import { engineFits, paper, start, type Session } from "./support/engine";
 
 test("rich table blanks preserve frozen answer bindings and reload on a 320px phone", async ({
   page,
@@ -149,9 +72,7 @@ test("rich table blanks preserve frozen answer bindings and reload on a 320px ph
     .poll(() => data.answers["q2"])
     .toEqual({ type: "fill_blank", values: { "frozen-a": "one", "frozen-b": "two" } });
   await expect(page.locator("table input").first()).toHaveValue("two");
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-  ).toBe(true);
+  await engineFits(page);
   await page.reload();
   await page.getByRole("button", { name: "Câu sau", exact: true }).click();
   await expect(first).toHaveValue("one");
@@ -162,7 +83,7 @@ test("rich table blanks preserve frozen answer bindings and reload on a 320px ph
   });
 });
 
-for (const width of [320, 360, 1024, 1440]) {
+for (const width of [320, 360, 768, 1024, 1440]) {
   test(`student keyboard and fill-blank at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 850 });
     await start(page);
@@ -175,9 +96,7 @@ for (const width of [320, 360, 1024, 1440]) {
     await blank.pressSequentially("went");
     await expect(blank).toBeFocused();
     await expect(blank).toHaveValue("went");
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBe(true);
+    await engineFits(page);
     await page.screenshot({
       path: info.outputPath(`fill-blank-${width}.png`),
       fullPage: true,
@@ -189,9 +108,7 @@ for (const width of [320, 360, 1024, 1440]) {
     await page
       .getByRole("textbox", { name: "Bài làm của bạn" })
       .pressSequentially("A full sentence.");
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBe(true);
+    await engineFits(page);
     const finish = page.getByRole("button", { name: "Hoàn tất", exact: true });
     const bounds = await finish.boundingBox();
     expect(bounds).not.toBeNull();
@@ -230,3 +147,22 @@ test("a long paper keeps the Submit dialog's actions reachable on a 320px phone"
     dialog.getByRole("button", { name: "Quay lại làm tiếp", exact: true }),
   ).toBeInViewport();
 });
+
+for (const [width, floored] of [
+  [1023, true],
+  [1024, false],
+] as const) {
+  test(`Return to fullscreen ${floored ? "keeps" : "is past"} the 44px floor at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const data = paper();
+    data.integrity.requireFullscreen = true;
+    await start(page, data);
+    const box = (await page
+      .getByRole("button", { name: "Quay lại toàn màn hình", exact: true })
+      .boundingBox())!;
+    if (floored) expect(box.height).toBeGreaterThanOrEqual(44);
+    else expect(box.height).toBeLessThan(44);
+  });
+}
