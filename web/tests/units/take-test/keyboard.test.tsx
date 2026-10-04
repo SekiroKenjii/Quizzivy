@@ -198,6 +198,22 @@ describe("the keys", () => {
     expect(store().flags.has("q1")).toBe(false);
   });
 
+  it("choose once however long a letter is held", async () => {
+    const paper = deckSession(new Date());
+    const fourth = paper.questions[3]!;
+    vi.mocked(getAttempt).mockResolvedValue(paper);
+    const user = mount();
+    await screen.findByRole("main");
+    await user.click(screen.getByRole("button", { name: "Câu 4" }));
+
+    fireEvent.keyDown(window, { key: "a" });
+    fireEvent.keyDown(window, { key: "a", repeat: true });
+    expect(store().answers[fourth.id]).toEqual({
+      type: "choice",
+      optionIds: [fourth.options![0]!.id],
+    });
+  });
+
   it("rest while Ctrl, Alt or the command key is held", async () => {
     const user = mount();
     await screen.findByRole("radio", { name: "First answer" });
