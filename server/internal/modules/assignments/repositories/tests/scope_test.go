@@ -99,7 +99,13 @@ func newReachWorld(t *testing.T) *reachWorld {
 
 func (w *reachWorld) listed(t *testing.T, scope access.Scope, classID *string) []string {
 	t.Helper()
-	found, page, err := w.store.List(context.Background(), domain.ListInput{Scope: scope, ClassID: classID, Limit: 100})
+	return w.listedIn(t, domain.ListInput{Scope: scope, ClassID: classID})
+}
+
+func (w *reachWorld) listedIn(t *testing.T, in domain.ListInput) []string {
+	t.Helper()
+	in.Limit = 100
+	found, page, err := w.store.List(context.Background(), in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +116,7 @@ func (w *reachWorld) listed(t *testing.T, scope access.Scope, classID *string) [
 		}
 	}
 	slices.Sort(ids)
-	if !scope.All && page.Total != len(ids) {
+	if !in.Scope.All && page.Total != len(ids) {
 		t.Errorf("the list totals %d for %d rows", page.Total, len(ids))
 	}
 	return ids
@@ -154,6 +160,76 @@ func TestEachTeacherListsTheAssignmentsTheyReach(t *testing.T) {
 		if err != nil || facets.All != 0 {
 			t.Errorf("B's facets for %s: %d (%v)", label, facets.All, err)
 		}
+	}
+}
+
+func TestTheAdminsListHoldsOnlyTheAssignmentsTheAdminReaches(t *testing.T) {
+	w := newReachWorld(t)
+	ctx := context.Background()
+	held := access.Scope{UserID: w.admin, All: true}
+	listed := domain.ListInput{Scope: held.Own(), EveryTarget: held.All}
+
+	if got := w.listedIn(t, listed); !slices.Equal(got, []string{w.shared}) {
+		t.Errorf("the Admin's list holds %v, want only the Admin's own %s", got, w.shared)
+	}
+	facets, err := w.store.Facets(ctx, listed)
+	if err != nil || facets.All != 1 || facets.Open != 1 {
+		t.Errorf("the Admin's tabs count %+v (%v), want the Admin's one open assignment", facets, err)
+	}
+	for label, c := range map[string]struct {
+		classID string
+		want    []string
+	}{
+		"A's class":       {w.classA, []string{w.shared}},
+		"B's class":       {w.classB, []string{w.shared}},
+		"a missing class": {uuid.NewString(), []string{}},
+	} {
+		in := listed
+		in.ClassID = &c.classID
+		if got := w.listedIn(t, in); !slices.Equal(got, c.want) {
+			t.Errorf("the Admin filtering by %s lists %v, want %v: the Admin's own on that class and no teacher's", label, got, c.want)
+		}
+		facets, err := w.store.Facets(ctx, in)
+		if err != nil || facets.All != len(c.want) {
+			t.Errorf("the Admin's tabs for %s count %d (%v), want %d", label, facets.All, err, len(c.want))
+		}
+	}
+
+	for label, id := range map[string]string{"A's": w.mineA, "B's": w.mineB} {
+		if _, err := w.store.Get(ctx, held, id); err != nil {
+			t.Errorf("the Admin opening %s assignment by id: %v", label, err)
+		}
+		if _, err := w.store.Get(ctx, listed.Scope, id); !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("%s assignment in the scope the list narrows its rows to: %v, want not found", label, err)
+		}
+	}
+
+	in := listed
+	in.Limit = 100
+	found, _, err := w.store.List(ctx, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(found, func(a domain.Assignment) bool { return a.ID == w.shared })
+	if i < 0 {
+		t.Fatal("the Admin's list omits the Admin's own assignment")
+	}
+	opened, err := w.store.Get(ctx, held, w.shared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for source, a := range map[string]domain.Assignment{"listed": found[i], "opened by id": opened} {
+		if len(a.Classes) != 2 || len(a.Students) != 1 || a.Students[0].ID != w.studentB || a.TargetCount != 2 {
+			t.Errorf("the Admin's assignment %s names %d classes, students %+v and %d targets, want every target: both classes, B's student, 2", source, len(a.Classes), a.Students, a.TargetCount)
+		}
+	}
+
+	own := access.Scope{UserID: w.a}
+	if own.Own() != own {
+		t.Fatalf("a teacher's own scope is %+v, want it unchanged %+v", own.Own(), own)
+	}
+	if got := w.listed(t, own.Own(), nil); !slices.Equal(got, sortedIDs(w.mineA, w.shared)) {
+		t.Errorf("A's list holds %v, want A's own and the Admin's on A's class", got)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"regexp"
 	"slices"
 	"sort"
@@ -202,6 +203,67 @@ func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 	} {
 		if got := x.admin.send(http.MethodGet, path+x.a.id(kind), nil); got.status != http.StatusOK {
 			t.Errorf("the Admin opening the teacher's %s: %d %s", kind, got.status, got.body)
+		}
+	}
+	x.adminListsOwnRows()
+	x.adminsOwnAssignmentNamesEveryTarget()
+}
+
+func (x *iso) adminListsOwnRows() {
+	x.t.Helper()
+	for path, counts := range map[string][]string{
+		"/teacher/tests":                      {"total", "facets.all"},
+		"/teacher/questions":                  {"total", "facets.all", "bankTotal"},
+		"/teacher/question-groups?status=all": {"total"},
+		"/teacher/media":                      {"total", "totalBytes"},
+		"/teacher/imports":                    {"total"},
+		"/teacher/assignments":                {"total", "facets.all"},
+	} {
+		got := x.admin.send(http.MethodGet, path, nil)
+		if got.status != http.StatusOK {
+			x.t.Errorf("the Admin listing %s: %s", path, answer(got))
+			continue
+		}
+		if leaked := append(mentions(got.body, x.a), mentions(got.body, x.b)...); len(leaked) > 0 {
+			x.t.Errorf("the Admin's %s shows a teacher's %v", path, leaked)
+		}
+		for _, field := range counts {
+			var value any = got.json
+			for _, key := range strings.Split(field, ".") {
+				object, _ := value.(map[string]any)
+				value = object[key]
+			}
+			if n, ok := value.(float64); !ok || n != 0 {
+				x.t.Errorf("the Admin's %s counts %s = %v, want 0: the Admin owns nothing here", path, field, value)
+			}
+		}
+	}
+}
+
+func (x *iso) adminsOwnAssignmentNamesEveryTarget() {
+	x.t.Helper()
+	class := x.a.id("class")
+	created := x.admin.assign(x.a.id("test-version"), class)
+	opened := x.admin.must(http.StatusOK, http.MethodGet, "/teacher/assignments/"+id(created), nil)
+	targets, _ := opened["targets"].(map[string]any)
+	if classes, _ := targets["classes"].([]any); len(classes) != 1 || opened["targetCount"] == float64(0) {
+		x.t.Fatalf("the Admin's assignment on the teacher's class opens with targets %v and counts %v", opened["targets"], opened["targetCount"])
+	}
+	for label, path := range map[string]string{
+		"list":                         "/teacher/assignments",
+		"list for the teacher's class": "/teacher/assignments?classId=" + class,
+	} {
+		got := x.admin.must(http.StatusOK, http.MethodGet, path, nil)
+		items, _ := got["items"].([]any)
+		facets, _ := got["facets"].(map[string]any)
+		if len(items) != 1 || got["total"] != float64(1) || facets["all"] != float64(1) {
+			x.t.Errorf("the Admin's %s holds %d rows, total %v and facets %v, want the Admin's one assignment", label, len(items), got["total"], facets)
+			continue
+		}
+		row := items[0].(map[string]any)
+		if id(row) != id(created) || !reflect.DeepEqual(row["targets"], opened["targets"]) || row["targetCount"] != opened["targetCount"] {
+			x.t.Errorf("the Admin's %s names %v and counts %v, want what the assignment opened by id names and counts: %v and %v",
+				label, row["targets"], row["targetCount"], opened["targets"], opened["targetCount"])
 		}
 	}
 }

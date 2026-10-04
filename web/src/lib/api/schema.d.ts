@@ -647,7 +647,7 @@ export interface paths {
         };
         /**
          * Search private import history
-         * @description Paginated history of the caller's imports (every teacher's with `scope.all`), with accent-insensitive title and current filename search.
+         * @description Paginated history of the imports the caller created, for every caller (`scope.all` does not widen it), with accent-insensitive title and current filename search.
          */
         get: operations["listWordImports"];
         put?: never;
@@ -991,9 +991,18 @@ export interface paths {
         };
         /**
          * @description Backs the §8 assignments list. `status` is derived per assignment, not
-         *     stored (D-18). `classId` narrows the list to assignments that target
+         *     stored (D-18). The list holds the assignments the caller created and
+         *     those that target a class the caller teaches, for every caller:
+         *     `scope.all` does not widen it. A row names only the target classes and
+         *     students the caller reaches, and `targetCount` counts those; for a
+         *     caller who holds `scope.all` that is every target, as in
+         *     `getAssignment`.
+         *     `classId` narrows the list to assignments that target
          *     that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
-         *     tab counts are the class's and never disagree with the rows.
+         *     tab counts are the class's and never disagree with the rows. A class
+         *     the caller does not teach lists nothing, as a missing class does,
+         *     unless the caller holds `scope.all`: it then lists those of the
+         *     caller's own assignments that target it.
          */
         get: operations["listAssignments"];
         put?: never;
@@ -2350,7 +2359,9 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
-         * @description Belongs to the teacher who created it (`createdBy`); every import with `scope.all`.
+         * @description Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+         *     any import by id; the history (`listWordImports`) holds only the
+         *     caller's own.
          *     Sources are private originals, never learner media. Source revision zero
          *     means no completed source set. Upload completion does not mean recognition.
          *     Pending uploads are durable reservations and cannot be downloaded or processed.
@@ -2681,7 +2692,13 @@ export interface components {
          *     no role is granted them, and only the Admin holds them. The Admin
          *     holds every key, and `learning.take_tests` only when that cell is
          *     turned on. `scope.all` reads and edits any teacher's content, classes
-         *     and people.
+         *     and people by id, and widens the lists of classes, students and
+         *     attempts and the dashboard's figures to every teacher's. It does not
+         *     widen the teaching workspace's six content lists: `listTests`,
+         *     `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`
+         *     and `listAssignments`, with their facets, tags and counts, hold the
+         *     caller's own rows for every caller (for assignments, those the caller
+         *     created and those that target a class the caller teaches).
          * @enum {string}
          */
         PermissionKey: "content.tests.write" | "content.tests.publish" | "content.questions.write" | "content.media.write" | "content.share" | "teaching.classes.write" | "teaching.assignments.write" | "teaching.grading" | "teaching.attempts.intervene" | "teaching.attendance" | "people.students.read" | "people.students.create" | "people.students.reset_password" | "people.users.manage" | "people.roles.manage" | "system.audit.read" | "system.settings.write" | "learning.take_tests" | "scope.all" | "system.api_reference" | "system.data_export" | "system.leads";

@@ -49,10 +49,10 @@ func principals() map[string]access.Principal {
 	}
 }
 
-func TestTheLibraryListsAndTotalsInTheCallersScope(t *testing.T) {
+func TestTheLibraryListsAndTotalsTheCallersOwnAssets(t *testing.T) {
 	for name, principal := range principals() {
 		t.Run(name, func(t *testing.T) {
-			want := access.Scope{UserID: principal.UserID, All: principal.Permissions.Has(access.ScopeAll)}
+			want := access.Scope{UserID: principal.UserID}
 			var listed, totalled access.Scope
 			app := &application.Application{Queries: application.Queries{
 				List: cqrs.HandlerFunc[query.List, query.ListResult](func(_ context.Context, q query.List) (query.ListResult, error) {
@@ -68,7 +68,7 @@ func TestTheLibraryListsAndTotalsInTheCallersScope(t *testing.T) {
 				t.Fatal(err)
 			}
 			if listed != want || totalled != want {
-				t.Errorf("the library listed in %+v and totalled in %+v, want %+v for both", listed, totalled, want)
+				t.Errorf("the library listed in %+v and totalled in %+v, want the caller's own rows %+v for both", listed, totalled, want)
 			}
 		})
 	}
