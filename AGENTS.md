@@ -245,11 +245,29 @@ time once: a type-level contract assertion was silently never evaluated.
 ## Two things about the middleware chain
 
 - **`oapi-codegen` applies the middleware slice in reverse**: the LAST entry
-  wraps outermost and therefore runs FIRST. `NewRouter` passes the list through
+  wraps outermost and therefore runs FIRST. `router.New` passes the list through
   `inExecutionOrder`, so what is written top-to-bottom is what a request
   actually travels. Add new middleware to that list in the position you want it
   to RUN. `TestAuthenticationIsDecidedBeforeValidation` (`validate_test.go`) and
   `TestBodyLimitPrecedesJSONValidation` (`hardening_test.go`) pin the direction.
+- **Two rate limiters run at two places in that list.** `httpx.RateLimit` runs
+  first, before authentication, over `RateLimits()`: buckets keyed by the
+  client address or by a field of the body, for every open operation and the
+  in-app join. `httpx.PrincipalRateLimit` runs directly after
+  `RequirePermission` and before the body limit, over `PrincipalRateLimits()`:
+  one `perActor` bucket per entry, keyed by `ratelimit.PrincipalKey`, the
+  resolved principal's user id. A limit "per user" or "per actor" goes in the
+  second registry, and so does every authenticated operation that mints a
+  credential, so staff behind one address do not share a budget. An anonymous
+  or forbidden caller of such an operation is answered 401 or 403 and spends
+  none. An entry there for an open operation stops the server at start-up
+  (`httpx.AssertPrincipalRoutesGated`): no principal exists on one. `/docs` and
+  `/docs/openapi.json` are served beside the list and stay per address
+  (`ServiceRateLimits()`).
+  `TestRateLimitsRunBeforeAuthenticationAndThePermissionGate`
+  (`permissions_test.go`) and
+  `TestThePrincipalLimiterRunsAfterTheGateAndBeforeTheBody`
+  (`principal_limits_test.go`) pin the two positions.
 - **The maintenance gate is outside that list.** `httpx.Maintenance` wraps the
   mux inside CORS, `CORS(Maintenance(mux))`, so it runs before rate limiting and
   authentication: during a window every route answers `503 MAINTENANCE`, an
