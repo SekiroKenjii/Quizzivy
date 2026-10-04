@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SideColumn } from "@/components/shared/SideColumn";
+import { COLUMN_LIMITS } from "@/hooks/useColumnWidth";
 import "@/lib/i18n";
 
 function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -88,22 +89,12 @@ describe("a side column (F-13)", () => {
   });
 });
 
-it("keeps student navigator width separate from the teacher panel preference", async () => {
-  localStorage.setItem("quizzivy.column.panel", "512");
-  const user = userEvent.setup();
-  render(
-    <Layout>
-      <SideColumn column="studentNavigator" side="right" aria-label="Danh sách câu">
-        <p>questions</p>
-      </SideColumn>
-    </Layout>,
-  );
-  const column = screen.getByRole("complementary", { name: "Danh sách câu" });
-  expect(column).toHaveStyle({ width: "256px" });
-  const handle = screen.getByRole("separator", { name: "Độ rộng danh sách câu" });
-  handle.focus();
-  await user.keyboard("{ArrowLeft}");
-  expect(column).toHaveStyle({ width: "272px" });
-  expect(localStorage.getItem("quizzivy.column.studentNavigator")).toBe("272");
-  expect(localStorage.getItem("quizzivy.column.panel")).toBe("512");
+it("keeps no width for the student's question list, which is a footer now", () => {
+  expect(Object.keys(COLUMN_LIMITS).sort((a, b) => a.localeCompare(b))).toEqual([
+    "importSource",
+    "outline",
+    "panel",
+    "rail",
+    "sidebar",
+  ]);
 });

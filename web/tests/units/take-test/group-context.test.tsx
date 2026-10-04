@@ -110,7 +110,7 @@ it("keeps the listening controls with the question on a phone, where the passage
   await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
   expect(screen.getByText("Lịch hoạt động")).toBeVisible();
   expect(screen.getByText(previewQuestions[1]!.prompt)).not.toBeVisible();
-  expect(screen.queryByRole("contentinfo")).toBeNull();
+  expect(screen.queryByRole("navigation", { name: "Danh sách câu" })).toBeNull();
   expect(container.querySelector("audio")).toBe(audio);
 
   await user.click(switcher().getByRole("button", { name: "Câu 1" }));
@@ -142,7 +142,7 @@ it("returns to the question, and to the gap's target, from a gap in the passage 
     "id",
     `answer-question-${previewQuestions[2]!.id}`,
   );
-  expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+  expect(screen.getByRole("navigation", { name: "Danh sách câu" })).toBeInTheDocument();
 });
 
 it("shows the question again when a gap in the passage points at the question already open", async () => {
