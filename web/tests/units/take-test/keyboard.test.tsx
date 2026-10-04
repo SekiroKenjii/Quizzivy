@@ -254,16 +254,19 @@ describe("the keys", () => {
     expect(onQuestion(2)).toBeInTheDocument();
   });
 
-  it("rest on a paper that is locked", async () => {
-    const user = mount();
-    await screen.findByRole("radio", { name: "First answer" });
-    act(() => store().lockNow("deadline"));
+  it.each(["deadline", "superseded", "closed"] as const)(
+    "rest on a paper whose lock is %s",
+    async (lock) => {
+      const user = mount();
+      await screen.findByRole("radio", { name: "First answer" });
+      act(() => store().lockNow(lock));
 
-    await user.keyboard("b");
-    await user.keyboard("f");
-    await user.keyboard("{ArrowRight}");
-    expect(store().answers["q1"]).toBeUndefined();
-    expect(store().flags.size).toBe(0);
-    expect(onQuestion(1)).toBeInTheDocument();
-  });
+      await user.keyboard("b");
+      await user.keyboard("f");
+      await user.keyboard("{ArrowRight}");
+      expect(store().answers["q1"]).toBeUndefined();
+      expect(store().flags.size).toBe(0);
+      expect(onQuestion(1)).toBeInTheDocument();
+    },
+  );
 });
