@@ -1845,7 +1845,6 @@
       "rail": "Filter column width",
       "panel": "Side panel width",
       "outline": "Outline width",
-      "studentNavigator": "Question list width",
       "importSource": "Source column width"
     }
   },
