@@ -150,7 +150,9 @@ ARIA name, or the text it shows. Code paths are under `web/src/` unless they sta
 `develop` at `fd9c763a` (v0.9.0 and the fixes after it). Two later fixes already move some:
 since #315's, `api/openapi.yaml` is one line shorter past line 492, and since #320's
 (`49c9f0e1`), `TakeTestPage.tsx` is up to twenty lines longer past line 45. R4 moves more, so
-each number is quoted beside an identifier.
+each number is quoted beside an identifier. R4's task ids and their text are those of
+`work/redesign-r4`, where T-R4.0 corrected `74-r4.md` (T-R4.1a, T-R4.2a and T-R4.3a are
+sub-PRs there); they reach `develop` with v0.10.0.
 
 **The gap rows.** T-D4.1 opens fourteen rows in `docs/design/gaps.md`. Their ids are the next
 free ones when it runs: `develop` ends at DG-119 today, the R4 branch holds DG-122 and reserves
