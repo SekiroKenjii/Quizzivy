@@ -439,10 +439,11 @@ Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
 Continuous motion (the marquee on overflowing titles, the live dot) pauses on
 hover and focus and is static under `prefers-reduced-motion`.
 
-Integrity UI follows the deck (decided 2026-09-26): flags and "Flagged" in the
-teacher's roster, the red timer in the last five minutes, and "Your teacher has
-been told" once a student is past the allowance. The teacher judges; the app
-reports —
+Integrity UI follows the deck (decided 2026-09-26). On the student side: the
+red timer in the last five minutes, and "Your teacher has been told" once a
+student is past the allowance under `flag` or `auto_submit`; a `warn` policy
+never names the teacher. Flags and "Flagged" in the teacher's roster follow in
+R4 (T-R4.46). The teacher judges; the app reports —
 the product never concludes that a student cheated.
 
 The student app lives in `StudentLayout`, whose one outlet stays mounted at
