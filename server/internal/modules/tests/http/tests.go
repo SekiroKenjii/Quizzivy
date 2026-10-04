@@ -13,7 +13,9 @@ import (
 	"strconv"
 )
 
-const msgTestNotFound = "Không tìm thấy đề."
+func msgTestNotFound(ctx context.Context) string {
+	return httpx.Text(ctx, "Không tìm thấy đề.", "The test was not found.")
+}
 
 func (h Tests) ListTests(ctx context.Context, request openapi.ListTestsRequestObject) (openapi.ListTestsResponseObject, error) {
 	if h.app == nil {
@@ -82,7 +84,7 @@ func (h Tests) GetTest(ctx context.Context, request openapi.GetTestRequestObject
 	t, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgTestNotFound))}, nil
+			httpapi.NotFound(ctx, msgTestNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -128,19 +130,23 @@ func (h Tests) UpdateTest(ctx context.Context, request openapi.UpdateTestRequest
 	case err == nil:
 	case errors.Is(err, domain.ErrArchived):
 		return openapi.UpdateTest409JSONResponse(httpapi.Error(ctx, openapi.TESTARCHIVED,
-			"Hãy khôi phục đề đã lưu trữ trước khi thay đổi cấu trúc.")), nil
+			httpx.Text(ctx, "Hãy khôi phục đề đã lưu trữ trước khi thay đổi cấu trúc.",
+				"Restore the archived test before changing its structure."))), nil
 	case errors.Is(err, domain.ErrGroupOutlineRequired):
 		return openapi.UpdateTest409JSONResponse(httpapi.Error(ctx, openapi.GROUPOUTLINEREQUIRED,
-			"Đề có nhóm ngữ liệu chung. Cần trình soạn đề hỗ trợ nhóm để thay đổi cấu trúc.")), nil
+			httpx.Text(ctx, "Đề có nhóm ngữ liệu chung. Cần trình soạn đề hỗ trợ nhóm để thay đổi cấu trúc.",
+				"The test has groups with shared material. Changing its structure needs an editor that supports groups."))), nil
 	case errors.Is(err, domain.ErrStaleWrite):
 		return openapi.UpdateTest409JSONResponse(httpapi.Error(ctx, openapi.STALEWRITE,
-			"Đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi lưu.")), nil
+			httpx.Text(ctx, "Đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi lưu.",
+				"The test was edited elsewhere. Please reload before saving."))), nil
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.UpdateTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgTestNotFound))}, nil
+			httpapi.NotFound(ctx, msgTestNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrUnknownQuestion):
-		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Đề tham chiếu câu hỏi không tồn tại.")
-		resp.Error.Details = &map[string]interface{}{"sections": "Một câu hỏi trong đề đã bị xoá."}
+		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			httpx.Text(ctx, "Đề tham chiếu câu hỏi không tồn tại.", "The test refers to a question that does not exist."))
+		resp.Error.Details = &map[string]interface{}{"sections": httpx.Text(ctx, "Một câu hỏi trong đề đã bị xoá.", "A question in the test has been deleted.")}
 		return openapi.UpdateTest400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(resp)}, nil
 	default:
 		var invalid *domain.ValidationError
@@ -170,7 +176,7 @@ func (h Tests) DuplicateTest(ctx context.Context, request openapi.DuplicateTestR
 	t, err := h.app.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: req})
 	if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrUnknownQuestion) {
 		return openapi.DuplicateTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, msgTestNotFound))}, nil
+			httpapi.NotFound(ctx, msgTestNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -194,7 +200,7 @@ func testRequest(ctx context.Context, id string) (domain.Request, bool) {
 }
 
 func testValidationError(ctx context.Context, invalid *domain.ValidationError) openapi.ErrorResponse {
-	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Dữ liệu đề không hợp lệ.")
+	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Dữ liệu đề không hợp lệ.", "The test data is not valid."))
 	details := map[string]interface{}{}
 	for _, f := range invalid.Fields {
 		if _, seen := details[f.Field]; !seen {
@@ -341,7 +347,7 @@ func (h Tests) PreviewTest(ctx context.Context, request openapi.PreviewTestReque
 	resolved, questions := previewResult.Version, previewResult.Questions
 	if errors.Is(err, domain.ErrNotPublished) {
 		return openapi.PreviewTest409JSONResponse(httpapi.Error(ctx,
-			openapi.TESTNOTPUBLISHED, "Đề này chưa được phát hành.")), nil
+			openapi.TESTNOTPUBLISHED, httpx.Text(ctx, "Đề này chưa được phát hành.", "This test has not been published."))), nil
 	}
 	if err != nil {
 		return nil, err
