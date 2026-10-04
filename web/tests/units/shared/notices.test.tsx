@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FileText, ShieldCheck } from "lucide-react";
@@ -6,7 +6,7 @@ import { Callout } from "@/components/shared/Callout";
 import { EventList, type EventListItem } from "@/components/shared/EventList";
 import { IconTile } from "@/components/shared/IconTile";
 import { LockNotice } from "@/components/shared/LockNotice";
-import "@/lib/i18n";
+import i18n from "@/lib/i18n";
 
 describe("IconTile", () => {
   it("is decoration: hidden from assistive technology, with its icon", () => {
@@ -417,5 +417,24 @@ describe("EventList", () => {
     const { container } = render(<EventList label={TIMELINE} items={[]} />);
     expect(container).toBeEmptyDOMElement();
     expect(screen.queryByRole("list")).toBeNull();
+  });
+});
+
+describe("the display strings in English", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("vi");
+  });
+
+  it("writes the deck's words", async () => {
+    await i18n.changeLanguage("en");
+    const reason = "Locked while students are taking the test";
+    render(
+      <>
+        <LockNotice reason={reason} />
+        <Callout onDismiss={vi.fn()}>You can leave this page.</Callout>
+      </>,
+    );
+    expect(screen.getByTitle(reason)).toHaveTextContent(/^Locked /);
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
   });
 });
