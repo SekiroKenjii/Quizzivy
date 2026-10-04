@@ -262,11 +262,7 @@ func TestNothingIsServedWithoutACallerOrAModule(t *testing.T) {
 		}),
 	}}
 	ids := []openapi.Uuid{uuid.New()}
-	for label, transport := range map[string]notificationshttp.Notifications{
-		"no caller": notificationshttp.NewNotifications(app),
-		"no module": notificationshttp.NewNotifications(nil),
-	} {
-		ctx := context.Background()
+	refused := func(ctx context.Context, label string, transport notificationshttp.Notifications) {
 		_, list := transport.ListNotifications(ctx, openapi.ListNotificationsRequestObject{})
 		_, mark := transport.MarkNotificationsRead(ctx, openapi.MarkNotificationsReadRequestObject{Body: &openapi.MarkNotificationsReadJSONRequestBody{Ids: &ids}})
 		_, summary := transport.GetMySummary(ctx, openapi.GetMySummaryRequestObject{})
@@ -278,6 +274,11 @@ func TestNothingIsServedWithoutACallerOrAModule(t *testing.T) {
 			}
 		}
 	}
+	refused(context.Background(), "no caller", notificationshttp.NewNotifications(app))
+	answered(t, "", func(ctx context.Context, _ http.ResponseWriter) error {
+		refused(ctx, "no module", notificationshttp.NewNotifications(nil))
+		return nil
+	})
 	if reached {
 		t.Error("a query ran without a caller")
 	}
