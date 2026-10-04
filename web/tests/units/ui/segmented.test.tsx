@@ -210,6 +210,7 @@ describe("an option's icon", () => {
     const button = screen.getByRole("button", { name: "Tải tệp lên" });
     const icon = button.firstElementChild!;
     expect(icon.tagName.toLowerCase()).toBe("svg");
+    expect(button.firstChild).toBe(icon);
     expect(icon).toHaveAttribute("aria-hidden", "true");
     expect(classes(icon)).toEqual(
       expect.arrayContaining(["shrink-0", "size-[0.9375rem]"]),
