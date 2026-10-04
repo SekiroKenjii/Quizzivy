@@ -72,7 +72,11 @@ function isUnanswered(cause: unknown): boolean {
   );
 }
 
-/** §5.4's logout: revoke server-side, then forget everything client-side. */
+/**
+ * §5.4's logout: revoke server-side, then forget everything client-side. A
+ * "sign in again" overlay raised while the sign-out was on its way is closed
+ * once the session is cleared.
+ */
 export function useLogout() {
   const queryClient = useQueryClient();
   const clearSession = useAuthStore((s) => s.clearSession);
@@ -86,6 +90,9 @@ export function useLogout() {
     }
     await navigate("/login", { replace: true });
     clearSession();
+    if (useAppState.getState().overlay.kind === "expired") {
+      useAppState.getState().closeOverlay();
+    }
     clearAnswerDrafts();
     clearGroupPlayDrafts();
     await clearAuthoringDrafts().catch(() => undefined);

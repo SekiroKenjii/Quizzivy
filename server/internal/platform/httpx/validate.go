@@ -55,7 +55,7 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 			},
 			ErrorHandlerWithOpts: func(_ context.Context, err error, w http.ResponseWriter, r *http.Request, opts nethttpmiddleware.ErrorHandlerOpts) {
 				if opts.StatusCode == http.StatusNotFound {
-					WriteError(w, r, http.StatusNotFound, CodeNotFound, TextFor(r, "Không tìm thấy đường dẫn.", "The path was not found."))
+					WriteNotFound(w, r)
 					return
 				}
 				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, validationMessage(r, err))
