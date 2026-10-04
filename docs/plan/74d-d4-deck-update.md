@@ -129,7 +129,7 @@ and puts both runs in its pull request:
   untouched;
 - autosave's two flushes (on unmount and before publish): `builder/autosave-unmount.test.tsx`,
   `builder/autosave-flush.test.tsx`, `tests/units/question-groups/*` and
-  `builder-group-recovery.spec.ts` for T-D4.2a, T-D4.14 and T-D4.15;
+  `builder-group-recovery.spec.ts` for T-D4.2a, T-D4.2b, T-D4.2c, T-D4.14 and T-D4.15;
 - the server task: the Go unit tests of `questions`, `tests` and `attempts`.
 
 **Reading the references.** "S 1631" and "T 6986" are line numbers in the *pretty* form of the
@@ -1291,8 +1291,11 @@ Untouched by the export, and not reopened: T-R4.1 to T-R4.29, T-R4.32, T-R4.33, 
 T-R4.38, T-R4.40 to T-R4.49, T-R4.53 to T-R4.57, T-R4.62, T-R4.63, T-R4.64, T-R4.66. The page's
 tokens, shell, content editor, question media block and bank editor did not move.
 
-Rules for T-D4.2a, T-D4.14 and T-D4.15, which edit the builder (AGENTS.md, "A debounced
-autosave owes the user two flushes"): the five canaries, `tests/units/builder/*`,
+Rules for T-D4.2a, T-D4.2b, T-D4.2c, T-D4.14 and T-D4.15 (AGENTS.md, "A debounced autosave
+owes the user two flushes"). Each edits the builder or something its autosave holds: T-D4.2b's
+`GapBindings` renders inside the group editor's form, with its bundle autosave and its
+recovery draft, and T-D4.2c replaces the dialog the builder opens only after it has flushed
+the open question and the outline. The five canaries, `tests/units/builder/*`,
 `tests/units/question-groups/*` (`editor-save`, `material-transaction`, `model`) and
 `tests/e2e/builder-group-recovery.spec.ts` run on the branch point and on the last commit, both
 runs in the PR. `builder/autosave-unmount.test.tsx` and `autosave-flush.test.tsx` are not
@@ -1452,7 +1455,7 @@ draft holding the older materials could be offered back over what the dialog sav
 ### T-D4.15 — Authoring: one "Plays" control, and "Students can pause"
 **Reopens:** T-R4.65 (the question media block's "Plays", and "Students can pause is not built")
 **Depends on:** T-D4.13
-**Touches:** `web/src/features/question-bank/components/AudioPolicyPanel.tsx`, `web/src/features/question-bank/{audioPolicy.ts,questionSchema.ts}`, `web/src/features/question-groups/{model.ts,recovery.ts}`, locales, `web/tests/units/question-bank/editor.test.tsx`, `web/tests/units/question-groups/recovery-compat.test.ts` (new)
+**Touches:** `web/src/features/question-bank/components/AudioPolicyPanel.tsx`, `web/src/features/question-bank/{audioPolicy.ts,questionSchema.ts}`, `web/src/features/question-groups/{model.ts,recovery.ts}`, locales, `web/tests/units/question-bank/editor.test.tsx`, `web/tests/units/question-groups/{recovery-compat.test.ts,recording-plays.test.tsx}` (new)
 **Size:** S
 **Done when:**
 - [ ] "Plays" is one control everywhere (DG-69, Q25). T-R4.65 built "Once | Twice | Unlimited"
@@ -1460,7 +1463,9 @@ draft holding the older materials could be offered back over what the dialog sav
       value. A group's recording shows the same control, in the group pane and in the Shared
       content dialog: `AudioPolicyPanel` is the one component for both, and if R4 left the
       group's recording on the older select (1, 2, 3, 5, Unlimited), this task moves it. The
-      export's third drawing, a select with "3 plays" (T 1714-1719), is not taken.
+      export's third drawing, a select with "3 plays" (T 1714-1719), is not taken. A unit
+      case in the group pane: a recording stored with 3 plays shows "3" as a fourth option,
+      and choosing "Twice" saves 2.
 - [ ] `AudioPolicyPanel` shows "Students can pause" under "Plays", on by default, for a
       question's audio and for a group's recording; it saves `allowPause`. A policy read
       without the field shows the switch on.
@@ -1478,7 +1483,8 @@ draft holding the older materials could be offered back over what the dialog sav
       the test), restores it over a group whose recording has `allowPause: false`, and
       asserts the restored and the saved bundle both read false.
 - [ ] A test saves it off for a question and for a recording and reads it back.
-- [ ] The media block is compared with the deck again at 360 and 1280, light and dark.
+- [ ] The media block and the group pane's recording are compared with the deck again at 360
+      and 1280, light and dark.
 
 ### T-D4.2c — Previews: the bar and the frame
 **Reopens:** T-R4.31b (the builder's Student preview), T-R4.30 (Test detail's preview), T-R4.39 (the import's preview)
@@ -1514,6 +1520,13 @@ draft holding the older materials could be offered back over what the dialog sav
       dialog's sub line, Previous / Next, the two chips and the count line are removed in
       their own commit. The PR lists each test that pinned a retired frame beside the case that
       replaces it.
+- [ ] Unit tests. `preview-and-leave.test.tsx`: an edit still pending is saved before the
+      overlay opens (today's one preview case does not assert it); Esc closes the overlay and
+      focus returns to Preview; "Computer | Phone" changes the frame's size. Under
+      `tests/units/tests/`: with compare on, the rows stand above the frame and nothing
+      inside it carries an outline or a chip; the frame's two sizes. Under
+      `tests/units/imports/`: the frame holds the whole review draft, with no count line, no
+      answer and no note.
 - [ ] Compared with the deck at 1280 and 1440 (Computer) and with Phone selected, and at 360,
       768 and 1024 for the bar and the overlay, light and dark. Known difference, under DG+7:
       the frame's content.
@@ -1633,8 +1646,8 @@ fullscreen, play counting); `preview.ts`'s stripping of keys and transcripts.
 - [ ] The five canaries pass, and their files are as they were at `v0.10.0`:
       `git diff --stat v0.10.0 release/0.10.1 -- <the five>` is empty.
 - [ ] Each task that touched a high-risk area has its before-and-after suite runs and its deck
-      comparison in its PR: T-D4.3 to T-D4.11, T-D4.13, T-D4.2a, T-D4.14, T-D4.15, T-D4.16.
-      T-D4.12's matrix is complete.
+      comparison in its PR: T-D4.3 to T-D4.11, T-D4.13, T-D4.2a, T-D4.2b, T-D4.2c, T-D4.14,
+      T-D4.15, T-D4.16. T-D4.12's matrix is complete.
 - [ ] Security: no operation was added and the open list is the same; `permissions.golden` is
       unchanged; R2's isolation suite and escalation tests pass; E2E 9 passes with its key
       list unchanged (`allowPause` is a rule a student reads, not a key); `payload_test.go`
