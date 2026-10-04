@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+func msgAssignmentNotFound(ctx context.Context) string {
+	return httpx.Text(ctx, "Không tìm thấy bài giao.", "The assignment was not found.")
+}
+
 // ListAssignments backs §8's assignments list and A-01's "Bài đang mở".
 func (h Assignments) ListAssignments(ctx context.Context, request openapi.ListAssignmentsRequestObject) (openapi.ListAssignmentsResponseObject, error) {
 	if h.app == nil {
@@ -137,7 +141,7 @@ func (h Assignments) GetAssignment(ctx context.Context, request openapi.GetAssig
 	a, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
+			httpapi.NotFound(ctx, msgAssignmentNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -163,7 +167,7 @@ func (h Assignments) CreateAssignment(ctx context.Context, request openapi.Creat
 			assignmentValidationError(ctx, invalid))}, nil
 	case errors.Is(err, domain.ErrTestNotPublished):
 		return openapi.CreateAssignment409JSONResponse(httpapi.Error(ctx, openapi.TESTNOTPUBLISHED,
-			"Chỉ có thể giao một phiên bản đề đã xuất bản.")), nil
+			httpx.Text(ctx, "Chỉ có thể giao một phiên bản đề đã xuất bản.", "Only a published version of a test can be assigned."))), nil
 	default:
 		return nil, err
 	}
@@ -188,13 +192,14 @@ func (h Assignments) UpdateAssignment(ctx context.Context, request openapi.Updat
 			assignmentValidationError(ctx, invalid))}, nil
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.UpdateAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
+			httpapi.NotFound(ctx, msgAssignmentNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrTestNotPublished):
 		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.TESTNOTPUBLISHED,
-			"Chỉ có thể giao một phiên bản đề đã xuất bản.")), nil
+			httpx.Text(ctx, "Chỉ có thể giao một phiên bản đề đã xuất bản.", "Only a published version of a test can be assigned."))), nil
 	case errors.Is(err, domain.ErrVersionLocked):
 		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.VERSIONLOCKED,
-			"Đã có học viên làm bài, không thể đổi phiên bản đề.")), nil
+			httpx.Text(ctx, "Đã có học viên làm bài, không thể đổi phiên bản đề.",
+				"A student has already started, so the test version cannot be changed."))), nil
 	default:
 		return nil, err
 	}
@@ -216,16 +221,17 @@ func (h Assignments) ReopenAssignment(ctx context.Context, request openapi.Reope
 	case err == nil:
 	case errors.Is(err, domain.ErrBlankReason):
 		return openapi.ReopenAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			httpapi.FieldError(ctx, "reason", "Hãy ghi lý do mở lại."))}, nil
+			httpapi.FieldError(ctx, "reason", httpx.Text(ctx, "Hãy ghi lý do mở lại.", "Give a reason for reopening.")))}, nil
 	case errors.Is(err, domain.ErrClosesInPast):
 		return openapi.ReopenAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			httpapi.FieldError(ctx, "closesAt", "Thời điểm đóng mới phải ở phía trước."))}, nil
+			httpapi.FieldError(ctx, "closesAt", httpx.Text(ctx, "Thời điểm đóng mới phải ở phía trước.", "The new closing time must be in the future.")))}, nil
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.ReopenAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
+			httpapi.NotFound(ctx, msgAssignmentNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrNotClosed):
 		return openapi.ReopenAssignment409JSONResponse(httpapi.Error(ctx, openapi.ASSIGNMENTNOTCLOSED,
-			"Bài giao chưa đóng nên không có gì để mở lại.")), nil
+			httpx.Text(ctx, "Bài giao chưa đóng nên không có gì để mở lại.",
+				"The assignment is not closed, so there is nothing to reopen."))), nil
 	default:
 		return nil, err
 	}
@@ -238,7 +244,8 @@ func assignmentRequest(ctx context.Context, id string) (domain.Request, bool) {
 }
 
 func assignmentValidationError(ctx context.Context, invalid *domain.ValidationError) openapi.ErrorResponse {
-	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Dữ liệu bài giao không hợp lệ.")
+	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+		httpx.Text(ctx, "Dữ liệu bài giao không hợp lệ.", "The assignment data is not valid."))
 	details := map[string]interface{}{}
 	for _, f := range invalid.Fields {
 		if _, seen := details[f.Field]; !seen {
