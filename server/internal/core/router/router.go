@@ -45,7 +45,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		return nil, err
 	}
 
-	server := &Server{Imports: deps.Modules.Imports, Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Questions: deps.Modules.Questions, Media: deps.Modules.Media, Tests: deps.Modules.Tests, Assignments: deps.Modules.Assignments, Attempts: deps.Modules.Attempts, Availability: deps.Modules.Availability, Deps: deps, Logger: logger}
+	server := &Server{Imports: deps.Modules.Imports, Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Questions: deps.Modules.Questions, Media: deps.Modules.Media, Tests: deps.Modules.Tests, Assignments: deps.Modules.Assignments, Attempts: deps.Modules.Attempts, Availability: deps.Modules.Availability, Notifications: deps.Modules.Notifications, Deps: deps, Logger: logger}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
 			httpx.WriteMalformedBody(w, r)
