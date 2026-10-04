@@ -54,10 +54,23 @@ func (c clearedSession) VisitLogoutResponse(w http.ResponseWriter) error {
 	return nil
 }
 
+type failedLogout struct {
+	cleared clearedSession
+	err     error
+}
+
+func (f failedLogout) VisitLogoutResponse(w http.ResponseWriter) error {
+	for _, cookie := range f.cleared {
+		w.Header().Add("Set-Cookie", cookie.String())
+	}
+	return f.err
+}
+
 // ClearSessionOnRefusedLogout adds the refresh and docs cookie clears to the
-// answer of a POST /auth/logout the maintenance gate refuses, when the
-// request presented a refresh cookie, so the device is signed out although
-// the refresh family is not revoked.
+// answer of a POST /auth/logout that is refused before its handler runs, by
+// the maintenance gate or the rate limiter, when the request presented a
+// refresh cookie, so the device is signed out although the refresh family is
+// not revoked.
 func (h Identity) ClearSessionOnRefusedLogout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost || r.URL.Path != "/auth/logout" {
 		return

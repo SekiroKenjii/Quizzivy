@@ -23,9 +23,11 @@ func (h Classes) DeleteClass(ctx context.Context, request openapi.DeleteClassReq
 	case err == nil:
 		return openapi.DeleteClass204Response{}, nil
 	case errors.Is(err, domain.ErrNotFound):
-		return openapi.DeleteClass404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, "Không tìm thấy dữ liệu."))}, nil
+		return openapi.DeleteClass404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy dữ liệu.", "The data was not found.")))}, nil
 	case errors.Is(err, domain.ErrNotArchived):
-		return openapi.DeleteClass409JSONResponse(httpapi.Error(ctx, openapi.RESOURCENOTARCHIVED, "Cần lưu trữ, vô hiệu hoá hoặc đóng mục này trước khi xoá vĩnh viễn.")), nil
+		return openapi.DeleteClass409JSONResponse(httpapi.Error(ctx, openapi.RESOURCENOTARCHIVED,
+			httpx.Text(ctx, "Cần lưu trữ, vô hiệu hoá hoặc đóng mục này trước khi xoá vĩnh viễn.",
+				"Archive, disable or close this item before deleting it permanently."))), nil
 	case errors.Is(err, domain.ErrReferenced):
 		by := domain.ReferencedByOther
 		var refused *domain.ReferencedError
@@ -33,7 +35,8 @@ func (h Classes) DeleteClass(ctx context.Context, request openapi.DeleteClassReq
 			by = refused.By
 		}
 		return openapi.DeleteClass409JSONResponse(httpapi.ErrorWithDetails(ctx, openapi.RESOURCEREFERENCED,
-			"Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.",
+			httpx.Text(ctx, "Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.",
+				"This cannot be deleted because assignments, attempts or history still refer to it."),
 			map[string]interface{}{"referencedBy": openapi.ReferencedBy(by)})), nil
 	default:
 		return nil, err

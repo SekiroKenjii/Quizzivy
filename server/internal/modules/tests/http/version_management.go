@@ -105,6 +105,8 @@ func versionConflict(ctx context.Context, err error) (openapi.ErrorResponse, boo
 		return httpapi.Error(ctx, openapi.VERSIONISCURRENT, "Hãy chọn một phiên bản mặc định khác trước khi xoá phiên bản này."), true
 	case errors.Is(err, domain.ErrReferenced):
 		return httpapi.Error(ctx, openapi.RESOURCEREFERENCED, "Phiên bản đã được bài giao hoặc bài làm sử dụng nên không thể xoá."), true
+	case errors.Is(err, domain.ErrDraftReferenced):
+		return httpapi.Error(ctx, openapi.RESOURCEREFERENCED, httpx.Text(ctx, "Không thể thay bản nháp vì một câu hỏi trong nhóm của bản nháp vẫn đang được dùng ở nơi khác.", "The draft cannot be replaced because a question in one of its groups is still used elsewhere.")), true
 	default:
 		return openapi.ErrorResponse{}, false
 	}

@@ -54,6 +54,9 @@ func (s *Postgres) CreateDraftFromVersion(ctx context.Context, req domain.Versio
 		return domain.Test{}, err
 	}
 	if err := clearTestGroups(ctx, tx, req.ID); err != nil {
+		if errors.Is(referenceError(err), domain.ErrReferenced) {
+			return domain.Test{}, domain.ErrDraftReferenced
+		}
 		return domain.Test{}, err
 	}
 	if err := s.lockVersionAssets(ctx, tx, versionID); err != nil {
