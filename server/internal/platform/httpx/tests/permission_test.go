@@ -44,19 +44,22 @@ var requirements = map[string]access.Requirement{
 
 func gate(t *testing.T, seen *access.Principal) http.Handler {
 	t.Helper()
+	return gateBefore(principals, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if p, ok := httpx.PrincipalFromContext(r.Context()); ok && seen != nil {
+			*seen = p.Access
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+}
+
+func gateBefore(resolved httpx.PrincipalResolver, next http.Handler) http.Handler {
 	open := map[string]struct{}{"POST /open": {}}
 	verify := func(raw string) (httpx.Principal, error) {
 		userID, epoch, _ := strings.Cut(raw, "@")
 		n, err := strconv.Atoi(epoch)
 		return httpx.Principal{UserID: userID, Epoch: n}, err
 	}
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if p, ok := httpx.PrincipalFromContext(r.Context()); ok && seen != nil {
-			*seen = p.Access
-		}
-		w.WriteHeader(http.StatusNoContent)
-	})
-	return httpx.RequireAuth(open, verify)(httpx.RequirePermission(requirements, principals)(next))
+	return httpx.RequireAuth(open, verify)(httpx.RequirePermission(requirements, resolved)(next))
 }
 
 func call(h http.Handler, pattern, token string) int {

@@ -2289,24 +2289,24 @@ export interface components {
         ErrorDetail: {
             code: components["schemas"]["ErrorCode"];
             /**
-             * @description Copy for the user, written by the server; `vi` by default.
-             *     Localised from `Accept-Language` where an operation's own handler
-             *     writes the refusal, for: the auth, account, student and class
-             *     operations; the media and Word import operations; a refused Start
-             *     or Continue of a test and a result that cannot be shown yet; the
-             *     `RESOURCE_REFERENCED` refusal of `createDraftFromTestVersion`; the
-             *     maintenance answer; and request validation. The answers shared
-             *     middleware writes on every operation (401, 403, 413, 429, 500,
-             *     501, and the 400 for a body that cannot be read) and every other
-             *     refusal a handler writes are Vietnamese until issue 284 is fixed.
-             *     Display it; do not build copy from `code`, except for the two
-             *     codes the `ErrorCode` description names.
+             * @description Copy for the user, written by the server in the language
+             *     `Accept-Language` prefers: Vietnamese by default, including when
+             *     the header is absent or names neither language, and English when
+             *     it prefers English. Display it; do not build copy from `code`,
+             *     except for the two codes the `ErrorCode` description names.
              * @example Mã lớp không hợp lệ.
              */
             message: string;
             /**
              * @description Shape depends on `code`. Field-level validation errors land here
              *     as `{ field: message }` for react-hook-form.
+             *
+             *     The per-field sentences the rules word for a refused question,
+             *     test or assignment, and the `message` of each publish violation
+             *     they produce (every one but that of a test with no part at all),
+             *     are Vietnamese whatever the header says (issue 284). A per-field
+             *     sentence the operation words itself follows the header, as
+             *     `message` does.
              */
             details?: {
                 [key: string]: unknown;
@@ -4252,7 +4252,12 @@ export interface components {
         };
     };
     responses: {
-        /** @description Malformed or failing validation. */
+        /**
+         * @description Malformed or failing validation. A JSON body in which an object repeats
+         *     a member name is refused here too, at any depth, unless the server
+         *     filled a default into that body: it is then read with the last
+         *     occurrence of each repeated name.
+         */
         BadRequest: {
             headers: {
                 [name: string]: unknown;
@@ -5407,6 +5412,12 @@ export interface operations {
              * @description `PUBLISH_VALIDATION_FAILED`. **Every** problem is returned at once,
              *     each anchored to a question, so the builder marks them inline rather
              *     than surfacing one per attempt (§8).
+             *
+             *     A question whose media file has been deleted from the library (rule
+             *     `audio_question_has_asset` for audio, `question_valid` for any other
+             *     file), or a group whose material names one (`group_valid`), is
+             *     reported the same way, but only once the draft passes every other
+             *     rule: the files are checked when the version is frozen.
              */
             409: {
                 headers: {
@@ -5524,7 +5535,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description The version is referenced/current, the test is archived, or the expected update time is stale. */
+            /** @description The test is archived (`TEST_ARCHIVED`) or the expected update time is stale (`STALE_WRITE`). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5563,7 +5574,12 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description The version is referenced/current, the test is archived, or the expected update time is stale. */
+            /**
+             * @description The test is archived (`TEST_ARCHIVED`), the expected update time is
+             *     stale (`STALE_WRITE`), or a question of one of the draft's groups is
+             *     still used elsewhere (`RESOURCE_REFERENCED`): the draft is left as
+             *     it was.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;

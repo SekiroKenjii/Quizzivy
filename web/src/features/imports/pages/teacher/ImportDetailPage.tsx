@@ -22,22 +22,22 @@ import {
   processWordImport,
   type ImportRetention,
   type WordImport,
-} from "../api";
+} from "../../api";
 import {
   CAPABILITIES_POLL_MS,
   refreshAvailability,
   useImportAvailability,
   useImportRetention,
-} from "../availability";
-import { FilesRemovedNotice } from "../components/FilesRemovedNotice";
-import { ImportStatusBadge } from "../components/ImportStatusBadge";
-import { ProcessingOffNotice } from "../components/ProcessingOffNotice";
-import { ProcessingPanel } from "../components/ProcessingPanel";
-import { ReprocessNotice } from "../components/ReprocessNotice";
-import { SourceIntake } from "../components/SourceIntake";
-import { SourcesList } from "../components/SourcesList";
-import { StaleNotice } from "../components/StaleNotice";
-import { storeImport } from "../queries";
+} from "../../availability";
+import { FilesRemovedNotice } from "../../components/FilesRemovedNotice";
+import { ImportStatusBadge } from "../../components/ImportStatusBadge";
+import { ProcessingOffNotice } from "../../components/ProcessingOffNotice";
+import { ProcessingPanel } from "../../components/ProcessingPanel";
+import { ReprocessNotice } from "../../components/ReprocessNotice";
+import { SourceIntake } from "../../components/SourceIntake";
+import { SourcesList } from "../../components/SourcesList";
+import { StaleNotice } from "../../components/StaleNotice";
+import { storeImport } from "../../queries";
 import {
   hasDraft,
   IMPORT_POLL_MS,
@@ -45,7 +45,7 @@ import {
   isRetryable,
   reprocessOutcome,
   runErrorKey,
-} from "../status";
+} from "../../status";
 
 type Store = (next: WordImport) => Promise<void>;
 

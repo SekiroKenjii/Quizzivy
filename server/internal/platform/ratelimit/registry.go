@@ -13,14 +13,17 @@ type KeyFunc func(*http.Request) string
 
 // Route is the limiting policy for one operation: the per-address bucket every
 // public route has (§6.5), then its keyed buckets in the order they were
-// added. A request is refused by the first bucket that is exhausted.
+// added. A request is refused by the first bucket that is exhausted. PerIP is
+// nil on a route AddKeyed registered, which is limited by its keyed buckets
+// alone.
 type Route struct {
 	PerIP *Limiter
 	Keyed []Keyed
 }
 
-// Keyed is one keyed bucket. Name is the bucket's name in the contract's
-// x-rate-limit block; a Key that yields "" skips the bucket for that request.
+// Keyed is one keyed bucket. Name identifies it, and is its name in the
+// contract's x-rate-limit block where the operation declares one; a Key that
+// yields "" skips the bucket for that request.
 type Keyed struct {
 	Name    string
 	Key     KeyFunc
@@ -39,6 +42,14 @@ func NewRegistry() *Registry {
 // Add registers a per-IP policy. `pattern` is "METHOD /path".
 func (reg *Registry) Add(pattern string, capacity int, rules ...Rule) *Route {
 	route := &Route{PerIP: New(capacity, rules...)}
+	reg.routes[normalize(pattern)] = route
+	return route
+}
+
+// AddKeyed registers a policy with no per-address bucket, for the keyed
+// buckets WithKey then adds. `pattern` is "METHOD /path".
+func (reg *Registry) AddKeyed(pattern string) *Route {
+	route := &Route{}
 	reg.routes[normalize(pattern)] = route
 	return route
 }

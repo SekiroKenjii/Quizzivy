@@ -101,7 +101,18 @@ export function restore(attemptId: string, events: IntegrityEventInput[]): void 
   write(attemptId, { ...state, events: [...events, ...state.events] });
 }
 
-/** Forgets this attempt entirely. Used when the take-test screen unmounts. */
+/**
+ * suspendSession stops recording without forgetting what is stored, so the
+ * same session numbers on from it when the engine opens again.
+ */
+export function suspendSession(): void {
+  state = null;
+}
+
+/**
+ * clearSession forgets this attempt entirely: the buffered events and the
+ * sequence. Used when the attempt has ended.
+ */
 export function clearSession(attemptId: string): void {
   state = null;
   try {

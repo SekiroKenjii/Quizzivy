@@ -1,7 +1,27 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.47 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.48 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.47**
+
+The contract's descriptions, brought level with four fixes:
+
+- §15 An error's `message` follows `Accept-Language` on every operation; the
+  field sentences and publish violations the rules word do not yet (#284).
+- §15 `publishTest` reports a question whose media file was deleted as a
+  violation, not a 500 (#287).
+- §15 A JSON body that repeats a member name is refused, unless the server
+  filled a default into it (#288).
+- §15 `createDraftFromTestVersion` answers `RESOURCE_REFERENCED` when a
+  question of the draft's groups is still used elsewhere (#296).
+
+R4, "Teacher workspace" (v0.10.0, `docs/plan/74-r4.md`):
+
+- §6.5 The signed-in operations that hand out a credential are limited per
+  signed-in user, after the permission check, and no longer per address: staff
+  behind one address stop sharing a budget. §5.5 says the same of
+  `openDocsSession` (T-R4.53).
 
 **Changes since v0.46**
 
@@ -613,7 +633,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 ### 5.5 API reference session
 
 - `/docs` and `/docs/openapi.json` are served by the API beside the contract and open only to a holder of `system.api_reference`, a hidden key only the Admin holds (70 §4.1). A browser navigating there sends no bearer token, so they check a separate cookie instead.
-- `POST /admin/docs-session` (`openDocsSession`, `x-permission: system.api_reference`, rate-limited like any credential-minting operation) sets `quizzivy_docs`: `Path=/docs; HttpOnly; Secure; SameSite=Strict; Max-Age=900`. Its value is a JWT for the `docs` audience that carries the caller's session epoch, signed with a key derived from the access-token key: a docs token is never accepted as an access token, and an access token never opens the docs.
+- `POST /admin/docs-session` (`openDocsSession`, `x-permission: system.api_reference`, rate-limited per signed-in user, §6.5) sets `quizzivy_docs`: `Path=/docs; HttpOnly; Secure; SameSite=Strict; Max-Age=900`. Its value is a JWT for the `docs` audience that carries the caller's session epoch, signed with a key derived from the access-token key: a docs token is never accepted as an access token, and an access token never opens the docs.
 - The gate resolves the cookie's user through the same principal cache as the API (§5). A missing, tampered or expired cookie, an unknown or disabled user, or a cookie older than the user's session epoch → `401`; a role without `system.api_reference` → `403`, both in the error envelope with no page or contract leaked. `POST /auth/logout` clears `quizzivy_docs` together with the refresh cookie, so signing out also ends an open docs session.
 - The SPA's admin settings open the reference: the new tab is opened synchronously in the click, `opener` is cleared, and only then is the session requested and the tab pointed at `/docs`.
 - `DOCS_PUBLIC=true` skips only the cookie check, for local development. The server refuses to start with it when `APP_ENV=production`; SRI, the page's CSP and the rate limit apply everywhere.
@@ -684,6 +704,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
   - `POST /auth/login`: 120/min and 600/h per address; 10/min per address and email; 20/h per email.
   - `POST /auth/refresh` and `POST /auth/logout`: 120/min and 1,200/h per address.
   - A code is counted after normalization, so respelling it buys no fresh allowance. Guessing stays at 600 codes an hour per address on each operation that checks one.
+  - The signed-in operations that hand out a credential are limited per signed-in user, after the permission check and wherever the user connects from, so staff behind one address do not share a budget (T-R4.53): `resetStudentPassword` 5/min and 30/h, `createStudent` 30/min and 300/h, `rotateJoinCode` 10/min and 60/h, `getJoinCode` 60/min and 600/h, `openDocsSession` 5/min and 30/h. A caller with no session or without the permission is answered `401` or `403` and spends no budget.
 - **Bounded bodies.** The four operations with a bucket keyed on a body field (login, Google sign-in, the preview and the in-app join) accept at most 8 KiB and answer `413` before any handler, so padding cannot hide the key from its bucket.
 - **Constant-time comparison** on code lookup; look up by a keyed hash (HMAC-SHA256) of the normalized code, not by plaintext equality. A code issued before v0.8.0 is found by its SHA-256 until R4 rotates it.
 - No audit row or log line carries a code, its ciphertext or its hash.

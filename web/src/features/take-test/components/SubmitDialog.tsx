@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { useTick } from "@/hooks/useTick";
 import { countdown } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
-import { remainingMs, useTakeTestStore } from "../store";
+import { useTakeTestStore } from "../store";
+import { timeLeft } from "../timeLeft";
 import type { DotState } from "./Navigator";
 
 const MINUTE_MS = 60_000;
@@ -28,9 +29,10 @@ function bodyOf(unanswered: number, left: number, t: TFunction): string {
 /**
  * SubmitDialog is the deck's Submit dialog, the one place a student hands the
  * paper in. It says how many questions are unanswered, shows Answered,
- * Flagged and Time left, the last ticking with the header's timer and taking
- * the danger ink under five minutes, and offers a "Go to" chip for each
- * unanswered question, which closes the dialog on that question. "Submit
+ * Flagged and Time left, the last ticking with the header's timer, taking
+ * the danger ink under five minutes and standing at 00:00 once the server has
+ * said the time is up, and offers a "Go to" chip for each unanswered
+ * question, which closes the dialog on that question. "Submit
  * test" runs the store's submit, which saves what is unsaved first and does
  * nothing when a timer or an auto-submit is already submitting. While a
  * submission is out the dialog cannot be dismissed and both buttons are
@@ -54,9 +56,10 @@ export function SubmitDialog({
   const busy = useTakeTestStore((s) => s.submitState === "inFlight");
   const deadlineAt = useTakeTestStore((s) => s.deadlineAt);
   const offsetMs = useTakeTestStore((s) => s.offsetMs);
+  const over = useTakeTestStore((s) => s.lock === "deadline");
   useTick(open);
 
-  const left = remainingMs({ deadlineAt, offsetMs });
+  const left = timeLeft({ deadlineAt, offsetMs, lock: over ? "deadline" : null });
   const unanswered = dots.flatMap((dot, index) => (dot.answered ? [] : [index]));
   const flagged = dots.filter((dot) => dot.flagged).length;
   const facts = [

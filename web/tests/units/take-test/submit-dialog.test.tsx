@@ -557,6 +557,32 @@ describe("the Submit dialog", () => {
     ).toBeInTheDocument();
   });
 
+  it("says the time is up and shows 00:00 under the deadline lock, whatever the device's clock says", async () => {
+    await open(MINUTE);
+    vi.mocked(saveAnswers).mockRejectedValueOnce(
+      new ApiError({ status: 409, code: "DEADLINE_PASSED", message: "late" }),
+    );
+    act(() => store().setAnswer(q(5), text("typed at the bell")));
+    await pass(FLUSH_DEBOUNCE_MS);
+    expect(store().lock).toBe("deadline");
+
+    await ask();
+    expect(dialog()).toHaveAccessibleName("Nộp bài khi còn 4 câu chưa trả lời?");
+    expect(dialog()).toHaveAccessibleDescription(
+      "Câu chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
+    );
+    expect(facts()["Còn lại"]).toHaveTextContent(/^00:00$/);
+    expect(facts()["Còn lại"]).toHaveClass("text-danger-ink");
+    expect(screen.getByRole("timer", { hidden: true })).toHaveTextContent("00:00");
+
+    await pass(2_000);
+    expect(dialog()).toHaveAccessibleDescription(
+      "Câu chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
+    );
+    expect(facts()["Còn lại"]).toHaveTextContent(/^00:00$/);
+    expect(facts()["Còn lại"]).toHaveClass("text-danger-ink");
+  });
+
   it("opens from Finish on the last question, where the right arrow opens nothing, and keys rest while it is open", async () => {
     await open();
     fireEvent.click(screen.getByRole("button", { name: "Câu 8" }));

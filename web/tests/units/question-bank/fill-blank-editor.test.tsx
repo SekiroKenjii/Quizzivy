@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { BlanksEditor } from "@/features/question-bank/components/BlanksEditor";
-import QuestionEditorPage from "@/features/question-bank/pages/QuestionEditorPage";
+import QuestionEditorPage from "@/features/question-bank/pages/teacher/QuestionEditorPage";
 import type { QuestionValues } from "@/features/question-bank/questionSchema";
 import "@/lib/i18n";
 

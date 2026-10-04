@@ -20,7 +20,7 @@ export function family(kind: string): Exclude<TimelineFilter, "all"> | null {
 /** One row of the Diễn biến table. */
 export interface TimelineRow {
   event: IntegrityEvent;
-  /** No return yet: the student is still away, still offline, still listening. */
+  /** No return yet: the student is still away or still offline. */
   ongoing: boolean;
   /** For `audio_play`, which play of that question this was. */
   playNo: number | null;
@@ -31,7 +31,9 @@ export interface TimelineRow {
  * event, so a closing event carries nothing the row above does not; and a
  * second leave inside an open episode (blur then hidden) is the same absence
  * twice. Both are dropped. An opener with no duration is kept only when nothing
- * later closed its family -- the "đang tiếp diễn" row (G-05b).
+ * later closed its family -- the "đang tiếp diễn" row (G-05b). An audio play
+ * with no recorded end is kept and is not ongoing, because most plays never
+ * record one.
  */
 export function timelineRows(
   events: IntegrityEvent[],
@@ -47,10 +49,7 @@ export function timelineRows(
       playNo = (plays.get(key) ?? 0) + 1;
       plays.set(key, playNo);
     }
-    const opener =
-      AWAY_OPENERS.has(event.kind) ||
-      event.kind === "network_offline" ||
-      event.kind === "audio_play";
+    const opener = AWAY_OPENERS.has(event.kind) || event.kind === "network_offline";
     const ongoing = opener && event.durationMs == null && !closedLater(events, index);
     if (opener && event.durationMs == null && !ongoing) return;
     if (filter !== "all" && family(event.kind) !== filter) return;

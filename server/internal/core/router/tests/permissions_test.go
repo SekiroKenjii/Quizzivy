@@ -319,16 +319,16 @@ func TestThePermissionGateRunsAfterAuthenticationAndBeforeTheBody(t *testing.T) 
 
 func TestRateLimitsRunBeforeAuthenticationAndThePermissionGate(t *testing.T) {
 	issuer := testIssuer(t)
-	path := "/teacher/students/01935000-0000-7000-8000-0000000000e1/reset-password"
+	path := "/app/classes/join"
 	for name, c := range map[string]struct {
 		user string
 		want int
 	}{
 		"anonymous": {"", http.StatusUnauthorized},
-		"student":   {studentUser, http.StatusForbidden},
+		"teacher":   {teacherUser, http.StatusForbidden},
 	} {
 		h := roleRouter(t, issuer, rolePrincipals())
-		for i := 1; i <= 5; i++ {
+		for i := 1; i <= 120; i++ {
 			if rec := sendAs(t, h, issuer, http.MethodPost, path, c.user, ""); rec.Code != c.want {
 				t.Fatalf("%s request %d: %d, want %d within the budget", name, i, rec.Code, c.want)
 			}

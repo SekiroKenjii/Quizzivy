@@ -41,6 +41,19 @@ func spentBudget(t *testing.T) (http.Handler, *http.Request) {
 	return h, r
 }
 
+func spentPrincipalBudget(t *testing.T) (http.Handler, *http.Request) {
+	t.Helper()
+	reg := ratelimit.NewRegistry()
+	reg.AddKeyed("GET /self").WithKey("perActor", ratelimit.PrincipalKey, 100, ratelimit.PerMinute(1))
+	h := gateBefore(principals, httpx.PrincipalRateLimit(reg)(letThrough()))
+	if got := call(h, "GET /self", "student@0"); got != http.StatusNoContent {
+		t.Fatalf("the first request: %d, want it through", got)
+	}
+	r := matched(http.MethodGet, "/self")
+	r.Header.Set("Authorization", "Bearer student@0")
+	return h, r
+}
+
 func noToken(*testing.T) (http.Handler, *http.Request) {
 	verify := func(string) (httpx.Principal, error) {
 		return httpx.Principal{}, errors.New("no token was sent")
@@ -78,6 +91,15 @@ func TestSharedMiddlewareSpeaksTheCallersLanguage(t *testing.T) {
 		{
 			name:    "the limiter with a spent budget",
 			refused: spentBudget,
+			status:  http.StatusTooManyRequests,
+			code:    "RATE_LIMITED",
+			header:  "Retry-After",
+			vi:      "Bạn thao tác quá nhanh. Vui lòng thử lại sau.",
+			en:      "You are going too fast. Please try again later.",
+		},
+		{
+			name:    "the principal limiter with a spent budget",
+			refused: spentPrincipalBudget,
 			status:  http.StatusTooManyRequests,
 			code:    "RATE_LIMITED",
 			header:  "Retry-After",
