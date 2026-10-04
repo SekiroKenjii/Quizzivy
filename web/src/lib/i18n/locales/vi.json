@@ -1498,6 +1498,10 @@
       "audio": "Có audio"
     }
   },
+  "display": {
+    "locked": "Đã khoá",
+    "dismiss": "Ẩn thông báo"
+  },
   "monitor": {
     "loadFailed": "Không tải được danh sách học viên.",
     "loadFailedHint": "Bài làm của học viên không bị ảnh hưởng; chỉ bảng này chưa hiện.",
