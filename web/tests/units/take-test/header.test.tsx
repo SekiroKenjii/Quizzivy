@@ -529,6 +529,84 @@ describe("the timer", () => {
   });
 });
 
+describe.each(["desktop", "phone"] as const)(
+  "the timer on a locked paper, on a %s",
+  (width) => {
+    beforeEach(() => {
+      viewport(width);
+    });
+
+    it("is absent from a paper that had already ended, and nothing counts down or is announced", async () => {
+      const left = 5 * MINUTE + 2_000;
+      await open(left, {
+        attempt: session({
+          serverTime: NOW.toISOString(),
+          deadlineAt: at(left),
+          status: "submitted",
+        }).attempt,
+      });
+
+      expect(store().lock).toBe("closed");
+      expect(screen.getByText("Bài làm này đã kết thúc.")).toBeInTheDocument();
+      expect(screen.queryByRole("timer")).toBeNull();
+      expect(screen.getByRole("banner")).not.toHaveTextContent(/\d:\d\d/);
+
+      await pass(3_000);
+      expect(screen.queryByRole("timer")).toBeNull();
+      expect(screen.getByRole("banner")).not.toHaveTextContent(/\d:\d\d/);
+      expect(screen.queryByText(/^Còn \d+ phút$/)).toBeNull();
+    });
+
+    it("shows on an open paper, and goes when a save comes back saying the attempt has ended", async () => {
+      await open(5 * MINUTE + 3_000);
+      expect(timer()).toHaveTextContent("05:03");
+      await pass(1_000);
+      expect(timer()).toHaveTextContent("05:02");
+
+      vi.mocked(saveAnswers).mockRejectedValueOnce(
+        new ApiError({ status: 409, code: "ATTEMPT_CLOSED", message: "ended" }),
+      );
+      type();
+      await pass(FLUSH_DEBOUNCE_MS);
+
+      expect(store().lock).toBe("closed");
+      expect(screen.getByText("Bài làm này đã kết thúc.")).toBeInTheDocument();
+      expect(screen.queryByRole("timer")).toBeNull();
+
+      await pass(3_000);
+      expect(screen.queryByRole("timer")).toBeNull();
+      expect(screen.getByRole("banner")).not.toHaveTextContent(/\d:\d\d/);
+      expect(screen.queryByText(/^Còn \d+ phút$/)).toBeNull();
+    });
+
+    it("stays and keeps counting on a paper another device took over", async () => {
+      await open();
+      vi.mocked(saveAnswers).mockRejectedValueOnce(
+        new ApiError({ status: 409, code: "SESSION_SUPERSEDED", message: "elsewhere" }),
+      );
+      type();
+      await pass(FLUSH_DEBOUNCE_MS);
+      expect(store().lock).toBe("superseded");
+
+      await pass(1_500);
+      expect(timer()).toHaveTextContent("38:09");
+      await pass(1_000);
+      expect(timer()).toHaveTextContent("38:08");
+    });
+
+    it("stays at 00:00 in the danger tones on a paper whose time is up", async () => {
+      await open(2_000);
+      vi.mocked(submitAttempt).mockRejectedValueOnce(new Error("offline"));
+      await pass(2_000);
+      act(() => store().lockNow("deadline"));
+
+      expect(screen.getByText("Đã hết giờ làm bài.")).toBeInTheDocument();
+      expect(timer()).toHaveTextContent("00:00");
+      expect(timer()).toHaveClass("bg-danger-soft", "text-danger-ink");
+    });
+  },
+);
+
 describe("the header on a phone", () => {
   beforeEach(() => {
     viewport("phone");
