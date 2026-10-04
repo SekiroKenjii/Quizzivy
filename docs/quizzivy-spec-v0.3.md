@@ -8,6 +8,8 @@
 R3, "Student console" (v0.9.0, `docs/plan/73-r3.md`), the screens and the engine
 as built (T-R3.5 to T-R3.11):
 
+- §5.2 A refusal ends only the session its request was sent under, and a 401
+  at app load keeps a sign-in that finished while the request was out (#317).
 - §6.2 A signed-in student joins from the Join dialog on Classes and Home. A
   member is told so from the preview's `classId`; a member's join answers 200,
   and nothing sends `ALREADY_ENROLLED`. A lookup's answer is remembered for 30
@@ -552,12 +554,13 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - Refresh token: opaque, rotating, `httpOnly; Secure; SameSite=Lax; Path=/auth` cookie. Stored server-side as a hash (§13.5).
 - On 401 the client calls `POST /auth/refresh` once and retries. The refresh is single-flight.
 - A **refused** refresh (401 or 403), or a second 401, ends the session.
+  - A refusal ends only the session its request was sent under. When the store's access token is no longer the one the refused request carried (a sign-in or a refresh replaced it, or the user signed out), nothing is expired or cleared, and the 401 returns to its caller.
   - A user who was signed in keeps the page: the access token is dropped, the user stays, and the "Vui lòng đăng nhập lại" overlay covers the page (§9).
   - "Đăng nhập" clears the session, keeps the answer drafts, and goes to `/login?next=<path>`.
   - While that overlay is up, a 401 returns to its caller without another refresh.
 - A refresh that **fails without refusing** (a network failure, a 503 or another 5xx) is not a lost session. Waiting requests fail retryably and nobody is signed out.
 - App load: `GET /auth/me`, under the boot splash (§9).
-  - 401 → signed out.
+  - 401 → signed out, unless a sign-in finished while the request was out.
   - A network failure (no HTTP response at all, on `/auth/me` or on the refresh it triggers) → the splash's offline state, which retries.
   - Any other failure (a 5xx, a 503 other than `MAINTENANCE`, or a 4xx other than 401 and 403) → on `/` and the signed-in routes, the unexpected-error page with the server's `requestId`; on the public routes the splash fades out and the page renders as usual.
   - 503 `MAINTENANCE` → the maintenance overlay.
