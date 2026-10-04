@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClipboardPaste, FileUp } from "lucide-react";
 import { useState } from "react";
@@ -333,18 +333,18 @@ const SCROLL_BUTTON = [
   "outline-offset-1!",
 ];
 
-function place(element: Element, left: number, right: number) {
-  vi.spyOn(element, "getBoundingClientRect").mockReturnValue({
-    left,
-    right,
+function place(element: Element, left: number, right: number, moved = () => 0) {
+  vi.spyOn(element, "getBoundingClientRect").mockImplementation(() => ({
+    left: left - moved(),
+    right: right - moved(),
     width: right - left,
     top: 0,
     bottom: 30,
     height: 30,
-    x: left,
+    x: left - moved(),
     y: 0,
     toJSON: () => ({}),
-  });
+  }));
 }
 
 function Scrolling({ start, from = 0 }: Readonly<{ start: string; from?: number }>) {
@@ -355,12 +355,13 @@ function Scrolling({ start, from = 0 }: Readonly<{ start: string; from?: number 
         const track = wrapper?.firstElementChild;
         if (!track) return;
         if (track.scrollLeft === 0) track.scrollLeft = from;
+        const moved = () => track.scrollLeft - from;
         place(track, 100, 300);
         const [live, scheduled, closed, draft] = track.querySelectorAll("button");
-        place(live!, 40, 130);
-        place(scheduled!, 132, 250);
-        place(closed!, 252, 340);
-        place(draft!, 342, 430);
+        place(live!, 40, 130, moved);
+        place(scheduled!, 132, 250, moved);
+        place(closed!, 252, 340, moved);
+        place(draft!, 342, 430, moved);
       }}
     >
       <Segmented
@@ -425,6 +426,39 @@ describe("a track that scrolls", () => {
     const track = screen.getByRole("group", { name: "Trạng thái" });
     await user.click(screen.getByRole("button", { name: "Đã đóng 120" }));
     expect(track.scrollLeft).toBe(43);
+  });
+
+  it("brings an option that takes focus while the edge cuts it fully into view", () => {
+    render(<Scrolling start="scheduled" />);
+    const track = screen.getByRole("group", { name: "Trạng thái" });
+    const closed = screen.getByRole("button", { name: "Đã đóng 120" });
+    act(() => closed.focus());
+    expect(track.scrollLeft).toBe(43);
+    expect(closed).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("brings an option that takes focus while the left edge cuts it into view", () => {
+    render(<Scrolling start="scheduled" from={80} />);
+    const track = screen.getByRole("group", { name: "Trạng thái" });
+    expect(track.scrollLeft).toBe(80);
+    act(() => screen.getByRole("button", { name: "Đang mở 7" }).focus());
+    expect(track.scrollLeft).toBe(17);
+  });
+
+  it("leaves an option that takes focus in view where it is", () => {
+    render(<Scrolling start="scheduled" />);
+    act(() => screen.getByRole("button", { name: "Đã lên lịch 0" }).focus());
+    expect(screen.getByRole("group", { name: "Trạng thái" }).scrollLeft).toBe(0);
+  });
+
+  it("leaves the track where it is on focus without the scroll option", () => {
+    const view = render(<Statuses onChange={() => {}} />);
+    const track = screen.getByRole("group", { name: "Trạng thái" });
+    place(track, 100, 300);
+    place(screen.getByRole("button", { name: "Bản nháp" }), 342, 430);
+    act(() => screen.getByRole("button", { name: "Bản nháp" }).focus());
+    expect(track.scrollLeft).toBe(0);
+    view.unmount();
   });
 
   it("leaves the track where it is without the scroll option", async () => {

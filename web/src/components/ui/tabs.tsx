@@ -1,6 +1,7 @@
 import type * as React from "react";
 import { Tabs as TabsPrimitive } from "radix-ui";
 
+import { revealWithin } from "@/lib/revealWithin";
 import { cn } from "@/lib/utils";
 
 // Matches the deck's `.tabs` / `.tab` / `.tab.is-active` (kit.css).
@@ -14,15 +15,21 @@ function Tabs({
 /**
  * TabsList is the row of tabs. On a deck surface it is the deck's underlined
  * row: 20px between tabs, a 1px line beneath, and sideways scroll when the
- * tabs do not fit.
+ * tabs do not fit. A tab that takes focus while the row's edge cuts it is
+ * scrolled into view.
  */
 function TabsList({
   className,
+  onFocus,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
+      onFocus={(event) => {
+        onFocus?.(event);
+        revealWithin(event.currentTarget, event.target);
+      }}
       className={cn(
         "bg-muted inline-flex gap-0.5 rounded-lg p-[0.1875rem]",
         "in-data-[scale=deck]:flex in-data-[scale=deck]:gap-5 in-data-[scale=deck]:overflow-x-auto in-data-[scale=deck]:rounded-none in-data-[scale=deck]:border-b in-data-[scale=deck]:bg-transparent in-data-[scale=deck]:p-0",

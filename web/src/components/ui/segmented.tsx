@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type FocusEvent } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { revealWithin } from "@/lib/revealWithin";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,14 +36,11 @@ const TRACK_PADDING = 3;
 
 function revealPressed(track: HTMLElement) {
   const pressed = track.querySelector('[aria-pressed="true"]');
-  if (pressed === null) return;
-  const frame = track.getBoundingClientRect();
-  const box = pressed.getBoundingClientRect();
-  if (box.left < frame.left) {
-    track.scrollLeft -= frame.left - box.left + TRACK_PADDING;
-  } else if (box.right > frame.right) {
-    track.scrollLeft += box.right - frame.right + TRACK_PADDING;
-  }
+  if (pressed !== null) revealWithin(track, pressed, TRACK_PADDING);
+}
+
+function revealFocused(event: FocusEvent<HTMLDivElement>) {
+  revealWithin(event.currentTarget, event.target, TRACK_PADDING);
 }
 
 /**
@@ -54,7 +52,8 @@ function revealPressed(track: HTMLElement) {
  * switch of an editor. An option's count is part of its button's name, as a
  * number. With `scroll` the track is at most as wide as its container and
  * scrolls sideways inside itself, without a scrollbar, bringing the pressed
- * option into view when it changes.
+ * option into view when it changes and an option that takes focus when it is
+ * cut off.
  */
 export function Segmented({
   label,
@@ -84,6 +83,7 @@ export function Segmented({
       ref={track}
       role="group"
       aria-label={label}
+      onFocus={scroll ? revealFocused : undefined}
       className={cn(
         "bg-muted in-data-[scale=deck]:rounded-ctl inline-flex gap-0.5 rounded-lg p-[0.1875rem]",
         size === "xs" && "in-data-[scale=deck]:rounded-md",

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeckScale } from "@/components/ui/deck-scale";
@@ -56,6 +56,24 @@ function Detail() {
 }
 
 const tab = (name: string) => screen.getByRole("tab", { name });
+
+function place(element: Element, left: number, right: number, moved = () => 0) {
+  vi.spyOn(element, "getBoundingClientRect").mockImplementation(() => ({
+    left: left - moved(),
+    right: right - moved(),
+    width: right - left,
+    top: 0,
+    bottom: 28,
+    height: 28,
+    x: left - moved(),
+    y: 0,
+    toJSON: () => ({}),
+  }));
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("tabs off a deck surface", () => {
   it("are today's pills", () => {
@@ -157,6 +175,43 @@ describe("tabs from the keyboard", () => {
     expect(tab("Học viên")).toHaveFocus();
     await user.keyboard("{Home}");
     expect(tab("Học viên")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("brings a tab that takes focus while the row's edge cuts it into view", async () => {
+    const user = userEvent.setup();
+    const seen: string[] = [];
+    render(
+      <DeckScale>
+        <Tabs defaultValue="students">
+          <TabsList
+            aria-label="Bài giao"
+            onFocus={(event) => seen.push(event.target.textContent)}
+          >
+            <TabsTrigger value="students">Học viên</TabsTrigger>
+            <TabsTrigger value="questions">Câu hỏi</TabsTrigger>
+            <TabsTrigger value="settings">Cài đặt</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </DeckScale>,
+    );
+    const list = screen.getByRole("tablist");
+    const moved = () => list.scrollLeft;
+    place(list, 0, 200);
+    place(tab("Học viên"), 0, 90, moved);
+    place(tab("Câu hỏi"), 110, 230, moved);
+    place(tab("Cài đặt"), 250, 330, moved);
+
+    await user.tab();
+    expect(list.scrollLeft).toBe(0);
+    await user.keyboard("{ArrowRight}");
+    expect(tab("Câu hỏi")).toHaveFocus();
+    expect(list.scrollLeft).toBe(30);
+    await user.keyboard("{ArrowRight}");
+    expect(list.scrollLeft).toBe(130);
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(tab("Học viên")).toHaveFocus();
+    expect(list.scrollLeft).toBe(0);
+    expect(seen.slice(-4)).toEqual(["Câu hỏi", "Cài đặt", "Câu hỏi", "Học viên"]);
   });
 
   it("selects a tab on click", async () => {
