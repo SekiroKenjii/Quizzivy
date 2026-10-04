@@ -24,6 +24,7 @@ var (
 
 var (
 	ErrReferenced           = errors.New("tests: assigned content cannot be deleted")
+	ErrDraftReferenced      = errors.New("tests: a question of the draft's groups is referenced elsewhere")
 	ErrNotArchived          = errors.New("tests: archive before deleting")
 	ErrCurrentVersion       = errors.New("tests: select another default before deleting this version")
 	ErrArchived             = errors.New("tests: restore archived test before changing its versions")
