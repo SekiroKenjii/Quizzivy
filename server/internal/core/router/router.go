@@ -6,12 +6,14 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"reflect"
 
 	"quizzivy/gen/openapi"
 	identityhttp "quizzivy/internal/modules/identity/http"
 	"quizzivy/internal/platform/apidocs"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/platform/ratelimit"
+	"quizzivy/internal/shared/access"
 )
 
 // New builds the HTTP handler.
@@ -91,7 +93,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		},
 	})
 
-	gated := routedOnly(mux, httpx.Maintenance(deps.Maintenance, deps.Modules.Identity.ClearSessionOnRefusedLogout)(handler), handler)
+	gated := routedOnly(mux, httpx.Maintenance(deps.Maintenance, deps.Modules.Identity.ClearSessionOnRefusedLogout)(servedMethodOnly(mux, handler, requirements, openRoutes)))
 	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(legacyAdmin(logger)(gated))))), nil
 }
 
@@ -123,13 +125,19 @@ func parameterName(err error) string {
 
 var probeMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
 
-func routedOnly(mux *http.ServeMux, gated, ungated http.Handler) http.Handler {
+var muxRedirect = reflect.TypeOf(http.RedirectHandler("/", http.StatusTemporaryRedirect))
+
+func routedOnly(mux *http.ServeMux, gated http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if routed(mux, r) {
 			gated.ServeHTTP(w, r)
 			return
 		}
-		ungated.ServeHTTP(w, r)
+		if own, _ := mux.Handler(r); redirects(own) {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		httpx.WriteNotFound(w, r)
 	})
 }
 
@@ -146,6 +154,58 @@ func routed(mux *http.ServeMux, r *http.Request) bool {
 	}
 	return false
 }
+
+func redirects(own http.Handler) bool {
+	return reflect.TypeOf(own) == muxRedirect
+}
+
+func servedMethodOnly(mux *http.ServeMux, next http.Handler, needsToken map[string]access.Requirement, open map[string]struct{}) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		own, pattern := mux.Handler(r)
+		head := r.Method == http.MethodHead
+		_, tokenGated := needsToken[pattern]
+		_, isOpen := open[pattern]
+		switch {
+		case redirects(own):
+			next.ServeHTTP(w, r)
+		case pattern == "", head && tokenGated:
+			httpx.WriteMethodNotAllowed(w, r, servedMethods(mux, r, needsToken))
+		case head && isOpen:
+			next.ServeHTTP(bodiless{w}, asGet(r))
+		default:
+			next.ServeHTTP(w, r)
+		}
+	})
+}
+
+func servedMethods(mux *http.ServeMux, r *http.Request, needsToken map[string]access.Requirement) []string {
+	var methods []string
+	probe := r.Clone(r.Context())
+	for _, method := range probeMethods {
+		probe.Method = method
+		_, pattern := mux.Handler(probe)
+		if pattern == "" {
+			continue
+		}
+		methods = append(methods, method)
+		if _, tokenGated := needsToken[pattern]; method == http.MethodGet && !tokenGated {
+			methods = append(methods, http.MethodHead)
+		}
+	}
+	return methods
+}
+
+func asGet(r *http.Request) *http.Request {
+	get := r.Clone(r.Context())
+	get.Method = http.MethodGet
+	return get
+}
+
+type bodiless struct{ http.ResponseWriter }
+
+func (bodiless) Write(p []byte) (int, error) { return len(p), nil }
+
+func (b bodiless) Unwrap() http.ResponseWriter { return b.ResponseWriter }
 
 type health struct {
 	Status   string `json:"status"`
