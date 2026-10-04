@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
 	"slices"
 	"strings"
 
@@ -46,6 +47,12 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 				AuthenticationFunc: func(context.Context, *openapi3filter.AuthenticationInput) error {
 					return nil
 				},
+				SchemaValidationOptions: []openapi3.SchemaValidationOption{
+					openapi3.WithStringFormatValidator("email", openapi3.NewCallbackValidator(func(value string) error {
+						_, err := mail.ParseAddress(value)
+						return err
+					})),
+				},
 			},
 			ErrorHandlerWithOpts: func(_ context.Context, err error, w http.ResponseWriter, r *http.Request, opts nethttpmiddleware.ErrorHandlerOpts) {
 				if opts.StatusCode == http.StatusNotFound {
@@ -57,6 +64,24 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 		})
 	keys := uuidMapKeys(uuidKeyedMaps(&stripped))
 	return func(next http.Handler) http.Handler { return validator(keys(next)) }, nil
+}
+
+// WriteMalformedBody answers 400 VALIDATION_FAILED with the generic
+// validation sentence, in Vietnamese or, when Accept-Language prefers it,
+// English, for a body the generated handler could not decode.
+func WriteMalformedBody(w http.ResponseWriter, r *http.Request) {
+	WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, genericSentence(r))
+}
+
+// WriteMalformedParameter answers 400 VALIDATION_FAILED naming the path,
+// query, header or cookie parameter that did not bind; with an empty name it
+// answers as WriteMalformedBody does.
+func WriteMalformedParameter(w http.ResponseWriter, r *http.Request, name string) {
+	if name == "" {
+		WriteMalformedBody(w, r)
+		return
+	}
+	WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, parameterSentence(r, name))
 }
 
 func uuidKeyedMaps(spec *openapi3.T) map[string][][]string {

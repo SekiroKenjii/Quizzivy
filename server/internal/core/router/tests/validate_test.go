@@ -609,3 +609,158 @@ func TestAMalformedAnswerKeyIsNamedInEnglishWhenAsked(t *testing.T) {
 	rec := sendIn(t, handler, http.MethodPatch, saveAnswersPath, student, "en", saveAnswersKeyedBy(t, "not-a-uuid"))
 	wantValidationFailure(t, rec, `The field "answers" is not valid.`)
 }
+
+const (
+	classMembersPath = "/teacher/classes/019535d9-3df7-79fb-b466-fa907fa17f9e/members"
+	groupCopyPath    = "/teacher/question-groups/019535d9-3df7-79fb-b466-fa907fa17f9e/copy"
+)
+
+func TestAMalformedEmailInABodyNamesItsField(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	admin, err := issuer.Issue(adminUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name           string
+		path           string
+		token          string
+		body           string
+		acceptLanguage string
+		want           string
+	}{
+		{name: "sign-in", path: "/auth/login", body: `{"email":"not-an-email","password":"long-enough"}`, want: `Trường "email" không hợp lệ.`},
+		{name: "sign-in, English preferred", path: "/auth/login", body: `{"email":"not-an-email","password":"long-enough"}`, acceptLanguage: "en", want: `The field "email" is not valid.`},
+		{name: "a new student", path: "/teacher/students", token: admin, body: `{"email":"not-an-email","fullName":"An"}`, want: `Trường "email" không hợp lệ.`},
+		{name: "a new student, English preferred", path: "/teacher/students", token: admin, body: `{"email":"not-an-email","fullName":"An"}`, acceptLanguage: "en", want: `The field "email" is not valid.`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wantValidationFailure(t, sendIn(t, handler, http.MethodPost, tc.path, tc.token, tc.acceptLanguage, tc.body), tc.want)
+		})
+	}
+
+	for name, body := range map[string]string{
+		"a plain address":      `{"email":"a@b.com","password":"long-enough"}`,
+		"an address in angles": `{"email":"An <a@b.com>","password":"long-enough"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if rec := sendIn(t, handler, http.MethodPost, "/auth/login", "", "", body); rec.Code == http.StatusBadRequest {
+				t.Fatalf("an address the decoder accepts was refused: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestADecodeFailureNeverEchoesTheDecoder(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	admin, err := issuer.Issue(adminUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	student, err := issuer.Issue(studentUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		method string
+		path   string
+		token  string
+		body   string
+	}{
+		{name: "a uuid the built-in validator let through", method: http.MethodPost, path: classMembersPath, token: admin, body: `{"userId":"nope"}`},
+		{name: "a uuid the 2020-12 validator let through", method: http.MethodPost, path: groupCopyPath, token: admin, body: `{"expectedRevision":1,"ownerSectionId":"nope"}`},
+		{name: "a session id", method: http.MethodPatch, path: saveAnswersPath, token: student, body: `{"sessionId":"nope"}`},
+		{name: "a day the month does not have", method: http.MethodPost, path: "/teacher/assignments/019535d9-3df7-79fb-b466-fa907fa17f9e/reopen", token: admin, body: `{"closesAt":"2026-02-30T00:00:00Z","reason":"Mở lại cho lớp"}`},
+	} {
+		for _, language := range []struct {
+			name           string
+			acceptLanguage string
+			want           string
+		}{
+			{name: "no language asked", want: genericValidationSentence},
+			{name: "English preferred", acceptLanguage: "en", want: "The submitted data is not valid."},
+		} {
+			t.Run(tc.name+", "+language.name, func(t *testing.T) {
+				rec := sendIn(t, handler, tc.method, tc.path, tc.token, language.acceptLanguage, tc.body)
+
+				if rec.Code != http.StatusBadRequest {
+					t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+				}
+				code, message := errorCodeAndMessage(t, rec)
+				if code != "VALIDATION_FAILED" {
+					t.Errorf("error code = %q, want VALIDATION_FAILED", code)
+				}
+				if message != language.want {
+					t.Errorf("message = %q, want %q", message, language.want)
+				}
+				for _, leak := range []string{"decode", "unmarshal", "invalid", "parsing"} {
+					if strings.Contains(strings.ToLower(message), leak) {
+						t.Errorf("message %q carries the decoder's %q", message, leak)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestTheValidatorRefusesNoIdTheDecoderAccepts(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+
+	for name, userID := range map[string]string{
+		"hyphenated": "019535d9-3df7-79fb-b466-fa907fa17f9f",
+		"braced":     "{019535d9-3df7-79fb-b466-fa907fa17f9f}",
+		"urn":        "urn:uuid:019535d9-3df7-79fb-b466-fa907fa17f9f",
+		"no hyphens": "019535d93df779fbb466fa907fa17f9f",
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := sendAs(t, handler, issuer, http.MethodPost, classMembersPath, adminUser, `{"userId":"`+userID+`"}`)
+
+			if rec.Code != http.StatusNotImplemented {
+				t.Fatalf("status = %d, want 501 from a router with no classes module: %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	t.Run("an option id inside an answer, which the handler reads", func(t *testing.T) {
+		body := `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","answers":{"019535d9-3df7-79fb-b466-fa907fa17fa0":{"type":"choice","optionIds":["not-a-uuid"]}}}`
+		rec := sendAs(t, handler, issuer, http.MethodPatch, saveAnswersPath, studentUser, body)
+
+		if rec.Code != http.StatusNotImplemented {
+			t.Fatalf("status = %d, want 501 from a router with no attempts module: %s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
+func TestAMalformedParameterNamesTheParameter(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	admin, err := issuer.Issue(adminUser, "admin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name           string
+		path           string
+		token          string
+		acceptLanguage string
+		want           string
+	}{
+		{name: "a path parameter", path: "/teacher/classes/not-a-uuid", token: admin, want: `Tham số "id" không hợp lệ.`},
+		{name: "a path parameter, English preferred", path: "/teacher/classes/not-a-uuid", token: admin, acceptLanguage: "en", want: `The parameter "id" is not valid.`},
+		{name: "a path parameter from nobody", path: "/teacher/classes/not-a-uuid", want: `Tham số "id" không hợp lệ.`},
+		{name: "a path parameter from nobody, English preferred", path: "/teacher/classes/not-a-uuid", acceptLanguage: "en", want: `The parameter "id" is not valid.`},
+		{name: "a query parameter that does not bind", path: "/teacher/classes?limit=abc", token: admin, want: `Tham số "limit" không hợp lệ.`},
+		{name: "a query parameter the validator refuses", path: "/teacher/classes?limit=100000", token: admin, want: `Tham số "limit" không hợp lệ.`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wantValidationFailure(t, sendIn(t, handler, http.MethodGet, tc.path, tc.token, tc.acceptLanguage, ""), tc.want)
+		})
+	}
+}
