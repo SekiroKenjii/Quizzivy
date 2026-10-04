@@ -115,15 +115,48 @@ func (s *Users) Rename(ctx context.Context, in domain.RenameRecord) (domain.User
 	return user, nil
 }
 
-// CreateRefreshToken stores the hash of a newly minted refresh token.
-func (s *Users) CreateRefreshToken(ctx context.Context, in domain.RefreshTokenRecord) error {
+// CreateRefreshToken stores the hash of a newly minted refresh token, unless
+// the account is no longer what the sign-in read: it locks the user FOR
+// SHARE, which an update of the user conflicts with, so a reset, a disable
+// or a password change either waits for the token and revokes it, or commits
+// first and is seen here, which answers ErrAccountChanged and stores nothing.
+func (s *Users) CreateRefreshToken(ctx context.Context, in domain.RefreshTokenRecord, basis domain.SessionBasis) error {
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin sign-in: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var locked bool
+	err = tx.QueryRow(ctx,
+		`SELECT true FROM app.users WHERE id = $1::uuid FOR SHARE`, in.UserID).Scan(&locked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrAccountChanged
+	}
+	if err != nil {
+		return fmt.Errorf("lock signing-in user: %w", err)
+	}
+
+	var unchanged bool
+	if err := tx.QueryRow(ctx, `
+		SELECT session_epoch = $2 AND password_hash IS NOT DISTINCT FROM $3::text AND disabled_at IS NULL
+		  FROM app.users
+		 WHERE id = $1::uuid`, in.UserID, basis.Epoch, basis.PasswordHash).Scan(&unchanged); err != nil {
+		return fmt.Errorf("re-read signing-in user: %w", err)
+	}
+	if !unchanged {
+		return domain.ErrAccountChanged
+	}
+
 	const q = `
 		INSERT INTO app.refresh_tokens
 		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err := s.Exec(ctx, q,
-		in.UserID, in.FamilyID, in.TokenHash, in.IssuedAt, in.ExpiresAt, in.UserAgent, in.IP)
-	return err
+	if _, err := tx.Exec(ctx, q,
+		in.UserID, in.FamilyID, in.TokenHash, in.IssuedAt, in.ExpiresAt, in.UserAgent, in.IP); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // FindUserByProviderIdentity is §5.3 step 4's first branch: the Google `sub`
