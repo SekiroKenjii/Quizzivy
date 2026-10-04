@@ -153,10 +153,11 @@ describe("the header at 1280", () => {
     viewport("desktop");
   });
 
-  it("hides the worth line under the answer from 768, where the meta line says it", async () => {
+  it("says the worth once, under the answer, and not in the line above the question", async () => {
     await open();
-    expect(screen.getByText("Câu 1 / 2 · 1 điểm")).toBeInTheDocument();
-    expect(screen.getByText("1 điểm")).toHaveClass("min-[768px]:hidden");
+    expect(screen.getByText("Câu 1 trên 2 · Chọn một đáp án")).toBeInTheDocument();
+    expect(screen.getAllByText(/1 điểm/)).toHaveLength(1);
+    expect(screen.getByText("1 điểm")).not.toHaveClass("min-[768px]:hidden");
   });
 
   it("is the deck's row: leave, the title over the save line, the timer and Submit", async () => {

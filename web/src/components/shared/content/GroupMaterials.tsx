@@ -13,17 +13,23 @@ export type GroupAudioRenderer = (
   recording: StudentGroup["recordings"][number],
 ) => ReactNode;
 
-/** GroupMaterials renders frozen, learner-safe content using only the group's authorized asset bindings. */
+/**
+ * GroupMaterials renders frozen, learner-safe content using only the group's
+ * authorized asset bindings. A material whose title is `omitTitle` draws no
+ * heading: the caller has already drawn those words above it.
+ */
 export function GroupMaterials({
   group,
   renderAudio,
   renderGap,
   onRetryMedia,
+  omitTitle,
 }: Readonly<{
   group: StudentGroup;
   renderAudio: GroupAudioRenderer;
   renderGap: (gap: MaterialGap, label: string) => ReactNode;
   onRetryMedia?: (() => void) | undefined;
+  omitTitle?: string | undefined;
 }>) {
   const { t } = useTranslation();
   const assets = useMemo(
@@ -58,7 +64,9 @@ export function GroupMaterials({
             className="flex min-w-0 flex-col gap-2"
             aria-label={material.title}
           >
-            <h4 className="text-sm font-medium">{material.title}</h4>
+            {material.title !== omitTitle && (
+              <h4 className="text-sm font-medium">{material.title}</h4>
+            )}
             <ContentView
               document={material.content}
               renderAsset={renderAsset}

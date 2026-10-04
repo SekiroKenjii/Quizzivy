@@ -923,7 +923,6 @@
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
-    "writtenAnswer": "Học viên viết câu trả lời ở đây",
     "materialUnavailable": "Ngữ liệu chưa tải được. Hãy tải lại bản xem trước.",
     "sharedAudioHint": "Nghe thử không tính lượt làm bài.",
     "sharedRange": "Ngữ liệu dùng chung · Câu {{from}}–{{to}}",
@@ -1329,8 +1328,8 @@
     "transcript": "Nội dung bài nghe"
   },
   "takeTest": {
-    "hideMaterial": "Thu gọn ngữ liệu",
-    "showMaterial": "Mở ngữ liệu",
+    "passage": "Ngữ liệu",
+    "paneSwitch": "Xem ngữ liệu hoặc câu hỏi",
     "sharedAudioLabel": "Bài nghe {{n}}",
     "sharedAudioUnlimited": "Không giới hạn lượt nghe",
     "sharedAudioScope": "Lượt nghe dùng chung cho các câu trong nhóm này.",
@@ -1338,6 +1337,7 @@
     "answerOptions": "Các phương án",
     "blankLabel": "Chỗ trống {{n}}",
     "yourAnswer": "Bài làm của bạn",
+    "answerPlaceholder": "Nhập câu trả lời",
     "wordCount_one": "{{count}} từ",
     "wordCount_other": "{{count}} từ",
     "leave": "Thoát khỏi bài làm",
@@ -1364,14 +1364,15 @@
     "lockedDeadline": "Đã hết giờ làm bài.",
     "lockedClosed": "Bài làm này đã kết thúc.",
     "manualGrading": "giáo viên chấm tay",
-    "points": "{{points}} điểm",
+    "points_one": "{{points}} điểm",
+    "points_other": "{{points}} điểm",
     "perBlank": "mỗi chỗ trống {{points}} điểm",
     "audioLabel": "Đoạn ghi âm của câu hỏi",
+    "imageLabel": "Hình ảnh của câu hỏi",
     "playsLeft_one": "Còn {{count}} lượt nghe",
     "playsLeft_other": "Còn {{count}} lượt nghe",
-    "flag": "Đánh dấu",
-    "flagThis": "Đánh dấu câu này",
-    "unflagThis": "Bỏ đánh dấu câu này",
+    "flagOff": "Đánh dấu xem lại",
+    "flagOn": "Đã đánh dấu",
     "navTitle": "Danh sách câu",
     "close": "Đóng",
     "legendAnswered": "đã trả lời",
@@ -1415,9 +1416,15 @@
     "submittedBody_auto_submit": "Bạn đã rời trang làm bài quá số lần được phép nên bài đã được nộp. Câu trả lời của bạn được giữ lại để chấm. Giáo viên đã được báo.",
     "submittedMeta": "Nộp lúc {{time}} · {{date}} · {{answered}}/{{total}} câu đã trả lời",
     "backHome": "Về trang chủ",
-    "sectionNote": "{{title}} — {{text}}",
-    "sectionMeta": "{{section}} — Câu {{n}} / {{total}} · {{points}}",
-    "questionMeta": "Câu {{n}} / {{total}} · {{points}}",
+    "questionOf": "Câu {{n}} trên {{total}}",
+    "questionOfType": "Câu {{n}} trên {{total}} · {{type}}",
+    "type": {
+      "single_choice": "Chọn một đáp án",
+      "multiple_choice": "Chọn nhiều đáp án",
+      "true_false": "Đúng hay sai",
+      "fill_blank": "Điền vào chỗ trống",
+      "short_answer": "Trả lời ngắn"
+    },
     "blankRuleInsensitive": "Không phân biệt hoa thường. Viết đúng chính tả.",
     "blankRuleSensitive": "Phân biệt hoa thường. Viết đúng chính tả.",
     "leaveUnsavedTitle": "Câu trả lời chưa được lưu",
@@ -1427,7 +1434,9 @@
     "chooseSingle": "Chọn một đáp án.",
     "extraPlaysRecorded": "Bạn vẫn có thể nghe tiếp. Lượt nghe thêm được ghi lại để giáo viên xem.",
     "playsUsed": "Đã nghe {{played}}/{{limit}} lượt",
-    "viewSubmitted": "Xem bài đã nộp"
+    "viewSubmitted": "Xem bài đã nộp",
+    "unknownType": "Câu {{n}} thuộc dạng câu hỏi mới mà trang này chưa hiển thị được. Hãy tải lại trang để làm câu này; các câu trả lời của bạn vẫn được giữ.",
+    "reloadPage": "Tải lại trang"
   },
   "integrity": {
     "left": {
