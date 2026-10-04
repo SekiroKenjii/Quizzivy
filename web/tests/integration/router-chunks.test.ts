@@ -58,9 +58,10 @@ const STUDENT_PAGES = [
   "features/auth/pages/StudentSettingsPage",
   "features/join/components/JoinDialog",
 ];
-const STUDENT = new RegExp(`/(${STUDENT_PAGES.join("|")})`);
+const STUDENT_ONLY = ["features/results/"];
+const STUDENT = new RegExp(`/(${[...STUDENT_PAGES, ...STUDENT_ONLY].join("|")})`);
 const FOCUS = /\/layouts\/FocusLayout\./;
-const ENGINE = /\/features\/take-test\//;
+const ENGINE = /\/features\/(take-test|integrity)\//;
 const CLEARED_AT_SIGN_OUT = [
   "features/take-test/draft.ts",
   "features/take-test/groupPlaybackDraft.ts",
