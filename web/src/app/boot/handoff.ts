@@ -22,7 +22,7 @@ export function skeletonFor(pathname: string): ReactNode {
 }
 
 function shellFor(pathname: string): Shell | null {
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return "teacher";
+  if (pathname === "/teacher" || pathname.startsWith("/teacher/")) return "teacher";
   if (pathname.startsWith("/app/attempts/") && !pathname.endsWith("/result"))
     return null;
   if (pathname === "/app" || pathname.startsWith("/app/")) return "student";

@@ -52,7 +52,7 @@ export function NewClassDialog({
       await queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
       close();
       toast(t("classes.created"));
-      void navigate(`/admin/classes/${created.id}`);
+      void navigate(`/teacher/classes/${created.id}`);
     },
     onError: (cause) => {
       setError(

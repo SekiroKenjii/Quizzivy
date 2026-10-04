@@ -48,7 +48,7 @@ const matches = (ids: readonly string[], re: RegExp) =>
   ids.map((i) => i.replace(/\\/g, "/")).filter((i) => re.test(i));
 
 const ADMIN =
-  /\/(layouts\/AdminLayout|app\/pages\/AdminDashboardPage|features\/(tests|question-bank|media|students)\/)/;
+  /\/(layouts\/AdminLayout|features\/[^/]+\/pages\/teacher\/|app\/pages\/AdminDashboardPage|features\/(tests|question-bank|media|students)\/)/;
 const STUDENT_PAGES = [
   "layouts/StudentLayout",
   "features/assignments/pages/StudentHomePage",

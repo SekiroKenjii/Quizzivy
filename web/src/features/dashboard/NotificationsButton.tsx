@@ -55,7 +55,7 @@ export function NotificationsButton() {
           <>
             {grading > 0 ? (
               <DropdownMenuItem asChild>
-                <Link to="/admin">
+                <Link to="/teacher">
                   <span>{t("dashboard.awaitingGrading")}</span>
                   <span className="ml-auto tabular-nums">{grading}</span>
                 </Link>
@@ -63,7 +63,7 @@ export function NotificationsButton() {
             ) : null}
             {flagged > 0 ? (
               <DropdownMenuItem asChild>
-                <Link to="/admin">
+                <Link to="/teacher">
                   <span>{t("dashboard.flagged")}</span>
                   <span className="ml-auto tabular-nums">{flagged}</span>
                 </Link>

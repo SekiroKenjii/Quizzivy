@@ -107,10 +107,10 @@ function renderEdit() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/assignments/:id/edit", element: <AssignmentFormPage /> },
-      { path: "/admin/assignments/:id", element: <p>detail</p> },
+      { path: "/teacher/assignments/:id/edit", element: <AssignmentFormPage /> },
+      { path: "/teacher/assignments/:id", element: <p>detail</p> },
     ],
-    { initialEntries: [`/admin/assignments/${ID}/edit`] },
+    { initialEntries: [`/teacher/assignments/${ID}/edit`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -153,7 +153,7 @@ describe("editing an assignment", () => {
       targets: { classIds: [CLASS_ID], studentIds: [] },
     });
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe(`/admin/assignments/${ID}`),
+      expect(router.state.location.pathname).toBe(`/teacher/assignments/${ID}`),
     );
   });
 });

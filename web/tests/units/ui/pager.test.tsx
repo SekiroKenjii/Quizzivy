@@ -19,7 +19,7 @@ function Screen({ filter }: Readonly<{ filter: string }>) {
 
 function renderAt(path: string, filter = "a") {
   const router = createMemoryRouter(
-    [{ path: "/admin/tests", element: <Screen filter={filter} /> }],
+    [{ path: "/teacher/tests", element: <Screen filter={filter} /> }],
     {
       initialEntries: [path],
     },
@@ -41,31 +41,31 @@ describe("Pager", () => {
   });
 
   it("links pages by number, keeping the other search parameters", () => {
-    renderAt("/admin/tests?tab=draft&page=3");
+    renderAt("/teacher/tests?tab=draft&page=3");
     expect(screen.getByText("trang 3")).toBeInTheDocument();
     const three = within(nav()).getByRole("link", { name: "Trang 3" });
     expect(three).toHaveAttribute("aria-current", "page");
     expect(within(nav()).getByRole("link", { name: "Trang 4" })).toHaveAttribute(
       "href",
-      "/admin/tests?tab=draft&page=4",
+      "/teacher/tests?tab=draft&page=4",
     );
     // Page 1 is the plain URL: no `page=1` to carry around.
     expect(within(nav()).getByRole("link", { name: "Trang 1" })).toHaveAttribute(
       "href",
-      "/admin/tests?tab=draft",
+      "/teacher/tests?tab=draft",
     );
   });
 
   it("turns the page through the URL", async () => {
     const user = userEvent.setup();
-    const { router } = renderAt("/admin/tests");
+    const { router } = renderAt("/teacher/tests");
     await user.click(within(nav()).getByRole("link", { name: "Trang sau" }));
     expect(router.state.location.search).toBe("?page=2");
     expect(screen.getByText("trang 2")).toBeInTheDocument();
   });
 
   it("disables the edge it is on", () => {
-    renderAt("/admin/tests?page=6");
+    renderAt("/teacher/tests?page=6");
     expect(within(nav()).getByRole("link", { name: "Trang sau" })).toHaveAttribute(
       "aria-disabled",
       "true",
@@ -121,20 +121,20 @@ describe("usePage", () => {
   });
 
   it("opens on the page a shared link names", () => {
-    renderAt("/admin/tests?page=4");
+    renderAt("/teacher/tests?page=4");
     expect(screen.getByText("trang 4")).toBeInTheDocument();
   });
 
   // Page 7 of one search is not page 7 of another.
   it("goes back to page 1 when the filters change, not on mount", () => {
-    const { router, view } = renderAt("/admin/tests?page=4", "a");
+    const { router, view } = renderAt("/teacher/tests?page=4", "a");
     expect(screen.getByText("trang 4")).toBeInTheDocument();
     view.rerender(<RouterProvider router={router} />);
     expect(screen.getByText("trang 4")).toBeInTheDocument();
     // A new filter value: a fresh element tree with the same router.
     const swapped = createMemoryRouter(
-      [{ path: "/admin/tests", element: <Screen filter="b" /> }],
-      { initialEntries: ["/admin/tests?page=4"] },
+      [{ path: "/teacher/tests", element: <Screen filter="b" /> }],
+      { initialEntries: ["/teacher/tests?page=4"] },
     );
     view.unmount();
     render(<RouterProvider router={swapped} />);

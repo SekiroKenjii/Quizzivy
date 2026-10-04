@@ -79,8 +79,8 @@ function renderPageAs(signedIn: components["schemas"]["CurrentUser"]) {
   useAuthStore.getState().setUser(signedIn);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/students", element: <StudentsListPage /> }],
-    { initialEntries: ["/admin/students"] },
+    [{ path: "/teacher/students", element: <StudentsListPage /> }],
+    { initialEntries: ["/teacher/students"] },
   );
   const { unmount } = render(
     <QueryClientProvider client={client}>

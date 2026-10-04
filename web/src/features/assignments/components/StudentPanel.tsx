@@ -95,7 +95,7 @@ export function StudentPanel({
         )}
       </QueryStates>
       <Button variant="outline" className="w-full" asChild>
-        <Link to={`/admin/assignments/${assignment.id}/attempts`}>
+        <Link to={`/teacher/assignments/${assignment.id}/attempts`}>
           {t("assignments.panel.viewAll")}
           <ArrowRight aria-hidden="true" />
         </Link>
@@ -133,7 +133,7 @@ function PanelRow({ row, group }: Readonly<{ row: MonitorRow; group: Group }>) {
   const className = "flex items-center gap-2 rounded-md py-1.5";
   return row.attemptId ? (
     <Link
-      to={`/admin/attempts/${row.attemptId}`}
+      to={`/teacher/attempts/${row.attemptId}`}
       className={`${className} hover:bg-accent -mx-2 px-2`}
     >
       {body}

@@ -79,7 +79,9 @@ function ReviewRoute({ id, onReload }: Readonly<{ id: string; onReload: () => vo
       <EmptyState
         action={
           <Button asChild size="sm" variant="outline">
-            <Link to={`/admin/imports/${id}`}>{t("imports.retention.viewImport")}</Link>
+            <Link to={`/teacher/imports/${id}`}>
+              {t("imports.retention.viewImport")}
+            </Link>
           </Button>
         }
       >
@@ -92,7 +94,7 @@ function ReviewRoute({ id, onReload }: Readonly<{ id: string; onReload: () => vo
         <EmptyState
           action={
             <Button asChild size="sm" variant="outline">
-              <Link to="/admin/imports">{t("imports.backToHistory")}</Link>
+              <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
             </Button>
           }
         >
@@ -111,7 +113,9 @@ function ReviewRoute({ id, onReload }: Readonly<{ id: string; onReload: () => vo
         hint={t("imports.review.notReadyHint")}
         action={
           <Button asChild size="sm" variant="outline">
-            <Link to={`/admin/imports/${id}`}>{t("imports.review.viewProgress")}</Link>
+            <Link to={`/teacher/imports/${id}`}>
+              {t("imports.review.viewProgress")}
+            </Link>
           </Button>
         }
       >

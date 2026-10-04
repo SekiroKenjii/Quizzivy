@@ -122,7 +122,7 @@ export default function ClassDetailPage() {
     <>
       <PageHeader
         title={klass.data.name}
-        backTo="/admin/classes"
+        backTo="/teacher/classes"
         meta={
           <Badge>
             {t("classDetail.studentCount", { count: klass.data.studentCount })}
@@ -137,7 +137,7 @@ export default function ClassDetailPage() {
             <Button
               size="sm"
               onClick={() =>
-                void navigate(`/admin/assignments/new?classId=${klass.data.id}`)
+                void navigate(`/teacher/assignments/new?classId=${klass.data.id}`)
               }
             >
               <ClipboardList aria-hidden="true" />

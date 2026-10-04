@@ -82,8 +82,8 @@ beforeEach(() => {
 function renderBank() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/question-bank", element: <QuestionBankPage /> }],
-    { initialEntries: ["/admin/question-bank"] },
+    [{ path: "/teacher/question-bank", element: <QuestionBankPage /> }],
+    { initialEntries: ["/teacher/question-bank"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -125,7 +125,7 @@ describe("deleting a question", () => {
     expect(within(dialog).getByText("Đang dùng trong 2 đề nháp:")).toBeInTheDocument();
     expect(within(dialog).getByRole("link", { name: "Unit 5" })).toHaveAttribute(
       "href",
-      "/admin/tests/018f0000-0000-7000-8000-0000000000d1/edit",
+      "/teacher/tests/018f0000-0000-7000-8000-0000000000d1/edit",
     );
     expect(within(dialog).getByRole("link", { name: "Mid-term" })).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "Xoá" })).toBeNull();

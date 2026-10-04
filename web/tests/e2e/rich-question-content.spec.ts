@@ -98,7 +98,7 @@ test("bank saves a confirmed structured paste and retains formatting after reloa
   page,
 }) => {
   const state = await setup(page);
-  await page.goto(`/admin/question-bank/${ID}`);
+  await page.goto(`/teacher/question-bank/${ID}`);
   await page
     .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
     .click();
@@ -141,7 +141,7 @@ test("bank previews Markdown conversion, preserves tables and explanations after
 }) => {
   const state = await setup(page);
   await page.setViewportSize({ width: 768, height: 900 });
-  await page.goto(`/admin/question-bank/${ID}`);
+  await page.goto(`/teacher/question-bank/${ID}`);
   await page
     .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
     .click();
@@ -229,7 +229,7 @@ test("unsupported Markdown conversion leaves the original editable and never wri
 }) => {
   const original = "Keep `code` and ![picture](https://example.com/p.png)";
   const state = await setup(page, { ...sample(), prompt: original });
-  await page.goto(`/admin/question-bank/${ID}`);
+  await page.goto(`/teacher/question-bank/${ID}`);
   await page
     .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
     .click();
@@ -258,7 +258,7 @@ test("builder flushes rich prose before switching and preview retains the saved 
     { ...sample(), prompt: "Câu thứ nhất", promptContent: content },
     true,
   );
-  await page.goto(`/admin/tests/${TEST}/edit`);
+  await page.goto(`/teacher/tests/${TEST}/edit`);
   await page
     .getByRole("button", { name: "Chỉnh sửa: Nội dung câu hỏi", exact: true })
     .click();

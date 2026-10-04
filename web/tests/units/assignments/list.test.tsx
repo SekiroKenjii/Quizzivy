@@ -90,12 +90,12 @@ async function rows() {
   return within(await screen.findByRole("table"));
 }
 
-function renderList(initial = "/admin/assignments") {
+function renderList(initial = "/teacher/assignments") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/assignments", element: <AssignmentsListPage /> },
-      { path: "/admin/assignments/new", element: <p>form</p> },
+      { path: "/teacher/assignments", element: <AssignmentsListPage /> },
+      { path: "/teacher/assignments/new", element: <p>form</p> },
     ],
     { initialEntries: [initial] },
   );
@@ -136,7 +136,7 @@ describe("the assignments list", () => {
     const table = await rows();
     expect(table.getByRole("link", { name: "Unit 5" })).toHaveAttribute(
       "href",
-      "/admin/assignments/018f0000-0000-7000-8000-0000000000d1",
+      "/teacher/assignments/018f0000-0000-7000-8000-0000000000d1",
     );
     const user = userEvent.setup();
     await user.click(table.getByRole("button", { name: "Thao tác" }));
@@ -148,7 +148,7 @@ describe("the assignments list", () => {
     ).toEqual(["Mở", "Chỉnh sửa"]);
     expect(within(menu).getByRole("menuitem", { name: "Chỉnh sửa" })).toHaveAttribute(
       "href",
-      "/admin/assignments/018f0000-0000-7000-8000-0000000000d1/edit",
+      "/teacher/assignments/018f0000-0000-7000-8000-0000000000d1/edit",
     );
   });
 
@@ -263,7 +263,7 @@ describe("the list narrowed to one class (G-12)", () => {
       }),
     );
     const user = userEvent.setup();
-    renderList(`/admin/assignments?classId=${CLASS_ID}`);
+    renderList(`/teacher/assignments?classId=${CLASS_ID}`);
 
     await rows();
     expect(classIds).toEqual([CLASS_ID]);

@@ -46,8 +46,8 @@ function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   rendered = client;
   const router = createMemoryRouter(
-    [{ path: "/admin/tests", element: <TestsListPage /> }],
-    { initialEntries: ["/admin/tests"] },
+    [{ path: "/teacher/tests", element: <TestsListPage /> }],
+    { initialEntries: ["/teacher/tests"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -82,7 +82,7 @@ describe("the tests list's way into Word import", () => {
 
     expect(await screen.findByRole("link", { name: "Lịch sử nhập" })).toHaveAttribute(
       "href",
-      "/admin/imports",
+      "/teacher/imports",
     );
     expect(importWord()).toBeNull();
   });
@@ -93,7 +93,7 @@ describe("the tests list's way into Word import", () => {
 
     expect(
       await screen.findByRole("link", { name: "Nhập đề từ Word/PDF" }),
-    ).toHaveAttribute("href", "/admin/imports/new");
+    ).toHaveAttribute("href", "/teacher/imports/new");
     expect(history()).toBeInTheDocument();
   });
 });

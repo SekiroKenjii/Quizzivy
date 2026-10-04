@@ -43,35 +43,35 @@ const SECTIONS = [
   {
     label: "nav.sectionTeaching",
     items: [
-      { to: "/admin", end: true, icon: LayoutDashboard, key: "nav.dashboard" },
-      { to: "/admin/tests", icon: FileText, key: "nav.tests" },
-      { to: "/admin/question-bank", icon: Library, key: "nav.questionBank" },
-      { to: "/admin/media", icon: AudioLines, key: "nav.media" },
+      { to: "/teacher", end: true, icon: LayoutDashboard, key: "nav.dashboard" },
+      { to: "/teacher/tests", icon: FileText, key: "nav.tests" },
+      { to: "/teacher/question-bank", icon: Library, key: "nav.questionBank" },
+      { to: "/teacher/media", icon: AudioLines, key: "nav.media" },
     ],
   },
   {
     label: "nav.sectionClasses",
     items: [
       {
-        to: "/admin/assignments",
+        to: "/teacher/assignments",
         icon: ClipboardList,
         key: "nav.assignments",
         count: "openAssignments",
       },
       {
-        to: "/admin/grading",
+        to: "/teacher/grading",
         icon: SquarePen,
         key: "nav.grading",
         count: "awaitingGrading",
       },
-      { to: "/admin/students", icon: Users, key: "nav.students" },
-      { to: "/admin/classes", icon: GraduationCap, key: "nav.classes" },
+      { to: "/teacher/students", icon: Users, key: "nav.students" },
+      { to: "/teacher/classes", icon: GraduationCap, key: "nav.classes" },
     ],
   },
 ] as const;
 
 const SETTINGS = {
-  to: "/admin/settings",
+  to: "/teacher/settings",
   icon: Settings,
   key: "nav.settings",
 } as const;

@@ -189,7 +189,7 @@ export default function QuestionBankPage() {
           subtitle={bankSubtitle(data, t)}
           actions={
             <Button asChild size="sm">
-              <Link to="/admin/question-bank/new">
+              <Link to="/teacher/question-bank/new">
                 <Plus aria-hidden="true" />
                 {t("bank.newQuestion")}
               </Link>
@@ -241,7 +241,7 @@ export default function QuestionBankPage() {
               <EmptyState
                 action={
                   <Button asChild size="sm">
-                    <Link to="/admin/question-bank/new">{t("bank.newQuestion")}</Link>
+                    <Link to="/teacher/question-bank/new">{t("bank.newQuestion")}</Link>
                   </Button>
                 }
               >
@@ -282,7 +282,7 @@ export default function QuestionBankPage() {
                           duplicating={duplicate.isPending}
                           playing={playing === question.id}
                           onOpen={() =>
-                            void navigate(`/admin/question-bank/${question.id}`)
+                            void navigate(`/teacher/question-bank/${question.id}`)
                           }
                           onRetry={() => void bank.refetch()}
                           onTogglePlay={() =>
@@ -350,7 +350,7 @@ export default function QuestionBankPage() {
               <span key={test.id}>
                 {index === 0 ? null : ", "}
                 <Link
-                  to={`/admin/tests/${test.id}/edit`}
+                  to={`/teacher/tests/${test.id}/edit`}
                   className="font-medium underline underline-offset-4"
                 >
                   {test.title}
@@ -421,7 +421,7 @@ function Row({
               </Button>
             ) : null}
             <Link
-              to={`/admin/question-bank/${question.id}`}
+              to={`/teacher/question-bank/${question.id}`}
               className="truncate hover:underline"
             >
               {question.prompt.replace(/\{\{\d+\}\}/g, "___")}

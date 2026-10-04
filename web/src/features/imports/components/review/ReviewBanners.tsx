@@ -64,7 +64,7 @@ export function ReviewBanners({
           <p className="text-sm">{t("imports.review.committedBanner")}</p>
           {testId === null ? null : (
             <Button asChild variant="outline" size="sm" className="ml-auto">
-              <Link to={`/admin/tests/${testId}/edit`}>
+              <Link to={`/teacher/tests/${testId}/edit`}>
                 {t("imports.detail.openBuilder")}
               </Link>
             </Button>
@@ -75,7 +75,7 @@ export function ReviewBanners({
         <div role="status" className={BAR}>
           <p className="text-sm">{t(`imports.review.readOnly.${value.status}`)}</p>
           <Button asChild variant="outline" size="sm" className="ml-auto">
-            <Link to={`/admin/imports/${value.id}`}>
+            <Link to={`/teacher/imports/${value.id}`}>
               {isActiveStatus(value.status)
                 ? t("imports.review.viewProgress")
                 : t("imports.review.viewImport")}
@@ -112,7 +112,7 @@ export function PhoneNotice({
         {t("imports.review.phoneGuidance")}
       </p>
       <Button asChild variant="outline" size="sm">
-        <Link to={`/admin/imports/${importId}`}>{t("imports.review.back")}</Link>
+        <Link to={`/teacher/imports/${importId}`}>{t("imports.review.back")}</Link>
       </Button>
     </div>
   );

@@ -111,10 +111,10 @@ function renderDetail() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/assignments/:id", element: <AssignmentDetailPage /> },
-      { path: "/admin/assignments/:id/edit", element: <p>edit form</p> },
+      { path: "/teacher/assignments/:id", element: <AssignmentDetailPage /> },
+      { path: "/teacher/assignments/:id/edit", element: <p>edit form</p> },
     ],
-    { initialEntries: [`/admin/assignments/${ID}`] },
+    { initialEntries: [`/teacher/assignments/${ID}`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -161,7 +161,7 @@ describe("the assignment detail", () => {
     expect(screen.getByText("Có, trong từng phần")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Xem đề" })).toHaveAttribute(
       "href",
-      `/admin/tests/${TEST_ID}`,
+      `/teacher/tests/${TEST_ID}`,
     );
   });
 
@@ -173,7 +173,7 @@ describe("the assignment detail", () => {
     expect(screen.getByText(/Học viên chưa thấy bài này/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Chỉnh sửa" })).toHaveAttribute(
       "href",
-      `/admin/assignments/${ID}/edit`,
+      `/teacher/assignments/${ID}/edit`,
     );
 
     await user.click(screen.getByRole("button", { name: "Giao bài" }));
@@ -235,7 +235,7 @@ describe("the assignment detail", () => {
     expect(await screen.findByText("Tự cập nhật 15 giây/lần")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "IELTS Foundation" })).toHaveAttribute(
       "href",
-      `/admin/classes/${CLASS_ID}`,
+      `/teacher/classes/${CLASS_ID}`,
     );
     expect(screen.getByText("+2 học viên lẻ")).toBeInTheDocument();
     expect(screen.getByText("· 19 học viên")).toBeInTheDocument();
@@ -256,7 +256,7 @@ describe("the assignment detail", () => {
     // G-09's closed bar: the way back in, and the papers on their own page (G-11).
     expect(screen.getByRole("link", { name: "Xem bài làm" })).toHaveAttribute(
       "href",
-      `/admin/assignments/${ID}/attempts`,
+      `/teacher/assignments/${ID}/attempts`,
     );
     expect(
       screen.getByRole("button", { name: "Gia hạn cho tất cả" }),
@@ -309,10 +309,10 @@ describe("the assignment detail", () => {
     expect(within(panel).getByText("Chưa nộp · 1")).toBeInTheDocument();
     expect(
       within(panel).getAllByRole("link", { name: /Phạm Gia Hân/ })[0],
-    ).toHaveAttribute("href", "/admin/attempts/018f0000-0000-7000-8000-0000000000a7");
+    ).toHaveAttribute("href", "/teacher/attempts/018f0000-0000-7000-8000-0000000000a7");
     expect(
       within(panel).getByRole("link", { name: "Xem tất cả bài làm" }),
-    ).toHaveAttribute("href", `/admin/assignments/${ID}/attempts`);
+    ).toHaveAttribute("href", `/teacher/assignments/${ID}/attempts`);
     // The strip's link turns into the way to close it; the panel has its own.
     expect(screen.getAllByRole("button", { name: "Đóng bảng học viên" })).toHaveLength(
       2,

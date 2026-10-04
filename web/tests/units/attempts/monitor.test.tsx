@@ -94,7 +94,7 @@ describe("the monitor", () => {
     expect(within(row).getByText("Chưa bắt đầu")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "chờ chấm 2" })).toHaveAttribute(
       "href",
-      "/admin/attempts/018f0000-0000-7000-8000-0000000000a8",
+      "/teacher/attempts/018f0000-0000-7000-8000-0000000000a8",
     );
     expect(screen.getByLabelText("8 trên 24 câu đã trả lời")).toBeInTheDocument();
   });

@@ -107,7 +107,7 @@ export default function AttemptReviewPage() {
   if (review.isError || data === undefined) {
     return (
       <>
-        <PageHeader title={t("review.title")} backTo="/admin/assignments" />
+        <PageHeader title={t("review.title")} backTo="/teacher/assignments" />
         <div className="space-y-1">
           <LoadError error={review.error} onRetry={() => void review.refetch()}>
             {t("review.loadFailed")}
@@ -153,7 +153,7 @@ export default function AttemptReviewPage() {
     <>
       <PageHeader
         title={student.fullName}
-        backTo={`/admin/assignments/${attempt.assignmentId}`}
+        backTo={`/teacher/assignments/${attempt.assignmentId}`}
         leading={<Avatar name={student.fullName} size="sm" />}
         meta={
           <>

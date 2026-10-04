@@ -74,9 +74,9 @@ describe("the student tree", () => {
   it.each(["the first time", "and every time after"])(
     "would be caught %s: the teacher's layout, walked the same way, loads one",
     async () => {
-      const routes = await routesUnder("admin");
+      const routes = await routesUnder("teacher");
       const layout = routes.find((route) => route.load !== null);
-      expect(layout?.path).toBe("admin");
+      expect(layout?.path).toBe("teacher");
       expect(loaded.sideColumn).toBe(false);
 
       await layout?.load?.();

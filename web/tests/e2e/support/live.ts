@@ -24,7 +24,7 @@ export async function signIn(page: Page, who: typeof ADMIN, landing: RegExp) {
 }
 
 export const signInAsStudent = (page: Page) => signIn(page, STUDENT, /\/app$/);
-export const signInAsAdmin = (page: Page) => signIn(page, ADMIN, /\/admin$/);
+export const signInAsAdmin = (page: Page) => signIn(page, ADMIN, /\/teacher$/);
 
 /**
  * Opens an assignment by id and starts or resumes it, returning the attempt id.
@@ -121,7 +121,7 @@ export async function chooseOption(page: Page, text: string) {
  * an assignment pins a version rather than a test.
  */
 export async function assignToClass(page: Page, title: string) {
-  await page.goto("/admin/assignments/new");
+  await page.goto("/teacher/assignments/new");
   await page.getByRole("button", { name: "Chọn đề thi" }).click();
   const picker = page.getByRole("dialog");
   await picker.getByText(title).click();
@@ -141,5 +141,5 @@ export async function assignToClass(page: Page, title: string) {
     .click();
 
   await page.getByRole("button", { name: "Giao bài", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/assignments$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/teacher\/assignments$/, { timeout: 30_000 });
 }

@@ -24,7 +24,7 @@ const sections = [
 /** SettingsPage keeps section forms mounted while URL navigation and viewport changes preserve edits. */
 export function SettingsPage({
   base,
-}: Readonly<{ base: "/admin/settings" | "/app/settings" }>) {
+}: Readonly<{ base: "/teacher/settings" | "/app/settings" }>) {
   const { t } = useTranslation();
   const { section } = useParams();
   const navigate = useNavigate();
@@ -108,7 +108,7 @@ export function SettingsPage({
           </div>
           <div hidden={active !== "preferences"} className="settings-panel space-y-8">
             <LanguageSection />
-            {base === "/admin/settings" && canReadDocs ? <ApiDocsSection /> : null}
+            {base === "/teacher/settings" && canReadDocs ? <ApiDocsSection /> : null}
           </div>
           <div className="mt-8 border-t pt-5">
             <SignOutButton variant="outline" className="w-full sm:w-auto" />

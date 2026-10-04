@@ -152,7 +152,7 @@ export default function AssignmentFormPage() {
       await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
       await queryClient.invalidateQueries({ queryKey: ["admin-assignment", id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-      void navigate(editing ? `/admin/assignments/${id}` : "/admin/assignments");
+      void navigate(editing ? `/teacher/assignments/${id}` : "/teacher/assignments");
     },
     onError: (cause) =>
       setError({
@@ -175,7 +175,7 @@ export default function AssignmentFormPage() {
     <>
       <PageHeader
         title={t(editing ? "assignments.edit" : "assignments.new")}
-        backTo={editing ? `/admin/assignments/${id}` : "/admin/assignments"}
+        backTo={editing ? `/teacher/assignments/${id}` : "/teacher/assignments"}
       />
 
       <div className="space-y-6">

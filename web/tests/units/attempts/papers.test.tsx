@@ -113,10 +113,13 @@ function renderPage(search = "") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/assignments/:id/attempts", element: <AssignmentAttemptsPage /> },
-      { path: "/admin/assignments/:id", element: <p>the assignment</p> },
+      {
+        path: "/teacher/assignments/:id/attempts",
+        element: <AssignmentAttemptsPage />,
+      },
+      { path: "/teacher/assignments/:id", element: <p>the assignment</p> },
     ],
-    { initialEntries: [`/admin/assignments/${ASSIGNMENT_ID}/attempts${search}`] },
+    { initialEntries: [`/teacher/assignments/${ASSIGNMENT_ID}/attempts${search}`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -174,7 +177,7 @@ describe("the papers of one assignment (G-11)", () => {
     expect(within(minh).getByText("2/2")).toBeInTheDocument();
     expect(within(minh).getByRole("link", { name: "chờ chấm 2" })).toHaveAttribute(
       "href",
-      "/admin/attempts/018f0000-0000-7000-8000-0000000000a8",
+      "/teacher/attempts/018f0000-0000-7000-8000-0000000000a8",
     );
   });
 
@@ -236,7 +239,7 @@ describe("the papers of one assignment (G-11)", () => {
     const menu = await screen.findByRole("menu");
     expect(within(menu).getByRole("menuitem", { name: "Xem bài làm" })).toHaveAttribute(
       "href",
-      `/admin/attempts/${VY_ATTEMPT}`,
+      `/teacher/attempts/${VY_ATTEMPT}`,
     );
     expect(
       within(menu).queryByRole("menuitem", { name: "Gia hạn thời gian" }),

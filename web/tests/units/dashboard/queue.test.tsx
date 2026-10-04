@@ -56,10 +56,10 @@ function renderDashboard() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin", element: <AdminDashboardPage /> },
-      { path: "/admin/tests/:id/edit", element: <p>builder</p> },
+      { path: "/teacher", element: <AdminDashboardPage /> },
+      { path: "/teacher/tests/:id/edit", element: <p>builder</p> },
     ],
-    { initialEntries: ["/admin"] },
+    { initialEntries: ["/teacher"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -75,7 +75,7 @@ describe("the dashboard's work queue", () => {
 
     expect(await screen.findByRole("link", { name: "Chấm" })).toHaveAttribute(
       "href",
-      "/admin/grading",
+      "/teacher/grading",
     );
     expect(screen.getByRole("button", { name: "Xem" })).toBeDisabled();
     expect(screen.queryByRole("link", { name: "Xem" })).toBeNull();

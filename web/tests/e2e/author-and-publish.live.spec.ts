@@ -16,7 +16,7 @@ async function signIn(page: Page) {
   await page.getByLabel("Email").fill(ADMIN.email);
   await page.getByLabel("Mật khẩu", { exact: true }).fill(ADMIN.password);
   await page.getByRole("button", { name: "Đăng nhập" }).click();
-  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page).toHaveURL(/\/teacher$/);
 }
 
 /**
@@ -56,9 +56,9 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await signIn(page);
 
   // ---------------------------------------------------------------- create
-  await page.goto("/admin/tests");
+  await page.goto("/teacher/tests");
   await page.getByRole("button", { name: "Đề thi mới" }).first().click();
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+\/edit$/);
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
 
   const title = `E2E 1a — ${Date.now()}`;
   await page.getByLabel("Tên đề thi").fill(title);
@@ -123,7 +123,7 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await page.getByRole("button", { name: "Phát hành" }).click();
 
   // Publishing lands on the detail page, previewing the version just written.
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
   await expect(page.getByText("Bản đang phát hành · v1")).toBeVisible();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
@@ -145,7 +145,7 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
 
   // The monitor lists the class, nobody started, and says it will keep looking.
   await row.getByRole("link", { name: title }).click();
-  await expect(page).toHaveURL(/\/admin\/assignments\/[0-9a-f-]+$/);
+  await expect(page).toHaveURL(/\/teacher\/assignments\/[0-9a-f-]+$/);
   await expect(page.getByText("Tự cập nhật 15 giây/lần")).toBeVisible();
   await expect(page.getByText("Chưa bắt đầu").first()).toBeVisible();
 });

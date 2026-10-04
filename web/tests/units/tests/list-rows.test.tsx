@@ -50,9 +50,9 @@ beforeEach(() => {
 function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/tests", element: <TestsListPage /> }],
+    [{ path: "/teacher/tests", element: <TestsListPage /> }],
     {
-      initialEntries: ["/admin/tests"],
+      initialEntries: ["/teacher/tests"],
     },
   );
   render(
@@ -69,10 +69,10 @@ describe("a row on the tests list", () => {
 
     expect(
       await screen.findByRole("link", { name: "Listening practice 03" }),
-    ).toHaveAttribute("href", `/admin/tests/${DRAFT_ID}/edit`);
+    ).toHaveAttribute("href", `/teacher/tests/${DRAFT_ID}/edit`);
     expect(screen.getByRole("link", { name: "Unit 5" })).toHaveAttribute(
       "href",
-      `/admin/tests/${PUBLISHED_ID}`,
+      `/teacher/tests/${PUBLISHED_ID}`,
     );
   });
 
@@ -96,7 +96,7 @@ describe("a row on the tests list", () => {
     ]);
     expect(
       within(menu).getByRole("menuitem", { name: "Giao cho lớp" }),
-    ).toHaveAttribute("href", `/admin/assignments/new?testId=${PUBLISHED_ID}`);
+    ).toHaveAttribute("href", `/teacher/assignments/new?testId=${PUBLISHED_ID}`);
   });
 
   it("labels the status tabs with the one vocabulary every screen uses", async () => {

@@ -11,7 +11,7 @@ export function BankNavigation() {
     >
       <NavLink
         end
-        to="/admin/question-bank"
+        to="/teacher/question-bank"
         className={({ isActive }) =>
           buttonVariants({ variant: isActive ? "secondary" : "ghost", size: "sm" })
         }
@@ -19,7 +19,7 @@ export function BankNavigation() {
         {t("groups.standalone")}
       </NavLink>
       <NavLink
-        to="/admin/question-bank/groups"
+        to="/teacher/question-bank/groups"
         className={({ isActive }) =>
           buttonVariants({ variant: isActive ? "secondary" : "ghost", size: "sm" })
         }

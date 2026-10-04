@@ -107,7 +107,7 @@ export default function AssignmentsListPage() {
             : " "
         }
         actions={
-          <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
+          <Button size="sm" onClick={() => void navigate("/teacher/assignments/new")}>
             <Plus aria-hidden="true" />
             {t("assignments.new")}
           </Button>
@@ -185,7 +185,7 @@ export default function AssignmentsListPage() {
               action={
                 <Button
                   size="sm"
-                  onClick={() => void navigate("/admin/assignments/new")}
+                  onClick={() => void navigate("/teacher/assignments/new")}
                 >
                   {t("assignments.new")}
                 </Button>
@@ -275,7 +275,7 @@ function Row({
   const submitted = assignment.submittedCount ?? 0;
   const total = assignment.targetCount ?? 0;
   const flagged = assignment.flaggedCount ?? 0;
-  const href = `/admin/assignments/${assignment.id}`;
+  const href = `/teacher/assignments/${assignment.id}`;
 
   return (
     <TableRow>

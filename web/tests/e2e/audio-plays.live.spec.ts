@@ -20,9 +20,9 @@ import { assignToClass, signInAsAdmin, signInAsStudent } from "./support/live";
 const AUDIO = fileURLToPath(new URL("./fixtures/unit5-listening.mp3", import.meta.url));
 
 async function publishListeningTest(page: Page, title: string) {
-  await page.goto("/admin/tests");
+  await page.goto("/teacher/tests");
   await page.getByRole("button", { name: "Đề thi mới" }).first().click();
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+\/edit$/);
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
 
   await page.getByLabel("Tên đề thi").fill(title);
   await page.getByRole("button", { name: "Thêm phần" }).click();
@@ -55,7 +55,7 @@ async function publishListeningTest(page: Page, title: string) {
 
   await expect(page.getByText(/Đã lưu \d\d:\d\d/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Phát hành" }).click();
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
 }
 
 test("E2E 8: the listening count is the server's and survives a reload", async ({

@@ -220,7 +220,7 @@ export default function MediaLibraryPage() {
               {(blocked.usedIn ?? []).map((test) => (
                 <li key={`${test.id}-${test.version ?? 0}`}>
                   <Link
-                    to={`/admin/tests/${test.id}`}
+                    to={`/teacher/tests/${test.id}`}
                     className="font-medium underline underline-offset-4"
                   >
                     {test.title}

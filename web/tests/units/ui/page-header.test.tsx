@@ -20,11 +20,11 @@ function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
   );
 }
 
-function renderAt(element: React.ReactNode, path = "/admin/tests/1") {
+function renderAt(element: React.ReactNode, path = "/teacher/tests/1") {
   const router = createMemoryRouter(
     [
       { path, element },
-      { path: "/admin/tests", element: <p>list</p> },
+      { path: "/teacher/tests", element: <p>list</p> },
     ],
     { initialEntries: [path] },
   );
@@ -37,7 +37,7 @@ describe("the contextual bar", () => {
   it("lands in the shell's slot, above main, not inside the scrolling content", () => {
     renderAt(
       <Shell>
-        <PageHeader title="Unit 5" backTo="/admin/tests" meta={<span>v3</span>} />
+        <PageHeader title="Unit 5" backTo="/teacher/tests" meta={<span>v3</span>} />
         <p>content</p>
       </Shell>,
     );
@@ -54,9 +54,9 @@ describe("the contextual bar", () => {
 
   it("goes back where it was told", async () => {
     const user = userEvent.setup();
-    const router = renderAt(<PageHeader title="Unit 5" backTo="/admin/tests" />);
+    const router = renderAt(<PageHeader title="Unit 5" backTo="/teacher/tests" />);
     await user.click(screen.getByRole("button", { name: "Quay lại" }));
-    expect(router.state.location.pathname).toBe("/admin/tests");
+    expect(router.state.location.pathname).toBe("/teacher/tests");
   });
 
   it("has no back button unless there is somewhere to go", () => {

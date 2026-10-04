@@ -116,7 +116,7 @@ describe("creating the draft test from a review", () => {
     expect(await within(dialog).findByText("Đã tạo bản nháp đề")).toBeInTheDocument();
     expect(
       within(dialog).getByRole("link", { name: "Mở trình soạn đề" }),
-    ).toHaveAttribute("href", `/admin/tests/${TEST_ID}/edit`);
+    ).toHaveAttribute("href", `/teacher/tests/${TEST_ID}/edit`);
     expect(state.commits).toHaveLength(2);
     expect(
       state.commits[1]!.requestId,
