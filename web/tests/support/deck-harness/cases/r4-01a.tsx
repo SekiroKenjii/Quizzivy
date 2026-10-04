@@ -70,7 +70,7 @@ function share(row: Assignment) {
 
 function bar(row: Assignment): ReactNode {
   return (
-    <span className="bg-muted h-1.5 flex-1 overflow-hidden rounded-md">
+    <span className="bg-muted h-1.5 flex-1 overflow-hidden rounded-sm">
       <span className="bg-brand block h-full" style={{ width: `${share(row)}%` }} />
     </span>
   );
@@ -258,7 +258,7 @@ const STUDENT_COLUMNS: readonly DataColumn<Student>[] = [
         {row.classes.map((name) => (
           <span
             key={name}
-            className="rounded-md border px-1.75 py-px text-xs leading-normal whitespace-nowrap"
+            className="rounded-sm border px-1.75 py-px text-xs leading-normal whitespace-nowrap"
           >
             {name}
           </span>
@@ -372,7 +372,7 @@ const MEMBER_COLUMNS: readonly DataColumn<Member>[] = [
     cell: (row) => (
       <span
         className={cn(
-          "inline-flex h-5.5 items-center rounded-md px-2 text-xs font-medium whitespace-nowrap",
+          "inline-flex h-5.5 items-center rounded-sm px-2 text-xs font-medium whitespace-nowrap",
           row.admin ? "bg-primary text-primary-fg" : "bg-muted font-mono",
         )}
       >
