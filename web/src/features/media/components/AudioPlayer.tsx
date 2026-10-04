@@ -55,9 +55,9 @@ export function AudioPlayer({
   const [failedFor, setFailedFor] = useState<string | null>(null);
   const failed = failedFor === src;
 
-  const total =
-    loaded ?? (durationMs != null && durationMs > 0 ? durationMs / 1000 : 0);
-  const fraction = total > 0 ? Math.min(1, position / total) : 0;
+  const { span, shownTotal } = lengths(durationMs, loaded);
+  const shownPosition = shownTotal > 0 ? Math.min(position, shownTotal) : position;
+  const fraction = span > 0 ? Math.min(1, position / span) : 0;
 
   useEffect(() => {
     const element = audio.current;
@@ -176,7 +176,7 @@ export function AudioPlayer({
               type="range"
               disabled={disabled}
               min={0}
-              max={total || 1}
+              max={span || 1}
               step={0.1}
               value={position}
               aria-label={t("media.seek")}
@@ -203,9 +203,9 @@ export function AudioPlayer({
           )}
         >
           <span className="text-muted-foreground in-data-[scale=deck]:text-meta shrink-0 text-xs whitespace-nowrap tabular-nums">
-            {clock(position)}
+            {clock(shownPosition)}
             {" / "}
-            {clock(total)}
+            {clock(shownTotal)}
           </span>
           {hint === undefined ? null : (
             <span
@@ -242,6 +242,14 @@ function iconSize(size: "default" | "sm"): string {
   return size === "sm"
     ? "size-4 fill-current"
     : "size-5 fill-current in-data-[scale=deck]:size-[17px]";
+}
+
+function lengths(
+  durationMs: number | null | undefined,
+  loaded: number | null,
+): { span: number; shownTotal: number } {
+  const probed = durationMs != null && durationMs > 0 ? durationMs / 1000 : null;
+  return { span: loaded ?? probed ?? 0, shownTotal: probed ?? loaded ?? 0 };
 }
 
 function clock(seconds: number): string {
