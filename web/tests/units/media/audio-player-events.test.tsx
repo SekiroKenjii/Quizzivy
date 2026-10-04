@@ -61,19 +61,16 @@ it("reports a play the browser blocked, and still says it could not play", async
   expect(onBlocked).toHaveBeenCalledTimes(1);
 });
 
-it.each(["AbortError", "NotSupportedError"])(
-  "does not report %s as blocked",
-  async (name) => {
-    refuse(name);
-    const onBlocked = vi.fn();
-    render(<AudioPlayer src="/a.mp3" label="Audio" onBlocked={onBlocked} />);
+it.each(["NotSupportedError"])("does not report %s as blocked", async (name) => {
+  refuse(name);
+  const onBlocked = vi.fn();
+  render(<AudioPlayer src="/a.mp3" label="Audio" onBlocked={onBlocked} />);
 
-    pressPlay();
+  pressPlay();
 
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-    expect(onBlocked).not.toHaveBeenCalled();
-  },
-);
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(onBlocked).not.toHaveBeenCalled();
+});
 
 it("still calls play() in the click's own tick with the new callbacks passed", () => {
   const onPlay = vi.fn();

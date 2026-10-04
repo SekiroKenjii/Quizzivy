@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { QuestionAudio } from "@/features/take-test/components/QuestionAudio";
 import { recordAudioPlay, type StudentQuestion } from "@/features/take-test/api";
 import { useTakeTestStore } from "@/features/take-test/store";
@@ -128,4 +128,57 @@ it("records nothing new when the attempt is not loaded", () => {
 
   expect(pending()).toEqual([]);
   expect(counted).not.toHaveBeenCalled();
+});
+
+it("records a jump the player put back", () => {
+  mount();
+
+  audio().currentTime = 42;
+  fireEvent.seeking(audio());
+
+  expect(recorded()).toEqual([["audio_seek", "q1"]]);
+  expect(audio().currentTime).toBe(0);
+});
+
+it("records no seek when the teacher allowed seeking", () => {
+  render(
+    <QuestionAudio
+      question={{
+        ...question,
+        audio: { maxPlays: 2, allowSeek: true, showTranscriptAfterSubmit: false },
+      }}
+      onExpired={() => undefined}
+    />,
+  );
+
+  audio().currentTime = 42;
+  fireEvent.seeking(audio());
+
+  expect(pending()).toEqual([]);
+});
+
+it("records no seek when the attempt is not loaded", () => {
+  useTakeTestStore.getState().reset();
+  mount();
+
+  audio().currentTime = 42;
+  fireEvent.seeking(audio());
+
+  expect(pending()).toEqual([]);
+});
+
+it("records nothing for a pause before the start, and still counts the play", async () => {
+  play.mockImplementation(() =>
+    Promise.reject(new DOMException("aborted", "AbortError")),
+  );
+  mount();
+
+  pressPlay();
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(recorded()).toEqual([["audio_play", "q1"]]);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(counted).toHaveBeenCalledTimes(1);
 });

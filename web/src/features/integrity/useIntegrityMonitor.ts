@@ -163,7 +163,7 @@ export function useIntegrityMonitor({
 /** What the audio player reports, which no listener here can observe. */
 export function recordAudioEvent(
   attemptId: string,
-  kind: "audio_play" | "audio_ended" | "audio_blocked",
+  kind: "audio_play" | "audio_ended" | "audio_blocked" | "audio_seek",
   questionId: string,
 ): void {
   record(attemptId, kind, { questionId });

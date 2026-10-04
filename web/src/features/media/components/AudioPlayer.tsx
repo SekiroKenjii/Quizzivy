@@ -60,6 +60,8 @@ export function AudioPlayer({
   const [loaded, setLoaded] = useState<number | null>(null);
   const [failedFor, setFailedFor] = useState<string | null>(null);
   const failed = failedFor === src;
+  const [blockedFor, setBlockedFor] = useState<string | null>(null);
+  const blocked = blockedFor === src;
   const ended = useEffectEvent(() => onEnded?.());
 
   const { span, shownTotal } = lengths(durationMs, loaded);
@@ -79,7 +81,10 @@ export function AudioPlayer({
       ended();
     };
     const onPause = () => setPlaying(false);
-    const onPlaying = () => setPlaying(true);
+    const onPlaying = () => {
+      setPlaying(true);
+      setBlockedFor(null);
+    };
 
     element.addEventListener("timeupdate", onTime);
     element.addEventListener("loadedmetadata", onMeta);
@@ -108,9 +113,15 @@ export function AudioPlayer({
     if (element.paused) {
       const started = element.play();
       onPlay?.();
+      setBlockedFor(null);
       void started.catch((cause: unknown) => {
-        if (cause instanceof DOMException && cause.name === "NotAllowedError")
+        const name = cause instanceof DOMException ? cause.name : null;
+        if (name === "AbortError") return;
+        if (name === "NotAllowedError") {
           onBlocked?.();
+          setBlockedFor(src);
+          return;
+        }
         setFailedFor(src);
       });
     } else {
@@ -228,6 +239,15 @@ export function AudioPlayer({
             </span>
           )}
         </div>
+
+        {blocked ? (
+          <p
+            role="alert"
+            className="text-danger-ink in-data-[scale=deck]:text-meta mt-1.5 text-xs leading-relaxed"
+          >
+            {t("media.playBlocked")}
+          </p>
+        ) : null}
       </div>
 
       {/* eslint-disable-next-line jsx-a11y/media-has-caption -- the transcript is a field on the question (§11.1) */}
