@@ -1301,7 +1301,7 @@ edited.
 ### T-D4.2a — Builder: the shared-context group's row, its menu and its shared-content line
 **Reopens:** T-R4.31a (the outline's group row)
 **Depends on:** T-D4.1
-**Touches:** `web/src/features/tests/components/{OutlineTree,OutlineGroupRow}.tsx`, `web/src/features/tests/pages/teacher/TestBuilderPage.tsx` (selecting the group from the line and from the menu item, nothing else), locales, `web/tests/units/builder/` (the outline's cases)
+**Touches:** `web/src/features/tests/components/{OutlineTree,OutlineGroupRow}.tsx`, `web/src/features/tests/pages/teacher/TestBuilderPage.tsx` (selecting the group from the line and from the menu items, nothing else), `web/src/features/tests/components/BuilderGroupPane.tsx` and `web/src/features/question-groups/components/GroupComposer.tsx` (focus on the title field when Rename asks; no save path changes), locales, `web/tests/units/builder/` (the outline's cases)
 **Size:** S
 **Done when:**
 - [ ] The deck's "group" stays the product's section (DG+5). A section's "…" menu is R4's
@@ -1311,8 +1311,13 @@ edited.
 - [ ] A shared-context group keeps its own row inside its section (`OutlineGroupRow`). The
       buttons R4 left on the row give way to a "…" menu: Rename, Shared content (the
       `panel-left` icon, the export's third item), Move up, Move down (disabled at the ends),
-      Remove group. Each item does what its button did; the row's drag, its keyboard
-      equivalents and its focus ring are R4's.
+      Remove group. Move up, Move down and Remove group do what their buttons did; the row's
+      drag, its keyboard equivalents and its focus ring are R4's.
+- [ ] Rename is new on this row: R4 gives Rename to a section's menu only, and a group's
+      title has one field, in `BuilderGroupPane` (`shared-group-title`). Rename selects the
+      group and puts focus in that field with its text selected. The title is saved by the
+      group's editor, and the outline calls no operation: a rename in the outline would be a
+      second writer of the bundle (T-D4.14, "One writer").
 - [ ] Under the row's header, while the group is open, the export's shared-content line
       (T 1581-1587, the button on `sec.editShared`; its text is the script's `sharedText`,
       T 6968) in the instructions line's geometry:
@@ -1322,12 +1327,14 @@ edited.
       "· unlimited plays", with "1 play" in the singular (the prototype prints "1 plays"). A
       group that holds more than one material, or both kinds, reads "{n} materials · {m}
       recordings". A group with no shared content shows no line.
-- [ ] The line is a button. It and the menu item select the group, which opens
-      `BuilderGroupPane`, until T-D4.14 opens the dialog. Selecting the group saves what is
-      pending in the open question first, as selecting a row does today.
+- [ ] The line is a button. It and the "Shared content" item select the group, which opens
+      `BuilderGroupPane`, until T-D4.14 opens the dialog. Selecting the group, from the line
+      or from either item, saves what is pending in the open question first, as selecting a
+      row does today.
 - [ ] Unit tests: the line in each form (a passage with and without gaps, a recording with a
       limit, with one play and with no limit, more than one material, none); the menu's items
-      and their disabled states; "a pending edit is saved when the line is pressed".
+      and their disabled states; "Rename opens the group, focuses its title and sends no
+      request"; "a pending edit is saved when the line is pressed".
 - [ ] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, on a
       shared-context group holding one passage: the deck's fixture shows "Passage · Why cities
       need green space" under its first group (`INIT_SECS`, T 6632). Known difference: the line
