@@ -22,7 +22,7 @@ export function LockNotice({ reason, label }: LockNoticeProps) {
   return (
     <span
       title={reason}
-      className="text-muted-fg inline-flex items-center gap-1.25 text-xs leading-normal whitespace-nowrap"
+      className="text-muted-fg relative inline-flex items-center gap-1.25 text-xs leading-normal whitespace-nowrap"
     >
       <Lock aria-hidden="true" className="size-[0.8125rem] shrink-0" />
       {label ?? t("display.locked")} <span className="sr-only">{reason}</span>

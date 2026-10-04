@@ -55,6 +55,13 @@ describe("BarChart's text alternative", () => {
     expect(table.parentElement).toHaveClass("sr-only");
     expect(table.closest("[aria-hidden]")).toBeNull();
   });
+
+  it("positions the chart, so the hidden table scrolls with it and never lengthens the page", () => {
+    const { container } = chart();
+    const table = screen.getByRole("table", { name: CAPTION });
+    expect(table.parentElement!.parentElement).toBe(container.firstElementChild);
+    expect(container.firstElementChild).toHaveClass("relative");
+  });
 });
 
 describe("BarChart's drawing", () => {

@@ -308,6 +308,13 @@ describe("LockNotice", () => {
     expect(spoken).not.toHaveAttribute("aria-hidden");
   });
 
+  it("positions itself, so the hidden reason scrolls with it and never lengthens the page", () => {
+    render(<LockNotice reason={REASON} />);
+    const notice = screen.getByTitle(REASON);
+    expect(within(notice).getByText(REASON).parentElement).toBe(notice);
+    expect(notice).toHaveClass("relative");
+  });
+
   it("takes another word in place of Locked", () => {
     render(<LockNotice reason={REASON} label="Đã chốt" />);
     const notice = screen.getByTitle(REASON);

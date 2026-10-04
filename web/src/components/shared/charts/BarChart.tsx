@@ -44,7 +44,7 @@ export function BarChart({
   const heights = barHeights(data.map((datum) => datum.value));
   const last = data.length - 1;
   return (
-    <div className={className}>
+    <div className={cn("relative", className)}>
       <div aria-hidden="true">
         <div className="flex h-45 items-end gap-1.5 border-b pb-1">
           {data.map((datum, index) => (
