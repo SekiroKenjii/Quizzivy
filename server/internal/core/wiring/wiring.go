@@ -14,29 +14,32 @@ import (
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
 	importsworker "quizzivy/internal/modules/imports/application/worker"
+	notificationsapp "quizzivy/internal/modules/notifications/application"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/httpx"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity application the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity and notifications applications the background jobs drive.
 type Assembly struct {
 	Modules       router.Modules
 	Principals    *accessapp.Application
 	Tokens        *identitytoken.Issuer
 	Docs          *identitytoken.Issuer
 	Identity      *identityapp.Application
+	Notifications *notificationsapp.Application
 	ImportSweeper *importsworker.Sweeper
 	Maintenance   httpx.MaintenanceSource
 }
 
-// Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
+// Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: notifications depends on no module and is built first, so that its Notify command can be handed to any module as a port; attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
 func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Assembly, error) {
 	dbx := db.NewContext(pool.Pool)
 	principals, err := accessModule(ctx, dbx)
 	if err != nil {
 		return Assembly{}, err
 	}
+	notificationsApp := notifications(dbx)
 	stats := attemptsrepo.NewStudentStats(dbx)
 
 	keys, err := classesdomain.NewJoinCodeKeys(cfg.JoinCodeKey, cfg.JoinCodeKeyPrevious)
@@ -70,16 +73,17 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 
 	return Assembly{
 		Modules: router.Modules{
-			Imports:      importsTransport,
-			Dashboard:    dashboard(dbx),
-			Classes:      classesTransport(classesApp),
-			Identity:     identityTransport(cfg, identityApp, docs),
-			Questions:    questionsTransport(questionsApp, mediaApp),
-			Media:        mediaTransport(mediaApp),
-			Tests:        testsTransport(testsApp, mediaApp),
-			Assignments:  assignments(dbx),
-			Attempts:     attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
-			Availability: availabilityTransport,
+			Imports:       importsTransport,
+			Dashboard:     dashboard(dbx),
+			Classes:       classesTransport(classesApp),
+			Identity:      identityTransport(cfg, identityApp, docs),
+			Questions:     questionsTransport(questionsApp, mediaApp),
+			Media:         mediaTransport(mediaApp),
+			Tests:         testsTransport(testsApp, mediaApp),
+			Assignments:   assignments(dbx),
+			Attempts:      attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
+			Availability:  availabilityTransport,
+			Notifications: notificationsTransport(notificationsApp),
 		},
 		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},
@@ -87,5 +91,6 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		Tokens:        tokens,
 		Docs:          docs,
 		Identity:      identityApp,
+		Notifications: notificationsApp,
 	}, nil
 }

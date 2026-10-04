@@ -30,7 +30,8 @@ info:
     - Paths are split by audience: `/teacher/*` is the teaching workspace,
       `/admin/*` the Admin console, `/app/*` the student app, and `/auth/*`
       the caller's own session. `/public/*` and `/join/*` hold open operations
-      only, and `/me/*` is reserved for the caller's own settings (R4). Each
+      only, and `/me/*` holds the caller's own notifications and settings,
+      whatever their role. Each
       tree accepts only the permissions that belong to it, and the server
       refuses to start when an operation's `x-permission` does not fit its
       tree.
@@ -59,15 +60,17 @@ info:
       `kind` is the owned resource the id names: `test`, `test-version`,
       `section`, `question`, `version-question`, `version-recording`,
       `question-group`, `media`, `import`, `import-source`, `class`,
-      `assignment`, `attempt` or `student`. The two `version-` kinds are a
+      `assignment`, `attempt`, `student` or `notification`. The two `version-` kinds are a
       question and a group recording of a published version, as grading and
       the student's autosave, events and plays name them. A section unit's
       `id` names a question or a group, as its `kind` says, and is declared
       as a question; the suite checks the group branch separately.
       `kind` is `none` for an id that names no owned resource: an option, a
       gap, a session, an idempotency key, a fresh identity the caller
-      supplies, or an id the operation resolves only inside the resource its
-      path names, such as a group's own members on `updateQuestionGroup`.
+      supplies, a cursor that only marks a position in the caller's own list
+      (`before` on `listNotifications`), or an id the operation resolves only
+      inside the resource its path names, such as a group's own members on
+      `updateQuestionGroup`.
       Every `/teacher/*` list names the kind it lists in `x-resource-list`.
       The two-teacher isolation suite reads both: another owner's id answers
       exactly as a missing id does.
@@ -110,6 +113,11 @@ tags:
     description: Admin access to the API reference served beside the API.
   - name: student
   - name: take-test
+  - name: me
+    description: |
+      The caller's own notifications and notification switches, for any
+      signed-in user. Every operation reads and writes the caller's rows only:
+      none takes a user id, and none answers 403 or 404 for an id.
 
 components:
 
@@ -472,6 +480,12 @@ components:
         `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
         the change-password forms. The server still sends a localised `message`
         for both, for any other client.
+
+        Two codes answer requests this contract does not describe, with this
+        envelope: `NOT_FOUND` (404) for a path outside it, and
+        `METHOD_NOT_ALLOWED` (405, with an `Allow` header) for a path of it
+        under a method the path does not serve. `HEAD` is served as `GET`
+        without a body on the operations that need no token.
       enum:
         # auth
         - INVALID_CREDENTIALS
@@ -489,7 +503,6 @@ components:
         - JOIN_CODE_EXPIRED
         - JOIN_CODE_EXHAUSTED
         - JOIN_CODE_REVOKED
-        - ALREADY_ENROLLED
         # students
         - EMAIL_TAKEN
         - STUDENT_SHARED
@@ -539,6 +552,7 @@ components:
         # generic
         - VALIDATION_FAILED
         - NOT_FOUND
+        - METHOD_NOT_ALLOWED
         - UNAUTHORIZED
         - FORBIDDEN
         - RATE_LIMITED
@@ -622,7 +636,9 @@ components:
       additionalProperties: false
       required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt]
       description: |
-        Belongs to the teacher who created it (`createdBy`); every import with `scope.all`.
+        Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+        any import by id; the history (`listWordImports`) holds only the
+        caller's own.
         Sources are private originals, never learner media. Source revision zero
         means no completed source set. Upload completion does not mean recognition.
         Pending uploads are durable reservations and cannot be downloaded or processed.
@@ -1137,7 +1153,13 @@ components:
         no role is granted them, and only the Admin holds them. The Admin
         holds every key, and `learning.take_tests` only when that cell is
         turned on. `scope.all` reads and edits any teacher's content, classes
-        and people.
+        and people by id, and widens the lists of classes, students and
+        attempts and the dashboard's figures to every teacher's. It does not
+        widen the teaching workspace's six content lists: `listTests`,
+        `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`
+        and `listAssignments`, with their facets, tags and counts, hold the
+        caller's own rows for every caller (for assignments, those the caller
+        created and those that target a class the caller teaches).
 
     User:
       type: object
@@ -3095,6 +3117,144 @@ components:
           oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
           description: Only when the assignment's `review.showScore` is on.
 
+    # ----------------------------------------------------------- notifications
+
+    NotificationKind:
+      type: string
+      description: |
+        What a notification is about. The server sends no sentence: the client
+        words the item from `kind` and `params` in the reader's language.
+
+        Each kind carries exactly these `params`:
+
+        | Kind | For | Params |
+        |---|---|---|
+        | `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |
+        | `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |
+        | `assignment.closing` | a teacher | `title`, `notSubmitted` |
+        | `class.joined` | a teacher | `studentName`, `className` |
+        | `join_codes.rotated` | a teacher | `count`, `classNames` |
+        | `assignment.opened` | a student | `title`, `closesAt` |
+        | `assignment.due_soon` | a student | `title`, `closesAt` |
+        | `assignment.extended` | a student | `title`, `closesAt` |
+        | `result.ready` | a student | `title` |
+      enum:
+        - attempt.submitted
+        - attempt.flagged
+        - assignment.closing
+        - class.joined
+        - join_codes.rotated
+        - assignment.opened
+        - assignment.due_soon
+        - assignment.extended
+        - result.ready
+
+    NotificationEvent:
+      type: string
+      description: |
+        One switch of the notification settings. `attempt.submitted`,
+        `attempt.flagged` and `assignment.closing` are the teacher's;
+        `assignment.due_soon` and `result.ready` the student's. A switch
+        governs the kind of the same name, and `assignment.due_soon` also
+        governs `assignment.opened` and `assignment.extended`. `class.joined`
+        and `join_codes.rotated` have no switch.
+      enum:
+        - attempt.submitted
+        - attempt.flagged
+        - assignment.closing
+        - assignment.due_soon
+        - result.ready
+
+    NotificationParams:
+      type: object
+      description: |
+        What the client builds a notification's sentence from. One closed set
+        of fields for every kind; `NotificationKind` says which of them a kind
+        carries. Plain values only: never markup, never a score, a band or an
+        answer. A name is a copy taken when the notification was written.
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300, description: The title of the test the assignment gives. }
+        count:
+          type: integer
+          minimum: 0
+          description: Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`).
+        toGrade: { type: integer, minimum: 0, description: 'Of the papers handed in, those with an answer waiting for a mark.' }
+        focusLost: { type: integer, minimum: 0, description: Times the student left the test. }
+        notSubmitted: { type: integer, minimum: 0, description: Students who have not handed in. }
+        studentName: { type: string, minLength: 1, maxLength: 200 }
+        className: { type: string, minLength: 1, maxLength: 200 }
+        classNames:
+          type: array
+          maxItems: 5
+          items: { type: string, minLength: 1, maxLength: 200 }
+          description: At most five names; `count` holds how many classes there are.
+        closesAt: { $ref: '#/components/schemas/Timestamp' }
+
+    NotificationTarget:
+      type: object
+      description: |
+        Where a click on the notification goes: a page the client resolves from
+        `route`, never a URL. `assignmentId` is present for `assignment` and
+        `studentAssignment`, and `attemptId` for `attempt` and `result`; either
+        may accompany any other route.
+      required: [route]
+      additionalProperties: false
+      properties:
+        route:
+          type: string
+          description: |
+            `assignment`, `attempt`, `grading` and `classes` are pages of the
+            teaching workspace; `result` and `studentAssignment` are the
+            student's result and the student's page of an assignment.
+          enum: [assignment, attempt, grading, classes, result, studentAssignment]
+        assignmentId: { $ref: '#/components/schemas/Uuid' }
+        attemptId: { $ref: '#/components/schemas/Uuid' }
+
+    Notification:
+      type: object
+      required: [id, kind, params, target, createdAt, readAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { $ref: '#/components/schemas/NotificationKind' }
+        params: { $ref: '#/components/schemas/NotificationParams' }
+        target:
+          description: Null when the notification leads nowhere.
+          oneOf: [{ $ref: '#/components/schemas/NotificationTarget' }, { type: 'null' }]
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        readAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            When the caller marked it read; null while it is unread. A
+            notification that is written again after it was read, as a count
+            that grew is, is unread again.
+
+    NotificationPreference:
+      type: object
+      required: [event, inApp, email]
+      additionalProperties: false
+      properties:
+        event: { $ref: '#/components/schemas/NotificationEvent' }
+        inApp: { type: boolean, description: 'While false, no notification this switch governs is written for the caller.' }
+        email: { type: boolean, description: Stored and returned. Nothing is sent by email yet. }
+
+    NotificationPreferences:
+      type: array
+      description: Every `NotificationEvent` once. The server answers them in the enum's order.
+      minItems: 5
+      maxItems: 5
+      items: { $ref: '#/components/schemas/NotificationPreference' }
+
+    MySummary:
+      type: object
+      description: What the caller's shell shows before any page is open.
+      required: [unreadNotifications]
+      additionalProperties: false
+      properties:
+        unreadNotifications: { type: integer, minimum: 0 }
+
     # ----------------------------------------------------------- write shapes
 
     QuestionInput:
@@ -4682,7 +4842,7 @@ paths:
       x-permission: content.tests.write
       tags: [teacher-imports]
       summary: Search private import history
-      description: Paginated history of the caller's imports (every teacher's with `scope.all`), with accent-insensitive title and current filename search.
+      description: Paginated history of the imports the caller created, for every caller (`scope.all` does not widen it), with accent-insensitive title and current filename search.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Query'
@@ -5255,9 +5415,18 @@ paths:
       x-permission: workspace.teacher
       description: |
         Backs the §8 assignments list. `status` is derived per assignment, not
-        stored (D-18). `classId` narrows the list to assignments that target
+        stored (D-18). The list holds the assignments the caller created and
+        those that target a class the caller teaches, for every caller:
+        `scope.all` does not widen it. A row names only the target classes and
+        students the caller reaches, and `targetCount` counts those; for a
+        caller who holds `scope.all` that is every target, as in
+        `getAssignment`.
+        `classId` narrows the list to assignments that target
         that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
-        tab counts are the class's and never disagree with the rows.
+        tab counts are the class's and never disagree with the rows. A class
+        the caller does not teach lists nothing, as a missing class does,
+        unless the caller holds `scope.all`: it then lists those of the
+        caller's own assignments that target it.
       tags: [teacher-assignments]
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/AssignmentStatus' } }
@@ -7010,3 +7179,158 @@ paths:
                   url: { type: string, format: uri }
                   expiresAt: { $ref: '#/components/schemas/Timestamp' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ======================================================================== me
+
+  /me/notifications:
+    get:
+      operationId: listNotifications
+      x-resource:
+        - { in: query, name: before, kind: none }
+      x-permission: self
+      tags: [me]
+      summary: The caller's notifications, newest first
+      description: |
+        The caller's own notifications and nobody else's, read or unread,
+        newest first. A notification first written more than 180 days ago is
+        deleted, once a day.
+
+        Paged by a cursor, not by a page number: ask again with `before` set
+        to `nextBefore` for the next older page. Ids are time-ordered, so a
+        notification written while the caller pages never moves a row from one
+        page to the next.
+      parameters:
+        - name: before
+          in: query
+          required: false
+          description: |
+            A notification id, as `nextBefore` gave it: the page holds the
+            caller's notifications older than it. It is a position in the
+            caller's own list and never a lookup: an id the caller does not
+            hold, another user's or nobody's, only bounds the page, which
+            still holds the caller's rows alone.
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: One page. An empty `items` when the caller has none, or none older than `before`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextBefore]
+                additionalProperties: false
+                properties:
+                  items:
+                    type: array
+                    maxItems: 50
+                    items: { $ref: '#/components/schemas/Notification' }
+                  nextBefore:
+                    type: [string, 'null']
+                    format: uuid
+                    description: The id of the last item when older notifications exist, else null.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/notifications/read:
+    post:
+      operationId: markNotificationsRead
+      x-resource:
+        - { in: body, name: /ids/-, kind: notification }
+      x-permission: self
+      tags: [me]
+      summary: Mark the caller's notifications read
+      description: |
+        With `ids`, marks those of the caller's notifications that are unread;
+        without it, every unread one. A notification already read keeps the
+        time it was first read.
+
+        It marks the caller's own notifications only. An id that is another
+        user's, already read or not a notification at all is skipped, and the
+        answer is the same 204 whatever matched, so it tells the caller
+        nothing about an id that is not theirs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items: { $ref: '#/components/schemas/Uuid' }
+                  description: Absent means every unread notification the caller has.
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/summary:
+    get:
+      operationId: getMySummary
+      x-permission: self
+      tags: [me]
+      summary: The counts the caller's shell shows
+      description: |
+        How many of the caller's notifications are unread: the dot on the
+        bell. One count over the caller's own rows, cheap enough to poll.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MySummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/notification-preferences:
+    get:
+      operationId: getNotificationPreferences
+      x-permission: self
+      tags: [me]
+      summary: The caller's notification switches
+      description: |
+        All five switches, whatever the caller's role. One the caller never
+        saved answers its default: `inApp` true and `email` false.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      operationId: updateNotificationPreferences
+      x-permission: self
+      tags: [me]
+      summary: Replace the caller's notification switches
+      description: |
+        Takes all five switches at once, each event exactly once and in any
+        order, and stores them for the caller. A client that draws only some
+        of them sends the others back as it read them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationPreferences' }
+      responses:
+        '200':
+          description: Saved. The five switches as stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '400':
+          description: '`VALIDATION_FAILED`: an event is unknown, repeated or missing, or the body is not the five switches.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }

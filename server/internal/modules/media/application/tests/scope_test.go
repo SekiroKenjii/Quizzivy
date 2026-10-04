@@ -238,6 +238,53 @@ func TestTheLibraryListsAndTotalsOnlyTheCallersOwnAssets(t *testing.T) {
 	}
 }
 
+func TestTheAdminsLibraryHoldsOnlyTheAdminsOwnAssets(t *testing.T) {
+	w := newMediaScope(t)
+	theirs := upload(t, w.svc, w.a, "cua-a.mp3")
+	mine := upload(t, w.svc, w.admin, "cua-admin.mp3")
+	picture := w.asset(t, w.a, domain.KindImage)
+	listed := w.anyone.Own()
+	audio, image := domain.KindAudio, domain.KindImage
+
+	for name, c := range map[string]struct {
+		kind  *domain.Kind
+		want  []string
+		bytes int64
+	}{
+		"every kind": {nil, []string{mine.ID}, mine.Bytes},
+		"audio":      {&audio, []string{mine.ID}, mine.Bytes},
+		"images":     {&image, []string{}, 0},
+	} {
+		result := w.list(t, listed, c.kind)
+		if got := ids(result.Items); !slices.Equal(got, c.want) || result.Page.Total != len(c.want) {
+			t.Errorf("the Admin's library, %s, lists %v with total %d, want only the Admin's %v", name, got, result.Page.Total, c.want)
+		}
+		if got := w.totalBytes(t, listed, c.kind); got != c.bytes {
+			t.Errorf("the Admin's library, %s, totals %d bytes, want the Admin's own %d", name, got, c.bytes)
+		}
+	}
+
+	for name, id := range map[string]string{"audio": theirs.ID, "image": picture} {
+		if !w.reads(t, w.anyone, id) {
+			t.Errorf("the Admin cannot read A's %s by id", name)
+		}
+		if w.reads(t, listed, id) {
+			t.Errorf("A's %s is readable in the scope the list passes", name)
+		}
+	}
+
+	if w.scopeA.Own() != w.scopeA {
+		t.Fatalf("a teacher's own scope is %+v, want it unchanged %+v", w.scopeA.Own(), w.scopeA)
+	}
+	result := w.list(t, w.scopeA.Own(), &audio)
+	if got := ids(result.Items); !slices.Equal(got, []string{theirs.ID}) || result.Page.Total != 1 {
+		t.Errorf("A's audio library lists %v with total %d, want only A's %s", got, result.Page.Total, theirs.ID)
+	}
+	if got := w.totalBytes(t, w.scopeA.Own(), &audio); got != theirs.Bytes {
+		t.Errorf("A's audio library totals %d bytes, want %d", got, theirs.Bytes)
+	}
+}
+
 func TestAnotherTeachersAssetCannotBeDeletedOrSeenInUse(t *testing.T) {
 	w := newMediaScope(t)
 	used := upload(t, w.svc, w.a, "dang-dung.mp3")

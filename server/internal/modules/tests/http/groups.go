@@ -113,7 +113,7 @@ func (h Tests) ListQuestionGroups(ctx context.Context, request openapi.ListQuest
 	if h.app == nil || h.app.Queries.Groups == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	in := domain.GroupListInput{Scope: httpapi.ScopeFromContext(ctx)}
+	in := domain.GroupListInput{Scope: httpapi.ScopeFromContext(ctx).Own()}
 	if request.Params.Page != nil {
 		in.Page = *request.Params.Page
 	}

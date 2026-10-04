@@ -202,6 +202,7 @@ const (
 	notMember       = "removing someone who is not a member answers as removing a member does"
 	outsideEvent    = "an event naming a question outside the attempt's paper is kept without it; the cross-reference scan proves the id is not stored"
 	outsideAnswer   = "an answer to a question outside the attempt's paper is dropped; the cross-reference scan proves no row names it"
+	ownOnly         = "marks only the caller's own notifications; any other id is skipped"
 )
 
 func isolationCases() map[string]isoCase {
@@ -395,5 +396,15 @@ func isolationCases() map[string]isoCase {
 		"submitAttempt":    {student: true, body: session(map[string]any{"reason": "manual"})},
 		"getAttemptResult": {student: true},
 		"getMediaUrl":      {student: true},
+
+		"listNotifications": {},
+		"markNotificationsRead": {
+			excuse: map[string]string{"body /ids/-": ownOnly},
+			blind:  map[string]string{"body /ids/-": ownOnly},
+			body:   fixed(map[string]any{"ids": []any{""}}),
+		},
+		"getMySummary":                  {},
+		"getNotificationPreferences":    {},
+		"updateNotificationPreferences": {},
 	}
 }

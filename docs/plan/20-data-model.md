@@ -1252,6 +1252,7 @@ listed here matches the spec.
 | D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum, expand half: added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step until v0.9.1 (T-R3.1) drops the column and the enum | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
 | D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
 | D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
+| D-28 | Add `notifications` and `notification_preferences`. `notifications.params` and `target` are `jsonb`, bounded objects rather than columns, and `kind` is a checked dotted `text`, not an enum | §13.3 has no notification. Each kind carries its own few fields and every release adds kinds, so columns would be mostly NULL and an enum a migration per kind; the contract's closed `NotificationParams` and the Go type per kind are the schema. A name in `params` is a copy, not a reference: R5's anonymisation (T-R5.17a) deletes or scrubs the notifications that name an anonymised user (§34, T-R4.10a) |
 
 ---
 
@@ -1341,6 +1342,8 @@ the file it adds.
 | `00077_index_assignments_creator.sql` | `assignments_creator_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00078_add_join_code_encryption.sql` | `class_join_codes.code_ciphertext`, `key_id`, `lookup_scheme` and their four checks; Down refuses a live scheme-2 code | R2 (T-R2.14a), D5, D-27 |
 | `00079_revoke_temporary_from_public.sql` | revokes `TEMPORARY` on the database from `PUBLIC`; a no-op with a notice where the migration role does not own the database | fix for #194 |
+| `00080_create_notifications.sql` | `notifications`, its four checks, `UNIQUE (user_id, dedupe_key)`, three indexes and the `updated_at` trigger | R4 (T-R4.10a), D-28 |
+| `00081_create_notification_preferences.sql` | `notification_preferences`, `notification_preferences_event_check` and the `updated_at` trigger | R4 (T-R4.10a), D-28 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2193,3 +2196,84 @@ redeem one. Three columns join `app.class_join_codes`:
   the legacy codes (D5).
 - **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
   because the previous binary looks codes up by SHA-256 alone.
+
+## 34. Notifications (T-R4.10a)
+
+Two tables, both new and empty at release, so every column is `NOT NULL`
+inline where it must be and no index is built `CONCURRENTLY`. The app role
+gets SELECT, INSERT, UPDATE and DELETE on both through `00009`'s default
+privileges; neither file writes a grant.
+
+```sql
+CREATE TABLE app.notifications (
+  id         uuid PRIMARY KEY DEFAULT uuidv7(),
+  user_id    uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+  kind       text NOT NULL,                       -- dotted key, at most 64 characters
+  params     jsonb NOT NULL DEFAULT '{}'::jsonb,  -- an object, at most 4096 bytes as text
+  target     jsonb,                               -- NULL, or an object of at most 1024 bytes
+  dedupe_key text NOT NULL,                       -- 1 to 200 characters
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  read_at    timestamptz,
+  CONSTRAINT notifications_user_dedupe_key UNIQUE (user_id, dedupe_key)
+);
+
+CREATE TABLE app.notification_preferences (
+  user_id    uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+  event      text NOT NULL,
+  in_app     boolean NOT NULL,
+  email      boolean NOT NULL DEFAULT false,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, event),
+  CONSTRAINT notification_preferences_event_check CHECK (event IN (
+    'attempt.submitted', 'attempt.flagged', 'assignment.closing', 'assignment.due_soon', 'result.ready'))
+);
+```
+
+- **No sentence is stored.** The reader's console words a row from `kind` and
+  `params` in the reader's language. `kind` is checked for its shape only
+  (`notifications_kind_check`), so a release adds a kind in the contract and
+  the domain without a migration.
+- **`params` and `target` are bounded objects** (D-28): `notifications_params_shape`
+  and `notifications_target_shape` require `jsonb_typeof(…) = 'object'` and
+  bound `octet_length(…::text)`, as `00047` does. The text length is what
+  the constraint measures because it is the same for a value whatever its
+  storage: `pg_column_size` moves with compression and TOAST. A NULL
+  `target` passes its check; the JSON value `null` does not.
+- **`UNIQUE (user_id, dedupe_key)` is what a merge conflicts on.** `Notify`
+  is one `INSERT … ON CONFLICT (user_id, dedupe_key) DO UPDATE`: a second
+  notice about the same thing updates the row, makes it unread again
+  (`read_at = NULL`) and, when asked to add, sums `count` and `toGrade` with
+  the stored values inside the statement. Nothing reads the row first, so a
+  class handing in within the same seconds loses no increment. The same key
+  for two users is two rows.
+- **A switch that is off stops the write.** The same statement inserts only
+  when no `notification_preferences` row for the user and the kind's event has
+  `in_app = false`; a missing row means the default, which is on. `email` is
+  stored and read by nothing until R7.
+- **`updated_at` moves by the trigger** on both tables (§13.2), on a merge
+  and on a mark-read alike. `created_at` never moves: a merged row keeps its
+  id, its place in the list and its retention.
+- **Retention is 180 days from `created_at`.** `PruneNotifications` runs at
+  API start-up and then daily and deletes `WHERE created_at < now − 180
+  days`; it is idempotent and takes no lock beyond its rows.
+- **`ON DELETE CASCADE` from `users`** on both tables: a deleted account
+  takes its notifications and switches with it. Names inside another user's
+  `params` stay, which is the hand-off in D-28.
+- **Later releases replace `notification_preferences_event_check` by name** to
+  add switches (R7, R10). The constraint name is part of the interface.
+
+Indexes, and the statement each exists for:
+
+| Index | Serves |
+|---|---|
+| `notifications_user_recent_idx (user_id, id DESC)` | The reader's list: `WHERE user_id = $1 AND id < $2 ORDER BY id DESC LIMIT n`, a keyset on the time-ordered uuidv7 id. The statement orders by the column, not by the `id::text` it returns, or the index cannot give the order. Its leading column also serves the cascade from `users` |
+| `notifications_unread_idx (user_id) WHERE read_at IS NULL` | The unread count the shell polls (`GET /me/summary`) and "mark all read". Partial, so it holds unread rows only |
+| `notifications_created_at_idx (created_at)` | The daily prune |
+| `notifications_user_dedupe_key (user_id, dedupe_key)`, unique | The merge's conflict target |
+| `notification_preferences_pkey (user_id, event)` | The five switches of one user, and the switch lookup inside `Notify` |
+
+`repositories/tests/plan_test.go` seeds 50,000 rows for 200 users inside a
+transaction it rolls back and asserts that the list reads
+`notifications_user_recent_idx` alone, with the cursor as an index condition
+and no sort, and that the count uses `notifications_unread_idx`.

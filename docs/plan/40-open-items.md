@@ -286,6 +286,32 @@ refuses the switch as a Fly secret.
 
 ---
 
+### O-25 — A malformed option id in an autosave · any phase
+**Default:** keep it. A student mid-test never loses a batch because one entry
+is malformed, and the web app cannot send one.
+
+What happens: `saveAnswers` accepts a choice answer whose option id is not a
+uuid, answers 200, saves the rest of the batch and drops that answer. The server
+logs a warning with the dropped question ids
+(`server/internal/modules/attempts/http/attempts.go`, "autosave dropped answers
+not on the paper"); the client is not told.
+`TestTheValidatorRefusesNoIdTheDecoderAccepts`
+(`server/internal/core/router/tests/validate_test.go`) pins it.
+
+Accepted with it: a malformed uuid inside an answer names no field in a refusal,
+because it is not refused (the rest of issue 280's gap).
+
+The alternatives, for when he answers:
+
+- Refuse the request, with a `uuid` format validator in
+  `platform/httpx/validate.go`. One bad id then refuses the whole batch.
+- Keep 200 and report the dropped ids, which is a contract change to the
+  response.
+
+Issue #307.
+
+---
+
 ### O-12 — Dark mode · post-v1
 **Default:** not in v1, per §12. Theming goes through CSS variables and Tailwind
 tokens from T-0.9, so it can be added later without touching components.

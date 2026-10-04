@@ -647,7 +647,7 @@ export interface paths {
         };
         /**
          * Search private import history
-         * @description Paginated history of the caller's imports (every teacher's with `scope.all`), with accent-insensitive title and current filename search.
+         * @description Paginated history of the imports the caller created, for every caller (`scope.all` does not widen it), with accent-insensitive title and current filename search.
          */
         get: operations["listWordImports"];
         put?: never;
@@ -991,9 +991,18 @@ export interface paths {
         };
         /**
          * @description Backs the §8 assignments list. `status` is derived per assignment, not
-         *     stored (D-18). `classId` narrows the list to assignments that target
+         *     stored (D-18). The list holds the assignments the caller created and
+         *     those that target a class the caller teaches, for every caller:
+         *     `scope.all` does not widen it. A row names only the target classes and
+         *     students the caller reaches, and `targetCount` counts those; for a
+         *     caller who holds `scope.all` that is every target, as in
+         *     `getAssignment`.
+         *     `classId` narrows the list to assignments that target
          *     that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
-         *     tab counts are the class's and never disagree with the rows.
+         *     tab counts are the class's and never disagree with the rows. A class
+         *     the caller does not teach lists nothing, as a missing class does,
+         *     unless the caller holds `scope.all`: it then lists those of the
+         *     caller's own assignments that target it.
          */
         get: operations["listAssignments"];
         put?: never;
@@ -1999,6 +2008,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notifications, newest first
+         * @description The caller's own notifications and nobody else's, read or unread,
+         *     newest first. A notification first written more than 180 days ago is
+         *     deleted, once a day.
+         *
+         *     Paged by a cursor, not by a page number: ask again with `before` set
+         *     to `nextBefore` for the next older page. Ids are time-ordered, so a
+         *     notification written while the caller pages never moves a row from one
+         *     page to the next.
+         */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark the caller's notifications read
+         * @description With `ids`, marks those of the caller's notifications that are unread;
+         *     without it, every unread one. A notification already read keeps the
+         *     time it was first read.
+         *
+         *     It marks the caller's own notifications only. An id that is another
+         *     user's, already read or not a notification at all is skipped, and the
+         *     answer is the same 204 whatever matched, so it tells the caller
+         *     nothing about an id that is not theirs.
+         */
+        post: operations["markNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The counts the caller's shell shows
+         * @description How many of the caller's notifications are unread: the dot on the
+         *     bell. One count over the caller's own rows, cheap enough to poll.
+         */
+        get: operations["getMySummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notification switches
+         * @description All five switches, whatever the caller's role. One the caller never
+         *     saved answers its default: `inApp` true and `email` false.
+         */
+        get: operations["getNotificationPreferences"];
+        /**
+         * Replace the caller's notification switches
+         * @description Takes all five switches at once, each event exactly once and in any
+         *     order, and stores them for the caller. A client that draws only some
+         *     of them sends the others back as it read them.
+         */
+        put: operations["updateNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2177,9 +2288,15 @@ export interface components {
          *     `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
          *     the change-password forms. The server still sends a localised `message`
          *     for both, for any other client.
+         *
+         *     Two codes answer requests this contract does not describe, with this
+         *     envelope: `NOT_FOUND` (404) for a path outside it, and
+         *     `METHOD_NOT_ALLOWED` (405, with an `Allow` header) for a path of it
+         *     under a method the path does not serve. `HEAD` is served as `GET`
+         *     without a body on the operations that need no token.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -2242,7 +2359,9 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
-         * @description Belongs to the teacher who created it (`createdBy`); every import with `scope.all`.
+         * @description Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+         *     any import by id; the history (`listWordImports`) holds only the
+         *     caller's own.
          *     Sources are private originals, never learner media. Source revision zero
          *     means no completed source set. Upload completion does not mean recognition.
          *     Pending uploads are durable reservations and cannot be downloaded or processed.
@@ -2573,7 +2692,13 @@ export interface components {
          *     no role is granted them, and only the Admin holds them. The Admin
          *     holds every key, and `learning.take_tests` only when that cell is
          *     turned on. `scope.all` reads and edits any teacher's content, classes
-         *     and people.
+         *     and people by id, and widens the lists of classes, students and
+         *     attempts and the dashboard's figures to every teacher's. It does not
+         *     widen the teaching workspace's six content lists: `listTests`,
+         *     `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`
+         *     and `listAssignments`, with their facets, tags and counts, hold the
+         *     caller's own rows for every caller (for assignments, those the caller
+         *     created and those that target a class the caller teaches).
          * @enum {string}
          */
         PermissionKey: "content.tests.write" | "content.tests.publish" | "content.questions.write" | "content.media.write" | "content.share" | "teaching.classes.write" | "teaching.assignments.write" | "teaching.grading" | "teaching.attempts.intervene" | "teaching.attendance" | "people.students.read" | "people.students.create" | "people.students.reset_password" | "people.users.manage" | "people.roles.manage" | "system.audit.read" | "system.settings.write" | "learning.take_tests" | "scope.all" | "system.api_reference" | "system.data_export" | "system.leads";
@@ -3964,6 +4089,104 @@ export interface components {
             liveAnsweredCount?: number | null;
             /** @description Only when the assignment's `review.showScore` is on. */
             score?: components["schemas"]["AttemptScore"] | null;
+        };
+        /**
+         * @description What a notification is about. The server sends no sentence: the client
+         *     words the item from `kind` and `params` in the reader's language.
+         *
+         *     Each kind carries exactly these `params`:
+         *
+         *     | Kind | For | Params |
+         *     |---|---|---|
+         *     | `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |
+         *     | `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |
+         *     | `assignment.closing` | a teacher | `title`, `notSubmitted` |
+         *     | `class.joined` | a teacher | `studentName`, `className` |
+         *     | `join_codes.rotated` | a teacher | `count`, `classNames` |
+         *     | `assignment.opened` | a student | `title`, `closesAt` |
+         *     | `assignment.due_soon` | a student | `title`, `closesAt` |
+         *     | `assignment.extended` | a student | `title`, `closesAt` |
+         *     | `result.ready` | a student | `title` |
+         * @enum {string}
+         */
+        NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready";
+        /**
+         * @description One switch of the notification settings. `attempt.submitted`,
+         *     `attempt.flagged` and `assignment.closing` are the teacher's;
+         *     `assignment.due_soon` and `result.ready` the student's. A switch
+         *     governs the kind of the same name, and `assignment.due_soon` also
+         *     governs `assignment.opened` and `assignment.extended`. `class.joined`
+         *     and `join_codes.rotated` have no switch.
+         * @enum {string}
+         */
+        NotificationEvent: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "assignment.due_soon" | "result.ready";
+        /**
+         * @description What the client builds a notification's sentence from. One closed set
+         *     of fields for every kind; `NotificationKind` says which of them a kind
+         *     carries. Plain values only: never markup, never a score, a band or an
+         *     answer. A name is a copy taken when the notification was written.
+         */
+        NotificationParams: {
+            /** @description The title of the test the assignment gives. */
+            title?: string;
+            /** @description Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`). */
+            count?: number;
+            /** @description Of the papers handed in, those with an answer waiting for a mark. */
+            toGrade?: number;
+            /** @description Times the student left the test. */
+            focusLost?: number;
+            /** @description Students who have not handed in. */
+            notSubmitted?: number;
+            studentName?: string;
+            className?: string;
+            /** @description At most five names; `count` holds how many classes there are. */
+            classNames?: string[];
+            closesAt?: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description Where a click on the notification goes: a page the client resolves from
+         *     `route`, never a URL. `assignmentId` is present for `assignment` and
+         *     `studentAssignment`, and `attemptId` for `attempt` and `result`; either
+         *     may accompany any other route.
+         */
+        NotificationTarget: {
+            /**
+             * @description `assignment`, `attempt`, `grading` and `classes` are pages of the
+             *     teaching workspace; `result` and `studentAssignment` are the
+             *     student's result and the student's page of an assignment.
+             * @enum {string}
+             */
+            route: "assignment" | "attempt" | "grading" | "classes" | "result" | "studentAssignment";
+            assignmentId?: components["schemas"]["Uuid"];
+            attemptId?: components["schemas"]["Uuid"];
+        };
+        Notification: {
+            id: components["schemas"]["Uuid"];
+            kind: components["schemas"]["NotificationKind"];
+            params: components["schemas"]["NotificationParams"];
+            /** @description Null when the notification leads nowhere. */
+            target: components["schemas"]["NotificationTarget"] | null;
+            createdAt: components["schemas"]["Timestamp"];
+            /**
+             * Format: date-time
+             * @description When the caller marked it read; null while it is unread. A
+             *     notification that is written again after it was read, as a count
+             *     that grew is, is unread again.
+             */
+            readAt: string | null;
+        };
+        NotificationPreference: {
+            event: components["schemas"]["NotificationEvent"];
+            /** @description While false, no notification this switch governs is written for the caller. */
+            inApp: boolean;
+            /** @description Stored and returned. Nothing is sent by email yet. */
+            email: boolean;
+        };
+        /** @description Every `NotificationEvent` once. The server answers them in the enum's order. */
+        NotificationPreferences: components["schemas"]["NotificationPreference"][];
+        /** @description What the caller's shell shows before any page is open. */
+        MySummary: {
+            unreadNotifications: number;
         };
         /**
          * @description Create/update body for a bank question. Cross-field rules that a single
@@ -8179,6 +8402,142 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                /**
+                 * @description A notification id, as `nextBefore` gave it: the page holds the
+                 *     caller's notifications older than it. It is a position in the
+                 *     caller's own list and never a lookup: an id the caller does not
+                 *     hold, another user's or nobody's, only bounds the page, which
+                 *     still holds the caller's rows alone.
+                 */
+                before?: components["schemas"]["Uuid"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page. An empty `items` when the caller has none, or none older than `before`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Notification"][];
+                        /**
+                         * Format: uuid
+                         * @description The id of the last item when older notifications exist, else null.
+                         */
+                        nextBefore: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    markNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Absent means every unread notification the caller has. */
+                    ids?: components["schemas"]["Uuid"][];
+                };
+            };
+        };
+        responses: {
+            204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getMySummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferences"];
+            };
+        };
+        responses: {
+            /** @description Saved. The five switches as stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description `VALIDATION_FAILED`: an event is unknown, repeated or missing, or the body is not the five switches. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
 }

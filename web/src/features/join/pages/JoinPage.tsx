@@ -24,7 +24,7 @@ import { ClassPreviewCard } from "@/features/join/components/ClassPreviewCard";
 import { JoinCodeField } from "@/features/join/components/JoinCodeField";
 import { JoinedState } from "@/features/join/components/JoinedState";
 import { toneFor, useJoinLookup } from "@/features/join/useJoinLookup";
-import { ApiError, failureMessage } from "@/lib/api/errors";
+import { failureMessage } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
 
 const ERROR_ID = "join-code-error";
@@ -222,19 +222,10 @@ function useEnrol() {
       });
     },
     onError: (cause, context) =>
-      finish(
-        context.code,
-        cause instanceof ApiError && cause.code === "ALREADY_ENROLLED"
-          ? {
-              kind: "joined",
-              className: context.className,
-              teacherName: context.teacherName,
-            }
-          : {
-              kind: "failed",
-              className: context.className,
-              message: failureMessage(cause, t("join.failed")),
-            },
-      ),
+      finish(context.code, {
+        kind: "failed",
+        className: context.className,
+        message: failureMessage(cause, t("join.failed")),
+      }),
   });
 }

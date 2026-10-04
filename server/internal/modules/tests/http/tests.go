@@ -22,7 +22,7 @@ func (h Tests) ListTests(ctx context.Context, request openapi.ListTestsRequestOb
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx).Own()}
 	if request.Params.Status != nil {
 		status := domain.Status(*request.Params.Status)
 		in.Status = &status
