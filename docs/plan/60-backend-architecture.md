@@ -68,7 +68,9 @@ the "one package per feature" layout AGENTS.md described until then.
   `Key`s, with the pseudo-keys `self`, `workspace.teacher` and
   `workspace.admin`; a role's grants as a `Set`; the any-of `Requirement` an
   operation declares in `x-permission`; `Workspaces`; the `Principal` a
-  request acts as and the `Scope` it reaches (`All` only for `scope.all`);
+  request acts as and the `Scope` it reaches (`All` only for `scope.all`;
+  `Scope.Own` clears it, and the teacher workspace's six content lists pass
+  that, T-R4.54);
   `IsStudentLike`, which is `app.student_like_roles` in Go; and `CanActOn`,
   the subset rule. The access module fills it: `core/adapters.Principals`
   puts its `ResolvePrincipal` behind `httpx.RequirePermission` and the docs

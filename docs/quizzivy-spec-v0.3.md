@@ -1,7 +1,18 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.48 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.49 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.48**
+
+R4, "Teacher workspace" (v0.10.0, `docs/plan/74-r4.md`):
+
+- §5 In the teacher workspace the six content lists (tests, questions,
+  question groups, media, imports, assignments) hold the caller's own rows for
+  every caller, the Admin included: `scope.all` no longer widens them. It
+  still reads and edits by id, and still widens the lists of classes, students
+  and attempts and the dashboard. §16 says the same of the import history
+  (DG-53, T-R4.54).
 
 **Changes since v0.47**
 
@@ -557,7 +568,7 @@ Signing in (§5.1–§5.3) says who a user is; the user's role (§1.1) says what
 - **Open operations** do not require the bearer token, declare no permission and pass untouched. There are seven: login, Google sign-in, refresh, logout, `POST /join/preview`, `GET /public/status` and the integrity beacon (`POST /app/attempts/:id/events`).
 - **Refusals.** No valid token, an unknown or disabled user, or a token older than the user's session epoch (§5.2) → `401 UNAUTHORIZED` with `WWW-Authenticate`, which the single-flight refresh settles. An unmet permission → `403 FORBIDDEN`, with no detail.
 - **The principal.** Each gated request resolves the caller's role, permissions, `disabled_at` and session epoch through an in-process cache that keeps a user for 10 seconds. A write on the same machine forgets the entry at once, so the change applies on that machine's next request and on any other within 10 seconds. Polling does not query the database on every request.
-- **Scope is separate from permission.** Repositories filter by `access.Scope`: another teacher's id answers as a missing one does, and their rows never appear in a list or a count. A student is visible to every teacher who reaches them: a member of a class the teacher teaches, an account the teacher created, or an individual target of an assignment the teacher created. `scope.all`, which only the Admin holds, lifts the filter.
+- **Scope is separate from permission.** Repositories filter by `access.Scope`: another teacher's id answers as a missing one does, and their rows never appear in a list or a count. A student is visible to every teacher who reaches them: a member of a class the teacher teaches, an account the teacher created, or an individual target of an assignment the teacher created. `scope.all`, which only the Admin holds, lifts the filter for a read or a write by id, and in the lists of classes, students and attempts and the dashboard's figures. It does not lift it in the teacher workspace's six content lists (`listTests`, `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`, `listAssignments`, with their facets, tags and counts): those hold the caller's own rows for every caller, the Admin included, and for assignments that is those the caller created or that target a class the caller teaches (DG-53, T-R4.54). The Admin reaches another teacher's content by id and, from R5, in the Admin console.
 
 ### 5.1 Methods
 
@@ -1930,7 +1941,8 @@ The native source intake checkpoint is configured separately from learner media.
 private disk directory. Both are required to enable intake. The existing S3 endpoint
 and credentials are reused, with no public bucket or CDN fallback. An import, its
 sources, its review and its commit belong to its creator. `scope.all` reaches every
-import, and another creator's import answers as a missing one does. The test a
+import by id, the history lists only the caller's own (§5), and another creator's
+import answers as a missing one does. The test a
 commit creates, with its questions and groups, belongs to the import's creator; the
 committer stays their `created_by`, the audit actor and `committed_by` (T-R2.12f).
 Creator and modifying actors are retained.

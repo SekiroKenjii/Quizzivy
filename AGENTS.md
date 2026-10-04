@@ -210,7 +210,12 @@ unit, integration and end-to-end in that order.
 - **A permission says what a caller may do; `access.Scope` says whose rows.**
   Repositories take an `access.Scope`, which only `scope.all` widens. Another
   teacher's id answers exactly as a missing one does: 404, or for a reference
-  in a body the error an unknown id gets.
+  in a body the error an unknown id gets. The teacher workspace's six content
+  lists (`listTests`, `listQuestions`, `listQuestionGroups`, `listMedia`,
+  `listWordImports`, `listAssignments`) pass
+  `httpapi.ScopeFromContext(ctx).Own()`, with their facets, tags and counts,
+  so an Admin's list holds what a teacher's would (DG-53). A read or a write
+  by id never calls `Own`.
 - **Student targets go through `app.student_like_roles` and nothing else.** No
   query reads `users.role` to decide who is a student, so an Admin with "Take
   tests" turned on is never a student target.
