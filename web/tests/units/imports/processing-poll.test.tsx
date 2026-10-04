@@ -48,11 +48,11 @@ async function renderDetail() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/imports/:id", element: <ImportDetailPage /> },
-      { path: "/admin/imports/:id/review", element: <p>review page</p> },
-      { path: "/admin/imports", element: <p>history</p> },
+      { path: "/teacher/imports/:id", element: <ImportDetailPage /> },
+      { path: "/teacher/imports/:id/review", element: <p>review page</p> },
+      { path: "/teacher/imports", element: <p>history</p> },
     ],
-    { initialEntries: [`/admin/imports/${IMPORT_ID}`] },
+    { initialEntries: [`/teacher/imports/${IMPORT_ID}`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -106,7 +106,7 @@ describe("the processing screen", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Tiếp tục rà soát" })).toHaveAttribute(
       "href",
-      `/admin/imports/${IMPORT_ID}/review`,
+      `/teacher/imports/${IMPORT_ID}/review`,
     );
     const settled = reads;
     await act(() => vi.advanceTimersByTimeAsync(10000));
@@ -149,7 +149,7 @@ describe("the processing screen", () => {
     const user = await renderDetail();
     expect(
       screen.getByRole("link", { name: "Xem bản rà soát hiện tại" }),
-    ).toHaveAttribute("href", `/admin/imports/${IMPORT_ID}/review`);
+    ).toHaveAttribute("href", `/teacher/imports/${IMPORT_ID}/review`);
     expect(screen.queryByRole("button", { name: "Huỷ xử lý" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Dừng xử lý lại" }));
     const dialog = await screen.findByRole("dialog");

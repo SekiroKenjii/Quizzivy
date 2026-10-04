@@ -60,9 +60,9 @@ beforeEach(() => {
 function renderLibrary() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/media", element: <MediaLibraryPage /> }],
+    [{ path: "/teacher/media", element: <MediaLibraryPage /> }],
     {
-      initialEntries: ["/admin/media"],
+      initialEntries: ["/teacher/media"],
     },
   );
   render(
@@ -87,7 +87,7 @@ describe("deleting a file a published test uses", () => {
     const link = within(dialog).getByRole("link", {
       name: "Unit 5 — Present perfect & listening",
     });
-    expect(link).toHaveAttribute("href", `/admin/tests/${TEST_ID}`);
+    expect(link).toHaveAttribute("href", `/teacher/tests/${TEST_ID}`);
     expect(within(dialog).getByText("v3")).toBeInTheDocument();
     expect(
       within(dialog).getByRole("link", { name: "Listening practice 02" }),

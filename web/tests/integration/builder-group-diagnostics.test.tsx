@@ -85,8 +85,8 @@ test("a publication finding opens the owned member editor without trying the sta
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const router = createMemoryRouter(
-    [{ path: "/admin/tests/:id/edit", element: <TestBuilderPage /> }],
-    { initialEntries: [`/admin/tests/${draft.id}/edit`] },
+    [{ path: "/teacher/tests/:id/edit", element: <TestBuilderPage /> }],
+    { initialEntries: [`/teacher/tests/${draft.id}/edit`] },
   );
   render(
     <QueryClientProvider client={client}>

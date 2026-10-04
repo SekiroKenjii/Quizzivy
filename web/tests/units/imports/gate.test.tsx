@@ -19,13 +19,13 @@ function renderGate() {
   const router = createMemoryRouter(
     [
       {
-        path: "/admin/imports",
+        path: "/teacher/imports",
         element: <ImportsGate />,
         children: [{ index: true, element: <p>history</p> }],
       },
-      { path: "/admin/tests", element: <p>tests</p> },
+      { path: "/teacher/tests", element: <p>tests</p> },
     ],
-    { initialEntries: ["/admin/imports"] },
+    { initialEntries: ["/teacher/imports"] },
   );
   render(
     <QueryClientProvider client={client}>

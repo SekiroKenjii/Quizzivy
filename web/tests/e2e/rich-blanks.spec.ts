@@ -44,7 +44,7 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
     },
   });
   await page.setViewportSize({ width: 768, height: 900 });
-  await page.goto(`/admin/question-bank/${ID}`);
+  await page.goto(`/teacher/question-bank/${ID}`);
   await page
     .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
     .click();

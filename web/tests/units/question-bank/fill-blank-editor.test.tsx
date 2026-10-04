@@ -61,8 +61,8 @@ describe("the question editor page, on a fill_blank mismatch", () => {
   it("refuses to save while a {{3}} has no blank", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createMemoryRouter(
-      [{ path: "/admin/question-bank/new", element: <QuestionEditorPage /> }],
-      { initialEntries: ["/admin/question-bank/new"] },
+      [{ path: "/teacher/question-bank/new", element: <QuestionEditorPage /> }],
+      { initialEntries: ["/teacher/question-bank/new"] },
     );
     render(
       <QueryClientProvider client={client}>

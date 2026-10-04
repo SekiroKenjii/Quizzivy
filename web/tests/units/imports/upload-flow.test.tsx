@@ -117,10 +117,10 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/imports/new", element: <NewImportPage /> },
-      { path: "/admin/imports/:id", element: <p>detail page</p> },
+      { path: "/teacher/imports/new", element: <NewImportPage /> },
+      { path: "/teacher/imports/:id", element: <p>detail page</p> },
     ],
-    { initialEntries: ["/admin/imports/new"] },
+    { initialEntries: ["/teacher/imports/new"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -215,7 +215,7 @@ describe("starting a Word import", () => {
     expect(screen.queryByLabelText("Tệp đề thi")).toBeNull();
     expect(screen.getByRole("link", { name: "Về lịch sử nhập đề" })).toHaveAttribute(
       "href",
-      "/admin/imports",
+      "/teacher/imports",
     );
   });
 
@@ -298,8 +298,8 @@ describe("starting a Word import", () => {
     const user = userEvent.setup({ applyAccept: false });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createMemoryRouter(
-      [{ path: "/admin/imports/new", element: <NewImportPage /> }],
-      { initialEntries: ["/admin/imports/new"] },
+      [{ path: "/teacher/imports/new", element: <NewImportPage /> }],
+      { initialEntries: ["/teacher/imports/new"] },
     );
     render(
       <QueryClientProvider client={client}>
@@ -333,11 +333,11 @@ describe("starting a Word import", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createMemoryRouter(
       [
-        { path: "/admin/imports/new", element: <NewImportPage /> },
-        { path: "/admin/imports/:id", element: <p>detail page</p> },
-        { path: "/admin/tests", element: <p>tests page</p> },
+        { path: "/teacher/imports/new", element: <NewImportPage /> },
+        { path: "/teacher/imports/:id", element: <p>detail page</p> },
+        { path: "/teacher/tests", element: <p>tests page</p> },
       ],
-      { initialEntries: ["/admin/imports/new"] },
+      { initialEntries: ["/teacher/imports/new"] },
     );
     render(
       <QueryClientProvider client={client}>
@@ -349,11 +349,11 @@ describe("starting a Word import", () => {
     await user.click(screen.getByRole("button", { name: "Bắt đầu xử lý" }));
     await waitFor(() => expect(calls).toHaveLength(1));
 
-    await router.navigate("/admin/tests");
+    await router.navigate("/teacher/tests");
     expect(await screen.findByText("tests page")).toBeInTheDocument();
     gate.resolve();
     await new Promise((settle) => setTimeout(settle, 100));
-    expect(router.state.location.pathname).toBe("/admin/tests");
+    expect(router.state.location.pathname).toBe("/teacher/tests");
     expect(calls.map((call) => call.kind)).toEqual(["create"]);
   });
 

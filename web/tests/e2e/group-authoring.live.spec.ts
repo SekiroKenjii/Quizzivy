@@ -6,7 +6,7 @@ test("group graph and uploaded material round-trip through the real API, then co
 }, testInfo) => {
   test.setTimeout(120_000);
   await signInAsAdmin(page);
-  await page.goto("/admin/question-bank/groups");
+  await page.goto("/teacher/question-bank/groups");
   await page.getByRole("button", { name: "Nhóm mới", exact: true }).click();
   await expect(page).toHaveURL(/\/question-bank\/groups\/[0-9a-f-]+$/);
   const originalPath = new URL(page.url()).pathname;
@@ -107,7 +107,7 @@ test("group graph and uploaded material round-trip through the real API, then co
       response.request().method() === "DELETE" &&
       new URL(response.url()).pathname ===
         originalPath.replace(
-          "/admin/question-bank/groups/",
+          "/teacher/question-bank/groups/",
           "/teacher/question-groups/",
         ),
   );

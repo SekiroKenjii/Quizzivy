@@ -124,7 +124,7 @@ async function setup(page: Page) {
     "POST /auth/logout": { status: 204 },
   });
   page.on("dialog", (dialog) => void dialog.accept());
-  await page.goto(`/admin/question-bank/groups/${groupId}`);
+  await page.goto(`/teacher/question-bank/groups/${groupId}`);
   await expect(page.getByLabel("Tên nhóm câu hỏi", { exact: true })).toHaveValue(
     "Nhóm đọc hiểu",
   );
@@ -313,7 +313,7 @@ test("logout clears local drafts and fences a stale writer in another tab", asyn
     ...sessionAs(adminUser),
     "POST /auth/logout": { status: 204 },
   });
-  await other.goto("/admin/settings");
+  await other.goto("/teacher/settings");
   await other.getByRole("button", { name: /Tài khoản/ }).click();
   await other.getByRole("menuitem", { name: "Đăng xuất", exact: true }).click();
   await expect(other).toHaveURL(/\/login(?:\?|$)/);

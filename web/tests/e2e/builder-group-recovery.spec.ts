@@ -81,7 +81,7 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
       return route.fulfill({ json: stored });
     },
   });
-  await page.goto(`/admin/tests/${testId}/edit`);
+  await page.goto(`/teacher/tests/${testId}/edit`);
   await page.getByLabel("Tên nhóm câu hỏi", { exact: true }).fill("Nhóm cần khôi phục");
   await expect(
     page.getByText("Chưa đồng bộ · Đã lưu bản nháp trên máy", { exact: true }),
@@ -91,7 +91,7 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
     .getByRole("dialog")
     .getByRole("button", { name: "Rời đi", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/admin\/tests$/);
+  await expect(page).toHaveURL(/\/teacher\/tests$/);
   expect(stored.bundle.group.title).toBe("Nhóm trên máy chủ");
   await page.goBack();
   await page.getByRole("button", { name: "Khôi phục bản nháp", exact: true }).click();
@@ -109,6 +109,6 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
     .getByRole("dialog")
     .getByRole("button", { name: "Lưu và rời trang", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/admin\/tests$/);
+  await expect(page).toHaveURL(/\/teacher\/tests$/);
   expect(stored.bundle.group.title).toBe("Nhóm cần khôi phục");
 });

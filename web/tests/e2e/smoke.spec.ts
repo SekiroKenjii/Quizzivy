@@ -33,7 +33,7 @@ test("an unknown path renders the 404 page, not a blank screen", async ({ page }
 test("admin sidebar is open by default above 1280px", async ({ page }) => {
   await stubApi(page, sessionAs(adminUser));
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/admin");
+  await page.goto("/teacher");
   const nav = page.getByRole("navigation", { name: "Điều hướng chính" });
   await expect(nav).toBeVisible();
   await expect(nav.getByRole("link", { name: "Đề thi", exact: true })).toBeVisible();
@@ -44,7 +44,7 @@ test("admin sidebar collapses at 1280px and the toggle reopens it", async ({
 }) => {
   await stubApi(page, sessionAs(adminUser));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/admin");
+  await page.goto("/teacher");
 
   const nav = page.getByRole("navigation", { name: "Điều hướng chính" });
   await expect(nav).toBeHidden();
@@ -65,7 +65,7 @@ test("admin sidebar collapses at 1280px and the toggle reopens it", async ({
 test("admin sidebar toggle is keyboard operable", async ({ page }) => {
   await stubApi(page, sessionAs(adminUser));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/admin");
+  await page.goto("/teacher");
 
   const nav = page.getByRole("navigation", { name: "Điều hướng chính" });
   await expect(nav).toBeHidden();

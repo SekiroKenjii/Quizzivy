@@ -38,7 +38,7 @@ function renderPage(byQuestion: boolean) {
   const router = createMemoryRouter(
     [
       {
-        path: "/admin/attempts/:id",
+        path: "/teacher/attempts/:id",
         element: byQuestion ? (
           <GradeByQuestion
             assignmentId={ASSIGNMENT_ID}
@@ -51,7 +51,7 @@ function renderPage(byQuestion: boolean) {
         ),
       },
     ],
-    { initialEntries: [`/admin/attempts/${ATTEMPT_ID}`] },
+    { initialEntries: [`/teacher/attempts/${ATTEMPT_ID}`] },
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(

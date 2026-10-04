@@ -15,7 +15,7 @@ const BASE = "http://localhost:8080";
 function renderLogin(initialEntry = "/login") {
   const routes: RouteObject[] = [
     { path: "/login", element: <LoginPage /> },
-    { path: "/admin", element: <p>admin home</p> },
+    { path: "/teacher", element: <p>admin home</p> },
     { path: "/app", element: <p>student home</p> },
     { path: "/join/:code", element: <p>join page</p> },
   ];
@@ -134,7 +134,7 @@ describe("/login", () => {
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
 
     // The default handler answers with adminUser.
-    await waitFor(() => expect(router.state.location.pathname).toBe("/admin"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/teacher"));
   });
 
   it("refuses an off-site ?next=", async () => {
@@ -145,7 +145,7 @@ describe("/login", () => {
     await user.type(screen.getByLabelText("Mật khẩu"), "quizzivy-dev");
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/admin"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/teacher"));
     expect(router.state.location.pathname).not.toContain("evil.test");
   });
 

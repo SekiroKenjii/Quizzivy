@@ -40,7 +40,7 @@ test("keeps a console not yet rebuilt light under a dark preference", async ({
   await stubApi(page, sessionAs(adminUser));
   await prefer(page, "dark");
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/admin");
+  await page.goto("/teacher");
   await expect(
     page.getByRole("navigation", { name: "Điều hướng chính" }),
   ).toBeVisible();

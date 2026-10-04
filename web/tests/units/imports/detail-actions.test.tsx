@@ -79,12 +79,12 @@ function renderDetail(
 ) {
   const router = createMemoryRouter(
     [
-      { path: "/admin/imports/:id", element: <ImportDetailPage /> },
-      { path: "/admin/imports/:id/review", element: <p>review page</p> },
-      { path: "/admin/imports/new", element: <p>new import</p> },
-      { path: "/admin/imports", element: <p>history</p> },
+      { path: "/teacher/imports/:id", element: <ImportDetailPage /> },
+      { path: "/teacher/imports/:id/review", element: <p>review page</p> },
+      { path: "/teacher/imports/new", element: <p>new import</p> },
+      { path: "/teacher/imports", element: <p>history</p> },
     ],
-    { initialEntries: [`/admin/imports/${IMPORT_ID}`] },
+    { initialEntries: [`/teacher/imports/${IMPORT_ID}`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -289,7 +289,7 @@ describe("an import back under review", () => {
     renderDetail();
     expect(
       await screen.findByRole("link", { name: "Xem bản rà soát hiện tại" }),
-    ).toHaveAttribute("href", `/admin/imports/${IMPORT_ID}/review`);
+    ).toHaveAttribute("href", `/teacher/imports/${IMPORT_ID}/review`);
   });
 });
 
