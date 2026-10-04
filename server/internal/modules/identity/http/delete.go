@@ -25,11 +25,13 @@ func (h Identity) DeleteUser(ctx context.Context, request openapi.DeleteUserRequ
 	case err == nil:
 		return openapi.DeleteUser204Response{}, nil
 	case errors.Is(err, domain.ErrStudentNotFound):
-		return openapi.DeleteUser404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, "Không tìm thấy dữ liệu."))}, nil
+		return openapi.DeleteUser404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy dữ liệu.", "The data was not found.")))}, nil
 	case errors.Is(err, domain.ErrNotArchived):
-		return openapi.DeleteUser409JSONResponse(httpapi.Error(ctx, openapi.RESOURCENOTARCHIVED, "Cần lưu trữ, vô hiệu hoá hoặc đóng mục này trước khi xoá vĩnh viễn.")), nil
+		return openapi.DeleteUser409JSONResponse(httpapi.Error(ctx, openapi.RESOURCENOTARCHIVED,
+			httpx.Text(ctx, "Cần lưu trữ, vô hiệu hoá hoặc đóng mục này trước khi xoá vĩnh viễn.",
+				"Archive, disable or close this item before deleting it permanently."))), nil
 	case errors.Is(err, domain.ErrForbidden):
-		return openapi.DeleteUser403JSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, msgStudentForbidden)), nil
+		return openapi.DeleteUser403JSONResponse(httpapi.Error(ctx, openapi.FORBIDDEN, msgStudentForbidden(ctx))), nil
 	case errors.Is(err, domain.ErrReferenced):
 		by := domain.ReferencedByOther
 		var refused *domain.ReferencedError
@@ -37,7 +39,8 @@ func (h Identity) DeleteUser(ctx context.Context, request openapi.DeleteUserRequ
 			by = refused.By
 		}
 		return openapi.DeleteUser409JSONResponse(httpapi.ErrorWithDetails(ctx, openapi.RESOURCEREFERENCED,
-			"Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.",
+			httpx.Text(ctx, "Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.",
+				"This cannot be deleted because assignments, attempts or history still refer to it."),
 			map[string]interface{}{"referencedBy": openapi.ReferencedBy(by)})), nil
 	default:
 		return nil, err
