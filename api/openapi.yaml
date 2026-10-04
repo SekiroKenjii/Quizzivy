@@ -472,6 +472,12 @@ components:
         `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
         the change-password forms. The server still sends a localised `message`
         for both, for any other client.
+
+        Two codes answer requests this contract does not describe, with this
+        envelope: `NOT_FOUND` (404) for a path outside it, and
+        `METHOD_NOT_ALLOWED` (405, with an `Allow` header) for a path of it
+        under a method the path does not serve. `HEAD` is served as `GET`
+        without a body on the operations that need no token.
       enum:
         # auth
         - INVALID_CREDENTIALS
@@ -538,6 +544,7 @@ components:
         # generic
         - VALIDATION_FAILED
         - NOT_FOUND
+        - METHOD_NOT_ALLOWED
         - UNAUTHORIZED
         - FORBIDDEN
         - RATE_LIMITED
