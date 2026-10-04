@@ -43,7 +43,7 @@ func contextAs(t *testing.T, principal access.Principal) context.Context {
 	return ctx
 }
 
-func TestEveryAssignmentOperationCarriesTheCallersScope(t *testing.T) {
+func TestTheAssignmentListRunsInTheCallersOwnScopeAndEveryOtherOperationInTheCallersScope(t *testing.T) {
 	for name, principal := range map[string]access.Principal{
 		"a Teacher": {UserID: uuid.NewString(), Permissions: access.NewSet(access.TeachingAssignmentsWrite)},
 		"an Admin":  {UserID: uuid.NewString(), Permissions: access.NewSet(access.All()...)},
@@ -107,7 +107,13 @@ func TestEveryAssignmentOperationCarriesTheCallersScope(t *testing.T) {
 					t.Fatalf("%s: %v", op, err)
 				}
 			}
-			for _, op := range []string{"list", "facets", "get", "create", "update", "reopen", "delete"} {
+			own := access.Scope{UserID: principal.UserID}
+			for _, op := range []string{"list", "facets"} {
+				if scopes[op] != own {
+					t.Errorf("%s ran in %+v, want the caller's own reach %+v", op, scopes[op], own)
+				}
+			}
+			for _, op := range []string{"get", "create", "update", "reopen", "delete"} {
 				if scopes[op] != want {
 					t.Errorf("%s ran in %+v, want %+v", op, scopes[op], want)
 				}

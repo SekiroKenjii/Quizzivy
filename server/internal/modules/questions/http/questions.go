@@ -24,7 +24,7 @@ func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuesti
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx).Own()}
 	if request.Params.Type != nil {
 		for _, t := range *request.Params.Type {
 			in.Types = append(in.Types, domain.Type(t))

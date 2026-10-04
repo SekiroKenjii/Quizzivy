@@ -204,4 +204,36 @@ func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 			t.Errorf("the Admin opening the teacher's %s: %d %s", kind, got.status, got.body)
 		}
 	}
+	x.adminListsOwnRows()
+}
+
+func (x *iso) adminListsOwnRows() {
+	x.t.Helper()
+	for path, counts := range map[string][]string{
+		"/teacher/tests":                      {"total", "facets.all"},
+		"/teacher/questions":                  {"total", "facets.all", "bankTotal"},
+		"/teacher/question-groups?status=all": {"total"},
+		"/teacher/media":                      {"total", "totalBytes"},
+		"/teacher/imports":                    {"total"},
+		"/teacher/assignments":                {"total", "facets.all"},
+	} {
+		got := x.admin.send(http.MethodGet, path, nil)
+		if got.status != http.StatusOK {
+			x.t.Errorf("the Admin listing %s: %s", path, answer(got))
+			continue
+		}
+		if leaked := append(mentions(got.body, x.a), mentions(got.body, x.b)...); len(leaked) > 0 {
+			x.t.Errorf("the Admin's %s shows a teacher's %v", path, leaked)
+		}
+		for _, field := range counts {
+			var value any = got.json
+			for _, key := range strings.Split(field, ".") {
+				object, _ := value.(map[string]any)
+				value = object[key]
+			}
+			if n, ok := value.(float64); !ok || n != 0 {
+				x.t.Errorf("the Admin's %s counts %s = %v, want 0: the Admin owns nothing here", path, field, value)
+			}
+		}
+	}
 }

@@ -106,7 +106,7 @@ func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestOb
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx).Own()}
 	if request.Params.Kind != nil {
 		kind := domain.Kind(*request.Params.Kind)
 		in.Kind = &kind

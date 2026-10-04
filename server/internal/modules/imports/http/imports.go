@@ -59,7 +59,7 @@ func (h Imports) ListWordImports(ctx context.Context, request openapi.ListWordIm
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	in := query.List{Search: httpapi.DerefString(request.Params.Q), Scope: httpapi.ScopeFromContext(ctx)}
+	in := query.List{Search: httpapi.DerefString(request.Params.Q), Scope: httpapi.ScopeFromContext(ctx).Own()}
 	if request.Params.Status != nil {
 		in.Status = string(*request.Params.Status)
 	}
