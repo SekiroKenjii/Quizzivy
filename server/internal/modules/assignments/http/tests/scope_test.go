@@ -51,15 +51,16 @@ func TestTheAssignmentListRunsInTheCallersOwnScopeAndEveryOtherOperationInTheCal
 		t.Run(name, func(t *testing.T) {
 			want := access.Scope{UserID: principal.UserID, All: principal.Permissions.Has(access.ScopeAll)}
 			scopes := map[string]access.Scope{}
+			everyTarget := map[string]bool{}
 			write := func(op string, req domain.Request) { scopes[op] = req.Scope() }
 			app := &application.Application{
 				Queries: application.Queries{
 					List: cqrs.HandlerFunc[query.List, query.ListResult](func(_ context.Context, q query.List) (query.ListResult, error) {
-						scopes["list"] = q.Input.Scope
+						scopes["list"], everyTarget["list"] = q.Input.Scope, q.Input.EveryTarget
 						return query.ListResult{}, nil
 					}),
 					Facets: cqrs.HandlerFunc[query.Facets, domain.Facets](func(_ context.Context, q query.Facets) (domain.Facets, error) {
-						scopes["facets"] = q.Input.Scope
+						scopes["facets"], everyTarget["facets"] = q.Input.Scope, q.Input.EveryTarget
 						return domain.Facets{}, nil
 					}),
 					Get: cqrs.HandlerFunc[query.Get, domain.Assignment](func(_ context.Context, q query.Get) (domain.Assignment, error) {
@@ -111,6 +112,9 @@ func TestTheAssignmentListRunsInTheCallersOwnScopeAndEveryOtherOperationInTheCal
 			for _, op := range []string{"list", "facets"} {
 				if scopes[op] != own {
 					t.Errorf("%s ran in %+v, want the caller's own reach %+v", op, scopes[op], own)
+				}
+				if everyTarget[op] != want.All {
+					t.Errorf("%s names every target: %t, want the caller's scope.all %t", op, everyTarget[op], want.All)
 				}
 			}
 			for _, op := range []string{"get", "create", "update", "reopen", "delete"} {

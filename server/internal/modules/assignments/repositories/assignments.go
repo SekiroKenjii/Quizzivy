@@ -137,7 +137,7 @@ const derivedStatus = `
 // Facets counts every status within the same narrowing List applies, minus
 // the status itself, so the tabs never disagree with the rows.
 func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Facets, error) {
-	where, args := narrow(domain.ListInput{ClassID: in.ClassID, Scope: in.Scope})
+	where, args := narrow(domain.ListInput{ClassID: in.ClassID, Scope: in.Scope, EveryTarget: in.EveryTarget})
 	var f domain.Facets
 	err := s.QueryRow(ctx, `
 		SELECT count(*),
@@ -160,7 +160,9 @@ func narrow(in domain.ListInput) ([]string, []any) {
 	if !in.Scope.All {
 		args = append(args, opt.String(in.Scope.UserID))
 		where = append(where, `a.id IN `+visibility.AssignmentIDs(1))
-		classTaught = ` AND ac.class_id IN ` + visibility.TaughtClassIDs(1)
+		if !in.EveryTarget {
+			classTaught = ` AND ac.class_id IN ` + visibility.TaughtClassIDs(1)
+		}
 	}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
@@ -175,7 +177,8 @@ func narrow(in domain.ListInput) ([]string, []any) {
 }
 
 // List returns one page of the assignments the input's scope reaches, newest
-// first, their targets filtered to the classes and students the scope reaches.
+// first, their targets filtered to the classes and students the scope
+// reaches, or every target under EveryTarget.
 func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Assignment, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 	where, args := narrow(in)
@@ -186,7 +189,7 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Assi
 		return nil, paging.Page{}, fmt.Errorf("assignments: count: %w", err)
 	}
 
-	args = append(args, in.Scope.All, opt.String(in.Scope.UserID))
+	args = append(args, in.Scope.All || in.EveryTarget, opt.String(in.Scope.UserID))
 	embeds := selectAssignment(len(args)-1, len(args))
 	args = append(args, limit, offset)
 	rows, err := s.Query(ctx, embeds+`
