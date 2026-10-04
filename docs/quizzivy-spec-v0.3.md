@@ -1,7 +1,30 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.48 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.49 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.48**
+
+A code nothing sent leaves the contract, and the sections are brought level
+with six fixes to the web app:
+
+- §15 `ALREADY_ENROLLED` is removed from `ErrorCode`: no server version ever
+  sent it (#315).
+- §9 A draft a closed tab left behind is sent under the session that wrote it
+  before "Tiếp tục làm bài" gives the student a new one. A refusal that can
+  never become a save drops it; any other failure keeps it, and the attempt is
+  not resumed (#330).
+- §10.6 Leaving the engine while the attempt goes on sends the buffered events
+  through the beacon and keeps the sequence (#331).
+- §10.6 A question's audio player records `audio_ended` and `audio_blocked`
+  beside `audio_play`. §10.4 A play with no recorded end shows no duration and
+  is not called ongoing (#314).
+- §11.3 The total a player shows is the server's probed length when it is
+  known (#321).
+- §9 Once the server has said the time is up, the timer and the Submit
+  dialog's time left read 00:00 (#329).
+- §5.2 A sign-out closes the "Vui lòng đăng nhập lại" overlay if it was raised
+  while the sign-out was on its way (#328).
 
 **Changes since v0.47**
 
@@ -569,6 +592,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - A **refused** refresh (401 or 403), or a second 401, ends the session.
   - A refusal ends only the session its request was sent under. When the store's access token is no longer the one the refused request carried (a sign-in or a refresh replaced it, or the user signed out), nothing is expired or cleared, and the 401 returns to its caller.
   - A user who was signed in keeps the page: the access token is dropped, the user stays, and the "Vui lòng đăng nhập lại" overlay covers the page (§9).
+    - A sign-out closes that overlay if it was raised while the sign-out was on its way.
   - "Đăng nhập" clears the session, keeps the answer drafts, and goes to `/login?next=<path>`.
   - While that overlay is up, a 401 returns to its caller without another refresh.
 - A refresh that **fails without refusing** (a network failure, a 503 or another 5xx) is not a lost session. Waiting requests fail retryably and nobody is signed out.
@@ -1134,7 +1158,8 @@ Shared:
   a save has failed or the device is offline with an answer unsaved, never for
   a save on its way, and carries the strike count where the assignment sets a
   limit (§10.2). A locked paper (taken over, out of time, ended) says why in a
-  bar under the header at every width.
+  bar under the header at every width. Once the server has said the time is
+  up, the timer and the Submit dialog's time left read 00:00.
 - **Panes.** A question whose group has something to read shows a passage pane
   beside the question pane from 768, each scrolling by itself. Below 768 a
   "Ngữ liệu | Câu n" switcher shows one at a time, the question first and again
@@ -1154,9 +1179,15 @@ Shared:
   a block that names it and offers a reload, and takes no answer.
 - **Local drafts.** Student answers awaiting server confirmation are cached
   locally per student, attempt and session until saved or closed. They may be
-  restored before the server deadline after a reload; a superseded session must
-  not overwrite a newer session's answers. Explicit sign-out clears the local
-  cache.
+  restored before the server deadline after a reload. A draft a closed tab left
+  behind is sent under the session that wrote it before the student is given a
+  new session by "Tiếp tục làm bài" on Home or the intro. The server saves it
+  if that session is still the attempt's. If it is refused with one of the
+  attempt's own codes (`SESSION_SUPERSEDED`, `DEADLINE_PASSED`,
+  `ATTEMPT_CLOSED`) or as a body that can never be accepted
+  (`VALIDATION_FAILED`), it is dropped: a superseded session must not overwrite
+  a newer session's answers. On any other failure the draft is kept and the
+  attempt is not resumed. Explicit sign-out clears the local cache.
 - **Keys.** A–E choose an option; a sixth has no key, because F flags the
   question. The arrows move between questions and stop at either end. Esc
   closes a dialog or the sheet. None acts in a text field or another control
@@ -1217,7 +1248,7 @@ Announced, visible, never silent.
 
 ### 10.4 Admin review
 
-`/admin/attempts/:id` → **Integrity** tab: chronological timeline with event kind, wall-clock time, offset from attempt start, duration for paired events, and the question on screen. Summary strip: total away-time, away episodes ≥ `minAwayMs`, paste count, resume count, audio replays. Neutral text — no red banners, no "CHEATING DETECTED". The teacher judges; the app reports.
+`/admin/attempts/:id` → **Integrity** tab: chronological timeline with event kind, wall-clock time, offset from attempt start, duration for paired events, and the question on screen. Summary strip: total away-time, away episodes ≥ `minAwayMs`, paste count, resume count, audio replays. Neutral text — no red banners, no "CHEATING DETECTED". The teacher judges; the app reports. An audio play with no recorded end shows no duration and is not called ongoing.
 
 ### 10.5 Honest limits — say this in the UI help text
 
@@ -1225,8 +1256,8 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 ### 10.6 Client implementation
 
-- One `useIntegrityMonitor` hook owns every DOM listener that records a signal or stops one, registered and torn down in a single `useEffect`. One signal is recorded outside it: a question's audio player reports `audio_play` to the same buffer from its play callback, through `recordAudioEvent` (§11.4). Other hooks listen to some of the same events and record and stop nothing: `useClipboardNotice` has its own `copy`, `cut` and `paste` listeners on `document`, only to show §10.2's toast; `useSaveStatus` listens to `online` and `offline` on `window`, only for the save line (§9); `useVersionWatch` listens to `visibilitychange` on `document`, only to look for a newer build (§9). The monitor records and stops whether or not they run.
-- Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`.
+- One `useIntegrityMonitor` hook owns every DOM listener that records a signal or stops one, registered and torn down in a single `useEffect`. Three signals are recorded outside it, by a question's audio player through `recordAudioEvent` (§11.4): `audio_play` from its play callback, `audio_ended` when playback reaches the end, and `audio_blocked` when the browser refuses to start it. None of the three changes a play count. A shared recording's play is written by the server (§11.5) and records no end. Other hooks listen to some of the same events and record and stop nothing: `useClipboardNotice` has its own `copy`, `cut` and `paste` listeners on `document`, only to show §10.2's toast; `useSaveStatus` listens to `online` and `offline` on `window`, only for the save line (§9); `useVersionWatch` listens to `visibilitychange` on `document`, only to look for a newer build (§9). The monitor records and stops whether or not they run.
+- Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`. Leaving the engine while the attempt goes on sends what is buffered through the same beacon and keeps the sequence in `sessionStorage`, so a return in the same session numbers on from it; the buffer is forgotten once the attempt has ended.
 - `clientSeq` is monotonic so the server can order events despite clock skew.
 - Failed background event flushes do not block answering or manual submission.
   The immediate `auto_submit` policy retries its final answer/event batch before
@@ -1257,7 +1288,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 `features/media/AudioPlayer.tsx`. Custom controls over a native `<audio>`; no third-party audio library.
 
-- Controls: play/pause, elapsed/total time, a progress bar that is **display-only when `allowSeek` is false**, and a plays-remaining indicator.
+- Controls: play/pause, elapsed/total time, a progress bar that is **display-only when `allowSeek` is false**, and a plays-remaining indicator. The total shown is the server's probed length when it is known; the file's own length drives the track and the seek.
 - `preload="metadata"` so duration renders without downloading the file.
 - **Autoplay is impossible** — browsers block audio without a user gesture. The first play is always a tap. Do not attempt to auto-start; do not treat the block as an error state.
 - iOS Safari: only one audio element plays at a time, and playback must originate from a gesture handler (not an async continuation). Call `.play()` synchronously in the click handler; do not `await` anything before it.
