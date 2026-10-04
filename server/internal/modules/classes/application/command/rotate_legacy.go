@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/modules/classes/domain"
 	notificationscommand "quizzivy/internal/modules/notifications/application/command"
 	notificationsdomain "quizzivy/internal/modules/notifications/domain"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -16,6 +17,7 @@ import (
 const (
 	legacyRotationNotice = "join_codes.rotated:legacy"
 	notifiedClassNames   = 5
+	notifyBudget         = 10 * time.Second
 )
 
 // RotateLegacyJoinCodes replaces every join code only a SHA-256 holds, and
@@ -26,7 +28,9 @@ const (
 // told once, with how many of their classes were rotated and the names of the
 // first five, in a notification a later run adds its count to; a class without
 // a teacher is rotated and nobody is told, and a failed notification undoes
-// nothing. Found, when set, is told how many
+// nothing. The notification is sent under a ten-second budget of its own, so
+// a run whose context has ended rotates no further class and still tells the
+// teachers of the classes it had rotated. Found, when set, is told how many
 // classes hold such a code before the first is rotated. Problem, when set, is
 // told of each class left unrotated and each teacher left untold, in an error
 // that names the class or the teacher and never a code or a hint.
@@ -164,7 +168,9 @@ func (r *legacyRun) notify(ctx context.Context, teacher *teacherClasses) {
 	if count == 0 || teacher.teacherID == "" || r.handler.Notifier == nil {
 		return
 	}
-	_, err := r.handler.Notifier.Handle(ctx, notificationscommand.Notify{
+	notifyCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), notifyBudget)
+	defer cancel()
+	_, err := r.handler.Notifier.Handle(notifyCtx, notificationscommand.Notify{
 		UserID:    teacher.teacherID,
 		Kind:      notificationsdomain.JoinCodesRotated,
 		Params:    notificationsdomain.CodesRotated{Count: count, ClassNames: names},

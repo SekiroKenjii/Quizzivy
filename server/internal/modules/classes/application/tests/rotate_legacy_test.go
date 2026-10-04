@@ -55,12 +55,14 @@ type rotationOutcome struct {
 
 type rotationStore struct {
 	domain.Repository
-	classes  []domain.LegacyCodeClass
-	listErr  error
-	listedAt time.Time
-	outcomes map[string][]rotationOutcome
-	inputs   []domain.LegacyRotationInput
-	events   *[]string
+	classes   []domain.LegacyCodeClass
+	listErr   error
+	listedAt  time.Time
+	outcomes  map[string][]rotationOutcome
+	inputs    []domain.LegacyRotationInput
+	events    *[]string
+	stop      context.CancelFunc
+	stopAfter int
 }
 
 func (s *rotationStore) LegacyCodeClasses(_ context.Context, now time.Time) ([]domain.LegacyCodeClass, error) {
@@ -69,9 +71,15 @@ func (s *rotationStore) LegacyCodeClasses(_ context.Context, now time.Time) ([]d
 	return s.classes, s.listErr
 }
 
-func (s *rotationStore) RotateLegacyCode(_ context.Context, in domain.LegacyRotationInput) (bool, error) {
+func (s *rotationStore) RotateLegacyCode(ctx context.Context, in domain.LegacyRotationInput) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
 	s.inputs = append(s.inputs, in)
 	*s.events = append(*s.events, "rotate "+in.ClassID)
+	if s.stop != nil && len(s.inputs) == s.stopAfter {
+		s.stop()
+	}
 	queued := s.outcomes[in.ClassID]
 	if len(queued) == 0 {
 		return true, nil
@@ -93,6 +101,7 @@ func (s *rotationStore) tries(class string) int {
 type rotationWorld struct {
 	store    *rotationStore
 	notices  []notificationscommand.Notify
+	budgets  []time.Duration
 	refuse   map[string]error
 	events   []string
 	problems []error
@@ -103,11 +112,19 @@ func rotating(classes ...domain.LegacyCodeClass) *rotationWorld {
 	w := &rotationWorld{refuse: map[string]error{}}
 	w.store = &rotationStore{classes: classes, outcomes: map[string][]rotationOutcome{}, events: &w.events}
 	w.app = application.New(w.store, nil, sealingKeys).WithNotifier(
-		cqrs.HandlerFunc[notificationscommand.Notify, cqrs.Nothing](func(_ context.Context, n notificationscommand.Notify) (cqrs.Nothing, error) {
+		cqrs.HandlerFunc[notificationscommand.Notify, cqrs.Nothing](func(ctx context.Context, n notificationscommand.Notify) (cqrs.Nothing, error) {
 			w.events = append(w.events, "notify "+n.UserID)
+			if err := ctx.Err(); err != nil {
+				return cqrs.Nothing{}, err
+			}
 			if err := w.refuse[n.UserID]; err != nil {
 				return cqrs.Nothing{}, err
 			}
+			budget := time.Duration(0)
+			if deadline, bounded := ctx.Deadline(); bounded {
+				budget = time.Until(deadline)
+			}
+			w.budgets = append(w.budgets, budget)
 			w.notices = append(w.notices, n)
 			return cqrs.Nothing{}, nil
 		}))
@@ -117,7 +134,12 @@ func rotating(classes ...domain.LegacyCodeClass) *rotationWorld {
 
 func (w *rotationWorld) run(t *testing.T) domain.LegacyRotation {
 	t.Helper()
-	got, err := w.app.Commands.RotateLegacyJoinCodes.Handle(context.Background(), command.RotateLegacyJoinCodes{
+	return w.runUnder(context.Background(), t)
+}
+
+func (w *rotationWorld) runUnder(ctx context.Context, t *testing.T) domain.LegacyRotation {
+	t.Helper()
+	got, err := w.app.Commands.RotateLegacyJoinCodes.Handle(ctx, command.RotateLegacyJoinCodes{
 		Found:   func(count int) { w.events = append(w.events, fmt.Sprintf("found %d", count)) },
 		Problem: func(err error) { w.problems = append(w.problems, err) },
 	})
@@ -351,6 +373,36 @@ func TestAFailingNotifierIsCountedAndTheRotationStands(t *testing.T) {
 	}
 	if len(w.problems) != 1 || !errors.Is(w.problems[0], full) || !strings.Contains(w.problems[0].Error(), teacherLan) {
 		t.Errorf("the problems are %v, want the failed notification, naming teacher %s", w.problems, teacherLan)
+	}
+}
+
+func TestARunStoppedPartWayStillTellsTheTeacherOfTheClassesItRotated(t *testing.T) {
+	var classes []domain.LegacyCodeClass
+	for i := range 5 {
+		classes = append(classes, legacyClass(i+1, fmt.Sprintf("Lớp %c", 'A'+i), teacherLan))
+	}
+	w := rotating(classes...)
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	w.store.stop, w.store.stopAfter = stop, 2
+	got := w.runUnder(ctx, t)
+
+	if want := (domain.LegacyRotation{Found: 5, Rotated: 2, Failed: 3, Teachers: 1}); got != want {
+		t.Errorf("the run answered %+v, want %+v", got, want)
+	}
+	if params := rotatedParams(t, w.noticeFor(t, teacherLan)); params.Count != 2 || !slices.Equal(params.ClassNames, []string{"Lớp A", "Lớp B"}) {
+		t.Errorf("params = %+v, want the two classes rotated before the run was stopped", params)
+	}
+	if len(w.budgets) != 1 || w.budgets[0] <= 5*time.Second || w.budgets[0] > 10*time.Second {
+		t.Errorf("the notice was sent under %v, want a budget of its own of about ten seconds", w.budgets)
+	}
+	if len(w.problems) != 3 {
+		t.Fatalf("the problems are %v, want the three classes the stopped run did not reach", w.problems)
+	}
+	for _, problem := range w.problems {
+		if !errors.Is(problem, context.Canceled) {
+			t.Errorf("the problem is %v, want the run's cancellation", problem)
+		}
 	}
 }
 
