@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import AssignmentsListPage from "@/features/assignments/pages/AssignmentsListPage";
+import AssignmentsListPage from "@/features/assignments/pages/teacher/AssignmentsListPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
