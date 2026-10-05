@@ -624,6 +624,7 @@
     "pause": "Tạm dừng",
     "seek": "Tua",
     "expired": "Đường dẫn nghe thử đã hết hạn. Tải lại để nghe.",
+    "playBlocked": "Trình duyệt chưa phát được âm thanh. Hãy bấm phát lại; nếu vẫn không nghe được, hãy kiểm tra quyền phát âm thanh của trang này.",
     "deleted": "Đã xoá tệp"
   },
   "questionEditor": {
@@ -1508,6 +1509,20 @@
     "more": "Các trang khác",
     "page": "Trang {{n}}"
   },
+  "pager": {
+    "label": "Phân trang",
+    "range": "{{from}}–{{to}} trên {{total}} {{noun}}",
+    "none": "Không có {{noun}} nào",
+    "rowsPerPage": "Số dòng mỗi trang",
+    "pageOf": "Trang {{page}} trên {{pages}}",
+    "first": "Trang đầu",
+    "previous": "Trang trước",
+    "next": "Trang sau",
+    "last": "Trang cuối"
+  },
+  "bulkBar": {
+    "selected": "Đã chọn {{count}}"
+  },
   "status": {
     "test": {
       "draft": "Bản nháp",
@@ -1698,6 +1713,7 @@
       "audio_play": "Phát âm thanh",
       "audio_ended": "Nghe xong",
       "audio_blocked": "Trình duyệt chặn phát âm thanh",
+      "audio_seek": "Tua bài nghe khi không được tua",
       "paste": "Dán nội dung",
       "copy": "Sao chép nội dung",
       "cut": "Cắt nội dung",

@@ -624,6 +624,7 @@
     "pause": "Pause",
     "seek": "Seek",
     "expired": "This preview link has expired. Reload to listen.",
+    "playBlocked": "Your browser did not start the audio. Press play again; if it still does not play, check this site's sound permission.",
     "deleted": "File deleted"
   },
   "questionEditor": {
@@ -1508,6 +1509,20 @@
     "more": "More pages",
     "page": "Page {{n}}"
   },
+  "pager": {
+    "label": "Pagination",
+    "range": "{{from}}–{{to}} of {{total}} {{noun}}",
+    "none": "No {{noun}}",
+    "rowsPerPage": "Rows per page",
+    "pageOf": "Page {{page}} of {{pages}}",
+    "first": "First page",
+    "previous": "Previous page",
+    "next": "Next page",
+    "last": "Last page"
+  },
+  "bulkBar": {
+    "selected": "{{count}} selected"
+  },
   "status": {
     "test": {
       "draft": "Draft",
@@ -1698,6 +1713,7 @@
       "audio_play": "Played audio",
       "audio_ended": "Audio ended",
       "audio_blocked": "Browser blocked audio",
+      "audio_seek": "Tried to skip in the audio",
       "paste": "Pasted content",
       "copy": "Copied content",
       "cut": "Cut content",

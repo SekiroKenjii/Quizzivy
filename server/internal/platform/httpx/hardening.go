@@ -30,7 +30,8 @@ func SecurityHeaders(next http.Handler) http.Handler {
 // connection is not cut off; it stays below the server's write timeout.
 const StreamingReadTimeout = 110 * time.Second
 
-// LimitRequestBody bounds non-streaming requests before the contract validator buffers them.
+// LimitRequestBody bounds non-streaming requests before the contract validator buffers them; a body it cannot finish
+// reading answers 408 REQUEST_INCOMPLETE, whatever stopped the read.
 func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLimits map[string]int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -50,8 +51,8 @@ func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLi
 				return
 			}
 			if err != nil {
-				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed,
-					TextFor(r, "Không đọc được dữ liệu gửi lên.", "The submitted data could not be read."))
+				WriteError(w, r, http.StatusRequestTimeout, CodeRequestIncomplete,
+					TextFor(r, "Máy chủ chưa nhận đủ dữ liệu gửi lên. Vui lòng thử lại.", "The server did not receive the whole request. Try again."))
 				return
 			}
 			r.Body = io.NopCloser(bytes.NewReader(body))
