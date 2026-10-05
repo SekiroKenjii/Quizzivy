@@ -49,7 +49,7 @@ const teacherTree: RouteObject = {
   element: <TeacherWorkspace />,
   children: [
     {
-      lazy: page(() => import("@/layouts/AdminLayout")),
+      lazy: page(() => import("@/layouts/TeacherShell")),
       children: [
         { index: true, lazy: page(() => import("@/app/pages/AdminDashboardPage")) },
         {

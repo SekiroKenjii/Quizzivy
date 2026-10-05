@@ -154,10 +154,21 @@ describe("the question editor, per question type", () => {
       http.get("http://localhost:8080/teacher/media", () =>
         contractJson("/teacher/media", "get", 200, {
           totalBytes: 2_400_000,
+          facets: { all: 1, audio: 1, image: 0, unused: 1 },
+          usage: { audioBytes: 2_400_000, imageBytes: 0, quotaBytes: 5_368_709_120 },
           page: 1,
           pageSize: 50,
           total: 0,
-          items: [AUDIO],
+          items: [
+            {
+              ...AUDIO,
+              displayName: AUDIO.originalFilename,
+              defaultMaxPlays: null,
+              width: null,
+              height: null,
+              questionCount: 0,
+            },
+          ],
           nextCursor: null,
         }),
       ),

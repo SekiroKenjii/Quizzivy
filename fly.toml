@@ -57,6 +57,11 @@ primary_region = "sin"
   # R-13. Raise this only alongside the machine's memory.
   MAX_CONCURRENT_PASSWORD_HASHES = "4"
 
+  # The most one teacher's media library may hold, in MiB (T-R4.17a): the
+  # deck's "of 5 GB". Audio is up to 50 MiB a file, so this is what bounds a
+  # library; raise it here, not per teacher.
+  MEDIA_OWNER_QUOTA_MIB = "5120"
+
   # Word and PDF import (O-24, decided 2026-09-25). The bucket is private and
   # reached with the S3_* credentials; `make verify-r2-imports` proves the
   # token reaches it. The work directory is on the Machine's disk, which the

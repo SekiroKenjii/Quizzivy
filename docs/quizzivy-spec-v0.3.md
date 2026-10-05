@@ -1,7 +1,18 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.50 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.51 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.50**
+
+R4, "Teacher workspace" (v0.10.0, `docs/plan/74-r4.md`):
+
+- §11.1 Audio may be 50 MB; an image stays at 10 MB, and the length stays at
+  five minutes (DG-63). A teacher's media library has a quota, 5 GB by
+  default. A file can be renamed in the library, audio can carry a default
+  play limit, and an image's size in pixels is recorded at upload. §15 lists
+  the search, the "not used" filter and `PATCH /teacher/media/:id`
+  (T-R4.17a).
 
 **Changes since v0.49**
 
@@ -1307,10 +1318,12 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 - In the question editor, an audio question has: file upload, transcript textarea (admin-authored, optional), and the `AudioPolicy` controls (`maxPlays` default 2, `allowSeek` default **false**, `showTranscriptAfterSubmit` default true).
 - Accepted: `audio/mpeg` (.mp3) and `audio/mp4` / `audio/aac` (.m4a). **Reject everything else** with a plain message. These two cover every current browser without transcoding; supporting `.ogg`/`.wav`/`.webm` means either transcoding or a Safari support matrix, and neither is worth it in v1.
-- Limits: 10 MB, 5 minutes. Validate **server-side** by sniffing magic bytes and probing duration — never trust the `Content-Type` header or the file extension.
-- Upload goes **through the Go backend** in v1 (small files, low volume, and the backend must validate anyway). Presigned direct-to-R2 upload is the P1 optimisation; design the API so switching does not change the client contract beyond the upload call.
+- Limits: audio 50 MB and 5 minutes; an image (PNG, JPEG or WebP) 10 MB (DG-63). Validate **server-side** by sniffing magic bytes and probing duration — never trust the `Content-Type` header or the file extension. The file is streamed to disk, never held in memory, and an image's size in pixels is read from its header.
+- A teacher's library holds at most 5 GB unless the deployment sets another quota (`MEDIA_OWNER_QUOTA_MIB`). An upload that would take it past the quota is refused with `MEDIA_QUOTA_EXCEEDED`. A deleted file no longer counts, and neither does a replaced one.
+- In the library a file can be renamed, and audio can be given a default play limit: unlimited, or 1 to 3. The stored file and its original filename never change. The limit is stored with the file for the editor to start a question's own limit from; it changes no question by itself.
+- Upload goes **through the Go backend** in v1 (low volume, and the backend must validate anyway). Presigned direct-to-R2 upload is the P1 optimisation; design the API so switching does not change the client contract beyond the upload call.
 - Assets are **immutable**. Re-uploading creates a new `media_assets` row; it never overwrites an existing key. This is what lets `test_version_questions` reference an asset without copying the file.
-- Client-side pre-check before upload: read duration via an `<audio>` element and reject early, so a student's teacher does not wait 10 MB to be told no.
+- Client-side pre-check before upload: read duration via an `<audio>` element and reject early, so a student's teacher does not wait 50 MB to be told no.
 
 ### 11.2 Storage and delivery
 
@@ -1882,8 +1895,9 @@ POST   /teacher/tests/:id/publish       → new version
 POST   /teacher/tests/:id/duplicate
 GET    /teacher/questions?type=&tag=&q=&cursor=
 POST   /teacher/questions | PATCH /:id | DELETE /:id
-POST   /teacher/media                   multipart → MediaAsset (validates mime, size, duration)
-GET    /teacher/media?kind=&cursor=
+POST   /teacher/media?defaultMaxPlays=  multipart → MediaAsset (validates mime, size, duration, quota)
+GET    /teacher/media?kind=&unused=&q=&cursor=   rows, facets and usage against the quota
+PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the library row
 DELETE /teacher/media/:id               409 if referenced by a published version
 GET    /teacher/assignments | POST | GET /:id | PATCH /:id
 GET    /teacher/assignments/:id/attempts  → rows incl. integrity + audio summary

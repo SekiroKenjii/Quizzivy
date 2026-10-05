@@ -115,6 +115,42 @@
     "account": "Tài khoản của {{name}}",
     "grading": "Chờ chấm"
   },
+  "teacherShell": {
+    "workspace": "Không gian giáo viên",
+    "switchWorkspace": "Chuyển không gian làm việc",
+    "group": {
+      "teaching": "Giảng dạy",
+      "content": "Nội dung"
+    },
+    "nav": {
+      "dashboard": "Tổng quan",
+      "assignments": "Bài giao",
+      "grading": "Chấm bài",
+      "classes": "Lớp học",
+      "students": "Học viên",
+      "tests": "Đề thi",
+      "questionBank": "Ngân hàng câu hỏi",
+      "media": "Thư viện media"
+    },
+    "count": {
+      "live_one": "{{count}} bài giao đang mở",
+      "live_other": "{{count}} bài giao đang mở",
+      "toGrade_one": "{{count}} bài chờ chấm",
+      "toGrade_other": "{{count}} bài chờ chấm"
+    },
+    "sidebar": {
+      "collapse": "Thu gọn thanh bên",
+      "expand": "Mở rộng thanh bên",
+      "open": "Mở menu"
+    },
+    "breadcrumb": "Đường dẫn",
+    "search": "Tìm kiếm…",
+    "role": {
+      "teacher": "Giáo viên",
+      "admin": "Quản trị viên"
+    },
+    "documentTitle": "{{page}} · Quizzivy"
+  },
   "student": {
     "shell": {
       "home": "Trang chủ",
@@ -550,7 +586,7 @@
     "deleteConfirmTitle": "Xoá tệp này?",
     "deleteFailed": "Không xoá được tệp.",
     "dropHere": "Kéo tệp vào đây hoặc bấm để chọn",
-    "dropHint": "Chỉ nhận mp3 và m4a, tối đa 10 MB và 5 phút",
+    "dropHint": "Chỉ nhận mp3 và m4a, tối đa 50 MB và 5 phút",
     "empty": "Chưa có tệp nào. Tải lên tệp nghe đầu tiên để bắt đầu.",
     "loadFailed": "Không tải được thư viện tệp.",
     "loading": "Đang tải thư viện…",
@@ -562,7 +598,7 @@
     "pickTitle": "Chọn tệp",
     "preview": "Nghe thử",
     "rejectDuration": "{{name}} dài {{duration}}, vượt quá 5 phút. Vui lòng cắt ngắn.",
-    "rejectSize": "{{name}} nặng {{size}}, vượt quá 10 MB. Vui lòng nén hoặc cắt ngắn.",
+    "rejectSize": "{{name}} nặng {{size}}, vượt quá 50 MB. Vui lòng nén hoặc cắt ngắn.",
     "rejectType": "{{name}} không phải mp3 hoặc m4a. Chỉ nhận hai định dạng này.",
     "summary": "{{count}} tệp · {{size}}",
     "title": "Thư viện media",
@@ -618,7 +654,7 @@
     "mediaChoose": "Chọn tệp",
     "mediaDrop": "Kéo tệp âm thanh vào đây",
     "mediaFromLibrary": "Chọn từ thư viện",
-    "mediaHint": "mp3 hoặc m4a · tối đa 10 MB · 5 phút",
+    "mediaHint": "mp3 hoặc m4a · tối đa 50 MB · 5 phút",
     "mediaRemove": "Gỡ",
     "optionPlaceholder": "Lựa chọn {{n}}",
     "options": "Lựa chọn",

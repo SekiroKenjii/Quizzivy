@@ -100,15 +100,18 @@ describe("the student tree's guard", () => {
 });
 
 describe("the splash hand-off for the teacher's tree", () => {
-  it("draws the teacher frame at /teacher and beneath it, and nowhere else", () => {
-    expect(skeletonFor("/teacher")).toBeNull();
+  it("draws the teacher frame at /teacher and beneath it for a rebuilt route, and nowhere else", () => {
+    const rebuilt = { crumb: [{ key: "teacherShell.nav.dashboard" }] };
+    expect(skeletonFor("/teacher", rebuilt)).toBeNull();
 
     registerSkeleton("teacher", () => <p>khung giáo viên</p>);
 
     for (const path of ["/teacher", "/teacher/", "/teacher/tests/abc/edit"]) {
-      const { unmount } = render(<>{skeletonFor(path)}</>);
+      const { unmount } = render(<>{skeletonFor(path, rebuilt)}</>);
       expect(screen.getByText("khung giáo viên"), path).toBeInTheDocument();
       unmount();
+      expect(skeletonFor(path), path).toBeNull();
+      expect(skeletonFor(path, {}), path).toBeNull();
     }
     for (const path of [
       "/teachers",
@@ -120,6 +123,7 @@ describe("the splash hand-off for the teacher's tree", () => {
       "/",
     ]) {
       expect(skeletonFor(path), path).toBeNull();
+      expect(skeletonFor(path, rebuilt), path).toBeNull();
     }
   });
 });

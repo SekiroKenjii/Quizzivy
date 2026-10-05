@@ -115,6 +115,42 @@
     "account": "{{name}}'s account",
     "grading": "To grade"
   },
+  "teacherShell": {
+    "workspace": "Teacher workspace",
+    "switchWorkspace": "Switch workspace",
+    "group": {
+      "teaching": "Teaching",
+      "content": "Content"
+    },
+    "nav": {
+      "dashboard": "Dashboard",
+      "assignments": "Assignments",
+      "grading": "Grading",
+      "classes": "Classes",
+      "students": "Students",
+      "tests": "Tests",
+      "questionBank": "Question bank",
+      "media": "Media"
+    },
+    "count": {
+      "live_one": "{{count}} live assignment",
+      "live_other": "{{count}} live assignments",
+      "toGrade_one": "{{count}} to grade",
+      "toGrade_other": "{{count}} to grade"
+    },
+    "sidebar": {
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar",
+      "open": "Open menu"
+    },
+    "breadcrumb": "Breadcrumb",
+    "search": "Search…",
+    "role": {
+      "teacher": "Teacher",
+      "admin": "Admin"
+    },
+    "documentTitle": "{{page}} · Quizzivy"
+  },
   "student": {
     "shell": {
       "home": "Home",
@@ -550,7 +586,7 @@
     "deleteConfirmTitle": "Delete this file?",
     "deleteFailed": "Could not delete the file.",
     "dropHere": "Drag a file here, or click to choose one",
-    "dropHint": "mp3 and m4a only, up to 10 MB and 5 minutes",
+    "dropHint": "mp3 and m4a only, up to 50 MB and 5 minutes",
     "empty": "No files yet. Upload your first listening file to get started.",
     "loadFailed": "Could not load the media library.",
     "loading": "Loading the library…",
@@ -562,7 +598,7 @@
     "pickTitle": "Choose a file",
     "preview": "Preview",
     "rejectDuration": "{{name}} is {{duration}}, over the 5 minute limit. Please trim it.",
-    "rejectSize": "{{name}} is {{size}}, over the 10 MB limit. Please compress or trim it.",
+    "rejectSize": "{{name}} is {{size}}, over the 50 MB limit. Please compress or trim it.",
     "rejectType": "{{name}} is not an mp3 or m4a. Only those two are accepted.",
     "summary": "{{count}} files · {{size}}",
     "title": "Media library",
@@ -618,7 +654,7 @@
     "mediaChoose": "Choose a file",
     "mediaDrop": "Drag an audio file here",
     "mediaFromLibrary": "Choose from the library",
-    "mediaHint": "mp3 or m4a · up to 10 MB · 5 minutes",
+    "mediaHint": "mp3 or m4a · up to 50 MB · 5 minutes",
     "mediaRemove": "Remove",
     "optionPlaceholder": "Option {{n}}",
     "options": "Options",

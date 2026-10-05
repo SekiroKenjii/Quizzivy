@@ -22,7 +22,7 @@ import {
   type MediaAsset,
   type MediaKind,
 } from "@/features/media/api";
-import { MAX_BYTES } from "@/features/media/limits";
+import { MAX_IMAGE_BYTES } from "@/features/media/limits";
 import { ApiError } from "@/lib/api/errors";
 import { useLazyList } from "@/hooks/useLazyList";
 import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
@@ -59,7 +59,7 @@ export function MaterialAssetDialog({
 
   async function uploadImage(file: File) {
     setError(null);
-    if (file.size > MAX_BYTES) {
+    if (file.size > MAX_IMAGE_BYTES) {
       setError(t("groups.imageLimit"));
       return;
     }

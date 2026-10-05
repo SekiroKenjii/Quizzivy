@@ -20,6 +20,8 @@ beforeEach(() => {
     http.get(`${BASE}/teacher/media`, () =>
       contractJson("/teacher/media", "get", 200, {
         totalBytes: 2_400_000,
+        facets: { all: 1, audio: 1, image: 0, unused: 0 },
+        usage: { audioBytes: 2_400_000, imageBytes: 0, quotaBytes: 5_368_709_120 },
         items: [
           {
             id: "018f0000-0000-7000-8000-0000000000e1",
@@ -30,6 +32,11 @@ beforeEach(() => {
             durationMs: 110_000,
             originalFilename: "unit5-listening-2.mp3",
             createdAt: "2026-08-26T00:00:00Z",
+            displayName: "unit5-listening-2.mp3",
+            defaultMaxPlays: null,
+            width: null,
+            height: null,
+            questionCount: 2,
             usageCount: 2,
             usedIn: [
               {

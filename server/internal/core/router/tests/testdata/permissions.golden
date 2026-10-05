@@ -54,6 +54,7 @@ PATCH /auth/me self
 PATCH /teacher/assignments/{id} teaching.assignments.write
 PATCH /teacher/attempts/{id}/note teaching.grading
 PATCH /teacher/classes/{id} teaching.classes.write
+PATCH /teacher/media/{id} content.media.write
 PATCH /teacher/question-groups/{id}/archive content.questions.write
 PATCH /teacher/questions/{id} content.questions.write | content.tests.write
 PATCH /teacher/students/{id} people.students.create
