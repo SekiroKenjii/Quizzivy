@@ -120,6 +120,7 @@ export function DateTimePicker({
           {mode !== "time" && (
             <Calendar
               mode="single"
+              required
               disabled={disabled}
               disableNavigation={disabled}
               locale={LOCALES[locale]}

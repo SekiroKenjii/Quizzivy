@@ -225,13 +225,21 @@ export const cases: Record<string, () => ReactElement> = {
                 </span>
               </label>
               <Tooltip label="They get an in-app and email message">
-                <Switch
-                  id="extend-notify"
-                  aria-label="Notify students"
-                  checked={notify}
-                  onCheckedChange={setNotify}
-                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="About notification delivery"
+                >
+                  ?
+                </Button>
               </Tooltip>
+              <Switch
+                id="extend-notify"
+                aria-label="Notify students"
+                checked={notify}
+                onCheckedChange={setNotify}
+              />
             </div>
           </DialogShellBody>
           <DialogShellFooter>

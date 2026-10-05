@@ -46,7 +46,7 @@ export function DialogShell({
         {...props}
         showCloseButton={false}
         className={cn(
-          "bg-card shadow-float flex max-h-[86dvh] w-[min(var(--dialog-width),calc(100%-24px))] max-w-none flex-col gap-0 overflow-hidden rounded-xl p-0 data-[state=closed]:animate-none data-[state=open]:animate-none sm:max-w-none",
+          "bg-card shadow-float flex max-h-[86dvh] w-[min(var(--dialog-width),calc(100%-24px))] max-w-none flex-col gap-0 overflow-hidden rounded-xl p-0 transition-none duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none sm:max-w-none",
           className,
         )}
         style={{ "--dialog-width": `${width}px`, ...props.style } as CSSProperties}

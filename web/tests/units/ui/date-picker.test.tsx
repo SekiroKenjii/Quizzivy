@@ -60,7 +60,7 @@ it("uses one named trigger and ArrowDown opens a Monday-first six-week picker", 
     "duration-120",
     "ease-[cubic-bezier(0,0,0.58,1)]",
     "data-[state=open]:slide-in-from-top-[3px]",
-    "motion-reduce:animate-none",
+    "motion-reduce:animate-none!",
     "data-[state=closed]:animate-none",
   );
   expect(dialog.className).not.toMatch(/zoom-|slide-in-from-bottom/);
