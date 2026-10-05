@@ -1901,6 +1901,18 @@
       "importSource": "Độ rộng cột tài liệu nguồn"
     }
   },
+  "formDialog": {
+    "optional": "(không bắt buộc)",
+    "required": "Bắt buộc",
+    "search": "Tìm",
+    "selected": "Đã chọn {{count}}",
+    "selected_one": "Đã chọn {{count}}",
+    "selected_other": "Đã chọn {{count}}",
+    "noMatch": "Không có mục nào khớp “{{query}}”",
+    "fileChoose": "Chọn tệp hoặc thả vào đây",
+    "fileRemove": "Bấm để bỏ tệp",
+    "fileRemoveNamed": "Bỏ tệp {{name}}"
+  },
   "contentEditor": {
     "gapLabel": "Ô trống {{label}}",
     "newGap": "trống",

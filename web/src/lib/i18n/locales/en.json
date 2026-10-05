@@ -1901,6 +1901,18 @@
       "importSource": "Source column width"
     }
   },
+  "formDialog": {
+    "optional": "(optional)",
+    "required": "Required",
+    "search": "Search",
+    "selected": "{{count}} selected",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "noMatch": "Nothing matches “{{query}}”",
+    "fileChoose": "Choose a file or drop it here",
+    "fileRemove": "Click to remove",
+    "fileRemoveNamed": "Remove {{name}}"
+  },
   "contentEditor": {
     "gapLabel": "Gap {{label}}",
     "newGap": "gap",
