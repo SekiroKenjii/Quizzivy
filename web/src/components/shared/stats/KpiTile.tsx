@@ -24,7 +24,7 @@ const ICONS: Record<KpiTone, string> = {
 };
 
 const FRAME =
-  "bg-card text-fg shadow-card flex flex-col gap-1.5 rounded-xl border px-4.5 py-4";
+  "group/kpi bg-card text-fg shadow-card flex flex-col gap-1.5 rounded-xl border px-4.5 py-4";
 
 const FOOT =
   "text-muted-fg text-meta flex items-center justify-between gap-2 leading-4";
@@ -37,13 +37,7 @@ const FOOT =
  */
 export type KpiTileProps = Readonly<KpiFigure & KpiDestination>;
 
-/**
- * KpiTile is one of the dashboard's figures. With `to` the whole tile is a
- * link to that route, named by its label, value, hint and action, and its
- * border darkens under the pointer. Without `to` it is a plain card with the
- * same frame, label, icon, value and hint: no role, no tab stop, no hover and
- * no action, for a figure with nothing behind it to open.
- */
+/** KpiTile shows a linked figure or noninteractive card, pausing its live dot on tile hover or focus. */
 export function KpiTile({
   label,
   icon: Icon,
@@ -58,7 +52,9 @@ export function KpiTile({
     <>
       <div className="text-muted-fg flex items-center justify-between gap-2 text-sm leading-4 font-medium whitespace-nowrap">
         <div className="flex min-w-0 items-center gap-1.75">
-          {live && <LiveDot />}
+          {live && (
+            <LiveDot className="group-focus-within/kpi:[animation-play-state:paused]! group-hover/kpi:[animation-play-state:paused]!" />
+          )}
           <span className="truncate">{label}</span>
         </div>
         <Icon aria-hidden="true" className={cn("size-4 shrink-0", ICONS[tone])} />

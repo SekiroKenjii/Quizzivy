@@ -150,7 +150,11 @@ describe("BarChart's drawing", () => {
   it("does not animate the bars under reduced motion", () => {
     const { bars } = chart();
     for (const bar of bars)
-      expect(bar).toHaveClass("transition-[height]", "motion-reduce:transition-none");
+      expect(bar).toHaveClass(
+        "transition-[height]",
+        "duration-200",
+        "motion-reduce:transition-none",
+      );
   });
 
   it("renders an empty chart without a bar", () => {

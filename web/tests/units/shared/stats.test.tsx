@@ -75,8 +75,39 @@ describe("KpiTile with a destination", () => {
 
   it("darkens its border under the pointer", () => {
     tile({ ...TO_GRADE, to: "/teacher/grading", action: "Chấm" });
-    expect(screen.getByRole("link")).toHaveClass("hover:border-ring");
+    expect(screen.getByRole("link")).toHaveClass(
+      "hover:border-ring",
+      "transition-colors",
+    );
   });
+
+  it.each([true, false])(
+    "pauses the live dot within its own tile, linked=%s",
+    (linked) => {
+      const { container } = tile({
+        ...TO_GRADE,
+        live: true,
+        ...(linked ? { to: "/teacher/grading", action: "Chấm" } : {}),
+      });
+      const host = container.firstElementChild!;
+      const dot = host.querySelector(".qz-live-dot")!;
+      expect(host).toHaveClass("group/kpi");
+      expect(dot).toHaveClass(
+        "group-hover/kpi:[animation-play-state:paused]!",
+        "group-focus-within/kpi:[animation-play-state:paused]!",
+      );
+      expect(dot).not.toHaveClass("[animation-play-state:paused]");
+      expect(dot).not.toHaveClass("[animation-play-state:paused]!");
+      expect(dot).toHaveAttribute("aria-hidden", "true");
+      expect(dot).not.toHaveAttribute("tabindex");
+      if (linked) expect(host).toBe(screen.getByRole("link"));
+      else {
+        expect(screen.queryByRole("link")).toBeNull();
+        expect(screen.queryByRole("button")).toBeNull();
+        expect(host).not.toHaveAttribute("tabindex");
+      }
+    },
+  );
 
   it("leads the label with the live dot only when it is live", () => {
     const quiet = tile({ ...TO_GRADE, to: "/teacher/grading", action: "Chấm" });
