@@ -1,3 +1,4 @@
+import { anchorSequence } from "@/features/integrity/buffer";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { heldSession, holdSession } from "./heldSession";
@@ -30,7 +31,8 @@ export async function startOrResumeAttempt(assignmentId: string, signal?: AbortS
  * for the attempt, or none when it holds none. The tab then holds the session
  * of the answer when the attempt is in progress and the answer does not say
  * `superseded`; a superseded answer, or one of an attempt that has ended,
- * changes nothing the tab holds.
+ * changes nothing the tab holds. Every answer, superseded or not, anchors the
+ * attempt's event sequence on the server's clock.
  */
 export async function getAttempt(attemptId: string, signal?: AbortSignal) {
   const held = heldSession(attemptId);
@@ -39,6 +41,7 @@ export async function getAttempt(attemptId: string, signal?: AbortSignal) {
     query: held === null ? {} : { session: held },
     ...(signal ? { signal } : {}),
   });
+  anchorSequence(session.attempt.id, session.attempt.startedAt, session.serverTime);
   if (session.attempt.status === "in_progress" && session.superseded !== true)
     holdSession(attemptId, session.sessionId);
   return session;
