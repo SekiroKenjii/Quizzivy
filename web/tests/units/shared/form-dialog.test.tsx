@@ -4,6 +4,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { TagCombobox } from "@/components/shared/form/TagCombobox";
 import { NumberStepper } from "@/components/shared/form/NumberStepper";
 import "@/lib/i18n";
@@ -150,6 +151,45 @@ it("derives title, description and submit label from the draft", async () => {
   await userEvent.setup().type(screen.getByRole("textbox", { name: "Tên" }), "An");
   expect(screen.getByRole("dialog", { name: "Sửa An" })).toHaveTextContent("Mô tả An");
   expect(screen.getByRole("button", { name: "Lưu An" })).toBeVisible();
+});
+it("danger confirmation retains primitive variant and legacy child Enter cannot confirm", async () => {
+  const user = userEvent.setup();
+  const confirm = vi.fn();
+  render(
+    <ConfirmDialog
+      open
+      title="Xóa?"
+      confirmLabel="Xóa"
+      destructive
+      onOpenChange={() => {}}
+      onConfirm={confirm}
+    >
+      <input aria-label="Ghi chú" />
+    </ConfirmDialog>,
+  );
+  await user.type(screen.getByRole("textbox", { name: "Ghi chú" }), "Ghi{Enter}");
+  expect(confirm).not.toHaveBeenCalled();
+  const button = screen.getByRole("button", { name: "Xóa" });
+  expect(button).toHaveAttribute("data-variant", "destructive");
+  expect(document.querySelector(".lucide-triangle-alert")).toBeInTheDocument();
+  await user.click(button);
+  expect(confirm).toHaveBeenCalledTimes(1);
+});
+it("plain confirm and notice keep their respective variant and single footer action", async () => {
+  const close = vi.fn();
+  render(
+    <ConfirmDialog
+      open
+      title="Thông báo"
+      confirmLabel="Hiểu rồi"
+      onOpenChange={close}
+    />,
+  );
+  const button = screen.getByRole("button", { name: "Hiểu rồi" });
+  expect(button).toHaveAttribute("data-variant", "default");
+  expect(button.parentElement!.querySelectorAll("button")).toHaveLength(1);
+  await userEvent.setup().click(button);
+  expect(close).toHaveBeenCalledWith(false);
 });
 it("groups focus their first real control after invalid submission", async () => {
   render(
