@@ -1500,6 +1500,25 @@
     "autoSubmitSending": "Đang gửi câu trả lời và nộp bài…",
     "autoSubmitRetry": "Chưa xác nhận được việc nộp bài. Câu trả lời được giữ trên thiết bị và sẽ tự gửi lại. Vui lòng giữ trang này mở."
   },
+  "notifications": {
+    "kind": {
+      "toGrade_one": "{{count}} bài nộp của {{title}} đang chờ chấm",
+      "toGrade_other": "{{count}} bài nộp của {{title}} đang chờ chấm",
+      "submitted_one": "{{count}} bài đã nộp cho {{title}}",
+      "submitted_other": "{{count}} bài đã nộp cho {{title}}",
+      "flagged_one": "{{studentName}} đã rời trang làm bài {{count}} lần",
+      "flagged_other": "{{studentName}} đã rời trang làm bài {{count}} lần",
+      "closing_one": "{{title}} sắp đóng, còn {{count}} học viên chưa nộp",
+      "closing_other": "{{title}} sắp đóng, còn {{count}} học viên chưa nộp",
+      "joined": "{{studentName}} đã vào lớp {{className}}",
+      "codesRotated_one": "Mã tham gia của {{count}} lớp đã được đổi mới: {{names}}",
+      "codesRotated_other": "Mã tham gia của {{count}} lớp đã được đổi mới: {{names}}",
+      "opened": "{{title}} đã mở, đóng lúc {{when}}",
+      "dueSoon": "{{title}} đóng lúc {{when}}",
+      "extended": "{{title}} được gia hạn đến {{when}}",
+      "resultReady": "{{title}} đã có kết quả"
+    }
+  },
   "pagination": {
     "label": "Phân trang",
     "previous": "Trang trước",
