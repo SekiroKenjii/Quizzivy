@@ -100,6 +100,25 @@ function hasText(value: unknown): value is string {
 function hasCount(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
+function literalSentence(
+  key: string,
+  params: Readonly<Record<string, string | number>>,
+  t: TFunction,
+) {
+  const values: string[] = [];
+  const opaque: Record<string, string | number> = Object.fromEntries(
+    Object.entries(params).map(([name, value]) => {
+      if (typeof value !== "string") return [name, value];
+      const token = `\uE000quizzivy-notification:${values.length}\uE001`;
+      values.push(value);
+      return [name, token];
+    }),
+  );
+  return t(key, { ...opaque, returnObjects: false, returnDetails: false }).replace(
+    /\uE000quizzivy-notification:(\d+)\uE001/g,
+    (token, index: string) => values[Number(index)] ?? token,
+  );
+}
 function timedSentence(
   key: string,
   params: NotificationParams,
@@ -112,7 +131,11 @@ function timedSentence(
     !Number.isFinite(new Date(params.closesAt).getTime())
   )
     return null;
-  return t(key, { title: params.title, when: formatDateTime(params.closesAt, locale) });
+  return literalSentence(
+    key,
+    { title: params.title, when: formatDateTime(params.closesAt, locale) },
+    t,
+  );
 }
 const sentences: Record<
   NotificationKind,
@@ -121,28 +144,48 @@ const sentences: Record<
   "attempt.submitted": (p, t) => {
     if (!hasText(p.title) || !hasCount(p.toGrade)) return null;
     if (p.toGrade > 0)
-      return t("notifications.kind.toGrade", { title: p.title, count: p.toGrade });
+      return literalSentence(
+        "notifications.kind.toGrade",
+        { title: p.title, count: p.toGrade },
+        t,
+      );
     return hasCount(p.count)
-      ? t("notifications.kind.submitted", { title: p.title, count: p.count })
+      ? literalSentence(
+          "notifications.kind.submitted",
+          { title: p.title, count: p.count },
+          t,
+        )
       : null;
   },
   "attempt.flagged": (p, t) =>
     hasText(p.studentName) && hasCount(p.focusLost)
-      ? t("notifications.kind.flagged", {
-          studentName: p.studentName,
-          count: p.focusLost,
-        })
+      ? literalSentence(
+          "notifications.kind.flagged",
+          {
+            studentName: p.studentName,
+            count: p.focusLost,
+          },
+          t,
+        )
       : null,
   "assignment.closing": (p, t) =>
     hasText(p.title) && hasCount(p.notSubmitted)
-      ? t("notifications.kind.closing", { title: p.title, count: p.notSubmitted })
+      ? literalSentence(
+          "notifications.kind.closing",
+          { title: p.title, count: p.notSubmitted },
+          t,
+        )
       : null,
   "class.joined": (p, t) =>
     hasText(p.studentName) && hasText(p.className)
-      ? t("notifications.kind.joined", {
-          studentName: p.studentName,
-          className: p.className,
-        })
+      ? literalSentence(
+          "notifications.kind.joined",
+          {
+            studentName: p.studentName,
+            className: p.className,
+          },
+          t,
+        )
       : null,
   "join_codes.rotated": (p, t) => {
     if (
@@ -152,7 +195,11 @@ const sentences: Record<
     )
       return null;
     const names = p.classNames.join(", ") + (p.count > p.classNames.length ? "…" : "");
-    return t("notifications.kind.codesRotated", { count: p.count, names });
+    return literalSentence(
+      "notifications.kind.codesRotated",
+      { count: p.count, names },
+      t,
+    );
   },
   "assignment.opened": (p, t, locale) =>
     timedSentence("notifications.kind.opened", p, t, locale),
@@ -161,7 +208,9 @@ const sentences: Record<
   "assignment.extended": (p, t, locale) =>
     timedSentence("notifications.kind.extended", p, t, locale),
   "result.ready": (p, t) =>
-    hasText(p.title) ? t("notifications.kind.resultReady", { title: p.title }) : null,
+    hasText(p.title)
+      ? literalSentence("notifications.kind.resultReady", { title: p.title }, t)
+      : null,
 };
 
 /** describeNotification returns a complete localised row or null for an unknown kind or missing sentence input, preserving grading fallback for readers who cannot grade. */
