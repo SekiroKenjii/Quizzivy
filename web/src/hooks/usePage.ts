@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { parsePage, parsePageSize } from "@/lib/pagination";
 
 /**
@@ -8,27 +8,31 @@ import { parsePage, parsePageSize } from "@/lib/pagination";
  */
 export const PAGE_SIZES = [10, 20, 30, 50] as const;
 
-/**
- * The current page, kept in the URL (`?page=3`) so it survives a reload and
- * can be shared. Every other search parameter is preserved; page 1 is the
- * absence of the parameter, so the first page's URL is the plain route.
- */
-export function usePage(filters = ""): [number, (page: number) => void] {
+/** usePage keeps the page in search parameters and optionally preserves the hash during setters and filter resets. */
+export function usePage(
+  filters = "",
+  preserveHash = false,
+): [number, (page: number) => void] {
   const [params, setParams] = useSearchParams();
+  const { pathname, search, hash } = useLocation();
+  const navigate = useNavigate();
   const page = parsePage(params.get("page"));
   const setPage = useCallback(
     (next: number) => {
-      setParams(
-        (current) => {
-          const out = new URLSearchParams(current);
-          if (next <= 1) out.delete("page");
-          else out.set("page", String(next));
-          return out;
-        },
-        { replace: true },
-      );
+      const update = (current: URLSearchParams) => {
+        const out = new URLSearchParams(current);
+        if (next <= 1) out.delete("page");
+        else out.set("page", String(next));
+        return out;
+      };
+      if (preserveHash)
+        void navigate(
+          { pathname, search: `?${update(new URLSearchParams(search))}`, hash },
+          { replace: true },
+        );
+      else setParams(update, { replace: true });
     },
-    [setParams],
+    [setParams, pathname, search, hash, navigate, preserveHash],
   );
 
   const seen = useRef<string | null>(null);
@@ -40,34 +44,33 @@ export function usePage(filters = ""): [number, (page: number) => void] {
   return [page, setPage];
 }
 
-/**
- * usePageSize keeps a list's rows per page in the URL (`?size=20`), beside
- * `usePage`'s page. A value that is not one of `sizes` reads as the first of
- * them, which is the default and the absence of the parameter. The setter
- * replaces the history entry, goes back to page 1 by removing `page` in the
- * same update, and keeps every other search parameter. A screen sends the
- * size to the API as `limit` and puts it in its query key.
- */
+/** usePageSize keeps an offered size in search parameters, resets the page and optionally preserves the hash. */
 export function usePageSize(
   sizes: readonly number[] = PAGE_SIZES,
+  preserveHash = false,
 ): [number, (size: number) => void] {
   const [params, setParams] = useSearchParams();
+  const { pathname, search, hash } = useLocation();
+  const navigate = useNavigate();
   const size = parsePageSize(params.get("size"), sizes);
   const first = sizes[0];
   const setSize = useCallback(
     (next: number) => {
-      setParams(
-        (current) => {
-          const out = new URLSearchParams(current);
-          out.delete("page");
-          if (next === first) out.delete("size");
-          else out.set("size", String(next));
-          return out;
-        },
-        { replace: true },
-      );
+      const update = (current: URLSearchParams) => {
+        const out = new URLSearchParams(current);
+        out.delete("page");
+        if (next === first) out.delete("size");
+        else out.set("size", String(next));
+        return out;
+      };
+      if (preserveHash)
+        void navigate(
+          { pathname, search: `?${update(new URLSearchParams(search))}`, hash },
+          { replace: true },
+        );
+      else setParams(update, { replace: true });
     },
-    [setParams, first],
+    [setParams, first, pathname, search, hash, navigate, preserveHash],
   );
   return [size, setSize];
 }

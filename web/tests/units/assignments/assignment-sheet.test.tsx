@@ -729,3 +729,272 @@ describe("sheet note flush and navigation recovery", () => {
     expect(await screen.findByText("Đã lưu")).toBeInTheDocument();
   });
 });
+
+function serveManyStudents() {
+  const source = monitor().rows[0]!;
+  const rows = Array.from({ length: 35 }, (_, i) => ({
+    ...source,
+    studentId: `018f0000-0000-7000-8000-${String(i + 1000).padStart(12, "0")}`,
+    attemptId: `018f0000-0000-7000-8000-${String(i + 2000).padStart(12, "0")}`,
+    fullName: `Học viên ${String(i).padStart(2, "0")}`,
+  }));
+  server.use(
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/attempts`, () =>
+      contractJson("/teacher/assignments/{id}/attempts", "get", 200, monitor(rows)),
+    ),
+  );
+}
+
+describe("assignment outer-state recovery and roster URL regressions", () => {
+  beforeEach(() => viewport("desktop"));
+  it.each(["error", "missing", "loading", "noWorkspace"])(
+    "keeps generic recovery reachable after a dirty note enters %s without exposing private content",
+    async (state) => {
+      const { user, router, client } = mount(`${PATH}?attempt=${ATTEMPT_ID}`);
+      fireEvent.change(await screen.findByLabelText("Ghi chú riêng"), {
+        target: { value: "hidden dirty draft" },
+      });
+      const held = deferred();
+      server.use(
+        http.patch(
+          `${BASE}/teacher/attempts/${ATTEMPT_ID}/note`,
+          async ({ request }) => {
+            requests.notes.push({
+              id: ATTEMPT_ID,
+              ...((await request.json()) as { note: string | null }),
+            });
+            return HttpResponse.json(
+              {
+                error: { code: "FORBIDDEN", message: "Unavailable", requestId: "note" },
+              },
+              { status: 403 },
+            );
+          },
+        ),
+        http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}`, async () => {
+          if (state === "loading") await held.promise;
+          if (state === "missing")
+            return contractJson(
+              "/teacher/assignments/{id}",
+              "get",
+              200,
+              assignment({ id: OTHER }),
+            );
+          return HttpResponse.json(
+            {
+              error: {
+                code: "NOT_FOUND",
+                message: "Unavailable",
+                requestId: "assignment",
+              },
+            },
+            { status: 404 },
+          );
+        }),
+      );
+      if (state === "noWorkspace") await act(() => grant([], false));
+      else if (state === "loading")
+        await act(() => {
+          void client.resetQueries({ queryKey: ["admin-assignment", ASSIGNMENT_ID] });
+        });
+      else
+        await act(() =>
+          client.invalidateQueries({ queryKey: ["admin-assignment", ASSIGNMENT_ID] }),
+        );
+      await waitFor(() => expect(screen.queryByLabelText("Ghi chú riêng")).toBeNull());
+      expect(screen.queryByText("hidden dirty draft")).toBeNull();
+      let departures = 0;
+      const unsubscribe = router.subscribe(({ location }) => {
+        if (location.pathname === "/before") departures++;
+      });
+      await act(() => router.navigate("/before"));
+      const recovery = await screen.findByText(
+        "Chưa lưu được ghi chú. Hãy thử lại hoặc bỏ thay đổi để tiếp tục.",
+      );
+      const panel = within(recovery.closest('[role="alert"]')!);
+      expect(router.state.location.pathname).toBe(PATH);
+      await user.click(panel.getByRole("button", { name: "Thử lại" }));
+      await waitFor(() =>
+        expect(panel.getByRole("button", { name: "Ở lại" })).toBeInTheDocument(),
+      );
+      await user.click(panel.getByRole("button", { name: "Ở lại" }));
+      expect(
+        screen.queryByText(
+          "Chưa lưu được ghi chú. Hãy thử lại hoặc bỏ thay đổi để tiếp tục.",
+        ),
+      ).toBeNull();
+      expect(router.state.location.pathname).toBe(PATH);
+      if (state === "noWorkspace") {
+        expect(requests.notes).toEqual([]);
+        server.use(
+          http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}`, () =>
+            contractJson("/teacher/assignments/{id}", "get", 200, assignment()),
+          ),
+        );
+        await act(() => grant(["teaching.grading"]));
+        expect(await screen.findByLabelText("Ghi chú riêng")).toHaveValue(
+          "hidden dirty draft",
+        );
+        await act(() => grant([], false));
+        await waitFor(() =>
+          expect(screen.queryByLabelText("Ghi chú riêng")).toBeNull(),
+        );
+      }
+      await act(() => router.navigate("/before"));
+      await user.click(
+        await screen.findByRole("button", { name: "Bỏ thay đổi và tiếp tục" }),
+      );
+      expect(await screen.findByText("trang trước")).toBeInTheDocument();
+      expect(departures).toBe(1);
+      if (state === "noWorkspace") expect(requests.notes).toEqual([]);
+      unsubscribe();
+      held.resolve();
+    },
+  );
+
+  it("keeps actual next/previous/last/first, size and implicit filter/clamp navigation hash and duplicate parameters", async () => {
+    serveManyStudents();
+    const { user, router } = mount(`${PATH}?other=x&other=y#anchor`);
+    await screen.findByRole("table");
+    const check = (page: string | null) => {
+      const params = new URLSearchParams(router.state.location.search);
+      expect(params.get("page")).toBe(page);
+      expect(params.getAll("other")).toEqual(["x", "y"]);
+      expect(router.state.location.hash).toBe("#anchor");
+    };
+    for (const [name, page] of [
+      ["Trang sau", "2"],
+      ["Trang trước", null],
+      ["Trang cuối", "4"],
+      ["Trang đầu", null],
+    ] as const) {
+      await user.click(screen.getByRole("link", { name }));
+      check(page);
+    }
+    await user.click(screen.getByRole("combobox", { name: "Số dòng mỗi trang" }));
+    await user.click(screen.getByRole("option", { name: "20" }));
+    check(null);
+    expect(new URLSearchParams(router.state.location.search).get("size")).toBe("20");
+    await user.click(screen.getByRole("link", { name: "Trang cuối" }));
+    check("2");
+    await user.click(screen.getByRole("combobox", { name: "Số dòng mỗi trang" }));
+    await user.click(screen.getByRole("option", { name: "10" }));
+    check(null);
+    expect(new URLSearchParams(router.state.location.search).has("size")).toBe(false);
+    await act(() => router.navigate(`${PATH}?page=3&other=x&other=y&q=Học#anchor`));
+    await waitFor(() => check(null));
+    await act(() => router.navigate(`${PATH}?page=999&other=x&other=y&q=Học#anchor`));
+    await user.click(screen.getByRole("link", { name: "Trang trước" }));
+    check("3");
+  });
+
+  it("does not select null or omitted attempts and restores flagged tone after real selection closes", async () => {
+    const source = monitor().rows;
+    const empty = source[2]!;
+    server.use(
+      http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/attempts`, () =>
+        contractJson(
+          "/teacher/assignments/{id}/attempts",
+          "get",
+          200,
+          monitor([
+            source[0]!,
+            {
+              ...empty,
+              attemptId: null,
+              studentId: "018f0000-0000-7000-8000-000000000099",
+              fullName: "Chưa bắt đầu null",
+              flagged: true,
+            },
+            { ...empty, fullName: "Chưa bắt đầu omitted" },
+          ]),
+        ),
+      ),
+    );
+    const { user } = mount();
+    const table = await screen.findByRole("table");
+    const nullRow = within(table).getByRole("row", { name: /Chưa bắt đầu null/ });
+    const omittedRow = within(table).getByRole("row", { name: /Chưa bắt đầu omitted/ });
+    expect(nullRow).not.toHaveClass("bg-muted");
+    expect(nullRow).toHaveClass("bg-danger-soft");
+    expect(omittedRow).not.toHaveClass("bg-muted");
+    expect(within(nullRow).queryByRole("button")).toBeNull();
+    const realRow = within(table).getByRole("row", { name: /Phạm Gia Hân/ });
+    await user.click(within(realRow).getByRole("button", { name: "Phạm Gia Hân" }));
+    await screen.findByLabelText("Ghi chú riêng");
+    expect(realRow).toHaveClass("bg-muted");
+    expect(nullRow).toHaveClass("bg-danger-soft");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(realRow).not.toHaveClass("bg-muted");
+    expect(realRow).toHaveClass("bg-danger-soft");
+  });
+});
+
+describe("actual pager red navigation cases", () => {
+  beforeEach(() => viewport("desktop"));
+  it.each([
+    ["Trang sau", "3"],
+    ["Trang trước", null],
+    ["Trang cuối", "4"],
+    ["Trang đầu", null],
+  ] as const)("%s preserves route hash and duplicates", async (name, page) => {
+    serveManyStudents();
+    const { user, router } = mount(`${PATH}?page=2&other=x&other=y#anchor`);
+    await screen.findByRole("table");
+    await user.click(screen.getByRole("link", { name }));
+    expect(new URLSearchParams(router.state.location.search).get("page")).toBe(page);
+    expect(new URLSearchParams(router.state.location.search).getAll("other")).toEqual([
+      "x",
+      "y",
+    ]);
+    expect(router.state.location.hash).toBe("#anchor");
+  });
+  it.each([
+    [undefined, "20", "20"],
+    ["20", "10", null],
+  ] as const)(
+    "actual page-size %s to %s preserves the hash while resetting page",
+    async (initial, size, expected) => {
+      serveManyStudents();
+      const sizeParam = initial === undefined ? "" : `&size=${initial}`;
+      const { user, router } = mount(
+        `${PATH}?page=2&other=x&other=y${sizeParam}#anchor`,
+      );
+      await screen.findByRole("table");
+      await user.click(screen.getByRole("combobox", { name: "Số dòng mỗi trang" }));
+      await user.click(screen.getByRole("option", { name: size }));
+      const params = new URLSearchParams(router.state.location.search);
+      expect(params.get("size")).toBe(expected);
+      expect(params.has("page")).toBe(false);
+      expect(params.getAll("other")).toEqual(["x", "y"]);
+      expect(router.state.location.hash).toBe("#anchor");
+    },
+  );
+  it("implicit external filter reset preserves hash and duplicates", async () => {
+    serveManyStudents();
+    const { router } = mount(`${PATH}?page=3&other=x&other=y#anchor`);
+    await screen.findByRole("table");
+    await act(() => router.navigate(`${PATH}?page=3&other=x&other=y&q=Học#anchor`));
+    await waitFor(() =>
+      expect(new URLSearchParams(router.state.location.search).has("page")).toBe(false),
+    );
+    expect(new URLSearchParams(router.state.location.search).getAll("other")).toEqual([
+      "x",
+      "y",
+    ]);
+    expect(router.state.location.hash).toBe("#anchor");
+  });
+  it("arrows from a visibly clamped page preserve hash and duplicates", async () => {
+    serveManyStudents();
+    const { router, user } = mount(`${PATH}?page=999&other=x&other=y#anchor`);
+    await screen.findByRole("table");
+    await user.click(screen.getByRole("link", { name: "Trang trước" }));
+    expect(new URLSearchParams(router.state.location.search).get("page")).toBe("3");
+    expect(new URLSearchParams(router.state.location.search).getAll("other")).toEqual([
+      "x",
+      "y",
+    ]);
+    expect(router.state.location.hash).toBe("#anchor");
+  });
+});

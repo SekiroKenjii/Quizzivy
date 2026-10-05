@@ -76,8 +76,8 @@ export function Monitor({
   const [dialog, setDialog] = useState<{ kind: Intervention; row: MonitorRow } | null>(
     null,
   );
-  const [page] = usePage(`${filter}:${query}`);
-  const [size] = usePageSize();
+  const [page] = usePage(`${filter}:${query}`, true);
+  const [size] = usePageSize(undefined, true);
   const rows = useMemo(
     () =>
       orderedRoster(data.rows)
@@ -315,6 +315,7 @@ export function Monitor({
         empty={t("papers.noMatches", { query })}
         footer={
           <Pager
+            preserveHash
             page={range.page}
             pageSize={size}
             total={rows.length}
@@ -337,6 +338,6 @@ export function Monitor({
 }
 
 function rowTone(row: MonitorRow, selectedAttempt: string | null) {
-  if (row.attemptId === selectedAttempt) return "selected";
+  if (selectedAttempt !== null && row.attemptId === selectedAttempt) return "selected";
   return row.flagged ? "danger" : undefined;
 }

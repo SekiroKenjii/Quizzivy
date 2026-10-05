@@ -135,25 +135,45 @@ export default function AssignmentDetailPage() {
       await refresh();
     },
   });
-  if (!workspace) return <EmptyState>{t("assignmentDetail.unavailable")}</EmptyState>;
-  if (assignment.isPending) return <ListSkeleton rows={8} />;
+  if (!workspace)
+    return (
+      <>
+        {recoveryPanel}
+        <EmptyState>{t("assignmentDetail.unavailable")}</EmptyState>
+      </>
+    );
+  if (assignment.isPending)
+    return (
+      <>
+        {recoveryPanel}
+        <ListSkeleton rows={8} />
+      </>
+    );
   if (assignment.isError)
     return (
-      <LoadError error={assignment.error} onRetry={() => void assignment.refetch()}>
-        {t("assignments.detail.loadFailed")}
-      </LoadError>
+      <>
+        {recoveryPanel}
+        <LoadError error={assignment.error} onRetry={() => void assignment.refetch()}>
+          {t("assignments.detail.loadFailed")}
+        </LoadError>
+      </>
     );
   if (a === undefined || status === null)
     return (
-      <EmptyState
-        action={
-          <Button variant="outline" asChild>
-            <Link to="/teacher/assignments">{t("assignments.detail.backToList")}</Link>
-          </Button>
-        }
-      >
-        {t("assignments.detail.notFound")}
-      </EmptyState>
+      <>
+        {recoveryPanel}
+        <EmptyState
+          action={
+            <Button variant="outline" asChild>
+              <Link to="/teacher/assignments">
+                {t("assignments.detail.backToList")}
+              </Link>
+            </Button>
+          }
+        >
+          {t("assignments.detail.notFound")}
+        </EmptyState>
+      </>
     );
   const stats = monitor.isSuccess ? assignmentStats(monitor.data.rows) : null;
   const eligible = monitor.isSuccess ? firstPendingPaper(monitor.data.rows) : undefined;
