@@ -312,6 +312,98 @@ Issue #307.
 
 ---
 
+### O-26 — A tab another device took over, after a reload · round 5
+**Default:** stay read-only until the student continues there. This default is
+built by the merged session-claim fixes; it is not an owner decision.
+
+What happens: each tab names its held session on every attempt read. A tab
+naming an old session gets 200 with `superseded: true`, its own session id and
+an empty beacon token, without changing the attempt. Reload or refetch keeps
+it read-only; it ignores local drafts and removes one only if its session
+wrote it. A tab holding no session gets the current one.
+
+Accepted with that last default: two tabs of one browser can share a session.
+A read naming no session still replaces the attempt's beacon token, so the
+holding tab's closing events can be refused. The superseded read fixes this
+only for a tab that names an old session.
+
+The alternatives, for when the owner answers:
+
+- Return 409 to a superseded reader, or always resume on a read. The latter
+  makes GET write, rotates sessions on reload, and needs draft handling first.
+- Require a tab holding no session to obtain one by a recorded resume before
+  writing. This ends both remaining costs but changes engine load, its mocked
+  tests, and records a resume whenever an attempt is reopened by its address.
+
+Issue #337; round 5 questions 1 and 1b.
+
+---
+
+### O-27 — When a session counts as still open · round 5
+**Default:** nothing is built until the owner answers. The candidate is that a
+session which said it was leaving, and has not returned, is no longer live.
+
+What happens today: any ordinary event received within two minutes makes the
+session live, including `page_hide`. Continuing elsewhere can therefore report
+"resumed from another device" after an intentional Leave.
+
+The candidate reads the latest event by received time, then sequence, and
+recognises `page_hide` or a new Leave event as farewell. Its cost: farewell
+alone misreads reload or back-forward restoration as a tab that left. The
+engine must also record an arrival on mount and restored `pageshow`, deliver
+it immediately with the bearer token, and add event labels in both languages.
+There remains a short farewell-to-arrival interval in which another Continue
+is recorded as resume.
+
+Three integration cases must prove the change: farewell then Continue within
+two minutes is resume without takeover; ordinary events without farewell still
+produce takeover; farewell then reload arrival then Continue elsewhere still
+produces takeover. The lead also observes one live case.
+
+The sub-question is whether Leave needs a new kind. Default: `engine_leave`,
+"Rời khỏi bài làm" / "Left the test", because the page was not closed. This
+is a candidate, not a merged signal or an approved owner decision.
+
+The alternatives are a shorter live window, a heartbeat, or treating a
+session-naming read as liveness. The last requires GET to stamp a new column
+and a migration; none is built here.
+
+Issue #341; round 5 question 2.
+
+---
+
+### O-28 — A play that never started is counted · round 5
+**Default:** keep counting; no compensation is built. This awaits the owner.
+
+What happens: a play refused by the browser or paused before it starts can
+already have spent a server play. The player stays enabled at the limit; the
+teacher can see an extra count beside the reported block.
+
+The alternative is an idempotent compensation for a refused start: a play id,
+a receipts table and migration, a server call, and a client able to claim a
+block it did not have. D4's separate T-D4.8 proposal stops a resume spending a
+play; it runs after v0.10.0 and does not resolve this default now.
+
+Issue #339, count only; round 5 question 3.
+
+---
+
+### O-29 — A paper the server has called out of time · round 5
+**Default:** submit at the device's recorded deadline, not at once. This
+default is built; it remains open to an owner decision.
+
+What happens: a deadline refusal from a save or play rearms the deadline
+submission even if another refusal follows. It does not replace a closed or
+superseded lock. Submission failures can still retry.
+
+The alternative is immediate submission after the server refusal. It covers a
+device clock set back, but rewrites the six existing time-up cases and makes
+the time-up bar transient online.
+
+Issue #353; round 5 question 5.
+
+---
+
 ### O-12 — Dark mode · post-v1
 **Default:** not in v1, per §12. Theming goes through CSS variables and Tailwind
 tokens from T-0.9, so it can be added later without touching components.
