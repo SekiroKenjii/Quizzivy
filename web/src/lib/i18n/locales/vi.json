@@ -115,6 +115,42 @@
     "account": "Tài khoản của {{name}}",
     "grading": "Chờ chấm"
   },
+  "teacherShell": {
+    "workspace": "Không gian giáo viên",
+    "switchWorkspace": "Chuyển không gian làm việc",
+    "group": {
+      "teaching": "Giảng dạy",
+      "content": "Nội dung"
+    },
+    "nav": {
+      "dashboard": "Tổng quan",
+      "assignments": "Bài giao",
+      "grading": "Chấm bài",
+      "classes": "Lớp học",
+      "students": "Học viên",
+      "tests": "Đề thi",
+      "questionBank": "Ngân hàng câu hỏi",
+      "media": "Thư viện media"
+    },
+    "count": {
+      "live_one": "{{count}} bài giao đang mở",
+      "live_other": "{{count}} bài giao đang mở",
+      "toGrade_one": "{{count}} bài chờ chấm",
+      "toGrade_other": "{{count}} bài chờ chấm"
+    },
+    "sidebar": {
+      "collapse": "Thu gọn thanh bên",
+      "expand": "Mở rộng thanh bên",
+      "open": "Mở menu"
+    },
+    "breadcrumb": "Đường dẫn",
+    "search": "Tìm kiếm…",
+    "role": {
+      "teacher": "Giáo viên",
+      "admin": "Quản trị viên"
+    },
+    "documentTitle": "{{page}} · Quizzivy"
+  },
   "student": {
     "shell": {
       "home": "Trang chủ",

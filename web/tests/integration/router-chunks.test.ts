@@ -48,7 +48,7 @@ const matches = (ids: readonly string[], re: RegExp) =>
   ids.map((i) => i.replace(/\\/g, "/")).filter((i) => re.test(i));
 
 const ADMIN =
-  /\/(layouts\/AdminLayout|features\/[^/]+\/pages\/teacher\/|app\/pages\/AdminDashboardPage|features\/(tests|question-bank|media|students)\/)/;
+  /\/(layouts\/AdminLayout|layouts\/Teacher(Layout|Shell|Skeleton)|features\/[^/]+\/pages\/teacher\/|app\/pages\/AdminDashboardPage|features\/(tests|question-bank|media|students)\/)/;
 const STUDENT_PAGES = [
   "layouts/StudentLayout",
   "features/assignments/pages/StudentHomePage",
@@ -67,10 +67,14 @@ const CLEARED_AT_SIGN_OUT = [
   "features/take-test/groupPlaybackDraft.ts",
 ];
 
-const eager = () => {
+const DRAG = /\/@dnd-kit\//;
+const SHELL = /\/src\/layouts\/TeacherShell\./;
+const ROUTE_MODULE = /\/src\/((layouts|app\/pages)\/|features\/[^/]+\/pages\/)/;
+
+const reachedFrom = (roots: readonly OutputChunk[]) => {
   const byName = new Map(chunks().map((chunk) => [chunk.fileName, chunk]));
   const seen = new Map<string, OutputChunk>();
-  const pending = [entry()];
+  const pending = [...roots];
   while (pending.length) {
     const chunk = pending.pop()!;
     if (seen.has(chunk.fileName)) continue;
@@ -82,6 +86,8 @@ const eager = () => {
   }
   return [...seen.values()];
 };
+
+const eager = () => reachedFrom([entry()]);
 
 describe("route-level code splitting (§2)", () => {
   it("keeps rich editors out of the entry and learner routes' static dependencies", () => {
@@ -207,6 +213,27 @@ describe("route-level code splitting (§2)", () => {
       expect(hasAdmin && hasStudent, `chunk ${c.fileName} contains both trees`).toBe(
         false,
       );
+    }
+  });
+
+  it("keeps the drag library behind the builder's own dynamic import", () => {
+    const holding = chunks().filter(
+      (chunk) => matches(chunk.moduleIds, DRAG).length > 0,
+    );
+    expect(holding.length, "the drag library must be built somewhere").toBeGreaterThan(
+      0,
+    );
+    const shell = chunks().filter(
+      (chunk) => matches(chunk.moduleIds, SHELL).length > 0,
+    );
+    expect(shell.length, "the teacher shell must be built somewhere").toBeGreaterThan(
+      0,
+    );
+    const roots = chunks().filter(
+      (chunk) => chunk.isEntry || matches(chunk.moduleIds, ROUTE_MODULE).length > 0,
+    );
+    for (const chunk of reachedFrom([...shell, ...roots])) {
+      expect(matches(chunk.moduleIds, DRAG), chunk.fileName).toEqual([]);
     }
   });
 });

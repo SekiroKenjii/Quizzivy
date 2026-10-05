@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { teacherHandleOf } from "@/layouts/shell/handle";
 
 /** Shell is the console a route belongs to. */
 export type Shell = "teacher" | "admin" | "student";
@@ -14,10 +15,17 @@ export function registerSkeleton(shell: Shell, skeleton: () => ReactNode): void 
   skeletons.set(shell, skeleton);
 }
 
-/** skeletonFor draws the skeleton registered for the shell at pathname, if any. */
-export function skeletonFor(pathname: string): ReactNode {
+/**
+ * skeletonFor draws the skeleton registered for the shell at pathname, if
+ * any. The teacher's is drawn only when `handle`, the leaf route's, is a
+ * teacher handle: a page not yet rebuilt renders in the old shell, which the
+ * frame does not resemble.
+ */
+export function skeletonFor(pathname: string, handle?: unknown): ReactNode {
   const shell = shellFor(pathname);
-  const skeleton = shell === null ? undefined : skeletons.get(shell);
+  if (shell === null) return null;
+  if (shell === "teacher" && teacherHandleOf(handle) === null) return null;
+  const skeleton = skeletons.get(shell);
   return skeleton === undefined ? null : skeleton();
 }
 
