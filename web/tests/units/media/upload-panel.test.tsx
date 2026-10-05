@@ -7,6 +7,7 @@ import {
   UploadPanel,
   type UploadHandle,
 } from "@/features/media/components/UploadPanel";
+import { MAX_AUDIO_BYTES } from "@/features/media/limits";
 import { server } from "@tests/support/server";
 import "@/lib/i18n";
 
@@ -34,6 +35,12 @@ function stubDuration(seconds: number | null) {
 
 function audioFile(name: string, bytes: number): File {
   return new File([new Uint8Array(bytes)], name, { type: "audio/mpeg" });
+}
+
+function audioFileReporting(name: string, bytes: number): File {
+  const file = audioFile(name, 16);
+  Object.defineProperty(file, "size", { value: bytes });
+  return file;
 }
 
 let uploadCalls = 0;
@@ -66,14 +73,21 @@ describe("the upload panel's client-side pre-check", () => {
     expect(uploadCalls, "an over-length file must not be uploaded").toBe(0);
   });
 
-  it("rejects a file over 10 MB without reading its duration", async () => {
+  it("rejects a file one byte over 50 MB without reading its duration", async () => {
     stubDuration(10);
-    await choose(audioFile("qua-lon.mp3", 11 * 1024 * 1024));
+    await choose(audioFileReporting("qua-lon.mp3", MAX_AUDIO_BYTES + 1));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/qua-lon\.mp3/);
-    expect(alert).toHaveTextContent(/10 MB/);
+    expect(alert).toHaveTextContent(/50 MB/);
     expect(uploadCalls).toBe(0);
+  });
+
+  it("uploads a file of exactly 50 MB", async () => {
+    stubDuration(10);
+    await choose(audioFileReporting("vua-du.mp3", MAX_AUDIO_BYTES));
+
+    await waitFor(() => expect(uploadCalls).toBe(1));
   });
 
   it("rejects a file whose extension is not mp3 or m4a", async () => {

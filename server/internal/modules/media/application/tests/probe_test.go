@@ -22,3 +22,9 @@ func (audioProbe) Audio(r io.ReaderAt, size int64) (string, int, error) {
 	}
 	return mime, durationMs, err
 }
+
+type imageProbe struct{}
+
+func (imageProbe) Image(r io.ReaderAt, size int64) (int, int, bool) {
+	return probe.Image(r, size)
+}

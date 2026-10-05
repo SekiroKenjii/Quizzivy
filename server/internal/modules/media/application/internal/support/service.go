@@ -15,12 +15,31 @@ type Service struct {
 	Repo   domain.Repository
 	Object ports.ObjectStore
 	Probe  ports.AudioProbe
+	Images ports.ImageProbe
 	Now    func() time.Time
 	TTL    time.Duration
+	Quota  int64
 }
 
 func NewService(repo domain.Repository, object ports.ObjectStore, probe ports.AudioProbe) *Service {
-	return &Service{Repo: repo, Object: object, Probe: probe, Now: time.Now, TTL: DefaultSignedURLTTL}
+	return &Service{Repo: repo, Object: object, Probe: probe, Now: time.Now, TTL: DefaultSignedURLTTL, Quota: domain.DefaultOwnerQuotaBytes}
+}
+
+// WithImageProbe sets what reads an image's pixel size at upload. Without
+// one, images are stored with no size.
+func (s *Service) WithImageProbe(images ports.ImageProbe) *Service {
+	s.Images = images
+	return s
+}
+
+// WithOwnerQuota sets the bytes one owner's library may hold, from
+// configuration. A non-positive value keeps the default rather than refusing
+// every upload.
+func (s *Service) WithOwnerQuota(bytes int64) *Service {
+	if bytes > 0 {
+		s.Quota = bytes
+	}
+	return s
 }
 
 // WithSignedURLTTL sets the signature lifetime from configuration. A
@@ -55,6 +74,35 @@ func (s *Service) Identify(r io.ReaderAt, size int64) (domain.Kind, string, *int
 		return "", "", nil, err
 	}
 	return domain.KindAudio, mime, &durationMs, nil
+}
+
+// Describe fills what a library row shows beyond its own columns: the
+// published versions that reference it, how many live questions use it, and
+// a signed URL, since the bucket is private (§11.2).
+func (s *Service) Describe(ctx context.Context, assets []domain.Asset) error {
+	ids := make([]string, len(assets))
+	for i := range assets {
+		ids[i] = assets[i].ID
+	}
+	refs, err := s.Repo.ReferencesFor(ctx, ids)
+	if err != nil {
+		return err
+	}
+	questions, err := s.Repo.QuestionCounts(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for i := range assets {
+		url, err := s.Object.SignedURL(ctx, assets[i].StorageKey, s.TTL)
+		if err != nil {
+			return err
+		}
+		assets[i].URL = url
+		assets[i].UsedIn = refs[assets[i].ID]
+		assets[i].UsageCount = len(assets[i].UsedIn)
+		assets[i].QuestionCount = questions[assets[i].ID]
+	}
+	return nil
 }
 
 func (s *Service) Mint(ctx context.Context, asset domain.Asset) (model.SignedURLResult, error) {
