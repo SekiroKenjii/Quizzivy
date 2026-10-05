@@ -1741,6 +1741,9 @@
     "noteHint": "Only you can read this. Never shown to the student.",
     "notePlaceholder": "For example: spoke with Hân; she reported a power outage at 10:04."
   },
+  "splitPane": {
+    "hint": "Drag to resize · double-click to reset"
+  },
   "result": {
     "title": "Result",
     "notReady": "The result isn't ready yet.",

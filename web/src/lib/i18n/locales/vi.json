@@ -1741,6 +1741,9 @@
     "noteHint": "Chỉ bạn đọc được. Không hiện cho học viên.",
     "notePlaceholder": "Ví dụ: đã hỏi Hân, em nói mất điện lúc 10:04."
   },
+  "splitPane": {
+    "hint": "Kéo để đổi độ rộng · bấm đúp để đặt lại"
+  },
   "result": {
     "title": "Kết quả",
     "notReady": "Kết quả chưa sẵn sàng.",
