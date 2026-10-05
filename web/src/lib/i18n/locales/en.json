@@ -1500,6 +1500,25 @@
     "autoSubmitSending": "Saving answers and submitting…",
     "autoSubmitRetry": "Submission is not yet confirmed. Your answers remain on this device and will be retried automatically. Please keep this page open."
   },
+  "notifications": {
+    "kind": {
+      "toGrade_one": "{{count}} paper in {{title}} needs grading",
+      "toGrade_other": "{{count}} papers in {{title}} need grading",
+      "submitted_one": "{{count}} paper handed in for {{title}}",
+      "submitted_other": "{{count}} papers handed in for {{title}}",
+      "flagged_one": "{{studentName}} left the test {{count}} time",
+      "flagged_other": "{{studentName}} left the test {{count}} times",
+      "closing_one": "{{title}} closes soon and {{count}} student has not handed in",
+      "closing_other": "{{title}} closes soon and {{count}} students have not handed in",
+      "joined": "{{studentName}} joined {{className}}",
+      "codesRotated_one": "The join code of {{count}} class was replaced: {{names}}",
+      "codesRotated_other": "The join codes of {{count}} classes were replaced: {{names}}",
+      "opened": "{{title}} is open and closes at {{when}}",
+      "dueSoon": "{{title}} closes at {{when}}",
+      "extended": "{{title}} now closes at {{when}}",
+      "resultReady": "Your result for {{title}} is ready"
+    }
+  },
   "pagination": {
     "label": "Pagination",
     "previous": "Go to previous page",
