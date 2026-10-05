@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.49 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.50 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.49**
+
+R4, "Teacher workspace" (v0.10.0, `docs/plan/74-r4.md`):
+
+- §6.1 At each start-up the API replaces every join code held only as its
+  SHA-256, and neither revoked nor expired, with a sealed one that keeps its
+  expiry and use cap, and tells the class's teacher once in the app. The old
+  code then answers as any replaced code does (T-R4.22).
 
 **Changes since v0.48**
 
@@ -692,7 +701,7 @@ A join code belongs to a class and is a **bearer secret**: whoever holds it can 
 - Generated from a CSPRNG. Never sequential, never derived from the class ID.
 - Per-code controls: `expires_at` (default 30 days), `max_uses` (default null = unlimited), `uses_count`, `revoked_at`.
 - One **active** code per class at a time. Rotating issues a new code and revokes the old one; previously enrolled students are unaffected.
-- Stored encrypted, so it can be read back for its teacher and for admins (D5), and found by a keyed hash (§6.5). A code issued from v0.8.0 on is sealed under the server's `JOIN_CODE_KEY`, which the database never holds (§13.3). A code issued before v0.8.0 is held only as its SHA-256: it still redeems but cannot be read back, and R4 rotates every such code.
+- Stored encrypted, so it can be read back for its teacher and for admins (D5), and found by a keyed hash (§6.5). A code issued from v0.8.0 on is sealed under the server's `JOIN_CODE_KEY`, which the database never holds (§13.3). A code issued before v0.8.0 is held only as its SHA-256: it still redeems but cannot be read back, and R4 rotates every such code. At each start-up from v0.10.0 the API replaces every such code that is neither revoked nor expired with a sealed one that keeps its expiry and use cap and starts unused, leaves the class's self-join setting as it is, audits the change as the System and tells the class's teacher once in the app; the old code then answers as any replaced code does, "revoked" where self-join is open and as an unknown code where it is closed or the class archived.
 - The key is standard base64 of exactly 32 random bytes, kept as a Fly secret with an offline copy. The API refuses to start without it and never logs it. HKDF-SHA256 derives three values from it, each under its own label: the AES-256-GCM key, the HMAC-SHA256 lookup key and a 16-bit key id; a key whose id derives to 0 is refused.
 - Rotating the key: one deploy sets `JOIN_CODE_KEY_PREVIOUS` to the old key and `JOIN_CODE_KEY` to the new one, and codes under either key redeem and read back. `maintenance rekey-join-codes -apply` then re-seals every code under the old key with the new one, and the old key is unset (`docs/setup/operations.md`, "Join-code key"). A lost key leaves every code sealed under it unreadable and unredeemable: rotate every class's code.
 
