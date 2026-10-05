@@ -21,8 +21,9 @@ beforeEach(() => {
         awaitingGrading: 7,
         activeStudents: 23,
         flaggedAttempts: 0,
+        newestFlaggedAttempt: null,
         recentAttempts: [],
-        takingNow: { students: 0, assignments: 0 },
+        takingNow: { students: 0, assignments: 0, assignmentId: null },
         submissions: {
           days: Array.from({ length: 14 }, (_, i) => ({
             date: new Date(Date.UTC(2026, 8, 22 + i)).toISOString().slice(0, 10),

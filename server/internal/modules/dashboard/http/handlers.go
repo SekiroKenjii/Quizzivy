@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/dashboard/application"
@@ -9,6 +10,7 @@ import (
 	"quizzivy/internal/modules/dashboard/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/access"
 )
 
 type Dashboard struct {
@@ -27,7 +29,9 @@ func (h Dashboard) GetDashboard(ctx context.Context, request openapi.GetDashboar
 	if request.Params.Range != nil {
 		rangeValue = string(*request.Params.Range)
 	}
-	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{Scope: httpapi.ScopeFromContext(ctx).Own(), Range: rangeValue})
+	principal, _ := httpx.PrincipalFromContext(ctx)
+	canReview := principal.Access.Permissions.Has(access.TeachingGrading) || principal.Access.Permissions.Has(access.TeachingAttemptsIntervene)
+	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{Scope: httpapi.ScopeFromContext(ctx).Own(), Range: rangeValue, CanReviewFlagged: canReview})
 	if err != nil {
 		return nil, err
 	}
@@ -44,10 +48,21 @@ func (h Dashboard) GetDashboard(ctx context.Context, request openapi.GetDashboar
 		row := summary.NextClosing
 		next = &openapi.ClosingAssignment{Id: httpapi.ParseUUID(row.ID), Title: row.Title, ClosesAt: row.ClosesAt, SubmittedCount: row.SubmittedCount, TargetCount: row.TargetCount}
 	}
+	var flagged *openapi.DashboardFlaggedAttempt
+	if summary.NewestFlaggedAttempt != nil {
+		row := summary.NewestFlaggedAttempt
+		flagged = &openapi.DashboardFlaggedAttempt{AssignmentId: httpapi.ParseUUID(row.AssignmentID), AttemptId: httpapi.ParseUUID(row.AttemptID)}
+	}
+	var takingAssignment *openapi_types.UUID
+	if summary.TakingNow.AssignmentID != nil {
+		id := httpapi.ParseUUID(*summary.TakingNow.AssignmentID)
+		takingAssignment = &id
+	}
 	return openapi.GetDashboard200JSONResponse{
-		ClosingSoon: &summary.ClosingSoon, WaitingStudents: &summary.WaitingStudents,
+		NewestFlaggedAttempt: flagged,
+		ClosingSoon:          &summary.ClosingSoon, WaitingStudents: &summary.WaitingStudents,
 		OldestWaitingAt: summary.OldestWaitingAt, TotalStudents: &summary.TotalStudents, NextClosing: next,
-		TakingNow:   openapi.DashboardTakingNow{Students: summary.TakingNow.Students, Assignments: summary.TakingNow.Assignments},
+		TakingNow:   openapi.DashboardTakingNow{Students: summary.TakingNow.Students, Assignments: summary.TakingNow.Assignments, AssignmentId: takingAssignment},
 		Submissions: submissions, Today: toAPIToday(summary.Today), RecentActivity: toAPIActivity(summary.RecentActivity),
 		OpenAssignments: summary.OpenAssignments,
 		AwaitingGrading: summary.AwaitingGrading,

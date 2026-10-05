@@ -27,3 +27,9 @@ type HomeQuery struct {
 	Zone  string
 	Days  int
 }
+
+// SummaryQuery fixes the scope and permission for the flagged destination.
+type SummaryQuery struct {
+	Scope            access.Scope
+	CanReviewFlagged bool
+}
