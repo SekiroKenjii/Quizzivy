@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/core/router"
 	accessapp "quizzivy/internal/modules/access/application"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
+	classesapp "quizzivy/internal/modules/classes/application"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
@@ -27,6 +28,7 @@ type Assembly struct {
 	Tokens        *identitytoken.Issuer
 	Docs          *identitytoken.Issuer
 	Identity      *identityapp.Application
+	Classes       *classesapp.Application
 	Notifications *notificationsapp.Application
 	ImportSweeper *importsworker.Sweeper
 	Maintenance   httpx.MaintenanceSource
@@ -48,7 +50,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	previousKeyID, rotating := keys.PreviousID()
 	logger.Info("join code keys", "current_key_id", keys.CurrentID(), "previous_key_id", previousKeyID, "rotating", rotating)
-	classesApp := classes(dbx, stats, keys)
+	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify)
 	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember)
 	if err != nil {
 		return Assembly{}, err
@@ -91,6 +93,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		Tokens:        tokens,
 		Docs:          docs,
 		Identity:      identityApp,
+		Classes:       classesApp,
 		Notifications: notificationsApp,
 	}, nil
 }

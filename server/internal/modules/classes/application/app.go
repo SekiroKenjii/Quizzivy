@@ -3,6 +3,7 @@ package application
 import (
 	"quizzivy/internal/modules/classes/application/command"
 	"quizzivy/internal/modules/classes/application/internal/support"
+	"quizzivy/internal/modules/classes/application/ports"
 	"quizzivy/internal/modules/classes/application/query"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/shared/cqrs"
@@ -22,6 +23,13 @@ func (a *Application) SetClock(now func() time.Time) {
 	a.enrolment.SetClock(now)
 }
 
+// WithNotifier supplies the notifier RotateLegacyJoinCodes tells each teacher
+// through. Without one the command rotates and tells nobody.
+func (a *Application) WithNotifier(notifier ports.Notifier) *Application {
+	a.Commands.RotateLegacyJoinCodes = command.RotateLegacyJoinCodesHandler{Enrolment: a.enrolment, Notifier: notifier}
+	return a
+}
+
 type Commands struct {
 	Delete         cqrs.CommandHandler[command.Delete, cqrs.Nothing]
 	AddMember      cqrs.CommandHandler[command.AddMember, domain.Member]
@@ -33,6 +41,8 @@ type Commands struct {
 	Revoke         cqrs.CommandHandler[command.Revoke, cqrs.Nothing]
 	Rotate         cqrs.CommandHandler[command.Rotate, domain.Rotated]
 	Update         cqrs.CommandHandler[command.Update, domain.Class]
+
+	RotateLegacyJoinCodes cqrs.CommandHandler[command.RotateLegacyJoinCodes, domain.LegacyRotation]
 }
 
 type Queries struct {
@@ -62,6 +72,8 @@ func New(repo domain.Repository, stats stats.Source, keys domain.JoinCodeKeys) *
 			Revoke:         command.RevokeHandler{Enrolment: enrolment},
 			Rotate:         command.RotateHandler{Enrolment: enrolment},
 			Update:         command.UpdateHandler{Service: service},
+
+			RotateLegacyJoinCodes: command.RotateLegacyJoinCodesHandler{Enrolment: enrolment},
 		},
 		Queries: Queries{
 			ActiveCode: query.ActiveCodeHandler{Enrolment: enrolment},

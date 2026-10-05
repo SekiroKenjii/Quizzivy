@@ -26,6 +26,17 @@ type Repository interface {
 	Rotate(ctx context.Context, in RotateInput) (IssuedCode, error)
 	Revoke(ctx context.Context, in RevokeInput) error
 	ActiveCode(ctx context.Context, scope access.Scope, classID string) (StoredCode, error)
+	// LegacyCodeClasses lists every class whose active join code is a legacy
+	// one that has not expired at now, archived classes included, by teacher
+	// and then by name.
+	LegacyCodeClasses(ctx context.Context, now time.Time) ([]LegacyCodeClass, error)
+	// RotateLegacyCode revokes the class's active code and issues the sealed
+	// one in a single transaction, and reports whether it did. It writes
+	// nothing and reports false when, read again under the lock, the class
+	// has no active legacy code that outlives in.Now. A transaction the
+	// database aborted as a deadlock or serialization victim answers
+	// ErrRotationContended.
+	RotateLegacyCode(ctx context.Context, in LegacyRotationInput) (bool, error)
 	Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error)
 	LookupByCode(ctx context.Context, code JoinCodeLookup) (*CodeRow, error)
 }

@@ -4,8 +4,10 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -43,5 +45,28 @@ func TestServeStartsTheDailyPrunes(t *testing.T) {
 		if !slices.Contains(started, job) {
 			t.Errorf("Serve starts %v, so %s never runs", started, job)
 		}
+	}
+}
+
+func TestServeStartsTheLegacyJoinCodeRotationOnce(t *testing.T) {
+	started := startedBy(t, "Serve")
+	n := 0
+	for _, job := range started {
+		if job == "RotateLegacyJoinCodes" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("Serve starts %v, so the legacy join codes are rotated %d times at start-up, want once", started, n)
+	}
+}
+
+func TestOnlyTheAPIProcessRotatesLegacyJoinCodes(t *testing.T) {
+	worker, err := os.ReadFile(filepath.Join("..", "import_worker.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(worker), "RotateLegacyJoinCodes") {
+		t.Error("the import worker starts the legacy join-code rotation; only the API process may")
 	}
 }
