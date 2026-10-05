@@ -40,7 +40,7 @@ export function BarChart({
             >
               <div
                 className={cn(
-                  "rounded-t-[0.25rem] rounded-b-[0.125rem] transition-[height] duration-200 motion-reduce:transition-none",
+                  "rounded-t-[0.25rem] rounded-b-[0.125rem] transition-[height] duration-200 ease-[ease] motion-reduce:transition-none",
                   index === last ? "bg-brand" : "bg-hover",
                 )}
                 style={{ height: `${heights[index] ?? 0}%` }}

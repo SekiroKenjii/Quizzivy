@@ -187,7 +187,10 @@ describe("KpiTile without a destination", () => {
   it("keeps the frame of the tile that links", () => {
     const linked = tile({ ...TO_GRADE, to: "/teacher/grading", action: "Chấm" });
     const frame = [...linked.container.firstElementChild!.classList].filter(
-      (name) => name !== "hover:border-ring" && name !== "transition-colors",
+      (name) =>
+        name !== "hover:border-ring" &&
+        name !== "transition-colors" &&
+        name !== "ease-[ease]",
     );
     linked.unmount();
     const plain = tile(NOTHING_FLAGGED);

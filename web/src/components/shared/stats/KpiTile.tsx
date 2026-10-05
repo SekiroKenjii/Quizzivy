@@ -71,7 +71,10 @@ export function KpiTile({
     );
   }
   return (
-    <Link to={to} className={cn(FRAME, "hover:border-ring transition-colors")}>
+    <Link
+      to={to}
+      className={cn(FRAME, "hover:border-ring transition-colors ease-[ease]")}
+    >
       {figure}
       <div className={FOOT}>
         <div>{hint}</div>
