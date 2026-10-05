@@ -3,11 +3,13 @@
 package domain
 
 import (
+	"errors"
 	"time"
 )
 
-// Summary is the admin home in one reading: the four counts and the latest attempts.
+// Summary is the teacher home with legacy figures and its calendar readings.
 type Summary struct {
+	Home
 	ClosingSoon     int
 	WaitingStudents int
 	OldestWaitingAt *time.Time
@@ -40,4 +42,53 @@ type ClosingAssignment struct {
 	ClosesAt       time.Time
 	SubmittedCount int
 	TargetCount    int
+}
+
+// ErrNotificationsUnavailable means the nav summary has no notifications port.
+var ErrNotificationsUnavailable = errors.New("dashboard: notifications unavailable")
+
+// Home is the calendar and activity reading of the teacher dashboard.
+type Home struct {
+	TakingNow      TakingNow
+	Submissions    Submissions
+	Today          []Today
+	RecentActivity []Activity
+}
+
+// TakingNow counts distinct students and assignments before their attempt deadlines.
+type TakingNow struct{ Students, Assignments int }
+
+// Submissions is a complete calendar series and the graded mean in that range.
+type Submissions struct {
+	Days           []Day
+	Total          int
+	AveragePercent *int
+}
+
+// Day is a local calendar date and its handed-in paper count.
+type Day struct {
+	Date  string
+	Count int
+}
+
+// Today is one published assignment opening or effective closing.
+type Today struct {
+	Kind                string
+	At                  time.Time
+	AssignmentID, Title string
+	NotSubmitted        int
+}
+
+// Activity is one attempt state or a student-like class join by code.
+type Activity struct {
+	Kind                 string
+	At                   time.Time
+	StudentName, Subject string
+	Flagged              bool
+}
+
+// Nav is the caller's permission-aware shell counts.
+type Nav struct {
+	LiveAssignments, AnswersToGrade *int
+	UnreadNotifications             int
 }
