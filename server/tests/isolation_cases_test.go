@@ -348,6 +348,7 @@ func isolationCases() map[string]isoCase {
 		"gradeAttempt":        {body: fixed(map[string]any{"items": []any{map[string]any{"questionId": "", "points": 1}}})},
 		"finishGrading":       {},
 		"getDashboard":        {},
+		"getTeacherSummary":   {},
 		"listStudents":        {excuse: map[string]string{"query classId": "a filter by a missing class lists nothing"}},
 		"createStudent": {body: func(x *iso, _ *party, _ string) any {
 			return map[string]any{"email": "tao-" + nonce(x.t) + "@example.com", "fullName": "Học viên mới", "classIds": []any{""}}

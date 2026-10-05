@@ -76,7 +76,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	return Assembly{
 		Modules: router.Modules{
 			Imports:       importsTransport,
-			Dashboard:     dashboard(dbx),
+			Dashboard:     dashboard(dbx, notificationsApp),
 			Classes:       classesTransport(classesApp),
 			Identity:      identityTransport(cfg, identityApp, docs),
 			Questions:     questionsTransport(questionsApp, mediaApp),

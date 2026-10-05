@@ -1395,8 +1395,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The five counts §8 needs and spec §15 has no endpoint for, over what the caller reaches. One round trip. */
+        /** @description The dashboard in the caller's own teaching scope, Admin included; the repository wide scope is never requested here. */
         get: operations["getDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Three nav counts in the caller's own teaching scope, Admin included; answersToGrade is null without teaching.grading. */
+        get: operations["getTeacherSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4151,11 +4168,12 @@ export interface components {
             flagged: boolean;
         };
         /**
-         * @description §8's teacher dashboard needs five counts that spec §15 has no endpoint for. One
-         *     round trip, not five. Every figure covers what the caller reaches: the assignments
-         *     they created or that target a class they teach, the papers the grading queue shows
-         *     them on those assignments, and the students of the classes they teach. With
-         *     `scope.all` it covers everything.
+         * @description The Teacher dashboard covers the caller's own teaching, including an Admin:
+         *     assignments they created or targeting classes they teach, reachable papers on
+         *     them, and their classes. Its repository supports scope.all for a future Admin
+         *     console, but this operation never requests it. Legacy fields retain their
+         *     meaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents
+         *     and recentAttempts, and R5 removes them. Range affects submissions only.
          */
         Dashboard: {
             /** @description Open assignments closing within the next 24 hours. */
@@ -4164,15 +4182,65 @@ export interface components {
             waitingStudents?: number;
             /** Format: date-time */
             oldestWaitingAt?: string | null;
-            /** @description Enabled student accounts in the classes the caller teaches; every enabled student account with `scope.all`. */
+            /** @description Enabled student-like accounts in the classes the caller teaches, for an Admin too; this operation never requests the repository wide scope. */
             totalStudents?: number;
             nextClosing?: components["schemas"]["ClosingAssignment"] | null;
             openAssignments: number;
             awaitingGrading: number;
-            /** @description Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches. With `scope.all`, every enabled account that started an attempt in the last seven days, whatever its role. */
+            /** @description Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here. */
             activeStudents: number;
             flaggedAttempts: number;
             recentAttempts: components["schemas"]["AttemptListRow"][];
+            takingNow: components["schemas"]["DashboardTakingNow"];
+            submissions: components["schemas"]["DashboardSubmissions"];
+            today: components["schemas"]["DashboardToday"][];
+            recentActivity: components["schemas"]["DashboardActivity"][];
+        };
+        /** @description Distinct students and assignments with reachable in-progress attempts before their deadline. */
+        DashboardTakingNow: {
+            students: number;
+            assignments: number;
+        };
+        /** @description Handed-in papers within the chosen calendar range in the actor's zone, including graded papers. */
+        DashboardSubmissions: {
+            /** @description One entry per day, oldest first and today last, including zero days. */
+            days: components["schemas"]["DashboardDay"][];
+            total: number;
+            /** @description Mean graded paper percentage, rounded half up; null when no graded paper has a score. */
+            averagePercent: number | null;
+        };
+        DashboardDay: {
+            /** Format: date */
+            date: string;
+            count: number;
+        };
+        /** @description Published assignment openings and effective closings today in the actor's zone, oldest first. */
+        DashboardToday: {
+            /** @enum {string} */
+            kind: "opens" | "closes";
+            at: components["schemas"]["Timestamp"];
+            assignmentId: components["schemas"]["Uuid"];
+            title: string;
+            /** @description Distinct enabled reached targets without a submitted, timed-out or graded attempt on this assignment. */
+            notSubmitted: number;
+        };
+        /** @description Latest ten activities, newest first; one row per non-voided attempt, plus student-like joins by code into taught classes. */
+        DashboardActivity: {
+            /** @enum {string} */
+            kind: "submitted" | "started" | "joined";
+            at: components["schemas"]["Timestamp"];
+            studentName: string;
+            subject: string;
+            flagged: boolean;
+        };
+        /** @description Cheap nav counts in the caller's own teaching scope, for an Admin too. */
+        TeacherSummary: {
+            /** @description Rows the caller's Assignments list shows as open; always a number under the current workspace.teacher gate. */
+            liveAssignments: number | null;
+            /** @description Unmarked manual answers in reachable handed-in papers; null without teaching.grading, when the count is not run. */
+            answersToGrade: number | null;
+            /** @description The caller's own unread notifications. */
+            unreadNotifications: number;
         };
         ClosingAssignment: {
             id: components["schemas"]["Uuid"];
@@ -7513,7 +7581,10 @@ export interface operations {
     };
     getDashboard: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Calendar range for submissions only; all other dashboard figures keep their own windows. */
+                range?: "7d" | "14d" | "30d";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7527,6 +7598,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Dashboard"];
+                };
+            };
+        };
+    };
+    getTeacherSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeacherSummary"];
                 };
             };
         };

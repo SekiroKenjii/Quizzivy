@@ -19,11 +19,19 @@ func NewDashboard(app *application.Application) Dashboard {
 	return Dashboard{app: app}
 }
 
-func (h Dashboard) GetDashboard(ctx context.Context, _ openapi.GetDashboardRequestObject) (openapi.GetDashboardResponseObject, error) {
+func (h Dashboard) GetDashboard(ctx context.Context, request openapi.GetDashboardRequestObject) (openapi.GetDashboardResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{Scope: httpapi.ScopeFromContext(ctx)})
+	rangeValue := "14d"
+	if request.Params.Range != nil {
+		rangeValue = string(*request.Params.Range)
+	}
+	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{Scope: httpapi.ScopeFromContext(ctx).Own(), Range: rangeValue})
+	if err != nil {
+		return nil, err
+	}
+	submissions, err := toAPISubmissions(summary.Submissions)
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +47,8 @@ func (h Dashboard) GetDashboard(ctx context.Context, _ openapi.GetDashboardReque
 	return openapi.GetDashboard200JSONResponse{
 		ClosingSoon: &summary.ClosingSoon, WaitingStudents: &summary.WaitingStudents,
 		OldestWaitingAt: summary.OldestWaitingAt, TotalStudents: &summary.TotalStudents, NextClosing: next,
+		TakingNow:   openapi.DashboardTakingNow{Students: summary.TakingNow.Students, Assignments: summary.TakingNow.Assignments},
+		Submissions: submissions, Today: toAPIToday(summary.Today), RecentActivity: toAPIActivity(summary.RecentActivity),
 		OpenAssignments: summary.OpenAssignments,
 		AwaitingGrading: summary.AwaitingGrading,
 		ActiveStudents:  summary.ActiveStudents,

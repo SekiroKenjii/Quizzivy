@@ -1,7 +1,18 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.52 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.53 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.52**
+
+R4, teacher home and shell counts (T-R4.19):
+
+- §5 Both home operations use the caller's own teaching scope, admins included;
+  repository-wide reads and the attempt list retain their existing scope.
+- §8, §15 The dashboard adds live taking counts, range-bound calendar submissions,
+  today's assignment events and recent activity; the nav gets its own summary.
+  Grading is permission-aware, calendar queries use the actor-zone port and
+  application clock, and nullable graded scores retain their existing meaning.
 
 **Changes since v0.51**
 
@@ -640,7 +651,7 @@ Signing in (§5.1–§5.3) says who a user is; the user's role (§1.1) says what
 - **Open operations** do not require the bearer token, declare no permission and pass untouched. There are seven: login, Google sign-in, refresh, logout, `POST /join/preview`, `GET /public/status` and the integrity beacon (`POST /app/attempts/:id/events`).
 - **Refusals.** No valid token, an unknown or disabled user, or a token older than the user's session epoch (§5.2) → `401 UNAUTHORIZED` with `WWW-Authenticate`, which the single-flight refresh settles. An unmet permission → `403 FORBIDDEN`, with no detail.
 - **The principal.** Each gated request resolves the caller's role, permissions, `disabled_at` and session epoch through an in-process cache that keeps a user for 10 seconds. A write on the same machine forgets the entry at once, so the change applies on that machine's next request and on any other within 10 seconds. Polling does not query the database on every request.
-- **Scope is separate from permission.** Repositories filter by `access.Scope`: another teacher's id answers as a missing one does, and their rows never appear in a list or a count. A student is visible to every teacher who reaches them: a member of a class the teacher teaches, an account the teacher created, or an individual target of an assignment the teacher created. `scope.all`, which only the Admin holds, lifts the filter for a read or a write by id, and in the lists of classes, students and attempts and the dashboard's figures. It does not lift it in the teacher workspace's six content lists (`listTests`, `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`, `listAssignments`, with their facets, tags and counts): those hold the caller's own rows for every caller, the Admin included, and for assignments that is those the caller created or that target a class the caller teaches (DG-53, T-R4.54). The Admin reaches another teacher's content by id and, from R5, in the Admin console.
+- **Scope is separate from permission.** Repositories filter by `access.Scope`: another teacher's id answers as a missing one does, and their rows never appear in a list or a count. A student is visible to every teacher who reaches them: a member of a class the teacher teaches, an account the teacher created, or an individual target of an assignment the teacher created. `scope.all`, which only the Admin holds, lifts the filter for a read or a write by id, and in the lists of classes, students and attempts. It does not lift it in the teacher workspace's six content lists (`listTests`, `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`, `listAssignments`, with their facets, tags and counts): those hold the caller's own rows for every caller, the Admin included, and for assignments that is those the caller created or that target a class the caller teaches (DG-53, T-R4.54). Both teacher home operations, `getDashboard` and `getTeacherSummary`, pass `.Own()`, so their figures cover only the caller's teaching, admins included; the repository retains its wide `scope.all` reading for the future Admin console. The Admin reaches another teacher's content by id and, from R5, in the Admin console.
 
 ### 5.1 Methods
 
@@ -1142,7 +1153,7 @@ flat results/reviews keep their existing payload and require no group reader.
 
 | Route | Screen | Key behaviour |
 |---|---|---|
-| `/admin` | Dashboard | Open assignments, attempts awaiting grading, active students, flagged attempts, recent attempts. |
+| `/admin` | Dashboard | Legacy figures remain; the teacher home API also supplies live taking counts, calendar submissions, today's assignments and recent activity in the caller's own teaching scope. |
 | `/admin/tests` | Tests list | Title, status, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. |
 | `/admin/tests/new`, `/admin/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **audio attach** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. |
 | `/admin/tests/:id` | Test detail | Student-eye preview of any version, with history in the shared right sidebar. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
@@ -1156,6 +1167,35 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/admin/students` | Students | Table + create/edit. Linked providers, `joined_via`. Reset password. CSV import (P1). |
 | `/admin/classes`, `/admin/classes/:id` | Classes | CRUD, members, **join-code panel** (§6.4). |
 | `/admin/settings/:section?` | Settings | Profile (default), security (password and Google) and preferences (language), with desktop section navigation and a mobile select. |
+
+The teacher home API (`getDashboard`) accepts `range=7d|14d|30d`, defaulting
+to `14d`. Only `submissions` depends on this range: one zero-padded calendar day
+per entry in the actor's zone, oldest first with today last, counting `submitted`,
+`timed_out` and `graded` papers by `submitted_at`. The total is their sum. The
+integer mean percentage rounds half up over graded papers with a valid score;
+graded papers without scores still count, and the mean is null when none has a
+score. The existing nullable score columns and historical rows are unchanged.
+
+`takingNow` counts distinct students and assignments with an `in_progress` paper
+whose deadline is strictly in the future. `today` holds up to 20 published
+assignment openings and effective closings in the actor's calendar day, earliest
+first; an early close uses the earlier of `closed_at` and `closes_at`.
+`notSubmitted` counts distinct enabled targets the caller reaches without a
+handed-in paper; a former target's submission does not subtract from that roster.
+`recentActivity` holds the ten newest events: one state per non-voided attempt
+(started while in progress, submitted once handed in), and student-like joins
+through a taught class's code. Attempt flags carry through; joins are unflagged.
+These new readings contain no score, band or answer.
+
+`getTeacherSummary` supplies live assignments matching the caller's open list,
+unmarked manual answers in reachable handed-in papers, and the caller's unread
+notifications. The grading count is null and its query is not run without
+`teaching.grading`; live assignments is currently always a number. Both home
+operations use `.Own()` even for an Admin, while `listAttempts` keeps its wider
+scope. The application supplies the new queries' clock and resolves the IANA
+calendar zone through `ports.Zones`; the default adapter and a nil port use
+`Asia/Ho_Chi_Minh` until T-R4.7 wires the profile zone. Legacy readings retain
+their SQL clocks. An absent notifications summary port returns 501.
 
 Admin list behaviour (approved change request, 2026-09-22):
 
@@ -1967,6 +2007,8 @@ POST   /auth/google/link                link Google to current account → Curre
 DELETE /auth/google/link                rejected if it would leave no login method
 
 # teacher
+GET    /teacher/dashboard?range=7d|14d|30d → Dashboard (default 14d; own teaching)
+GET    /teacher/summary                → TeacherSummary {liveAssignments,answersToGrade,unreadNotifications}
 GET    /teacher/tests?status=&q=&cursor=
 POST   /teacher/tests | GET /:id | PATCH /:id
 POST   /teacher/tests/:id/publish       → new version
