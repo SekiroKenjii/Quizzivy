@@ -21,3 +21,10 @@ func (AudioProbe) Audio(r io.ReaderAt, size int64) (string, int, error) {
 	}
 	return mime, durationMs, err
 }
+
+// ImageProbe adapts the platform probe to media's ImageProbe port.
+type ImageProbe struct{}
+
+func (ImageProbe) Image(r io.ReaderAt, size int64) (int, int, bool) {
+	return probe.Image(r, size)
+}

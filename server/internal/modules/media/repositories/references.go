@@ -59,6 +59,45 @@ func ReferencesFor(ctx context.Context, q db.Querier, assetIDs []string) (map[st
 	return out, rows.Err()
 }
 
+const questionsUsing = `(
+		SELECT q.id FROM app.questions q
+		 WHERE q.media_asset_id = a.id AND q.deleted_at IS NULL
+		UNION
+		SELECT q.id FROM app.questions q
+		 WHERE q.deleted_at IS NULL
+		   AND q.context_group_id IN (SELECT r.group_id FROM app.group_recordings r WHERE r.media_asset_id = a.id
+		                              UNION ALL
+		                              SELECT m.group_id FROM app.group_stimulus_assets m WHERE m.media_asset_id = a.id))`
+
+// QuestionCounts is how many live questions use each asset, keyed by the
+// asset's canonical text: a question that attaches it, and every member of a
+// group whose recordings or stimulus assets name it, each question once and
+// whoever owns it. A deleted question, a published version and a group
+// without members add nothing. An id that names no asset is left out.
+func QuestionCounts(ctx context.Context, q db.Querier, assetIDs []string) (map[string]int, error) {
+	rows, err := q.Query(ctx, `
+		SELECT a.id::text, (SELECT count(*) FROM `+questionsUsing+` used)
+		  FROM app.media_assets a
+		 WHERE a.id = ANY($1::uuid[])`, assetIDs)
+	if err != nil {
+		return nil, fmt.Errorf("media: question counts: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[string]int, len(assetIDs))
+	for rows.Next() {
+		var id string
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("media: question counts: %w", err)
+		}
+		out[id] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("media: question counts: %w", err)
+	}
+	return out, nil
+}
+
 // LockForVersionUse takes the row lock that makes the delete check meaningful,
 // and must be called by the publish routine before inserting a version question
 // that names the asset.
@@ -188,6 +227,10 @@ func RequireReadable(ctx context.Context, q db.Querier, scope access.Scope, asse
 
 func (s *Postgres) ReferencesFor(ctx context.Context, assetIDs []string) (map[string][]domain.TestRef, error) {
 	return ReferencesFor(ctx, s.Conn(), assetIDs)
+}
+
+func (s *Postgres) QuestionCounts(ctx context.Context, assetIDs []string) (map[string]int, error) {
+	return QuestionCounts(ctx, s.Conn(), assetIDs)
 }
 
 func (s *Postgres) ReachableByStudent(ctx context.Context, studentID, assetID string) (bool, error) {

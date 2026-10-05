@@ -411,6 +411,10 @@
   animation: qz-shimmer 1.4s linear infinite;
 }
 
+[data-slot="teacher-skeleton"]:is(:hover, :focus-within) [data-slot="skeleton"] {
+  animation-play-state: paused;
+}
+
 .qz-breath {
   animation: qz-breath 1.8s ease-in-out infinite;
 }

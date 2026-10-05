@@ -18,3 +18,9 @@ type ObjectStore interface {
 type AudioProbe interface {
 	Audio(r io.ReaderAt, size int64) (mime string, durationMs int, err error)
 }
+
+// ImageProbe reads an image's size in pixels from its header. ok is false
+// when the header cannot be read, and the image is then stored without one.
+type ImageProbe interface {
+	Image(r io.ReaderAt, size int64) (width, height int, ok bool)
+}

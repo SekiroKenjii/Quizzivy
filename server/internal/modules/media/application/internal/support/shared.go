@@ -27,13 +27,16 @@ func SniffImage(head []byte) string {
 	return ""
 }
 
+const copyBuffer = 32 << 10
+
 // BoundedCopy copies at most limit+1 bytes, so exceeding the limit is
-// detectable without ever holding limit+n of an attacker's choosing.
+// detectable without ever holding limit+n of an attacker's choosing. It reads
+// through one small buffer, whatever the size of the upload.
 //
 // The +1 matters: copying exactly `limit` cannot distinguish a file at the
-// limit from one over it, and "10.0 MB exactly" is a file we accept.
+// limit from one over it, and a file of exactly the limit is one we accept.
 func BoundedCopy(dst io.Writer, src io.Reader, limit int64) (int64, error) {
-	n, err := io.Copy(dst, io.LimitReader(src, limit+1))
+	n, err := io.CopyBuffer(dst, io.LimitReader(src, limit+1), make([]byte, copyBuffer))
 	if err != nil {
 		return n, fmt.Errorf("media: reading upload: %w", err)
 	}

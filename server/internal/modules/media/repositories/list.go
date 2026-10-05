@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/media/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
@@ -16,38 +17,96 @@ const (
 	MaxLimit     = 100
 )
 
-func library(scope access.Scope, kind *domain.Kind) (string, []any) {
-	where, args := []string{"deleted_at IS NULL"}, []any{}
-	if !scope.All {
-		args = append(args, opt.String(scope.UserID))
-		where = append(where, fmt.Sprintf("owner_id = $%d::uuid", len(args)))
+const inLibrary = `a.deleted_at IS NULL AND a.replaced_by IS NULL`
+
+const nameSearch = `app.immutable_unaccent(lower(coalesce(a.display_name, '') || ' ' || a.original_filename))` +
+	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
+
+type libraryFilter struct {
+	scope  access.Scope
+	kind   *domain.Kind
+	query  string
+	unused bool
+}
+
+func filterOf(in domain.ListInput) libraryFilter {
+	return libraryFilter{scope: in.Scope, kind: in.Kind, query: in.Query, unused: in.Unused}
+}
+
+func library(f libraryFilter) (string, []any) {
+	where, args := []string{inLibrary}, []any{}
+	if !f.scope.All {
+		args = append(args, opt.String(f.scope.UserID))
+		where = append(where, fmt.Sprintf("a.owner_id = $%d::uuid", len(args)))
 	}
-	if kind != nil {
-		args = append(args, string(*kind))
-		where = append(where, fmt.Sprintf("kind = $%d::app.media_kind", len(args)))
+	if f.kind != nil {
+		args = append(args, string(*f.kind))
+		where = append(where, fmt.Sprintf("a.kind = $%d::app.media_kind", len(args)))
+	}
+	if q := strings.TrimSpace(f.query); q != "" {
+		args = append(args, db.EscapeLike(q))
+		where = append(where, fmt.Sprintf(nameSearch, len(args)))
+	}
+	if f.unused {
+		where = append(where, "NOT EXISTS "+questionsUsing)
 	}
 	return `
-		  FROM app.media_assets
+		  FROM app.media_assets a
 		 WHERE ` + strings.Join(where, "\n		   AND "), args
 }
 
-// TotalBytes sums the live assets List pages through for the same scope and
-// kind, so the library's header agrees with its rows.
-func (s *Postgres) TotalBytes(ctx context.Context, scope access.Scope, kind *domain.Kind) (int64, error) {
-	from, args := library(scope, kind)
+// TotalBytes sums the library assets List pages through for the same scope,
+// search and filters, so the library's header agrees with its rows.
+func (s *Postgres) TotalBytes(ctx context.Context, in domain.ListInput) (int64, error) {
+	from, args := library(filterOf(in))
 	var total int64
-	if err := s.QueryRow(ctx, `SELECT coalesce(sum(bytes), 0)`+from, args...).Scan(&total); err != nil {
+	if err := s.QueryRow(ctx, `SELECT coalesce(sum(a.bytes), 0)::bigint`+from, args...).Scan(&total); err != nil {
 		return 0, fmt.Errorf("media: total bytes: %w", err)
 	}
 	return total, nil
 }
 
-// List returns one page of the live assets in the input's scope, newest first,
+// Facets counts the library by tab for the input's scope and search, ignoring
+// its kind and its unused filter, so choosing a tab leaves the other counts
+// standing. Unused counts the assets no live question uses, as the unused
+// filter keeps them.
+func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Facets, error) {
+	from, args := library(libraryFilter{scope: in.Scope, query: in.Query})
+	var f domain.Facets
+	err := s.QueryRow(ctx, `
+		SELECT count(*),
+		       count(*) FILTER (WHERE x.kind = 'audio'),
+		       count(*) FILTER (WHERE x.kind = 'image'),
+		       count(*) FILTER (WHERE x.unused)
+		  FROM (SELECT a.kind, NOT EXISTS `+questionsUsing+` AS unused`+from+`) x`, args...).
+		Scan(&f.All, &f.Audio, &f.Image, &f.Unused)
+	if err != nil {
+		return domain.Facets{}, fmt.Errorf("media: facets: %w", err)
+	}
+	return f, nil
+}
+
+// Usage sums the scope's whole library by kind, whatever the list is
+// filtered by. It leaves QuotaBytes zero: the quota is the application's.
+func (s *Postgres) Usage(ctx context.Context, scope access.Scope) (domain.Usage, error) {
+	from, args := library(libraryFilter{scope: scope})
+	var u domain.Usage
+	err := s.QueryRow(ctx, `
+		SELECT coalesce(sum(a.bytes) FILTER (WHERE a.kind = 'audio'), 0)::bigint,
+		       coalesce(sum(a.bytes) FILTER (WHERE a.kind = 'image'), 0)::bigint`+from, args...).
+		Scan(&u.AudioBytes, &u.ImageBytes)
+	if err != nil {
+		return domain.Usage{}, fmt.Errorf("media: usage: %w", err)
+	}
+	return u, nil
+}
+
+// List returns one page of the library in the input's scope, newest first,
 // with the paging beside it.
 func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Asset, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	from, args := library(in.Scope, in.Kind)
+	from, args := library(filterOf(in))
 
 	page := paging.Page{Number: number, Size: limit}
 	if err := s.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
@@ -55,10 +114,8 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Asse
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.Query(ctx, `
-		SELECT id::text, kind::text, storage_key, mime_type, bytes, duration_ms,
-		       original_filename, checksum_sha256, created_at`+from+fmt.Sprintf(`
-		 ORDER BY created_at DESC, id DESC
+	rows, err := s.Query(ctx, `SELECT `+assetColumns+from+fmt.Sprintf(`
+		 ORDER BY a.created_at DESC, a.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, paging.Page{}, fmt.Errorf("media: list assets: %w", err)
@@ -67,13 +124,10 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Asse
 
 	assets := make([]domain.Asset, 0, limit)
 	for rows.Next() {
-		var a domain.Asset
-		var kind string
-		if err := rows.Scan(&a.ID, &kind, &a.StorageKey, &a.MimeType, &a.Bytes,
-			&a.DurationMs, &a.OriginalFilename, &a.ChecksumSHA256, &a.CreatedAt); err != nil {
+		a, err := scanAsset(rows)
+		if err != nil {
 			return nil, paging.Page{}, fmt.Errorf("media: scan asset: %w", err)
 		}
-		a.Kind = domain.Kind(kind)
 		assets = append(assets, a)
 	}
 	if err := rows.Err(); err != nil {

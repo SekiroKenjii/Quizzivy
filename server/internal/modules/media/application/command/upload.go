@@ -2,22 +2,25 @@ package command
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"io"
-	"os"
 	"quizzivy/internal/modules/media/application/internal/support"
 	"quizzivy/internal/modules/media/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/opt"
 )
 
-// Upload validates, stores the object, then records the row.
+// Upload validates, stores the object, then records the row in the
+// uploader's library. DefaultMaxPlays, when set, is the play limit a new
+// question starts from; it is refused for anything but audio before the
+// object is stored.
 type Upload struct {
-	Filename   string
-	Body       io.Reader
-	UploaderID string
-	IP         string
-	UserAgent  string
+	Filename        string
+	Body            io.Reader
+	UploaderID      string
+	DefaultMaxPlays *int
+	IP              string
+	UserAgent       string
 }
 
 type UploadHandler struct {
@@ -25,55 +28,51 @@ type UploadHandler struct {
 }
 
 func (s UploadHandler) Handle(ctx context.Context, cmd Upload) (domain.Asset, error) {
-	tmp, err := os.CreateTemp("", "quizzivy-upload-*")
+	intake, err := s.Receive(cmd.Body)
 	if err != nil {
-		return domain.Asset{}, fmt.Errorf("media: temp file: %w", err)
+		return domain.Asset{}, err
 	}
-	defer func() {
-		_ = tmp.Close()
-		_ = os.Remove(tmp.Name())
-	}()
+	defer intake.Close()
 
-	hasher := sha256.New()
-	size, err := support.BoundedCopy(io.MultiWriter(tmp, hasher), cmd.Body, domain.MaxBytes)
+	if err := domain.Assets.CheckPlayLimit(intake.Kind, cmd.DefaultMaxPlays); err != nil {
+		return domain.Asset{}, err
+	}
+	held, err := s.Repo.Usage(ctx, access.Scope{UserID: cmd.UploaderID})
 	if err != nil {
 		return domain.Asset{}, err
 	}
-	if size == 0 {
-		return domain.Asset{}, fmt.Errorf("%w: empty file", domain.ErrUnsupportedType)
-	}
-	kind, mime, durationMs, err := s.Identify(tmp, size)
-	if err != nil {
-		return domain.Asset{}, err
-	}
-	if err := domain.Assets.CheckDuration(durationMs); err != nil {
+	if err := domain.Assets.CheckQuota(held.AudioBytes+held.ImageBytes, intake.Bytes, s.Quota); err != nil {
 		return domain.Asset{}, err
 	}
 
-	checksum := hasher.Sum(nil)
 	assetID, err := support.NewAssetID()
 	if err != nil {
 		return domain.Asset{}, err
 	}
-	key := fmt.Sprintf("%s/%s%s", kind, assetID, support.ExtensionFor(mime))
+	key := fmt.Sprintf("%s/%s%s", intake.Kind, assetID, support.ExtensionFor(intake.MimeType))
 
-	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
-		return domain.Asset{}, fmt.Errorf("media: rewind: %w", err)
+	body, err := intake.Body()
+	if err != nil {
+		return domain.Asset{}, err
 	}
-	if err := s.Object.Put(ctx, key, mime, tmp, size); err != nil {
+	if err := s.Object.Put(ctx, key, intake.MimeType, body, intake.Bytes); err != nil {
 		return domain.Asset{}, err
 	}
 
 	asset, err := s.Repo.Insert(ctx, domain.InsertInput{
 		ID:               assetID,
-		Kind:             kind,
+		Kind:             intake.Kind,
 		StorageKey:       key,
-		MimeType:         mime,
-		Bytes:            size,
-		DurationMs:       durationMs,
+		MimeType:         intake.MimeType,
+		Bytes:            intake.Bytes,
+		DurationMs:       intake.DurationMs,
 		OriginalFilename: support.SanitiseFilename(cmd.Filename),
-		ChecksumSHA256:   checksum,
+		ChecksumSHA256:   intake.Checksum,
 		UploaderID:       cmd.UploaderID,
+		DefaultMaxPlays:  cmd.DefaultMaxPlays,
+		Width:            intake.Width,
+		Height:           intake.Height,
+		QuotaBytes:       s.Quota,
 		Now:              s.Now(),
 		IP:               opt.String(cmd.IP),
 		UserAgent:        opt.String(cmd.UserAgent),

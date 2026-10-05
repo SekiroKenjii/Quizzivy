@@ -167,11 +167,25 @@ letting it pick a fresh rate-limit bucket per request and defeat §6.5 entirely.
 
 ### Cloudflare proxy limits worth knowing
 
-Neither binds today, but check them before blaming the app:
+The body limit leaves room for the media caps; time limits can still bind a
+large upload. Checked against Cloudflare's documentation on 2026-10-05:
 
-- Request body: 100 MB on the Free plan, well above §11.1's 10 MB media cap.
-- Origin timeout: 100 seconds. The longest thing this API does is a media
-  upload, which is capped at 10 MB.
+- Request body: the Free plan's default is 100 MB, above §11.1's 50 MiB audio
+  and 10 MiB image limits plus multipart overhead. A zone can lower it in
+  Network → Maximum Upload Size. See [Cloudflare's upload limits](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/).
+- Proxy Read Timeout: 125 seconds waiting for the origin's response. Proxy
+  Write Timeout: 30 seconds writing the request to the origin. These are
+  separate limits; see [Cloudflare's connection limits](https://developers.cloudflare.com/fundamentals/reference/connection-limits/).
+
+The API keeps a 110-second streamed-body read deadline and a 120-second
+`http.Server.WriteTimeout`. The latter bounds writing the response; it does
+not cancel the request context or guarantee that processing stops at 120
+seconds. A 50 MiB payload needs at least about 3.81 Mbit/s to arrive within
+110 seconds, before multipart overhead. An upload near that deadline leaves
+roughly ten seconds of nominal response headroom for probing, object storage,
+and the database, so it needs a faster sustained connection in practice.
+The file-size cap does not guarantee success on every connection. Diagnose
+edge `524` responses separately from API read or write deadline failures.
 
 ---
 
