@@ -1850,6 +1850,11 @@
     },
     "open": "Chấm"
   },
+  "facet": {
+    "clear": "Bỏ lọc",
+    "active": "{{label}}, đã chọn {{count}}",
+    "none": "Không có lựa chọn nào"
+  },
   "byQuestion": {
     "title": "Chấm theo câu hỏi",
     "questionOf": "Câu {{n}} / {{count}}",
