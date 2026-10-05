@@ -1,17 +1,87 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDeckScale } from "@/components/ui/deck-scale";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ApiError } from "@/lib/api/errors";
+import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
 
+/**
+ * BulkAction is one thing a bulk bar does to every selected item, one at a
+ * time, after a confirmation that lists them: `label` names the button and
+ * the dialog, `description` is the dialog's sentence, `run` acts on one item.
+ * `icon` is drawn before the label on a deck surface. The confirmation is a
+ * destructive one unless `destructive` is false.
+ */
 export interface BulkAction<T> {
   label: string;
   description: string;
   run: (item: T) => Promise<unknown>;
+  icon?: LucideIcon | undefined;
+  destructive?: boolean | undefined;
 }
 
-/** BulkActions confirms an explicit selection and reports each failure without hiding partial success. */
+const DECK_BAR =
+  "bg-primary text-primary-fg flex flex-wrap items-center gap-2 rounded-lg py-2 pr-2.5 pl-3.5 [--focus:var(--primary-fg)]";
+
+const DECK_COUNT = "mr-auto text-sm font-medium whitespace-nowrap";
+
+const DECK_BUTTON =
+  "border-muted-fg/35 hover:bg-primary-fg/10 rounded-seg text-meta inline-flex h-7.5 items-center gap-1.5 border bg-transparent px-2.5 leading-4 font-medium whitespace-nowrap disabled:pointer-events-none disabled:opacity-45";
+
+const DECK_CLEAR =
+  "hover:bg-primary-fg/10 rounded-seg grid size-7.5 flex-none place-items-center border-0 bg-transparent disabled:pointer-events-none disabled:opacity-45";
+
+/**
+ * BulkBarButton is a button of the bulk bar, for a control a page puts in the
+ * bar as `children`, such as an action that opens its own form; the bar's own
+ * actions render through it. On a deck surface it is the deck's 30px button
+ * on the inverted bar, with `icon` before the label. Elsewhere it is the
+ * outline button the bar has always drawn, and `icon` is not drawn.
+ */
+export function BulkBarButton({
+  icon: Icon,
+  children,
+  onClick,
+  disabled,
+}: Readonly<{
+  icon?: LucideIcon | undefined;
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean | undefined;
+}>) {
+  const deck = useDeckScale();
+  if (!deck) {
+    return (
+      <Button variant="outline" size="sm" disabled={disabled} onClick={onClick}>
+        {children}
+      </Button>
+    );
+  }
+  return (
+    <button type="button" className={DECK_BUTTON} disabled={disabled} onClick={onClick}>
+      {Icon === undefined ? null : (
+        <Icon aria-hidden="true" className="size-3.5 flex-none" />
+      )}
+      {children}
+    </button>
+  );
+}
+
+/**
+ * BulkActions is the bar a list shows while rows are selected. Each action
+ * confirms the explicit selection, runs on one item at a time and reports
+ * each failure without hiding partial success; `children` are a page's own
+ * controls, drawn before the actions. On a deck surface it is the deck's
+ * inverted bar: the count, each action with its icon, and an icon button that
+ * clears. There `className` lands on the bar, and with `hideOnPhone` the bar
+ * is not drawn below 768px, for a list that has no checkboxes there, while an
+ * open confirmation stays open. Off a deck surface the bar is the one the old
+ * console draws, at every width, and reads neither prop.
+ */
 export function BulkActions<T extends { id: string }>({
   selected,
   children,
@@ -21,6 +91,8 @@ export function BulkActions<T extends { id: string }>({
   onRemoved,
   onClear,
   onSettled,
+  className,
+  hideOnPhone = false,
 }: Readonly<{
   selected: readonly T[];
   children?: ReactNode;
@@ -30,8 +102,12 @@ export function BulkActions<T extends { id: string }>({
   onRemoved: (ids: string[]) => void;
   onClear: () => void;
   onSettled: () => Promise<unknown>;
+  className?: string | undefined;
+  hideOnPhone?: boolean | undefined;
 }>) {
   const { t } = useTranslation();
+  const deck = useDeckScale();
+  const wide = useMediaQuery("(min-width: 768px)");
   const [confirmation, setConfirmation] = useState<{
     action: BulkAction<T>;
     items: readonly T[];
@@ -73,31 +149,52 @@ export function BulkActions<T extends { id: string }>({
   }
 
   if (selected.length === 0 && confirmation === null) return null;
+  const buttons = actions.map((action) => (
+    <BulkBarButton
+      key={action.label}
+      icon={action.icon}
+      disabled={pending}
+      onClick={() => {
+        setFailures([]);
+        setConfirmation({ action, items: [...selected] });
+      }}
+    >
+      {action.label}
+    </BulkBarButton>
+  ));
   return (
     <>
-      <div className="bg-secondary flex flex-wrap items-center gap-2 rounded-md px-3 py-2">
-        <span className="mr-auto text-sm font-medium">
-          {selectionLabel ?? t("common.selectedCount", { count: selected.length })}
-        </span>
-        {children}
-        {actions.map((action) => (
-          <Button
-            key={action.label}
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={() => {
-              setFailures([]);
-              setConfirmation({ action, items: [...selected] });
-            }}
-          >
-            {action.label}
+      {deck ? (
+        (wide || !hideOnPhone) && (
+          <div className={cn(DECK_BAR, className)}>
+            <span className={DECK_COUNT}>
+              {selectionLabel ?? t("bulkBar.selected", { count: selected.length })}
+            </span>
+            {children}
+            {buttons}
+            <button
+              type="button"
+              aria-label={t("common.clearSelection")}
+              className={DECK_CLEAR}
+              disabled={pending}
+              onClick={onClear}
+            >
+              <X aria-hidden="true" className="size-3.75" />
+            </button>
+          </div>
+        )
+      ) : (
+        <div className="bg-secondary flex flex-wrap items-center gap-2 rounded-md px-3 py-2">
+          <span className="mr-auto text-sm font-medium">
+            {selectionLabel ?? t("common.selectedCount", { count: selected.length })}
+          </span>
+          {children}
+          {buttons}
+          <Button variant="ghost" size="sm" disabled={pending} onClick={onClear}>
+            {t("common.clearSelection")}
           </Button>
-        ))}
-        <Button variant="ghost" size="sm" disabled={pending} onClick={onClear}>
-          {t("common.clearSelection")}
-        </Button>
-      </div>
+        </div>
+      )}
       <ConfirmDialog
         open={confirmation !== null}
         onOpenChange={(open) => {
@@ -109,7 +206,7 @@ export function BulkActions<T extends { id: string }>({
           failures.length > 0 ? "common.retryFailed" : "common.confirmSelected",
           { count: confirmation?.items.length ?? 0 },
         )}
-        destructive
+        destructive={confirmation?.action.destructive ?? true}
         pending={pending}
         onConfirm={() => void run()}
       >

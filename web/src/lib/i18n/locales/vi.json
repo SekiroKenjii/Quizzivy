@@ -1508,6 +1508,20 @@
     "more": "Các trang khác",
     "page": "Trang {{n}}"
   },
+  "pager": {
+    "label": "Phân trang",
+    "range": "{{from}}–{{to}} trên {{total}} {{noun}}",
+    "none": "Không có {{noun}} nào",
+    "rowsPerPage": "Số dòng mỗi trang",
+    "pageOf": "Trang {{page}} trên {{pages}}",
+    "first": "Trang đầu",
+    "previous": "Trang trước",
+    "next": "Trang sau",
+    "last": "Trang cuối"
+  },
+  "bulkBar": {
+    "selected": "Đã chọn {{count}}"
+  },
   "status": {
     "test": {
       "draft": "Bản nháp",

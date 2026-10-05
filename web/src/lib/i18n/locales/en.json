@@ -1508,6 +1508,20 @@
     "more": "More pages",
     "page": "Page {{n}}"
   },
+  "pager": {
+    "label": "Pagination",
+    "range": "{{from}}–{{to}} of {{total}} {{noun}}",
+    "none": "No {{noun}}",
+    "rowsPerPage": "Rows per page",
+    "pageOf": "Page {{page}} of {{pages}}",
+    "first": "First page",
+    "previous": "Previous page",
+    "next": "Next page",
+    "last": "Last page"
+  },
+  "bulkBar": {
+    "selected": "{{count}} selected"
+  },
   "status": {
     "test": {
       "draft": "Draft",
