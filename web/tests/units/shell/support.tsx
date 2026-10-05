@@ -1,0 +1,99 @@
+import type { ReactElement } from "react";
+import { render } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
+import { http, HttpResponse } from "msw";
+import type { TeacherHandle } from "@/layouts/shell/handle";
+import TeacherLayout from "@/layouts/TeacherLayout";
+import type { components } from "@/lib/api/schema";
+import { useAuthStore } from "@/stores/auth";
+import { contractJson } from "@tests/support/contractResponse";
+import { teacherUser } from "@tests/support/fixtures";
+import { server } from "@tests/support/server";
+
+type Dashboard = components["schemas"]["Dashboard"];
+type User = components["schemas"]["CurrentUser"];
+
+export const BASE = "http://localhost:8080";
+
+export const dashboardBody: Dashboard = {
+  openAssignments: 3,
+  awaitingGrading: 6,
+  activeStudents: 0,
+  flaggedAttempts: 0,
+  recentAttempts: [],
+};
+
+export const DASHBOARD: TeacherHandle = {
+  crumb: [{ key: "teacherShell.nav.dashboard" }],
+};
+
+export function crumbed(
+  key: string,
+  extra: Partial<TeacherHandle> = {},
+): TeacherHandle {
+  return { crumb: [{ key }], ...extra };
+}
+
+export function serveDashboard(body: Dashboard = dashboardBody) {
+  const seen = { asked: 0 };
+  server.use(
+    http.get(`${BASE}/teacher/dashboard`, () => {
+      seen.asked += 1;
+      return contractJson("/teacher/dashboard", "get", 200, body);
+    }),
+  );
+  return seen;
+}
+
+export function failDashboard() {
+  const seen = { asked: 0 };
+  server.use(
+    http.get(`${BASE}/teacher/dashboard`, () => {
+      seen.asked += 1;
+      return HttpResponse.json(
+        {
+          error: {
+            code: "INTERNAL",
+            message: "Máy chủ gặp lỗi.",
+            requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+          },
+        },
+        { status: 500 },
+      );
+    }),
+  );
+  return seen;
+}
+
+export function renderRoutes(
+  at: string,
+  routes: RouteObject[],
+  user: User = teacherUser,
+) {
+  useAuthStore.getState().setSession("token", user);
+  const router = createMemoryRouter(routes, { initialEntries: [at] });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const view = render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return { router, client, ...view };
+}
+
+export function renderShell(
+  at: string,
+  pages: RouteObject[],
+  user: User = teacherUser,
+) {
+  return renderRoutes(
+    at,
+    [{ path: "/teacher", element: <TeacherLayout />, children: pages }],
+    user,
+  );
+}
+
+export function home(element: ReactElement = <p>trang tổng quan</p>): RouteObject {
+  return { index: true, handle: DASHBOARD, element };
+}
