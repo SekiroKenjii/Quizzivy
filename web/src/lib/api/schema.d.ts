@@ -1166,11 +1166,21 @@ export interface paths {
         };
         /**
          * Integrity timeline
-         * @description Chronological, with paired durations computed server-side so the client
+         * @description Integrity timeline, with paired durations computed server-side so the client
          *     does not reimplement pairing (§10.4).
          *
-         *     Ordering is `clientSeq` within a session and `occurredAt` across
-         *     sessions, so clock skew cannot scramble a session's internal order.
+         *     Events are grouped by session, ordered by each session’s earliest
+         *     received event time, with session ID breaking ties. Within a session,
+         *     resume events come first and session_takeover events last. Within that
+         *     priority, two events with different, non-null clientSeq values are
+         *     compared by clientSeq; otherwise they are compared by occurredAt, then
+         *     event ID. Current clients derive clientSeq from an attempt-relative
+         *     millisecond offset calibrated from serverTime, never below the tab’s
+         *     stored next sequence. This generally aligns separate tabs with elapsed
+         *     attempt time, but response latency, clock changes and per-tab increments
+         *     can cause reordering or collisions; chronology and uniqueness across
+         *     tabs are not guaranteed. Older counters can overlap newer values and
+         *     generally sort before offset-based events.
          *
          *     **The UI presenting this must be neutral** — no red banners, no
          *     "CHEATING DETECTED". These signals are evidence for a conversation, not
@@ -2191,8 +2201,9 @@ export interface components {
          *     without a body on the operations that need no token.
          *
          *     `REQUEST_INCOMPLETE` (408) answers a request whose body the server
-         *     could not finish reading, on any operation that takes one. It says
-         *     nothing about the body: the same request may be sent again.
+         *     could not finish reading, on any operation that takes a body other than
+         *     a streamed upload. It says nothing about the body: the same request may
+         *     be sent again.
          * @enum {string}
          */
         ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
@@ -3834,9 +3845,13 @@ export interface components {
             kind: string;
             occurredAt: components["schemas"]["Timestamp"];
             /**
-             * @description Monotonic **within a session**. Uniqueness is
-             *     `(attempt, session, clientSeq)`, so a resumed attempt restarting at 0
-             *     does not collide with the previous session (D-01).
+             * @description The event's offset in milliseconds from the attempt's start, as the
+             *     tab that recorded it measured it against the server's clock, and
+             *     never below the number after that tab's last one: it increases
+             *     **within a tab**. Uniqueness is `(attempt, session, clientSeq)`: an
+             *     event that repeats a number its session has used is taken for a
+             *     retry and is not stored. A new session may use any number again
+             *     (D-01). A client that sends a plain counter is accepted.
              */
             clientSeq: number;
             /** Format: uuid */
@@ -4076,7 +4091,10 @@ export interface components {
     };
     responses: {
         /**
-         * @description Malformed or failing validation. A JSON body in which an object repeats
+         * @description Request validation answers this on every operation that takes a JSON body,
+         *     before the operation runs: a body that fails its schema, that cannot be
+         *     decoded, or that is not JSON.
+         *     Malformed or failing validation. A JSON body in which an object repeats
          *     a member name is refused here too, at any depth, unless the server
          *     filled a default into that body: it is then read with the last
          *     occurrence of each repeated name.
@@ -4220,6 +4238,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description Invalid, expired, exhausted, revoked, or self-join disabled.
              *
@@ -4299,6 +4318,7 @@ export interface operations {
                     "application/json": components["schemas"]["AuthSuccess"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description **Leak review.** `INVALID_CREDENTIALS` for both an unknown email and
              *     a wrong password, with the same message and comparable timing, so the
@@ -4357,6 +4377,7 @@ export interface operations {
                     "application/json": components["schemas"]["GoogleSignInSuccess"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Code exchange failed, or `email_verified` was false. */
             401: {
                 headers: {
@@ -4659,6 +4680,7 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentUser"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description The session is invalid, or the exchange failed, or `email_verified`
              *     was false — the same §5.1 rule sign-in applies, for the same reason:
@@ -5357,6 +5379,7 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description The test is archived (`TEST_ARCHIVED`) or the expected update time is stale (`STALE_WRITE`). */
             409: {
@@ -5396,6 +5419,7 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description The test is archived (`TEST_ARCHIVED`), the expected update time is
@@ -5747,6 +5771,7 @@ export interface operations {
                     "application/json": components["schemas"]["WordImport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_CONFLICT — request identity already used with different input. */
             409: {
                 headers: {
@@ -5990,6 +6015,7 @@ export interface operations {
                     "application/json": components["schemas"]["WordImport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Import not found. */
             404: {
                 headers: {
@@ -6055,6 +6081,7 @@ export interface operations {
                     "application/json": components["schemas"]["WordImport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Import not found. */
             404: {
                 headers: {
@@ -6139,6 +6166,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportReview"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
             404: {
                 headers: {
@@ -6192,6 +6220,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportReview"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — no draft, or import not found. */
             404: {
                 headers: {
@@ -6279,6 +6308,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportCommitResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
             404: {
                 headers: {
@@ -6975,6 +7005,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -7005,6 +7036,7 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `ATTEMPT_VOIDED` — a voided attempt is out of the queue already. */
             409: {
@@ -7190,6 +7222,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `EMAIL_TAKEN` — already in use, compared case-insensitively. */
             409: {
@@ -7254,6 +7287,7 @@ export interface operations {
                     "application/json": components["schemas"]["StudentRow"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description `FORBIDDEN` — `disabled` without `people.users.manage`, or a student
              *     whose permissions are not a subset of the caller's.
@@ -7456,6 +7490,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     getClass: {
@@ -7548,6 +7583,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -7715,6 +7751,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -7781,6 +7818,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Invalid, expired, exhausted or revoked. Same leak rules as `/join/preview`. */
             404: {
                 headers: {
@@ -7877,6 +7915,7 @@ export interface operations {
                     "application/json": components["schemas"]["AttemptSession"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /**
              * @description `ATTEMPT_CLOSED` — `resume` named an attempt that is no longer live;
@@ -7970,6 +8009,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /**
              * @description `SESSION_SUPERSEDED` — opened elsewhere; the client goes read-only
@@ -8014,6 +8054,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["TooManyRequests"];
         };
@@ -8047,6 +8088,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
         };
     };
@@ -8074,6 +8116,7 @@ export interface operations {
                     "application/json": components["schemas"]["GroupAudioPlayResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /** @description SESSION_SUPERSEDED, ATTEMPT_CLOSED, DEADLINE_PASSED or PLAY_ID_CONFLICT. */
             409: {
@@ -8117,6 +8160,7 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /**
              * @description `ATTEMPT_CLOSED`.

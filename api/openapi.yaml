@@ -168,6 +168,9 @@ components:
   responses:
     BadRequest:
       description: |
+        Request validation answers this on every operation that takes a JSON body,
+        before the operation runs: a body that fails its schema, that cannot be
+        decoded, or that is not JSON.
         Malformed or failing validation. A JSON body in which an object repeats
         a member name is refused here too, at any depth, unless the server
         filled a default into that body: it is then read with the last
@@ -482,8 +485,9 @@ components:
         without a body on the operations that need no token.
 
         `REQUEST_INCOMPLETE` (408) answers a request whose body the server
-        could not finish reading, on any operation that takes one. It says
-        nothing about the body: the same request may be sent again.
+        could not finish reading, on any operation that takes a body other than
+        a streamed upload. It says nothing about the body: the same request may
+        be sent again.
       enum:
         # auth
         - INVALID_CREDENTIALS
@@ -2933,9 +2937,13 @@ components:
           type: integer
           minimum: 0
           description: |
-            Monotonic **within a session**. Uniqueness is
-            `(attempt, session, clientSeq)`, so a resumed attempt restarting at 0
-            does not collide with the previous session (D-01).
+            The event's offset in milliseconds from the attempt's start, as the
+            tab that recorded it measured it against the server's clock, and
+            never below the number after that tab's last one: it increases
+            **within a tab**. Uniqueness is `(attempt, session, clientSeq)`: an
+            event that repeats a number its session has used is taken for a
+            retry and is not stored. A new session may use any number again
+            (D-01). A client that sends a plain counter is accepted.
         questionId: { type: [string, 'null'], format: uuid }
         meta: { type: [object, 'null'], additionalProperties: true }
 
@@ -3298,6 +3306,7 @@ paths:
                   classId: { $ref: '#/components/schemas/Uuid' }
                   className: { type: string }
                   teacherName: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: |
             Invalid, expired, exhausted, revoked, or self-join disabled.
@@ -3383,6 +3392,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401':
           description: |
             **Leak review.** `INVALID_CREDENTIALS` for both an unknown email and
@@ -3453,6 +3463,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GoogleSignInSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401':
           description: Code exchange failed, or `email_verified` was false.
           content:
@@ -3749,6 +3760,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CurrentUser' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401':
           description: |
             The session is invalid, or the exchange failed, or `email_verified`
@@ -4340,6 +4352,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: The test is archived (`TEST_ARCHIVED`) or the expected update time is stale (`STALE_WRITE`).
@@ -4377,6 +4390,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
@@ -4686,6 +4700,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WordImport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '409':
           description: IMPORT_CONFLICT — request identity already used with different input.
           content:
@@ -4908,6 +4923,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WordImport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: Import not found.
           content:
@@ -4955,6 +4971,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WordImport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: Import not found.
           content:
@@ -5018,6 +5035,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportReview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
           content:
@@ -5056,6 +5074,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportReview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: IMPORT_NOT_PROCESSED — no draft, or import not found.
           content:
@@ -5122,6 +5141,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportCommitResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
           content:
@@ -5620,11 +5640,21 @@ paths:
       tags: [teacher-attempts]
       summary: Integrity timeline
       description: |
-        Chronological, with paired durations computed server-side so the client
+        Integrity timeline, with paired durations computed server-side so the client
         does not reimplement pairing (§10.4).
 
-        Ordering is `clientSeq` within a session and `occurredAt` across
-        sessions, so clock skew cannot scramble a session's internal order.
+        Events are grouped by session, ordered by each session’s earliest
+        received event time, with session ID breaking ties. Within a session,
+        resume events come first and session_takeover events last. Within that
+        priority, two events with different, non-null clientSeq values are
+        compared by clientSeq; otherwise they are compared by occurredAt, then
+        event ID. Current clients derive clientSeq from an attempt-relative
+        millisecond offset calibrated from serverTime, never below the tab’s
+        stored next sequence. This generally aligns separate tabs with elapsed
+        attempt time, but response latency, clock changes and per-tab increments
+        can cause reordering or collisions; chronology and uniqueness across
+        tabs are not guaranteed. Older counters can overlap newer values and
+        generally sort before offset-based events.
 
         **The UI presenting this must be neutral** — no red banners, no
         "CHEATING DETECTED". These signals are evidence for a conversation, not
@@ -5784,6 +5814,7 @@ paths:
                 additionalProperties: false
                 properties:
                   note: { type: [string, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/attempts/{id}/flag:
@@ -5816,6 +5847,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`ATTEMPT_VOIDED` — a voided attempt is out of the queue already.'
@@ -5994,6 +6026,7 @@ paths:
                 properties:
                   user: { $ref: '#/components/schemas/StudentRow' }
                   temporaryPassword: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`EMAIL_TAKEN` — already in use, compared case-insensitively.'
@@ -6052,6 +6085,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StudentRow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: |
             `FORBIDDEN` — `disabled` without `people.users.manage`, or a student
@@ -6223,6 +6257,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Class' }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
   /teacher/classes/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -6286,6 +6321,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Class' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/classes/{id}/members:
@@ -6474,6 +6510,7 @@ paths:
                     examples: ['K7M3-P9QR']
                   expiresAt: { $ref: '#/components/schemas/Timestamp' }
                   maxUses: { type: [integer, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
@@ -6542,6 +6579,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Class' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: Invalid, expired, exhausted or revoked. Same leak rules as `/join/preview`.
           content:
@@ -6653,6 +6691,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AttemptSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: |
@@ -6766,6 +6805,7 @@ paths:
                   serverTime: { $ref: '#/components/schemas/Timestamp' }
                   savedAt: { $ref: '#/components/schemas/Timestamp' }
                   deadlineAt: { $ref: '#/components/schemas/Timestamp' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: |
@@ -6825,6 +6865,7 @@ paths:
       responses:
         '202':
           description: Accepted. Always 202 — the client cannot act on the outcome anyway.
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
@@ -6869,6 +6910,7 @@ paths:
                 properties:
                   plays: { type: integer, minimum: 1 }
                   maxPlays: { type: [integer, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /app/attempts/{id}/group-audio-play:
@@ -6905,6 +6947,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GroupAudioPlayResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: SESSION_SUPERSEDED, ATTEMPT_CLOSED, DEADLINE_PASSED or PLAY_ID_CONFLICT.
@@ -6946,6 +6989,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: |
