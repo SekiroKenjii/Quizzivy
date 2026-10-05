@@ -160,10 +160,10 @@ func TestSharedMiddlewareSpeaksTheCallersLanguage(t *testing.T) {
 			refused: limitedBody(func() *http.Request {
 				return httptest.NewRequest(http.MethodPost, "/auth/login", failingBody{})
 			}),
-			status: http.StatusBadRequest,
-			code:   "VALIDATION_FAILED",
-			vi:     "Không đọc được dữ liệu gửi lên.",
-			en:     "The submitted data could not be read.",
+			status: http.StatusRequestTimeout,
+			code:   "REQUEST_INCOMPLETE",
+			vi:     "Máy chủ chưa nhận đủ dữ liệu gửi lên. Vui lòng thử lại.",
+			en:     "The server did not receive the whole request. Try again.",
 		},
 	} {
 		for acceptLanguage, want := range map[string]string{"": c.vi, "en": c.en} {

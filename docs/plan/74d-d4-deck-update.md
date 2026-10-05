@@ -692,14 +692,17 @@ Rules for every task in this section (AGENTS.md, "High-risk areas"):
   `server/internal/modules/attempts/application/tests/events_test.go`,
   `web/tests/units/api/client.refresh.test.ts`, `publish_snapshot_test.go`,
   `web/tests/integration/router-chunks.test.ts`.
-- Frozen unless a task says otherwise: `take-test/{store,draft,strandedDraft,groupPlayback,
+- Frozen unless a task says otherwise: `take-test/{store,draft,strandedDraft,heldSession,groupPlayback,
   groupPlaybackDraft,saveStatus,openQuestion}.ts`, `take-test/useLeave.ts`,
   `features/integrity/**`, the
   four answer shapes of the contract (`choice`, `true_false`, `fill_blank`, `text`;
   `api/openapi.yaml` 2724-2737: a draft or an older attempt may still hold `true_false` with a
   boolean, which `answered.ts:18-19` and `grading.go` read, and `draft-compat.test.ts` is the
   proof it survives), `answered()`'s boolean rule, the flags key
-  `sessionStorage['quizzivy.flags.<attemptId>']`, the draft key
+  `sessionStorage['quizzivy.flags.<attemptId>']`, the held-session key
+  `sessionStorage['quizzivy.session.<attemptId>']`, written by `getAttempt`,
+  `startOrResumeAttempt` and `continueAttempt` and named on every attempt read
+  (#337), the draft key
   `quizzivy.answer-draft.<attemptId>`, and the open-question key
   `sessionStorage['quizzivy.open-question.<attemptId>']`, which holds a question's id and is
   written from `TakeTestPage` on every move and read on load (#320, on `develop` since
@@ -707,7 +710,22 @@ Rules for every task in this section (AGENTS.md, "High-risk areas"):
   `draft-compat.test.ts`, `stranded-draft.test.ts`, `submit.test.ts`, `resume.test.ts`,
   `leave.test.tsx`, `leave-events.test.tsx`, `flags.test.ts`, `answered.test.ts`,
   `sections.test.ts`, `timer.test.ts`, `deadline.test.ts`, `end-states.test.tsx`,
-  `load-failure.test.tsx`, everything under `tests/units/integrity/`.
+  `load-failure.test.tsx`, `held-session.test.ts`, `session-claim.test.ts`,
+  `superseded-load.test.tsx`, `deadline-lock.test.ts`, `sequence-anchor.test.ts`,
+  everything under `tests/units/integrity/` (including `sequence.test.ts`,
+  `shared-audio-record.test.ts` and `timeline-shared-audio.test.ts`).
+  `clientSeq` uses an attempt-relative offset calibrated in `getAttempt` from
+  `startedAt` and `serverTime`, never below the stored next sequence; it is
+  monotonic within a tab, with no cross-tab chronology or uniqueness guarantee.
+  The offset component caps at 2,000,000,000, but local increments can exceed it (#338).
+  The timeline keeps its session order by earliest received time and session-id
+  ties, resume first and takeover last, then differing non-null sequence values
+  or event time and id. `integrity_timeline_test.go` and
+  `timeline_sparse_test.go` preserve the session and sparse-sequence cases.
+  A deadline lock rearms submission at the device's recorded deadline even after
+  another refusal, without replacing a closed or superseded lock (#353, #337).
+  A superseded tab removes a stored draft only if its own session wrote it,
+  because the draft key is shared by every tab of the browser (#337).
 - A test that pinned a frame the deck replaced is rewritten to the new frame; no case is
   dropped without a case that replaces it, and the PR lists the pairs.
 - Strings vi first, en from the deck, listed in the PR. Removed keys go in their own commit.
@@ -1004,8 +1022,21 @@ the canary's "puts the position back and reports it, because OS controls still s
 which keeps refusing every jump a student makes; `groupPlayback.ts` and `groupPlaybackDraft.ts`
 (gesture ids, retries, monotonic counts); the `audio_play`, `audio_ended` and `audio_blocked`
 records of #314; the one-length rule of #321; the expired-link retry; pausing on a lock.
+A rejected play is read by its name: `NotAllowedError` says so under the player
+that stays; `AbortError`, including a pause before the start, says nothing (#339).
+`audio_seek` is recorded for a question's blocked seek (#339). A shared recording's
+end and block carry `meta.recordingId`; known end duration is elapsed device wall
+time since the latest start, not total listening time (#340). A resume replaces
+that start, and an end or block clears it. The timeline consumes the latest matching
+open play once, by question id first or otherwise recording id; valid numeric
+0–86,400,000 ms durations are truncated, with missing, malformed or out-of-range
+durations falling back to
+clamped event-clock spans. Delayed counts or clock skew can leave an end unpaired;
+overlapping sessions have no play-id matching. `timeline_shared_audio_test.go`
+preserves those pairing rules.
 `audio-player.test.tsx`, `audio-player-events.test.tsx`, `audio-player-length.test.tsx`,
-`group-playback.test.ts` and `audio-plays.test.ts` pass untouched.
+`group-playback.test.ts`, `audio-plays.test.ts`, `audio-player-blocked.test.tsx`
+and `shared-audio-events.test.tsx` pass untouched.
 
 **The shape this task builds on.** A recording never comes alone: the server accepts a
 recording only when its asset is an audio node inside one of the group's materials, and refuses
@@ -1050,6 +1081,7 @@ today the passage pane prints that material's heading and the node's label
       "Finished · 1 play left" (plural in both languages); the button is "Play", "Pause",
       "Resume" or "Play again". With no limit the counter reads "Play {n}" and the finished
       line "Finished" (DG+12).
+- [ ] The status line has a place for the blocked sentence (`media.playBlocked`).
 - [ ] At the limit the button stays live (DG+1, spec §11.4, the canary's "still plays when
       the hint says none are left"): no lock icon, the status reads "You have used all {N}
       plays." and the product's "You can keep listening. Additional plays are recorded for your

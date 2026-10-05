@@ -81,10 +81,17 @@ test("an absence recorded before Leave reaches the server, and a return by Back 
   const beacon = JSON.parse(bodies[0]!) as Flushed & { beaconToken: string };
   expect(beacon.sessionId).toBe("session");
   expect(beacon.beaconToken).toBe("beacon");
-  expect(beacon.events?.map((event) => [event.kind, event.clientSeq])).toEqual([
-    ["window_blur", 0],
-    ["window_focus", 1],
+  expect(beacon.events?.map((event) => event.kind)).toEqual([
+    "window_blur",
+    "window_focus",
   ]);
+  for (const event of beacon.events!) {
+    expect(Number.isInteger(event.clientSeq)).toBe(true);
+    expect(event.clientSeq).toBeLessThan(2_147_483_647);
+  }
+  expect(
+    beacon.events![1]!.clientSeq - beacon.events![0]!.clientSeq,
+  ).toBeGreaterThanOrEqual(3000);
   expect(beacon.events?.[1]?.meta?.awayMs).toBeGreaterThanOrEqual(3000);
   expect(saves).toEqual([]);
 
@@ -95,9 +102,13 @@ test("an absence recorded before Leave reaches the server, and a return by Back 
 
   await expect.poll(() => saves.length).toBeGreaterThan(0);
   expect(saves[0]?.sessionId).toBe("session");
-  expect(saves[0]?.events?.map((event) => [event.kind, event.clientSeq])).toEqual([
-    ["window_blur", 2],
-    ["window_focus", 3],
+  expect(saves[0]?.events?.map((event) => event.kind)).toEqual([
+    "window_blur",
+    "window_focus",
   ]);
+  expect(saves[0]!.events![0]!.clientSeq).toBeGreaterThan(beacon.events![1]!.clientSeq);
+  expect(saves[0]!.events![1]!.clientSeq).toBeGreaterThan(
+    saves[0]!.events![0]!.clientSeq,
+  );
   expect(arrived).toBe(1);
 });
