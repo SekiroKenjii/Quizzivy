@@ -43,18 +43,7 @@ function revealFocused(event: FocusEvent<HTMLDivElement>) {
   revealWithin(event.currentTarget, event.target, TRACK_PADDING);
 }
 
-/**
- * Segmented is a group of buttons where exactly one is on: `role="group"`
- * with `aria-pressed` buttons, not a tab strip, because it controls no panel
- * (DG-17). On a `data-scale="deck"` surface the buttons are the deck's 30px
- * with the card fill and a 1px ring when on. `size="lg"` is the deck's 32px
- * row, used for a page's sections, `sm` its 28px row and `xs` the 26px mode
- * switch of an editor. An option's count is part of its button's name, as a
- * number. With `scroll` the track is at most as wide as its container and
- * scrolls sideways inside itself, without a scrollbar, bringing the pressed
- * option into view when it changes and an option that takes focus when it is
- * cut off.
- */
+/** Segmented selects one grouped option, with optional scrolling or equal-width wrapping form buttons. */
 export function Segmented({
   label,
   value,
@@ -62,6 +51,7 @@ export function Segmented({
   onChange,
   size = "default",
   scroll = false,
+  fill = false,
   className,
 }: Readonly<{
   label: string;
@@ -70,6 +60,7 @@ export function Segmented({
   onChange: (value: string) => void;
   size?: SegmentedSize;
   scroll?: boolean;
+  fill?: boolean;
   className?: string;
 }>) {
   const track = useRef<HTMLDivElement>(null);
@@ -86,6 +77,7 @@ export function Segmented({
       onFocus={scroll ? revealFocused : undefined}
       className={cn(
         "bg-muted in-data-[scale=deck]:rounded-ctl inline-flex gap-0.5 rounded-lg p-[0.1875rem]",
+        fill && "flex w-full flex-wrap",
         size === "xs" && "in-data-[scale=deck]:rounded-md",
         scroll &&
           "max-w-full [scrollbar-width:none] overflow-x-auto [&::-webkit-scrollbar]:hidden",
@@ -106,6 +98,8 @@ export function Segmented({
               "in-data-[scale=deck]:rounded-seg in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:whitespace-nowrap",
               scroll && "shrink-0 leading-4 whitespace-nowrap outline-offset-1!",
               SIZES[size],
+              fill &&
+                "text-meta h-7.5 flex-1 px-2.5 leading-normal in-data-[scale=deck]:h-7.5",
               Icon !== undefined && size === "lg" && "gap-1.75",
               on
                 ? "bg-background text-foreground shadow-card in-data-[scale=deck]:bg-card in-data-[scale=deck]:text-fg in-data-[scale=deck]:ring-border in-data-[scale=deck]:ring-1"
