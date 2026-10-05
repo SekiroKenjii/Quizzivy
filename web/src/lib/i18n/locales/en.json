@@ -1913,6 +1913,18 @@
     "fileRemove": "Click to remove",
     "fileRemoveNamed": "Remove {{name}}"
   },
+  "datePicker": {
+    "chooseDate": "Choose a date",
+    "chooseTime": "Choose a time",
+    "time": "Time",
+    "today": "Today",
+    "now": "Now",
+    "done": "Done",
+    "earlierHour": "Earlier hour",
+    "laterHour": "Later hour",
+    "earlierMinute": "Earlier minute",
+    "laterMinute": "Later minute"
+  },
   "contentEditor": {
     "gapLabel": "Gap {{label}}",
     "newGap": "gap",

@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type AriaAttributes } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useLayoutEffect,
+  type AriaAttributes,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { vi, enUS } from "date-fns/locale";
@@ -8,11 +14,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { cn } from "@/lib/utils";
+import { useDeckScale } from "@/components/ui/deck-scale";
+import { DateTimePicker } from "./DateTimePicker";
 
 const LOCALES = { vi, en: enUS } as const;
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const DEFAULT_TIME = "08:00";
 
+/** DateTimeMode chooses the wall-clock components edited by the field. */
 export type DateTimeMode = "date" | "time" | "datetime";
 
 interface DateTimeFieldProps {
@@ -26,16 +35,12 @@ interface DateTimeFieldProps {
   /** Minutes offered in the clock; a value off the step is still shown and kept. */
   readonly minuteStep?: number;
   readonly className?: string;
+  readonly disabled?: boolean | undefined;
   readonly "aria-invalid"?: AriaAttributes["aria-invalid"];
   readonly "aria-describedby"?: string | undefined;
 }
 
-/**
- * F-06's date-time field: shadcn's date picker and a clock drawn as one joined
- * pair of outline buttons, never the platform's `datetime-local` popup, which
- * speaks the browser's language and format. Callers pin the value to
- * Asia/Ho_Chi_Minh through `fromDateTimeInput` / `toDateTimeInput`.
- */
+/** DateTimeField edits wall-clock values with inherited or deck controls that dismiss when disabled. */
 export function DateTimeField({
   id,
   label,
@@ -44,12 +49,39 @@ export function DateTimeField({
   mode = "datetime",
   minuteStep = 5,
   className,
+  disabled = false,
   "aria-invalid": invalid,
   "aria-describedby": describedBy,
 }: DateTimeFieldProps) {
+  const deck = useDeckScale();
+  const acceptsChanges = useRef(!disabled);
+  useLayoutEffect(() => {
+    acceptsChanges.current = !disabled;
+    return () => {
+      acceptsChanges.current = false;
+    };
+  }, [disabled]);
+  if (deck)
+    return (
+      <DateTimePicker
+        id={id}
+        label={label}
+        value={value}
+        onChange={(next) => {
+          if (acceptsChanges.current) onChange(next);
+        }}
+        disabled={disabled}
+        mode={mode}
+        minuteStep={minuteStep}
+        className={className}
+        aria-invalid={invalid}
+        aria-describedby={describedBy}
+      />
+    );
   const { date, time } = split(value, mode);
-  const emit = (nextDate: string, nextTime: string) =>
-    onChange(join(nextDate, nextTime, mode));
+  const emit = (nextDate: string, nextTime: string) => {
+    if (acceptsChanges.current) onChange(join(nextDate, nextTime, mode));
+  };
   const both = mode === "datetime";
 
   return (
@@ -57,6 +89,7 @@ export function DateTimeField({
       {mode !== "time" && (
         <DayPart
           id={id}
+          disabled={disabled}
           aria-invalid={invalid}
           aria-describedby={describedBy}
           date={date}
@@ -67,9 +100,10 @@ export function DateTimeField({
       {mode !== "date" && (
         <ClockPart
           id={mode === "time" ? id : undefined}
+          disabled={disabled}
+          label={label}
           aria-invalid={invalid}
           aria-describedby={describedBy}
-          label={label}
           time={time}
           minuteStep={minuteStep}
           className={both ? "-ml-px w-28 rounded-l-none" : "flex-1"}
@@ -81,6 +115,7 @@ export function DateTimeField({
 }
 
 function DayPart({
+  disabled,
   "aria-invalid": invalid,
   "aria-describedby": describedBy,
   id,
@@ -88,9 +123,10 @@ function DayPart({
   className,
   onChange,
 }: {
-  readonly id: string | undefined;
+  readonly disabled: boolean;
   readonly "aria-invalid": AriaAttributes["aria-invalid"];
   readonly "aria-describedby": string | undefined;
+  readonly id: string | undefined;
   readonly date: string;
   readonly className: string | undefined;
   readonly onChange: (next: string) => void;
@@ -98,12 +134,19 @@ function DayPart({
   const { t } = useTranslation();
   const locale = useLocale();
   const [open, setOpen] = useState(false);
+  if (disabled && open) setOpen(false);
   const selected = date === "" ? undefined : fromDayKey(date);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open && !disabled}
+      onOpenChange={(next) => {
+        if (!next || !disabled) setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           id={id}
+          disabled={disabled}
           aria-invalid={invalid}
           aria-describedby={describedBy}
           variant="outline"
@@ -120,6 +163,8 @@ function DayPart({
       <PopoverContent className="w-auto overflow-hidden p-0" align="start">
         <Calendar
           mode="single"
+          disabled={disabled}
+          disableNavigation={disabled}
           locale={LOCALES[locale]}
           labels={{
             labelPrevious: () => t("common.calendar.previousMonth"),
@@ -137,7 +182,7 @@ function DayPart({
           selected={selected}
           {...(selected === undefined ? {} : { defaultMonth: selected })}
           onSelect={(day) => {
-            if (day === undefined) return;
+            if (disabled || day === undefined) return;
             onChange(toDayKey(day));
             setOpen(false);
           }}
@@ -148,6 +193,7 @@ function DayPart({
 }
 
 function ClockPart({
+  disabled,
   "aria-invalid": invalid,
   "aria-describedby": describedBy,
   id,
@@ -157,9 +203,10 @@ function ClockPart({
   className,
   onChange,
 }: {
-  readonly id: string | undefined;
+  readonly disabled: boolean;
   readonly "aria-invalid": AriaAttributes["aria-invalid"];
   readonly "aria-describedby": string | undefined;
+  readonly id: string | undefined;
   readonly label: string;
   readonly time: string;
   readonly minuteStep: number;
@@ -168,15 +215,22 @@ function ClockPart({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  if (disabled && open) setOpen(false);
   const [hour, minute] = time === "" ? [null, null] : time.split(":").map(Number);
   const minutes = minuteOptions(minuteStep, minute ?? null);
   const pad = (n: number) => String(n).padStart(2, "0");
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open && !disabled}
+      onOpenChange={(next) => {
+        if (!next || !disabled) setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           id={id}
+          disabled={disabled}
           aria-invalid={invalid}
           aria-describedby={describedBy}
           variant="outline"
@@ -194,6 +248,7 @@ function ClockPart({
       <PopoverContent className="w-auto p-2" align="end">
         <div className="flex gap-2">
           <Column
+            disabled={disabled}
             title={t("common.calendar.hours")}
             options={HOURS}
             selected={hour ?? null}
@@ -201,6 +256,7 @@ function ClockPart({
             onPick={(h) => onChange(`${pad(h)}:${pad(minute ?? 0)}`)}
           />
           <Column
+            disabled={disabled}
             title={t("common.calendar.minutes")}
             options={minutes}
             selected={minute ?? null}
@@ -218,12 +274,14 @@ function ClockPart({
 
 /** One scrolling list of the clock; the chosen entry is scrolled into view when the popover opens. */
 function Column({
+  disabled,
   title,
   options,
   selected,
   open,
   onPick,
 }: {
+  readonly disabled: boolean;
   readonly title: string;
   readonly options: readonly number[];
   readonly selected: number | null;
@@ -243,6 +301,7 @@ function Column({
             key={option}
             type="button"
             role="option"
+            disabled={disabled}
             aria-selected={option === selected}
             ref={option === selected ? chosen : null}
             className={cn(
@@ -250,7 +309,9 @@ function Column({
               option === selected &&
                 "bg-primary text-primary-foreground hover:bg-primary/90",
             )}
-            onClick={() => onPick(option)}
+            onClick={() => {
+              if (!disabled) onPick(option);
+            }}
           >
             {String(option).padStart(2, "0")}
           </button>

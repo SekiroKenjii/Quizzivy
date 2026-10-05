@@ -1913,6 +1913,18 @@
     "fileRemove": "Bấm để bỏ tệp",
     "fileRemoveNamed": "Bỏ tệp {{name}}"
   },
+  "datePicker": {
+    "chooseDate": "Chọn ngày",
+    "chooseTime": "Chọn giờ",
+    "time": "Giờ",
+    "today": "Hôm nay",
+    "now": "Bây giờ",
+    "done": "Xong",
+    "earlierHour": "Giảm giờ",
+    "laterHour": "Tăng giờ",
+    "earlierMinute": "Giảm phút",
+    "laterMinute": "Tăng phút"
+  },
   "contentEditor": {
     "gapLabel": "Ô trống {{label}}",
     "newGap": "trống",

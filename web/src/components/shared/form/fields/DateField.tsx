@@ -8,6 +8,7 @@ export function DateField({
   onChange,
   invalid,
   describedBy,
+  disabled,
   minuteStep,
 }: FieldControlProps<string> & Readonly<{ minuteStep?: number | undefined }>) {
   return (
@@ -18,6 +19,7 @@ export function DateField({
     >
       <DateTimeField
         id={id}
+        disabled={disabled}
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
         label={label}

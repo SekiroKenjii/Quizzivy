@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
@@ -289,6 +289,184 @@ beforeEach(() =>
 );
 afterEach(() => vi.unstubAllGlobals());
 
+it.each(["date", "time"] as const)(
+  "focuses and describes the invalid %s trigger in either scale",
+  async (kind) => {
+    const user = userEvent.setup();
+    const node = (
+      <FormDialog
+        open
+        onOpenChange={() => {}}
+        title="Ngày giờ"
+        initial={{ value: "" }}
+        fields={[
+          { kind, name: "value", label: "Mốc", hint: "Giờ địa phương", required: true },
+        ]}
+        submitLabel="Lưu"
+        onSubmit={() => {}}
+      />
+    );
+    const view = render(<DeckScale>{node}</DeckScale>);
+    await user.click(screen.getByRole("button", { name: "Lưu" }));
+    const trigger = screen.getByRole("button", { name: "Mốc" });
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute("aria-invalid", "true");
+    expect(trigger).toHaveAccessibleDescription("Giờ địa phương Bắt buộc");
+    view.unmount();
+    render(node);
+    await user.click(screen.getByRole("button", { name: "Lưu" }));
+    const legacyTrigger = screen.getByRole("button", {
+      name: /Mốc/,
+    });
+    expect(legacyTrigger).toHaveFocus();
+    expect(legacyTrigger).toHaveAttribute("aria-invalid", "true");
+    expect(legacyTrigger).toHaveAccessibleDescription("Giờ địa phương Bắt buộc");
+  },
+);
+it("disables native segmented and picker buttons while pending", () => {
+  render(
+    <DeckScale>
+      <FormDialog
+        open
+        pending
+        onOpenChange={() => {}}
+        title="Đang lưu"
+        initial={{ one: "a", day: "2026-09-24" }}
+        fields={[
+          {
+            kind: "seg",
+            name: "one",
+            label: "Loại",
+            options: [{ value: "a", label: "Một" }],
+          },
+          { kind: "date", name: "day", label: "Ngày" },
+        ]}
+        submitLabel="Lưu"
+        onSubmit={() => {}}
+      />
+    </DeckScale>,
+  );
+  expect(screen.getByRole("button", { name: "Một" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Ngày/ })).toBeDisabled();
+});
+
+const PORTAL_SCENARIOS = {
+  date: {
+    controlRole: "button",
+    portalRole: "dialog",
+    portalName: "Chọn ngày",
+    initial: "2026-09-24",
+    next: "2026-09-25",
+  },
+  time: {
+    controlRole: "button",
+    portalRole: "dialog",
+    portalName: "Chọn giờ",
+    initial: "08:07",
+    next: "08:10",
+  },
+  select: {
+    controlRole: "combobox",
+    portalRole: "listbox",
+    portalName: null,
+    initial: "a",
+    next: "b",
+  },
+} as const;
+async function choosePortalValue(
+  user: ReturnType<typeof userEvent.setup>,
+  kind: keyof typeof PORTAL_SCENARIOS,
+  portal: HTMLElement,
+) {
+  const controls = within(portal);
+  switch (kind) {
+    case "date":
+      await user.click(controls.getByRole("button", { name: /ngày 25 tháng 09/ }));
+      break;
+    case "time":
+      await user.click(controls.getByRole("button", { name: "Tăng phút" }));
+      await user.click(controls.getByRole("button", { name: "Xong" }));
+      break;
+    case "select":
+      await user.click(controls.getByRole("option", { name: "Lớp B" }));
+      break;
+  }
+}
+it.each([
+  { kind: "date", lock: "pending" },
+  { kind: "date", lock: "disabled" },
+  { kind: "time", lock: "pending" },
+  { kind: "time", lock: "disabled" },
+  { kind: "select", lock: "pending" },
+  { kind: "select", lock: "disabled" },
+] as const)(
+  "discards the open $kind portal on $lock without changing saved or other form drafts",
+  async ({ kind, lock }) => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    const scenario = PORTAL_SCENARIOS[kind];
+    const initial = { title: "", value: scenario.initial };
+    const field: FormField<typeof initial> =
+      kind === "select"
+        ? {
+            kind,
+            name: "value",
+            label: "Mốc",
+            options: [
+              { value: "a", label: "Lớp A" },
+              { value: "b", label: "Lớp B" },
+            ],
+          }
+        : { kind, name: "value", label: "Mốc" };
+    const props = {
+      open: true,
+      onOpenChange: () => {},
+      title: "Đổi trạng thái",
+      initial,
+      fields: [
+        { kind: "text", name: "title", label: "Tên" },
+        field,
+      ] as readonly FormField<typeof initial>[],
+      submitLabel: "Lưu",
+      onSubmit: submit,
+    };
+    const renderForm = (locked: boolean) => (
+      <DeckScale>
+        <FormDialog {...props} {...{ [lock]: locked }} />
+      </DeckScale>
+    );
+    const portalOptions = scenario.portalName ? { name: scenario.portalName } : {};
+    const view = render(renderForm(false));
+    await user.type(screen.getByRole("textbox", { name: "Tên" }), "Giữ bản nháp");
+    await user.click(screen.getByRole(scenario.controlRole, { name: /Mốc/ }));
+    if (kind === "time")
+      await user.click(screen.getByRole("button", { name: "Tăng phút" }));
+    const portal = screen.getByRole(scenario.portalRole, portalOptions);
+    view.rerender(renderForm(true));
+    expect.soft(screen.queryByRole(scenario.portalRole, portalOptions)).toBeNull();
+    if (portal.isConnected) await choosePortalValue(user, kind, portal);
+    expect(submit).not.toHaveBeenCalled();
+    view.rerender(renderForm(false));
+    expect(screen.queryByRole(scenario.portalRole, portalOptions)).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Tên" })).toHaveValue("Giữ bản nháp");
+    await user.click(screen.getByRole("button", { name: "Lưu" }));
+    expect
+      .soft(submit)
+      .toHaveBeenCalledExactlyOnceWith({ ...initial, title: "Giữ bản nháp" });
+    submit.mockClear();
+    await user.click(screen.getByRole(scenario.controlRole, { name: /Mốc/ }));
+    await choosePortalValue(
+      user,
+      kind,
+      screen.getByRole(scenario.portalRole, portalOptions),
+    );
+    await user.click(screen.getByRole("button", { name: "Lưu" }));
+    expect(submit).toHaveBeenCalledExactlyOnceWith({
+      title: "Giữ bản nháp",
+      value: scenario.next,
+    });
+  },
+);
 it.each(["pending", "disabled", "closed"] as const)(
   "rejects a retained native file callback delivered while %s",
   async (lock) => {

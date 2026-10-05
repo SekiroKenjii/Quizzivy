@@ -72,6 +72,37 @@ const frame = (fields: readonly FormField<Values>[], onSubmit = () => {}) => (
     />
   </DeckScale>
 );
+it("renders each text, date, time and toggle kind by accessible name", () => {
+  render(
+    frame([
+      { kind: "text", name: "text", label: "Tên" },
+      { kind: "email", name: "email", label: "Email" },
+      { kind: "number", name: "number", label: "Số" },
+      { kind: "password", name: "password", label: "Mật khẩu" },
+      { kind: "area", name: "area", label: "Nội dung" },
+      { kind: "date", name: "date", label: "Ngày" },
+      { kind: "time", name: "time", label: "Giờ" },
+      { kind: "toggle", name: "toggle", text: "Bật", sub: "Mô tả" },
+    ]),
+  );
+  expect(screen.getByRole("textbox", { name: "Tên" })).toHaveAttribute("type", "text");
+  expect(screen.getByRole("textbox", { name: "Email" })).toHaveAttribute(
+    "type",
+    "email",
+  );
+  expect(screen.getByRole("spinbutton", { name: "Số" })).toHaveAttribute(
+    "type",
+    "number",
+  );
+  expect(screen.getByLabelText("Mật khẩu")).toHaveAttribute("type", "password");
+  expect(screen.getByRole("textbox", { name: "Nội dung" })).toHaveAttribute(
+    "rows",
+    "3",
+  );
+  expect(screen.getByRole("button", { name: /Ngày/ })).toBeVisible();
+  expect(screen.getByRole("button", { name: /Giờ 08:00/ })).toBeVisible();
+  expect(screen.getByRole("switch", { name: "Bật" })).not.toBeChecked();
+});
 it("marks only the six optional kinds and respects required and noOptional", () => {
   render(
     frame([
