@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Bell, Lock, Palette, SlidersHorizontal, User } from "lucide-react";
 import { CopyField } from "@/components/shared/CopyField";
 import { DirtyBar } from "@/components/shared/DirtyBar";
@@ -15,6 +16,7 @@ import { TagCombobox } from "@/components/shared/form/TagCombobox";
 import type { TagSuggestion } from "@/components/shared/form/tagOptions";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const EVENTS = [
   ["Started attempt", "19:22"],
@@ -159,6 +161,39 @@ const unsaved = (error: string | null) =>
   };
 
 export const cases: Record<string, () => ReactElement> = {
+  "sheet-local-escape": function LocalEscapeSheet() {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const [title, setTitle] = useState("Mid-term Reading Mock");
+    const [tags, setTags] = useState<string[]>([]);
+    const [minutes, setMinutes] = useState(45);
+    return opened(
+      t("tests.edit"),
+      () => setOpen(true),
+      <Sheet open={open} onOpenChange={setOpen} title={t("tests.edit")}>
+        <label className="text-meta flex flex-col gap-1.5 font-medium">
+          {t("tests.title")}
+          <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+        </label>
+        <TagCombobox
+          label={t("tests.tagFilter")}
+          tags={tags}
+          onChange={setTags}
+          suggestions={[{ tag: "reading" }]}
+        />
+        <NumberStepper
+          label={t("assignments.duration")}
+          value={minutes}
+          onChange={setMinutes}
+          min={1}
+          max={600}
+          step={5}
+          format={(value) => t("assignments.minutes", { count: value })}
+        />
+      </Sheet>,
+    );
+  },
+
   "sheet-420": function AttemptSheet() {
     const [open, setOpen] = useState(true);
     return opened(

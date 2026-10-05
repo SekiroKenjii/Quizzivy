@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { Dialog as Primitive } from "radix-ui";
 
 import { useDeckScale } from "@/components/ui/deck-scale";
+import { preventLocalEscapeDismissal } from "@/lib/localEscape";
 import { cn } from "@/lib/utils";
 
 type SheetWidth = 320 | 380 | 420;
@@ -90,6 +91,7 @@ export function Sheet({
             MOTION,
             frame.panel,
           )}
+          onEscapeKeyDown={preventLocalEscapeDismissal}
           onOpenAutoFocus={() => {
             const active = document.activeElement;
             opener.current =

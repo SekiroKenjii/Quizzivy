@@ -121,6 +121,7 @@ export function TagCombobox({
           role="combobox"
           aria-label={label}
           aria-expanded={open}
+          data-local-escape={open || undefined}
           aria-controls={id}
           aria-autocomplete="list"
           aria-activedescendant={open ? `${id}-${current}` : undefined}

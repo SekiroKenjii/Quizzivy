@@ -125,6 +125,7 @@ export function NumberStepper({
           aria-valuemin={min}
           aria-valuemax={max}
           aria-valuetext={text}
+          data-local-escape={(focused && draft !== null) || undefined}
           size={1}
           disabled={disabled}
           value={shown}
