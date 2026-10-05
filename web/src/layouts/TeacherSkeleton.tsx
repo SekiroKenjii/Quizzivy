@@ -26,7 +26,7 @@ const ROWS = ["first", "second", "third", "fourth", "fifth"] as const;
 export function TeacherSkeleton() {
   const collapsed = readSidebarState() === "collapsed";
   return (
-    <div data-scale="deck" className="bg-bg flex h-full">
+    <div data-slot="teacher-skeleton" data-scale="deck" className="bg-bg flex h-full">
       <div
         data-slot="skeleton-sidebar"
         className={cn(
