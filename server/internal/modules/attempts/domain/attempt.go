@@ -51,6 +51,9 @@ type Session struct {
 	GroupAudioPlays   map[string]int
 	Answers           map[string][]byte
 	Integrity         Integrity
+	// Superseded reports that the reader named a session the attempt no longer
+	// has; SessionID is then the one it named and BeaconToken is empty.
+	Superseded bool
 }
 
 // AttemptRecord carries the two columns Attempt deliberately does not: the seed is the
