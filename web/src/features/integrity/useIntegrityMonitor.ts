@@ -163,10 +163,27 @@ export function useIntegrityMonitor({
 /** What the audio player reports, which no listener here can observe. */
 export function recordAudioEvent(
   attemptId: string,
-  kind: "audio_play" | "audio_ended" | "audio_blocked",
+  kind: "audio_play" | "audio_ended" | "audio_blocked" | "audio_seek",
   questionId: string,
 ): void {
   record(attemptId, kind, { questionId });
+}
+
+/** recordSharedAudioEvent records a shared recording's end or block, with its identity and known device duration. */
+export function recordSharedAudioEvent(
+  attemptId: string,
+  kind: "audio_ended" | "audio_blocked",
+  recordingId: string,
+  durationMs?: number,
+): void {
+  const duration =
+    kind === "audio_ended" &&
+    durationMs !== undefined &&
+    Number.isInteger(durationMs) &&
+    durationMs >= 0
+      ? { durationMs }
+      : {};
+  record(attemptId, kind, { meta: { scope: "group", recordingId, ...duration } });
 }
 
 export { pending };

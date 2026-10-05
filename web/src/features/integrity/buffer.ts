@@ -8,11 +8,30 @@ export interface Buffered {
 }
 
 const KEY_PREFIX = "quizzivy.integrity.";
+const SEQUENCE_BOUND = 2_000_000_000;
 
 let state: Buffered | null = null;
+let anchor: { attemptId: string; startedAt: number } | null = null;
 
 function storageKey(attemptId: string): string {
   return KEY_PREFIX + attemptId;
+}
+
+/** anchorSequence calibrates the attempt's offset from server time without guaranteeing unique numbers. */
+export function anchorSequence(
+  attemptId: string,
+  startedAt: string,
+  serverTime: string,
+): void {
+  const elapsed = Date.parse(serverTime) - Date.parse(startedAt);
+  anchor = Number.isNaN(elapsed)
+    ? null
+    : { attemptId, startedAt: Date.now() - elapsed };
+}
+
+function sequenceFor(attemptId: string, nextSeq: number): number {
+  if (anchor === null || anchor.attemptId !== attemptId) return nextSeq;
+  return Math.max(nextSeq, Math.min(SEQUENCE_BOUND, Date.now() - anchor.startedAt));
 }
 
 /**
@@ -50,22 +69,27 @@ export function beginSession(attemptId: string, sessionId: string): void {
   write(attemptId, { sessionId, nextSeq: 0, events: [] });
 }
 
+/**
+ * record buffers one event of the attempt under the number anchorSequence
+ * describes, and nothing before a session has begun.
+ */
 export function record(
   attemptId: string,
   kind: string,
   extra: { questionId?: string; meta?: Record<string, unknown> } = {},
 ): void {
   if (state === null) return;
+  const clientSeq = sequenceFor(attemptId, state.nextSeq);
   const event: IntegrityEventInput = {
     kind,
     occurredAt: new Date().toISOString(),
-    clientSeq: state.nextSeq,
+    clientSeq,
     ...(extra.questionId === undefined ? {} : { questionId: extra.questionId }),
     ...(extra.meta === undefined ? {} : { meta: extra.meta }),
   };
   write(attemptId, {
     ...state,
-    nextSeq: state.nextSeq + 1,
+    nextSeq: clientSeq + 1,
     events: [...state.events, event],
   });
 }
