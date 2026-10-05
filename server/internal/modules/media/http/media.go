@@ -386,3 +386,58 @@ func cacheControlForSignedURL(ttl time.Duration) string {
 }
 
 const cacheControlForSignedURLList = "private, no-store"
+
+// ReplaceMedia replaces a library file while preserving immutable published media.
+func (h Media) ReplaceMedia(ctx context.Context, request openapi.ReplaceMediaRequestObject) (openapi.ReplaceMediaResponseObject, error) {
+	if h.app == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	actor, ok := httpapi.ActorFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+	scope := httpapi.ScopeFromContext(ctx)
+	if _, err := h.app.Queries.ReplacementTarget.Handle(ctx, query.ReplacementTarget{ID: request.Id.String(), Scope: scope}); err != nil {
+		return replacementRefused(ctx, err)
+	}
+	part, err := nextFilePart(request.Body)
+	if err != nil {
+		if overBodyLimit(err) {
+			return openapi.ReplaceMedia413JSONResponse(fileTooLarge(ctx)), nil
+		}
+		return openapi.ReplaceMedia415JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Không tìm thấy tệp trong yêu cầu tải lên.", "The upload request holds no file."))), nil
+	}
+	defer func() { _ = part.Close() }()
+	result, err := h.app.Commands.Replace.Handle(ctx, command.Replace{ID: request.Id.String(), Scope: scope, Filename: part.FileName(), Body: part, UploaderID: actor.ID, IP: actor.IP, UserAgent: actor.UserAgent})
+	if err != nil {
+		return replacementRefused(ctx, err)
+	}
+	return openapi.ReplaceMedia201JSONResponse{Asset: ToAPILibraryAsset(result.Asset), Repointed: openapi.MediaReplacementCounts{Questions: result.Repointed.Questions, Groups: result.Repointed.Groups}, Left: openapi.MediaReplacementCounts{Questions: result.Left.Questions, Groups: result.Left.Groups}}, nil
+}
+func replacementRefused(ctx context.Context, err error) (openapi.ReplaceMediaResponseObject, error) {
+	var cleanup *domain.ReplacementCleanupError
+	var transaction *domain.ReplacementError
+	if errors.As(err, &cleanup) || errors.As(err, &transaction) && (transaction.Outcome != domain.ReplacementNotCommitted || transaction.RollbackError != nil) {
+		return nil, err
+	}
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return openapi.ReplaceMedia404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy tệp.", "The file was not found.")))}, nil
+	case errors.Is(err, domain.ErrQuotaExceeded):
+		return openapi.ReplaceMedia409JSONResponse(httpapi.Error(ctx, openapi.MEDIAQUOTAEXCEEDED, httpx.Text(ctx, "Thư viện đã hết dung lượng. Hãy xoá bớt tệp rồi tải lại.", "Your media library is full. Delete some files, then upload again."))), nil
+	case errors.Is(err, domain.ErrImageTooLarge):
+		return openapi.ReplaceMedia413JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLARGE, httpx.Text(ctx, "Ảnh vượt quá 10 MB. Vui lòng dùng ảnh nhỏ hơn.", "The image is larger than 10 MB. Please use a smaller one."))), nil
+	case errors.Is(err, domain.ErrTooLarge), overBodyLimit(err):
+		return openapi.ReplaceMedia413JSONResponse(fileTooLarge(ctx)), nil
+	case errors.Is(err, domain.ErrKindMismatch):
+		return openapi.ReplaceMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIAKINDMISMATCH, httpx.Text(ctx, "Tệp thay thế phải có cùng loại với tệp cũ.", "The replacement must have the same media kind as the old file."))), nil
+	case errors.Is(err, domain.ErrTooLong):
+		return openapi.ReplaceMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLONG, httpx.Text(ctx, "Tệp âm thanh dài hơn 5 phút. Vui lòng cắt ngắn.", "The audio file is longer than 5 minutes. Please shorten it."))), nil
+	case errors.Is(err, domain.ErrUnmeasurable):
+		return openapi.ReplaceMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIAUNREADABLE, httpx.Text(ctx, "Không đọc được tệp âm thanh này. Tệp có thể bị lỗi hoặc chưa tải lên hết.", "This audio file cannot be read. It may be damaged or not fully uploaded."))), nil
+	case errors.Is(err, domain.ErrUnsupportedType):
+		return openapi.ReplaceMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIATYPEUNSUPPORTED, httpx.Text(ctx, "Chỉ hỗ trợ mp3, m4a và ảnh png/jpg/webp.", "Only mp3, m4a and png, jpg or webp images are supported."))), nil
+	default:
+		return nil, err
+	}
+}

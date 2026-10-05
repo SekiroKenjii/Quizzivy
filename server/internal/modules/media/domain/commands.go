@@ -71,3 +71,29 @@ type UpdateInput struct {
 	IP                 string
 	UserAgent          string
 }
+
+// ReplacementTarget is a scoped live library asset and its owner.
+type ReplacementTarget struct {
+	Asset   Asset
+	OwnerID string
+}
+
+// ReplacementCounts names distinct question rows and groups affected by replacement.
+type ReplacementCounts struct {
+	Questions int
+	Groups    int
+}
+
+// ReplaceResult is a committed replacement and its actual reference counts.
+type ReplaceResult struct {
+	Asset     Asset
+	Repointed ReplacementCounts
+	Left      ReplacementCounts
+}
+
+// ReplaceInput replaces one library asset through an exclusively owned pool transaction.
+type ReplaceInput struct {
+	ID    string
+	Scope access.Scope
+	Asset InsertInput
+}

@@ -1437,6 +1437,20 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 - In the library a file can be renamed, and audio can be given a default play limit: unlimited, or 1 to 3. The stored file and its original filename never change. The limit is stored with the file for the editor to start a question's own limit from; it changes no question by itself.
 - Upload goes **through the Go backend** in v1 (low volume, and the backend must validate anyway). Presigned direct-to-R2 upload is the P1 optimisation; design the API so switching does not change the client contract beyond the upload call.
 - Assets are **immutable**. Re-uploading creates a new `media_assets` row; it never overwrites an existing key. This is what lets `test_version_questions` reference an asset without copying the file.
+- A library file can be replaced only by the same kind. Replacement creates a new
+  immutable asset owned by the old file's owner, with its current display name and default
+  play limit. In one database transaction, the retained current graph of live editable
+  questions and bank or draft-owned group media of that owner points to the new asset;
+  each changed group gains one revision.
+  Published versions, import review drafts and other owners' bindings retain the old
+  readable asset. The response counts distinct changed questions/groups and other owners'
+  live editable questions/groups left on the old asset; historical versions and imports
+  are excluded. Late same-owner bindings may retain the old asset and are excluded from
+  the left counts. The old file leaves the library and quota, but remains available to existing
+  bindings and later publication/import materialization. An internal error can follow a
+  commit, or its outcome can be unknown; both retain the new object. A retry against the
+  replaced old library ID can answer 404. Replacement does not promise idempotent retries
+  or an atomic transaction with object storage.
 - Client-side pre-check before upload: read duration via an `<audio>` element and reject early, so a student's teacher does not wait 50 MB to be told no.
 
 ### 11.2 Storage and delivery
@@ -2018,6 +2032,7 @@ POST   /teacher/questions | PATCH /:id | DELETE /:id
 POST   /teacher/media?defaultMaxPlays=  multipart → MediaAsset (validates mime, size, duration, quota)
 GET    /teacher/media?kind=&unused=&q=&cursor=   rows, facets and usage against the quota
 PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the library row
+POST   /teacher/media/:id/replace       multipart → {asset, repointed: {questions, groups}, left: {questions, groups}}
 DELETE /teacher/media/:id               409 if referenced by a published version
 GET    /teacher/assignments | POST | GET /:id | PATCH /:id
 GET    /teacher/assignments/:id/attempts  → rows incl. integrity + audio summary
