@@ -12,6 +12,7 @@ import { teacherUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
 
 type Dashboard = components["schemas"]["Dashboard"];
+type TeacherSummary = components["schemas"]["TeacherSummary"];
 type User = components["schemas"]["CurrentUser"];
 
 export const BASE = "http://localhost:8080";
@@ -108,4 +109,44 @@ export function renderShell(
 
 export function home(element: ReactElement = <p>trang tổng quan</p>): RouteObject {
   return { index: true, handle: DASHBOARD, element };
+}
+
+/** summaryBody supplies the two existing sidebar figures as distinct summary fields. */
+export const summaryBody: TeacherSummary = {
+  liveAssignments: 3,
+  answersToGrade: 6,
+  unreadNotifications: 0,
+};
+
+/** serveSummary answers the actual cheap Teacher summary endpoint for rebuilt-shell public cases. */
+export function serveSummary(body: TeacherSummary = summaryBody) {
+  const seen = { asked: 0 };
+  server.use(
+    http.get(`${BASE}/teacher/summary`, () => {
+      seen.asked += 1;
+      return contractJson("/teacher/summary", "get", 200, body);
+    }),
+  );
+  return seen;
+}
+
+/** failSummary preserves the existing failed-badge assertions on the actual summary endpoint. */
+export function failSummary() {
+  const seen = { asked: 0 };
+  server.use(
+    http.get(`${BASE}/teacher/summary`, () => {
+      seen.asked += 1;
+      return HttpResponse.json(
+        {
+          error: {
+            code: "INTERNAL",
+            message: "Máy chủ gặp lỗi.",
+            requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+          },
+        },
+        { status: 500 },
+      );
+    }),
+  );
+  return seen;
 }
