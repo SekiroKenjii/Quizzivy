@@ -21,12 +21,7 @@ const RADII: Record<ProgressSize, string> = {
   8: "rounded-[0.5rem]",
 };
 
-/**
- * ProgressBarProps is what a ProgressBar takes: `value` of `max` (100 by
- * default), the `label` that names it, the track's height in pixels, the
- * fill's tone, and whether the fill ends square, clipped by the track, or
- * round.
- */
+/** ProgressBarProps supplies the labelled amount, maximum, track height, tone and cap shape. */
 export type ProgressBarProps = Readonly<{
   value: number;
   max?: number | undefined;
@@ -37,13 +32,7 @@ export type ProgressBarProps = Readonly<{
   className?: string | undefined;
 }>;
 
-/**
- * ProgressBar is the deck's thin bar of how much of something is done: a
- * muted track of 6 or 8 pixels and a fill as wide as `value` is of `max`, in
- * whole percent between 0 and 100. It is a progressbar named by `label`, and
- * the percentage is its value. It is built of spans, so it can sit inside a
- * link or a button; a caller gives it its width with `className`.
- */
+/** ProgressBar shows a labelled percentage clamped between zero and one hundred. */
 export function ProgressBar({
   value,
   max = 100,

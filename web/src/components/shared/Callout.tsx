@@ -34,11 +34,7 @@ function textClass(actions: boolean, dismissible: boolean) {
   return "min-w-0";
 }
 
-/**
- * CalloutProps is what a Callout takes: its tone and size, an icon in place
- * of the tone's own, a bold lead before the text, the text, controls after
- * it, a handler that adds the dismiss button, and whether it is announced.
- */
+/** CalloutProps supplies the note presentation, optional actions, dismissal and announcement. */
 export type CalloutProps = Readonly<{
   tone?: CalloutTone | undefined;
   size?: CalloutSize | undefined;
@@ -51,20 +47,7 @@ export type CalloutProps = Readonly<{
   className?: string | undefined;
 }>;
 
-/**
- * Callout is the deck's note beside a form or above a list: a tinted block
- * with an icon and a sentence. `lg`, the default, is the 13px note on a 10px
- * radius, `md` the tighter one on 8px and `sm` the 12.5px line under a field.
- * Neutral is the muted fill with the icon in the text colour; a tone is its
- * soft fill with the icon in its ink, and the text is the text colour in
- * every tone. It is a static note with no role; `announce` makes it an alert,
- * for a callout that appears in answer to something the user did. `actions`
- * are laid out after the text as items of the callout's own row, which then
- * wraps, and `onDismiss` adds a button that calls it. The icon's size, colour
- * and top margin are set from the root with `[&>svg]:`, and `className` is
- * applied last, so a screen restates any of them, the gap or the radius with
- * one class each.
- */
+/** Callout shows a static note and becomes an alert only when announcement is requested. */
 export function Callout({
   tone = "neutral",
   size = "lg",

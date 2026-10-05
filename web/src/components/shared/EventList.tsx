@@ -11,10 +11,7 @@ const DOTS: Record<EventTone, string> = {
   neutral: "bg-border",
 };
 
-/**
- * EventListItem is one line of an EventList: the tone of its dot, what
- * happened, and when, as the screen formats it.
- */
+/** EventListItem describes an event with its displayed time and decorative tone. */
 export type EventListItem = Readonly<{
   key: string;
   tone: EventTone;
@@ -22,25 +19,14 @@ export type EventListItem = Readonly<{
   time: string;
 }>;
 
-/**
- * EventListProps is what an EventList takes: the `label` that names the list
- * and its events, in the order they are drawn.
- */
+/** EventListProps supplies the list label and events in display order. */
 export type EventListProps = Readonly<{
   label: string;
   items: readonly EventListItem[];
   className?: string | undefined;
 }>;
 
-/**
- * EventList is the deck's list of things that happened, oldest first: a
- * round dot, a line of text and the time under it, with no line joining the
- * dots. It is an ordered list named by `label`. The dot is decoration and
- * hidden from assistive technology: its tone says nothing the text does not,
- * so a screen never colours a judgement it does not also write. Every item,
- * the last included, keeps the deck's 14px below it. An empty list renders
- * nothing; the screen owns the sentence for that.
- */
+/** EventList preserves caller order with decorative dots and renders nothing when empty. */
 export function EventList({ label, items, className }: EventListProps) {
   if (items.length === 0) return null;
   return (

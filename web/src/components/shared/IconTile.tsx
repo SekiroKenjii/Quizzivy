@@ -24,10 +24,7 @@ const TONES: Record<IconTileTone, string> = {
   accent: "bg-brand-soft text-brand-ink",
 };
 
-/**
- * IconTileProps is what an IconTile takes: the icon, the side of the square
- * in pixels (32 by default) and its tone (neutral by default).
- */
+/** IconTileProps supplies the decorative icon, square size and tone. */
 export type IconTileProps = Readonly<{
   icon: LucideIcon;
   size?: IconTileSize | undefined;
@@ -35,16 +32,7 @@ export type IconTileProps = Readonly<{
   className?: string | undefined;
 }>;
 
-/**
- * IconTile is the deck's rounded square with an icon at its centre, beside a
- * row's title or above an empty state's sentence. Each size has the radius
- * and the icon size the deck draws with it; neutral is the muted fill with
- * the icon in the text colour, and a tone is its soft fill with its ink. It
- * is decoration, hidden from assistive technology: the text beside it says
- * what the row is. The icon's size is set from the square, so a caller that
- * needs another one restates `[&>svg]:size-*` in `className`, as it restates
- * the radius.
- */
+/** IconTile hides its decorative icon from assistive technology and allows caller size overrides. */
 export function IconTile({
   icon: Icon,
   size = 32,

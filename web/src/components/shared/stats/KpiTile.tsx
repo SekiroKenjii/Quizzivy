@@ -29,12 +29,7 @@ const FRAME =
 const FOOT =
   "text-muted-fg text-meta flex items-center justify-between gap-2 leading-4";
 
-/**
- * KpiTileProps is what a KpiTile takes: the label, its icon and the icon's
- * tone, the value as the screen formats it, the hint under it, and whether a
- * live dot leads the label. `to` and `action` come together or not at all:
- * the route the tile opens and the words that say so.
- */
+/** KpiTileProps requires a destination and action label together for linked tiles. */
 export type KpiTileProps = Readonly<KpiFigure & KpiDestination>;
 
 /** KpiTile shows a linked figure or noninteractive card, pausing its live dot on tile hover or focus. */
