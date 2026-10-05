@@ -12,6 +12,8 @@ import (
 // those, while Get, Readable, ReferencesFor and SoftDelete also reach a
 // replaced asset.
 type Repository interface {
+	FindReplacementTarget(context.Context, access.Scope, string) (ReplacementTarget, error)
+	Replace(context.Context, ReplaceInput) (ReplaceResult, error)
 	Insert(ctx context.Context, in InsertInput) (Asset, error)
 	Get(ctx context.Context, id string) (Asset, error)
 	Find(ctx context.Context, scope access.Scope, id string) (Asset, error)

@@ -39,7 +39,7 @@ import {
   type UploadHandle,
 } from "@/features/media/components/UploadPanel";
 import { AudioPreviewRow } from "@/features/question-bank/components/AudioPreviewRow";
-import { useFileDrop } from "@/features/media/useFileDrop";
+import { useFileDrop } from "@/hooks/useFileDrop";
 import { deleteMedia, listMedia, type LibraryAsset } from "@/features/media/api";
 import { formatBytes } from "@/features/media/format";
 import { audioLength, shortDate } from "@/lib/i18n/datetime";

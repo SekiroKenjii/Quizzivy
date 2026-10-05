@@ -323,10 +323,11 @@ func isolationCases() map[string]isoCase {
 			return map[string]any{"requestId": uuid.NewString(), "draftRevision": 1}
 		}},
 
-		"listMedia":   {},
-		"uploadMedia": {},
-		"updateMedia": {fresh: freshMedia, body: fixed(map[string]any{"displayName": "Tên đã đổi"})},
-		"deleteMedia": {fresh: freshMedia},
+		"listMedia":    {},
+		"uploadMedia":  {},
+		"updateMedia":  {fresh: freshMedia, body: fixed(map[string]any{"displayName": "Tên đã đổi"})},
+		"deleteMedia":  {fresh: freshMedia},
+		"replaceMedia": {fresh: freshMedia, format: "png"},
 
 		"listAssignments":        {excuse: map[string]string{"query classId": "a filter by a missing class lists nothing"}},
 		"createAssignment":       {body: func(_ *iso, own *party, _ string) any { return assignmentBody(own) }},

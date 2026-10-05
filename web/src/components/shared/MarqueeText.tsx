@@ -3,13 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 
-/**
- * MarqueeText is one line of text that scrolls sideways only when it does not
- * fit, the deck's answer to long titles. It pauses under the pointer and while
- * it or its control has keyboard focus, and under reduced motion it truncates
- * with an ellipsis instead. Assistive technology reads the text once; the full
- * text is also the element's title whenever it is cut.
- */
+/** MarqueeText reads text once, exposes cut titles in full, and scrolls overflow with hover/focus pauses or a reduced-motion ellipsis. */
 export function MarqueeText({
   text,
   minSeconds = 8,
@@ -19,6 +13,8 @@ export function MarqueeText({
   const measure = useRef<HTMLSpanElement>(null);
   const [overflows, setOverflows] = useState(false);
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
+
+  const moving = overflows && !reduced;
 
   useLayoutEffect(() => {
     const outer = box.current;
@@ -32,9 +28,8 @@ export function MarqueeText({
     observer.observe(outer);
     observer.observe(inner);
     return () => observer.disconnect();
-  }, [text]);
+  }, [text, moving]);
 
-  const moving = overflows && !reduced;
   const seconds = Math.max(minSeconds, Math.round(text.length / 4));
 
   return (
@@ -42,23 +37,31 @@ export function MarqueeText({
       ref={box}
       title={overflows ? text : undefined}
       className={cn(
-        "qz-marquee block min-w-0 overflow-hidden whitespace-nowrap",
+        "qz-marquee relative block min-w-0 overflow-hidden whitespace-nowrap",
         moving ? "qz-marquee-masked" : "text-ellipsis",
         className,
       )}
     >
+      <span
+        ref={measure}
+        data-slot="marquee-measure"
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute top-0 left-0 w-max max-w-none whitespace-nowrap"
+      >
+        {text}
+      </span>
       {moving ? (
         <span
           className="qz-marquee-track inline-flex"
           style={{ animationDuration: `${seconds}s` }}
         >
-          <span ref={measure}>{text}</span>
+          <span>{text}</span>
           <span aria-hidden="true" className="pl-8">
             {text}
           </span>
         </span>
       ) : (
-        <span ref={measure}>{text}</span>
+        <span>{text}</span>
       )}
     </span>
   );

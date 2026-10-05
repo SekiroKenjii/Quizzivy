@@ -472,3 +472,21 @@ describe("a track that scrolls", () => {
     view.unmount();
   });
 });
+
+it("adds a wrapping equal-width form row without changing the default", () => {
+  render(
+    <Segmented
+      label="Hàng"
+      value="a"
+      onChange={() => {}}
+      options={[
+        { value: "a", label: "Một" },
+        { value: "b", label: "Hai" },
+      ]}
+      fill
+    />,
+  );
+  expect(screen.getByRole("group")).toHaveClass("flex-wrap", "w-full");
+  for (const button of screen.getAllByRole("button"))
+    expect(button).toHaveClass("flex-1", "h-7.5", "text-meta", "px-2.5");
+});

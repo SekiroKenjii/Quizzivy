@@ -533,6 +533,7 @@ components:
         - MEDIA_TOO_LARGE
         - MEDIA_TOO_LONG
         - MEDIA_UNREADABLE
+        - MEDIA_KIND_MISMATCH
         - MEDIA_QUOTA_EXCEEDED
         # Word imports
         - IMPORT_CONFLICT
@@ -1337,6 +1338,25 @@ components:
         `other`.
       enum: [assignments, attempts, audit, members, owned_content, other]
 
+    MediaReplacementCounts:
+      type: object
+      additionalProperties: false
+      required: [questions, groups]
+      properties:
+        questions: { type: integer, minimum: 0 }
+        groups: { type: integer, minimum: 0 }
+    MediaReplacement:
+      type: object
+      additionalProperties: false
+      required: [asset, repointed, left]
+      properties:
+        asset: { $ref: '#/components/schemas/LibraryAsset' }
+        repointed:
+          $ref: '#/components/schemas/MediaReplacementCounts'
+          description: Distinct live question rows and groups actually changed; question rows differ from LibraryAsset.questionCount's derived usage.
+        left:
+          $ref: '#/components/schemas/MediaReplacementCounts'
+          description: Other owners' live question rows and groups still using the old asset; excludes versions, import reviews and late same-owner bindings.
     LibraryAsset:
       type: object
       description: |
@@ -5666,6 +5686,72 @@ paths:
             `MEDIA_TOO_LONG` (over 5 minutes), or `MEDIA_UNREADABLE` (sniffed
             correctly but the duration could not be probed — rejected rather
             than stored with an unknown duration).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/media/{id}/replace:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: replaceMedia
+      x-permission: content.media.write
+      x-resource: [{ in: path, name: id, kind: media }]
+      tags: [teacher-media]
+      summary: Replace a library file without changing published versions
+      description: |
+        Creates a new immutable file of the same kind, retaining the old owner's
+        display name and default play limit. Repoints that owner's editable
+        questions and bank or draft-owned groups atomically. Published versions,
+        other owners' rows and import review documents retain the old live file.
+        The old file leaves the library but remains readable and bindable.
+        Missing, foreign, deleted and already replaced IDs answer the same 404
+        before multipart bytes are read, after routing, authentication and header validation.
+        Audio is mp3 or m4a, at most 50 MB and 5 minutes; an image is png,
+        jpg or webp, at most 10 MB (MediaAsset's x-media-limits). Identification
+        and streamed validation match uploadMedia; kind is checked before storage.
+        Quota is the old owner's, excluding the old bytes. Every changed group
+        revision advances once, so cached question and group data must be reloaded.
+        This operation is not idempotent. An uncertain commit or a committed
+        replacement whose response fails returns an internal error and retains
+        the new object; retrying the old ID may answer 404. Failed storage
+        compensation also returns an internal error, without public internal details.
+      x-max-body-bytes: 52559872
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: Replaced; asset is the new library file under the retained name.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReplacement' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota; no replacement committed and fresh-object compensation succeeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: |
+            `MEDIA_TOO_LARGE` — over 50 MB, or an image over 10 MB (§11.1).
+            The message names the limit that was passed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: |
+            `MEDIA_TYPE_UNSUPPORTED` (not mp3/m4a — §11.1 and §17.3),
+            `MEDIA_TOO_LONG` (over 5 minutes), or `MEDIA_UNREADABLE` (sniffed
+            correctly but the duration could not be probed — rejected rather
+            than stored with an unknown duration). `MEDIA_KIND_MISMATCH` means
+            the identified file differs from the old asset's kind.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
