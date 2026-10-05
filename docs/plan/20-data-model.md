@@ -1933,7 +1933,7 @@ Every transaction advisory lock this codebase takes is
 | 10 | Word imports (W-10a, W-13b) | Upload quota reservation |
 | 11 | Word imports (W-11a) | Run capacity allocation and renewal |
 | 40 | Maintenance windows (T-R1.12, T-R1.13) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions |
-| 41 | Reserved: R4's legacy join-code rotation | Confirmed by R4 |
+| 41 | Legacy join-code rotation (T-R4.22) | Each class's rotation across API machines |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
 
 ## 29. Roles and permissions (T-R2.1)
@@ -2196,6 +2196,12 @@ redeem one. Three columns join `app.class_join_codes`:
   the legacy codes (D5).
 - **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
   because the previous binary looks codes up by SHA-256 alone.
+- **The API replaces the legacy rows at start-up from v0.10.0 (T-R4.22):**
+  each unrevoked, unexpired scheme-1 row is revoked and a scheme-2 row is
+  inserted for its class with the same `expires_at`, `max_uses` and
+  `created_by` and `uses_count` 0, in one transaction per class under
+  advisory key 41 (§28), audited with a NULL actor; a revoked or expired
+  scheme-1 row is left as it is.
 
 ## 34. Notifications (T-R4.10a)
 
