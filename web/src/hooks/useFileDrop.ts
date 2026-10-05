@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-/** Accepts files dropped anywhere on the window. */
-export function useFileDrop(onFiles: (files: File[]) => void): boolean {
-  const [dragging, setDragging] = useState(false);
+/** useFileDrop accepts window file drops while enabled and clears drag state when disabled. */
+export function useFileDrop(onFiles: (files: File[]) => void, enabled = true): boolean {
+  const [state, setState] = useState({ enabled, dragging: false });
+  if (state.enabled !== enabled) setState({ enabled, dragging: false });
   const latest = useRef(onFiles);
 
   useEffect(() => {
@@ -10,13 +11,14 @@ export function useFileDrop(onFiles: (files: File[]) => void): boolean {
   }, [onFiles]);
 
   useEffect(() => {
+    if (!enabled) return;
+    const setDragging = (dragging: boolean) => setState({ enabled, dragging });
     const over = (event: DragEvent) => {
       if (!event.dataTransfer?.types.includes("Files")) return;
       event.preventDefault();
       setDragging(true);
     };
     const leave = (event: DragEvent) => {
-      // relatedTarget is null when the pointer leaves the window entirely.
       if (event.relatedTarget === null) setDragging(false);
     };
     const drop = (event: DragEvent) => {
@@ -34,7 +36,7 @@ export function useFileDrop(onFiles: (files: File[]) => void): boolean {
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("drop", drop);
     };
-  }, []);
+  }, [enabled]);
 
-  return dragging;
+  return enabled && state.enabled && state.dragging;
 }
