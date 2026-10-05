@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
-import { useFileDrop } from "@/features/media/useFileDrop";
+import { useFileDrop } from "@/hooks/useFileDrop";
 import "@/lib/i18n";
 
 /**

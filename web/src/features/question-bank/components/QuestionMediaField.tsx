@@ -7,7 +7,7 @@ import {
   UploadPanel,
   type UploadHandle,
 } from "@/features/media/components/UploadPanel";
-import { useFileDrop } from "@/features/media/useFileDrop";
+import { useFileDrop } from "@/hooks/useFileDrop";
 import type { MediaAsset } from "@/features/media/api";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { formatBytes } from "@/features/media/format";
