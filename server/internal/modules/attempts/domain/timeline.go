@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"sort"
 	"time"
 )
@@ -109,15 +110,56 @@ func pairOthers(events []IntegrityEvent) {
 	for i := range events {
 		e := &events[i]
 		if closer, ok := pairs[e.Kind]; ok {
-			open[timelineKey(closer, e.QuestionID)] = i
+			open[timelineEventKey(closer, *e)] = i
 			continue
 		}
-		if j, ok := open[timelineKey(e.Kind, e.QuestionID)]; ok {
-			d := timelineSpan(events[j].OccurredAt, e.OccurredAt)
+		key := timelineEventKey(e.Kind, *e)
+		if j, ok := open[key]; ok {
+			d := timelineDuration(events[j], *e)
 			events[j].DurationMs = &d
-			delete(open, timelineKey(e.Kind, e.QuestionID))
+			delete(open, key)
 		}
 	}
+}
+
+func timelineEventKey(kind string, event IntegrityEvent) string {
+	if event.QuestionID != nil {
+		return timelineKey(kind, event.QuestionID)
+	}
+	if recording := timelineRecording(event); recording != nil {
+		return kind + ":recording:" + *recording
+	}
+	return timelineKey(kind, nil)
+}
+
+func timelineRecording(event IntegrityEvent) *string {
+	if event.QuestionID != nil || (event.Kind != "audio_play" && event.Kind != "audio_ended") {
+		return nil
+	}
+	var meta struct {
+		RecordingID *string `json:"recordingId"`
+	}
+	if err := json.Unmarshal(event.Meta, &meta); err != nil {
+		return nil
+	}
+	return meta.RecordingID
+}
+
+func timelineDuration(play, end IntegrityEvent) int {
+	fallback := timelineSpan(play.OccurredAt, end.OccurredAt)
+	if timelineRecording(end) == nil {
+		return fallback
+	}
+	var meta struct {
+		DurationMs *float64 `json:"durationMs"`
+	}
+	if err := json.Unmarshal(end.Meta, &meta); err != nil || meta.DurationMs == nil {
+		return fallback
+	}
+	if *meta.DurationMs < 0 || *meta.DurationMs > 86_400_000 {
+		return fallback
+	}
+	return int(*meta.DurationMs)
 }
 
 func timelineKey(kind string, questionID *string) string {

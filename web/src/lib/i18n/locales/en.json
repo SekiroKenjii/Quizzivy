@@ -624,6 +624,7 @@
     "pause": "Pause",
     "seek": "Seek",
     "expired": "This preview link has expired. Reload to listen.",
+    "playBlocked": "Your browser did not start the audio. Press play again; if it still does not play, check this site's sound permission.",
     "deleted": "File deleted"
   },
   "questionEditor": {
@@ -1712,6 +1713,7 @@
       "audio_play": "Played audio",
       "audio_ended": "Audio ended",
       "audio_blocked": "Browser blocked audio",
+      "audio_seek": "Tried to skip in the audio",
       "paste": "Pasted content",
       "copy": "Copied content",
       "cut": "Cut content",

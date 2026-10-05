@@ -16,14 +16,15 @@ var ErrNotImplemented = errors.New("not implemented")
 type ErrorCode string
 
 const (
-	CodeValidationFailed ErrorCode = "VALIDATION_FAILED"
-	CodeUnauthorized     ErrorCode = "UNAUTHORIZED"
-	CodeForbidden        ErrorCode = "FORBIDDEN"
-	CodeNotFound         ErrorCode = "NOT_FOUND"
-	CodeMethodNotAllowed ErrorCode = "METHOD_NOT_ALLOWED"
-	CodeRateLimited      ErrorCode = "RATE_LIMITED"
-	CodeInternal         ErrorCode = "INTERNAL"
-	CodeMaintenance      ErrorCode = "MAINTENANCE"
+	CodeValidationFailed  ErrorCode = "VALIDATION_FAILED"
+	CodeRequestIncomplete ErrorCode = "REQUEST_INCOMPLETE"
+	CodeUnauthorized      ErrorCode = "UNAUTHORIZED"
+	CodeForbidden         ErrorCode = "FORBIDDEN"
+	CodeNotFound          ErrorCode = "NOT_FOUND"
+	CodeMethodNotAllowed  ErrorCode = "METHOD_NOT_ALLOWED"
+	CodeRateLimited       ErrorCode = "RATE_LIMITED"
+	CodeInternal          ErrorCode = "INTERNAL"
+	CodeMaintenance       ErrorCode = "MAINTENANCE"
 )
 
 // Error is the envelope from docs/plan/00-overview.md §7.
