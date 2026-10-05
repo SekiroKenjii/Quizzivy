@@ -6,7 +6,11 @@ export type Assignment = components["schemas"]["Assignment"];
 export type AssignmentStatus = components["schemas"]["AssignmentStatus"];
 
 export function getDashboard(signal?: AbortSignal) {
-  return api("get", "/teacher/dashboard", signal ? { signal } : {});
+  return api(
+    "get",
+    "/teacher/dashboard",
+    signal ? { query: {}, signal } : { query: {} },
+  );
 }
 
 export function listAssignments(
