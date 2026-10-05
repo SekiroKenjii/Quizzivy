@@ -979,6 +979,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teacher/media/{id}/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace a library file without changing published versions
+         * @description Creates a new immutable file of the same kind, retaining the old owner's
+         *     display name and default play limit. Repoints that owner's editable
+         *     questions and bank or draft-owned groups atomically. Published versions,
+         *     other owners' rows and import review documents retain the old live file.
+         *     The old file leaves the library but remains readable and bindable.
+         *     Missing, foreign, deleted and already replaced IDs answer the same 404
+         *     before multipart bytes are read, after routing, authentication and header validation.
+         *     Audio is mp3 or m4a, at most 50 MB and 5 minutes; an image is png,
+         *     jpg or webp, at most 10 MB (MediaAsset's x-media-limits). Identification
+         *     and streamed validation match uploadMedia; kind is checked before storage.
+         *     Quota is the old owner's, excluding the old bytes. Every changed group
+         *     revision advances once, so cached question and group data must be reloaded.
+         *     This operation is not idempotent. An uncertain commit or a committed
+         *     replacement whose response fails returns an internal error and retains
+         *     the new object; retrying the old ID may answer 404. Failed storage
+         *     compensation also returns an internal error, without public internal details.
+         */
+        post: operations["replaceMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/media/{id}": {
         parameters: {
             query?: never;
@@ -2359,7 +2396,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -2882,6 +2919,17 @@ export interface components {
          * @enum {string}
          */
         ReferencedBy: "assignments" | "attempts" | "audit" | "members" | "owned_content" | "other";
+        MediaReplacementCounts: {
+            questions: number;
+            groups: number;
+        };
+        MediaReplacement: {
+            asset: components["schemas"]["LibraryAsset"];
+            /** @description Distinct live question rows and groups actually changed; question rows differ from LibraryAsset.questionCount's derived usage. */
+            repointed: components["schemas"]["MediaReplacementCounts"];
+            /** @description Other owners' live question rows and groups still using the old asset; excludes versions, import reviews and late same-owner bindings. */
+            left: components["schemas"]["MediaReplacementCounts"];
+        };
         /**
          * @description A MediaAsset as the teacher's media library lists it: with the name the
          *     library shows, its default play limit, an image's size in pixels, how
@@ -6854,6 +6902,73 @@ export interface operations {
              *     `MEDIA_TOO_LONG` (over 5 minutes), or `MEDIA_UNREADABLE` (sniffed
              *     correctly but the duration could not be probed — rejected rather
              *     than stored with an unknown duration).
+             */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Replaced; asset is the new library file under the retained name. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaReplacement"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota; no replacement committed and fresh-object compensation succeeded. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TOO_LARGE` — over 50 MB, or an image over 10 MB (§11.1).
+             *     The message names the limit that was passed.
+             */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TYPE_UNSUPPORTED` (not mp3/m4a — §11.1 and §17.3),
+             *     `MEDIA_TOO_LONG` (over 5 minutes), or `MEDIA_UNREADABLE` (sniffed
+             *     correctly but the duration could not be probed — rejected rather
+             *     than stored with an unknown duration). `MEDIA_KIND_MISMATCH` means
+             *     the identified file differs from the old asset's kind.
              */
             415: {
                 headers: {

@@ -42,3 +42,38 @@ var ErrNoID = errors.New("media: could not generate an asset id")
 var ErrForbidden = errors.New("media: asset not reachable by this student")
 
 var ErrNotFound = errors.New("media: asset not found")
+
+// ErrKindMismatch refuses a replacement with another media kind.
+var ErrKindMismatch = errors.New("media: replacement kind differs")
+
+// ReplacementOutcome distinguishes confirmed noncommit from uncertain and confirmed commit.
+type ReplacementOutcome uint8
+
+const (
+	ReplacementUnknown ReplacementOutcome = iota
+	ReplacementNotCommitted
+	ReplacementCommitted
+)
+
+// ReplacementError preserves transaction outcome and any failed rollback.
+type ReplacementError struct {
+	Outcome       ReplacementOutcome
+	Cause         error
+	RollbackError error
+}
+
+func (e *ReplacementError) Error() string {
+	return fmt.Sprint("media: replacement: ", errors.Join(e.Cause, e.RollbackError))
+}
+func (e *ReplacementError) Unwrap() []error { return []error{e.Cause, e.RollbackError} }
+
+// ReplacementCleanupError retains the original refusal and failed fresh-object compensation.
+type ReplacementCleanupError struct {
+	Cause   error
+	Cleanup error
+}
+
+func (e *ReplacementCleanupError) Error() string {
+	return fmt.Sprint("media: replacement cleanup: ", errors.Join(e.Cause, e.Cleanup))
+}
+func (e *ReplacementCleanupError) Unwrap() []error { return []error{e.Cause, e.Cleanup} }

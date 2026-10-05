@@ -220,6 +220,9 @@ func (x *iso) build(op scopedOp, c isoCase, own *party, slot string, value strin
 	if len(query) > 0 {
 		path += "?" + query.Encode()
 	}
+	if c.format == "png" {
+		return op.method, path, new(filePayload(x.t, "thay.png", tinyPNG(x.t)))
+	}
 	if c.format == "docx" {
 		return op.method, path, new(filePayload(x.t, "de.docx", tinyDocx(x.t)))
 	}
