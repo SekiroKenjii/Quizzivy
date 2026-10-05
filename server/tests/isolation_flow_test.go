@@ -33,7 +33,7 @@ func (x *iso) views(ops []scopedOp) map[string]string {
 	out := map[string]string{}
 	for _, op := range ops {
 		c := x.cases[op.id]
-		if op.method != http.MethodGet || op.listing == "" && op.id != "getDashboard" && !strings.HasPrefix(op.id, "listMy") {
+		if op.method != http.MethodGet || op.listing == "" && op.id != "getDashboard" && op.id != "getTeacherSummary" && !strings.HasPrefix(op.id, "listMy") {
 			continue
 		}
 		viewer := x.b

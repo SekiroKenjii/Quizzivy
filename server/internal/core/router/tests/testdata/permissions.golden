@@ -45,6 +45,7 @@ GET /teacher/questions workspace.teacher
 GET /teacher/questions/{id} workspace.teacher
 GET /teacher/students people.students.read
 GET /teacher/students/{id} people.students.read
+GET /teacher/summary workspace.teacher
 GET /teacher/tests workspace.teacher
 GET /teacher/tests/{id} workspace.teacher
 GET /teacher/tests/{id}/preview workspace.teacher

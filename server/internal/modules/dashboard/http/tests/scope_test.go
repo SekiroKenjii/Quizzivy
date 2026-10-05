@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -69,7 +70,7 @@ func TestTheHomeCarriesTheCallersScopeToTheStore(t *testing.T) {
 			if _, err := dashboardhttp.NewDashboard(app).GetDashboard(ctx, openapi.GetDashboardRequestObject{}); err != nil {
 				t.Fatal(err)
 			}
-			if want := (access.Scope{UserID: principal.UserID, All: principal.Permissions.Has(access.ScopeAll)}); seen != want {
+			if want := (access.Scope{UserID: principal.UserID}); seen != want {
 				t.Errorf("the home ran in %+v, want %+v", seen, want)
 			}
 		})
@@ -94,3 +95,12 @@ func TestTheAttemptListCarriesTheCallersScope(t *testing.T) {
 		})
 	}
 }
+
+func (r recordingHome) Home(_ context.Context, q domain.HomeQuery) (domain.Home, error) {
+	*r.seen = q.Scope
+	return domain.Home{}, nil
+}
+func (recordingHome) LiveAssignments(context.Context, access.Scope, time.Time) (int, error) {
+	return 0, nil
+}
+func (recordingHome) AnswersToGrade(context.Context, access.Scope) (int, error) { return 0, nil }

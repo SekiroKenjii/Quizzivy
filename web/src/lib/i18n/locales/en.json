@@ -1549,6 +1549,10 @@
       "audio": "Has audio"
     }
   },
+  "display": {
+    "locked": "Locked",
+    "dismiss": "Dismiss"
+  },
   "monitor": {
     "loadFailed": "Couldn't load the student list.",
     "loadFailedHint": "Students' work is unaffected; only this table failed to load.",
@@ -1845,6 +1849,11 @@
       "pending": "To grade"
     },
     "open": "Grade"
+  },
+  "facet": {
+    "clear": "Clear filter",
+    "active": "{{label}}, {{count}} selected",
+    "none": "Nothing to choose from"
   },
   "byQuestion": {
     "title": "Grade by question",

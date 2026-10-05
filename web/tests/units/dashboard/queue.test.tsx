@@ -22,6 +22,17 @@ beforeEach(() => {
         activeStudents: 23,
         flaggedAttempts: 0,
         recentAttempts: [],
+        takingNow: { students: 0, assignments: 0 },
+        submissions: {
+          days: Array.from({ length: 14 }, (_, i) => ({
+            date: new Date(Date.UTC(2026, 8, 22 + i)).toISOString().slice(0, 10),
+            count: 0,
+          })),
+          total: 0,
+          averagePercent: null,
+        },
+        today: [],
+        recentActivity: [],
       }),
     ),
     http.get(`${BASE}/teacher/assignments`, () =>
