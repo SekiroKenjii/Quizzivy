@@ -22,7 +22,7 @@ export interface TimelineRow {
   event: IntegrityEvent;
   /** No return yet: the student is still away or still offline. */
   ongoing: boolean;
-  /** For `audio_play`, which play of that question this was. */
+  /** playNo numbers an audio play within its question or shared recording. */
   playNo: number | null;
 }
 
@@ -45,7 +45,7 @@ export function timelineRows(
     if (CLOSERS.has(event.kind)) return;
     let playNo: number | null = null;
     if (event.kind === "audio_play") {
-      const key = event.questionId ?? "";
+      const key = audioSubject(event);
       playNo = (plays.get(key) ?? 0) + 1;
       plays.set(key, playNo);
     }
@@ -56,6 +56,13 @@ export function timelineRows(
     rows.push({ event, ongoing, playNo });
   });
   return rows;
+}
+
+function audioSubject(event: IntegrityEvent): string {
+  if (event.questionId !== undefined && event.questionId !== null)
+    return event.questionId;
+  const recordingId = event.meta?.recordingId;
+  return typeof recordingId === "string" ? recordingId : "";
 }
 
 function closedLater(events: IntegrityEvent[], index: number): boolean {
