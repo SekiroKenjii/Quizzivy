@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type AriaAttributes } from "react";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { vi, enUS } from "date-fns/locale";
@@ -26,6 +26,8 @@ interface DateTimeFieldProps {
   /** Minutes offered in the clock; a value off the step is still shown and kept. */
   readonly minuteStep?: number;
   readonly className?: string;
+  readonly "aria-invalid"?: AriaAttributes["aria-invalid"];
+  readonly "aria-describedby"?: string | undefined;
 }
 
 /**
@@ -42,6 +44,8 @@ export function DateTimeField({
   mode = "datetime",
   minuteStep = 5,
   className,
+  "aria-invalid": invalid,
+  "aria-describedby": describedBy,
 }: DateTimeFieldProps) {
   const { date, time } = split(value, mode);
   const emit = (nextDate: string, nextTime: string) =>
@@ -53,6 +57,8 @@ export function DateTimeField({
       {mode !== "time" && (
         <DayPart
           id={id}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
           date={date}
           className={both ? "rounded-r-none" : undefined}
           onChange={(next) => emit(next, time || DEFAULT_TIME)}
@@ -61,6 +67,8 @@ export function DateTimeField({
       {mode !== "date" && (
         <ClockPart
           id={mode === "time" ? id : undefined}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
           label={label}
           time={time}
           minuteStep={minuteStep}
@@ -73,12 +81,16 @@ export function DateTimeField({
 }
 
 function DayPart({
+  "aria-invalid": invalid,
+  "aria-describedby": describedBy,
   id,
   date,
   className,
   onChange,
 }: {
   readonly id: string | undefined;
+  readonly "aria-invalid": AriaAttributes["aria-invalid"];
+  readonly "aria-describedby": string | undefined;
   readonly date: string;
   readonly className: string | undefined;
   readonly onChange: (next: string) => void;
@@ -92,6 +104,8 @@ function DayPart({
       <PopoverTrigger asChild>
         <Button
           id={id}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
           variant="outline"
           className={cn(
             "flex-1 justify-between font-normal",
@@ -134,6 +148,8 @@ function DayPart({
 }
 
 function ClockPart({
+  "aria-invalid": invalid,
+  "aria-describedby": describedBy,
   id,
   label,
   time,
@@ -142,6 +158,8 @@ function ClockPart({
   onChange,
 }: {
   readonly id: string | undefined;
+  readonly "aria-invalid": AriaAttributes["aria-invalid"];
+  readonly "aria-describedby": string | undefined;
   readonly label: string;
   readonly time: string;
   readonly minuteStep: number;
@@ -159,6 +177,8 @@ function ClockPart({
       <PopoverTrigger asChild>
         <Button
           id={id}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
           variant="outline"
           aria-label={t("common.timeOf", { label })}
           className={cn(
