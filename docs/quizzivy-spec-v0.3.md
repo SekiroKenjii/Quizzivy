@@ -44,6 +44,7 @@ R4, "Teacher workspace" (v0.10.0, `docs/plan/74-r4.md`):
   SHA-256, and neither revoked nor expired, with a sealed one that keeps its
   expiry and use cap, and tells the class's teacher once in the app. The old
   code then answers as any replaced code does (T-R4.22).
+
 **Changes since v0.48**
 
 A code nothing sent leaves the contract, and the sections are brought level
