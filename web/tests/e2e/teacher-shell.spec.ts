@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { Dashboard } from "@/features/dashboard/api";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import {
   ASSIGNMENT_ID,
@@ -21,7 +22,7 @@ async function prepare(
   await page.addInitScript(
     ({ theme, collapsed }) => {
       localStorage.setItem("quizzivy.theme", theme);
-      localStorage.setItem("quizzivy.language", "vi");
+      localStorage.setItem("quizzivy.locale", "vi");
       if (collapsed) localStorage.setItem("quizzivy.sidebar", "collapsed");
     },
     { theme, collapsed },
@@ -40,7 +41,18 @@ async function prepare(
         activeStudents: 3,
         flaggedAttempts: 1,
         recentAttempts: [],
-      },
+        takingNow: { students: 0, assignments: 0 },
+        submissions: {
+          days: Array.from({ length: 14 }, (_, index) => ({
+            date: new Date(Date.UTC(2026, 8, 23 + index)).toISOString().slice(0, 10),
+            count: 0,
+          })),
+          total: 0,
+          averagePercent: null,
+        },
+        today: [],
+        recentActivity: [],
+      } satisfies Dashboard,
     },
     [`GET /teacher/assignments/${ASSIGNMENT_ID}`]: {
       body: assignment({ testTitle: title }),
