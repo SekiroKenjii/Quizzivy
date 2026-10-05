@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import {
   DataTable,
   type DataColumn,
+  type DataTableMenuContext,
   type DataTableProps,
   type RowSize,
 } from "@/components/shared/data/DataTable";
@@ -638,7 +639,7 @@ describe("roles", () => {
   });
 
   it("gives each row's menu its own row", () => {
-    const menu = vi.fn((row: Assignment) => (
+    const menu = vi.fn((row: Assignment, _context: DataTableMenuContext) => (
       <DropdownMenuItem>Nhân bản {row.title}</DropdownMenuItem>
     ));
     render(
@@ -650,7 +651,17 @@ describe("roles", () => {
         menu={menu}
       />,
     );
-    expect(menu.mock.calls).toEqual(ROWS.map((row) => [row]));
+    expect(menu.mock.calls.map(([row]) => row)).toEqual(ROWS);
+    expect(menu).toHaveBeenCalledTimes(ROWS.length);
+    const bodyRows = screen.getAllByRole("row").slice(1);
+    const refs = menu.mock.calls.map(([, context], index) => {
+      expect(Object.keys(context)).toEqual(["triggerRef"]);
+      expect(context.triggerRef.current).toBe(
+        within(bodyRows[index]!).getByRole("button", { name: "Thao tác" }),
+      );
+      return context.triggerRef;
+    });
+    expect(new Set(refs).size).toBe(ROWS.length);
   });
 
   it("names a row by its first cell", () => {

@@ -1,4 +1,11 @@
-import { useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
@@ -41,6 +48,7 @@ type Props = Readonly<{
   notes: SheetNoteController;
   onClose: () => void;
   recovery?: ReactNode;
+  noteFocusRequest?: number;
 }>;
 
 /** AttemptSheet displays authorized review data in a controlled sheet and stops new work during exit. */
@@ -249,7 +257,7 @@ function AttemptFacts({
 }
 
 function AttemptBody(props: Props & Readonly<{ data: AttemptReview }>) {
-  const { data, notes, open } = props;
+  const { data, notes, open, noteFocusRequest = 0 } = props;
   const navigate = useNavigate();
   return (
     <fieldset disabled={!open} className="contents">
@@ -265,7 +273,12 @@ function AttemptBody(props: Props & Readonly<{ data: AttemptReview }>) {
           if (open) void navigate(`/teacher/attempts/${data.attempt.id}`);
         }}
       />
-      <AttemptNote data={data} notes={notes} open={open} />
+      <AttemptNote
+        data={data}
+        notes={notes}
+        open={open}
+        focusRequest={noteFocusRequest}
+      />
     </fieldset>
   );
 }
@@ -274,10 +287,35 @@ function AttemptNote({
   data,
   notes,
   open,
-}: Readonly<{ data: AttemptReview; notes: SheetNoteController; open: boolean }>) {
+  focusRequest,
+}: Readonly<{
+  data: AttemptReview;
+  notes: SheetNoteController;
+  open: boolean;
+  focusRequest: number;
+}>) {
   const { t } = useTranslation();
   const grade = useCan("teaching.grading");
   const attemptId = data.attempt.id;
+  const textarea = useRef<HTMLTextAreaElement | null>(null);
+  const consumed = useRef({ attemptId, focusRequest });
+  useEffect(() => {
+    const previous = consumed.current;
+    consumed.current = { attemptId, focusRequest };
+    if (previous.attemptId !== attemptId || previous.focusRequest === focusRequest)
+      return;
+    const current = notes.get(attemptId);
+    const target = textarea.current;
+    if (
+      open &&
+      grade &&
+      current?.error != null &&
+      current.value.length > 2000 &&
+      target?.isConnected &&
+      !target.disabled
+    )
+      target.focus();
+  }, [attemptId, focusRequest, grade, notes, open]);
   useSyncExternalStore(notes.subscribe, notes.snapshot, notes.snapshot);
   const draft = notes.get(attemptId);
   let status = t("assignmentDetail.sheet.saved");
@@ -295,6 +333,7 @@ function AttemptNote({
       {grade ? (
         <>
           <Textarea
+            ref={textarea}
             id="attempt-sheet-note"
             disabled={!open}
             rows={3}
@@ -307,7 +346,8 @@ function AttemptNote({
               if (grade && open) notes.change(attemptId, event.target.value);
             }}
             onBlur={() => {
-              if (grade && open) void notes.flush(attemptId);
+              if (grade && open && notes.get(attemptId)?.error == null)
+                void notes.flush(attemptId);
             }}
           />
           {(draft?.value.length ?? 0) > 2000 && (

@@ -1,8 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Ban, Clock, Flag, RotateCw } from "lucide-react";
-import { DataTable, type DataColumn } from "@/components/shared/data/DataTable";
+import {
+  DataTable,
+  type DataColumn,
+  type DataTableMenuContext,
+} from "@/components/shared/data/DataTable";
 import { Pager } from "@/components/shared/data/Pager";
 import { EmptyState } from "@/components/shared/ListState";
 import { SearchInput } from "@/components/shared/SearchInput";
@@ -85,6 +89,7 @@ export function Monitor({
   const [dialog, setDialog] = useState<{ kind: Intervention; row: MonitorRow } | null>(
     null,
   );
+  const returnFocus = useRef<HTMLElement | null>(null);
   const [page] = usePage(`${filter}:${query}`, true);
   const [size] = usePageSize(undefined, true);
   const rows = useMemo(
@@ -210,14 +215,16 @@ export function Monitor({
     navigate(assignmentDetailLocation(location, { [key]: value, page: null }), {
       replace: true,
     });
-  const act = (kind: Intervention, row: MonitorRow) => {
+  const act = (kind: Intervention, row: MonitorRow, context: DataTableMenuContext) => {
     if (
       intervene &&
       row.attemptId &&
       row.state !== "voided" &&
       (kind !== "extend" || row.state === "in_progress")
-    )
+    ) {
+      returnFocus.current = context.triggerRef.current;
       setDialog({ kind, row });
+    }
   };
   if (data.rows.length === 0)
     return (
@@ -284,7 +291,7 @@ export function Monitor({
         rowTone={(row) => rowTone(row, selectedAttempt)}
         menu={
           intervene
-            ? (row) =>
+            ? (row, context) =>
                 !row.attemptId || row.state === "not_started" ? null : (
                   <>
                     {row.attemptId && (
@@ -297,21 +304,21 @@ export function Monitor({
                       </DropdownMenuItem>
                     )}
                     {row.attemptId && row.state === "in_progress" && (
-                      <DropdownMenuItem onSelect={() => act("extend", row)}>
+                      <DropdownMenuItem onSelect={() => act("extend", row, context)}>
                         <Clock aria-hidden="true" />
                         {t("monitor.menu.extend")}
                       </DropdownMenuItem>
                     )}
                     {row.attemptId && row.state !== "voided" && (
                       <>
-                        <DropdownMenuItem onSelect={() => act("reset", row)}>
+                        <DropdownMenuItem onSelect={() => act("reset", row, context)}>
                           <RotateCw aria-hidden="true" />
                           {t("monitor.menu.reset")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           variant="destructive"
-                          onSelect={() => act("void", row)}
+                          onSelect={() => act("void", row, context)}
                         >
                           <Ban aria-hidden="true" />
                           {t("monitor.menu.void")}
@@ -335,6 +342,7 @@ export function Monitor({
       />
       {intervene && (
         <InterventionDialog
+          returnFocus={returnFocus}
           kind={dialog?.kind ?? null}
           row={dialog?.row ?? null}
           onOpenChange={(open) => {

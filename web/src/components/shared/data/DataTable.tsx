@@ -1,4 +1,12 @@
-import { memo, useId, useMemo, type MouseEvent, type ReactNode } from "react";
+import {
+  memo,
+  useId,
+  useMemo,
+  useRef,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
@@ -23,6 +31,11 @@ import {
 } from "./tableLayout";
 
 export type { DataColumn, RowSize } from "./tableLayout";
+
+/** DataTableMenuContext exposes a stable trigger ref whose current value is read only in events or effects, never during render. */
+export type DataTableMenuContext = Readonly<{
+  triggerRef: RefObject<HTMLButtonElement | null>;
+}>;
 
 type Item = { id: string };
 
@@ -60,7 +73,7 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly rowTone?: ((row: T) => "danger" | "selected" | undefined) | undefined;
     readonly canOpen?: ((row: T) => boolean) | undefined;
     readonly shown?: ReadonlySet<string> | undefined;
-    readonly menu?: ((row: T) => ReactNode) | undefined;
+    readonly menu?: ((row: T, context: DataTableMenuContext) => ReactNode) | undefined;
     readonly menuTrack?: string | undefined;
     readonly padX?: number | undefined;
     readonly card?: ((row: T) => ReactNode) | undefined;
@@ -223,15 +236,17 @@ function BodyRow<T extends Item>({
   rowHref: ((row: T) => string) | undefined;
   onOpen: ((row: T) => void) | undefined;
   select: Select<T> | undefined;
-  menu: ((row: T) => ReactNode) | undefined;
+  menu: ((row: T, context: DataTableMenuContext) => ReactNode) | undefined;
   template: string;
   padX: number;
   box: RowBox;
   tone: "danger" | "selected" | undefined;
   canOpen: boolean;
 }>) {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const opens = canOpen && (rowHref !== undefined || onOpen !== undefined);
-  const menuItems = menu?.(row);
+  // eslint-disable-next-line react-hooks/refs -- the public context captures this ref for event/effect reads only
+  const menuItems = menu?.(row, { triggerRef });
   const emptyMenu =
     menuItems == null ||
     menuItems === false ||
@@ -291,7 +306,7 @@ function BodyRow<T extends Item>({
       ))}
       {menu === undefined ? null : (
         <div role="cell" className="flex">
-          {emptyMenu ? null : <RowMenu>{menuItems}</RowMenu>}
+          {emptyMenu ? null : <RowMenu triggerRef={triggerRef}>{menuItems}</RowMenu>}
         </div>
       )}
     </div>

@@ -90,7 +90,7 @@ export default function AssignmentDetailPage() {
   const [closing, setClosing] = useState(false);
   const [reopening, setReopening] = useState<ReopenChoice | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
-  const { notes, recoveryPanel } = useSheetDrafts();
+  const { notes, recoveryPanel, noteFocusRequest } = useSheetDrafts();
 
   const { assignment, a, now, status, monitor, version, preview } = useAssignmentReads(
     id,
@@ -289,6 +289,7 @@ export default function AssignmentDetailPage() {
           }
           receivedAt={monitor.dataUpdatedAt}
           notes={notes}
+          noteFocusRequest={noteFocusRequest}
           onClose={() => {
             void navigate(assignmentDetailLocation(location, { attempt: null }), {
               replace: true,
@@ -405,6 +406,7 @@ function AssignmentSettings({
 function useSheetDrafts() {
   const client = useQueryClient();
   const [recovery, setRecovery] = useState(false);
+  const [noteFocusRequest, setNoteFocusRequest] = useState(0);
   const [resolution, setResolution] = useState<"save" | "discard">("save");
   const [retry, setRetry] = useState(0);
   const [notes] = useState(
@@ -431,6 +433,7 @@ function useSheetDrafts() {
       departedKey.current !== key
     ) {
       if (!saved) {
+        setNoteFocusRequest((value) => value + 1);
         setRecovery(true);
         return;
       }
@@ -484,7 +487,7 @@ function useSheetDrafts() {
       }}
     />
   ) : null;
-  return { notes, recoveryPanel };
+  return { notes, recoveryPanel, noteFocusRequest };
 }
 
 function StateDialogs({
