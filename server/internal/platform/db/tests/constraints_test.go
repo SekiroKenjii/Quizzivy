@@ -373,12 +373,39 @@ func TestANonAudioAssetMustNotCarryADuration(t *testing.T) {
 }
 
 func TestAnOversizedAssetIsRejected(t *testing.T) {
-	// §11.1: 10 MB. 10485761 is one byte over.
-	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-		rejectsWith(t, tx, "media_assets_bytes_check",
+	conn := migrated(t)
+	withTx(t, conn, func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "media_assets_bytes_by_kind",
 			`INSERT INTO app.media_assets
 			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('audio', 'media/big.mp3', 'audio/mpeg', 10485761, 1000, 'big.mp3', repeat('x',32)::bytea, $1)`,
+			 VALUES ('audio', 'media/big.mp3', 'audio/mpeg', 52428801, 1000, 'big.mp3', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+	})
+	withTx(t, conn, func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "media_assets_bytes_by_kind",
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('image', 'media/big.png', 'image/png', 10485761, 'big.png', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+	})
+}
+
+func TestAnAssetAtTheLimitOfItsKindIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('audio', 'media/limit.mp3', 'audio/mpeg', 52428800, 1000, 'limit.mp3', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+		mustExec(t, tx,
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('audio', 'media/over-the-image-limit.mp3', 'audio/mpeg', 10485761, 1000, 'eleven.mp3', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+		mustExec(t, tx,
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('image', 'media/limit.png', 'image/png', 10485760, 'limit.png', repeat('x',32)::bytea, $1)`,
 			f.adminID)
 	})
 }

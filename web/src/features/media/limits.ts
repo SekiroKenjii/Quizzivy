@@ -1,5 +1,6 @@
 /** §11.1's limits, mirrored client-side so the teacher is told before uploading. */
-export const MAX_BYTES = 10 * 1024 * 1024;
+export const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_DURATION_MS = 5 * 60 * 1000;
 
 /** The extensions the file picker offers. The server decides by magic bytes. */

@@ -411,6 +411,94 @@ CREATE INDEX media_assets_checksum_idx
   get a `deleted_at`. **R2 object lifecycle after soft delete is deliberately
   out of scope for v1** — the object stays. See `40-open-items.md`.
 
+### `00082`–`00084` — the library's fields (T-R4.17a, D-29)
+
+Three files on a populated table. Every new column is nullable with no
+default, so the v0.9.0 binary's insert, which names none of them, keeps
+working during the rolling deploy. None adds an index.
+
+```sql
+-- 00082_add_media_assets_library_fields.sql
+ALTER TABLE app.media_assets
+  ADD COLUMN display_name text,
+  ADD COLUMN default_max_plays smallint,
+  ADD COLUMN replaced_by uuid,
+  ADD CONSTRAINT media_assets_display_name_check
+    CHECK (char_length(display_name) BETWEEN 1 AND 200 AND display_name ~ '\S'),
+  ADD CONSTRAINT media_assets_default_max_plays_check
+    CHECK (default_max_plays IS NULL
+           OR (default_max_plays BETWEEN 0 AND 3 AND kind = 'audio')),
+  ADD CONSTRAINT media_assets_replaced_by_fkey
+    FOREIGN KEY (replaced_by) REFERENCES app.media_assets(id) ON DELETE SET NULL,
+  ADD CONSTRAINT media_assets_replaced_by_check CHECK (replaced_by <> id);
+
+-- 00083_add_media_assets_dimensions.sql
+ALTER TABLE app.media_assets
+  ADD COLUMN width integer,
+  ADD COLUMN height integer,
+  ADD CONSTRAINT media_assets_dimensions_paired CHECK ((width IS NULL) = (height IS NULL)),
+  ADD CONSTRAINT media_assets_dimensions_positive CHECK (width > 0 AND height > 0),
+  ADD CONSTRAINT media_assets_dimensions_image_only CHECK (width IS NULL OR kind = 'image');
+
+-- 00084_widen_media_assets_audio_bytes.sql
+ALTER TABLE app.media_assets
+  ADD CONSTRAINT media_assets_bytes_by_kind
+    CHECK (bytes > 0 AND bytes <= CASE WHEN kind = 'audio' THEN 52428800 ELSE 10485760 END)
+    NOT VALID;
+ALTER TABLE app.media_assets VALIDATE CONSTRAINT media_assets_bytes_by_kind;
+ALTER TABLE app.media_assets DROP CONSTRAINT media_assets_bytes_check;
+```
+
+- **`display_name`** is the name the library shows; NULL means the original
+  filename, which never changes. The server stores it trimmed, so
+  `media_assets_display_name_check` asks for 1 to 200 characters and one that
+  is not white space. Readers select
+  `coalesce(display_name, original_filename)`.
+- **`default_max_plays`** is the play limit a new question starts from: NULL
+  is "not set" and leaves the editor's own default, 0 is unlimited, 1 to 3 a
+  limit. `media_assets_default_max_plays_check` keeps it off an image, as
+  `questions_audio_policy_iff_audio` keeps an audio policy off a question
+  without audio. Nothing in the server applies it to a question: the editor
+  reads it (T-R4.65).
+- **`replaced_by`** names the file that took this one's place. T-R4.17b
+  writes it; T-R4.17a only reads it. **The library is the rows with
+  `deleted_at IS NULL AND replaced_by IS NULL`**, one predicate
+  (`media/repositories/list.go`, `library`) under the list, its total, the
+  facets, the usage and the quota sum. `Get`, `Readable`, `ReferencesFor`,
+  `LockForVersionUse` and `SoftDelete` do not ask it, so a replaced file keeps
+  serving the published versions and the other owners' rows that still point
+  at it. `ON DELETE SET NULL`: removing the newer row returns the older one to
+  the library. `media_assets_replaced_by_check` refuses a file replaced by
+  itself. No index on the column: a row is hard-deleted only by a test, and
+  the release adds no index to a populated table.
+- **`width` and `height`** are an image's pixels, read from its header at
+  upload (`platform/probe/image.go`). Both are NULL for audio, for an image
+  whose header could not be read, and for every row stored before 00083:
+  there is no backfill. Three checks, so a violation names its rule: both or
+  neither, positive, images only.
+- **The size limit depends on the kind.** 00010's unnamed column CHECK, which
+  PostgreSQL named `media_assets_bytes_check`, held every file to 10 MiB.
+  `media_assets_bytes_by_kind` allows audio 52428800 bytes (50 MiB) and an
+  image 10485760 (DG-63). It is added `NOT VALID` and validated before the
+  old constraint is dropped, so no moment has neither rule. Down re-adds the
+  old CHECK `NOT VALID`: audio above 10 MiB may exist by then, and the
+  constraint still binds every row written afterwards.
+- **`questionCount` is computed, not stored.** A file is used by a question
+  that is not deleted and attaches it (`questions.media_asset_id`), and by
+  every member of a group whose `group_recordings` or `group_stimulus_assets`
+  name it, each question once and whoever owns it. A member cannot be
+  soft-deleted (`questions_context_complete`, 00035), so every member is live.
+  The `unused` filter and the facet of that name are `NOT EXISTS` over the
+  same subquery (`questionsUsing`), so a tab and a card cannot disagree. A
+  published version and a group without members add nothing: such a file is
+  "not used" and its delete is still refused.
+- **The search** is
+  `app.immutable_unaccent(lower(coalesce(display_name, '') || ' ' || original_filename)) LIKE '%' || app.immutable_unaccent(lower($n)) || '%' ESCAPE '\'`,
+  the term through `db.EscapeLike`. No index: the rows are one owner's,
+  behind `media_assets_owner_idx`.
+- **The quota** is checked inside the insert's transaction, under an
+  advisory lock keyed by the owner (§28).
+
 ---
 
 ## 7. Question bank
@@ -1253,6 +1341,7 @@ listed here matches the spec.
 | D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
 | D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
 | D-28 | Add `notifications` and `notification_preferences`. `notifications.params` and `target` are `jsonb`, bounded objects rather than columns, and `kind` is a checked dotted `text`, not an enum | §13.3 has no notification. Each kind carries its own few fields and every release adds kinds, so columns would be mostly NULL and an enum a migration per kind; the contract's closed `NotificationParams` and the Go type per kind are the schema. A name in `params` is a copy, not a reference: R5's anonymisation (T-R5.17a) deletes or scrubs the notifications that name an anonymised user (§34, T-R4.10a) |
+| D-29 | `media_assets` gains `display_name`, `default_max_plays`, `replaced_by`, `width` and `height`, and its size limit depends on the kind: audio 50 MiB, an image 10 MiB | §13.3's row is a stored file and nothing else, and §11.1 allowed 10 MB for either kind. The deck's Media page names a file, gives it a play limit, shows an image's size and replaces a file in place (DG-63, DG-09); a replaced row stays, because published versions still point at it (§6, T-R4.17a, T-R4.17b) |
 
 ---
 
@@ -1344,6 +1433,9 @@ the file it adds.
 | `00079_revoke_temporary_from_public.sql` | revokes `TEMPORARY` on the database from `PUBLIC`; a no-op with a notice where the migration role does not own the database | fix for #194 |
 | `00080_create_notifications.sql` | `notifications`, its four checks, `UNIQUE (user_id, dedupe_key)`, three indexes and the `updated_at` trigger | R4 (T-R4.10a), D-28 |
 | `00081_create_notification_preferences.sql` | `notification_preferences`, `notification_preferences_event_check` and the `updated_at` trigger | R4 (T-R4.10a), D-28 |
+| `00082_add_media_assets_library_fields.sql` | `media_assets.display_name`, `default_max_plays`, `replaced_by` and their four constraints | R4 (T-R4.17a), D-29 |
+| `00083_add_media_assets_dimensions.sql` | `media_assets.width`, `height` and their three checks | R4 (T-R4.17a), D-29 |
+| `00084_widen_media_assets_audio_bytes.sql` | `media_assets_bytes_by_kind` in place of `media_assets_bytes_check`; Down re-adds the old rule `NOT VALID` | R4 (T-R4.17a), D-29, DG-63 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1923,10 +2015,12 @@ advisory lock below: the window, the moved `attempts.deadline_at` and
 `assignments.closes_at` (PG18 `RETURNING old.…, new.…`, so each audit row
 carries only the column that moved), and their audit rows with a NULL actor.
 
-## 28. Advisory-lock registry (namespace 73819)
+## 28. Advisory-lock registry
 
-Every transaction advisory lock this codebase takes is
-`pg_advisory_xact_lock(73819, <key>)`. Add a key here before it is used.
+Every transaction advisory lock this codebase takes is in one of two
+namespaces. `pg_advisory_xact_lock(73819, <key>)` holds the fixed keys of the
+table below: add a key here before it is used. `73820` holds one lock per
+media owner, described under the table.
 
 | Key | Holder | Serialises |
 |---|---|---|
@@ -1935,6 +2029,20 @@ Every transaction advisory lock this codebase takes is
 | 40 | Maintenance windows (T-R1.12, T-R1.13) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions |
 | 41 | Legacy join-code rotation (T-R4.22) | Each class's rotation across API machines |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
+
+**Namespace 73820: one media library's quota (T-R4.17a).**
+`pg_advisory_xact_lock(73820, hashtext(<owner id>::uuid::text))` serialises
+the writers of one owner's media library. `media/repositories.RequireQuota`
+takes it first, then sums the owner's library bytes (§6: not deleted, not
+replaced), and the insert follows in the same transaction, so two uploads
+that each fit alone cannot both land. The second key is a hash of the owner,
+which is why it has a namespace of its own: in 73819 a hash could land on
+one of the fixed keys. Two owners whose hashes collide wait for
+each other and nothing else. The uuid is cast before it is hashed, so the
+same owner written in another letter case takes the same lock. T-R4.17b's
+replace takes this lock for the old file's owner, with the old file left out
+of the sum. An upload holds no other lock when it takes this one, and its
+only row is the one it inserts.
 
 ## 29. Roles and permissions (T-R2.1)
 

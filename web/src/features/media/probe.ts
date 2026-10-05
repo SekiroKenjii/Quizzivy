@@ -1,5 +1,5 @@
 import {
-  MAX_BYTES,
+  MAX_AUDIO_BYTES,
   MAX_DURATION_MS,
   hasAcceptedExtension,
   type Rejection,
@@ -39,7 +39,7 @@ export function readDuration(file: File): Promise<number | null> {
 export async function precheck(file: File): Promise<Rejection | null> {
   const about = { name: file.name, bytes: file.size };
   if (!hasAcceptedExtension(file.name)) return { ...about, reason: "type" };
-  if (file.size > MAX_BYTES) return { ...about, reason: "size" };
+  if (file.size > MAX_AUDIO_BYTES) return { ...about, reason: "size" };
 
   const durationMs = await readDuration(file);
   if (durationMs === null) return null;
