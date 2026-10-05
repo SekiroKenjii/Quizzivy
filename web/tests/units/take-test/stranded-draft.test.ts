@@ -118,6 +118,10 @@ describe("answers a closed tab left", () => {
     ["403 FORBIDDEN", new ApiError({ status: 403, code: "FORBIDDEN", message: "x" })],
     ["403 UNKNOWN", new ApiError({ status: 403, code: "UNKNOWN", message: "x" })],
     ["404 NOT_FOUND", new ApiError({ status: 404, code: "NOT_FOUND", message: "x" })],
+    [
+      "408 REQUEST_INCOMPLETE",
+      new ApiError({ status: 408, code: "REQUEST_INCOMPLETE", message: "x" }),
+    ],
     ["409 UNKNOWN", new ApiError({ status: 409, code: "UNKNOWN", message: "x" })],
     [
       "503 MAINTENANCE",

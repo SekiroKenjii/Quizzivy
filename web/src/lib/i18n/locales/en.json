@@ -624,6 +624,7 @@
     "pause": "Pause",
     "seek": "Seek",
     "expired": "This preview link has expired. Reload to listen.",
+    "playBlocked": "Your browser did not start the audio. Press play again; if it still does not play, check this site's sound permission.",
     "deleted": "File deleted"
   },
   "questionEditor": {
@@ -1548,6 +1549,10 @@
       "audio": "Has audio"
     }
   },
+  "display": {
+    "locked": "Locked",
+    "dismiss": "Dismiss"
+  },
   "monitor": {
     "loadFailed": "Couldn't load the student list.",
     "loadFailedHint": "Students' work is unaffected; only this table failed to load.",
@@ -1712,6 +1717,7 @@
       "audio_play": "Played audio",
       "audio_ended": "Audio ended",
       "audio_blocked": "Browser blocked audio",
+      "audio_seek": "Tried to skip in the audio",
       "paste": "Pasted content",
       "copy": "Copied content",
       "cut": "Cut content",
@@ -2583,6 +2589,18 @@
       "viewImport": "View the import",
       "sourceRemoved": "The original file was removed under the retention policy, so its extracted text is no longer available."
     }
+  },
+  "controls": {
+    "unsaved": "You have unsaved changes.",
+    "discard": "Discard",
+    "decrease": "Decrease",
+    "increase": "Increase",
+    "removeTag": "Remove tag {{tag}}",
+    "addTag": "Add tag…",
+    "tagSuggestions": "Tag suggestions",
+    "createTag": "Create “{{tag}}”",
+    "newTag": "New tag",
+    "tagKeys": "↑ ↓ to move · Enter to add · Esc to close"
   },
   "toast": {
     "region": "Notifications",
