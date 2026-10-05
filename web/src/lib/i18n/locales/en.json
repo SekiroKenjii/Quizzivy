@@ -1549,6 +1549,10 @@
       "audio": "Has audio"
     }
   },
+  "display": {
+    "locked": "Locked",
+    "dismiss": "Dismiss"
+  },
   "monitor": {
     "loadFailed": "Couldn't load the student list.",
     "loadFailedHint": "Students' work is unaffected; only this table failed to load.",
@@ -2580,6 +2584,18 @@
       "viewImport": "View the import",
       "sourceRemoved": "The original file was removed under the retention policy, so its extracted text is no longer available."
     }
+  },
+  "controls": {
+    "unsaved": "You have unsaved changes.",
+    "discard": "Discard",
+    "decrease": "Decrease",
+    "increase": "Increase",
+    "removeTag": "Remove tag {{tag}}",
+    "addTag": "Add tag…",
+    "tagSuggestions": "Tag suggestions",
+    "createTag": "Create “{{tag}}”",
+    "newTag": "New tag",
+    "tagKeys": "↑ ↓ to move · Enter to add · Esc to close"
   },
   "toast": {
     "region": "Notifications",
