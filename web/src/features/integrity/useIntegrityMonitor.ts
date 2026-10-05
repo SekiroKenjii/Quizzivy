@@ -169,4 +169,21 @@ export function recordAudioEvent(
   record(attemptId, kind, { questionId });
 }
 
+/** recordSharedAudioEvent records a shared recording's end or block, with its identity and known device duration. */
+export function recordSharedAudioEvent(
+  attemptId: string,
+  kind: "audio_ended" | "audio_blocked",
+  recordingId: string,
+  durationMs?: number,
+): void {
+  const duration =
+    kind === "audio_ended" &&
+    durationMs !== undefined &&
+    Number.isInteger(durationMs) &&
+    durationMs >= 0
+      ? { durationMs }
+      : {};
+  record(attemptId, kind, { meta: { scope: "group", recordingId, ...duration } });
+}
+
 export { pending };
