@@ -215,7 +215,7 @@ func (x *iso) adminListsOwnRows() {
 		"/teacher/tests":                      {"total", "facets.all"},
 		"/teacher/questions":                  {"total", "facets.all", "bankTotal"},
 		"/teacher/question-groups?status=all": {"total"},
-		"/teacher/media":                      {"total", "totalBytes"},
+		"/teacher/media":                      {"total", "totalBytes", "facets.all", "facets.unused", "usage.audioBytes", "usage.imageBytes"},
 		"/teacher/imports":                    {"total"},
 		"/teacher/assignments":                {"total", "facets.all"},
 	} {

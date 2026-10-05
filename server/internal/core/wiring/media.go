@@ -35,7 +35,11 @@ func media(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.C
 	}
 	logger.Info("media storage enabled", "bucket", cfg.S3Bucket, "endpoint", cfg.S3Endpoint)
 
-	return mediaapp.New(repo, objects, adapters.AudioProbe{}).WithSignedURLTTL(cfg.SignedURLTTL), repo, nil
+	app := mediaapp.New(repo, objects, adapters.AudioProbe{}).
+		WithImageProbe(adapters.ImageProbe{}).
+		WithSignedURLTTL(cfg.SignedURLTTL).
+		WithOwnerQuota(int64(cfg.MediaOwnerQuotaMiB) << 20)
+	return app, repo, nil
 }
 
 func mediaTransport(app *mediaapp.Application) mediahttp.Media {

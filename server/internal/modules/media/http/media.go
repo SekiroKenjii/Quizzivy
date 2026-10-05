@@ -2,9 +2,11 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mime/multipart"
+	"net/http"
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/media/application/command"
 	"quizzivy/internal/modules/media/application/query"
@@ -25,6 +27,9 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 	}
 
 	part, err := nextFilePart(request.Body)
+	if overBodyLimit(err) {
+		return fileTooLarge(ctx), nil
+	}
 	if err != nil {
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
 			httpx.Text(ctx, "Không tìm thấy tệp trong yêu cầu tải lên.", "The upload request holds no file."))), nil
@@ -33,18 +38,30 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 
 	meta := httpx.RequestMetaFromContext(ctx)
 	asset, err := h.app.Commands.Upload.Handle(ctx, command.Upload{Filename: part.FileName(),
-		Body:       part,
-		UploaderID: principal.UserID,
-		IP:         meta.IP,
-		UserAgent:  meta.UserAgent,
+		Body:            part,
+		UploaderID:      principal.UserID,
+		DefaultMaxPlays: request.Params.DefaultMaxPlays,
+		IP:              meta.IP,
+		UserAgent:       meta.UserAgent,
 	})
 	switch {
 	case err == nil:
 
-	case errors.Is(err, domain.ErrTooLarge):
+	case errors.Is(err, domain.ErrImageTooLarge):
 		return openapi.UploadMedia413JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLARGE,
-			httpx.Text(ctx, "Tệp vượt quá 10 MB. Vui lòng nén hoặc cắt ngắn tệp.",
-				"The file is larger than 10 MB. Please compress or shorten it."))), nil
+			httpx.Text(ctx, "Ảnh vượt quá 10 MB. Vui lòng dùng ảnh nhỏ hơn.",
+				"The image is larger than 10 MB. Please use a smaller one."))), nil
+
+	case errors.Is(err, domain.ErrTooLarge), overBodyLimit(err):
+		return fileTooLarge(ctx), nil
+
+	case errors.Is(err, domain.ErrQuotaExceeded):
+		return openapi.UploadMedia409JSONResponse(httpapi.Error(ctx, openapi.MEDIAQUOTAEXCEEDED,
+			httpx.Text(ctx, "Thư viện đã hết dung lượng. Hãy xoá bớt tệp rồi tải lại.",
+				"Your media library is full. Delete some files, then upload again."))), nil
+
+	case errors.Is(err, domain.ErrPlayLimitOnImage), errors.Is(err, domain.ErrInvalidPlayLimit):
+		return openapi.UploadMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(playLimitRefused(ctx, err))}, nil
 
 	case errors.Is(err, domain.ErrTooLong):
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLONG,
@@ -69,6 +86,28 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 		return nil, err
 	}
 	return openapi.UploadMedia201JSONResponse(ToAPIMediaAsset(asset, url)), nil
+}
+
+func overBodyLimit(err error) bool {
+	var tooLarge *http.MaxBytesError
+	return errors.As(err, &tooLarge)
+}
+
+func fileTooLarge(ctx context.Context) openapi.UploadMedia413JSONResponse {
+	return openapi.UploadMedia413JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLARGE,
+		httpx.Text(ctx, "Tệp vượt quá 50 MB. Vui lòng nén hoặc cắt ngắn tệp.",
+			"The file is larger than 50 MB. Please compress or shorten it.")))
+}
+
+const playLimitField = "defaultMaxPlays"
+
+func playLimitRefused(ctx context.Context, err error) openapi.ErrorResponse {
+	if errors.Is(err, domain.ErrPlayLimitOnImage) {
+		return httpapi.FieldError(ctx, playLimitField,
+			httpx.Text(ctx, "Chỉ tệp âm thanh mới có giới hạn số lần nghe.", "Only an audio file takes a play limit."))
+	}
+	return httpapi.FieldError(ctx, playLimitField,
+		httpx.Text(ctx, "Giới hạn số lần nghe phải từ 0 đến 3.", "The play limit must be between 0 and 3."))
 }
 
 func nextFilePart(reader *multipart.Reader) (*multipart.Part, error) {
@@ -106,49 +145,137 @@ func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestOb
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx).Own()}
-	if request.Params.Kind != nil {
-		kind := domain.Kind(*request.Params.Kind)
-		in.Kind = &kind
-	}
-	if request.Params.Page != nil {
-		in.Page = int(*request.Params.Page)
-	}
-	if request.Params.Limit != nil {
-		in.Limit = int(*request.Params.Limit)
-	}
-
+	in := listInput(ctx, request.Params)
 	listResult, err := h.app.Queries.List.Handle(ctx, query.List{Input: in})
 	assets, page := listResult.Items, listResult.Page
 	if err != nil {
 		return nil, err
 	}
-	totalBytes, err := h.app.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: in.Kind, Scope: in.Scope})
+	totalBytes, err := h.app.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: in.Kind, Query: in.Query, Unused: in.Unused, Scope: in.Scope})
+	if err != nil {
+		return nil, err
+	}
+	facets, err := h.app.Queries.Facets.Handle(ctx, query.Facets{Input: in})
+	if err != nil {
+		return nil, err
+	}
+	usage, err := h.app.Queries.Usage.Handle(ctx, query.Usage{Scope: in.Scope})
 	if err != nil {
 		return nil, err
 	}
 	var out openapi.ListMedia200JSONResponse
 	out.Body.TotalBytes = int(totalBytes)
+	out.Body.Facets = openapi.MediaFacets{All: facets.All, Audio: facets.Audio, Image: facets.Image, Unused: facets.Unused}
+	out.Body.Usage = openapi.MediaUsage{AudioBytes: usage.AudioBytes, ImageBytes: usage.ImageBytes, QuotaBytes: usage.QuotaBytes}
 	out.Headers.CacheControl = cacheControlForSignedURLList
 	out.Body.Items = make([]openapi.LibraryAsset, len(assets))
 	for i, a := range assets {
-		usage := a.UsageCount
-		usedIn := ToAPIReferencingTests(a.UsedIn)
-		out.Body.Items[i] = openapi.LibraryAsset{
-			Bytes:            int(a.Bytes),
-			CreatedAt:        a.CreatedAt,
-			DurationMs:       a.DurationMs,
-			Id:               httpapi.ParseUUID(a.ID),
-			Kind:             openapi.LibraryAssetKind(a.Kind),
-			MimeType:         openapi.LibraryAssetMimeType(a.MimeType),
-			OriginalFilename: a.OriginalFilename,
-			Url:              a.URL,
-			UsageCount:       &usage,
-			UsedIn:           &usedIn,
-		}
+		out.Body.Items[i] = ToAPILibraryAsset(a)
 	}
 	out.Body.Page, out.Body.PageSize, out.Body.Total = page.Number, page.Size, page.Total
 	return out, nil
+}
+
+func listInput(ctx context.Context, params openapi.ListMediaParams) domain.ListInput {
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx).Own()}
+	if params.Kind != nil {
+		kind := domain.Kind(*params.Kind)
+		in.Kind = &kind
+	}
+	if params.Q != nil {
+		in.Query = *params.Q
+	}
+	if params.Unused != nil {
+		in.Unused = *params.Unused
+	}
+	if params.Page != nil {
+		in.Page = int(*params.Page)
+	}
+	if params.Limit != nil {
+		in.Limit = int(*params.Limit)
+	}
+	return in
+}
+
+// ToAPILibraryAsset renders an asset as the library lists it, with the URL,
+// the references and the question count its Asset already carries.
+func ToAPILibraryAsset(a domain.Asset) openapi.LibraryAsset {
+	usage := a.UsageCount
+	usedIn := ToAPIReferencingTests(a.UsedIn)
+	return openapi.LibraryAsset{
+		Bytes:            int(a.Bytes),
+		CreatedAt:        a.CreatedAt,
+		DefaultMaxPlays:  a.DefaultMaxPlays,
+		DisplayName:      a.DisplayName,
+		DurationMs:       a.DurationMs,
+		Height:           a.Height,
+		Id:               httpapi.ParseUUID(a.ID),
+		Kind:             openapi.LibraryAssetKind(a.Kind),
+		MimeType:         openapi.LibraryAssetMimeType(a.MimeType),
+		OriginalFilename: a.OriginalFilename,
+		QuestionCount:    a.QuestionCount,
+		Url:              a.URL,
+		UsageCount:       &usage,
+		UsedIn:           &usedIn,
+		Width:            a.Width,
+	}
+}
+
+// UpdateMedia implements PATCH /teacher/media/{id}.
+func (h Media) UpdateMedia(ctx context.Context, request openapi.UpdateMediaRequestObject) (openapi.UpdateMediaResponseObject, error) {
+	if h.app == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	actor, ok := httpapi.ActorFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+	in := domain.UpdateInput{
+		ID:          request.Id.String(),
+		ActorID:     actor.ID,
+		All:         actor.Scope.All,
+		DisplayName: request.Body.DisplayName,
+		IP:          actor.IP,
+		UserAgent:   actor.UserAgent,
+	}
+	if raw := request.Body.DefaultMaxPlays; len(raw) > 0 {
+		in.SetDefaultMaxPlays = true
+		if err := json.Unmarshal(raw, &in.DefaultMaxPlays); err != nil {
+			return updateRefused(ctx, domain.ErrInvalidPlayLimit), nil
+		}
+	}
+
+	asset, err := h.app.Commands.Update.Handle(ctx, command.Update{Input: in})
+	switch {
+	case err == nil:
+		return openapi.UpdateMedia200JSONResponse(ToAPILibraryAsset(asset)), nil
+
+	case errors.Is(err, domain.ErrNotFound):
+		return openapi.UpdateMedia404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy tệp.", "The file was not found.")))}, nil
+
+	case errors.Is(err, domain.ErrPlayLimitOnImage), errors.Is(err, domain.ErrInvalidPlayLimit),
+		errors.Is(err, domain.ErrInvalidName), errors.Is(err, domain.ErrNothingToUpdate):
+		return updateRefused(ctx, err), nil
+
+	default:
+		return nil, err
+	}
+}
+
+func updateRefused(ctx context.Context, err error) openapi.UpdateMedia400JSONResponse {
+	var body openapi.ErrorResponse
+	switch {
+	case errors.Is(err, domain.ErrInvalidName):
+		body = httpapi.FieldError(ctx, "displayName",
+			httpx.Text(ctx, "Tên tệp phải có từ 1 đến 200 ký tự.", "The file name must be 1 to 200 characters long."))
+	case errors.Is(err, domain.ErrNothingToUpdate):
+		body = httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			httpx.Text(ctx, "Cần ít nhất một thay đổi.", "At least one change is needed."))
+	default:
+		body = playLimitRefused(ctx, err)
+	}
+	return openapi.UpdateMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(body)}
 }
 
 func ToAPIReferencingTests(refs []domain.TestRef) []openapi.ReferencingTest {

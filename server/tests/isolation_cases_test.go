@@ -325,6 +325,7 @@ func isolationCases() map[string]isoCase {
 
 		"listMedia":   {},
 		"uploadMedia": {},
+		"updateMedia": {fresh: freshMedia, body: fixed(map[string]any{"displayName": "Tên đã đổi"})},
 		"deleteMedia": {fresh: freshMedia},
 
 		"listAssignments":        {excuse: map[string]string{"query classId": "a filter by a missing class lists nothing"}},
