@@ -41,6 +41,20 @@ func boot(t *testing.T, configure ...func(*config.Config)) *world {
 		t.Skip("TEST_DATABASE_URL is not set; the end-to-end suite needs a database")
 	}
 	ctx := context.Background()
+	var app *core.App
+	var server *httptest.Server
+	var pool *pgxpool.Pool
+	t.Cleanup(func() {
+		if server != nil {
+			server.Close()
+		}
+		if app != nil {
+			app.Close()
+		}
+		if pool != nil {
+			pool.Close()
+		}
+	})
 	cfg := config.Config{
 		Port:                        "0",
 		Env:                         "test",
@@ -55,22 +69,25 @@ func boot(t *testing.T, configure ...func(*config.Config)) *world {
 	for _, c := range configure {
 		c(&cfg)
 	}
-	app, err := core.New(ctx, cfg, slog.New(slog.DiscardHandler))
+	if fixtures != nil {
+		if err := fixtures.route(&cfg); err != nil {
+			t.Fatalf("fixture storage: %v", err)
+		}
+	}
+	var err error
+	app, err = core.New(ctx, cfg, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("assemble the application: %v", err)
 	}
-	t.Cleanup(app.Close)
 	handler, err := app.Handler()
 	if err != nil {
 		t.Fatalf("router: %v", err)
 	}
-	server := httptest.NewServer(handler)
-	t.Cleanup(server.Close)
-	pool, err := pgxpool.New(ctx, dsn)
+	server = httptest.NewServer(handler)
+	pool, err = pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("pool: %v", err)
 	}
-	t.Cleanup(pool.Close)
 	return &world{t: t, server: server, pool: pool}
 }
 
