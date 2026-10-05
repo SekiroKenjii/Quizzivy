@@ -97,6 +97,23 @@ export default function AssignmentDetailPage() {
     workspace,
     tab,
   );
+  const [sheetIdentity, setSheetIdentity] = useState<{
+    assignmentId: string;
+    attemptId: string;
+  } | null>(null);
+  const hostReady =
+    workspace && assignment.isSuccess && a !== undefined && status !== null;
+  if (!hostReady && sheetIdentity !== null) setSheetIdentity(null);
+  else if (
+    hostReady &&
+    attemptId &&
+    (sheetIdentity?.assignmentId !== id || sheetIdentity.attemptId !== attemptId)
+  )
+    setSheetIdentity({ assignmentId: id, attemptId });
+  else if (!attemptId && sheetIdentity !== null && sheetIdentity.assignmentId !== id)
+    setSheetIdentity(null);
+  const sheetAttempt =
+    attemptId || (sheetIdentity?.assignmentId === id ? sheetIdentity.attemptId : null);
   useCrumbs(a === undefined ? null : [{ label: a.testTitle }]);
   const refresh = async () => {
     await Promise.all([
@@ -260,11 +277,12 @@ export default function AssignmentDetailPage() {
         }}
         onRefresh={refresh}
       />
-      {attemptId && (
+      {sheetAttempt && (
         <AttemptSheet
           assignment={a}
-          attemptId={attemptId}
-          row={monitor.data?.rows.find((row) => row.attemptId === attemptId)}
+          open={Boolean(attemptId)}
+          attemptId={sheetAttempt}
+          row={monitor.data?.rows.find((row) => row.attemptId === sheetAttempt)}
           questionCount={monitor.data?.questionCount ?? 0}
           serverTime={
             monitor.data?.serverTime ?? new Date(monitor.dataUpdatedAt).toISOString()

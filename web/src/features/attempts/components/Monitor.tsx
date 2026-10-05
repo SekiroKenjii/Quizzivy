@@ -40,12 +40,21 @@ import { InterventionDialog, type Intervention } from "./InterventionDialog";
 type StudentRow = MonitorRow & { id: string };
 const FILTERS = ["all", "submitted", "pending", "flagged", "notStarted"] as const;
 
-function RowStatus({ row }: Readonly<{ row: MonitorRow }>) {
+function RowStatus({
+  row,
+  compact = false,
+}: Readonly<{ row: MonitorRow; compact?: boolean }>) {
   const { t } = useTranslation();
   return pendingAnswers(row) > 0 ? (
-    <Badge variant="warning">{t("assignmentDetail.needsGrading")}</Badge>
+    <Badge variant="warning" className={compact ? "block min-w-0 truncate" : undefined}>
+      {t("assignmentDetail.needsGrading")}
+    </Badge>
   ) : (
-    <StatusBadge kind="attempt" status={row.state} />
+    <StatusBadge
+      kind="attempt"
+      status={row.state}
+      className={compact ? "block min-w-0 truncate" : undefined}
+    />
   );
 }
 
@@ -99,14 +108,15 @@ export function Monitor({
             <span className="min-w-0">
               <span className="block truncate font-medium">{row.fullName}</span>
               {!visible.has("status") && (
-                <span className="flex items-center gap-1 text-xs">
-                  <RowStatus row={row} />
+                <span className="flex min-w-0 items-center gap-1 text-xs leading-4">
+                  <RowStatus row={row} compact />
                   {row.flagged && (
-                    <span className="text-danger-ink">
-                      ·{" "}
-                      {t("assignmentDetail.focusCount", {
-                        count: row.focusLossCount ?? 0,
-                      })}
+                    <span
+                      className="text-danger-ink inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap"
+                      aria-label={`${t("status.attention.flagged")} · ${row.focusLossCount == null ? "—" : t("assignmentDetail.focusCount", { count: row.focusLossCount })}`}
+                    >
+                      <Flag aria-hidden="true" className="size-3" />
+                      <span aria-hidden="true">{row.focusLossCount ?? "—"}</span>
                     </span>
                   )}
                 </span>

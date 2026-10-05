@@ -87,11 +87,14 @@ for (const theme of ["light", "dark"] as const) {
       await expect(table).toBeVisible();
       await expect(table.getByRole("row").nth(1)).toHaveCSS("height", "54px");
       await noOverflow(page);
-      const opener = page.getByRole("button", { name: student, exact: true });
+      const opener = page.getByRole("button", { name: new RegExp(`^${student}`) });
       await opener.click();
       const sheet = page.getByRole("dialog", { name: student });
       await expect(sheet).toBeVisible();
-      expect((await sheet.boundingBox())!.width).toBe(Math.min(420, width));
+      await expect(sheet).toHaveCSS("width", `${Math.min(420, width)}px`);
+      expect(
+        await sheet.evaluate((element) => (element as HTMLElement).offsetWidth),
+      ).toBe(Math.min(420, width));
       await expect(sheet.getByLabel("Ghi chú riêng")).toHaveValue("Ghi chú đã lưu");
       await page.keyboard.press("Escape");
       await expect(sheet).toBeHidden();

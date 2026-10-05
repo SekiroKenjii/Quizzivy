@@ -224,6 +224,35 @@ describe("canonical assignment papers redirects", () => {
       );
     },
   );
+  it.each(["all", "submitted", "pending", "flagged", "notStarted"])(
+    "redirects the actual Teacher papers route with %s and preserves its address data",
+    async (filter) => {
+      signIn(teacherUser);
+      const router = show(withoutPages(appRouter.routes), [
+        "/teacher/tests",
+        `/teacher/assignments/paper/attempts?tab=${filter}&q=name&page=2&size=20&attempt=old&other=first&other=second#anchor`,
+      ]);
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe("/teacher/assignments/paper"),
+      );
+      const params = new URLSearchParams(router.state.location.search);
+      expect(params.get("tab")).toBe("students");
+      expect(params.get("roster")).toBe(filter);
+      expect(params.get("q")).toBe("name");
+      expect(params.get("page")).toBe("2");
+      expect(params.get("size")).toBe("20");
+      expect(params.get("attempt")).toBe("old");
+      expect(params.getAll("other")).toEqual(["first", "second"]);
+      expect(router.state.location.hash).toBe("#anchor");
+      expect(router.state.historyAction).toBe("REPLACE");
+      await router.navigate(-1);
+      expect(await screen.findByText("trang /teacher/tests")).toBeInTheDocument();
+      await router.navigate(1);
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe("/teacher/assignments/paper"),
+      );
+    },
+  );
   it("applies the same canonical rule to case-insensitive Admin papers in the actual route table", async () => {
     signIn(teacherUser);
     const router = show(withoutPages(appRouter.routes), [

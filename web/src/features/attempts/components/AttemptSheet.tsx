@@ -1,7 +1,7 @@
-import { useLayoutEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { Clock, Flag } from "lucide-react";
 import { Sheet } from "@/components/shared/Sheet";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
@@ -32,6 +32,7 @@ import type { SheetNoteController } from "./sheetNotes";
 
 type Props = Readonly<{
   assignment: Assignment;
+  open: boolean;
   attemptId: string;
   row: MonitorRow | undefined;
   questionCount: number;
@@ -42,49 +43,39 @@ type Props = Readonly<{
   recovery?: ReactNode;
 }>;
 
-/** AttemptSheet validates an authorized review before showing its compact timeline and blur-saved teacher-only note. */
+/** AttemptSheet displays authorized review data in a controlled sheet and stops new work during exit. */
 export function AttemptSheet(props: Props) {
-  const { assignment, attemptId, notes, onClose, recovery } = props;
+  const { assignment, attemptId, notes, onClose, recovery, open } = props;
   const { t } = useTranslation();
   const workspace = useWorkspace("teacher");
   const grade = useCan("teaching.grading");
   const intervene = useCan("teaching.attempts.intervene");
   const allowed = workspace && (grade || intervene);
+  const active = open && allowed;
   const review = useQuery({
     queryKey: reviewKey(attemptId),
     queryFn: ({ signal }) => getAttemptForReview(attemptId, signal),
-    enabled: allowed && attemptId !== "",
+    enabled: active && attemptId !== "",
   });
   const valid = allowed && reviewMatches(review.data, assignment.id, attemptId);
-  const data = valid ? review.data : undefined;
+  const [shownAttemptId, setShownAttemptId] = useState<string | null>(null);
+  if (active && valid && shownAttemptId !== attemptId) setShownAttemptId(attemptId);
+  else if (!allowed && shownAttemptId !== null) setShownAttemptId(null);
+  const data =
+    valid && (active || shownAttemptId === attemptId) ? review.data : undefined;
   const savedNote = data?.teacherNote;
   useLayoutEffect(() => {
-    if (savedNote !== undefined) notes.accept(attemptId, savedNote);
-  }, [attemptId, savedNote, notes]);
+    if (active && savedNote !== undefined) notes.accept(attemptId, savedNote);
+  }, [attemptId, savedNote, notes, active]);
   useLayoutEffect(() => {
-    if (document.activeElement === document.body)
+    if (open && document.activeElement === document.body)
       document.querySelector<HTMLElement>("main")?.focus();
-  }, [attemptId]);
-  let content: ReactNode = (
-    <p role="status" className="text-muted-fg text-sm">
-      {t("assignmentDetail.sheet.unavailable")}
-    </p>
-  );
-  if (allowed) {
-    if (review.isPending) content = <ListSkeleton rows={4} />;
-    else if (review.isError)
-      content = (
-        <LoadError error={review.error} onRetry={() => void review.refetch()}>
-          {t("assignmentDetail.sheet.unavailable")}
-        </LoadError>
-      );
-    else if (data !== undefined) content = <AttemptBody {...props} data={data} />;
-  }
+  }, [attemptId, open]);
   return (
     <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && open) onClose();
       }}
       width={420}
       title={data?.student.fullName ?? t("assignmentDetail.sheet.unavailableTitle")}
@@ -94,15 +85,61 @@ export function AttemptSheet(props: Props) {
           <Avatar name={data.student.fullName} className="size-10 text-sm" />
         )
       }
-      footer={data === undefined ? undefined : <AttemptFooter data={data} />}
+      footer={
+        data === undefined ? undefined : <AttemptFooter data={data} active={active} />
+      }
     >
       {recovery}
-      {content}
+      <AttemptContent
+        {...props}
+        active={active}
+        allowed={allowed}
+        review={review}
+        data={data}
+      />
     </Sheet>
   );
 }
 
-function AttemptFooter({ data }: Readonly<{ data: AttemptReview }>) {
+function AttemptContent(
+  props: Props &
+    Readonly<{
+      active: boolean;
+      allowed: boolean;
+      review: UseQueryResult<AttemptReview>;
+      data: AttemptReview | undefined;
+    }>,
+) {
+  const { active, allowed, review, data } = props;
+  const { t } = useTranslation();
+  let content: ReactNode = (
+    <p role="status" className="text-muted-fg text-sm">
+      {t("assignmentDetail.sheet.unavailable")}
+    </p>
+  );
+  if (allowed) {
+    if (review.isPending) content = <ListSkeleton rows={4} />;
+    else if (review.isError)
+      content = (
+        <LoadError
+          error={review.error}
+          onRetry={() => {
+            if (active) void review.refetch();
+          }}
+        >
+          {t("assignmentDetail.sheet.unavailable")}
+        </LoadError>
+      );
+    else if (data !== undefined)
+      content = <AttemptBody {...props} open={active} data={data} />;
+  }
+  return content;
+}
+
+function AttemptFooter({
+  data,
+  active,
+}: Readonly<{ data: AttemptReview; active: boolean }>) {
   const { t } = useTranslation();
   const grade = useCan("teaching.grading");
   const pending =
@@ -110,13 +147,27 @@ function AttemptFooter({ data }: Readonly<{ data: AttemptReview }>) {
   return (
     <>
       <Button variant="outline" asChild className="h-9.5 min-w-0 flex-1">
-        <Link to={`/teacher/attempts/${data.attempt.id}`}>
+        <Link
+          to={`/teacher/attempts/${data.attempt.id}`}
+          aria-disabled={!active}
+          tabIndex={active ? undefined : -1}
+          onClick={(event) => {
+            if (!active) event.preventDefault();
+          }}
+        >
           {t("assignmentDetail.sheet.openFull")}
         </Link>
       </Button>
       {grade && pending && (
         <Button asChild className="h-9.5 min-w-0 flex-1">
-          <Link to={`/teacher/attempts/${data.attempt.id}`}>
+          <Link
+            to={`/teacher/attempts/${data.attempt.id}`}
+            aria-disabled={!active}
+            tabIndex={active ? undefined : -1}
+            onClick={(event) => {
+              if (!active) event.preventDefault();
+            }}
+          >
             {t("assignmentDetail.sheet.grade")}
           </Link>
         </Button>
@@ -131,16 +182,19 @@ function AttemptFacts({
   questionCount,
   serverTime,
   receivedAt,
+  open,
 }: Props & Readonly<{ data: AttemptReview }>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const live = data.attempt.status === "in_progress";
-  const tick = useTick(live);
+  const tick = useTick(open && live);
+  const [lastTick, setLastTick] = useState(tick);
+  if (open && live && lastTick !== tick) setLastTick(tick);
   const remaining =
     row?.deadlineAt == null
       ? null
       : new Date(row.deadlineAt).getTime() -
-        (tick * 1000 + new Date(serverTime).getTime() - receivedAt);
+        (lastTick * 1000 + new Date(serverTime).getTime() - receivedAt);
   const spent = elapsedMinutes(data.attempt);
   let time = "—";
   if (spent !== null)
@@ -195,29 +249,32 @@ function AttemptFacts({
 }
 
 function AttemptBody(props: Props & Readonly<{ data: AttemptReview }>) {
-  const { data, notes } = props;
+  const { data, notes, open } = props;
   const navigate = useNavigate();
   return (
-    <>
+    <fieldset disabled={!open} className="contents">
       <AttemptFacts {...props} />
       <Timeline
         key={data.attempt.id}
         attemptId={data.attempt.id}
         questions={data.questions}
-        live={data.attempt.status === "in_progress"}
+        live={open && data.attempt.status === "in_progress"}
         note={data.teacherNote}
         presentation="compact"
-        onViewPaper={() => void navigate(`/teacher/attempts/${data.attempt.id}`)}
+        onViewPaper={() => {
+          if (open) void navigate(`/teacher/attempts/${data.attempt.id}`);
+        }}
       />
-      <AttemptNote data={data} notes={notes} />
-    </>
+      <AttemptNote data={data} notes={notes} open={open} />
+    </fieldset>
   );
 }
 
 function AttemptNote({
   data,
   notes,
-}: Readonly<{ data: AttemptReview; notes: SheetNoteController }>) {
+  open,
+}: Readonly<{ data: AttemptReview; notes: SheetNoteController; open: boolean }>) {
   const { t } = useTranslation();
   const grade = useCan("teaching.grading");
   const attemptId = data.attempt.id;
@@ -239,6 +296,7 @@ function AttemptNote({
         <>
           <Textarea
             id="attempt-sheet-note"
+            disabled={!open}
             rows={3}
             aria-describedby="attempt-sheet-note-help"
             aria-invalid={draft?.error != null || (draft?.value.length ?? 0) > 2000}
@@ -246,10 +304,10 @@ function AttemptNote({
             placeholder={t("assignmentDetail.sheet.notePrivacy")}
             className="bg-bg rounded-ctl min-h-0 px-3 py-2.5"
             onChange={(event) => {
-              if (grade) notes.change(attemptId, event.target.value);
+              if (grade && open) notes.change(attemptId, event.target.value);
             }}
             onBlur={() => {
-              if (grade) void notes.flush(attemptId);
+              if (grade && open) void notes.flush(attemptId);
             }}
           />
           {(draft?.value.length ?? 0) > 2000 && (
@@ -267,9 +325,9 @@ function AttemptNote({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={draft.pending}
+                disabled={!open || draft.pending}
                 onClick={() => {
-                  if (grade) void notes.flush(attemptId);
+                  if (grade && open) void notes.flush(attemptId);
                 }}
               >
                 {t("common.retry")}
