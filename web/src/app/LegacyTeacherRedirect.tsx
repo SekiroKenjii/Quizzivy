@@ -1,18 +1,30 @@
 import { Navigate, useLocation } from "react-router";
-import { legacyTeacherPath } from "./legacyTeacherPath";
+import { assignmentStudentsLocation, legacyTeacherPath } from "./legacyTeacherPath";
 
-/**
- * LegacyTeacherRedirect is the route element for `/admin` and everything
- * beneath it: it replaces the address with the same path under `/teacher`,
- * keeping the query and the hash. It stays until R5 gives `/admin` to the
- * Admin console.
- */
+/** LegacyTeacherRedirect replaces pre-R4 Teacher addresses with their canonical paths while preserving query values and hashes. */
 export function LegacyTeacherRedirect() {
   const { pathname, search, hash } = useLocation();
   return (
     <Navigate
       replace
-      to={{ pathname: legacyTeacherPath(pathname) ?? "/teacher", search, hash }}
+      to={
+        assignmentStudentsLocation({ pathname, search, hash }) ?? {
+          pathname: legacyTeacherPath(pathname) ?? "/teacher",
+          search,
+          hash,
+        }
+      }
+    />
+  );
+}
+
+/** AssignmentPapersRedirect replaces the retired paper page with the Students panel and its translated filter. */
+export function AssignmentPapersRedirect() {
+  const location = useLocation();
+  return (
+    <Navigate
+      replace
+      to={assignmentStudentsLocation(location) ?? "/teacher/assignments"}
     />
   );
 }

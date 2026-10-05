@@ -2655,5 +2655,50 @@
   "copy": {
     "copy": "Copy",
     "copied": "Copied"
+  },
+  "assignmentDetail": {
+    "pendingMark": "*",
+    "title": "Assignment",
+    "unavailable": "This assignment is unavailable.",
+    "submitted": "Submitted",
+    "average": "Average",
+    "tabsLabel": "Assignment panels",
+    "tabs": {
+      "students": "Students",
+      "questions": "Questions",
+      "settings": "Settings"
+    },
+    "gradeAnswers_one": "Grade {{count}} answer",
+    "gradeAnswers_other": "Grade {{count}} answers",
+    "needsGrading": "Needs grading",
+    "focusLost": "Focus lost",
+    "focusCount_one": "{{count}} focus lost",
+    "focusCount_other": "{{count}} focus lost",
+    "time": "Time",
+    "noStudents": "No students yet",
+    "roster": "Assigned students",
+    "studentsNoun_one": "student",
+    "studentsNoun_other": "students",
+    "draftHint": "Students cannot see this draft. Publish it to let them start during its chosen window.",
+    "questionsUnavailable": "The assigned test version is unavailable.",
+    "noQuestions": "This version has no questions.",
+    "sheet": {
+      "unavailableTitle": "Attempt",
+      "unavailable": "This attempt is unavailable.",
+      "openFull": "Open full attempt",
+      "grade": "Grade answers",
+      "timeSpent": "Time spent",
+      "timeline": "Attempt timeline",
+      "note": "Private note",
+      "notePrivacy": "Not visible to students",
+      "noteLimit": "A note cannot exceed 2,000 characters.",
+      "noteFailed": "The note could not be saved. Your draft is still here.",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "unsaved": "Unsaved",
+      "leaveFailed": "The note could not be saved. Retry or discard your changes to continue.",
+      "discardLeave": "Discard and continue",
+      "stay": "Stay"
+    }
   }
 }

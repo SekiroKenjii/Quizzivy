@@ -1,6 +1,41 @@
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { useTranslation } from "react-i18next";
+import {
+  Link,
+  useBeforeUnload,
+  useBlocker,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query";
+import {
+  Check,
+  ExternalLink,
+  FileText,
+  GraduationCap,
+  Lock,
+  Pencil,
+  Send,
+  SquarePen,
+  X,
+} from "lucide-react";
 import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { RowMenu } from "@/components/shared/RowMenu";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StatStrip } from "@/components/shared/stats/StatStrip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,500 +45,664 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { can, hasWorkspace, useCan, useWorkspace } from "@/features/auth/permissions";
 import {
-  getAssignment,
-  updateAssignment,
-  type Assignment,
-  type AssignmentStatus,
-} from "@/features/assignments/api";
-import { CloseEarlyDialog } from "@/features/assignments/components/CloseEarlyDialog";
-import { ReopenDialog } from "@/features/assignments/components/ReopenDialog";
-import {
-  ReopenMenu,
-  type ReopenChoice,
-} from "@/features/assignments/components/ReopenMenu";
-import { StudentPanel } from "@/features/assignments/components/StudentPanel";
-import { TargetsLine } from "@/features/assignments/components/TargetsLine";
-import { getMonitor } from "@/features/attempts/api";
+  getMonitor,
+  setAttemptNote,
+  type AttemptReview,
+} from "@/features/attempts/api";
+import { AttemptSheet } from "@/features/attempts/components/AttemptSheet";
 import { Monitor } from "@/features/attempts/components/Monitor";
-import { monitorKey } from "@/features/attempts/keys";
-import { toInput } from "@/features/assignments/input";
-import { statusAt } from "@/features/assignments/status";
-import { listVersions, type TestVersion } from "@/features/tests/api";
+import { SheetNoteController } from "@/features/attempts/components/sheetNotes";
+import { POLL_MS, monitorKey, reviewKey } from "@/features/attempts/keys";
+import { listVersions, previewTest, type TestVersion } from "@/features/tests/api";
+import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
+import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
+import { PageHead } from "@/layouts/shell/PageHead";
+import { useCrumbs } from "@/layouts/shell/crumbs";
 import { ApiError } from "@/lib/api/errors";
-import { formatDate, formatMoment, formatTime } from "@/lib/i18n/datetime";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { TFunction } from "i18next";
-import {
-  ArrowRight,
-  CalendarClock,
-  Check,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  FileText,
-  GraduationCap,
-  Lock,
-  Pencil,
-  RefreshCw,
-  Send,
-  X,
-} from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { Trans, useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { formatMoment } from "@/lib/i18n/datetime";
+import { useAuthStore } from "@/stores/auth";
+import { getAssignment, updateAssignment, type Assignment } from "../../api";
+import { CloseEarlyDialog } from "../../components/CloseEarlyDialog";
+import { ReopenDialog } from "../../components/ReopenDialog";
+import { ReopenMenu, type ReopenChoice } from "../../components/ReopenMenu";
+import { TargetsLine } from "../../components/TargetsLine";
+import { toInput } from "../../input";
+import { statusAt } from "../../status";
+import { assignmentStats, detailTab, firstPendingPaper } from "./assignmentDetail";
+import { assignmentDetailLocation } from "./assignmentDetailUrl";
 
-/** G-09: one route, four states. The bar is the state machine; the summary is what G-01 saved. */
+/** AssignmentDetailPage owns the assignment monitor and preserves authorized actions and note drafts across its URL-controlled tabs and sheet. */
 export default function AssignmentDetailPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams<{ id: string }>();
-  const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = new URLSearchParams(location.search);
+  const tab = detailTab(params.get("tab"));
+  const attemptId = params.get("attempt");
+  const workspace = useWorkspace("teacher");
+  const write = useCan("teaching.assignments.write");
+  const client = useQueryClient();
   const [closing, setClosing] = useState(false);
   const [reopening, setReopening] = useState<ReopenChoice | null>(null);
-  const [panelOpen, setPanelOpen] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const { notes, recoveryPanel } = useSheetDrafts();
 
-  const assignment = useQuery({
-    queryKey: ["admin-assignment", id],
-    queryFn: ({ signal }) => getAssignment(id, signal),
-  });
-  const testId = assignment.data?.testId;
-  const versions = useQuery({
-    queryKey: ["admin-test-versions", testId],
-    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
-    enabled: testId !== undefined,
-  });
-
+  const { assignment, a, now, status, monitor, version, preview } = useAssignmentReads(
+    id,
+    workspace,
+    tab,
+  );
+  useCrumbs(a === undefined ? null : [{ label: a.testTitle }]);
   const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["admin-assignment", id] });
-    await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
-    await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-    await queryClient.invalidateQueries({ queryKey: monitorKey(id) });
+    await Promise.all([
+      client.invalidateQueries({ queryKey: ["admin-assignment", id] }),
+      client.invalidateQueries({ queryKey: ["admin-assignments"] }),
+      client.invalidateQueries({ queryKey: ["admin-dashboard"] }),
+      client.invalidateQueries({ queryKey: monitorKey(id) }),
+    ]);
   };
   const publish = useMutation({
-    mutationFn: (a: Assignment) =>
-      updateAssignment(a.id, { ...toInput(a), draft: false }),
+    mutationFn: (value: Assignment) => {
+      if (!write || value.id !== id)
+        throw new Error("Assignment write is not permitted");
+      return updateAssignment(value.id, { ...toInput(value), draft: false });
+    },
     onSuccess: refresh,
-    onError: (cause) =>
+    onError: (error) =>
       setFailure(
-        cause instanceof ApiError
-          ? cause.message
+        error instanceof ApiError
+          ? error.message
           : t("assignments.detail.publishFailed"),
       ),
   });
   const close = useMutation({
-    mutationFn: (a: Assignment) =>
-      updateAssignment(a.id, { ...toInput(a), draft: false, closeNow: true }),
+    mutationFn: (value: Assignment) => {
+      if (!write || value.id !== id || statusAt(value, new Date()) !== "open")
+        throw new Error("Assignment cannot close");
+      return updateAssignment(value.id, {
+        ...toInput(value),
+        draft: false,
+        closeNow: true,
+      });
+    },
     onSuccess: async () => {
       setClosing(false);
       await refresh();
     },
   });
-
-  if (assignment.isPending) {
-    return <ListSkeleton rows={8} />;
-  }
-  if (assignment.isError) {
-    const missing =
-      assignment.error instanceof ApiError && assignment.error.status === 404;
-    return missing ? (
+  if (!workspace) return <EmptyState>{t("assignmentDetail.unavailable")}</EmptyState>;
+  if (assignment.isPending) return <ListSkeleton rows={8} />;
+  if (assignment.isError)
+    return (
+      <LoadError error={assignment.error} onRetry={() => void assignment.refetch()}>
+        {t("assignments.detail.loadFailed")}
+      </LoadError>
+    );
+  if (a === undefined || status === null)
+    return (
       <EmptyState
         action={
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" asChild>
             <Link to="/teacher/assignments">{t("assignments.detail.backToList")}</Link>
           </Button>
         }
       >
         {t("assignments.detail.notFound")}
       </EmptyState>
-    ) : (
-      <LoadError error={assignment.error} onRetry={() => void assignment.refetch()}>
-        {t("assignments.detail.loadFailed")}
-      </LoadError>
     );
-  }
-
-  const a = assignment.data;
-  const now = new Date();
-  const status = statusAt(a, now);
-  const version = versions.data?.items.find((v) => v.id === a.testVersionId);
-  const hasTargets = a.targets.classes.length > 0 || a.targets.students.length > 0;
-  const targetCount = a.targetCount ?? 0;
-
+  const stats = monitor.isSuccess ? assignmentStats(monitor.data.rows) : null;
+  const eligible = monitor.isSuccess ? firstPendingPaper(monitor.data.rows) : undefined;
+  const openAttempt = (selected: string) =>
+    navigate(assignmentDetailLocation(location, { attempt: selected }));
   return (
-    <>
-      <PageHeader
+    <div className="flex min-w-0 flex-col gap-4.5">
+      <PageHead
         title={a.testTitle}
-        backTo="/teacher/assignments"
-        meta={
-          <>
-            <StatusBadge kind="assignment" status={status} />
-            <span className="text-muted-foreground text-xs">
-              {barMeta(a, status, now, t)}
-            </span>
-          </>
-        }
+        status={<StatusBadge kind="assignment" status={status} />}
+        className="items-start! [&_h1]:text-balance"
         actions={
-          <Actions
-            status={status}
-            hasTargets={hasTargets}
-            targetCount={targetCount}
-            editHref={`/teacher/assignments/${a.id}/edit`}
-            attemptsHref={`/teacher/assignments/${a.id}/attempts`}
-            publishing={publish.isPending}
-            now={now}
-            onPublish={() => {
-              setFailure(null);
-              publish.mutate(a);
-            }}
-            onClose={() => setClosing(true)}
-            onReopen={setReopening}
-            onRefresh={() => void refresh()}
-          />
-        }
-      />
-
-      <div className="space-y-4">
-        {failure === null ? null : (
-          <p role="alert" className="text-destructive text-sm">
-            {failure}
-          </p>
-        )}
-        {status === "draft" && (
-          <Note
-            icon={
-              <EyeOff
-                className="text-muted-foreground mt-0.5 size-4 shrink-0"
-                aria-hidden="true"
-              />
-            }
-          >
-            <Trans
-              i18nKey="assignments.detail.draftNote"
-              values={{ count: targetCount }}
-              components={{ strong: <strong /> }}
-            />
-          </Note>
-        )}
-        {status === "scheduled" && (
-          <Note
-            icon={
-              <CalendarClock
-                className="text-muted-foreground mt-0.5 size-4 shrink-0"
-                aria-hidden="true"
-              />
-            }
-          >
-            <Trans
-              i18nKey="assignments.detail.scheduledNote"
-              values={{
-                when: formatMoment(a.window.opensAt),
-                left: timeLeft(new Date(a.window.opensAt).getTime() - now.getTime(), t),
-                count: targetCount,
-              }}
-              components={{ strong: <strong /> }}
-            />
-          </Note>
-        )}
-        {status === "closed" && (
-          <ResultsStrip
-            a={a}
-            version={version}
-            panelOpen={panelOpen}
-            onTogglePanel={() => setPanelOpen((open) => !open)}
-          />
-        )}
-        {/* G-09: open shows the live table (G-02); closed shows the numbers, and the papers live on G-11. */}
-        {status === "open" && (
           <>
-            <TargetsLine assignment={a} />
-            <Monitor assignment={a} live />
+            <WriteActions
+              a={a}
+              status={status}
+              now={now}
+              pending={publish.isPending}
+              onPublish={() => publish.mutate(a)}
+              onClose={() => setClosing(true)}
+              onReopen={setReopening}
+            />
+            <GradeAction
+              count={stats?.pending ?? 0}
+              attemptId={eligible?.attemptId}
+              onOpen={(selected) => void openAttempt(selected)}
+            />
           </>
-        )}
-
-        {status !== "open" && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <TestCard a={a} version={version} closed={status === "closed"} />
-            <TargetsCard a={a} />
-            <TimeCard a={a} />
-            <RulesCard a={a} />
-            <ReviewCard a={a} />
-          </div>
-        )}
-      </div>
-
-      <CloseEarlyDialog
-        assignment={a}
-        open={closing}
+        }
+      >
+        <AssignmentMeta a={a} status={status} />
+      </PageHead>
+      {failure !== null && (
+        <p role="alert" className="text-danger-ink text-sm">
+          {failure}
+        </p>
+      )}
+      <DraftHint a={a} status={status} />
+      {recoveryPanel !== null && !attemptId && recoveryPanel}
+      <DetailStats stats={stats} />
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          void navigate(assignmentDetailLocation(location, { tab: value }), {
+            replace: true,
+          })
+        }
+      >
+        <TabsList aria-label={t("assignmentDetail.tabsLabel")}>
+          {(["students", "questions", "settings"] as const).map((value) => (
+            <TabsTrigger key={value} value={value}>
+              {t(`assignmentDetail.tabs.${value}`)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value="students" className="pt-4.5">
+          <StudentsPanel
+            monitor={monitor}
+            a={a}
+            attemptId={attemptId}
+            onOpen={(selected) => void openAttempt(selected)}
+            onRefresh={refresh}
+          />
+        </TabsContent>
+        <TabsContent value="questions" className="space-y-4 pt-4.5">
+          <TestCard a={a} version={version} closed={status === "closed"} />
+          <QuestionsPanel preview={preview} a={a} />
+        </TabsContent>
+        <TabsContent value="settings" className="space-y-4 pt-4.5">
+          <AssignmentSettings a={a} version={version} status={status} />
+        </TabsContent>
+      </Tabs>
+      <StateDialogs
+        a={a}
+        status={status}
+        closing={closing}
+        reopening={reopening}
         pending={close.isPending}
         failed={close.isError}
-        onOpenChange={setClosing}
-        onConfirm={() => close.mutate(a)}
+        onClosing={setClosing}
+        onReopening={setReopening}
+        onClose={() => {
+          if (write && status === "open") close.mutate(a);
+        }}
+        onRefresh={refresh}
       />
-      {reopening !== null && (
-        <ReopenDialog
+      {attemptId && (
+        <AttemptSheet
           assignment={a}
-          choice={reopening}
-          open
-          onOpenChange={(open) => {
-            if (!open) setReopening(null);
+          attemptId={attemptId}
+          row={monitor.data?.rows.find((row) => row.attemptId === attemptId)}
+          questionCount={monitor.data?.questionCount ?? 0}
+          serverTime={
+            monitor.data?.serverTime ?? new Date(monitor.dataUpdatedAt).toISOString()
+          }
+          receivedAt={monitor.dataUpdatedAt}
+          notes={notes}
+          onClose={() => {
+            void navigate(assignmentDetailLocation(location, { attempt: null }), {
+              replace: true,
+            });
           }}
-          onDone={refresh}
+          recovery={recoveryPanel}
         />
       )}
-      {status === "closed" && panelOpen && (
-        <StudentPanel assignment={a} open onOpenChange={setPanelOpen} />
+    </div>
+  );
+}
+
+function useAssignmentReads(
+  id: string,
+  workspace: boolean,
+  tab: ReturnType<typeof detailTab>,
+) {
+  const assignment = useQuery({
+    queryKey: ["admin-assignment", id],
+    queryFn: ({ signal }) => getAssignment(id, signal),
+    enabled: workspace && id !== "",
+  });
+  const a = workspace && assignment.data?.id === id ? assignment.data : undefined;
+  const now = new Date();
+  const status = a === undefined ? null : statusAt(a, now);
+  const live = status === "open" && assignment.isSuccess;
+  const interval = useIdlePolling(POLL_MS, live);
+  const monitor = useQuery({
+    queryKey: monitorKey(id),
+    queryFn: ({ signal }) => getMonitor(id, signal),
+    enabled: a !== undefined && assignment.isSuccess,
+    refetchInterval: (query) => (query.state.status === "error" ? false : interval),
+    refetchIntervalInBackground: false,
+  });
+  useRefetchOnResume(monitor.refetch, live && monitor.isSuccess);
+  const testId = a?.testId;
+  const versions = useQuery({
+    queryKey: ["admin-test-versions", testId],
+    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
+    enabled: a !== undefined && testId !== undefined,
+  });
+  const version = versions.data?.items.find((v) => v.id === a?.testVersionId);
+  const preview = useQuery({
+    queryKey: ["admin-test-preview", testId, a?.testVersion],
+    queryFn: ({ signal }) => previewTest(testId ?? "", a?.testVersion, signal),
+    enabled: a !== undefined && tab === "questions",
+  });
+  return { assignment, a, now, status, monitor, version, preview };
+}
+
+function AssignmentMeta({
+  a,
+  status,
+}: Readonly<{ a: Assignment; status: ReturnType<typeof statusAt> }>) {
+  const { t } = useTranslation();
+  return (
+    <p className="text-muted-fg text-ui mt-1">
+      {a.targets.classes.map((value) => value.name).join(", ")} ·{" "}
+      {formatMoment(
+        status === "scheduled"
+          ? a.window.opensAt
+          : (a.window.closedAt ?? a.window.closesAt),
+      )}{" "}
+      · {t("assignments.minutes", { count: a.durationMinutes })}
+    </p>
+  );
+}
+
+function DraftHint({
+  a,
+  status,
+}: Readonly<{ a: Assignment; status: ReturnType<typeof statusAt> }>) {
+  const { t } = useTranslation();
+  if (status !== "draft") return null;
+  return (
+    <p className="text-muted-fg text-sm">
+      {t("assignmentDetail.draftHint")}
+      {(a.targetCount ?? 0) === 0 ? ` ${t("assignments.needTargets")}` : ""}
+    </p>
+  );
+}
+
+function AssignmentSettings({
+  a,
+  version,
+  status,
+}: Readonly<{
+  a: Assignment;
+  version: TestVersion | undefined;
+  status: ReturnType<typeof statusAt>;
+}>) {
+  const { t } = useTranslation();
+  const write = useCan("teaching.assignments.write");
+  return (
+    <>
+      <TestCard a={a} version={version} closed={status === "closed"} />
+      <TargetsLine assignment={a} />
+      <TargetsCard a={a} />
+      <TimeCard a={a} />
+      <RulesCard a={a} />
+      <ReviewCard a={a} />
+      {write && status !== "closed" && (
+        <Button variant="outline" asChild>
+          <Link to={`/teacher/assignments/${a.id}/edit`}>
+            <Pencil aria-hidden="true" />
+            {t("assignments.detail.edit")}
+          </Link>
+        </Button>
       )}
     </>
   );
 }
 
-function barMeta(
-  a: Assignment,
-  status: AssignmentStatus,
-  now: Date,
-  t: TFunction,
-): string {
-  switch (status) {
-    case "draft":
-      return formatDate(a.updatedAt) === formatDate(now)
-        ? t("assignments.detail.savedToday", { time: formatTime(a.updatedAt) })
-        : t("assignments.detail.savedOn", {
-            time: formatTime(a.updatedAt),
-            date: formatDate(a.updatedAt),
-          });
-    case "scheduled":
-      return t("assignments.detail.opensAt", { when: formatMoment(a.window.opensAt) });
-    case "open":
-      return t("assignments.detail.closesAt", {
-        when: formatMoment(a.window.closesAt),
-      });
-    case "closed":
-      return t("assignments.detail.closedAt", {
-        when: formatMoment(a.window.closedAt ?? a.window.closesAt),
-      });
-  }
-}
-
-function timeLeft(ms: number, t: TFunction): string {
-  const hours = Math.floor(ms / 3_600_000);
-  const days = Math.floor(hours / 24);
-  if (days > 0)
-    return t("assignments.detail.left.daysHours", { days, hours: hours - days * 24 });
-  if (hours > 0) return t("assignments.detail.left.hours", { hours });
-  return t("assignments.detail.left.minutes", {
-    minutes: Math.max(1, Math.floor(ms / 60_000)),
+function useSheetDrafts() {
+  const client = useQueryClient();
+  const [recovery, setRecovery] = useState(false);
+  const [resolution, setResolution] = useState<"save" | "discard">("save");
+  const [retry, setRetry] = useState(0);
+  const [notes] = useState(
+    () =>
+      new SheetNoteController(async (noteId, value) => {
+        const user = useAuthStore.getState().user;
+        if (!hasWorkspace(user, "teacher") || !can(user, "teaching.grading"))
+          throw new Error("Note write is not permitted");
+        const result = await setAttemptNote(noteId, value);
+        client.setQueryData<AttemptReview>(reviewKey(noteId), (data) =>
+          data?.attempt.id === noteId ? { ...data, teacherNote: value } : data,
+        );
+        return result;
+      }),
+  );
+  useSyncExternalStore(notes.subscribe, notes.snapshot, notes.snapshot);
+  const blocker = useBlocker(notes.unsettled);
+  const blockedKey = blocker.state === "blocked" ? blocker.location.key : null;
+  const departedKey = useRef<string | null>(null);
+  const depart = useEffectEvent((key: string, saved: boolean) => {
+    if (
+      blocker.state === "blocked" &&
+      blocker.location.key === key &&
+      departedKey.current !== key
+    ) {
+      if (!saved) {
+        setRecovery(true);
+        return;
+      }
+      departedKey.current = key;
+      setRecovery(false);
+      setResolution("save");
+      blocker.proceed();
+    }
   });
+  useEffect(() => {
+    let active = true;
+    if (blockedKey === null) departedKey.current = null;
+    if (blockedKey !== null)
+      void (
+        resolution === "discard"
+          ? notes.discardAll().then(() => true)
+          : notes.flushAll()
+      ).then((saved) => {
+        if (!active) return;
+        depart(blockedKey, saved);
+      });
+    return () => {
+      active = false;
+    };
+  }, [blockedKey, notes, resolution, retry]);
+  useBeforeUnload(
+    useCallback(
+      (event) => {
+        if (notes.unsettled) event.preventDefault();
+      },
+      [notes],
+    ),
+  );
+
+  const recoveryPanel = recovery ? (
+    <NoteRecovery
+      onRetry={() => {
+        setResolution("save");
+        setRetry((value) => value + 1);
+      }}
+      onDiscard={() => {
+        setResolution("discard");
+        setRetry((value) => value + 1);
+      }}
+      onStay={() => {
+        if (blocker.state === "blocked") {
+          blocker.reset();
+        }
+        setRecovery(false);
+        setResolution("save");
+      }}
+    />
+  ) : null;
+  return { notes, recoveryPanel };
 }
 
-function Actions({
+function StateDialogs({
+  a,
   status,
-  hasTargets,
-  targetCount,
-  editHref,
-  attemptsHref,
-  publishing,
+  closing,
+  reopening,
+  pending,
+  failed,
+  onClosing,
+  onReopening,
+  onClose,
+  onRefresh,
+}: Readonly<{
+  a: Assignment;
+  status: ReturnType<typeof statusAt>;
+  closing: boolean;
+  reopening: ReopenChoice | null;
+  pending: boolean;
+  failed: boolean;
+  onClosing: (value: boolean) => void;
+  onReopening: (value: ReopenChoice | null) => void;
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+}>) {
+  const write = useCan("teaching.assignments.write");
+  if (!write) return null;
+  if (status === "open")
+    return (
+      <CloseEarlyDialog
+        assignment={a}
+        open={closing}
+        pending={pending}
+        failed={failed}
+        onOpenChange={onClosing}
+        onConfirm={onClose}
+      />
+    );
+  if (status === "closed" && reopening !== null)
+    return (
+      <ReopenDialog
+        assignment={a}
+        choice={reopening}
+        open
+        onOpenChange={(open) => {
+          if (!open) onReopening(null);
+        }}
+        onDone={onRefresh}
+      />
+    );
+  return null;
+}
+
+function NoteRecovery({
+  onRetry,
+  onDiscard,
+  onStay,
+}: Readonly<{ onRetry: () => void; onDiscard: () => void; onStay: () => void }>) {
+  const { t } = useTranslation();
+  return (
+    <div role="alert" className="bg-danger-soft rounded-ctl space-y-2 p-3 text-sm">
+      <p>{t("assignmentDetail.sheet.leaveFailed")}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={onRetry}>
+          {t("common.retry")}
+        </Button>
+        <Button size="sm" variant="outline" onClick={onDiscard}>
+          {t("assignmentDetail.sheet.discardLeave")}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onStay}>
+          {t("assignmentDetail.sheet.stay")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function WriteActions({
+  a,
+  status,
   now,
+  pending,
   onPublish,
   onClose,
   onReopen,
-  onRefresh,
 }: Readonly<{
-  status: AssignmentStatus;
-  hasTargets: boolean;
-  targetCount: number;
-  editHref: string;
-  attemptsHref: string;
-  publishing: boolean;
+  a: Assignment;
+  status: ReturnType<typeof statusAt>;
   now: Date;
+  pending: boolean;
   onPublish: () => void;
   onClose: () => void;
   onReopen: (choice: ReopenChoice) => void;
-  onRefresh: () => void;
 }>) {
   const { t } = useTranslation();
-  const edit = (
-    <Button variant="outline" size="sm" asChild>
-      <Link to={editHref}>
-        <Pencil aria-hidden="true" />
-        {t("assignments.detail.edit")}
-      </Link>
+  const write = useCan("teaching.assignments.write");
+  if (!write) return null;
+  if (status === "closed")
+    return (
+      <ReopenMenu
+        count={a.targetCount ?? 0}
+        todayPossible={now.getHours() < 21}
+        onChoose={(choice) => {
+          if (write && status === "closed") onReopen(choice);
+        }}
+      />
+    );
+  return (
+    <>
+      <RowMenu>
+        <DropdownMenuItem asChild>
+          <Link to={`/teacher/assignments/${a.id}/edit`}>
+            <Pencil aria-hidden="true" />
+            {t("assignments.detail.edit")}
+          </Link>
+        </DropdownMenuItem>
+        {status === "open" && (
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => {
+              if (write && status === "open") onClose();
+            }}
+          >
+            <Lock aria-hidden="true" />
+            {t("assignments.detail.closeEarly")}
+          </DropdownMenuItem>
+        )}
+      </RowMenu>
+      {status === "draft" && (
+        <Button
+          disabled={(a.targetCount ?? 0) === 0 || pending}
+          onClick={() => {
+            if (write && status === "draft") onPublish();
+          }}
+        >
+          <Send aria-hidden="true" />
+          {t("assignments.detail.publish")}
+        </Button>
+      )}
+    </>
+  );
+}
+
+function GradeAction({
+  count,
+  attemptId,
+  onOpen,
+}: Readonly<{
+  count: number;
+  attemptId: string | null | undefined;
+  onOpen: (id: string) => void;
+}>) {
+  const { t } = useTranslation();
+  const grade = useCan("teaching.grading");
+  if (!grade || count === 0 || !attemptId) return null;
+  return (
+    <Button
+      onClick={() => {
+        if (grade && attemptId) onOpen(attemptId);
+      }}
+    >
+      <SquarePen aria-hidden="true" />
+      {t("assignmentDetail.gradeAnswers", { count })}
     </Button>
   );
-  switch (status) {
-    case "draft":
-      return (
-        <>
-          {hasTargets ? null : (
-            <span className="text-muted-foreground text-xs">
-              {t("assignments.needTargets")}
-            </span>
-          )}
-          {edit}
-          <Button size="sm" disabled={!hasTargets || publishing} onClick={onPublish}>
-            <Send aria-hidden="true" />
-            {t("assignments.detail.publish")}
-          </Button>
-        </>
-      );
-    case "scheduled":
-      return (
-        <>
-          <span className="text-muted-foreground text-xs">
-            {t("assignments.detail.closeEarlyWhenOpen")}
-          </span>
-          {edit}
-          <Button variant="outline" size="sm" disabled>
-            <Lock aria-hidden="true" />
-            {t("assignments.detail.closeEarly")}
-          </Button>
-        </>
-      );
-    case "open":
-      return (
-        <>
-          <span className="text-muted-foreground text-xs">{t("monitor.polling")}</span>
-          <Button variant="outline" size="sm" onClick={onRefresh}>
-            <RefreshCw aria-hidden="true" />
-            {t("monitor.refresh")}
-          </Button>
-          <Button variant="outline" size="sm" onClick={onClose}>
-            <Lock aria-hidden="true" />
-            {t("assignments.detail.closeEarly")}
-          </Button>
-        </>
-      );
-    case "closed":
-      // G-09: closing is reversible, and the papers are one click away (G-11).
-      return (
-        <>
-          <ReopenMenu
-            count={targetCount}
-            todayPossible={now.getHours() < 21}
-            onChoose={onReopen}
-          />
-          <Button size="sm" asChild>
-            <Link to={attemptsHref}>
-              <Eye aria-hidden="true" />
-              {t("assignments.detail.viewAttempts")}
-            </Link>
-          </Button>
-        </>
-      );
-  }
 }
 
-function Note({ icon, children }: Readonly<{ icon: ReactNode; children: ReactNode }>) {
+function DetailStats({
+  stats,
+}: Readonly<{ stats: ReturnType<typeof assignmentStats> | null }>) {
+  const { t } = useTranslation();
   return (
-    <div className="bg-muted/40 flex items-start gap-2 rounded-md px-3 py-2.5">
-      {icon}
-      <p className="text-xs leading-relaxed">{children}</p>
-    </div>
+    <StatStrip
+      items={[
+        {
+          label: t("assignmentDetail.submitted"),
+          value: stats === null ? "—" : String(stats.submitted),
+          suffix: stats === null ? undefined : ` / ${stats.total}`,
+        },
+        {
+          label: t("monitor.cards.inProgress"),
+          value: stats === null ? "—" : String(stats.inProgress),
+        },
+        {
+          label: t("assignmentDetail.average"),
+          value: stats?.average == null ? "—" : String(stats.average),
+          suffix: stats?.average == null ? undefined : "%",
+        },
+        {
+          label: t("assignments.detail.flagged"),
+          value: stats === null ? "—" : String(stats.flagged),
+          tone: (stats?.flagged ?? 0) > 0 ? "danger" : "default",
+        },
+      ]}
+    />
   );
 }
 
-function ResultsStrip({
+function StudentsPanel({
+  monitor,
   a,
-  panelOpen,
-  onTogglePanel,
+  attemptId,
+  onOpen,
+  onRefresh,
 }: Readonly<{
+  monitor: UseQueryResult<Awaited<ReturnType<typeof getMonitor>>, Error>;
   a: Assignment;
-  version: TestVersion | undefined;
-  panelOpen: boolean;
-  onTogglePanel: () => void;
+  attemptId: string | null;
+  onOpen: (id: string) => void;
+  onRefresh: () => Promise<void>;
 }>) {
   const { t } = useTranslation();
-  const submitted = a.submittedCount ?? 0;
-  const total = a.targetCount ?? 0;
-  // The same read the table below makes, so the names cost nothing extra.
-  const monitor = useQuery({
-    queryKey: monitorKey(a.id),
-    queryFn: ({ signal }) => getMonitor(a.id, signal),
-  });
-  const missing = (monitor.data?.rows ?? [])
-    .filter((row) => row.state === "not_started")
-    .map((row) => row.fullName);
+  if (monitor.isPending) return <ListSkeleton />;
+  if (monitor.isError)
+    return (
+      <LoadError error={monitor.error} onRetry={() => void monitor.refetch()}>
+        {t("monitor.loadFailed")}
+      </LoadError>
+    );
   return (
-    <Card>
-      <CardContent className="flex items-center gap-6">
-        <Stat
-          label={t("assignments.detail.submitted")}
-          value={
-            <>
-              {submitted}
-              <span className="text-muted-foreground text-base">/{total}</span>
-            </>
-          }
-          hint={
-            missing.length > 0
-              ? t("assignments.detail.notSubmittedNames", {
-                  names: someNames(missing, t),
-                })
-              : t("assignments.detail.notSubmitted", {
-                  count: Math.max(0, total - submitted),
-                })
-          }
-        />
-        <div className="bg-border h-10 w-px" />
-        <Stat
-          label={t("assignments.detail.pending")}
-          value={a.pendingGradingCount ?? 0}
-          hint={
-            a.pendingManualCount === undefined
-              ? null
-              : t("assignments.detail.pendingHint", { count: a.pendingManualCount })
-          }
-        />
-        <div className="bg-border h-10 w-px" />
-        <Stat
-          label={t("assignments.detail.flagged")}
-          value={a.flaggedCount ?? 0}
-          hint={
-            a.integrity.maxFocusLoss !== 0
-              ? t("assignments.detail.flaggedHint", {
-                  count: Math.max(0, a.integrity.maxFocusLoss),
-                })
-              : t("assignments.detail.flaggedHintNone")
-          }
-        />
-        <Button variant="link" size="sm" className="ml-auto" onClick={onTogglePanel}>
-          {t(
-            panelOpen
-              ? "assignments.detail.closeTable"
-              : "assignments.detail.openTable",
-          )}
-          <ArrowRight aria-hidden="true" />
-        </Button>
-      </CardContent>
-    </Card>
+    <Monitor
+      assignment={a}
+      data={monitor.data}
+      selectedAttempt={attemptId}
+      onOpen={onOpen}
+      onRefresh={onRefresh}
+    />
   );
 }
 
-/** Three names in full; past that, the count, so the strip stays one line. */
-function someNames(names: string[], t: TFunction): string {
-  if (names.length <= 3) return names.join(", ");
-  return `${names.slice(0, 3).join(", ")} ${t("assignments.detail.andMore", {
-    count: names.length - 3,
-  })}`;
-}
-
-function Stat({
-  label,
-  value,
-  hint,
+function QuestionsPanel({
+  preview,
+  a,
 }: Readonly<{
-  label: string;
-  value: ReactNode;
-  hint: string | null;
+  preview: UseQueryResult<Awaited<ReturnType<typeof previewTest>>, Error>;
+  a: Assignment;
 }>) {
+  const { t } = useTranslation();
+  if (preview.isPending) return <ListSkeleton />;
+  if (preview.isError)
+    return (
+      <LoadError error={preview.error} onRetry={() => void preview.refetch()}>
+        {t("assignmentDetail.questionsUnavailable")}
+      </LoadError>
+    );
+  if (preview.data.version !== a.testVersion)
+    return <EmptyState>{t("assignmentDetail.questionsUnavailable")}</EmptyState>;
+  if (preview.data.questions.length === 0)
+    return <EmptyState>{t("assignmentDetail.noQuestions")}</EmptyState>;
   return (
-    <div>
-      <p className="text-muted-foreground text-xs">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-      {hint === null ? null : (
-        <p className="text-muted-foreground mt-1 text-xs">{hint}</p>
-      )}
-    </div>
+    <StudentPreviewPane
+      questions={preview.data.questions}
+      sections={preview.data.sections ?? []}
+      groups={preview.data.groups ?? []}
+      onRetryMedia={() => void preview.refetch()}
+    />
   );
 }
 
@@ -518,7 +717,7 @@ function TestCard({
 }>) {
   const { t } = useTranslation();
   return (
-    <Card className="md:col-span-2">
+    <Card>
       <CardHeader>
         <CardTitle>{t("assignments.detail.test")}</CardTitle>
       </CardHeader>

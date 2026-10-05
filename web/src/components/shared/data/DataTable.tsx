@@ -49,23 +49,7 @@ type Select<T extends Item> = Readonly<{
   name: (row: T) => string;
 }>;
 
-/**
- * DataTableProps is what a list screen passes to DataTable. `label` names the
- * table. `columns` is a stable array, a module constant or a memo, and
- * `rowSize` the body row the deck draws for this table; `dense` is the
- * "Compact tables" preference. `shown` replaces the columns' own `showFrom`
- * rule with a visible set the screen computes and keeps stable. `rowHref` or
- * `onOpen` makes a row open, never both; with neither the rows are plain.
- * `selection` is what `useBulkSelection` returns and adds the checkbox column;
- * it needs `rowName` for the labels. `menu` gives a row's menu items and adds
- * the last track, `menuTrack` wide. `padX` is the rows' horizontal padding in
- * pixels. `card` gives a row's content below 768px, where the table becomes a
- * list: separate cards, or with `cardLayout="joined"` the rows of one card.
- * Without `card` the grid stays at every width. `framed={false}` leaves out
- * the card around the table, for a table inside a section that is one.
- * `empty` stands in for the rows when there are none; `null`, `false` or an
- * empty string draws no line. `footer` follows the rows.
- */
+/** DataTableProps supplies columns, rows and optional selection, opening, per-row tones and menus while preserving plain default rows. */
 export type DataTableProps<T extends Item> = Opening<T> &
   Selecting<T> & {
     readonly label: string;
@@ -73,6 +57,8 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly rows: readonly T[];
     readonly rowSize: RowSize;
     readonly dense?: boolean | undefined;
+    readonly rowTone?: ((row: T) => "danger" | "selected" | undefined) | undefined;
+    readonly canOpen?: ((row: T) => boolean) | undefined;
     readonly shown?: ReadonlySet<string> | undefined;
     readonly menu?: ((row: T) => ReactNode) | undefined;
     readonly menuTrack?: string | undefined;
@@ -227,6 +213,8 @@ function BodyRow<T extends Item>({
   template,
   padX,
   box,
+  tone,
+  canOpen,
 }: Readonly<{
   row: T;
   visible: readonly DataColumn<T>[];
@@ -239,8 +227,15 @@ function BodyRow<T extends Item>({
   template: string;
   padX: number;
   box: RowBox;
+  tone: "danger" | "selected" | undefined;
+  canOpen: boolean;
 }>) {
-  const opens = rowHref !== undefined || onOpen !== undefined;
+  const opens = canOpen && (rowHref !== undefined || onOpen !== undefined);
+  const menuItems = menu?.(row);
+  const emptyMenu =
+    menuItems == null ||
+    menuItems === false ||
+    (Array.isArray(menuItems) && menuItems.length === 0);
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus -- the click is a pointer shortcut to the link or button in the row's first cell, which is what the keyboard reaches
     <div
@@ -250,6 +245,8 @@ function BodyRow<T extends Item>({
       className={cn(
         "text-ui hover:bg-muted grid items-center gap-3 border-t leading-normal",
         opens && "cursor-pointer",
+        tone === "danger" && "bg-danger-soft",
+        tone === "selected" && "bg-muted",
       )}
       style={{
         gridTemplateColumns: template,
@@ -294,7 +291,7 @@ function BodyRow<T extends Item>({
       ))}
       {menu === undefined ? null : (
         <div role="cell" className="flex">
-          <RowMenu>{menu(row)}</RowMenu>
+          {emptyMenu ? null : <RowMenu>{menuItems}</RowMenu>}
         </div>
       )}
     </div>
@@ -306,6 +303,7 @@ function CardList<T extends Item>({
   rows,
   card,
   joined,
+  canOpen,
   rowHref,
   onOpen,
   empty,
@@ -315,6 +313,7 @@ function CardList<T extends Item>({
   rows: readonly T[];
   card: (row: T) => ReactNode;
   joined: boolean;
+  canOpen: ((row: T) => boolean) | undefined;
   rowHref: ((row: T) => string) | undefined;
   onOpen: ((row: T) => void) | undefined;
   empty: ReactNode;
@@ -327,8 +326,8 @@ function CardList<T extends Item>({
           <li key={row.id} className={joined ? "border-t first:border-t-0" : undefined}>
             <Opener
               row={row}
-              rowHref={rowHref}
-              onOpen={onOpen}
+              rowHref={canOpen?.(row) === false ? undefined : rowHref}
+              onOpen={canOpen?.(row) === false ? undefined : onOpen}
               className={joined ? JOINED_ROW : STACKED_CARD}
             >
               {card(row)}
@@ -385,6 +384,8 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
     rows,
     rowSize,
     dense = false,
+    rowTone,
+    canOpen,
     shown: given,
     rowHref,
     onOpen,
@@ -422,6 +423,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
         rows={rows}
         card={card}
         joined={cardLayout === "joined"}
+        canOpen={canOpen}
         rowHref={rowHref}
         onOpen={onOpen}
         empty={empty}
@@ -468,6 +470,8 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
                 template={template}
                 padX={padX}
                 box={box}
+                tone={rowTone?.(row)}
+                canOpen={canOpen?.(row) ?? true}
               />
             ))}
           </div>
