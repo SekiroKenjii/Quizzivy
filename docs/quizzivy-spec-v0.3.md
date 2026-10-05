@@ -1,7 +1,29 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.51 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.52 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.51**
+
+Round 5, the merged fixes and their limits:
+
+- §9, §15 A tab names its held session on each attempt read; a superseded
+  answer stays read-only and preserves another session's local draft (#337).
+- §9 A deadline lock rearms automatic submission without replacing a closed
+  or superseded lock (#353, #337).
+- §10.1, §10.6 A question's blocked seek records `audio_seek` (#339).
+- §10.4, §10.6 Sequence numbers use a server-calibrated offset and local
+  increments; cross-tab order and uniqueness are not guaranteed. The timeline
+  follows its session and sequence comparator (#338).
+- §10.6 A shared recording reports its end and block; duration is elapsed
+  device wall time since the latest start, with pairing limits (#340).
+- §11.3 A blocked play keeps its player, and an aborted start shows no
+  expired-link card (#339).
+- §15 The body-limit reader answers `408 REQUEST_INCOMPLETE`; the earlier
+  body-key reader can still hide an incomplete request (#342).
+- §15 Every JSON-body operation declares the validator's 400 response (#346).
+- §5.2 Own sign-out removes `next` in that tab's guard; the second-tab expired
+  card remains open work (#355, #375).
 
 **Changes since v0.50**
 
@@ -22,7 +44,6 @@ R4, "Teacher workspace" (v0.10.0, `docs/plan/74-r4.md`):
   SHA-256, and neither revoked nor expired, with a sealed one that keeps its
   expiry and use cap, and tells the class's teacher once in the app. The old
   code then answers as any replaced code does (T-R4.22).
-
 **Changes since v0.48**
 
 A code nothing sent leaves the contract, and the sections are brought level
@@ -638,6 +659,11 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   - A refusal ends only the session its request was sent under. When the store's access token is no longer the one the refused request carried (a sign-in or a refresh replaced it, or the user signed out), nothing is expired or cleared, and the 401 returns to its caller.
   - A user who was signed in keeps the page: the access token is dropped, the user stays, and the "Vui lòng đăng nhập lại" overlay covers the page (§9).
     - A sign-out closes that overlay if it was raised while the sign-out was on its way.
+    - After the user's own sign-out, that tab's guard sends a visitor to
+      `/login` without `next` until its next sign-in. The marker is in memory,
+      so a reload does not preserve it. An expired session keeps its return
+      path. A second tab left open after sign-out can still offer `next`
+      through its expired-session card; that path remains unresolved.
   - "Đăng nhập" clears the session, keeps the answer drafts, and goes to `/login?next=<path>`.
   - While that overlay is up, a 401 returns to its caller without another refresh.
 - A refresh that **fails without refusing** (a network failure, a 503 or another 5xx) is not a lost session. Waiting requests fail retryably and nobody is signed out.
@@ -1205,7 +1231,10 @@ Shared:
   a save on its way, and carries the strike count where the assignment sets a
   limit (§10.2). A locked paper (taken over, out of time, ended) says why in a
   bar under the header at every width. Once the server has said the time is
-  up, the timer and the Submit dialog's time left read 00:00.
+  up, the timer and the Submit dialog's time left read 00:00. A deadline lock
+  rearms automatic submission at the device's recorded deadline, whichever
+  request was refused and even after a second refusal. Submission can still
+  fail and retry. A deadline refusal never replaces a closed or superseded lock.
 - **Panes.** A question whose group has something to read shows a passage pane
   beside the question pane from 768, each scrolling by itself. Below 768 a
   "Ngữ liệu | Câu n" switcher shows one at a time, the question first and again
@@ -1234,6 +1263,13 @@ Shared:
   (`VALIDATION_FAILED`), it is dropped: a superseded session must not overwrite
   a newer session's answers. On any other failure the draft is kept and the
   attempt is not resumed. Explicit sign-out clears the local cache.
+- **Held session.** A tab names the session it holds each time it reads an
+  attempt. An in-progress paper taken over elsewhere is answered as
+  `superseded`: it stays read-only after a reload or refetch, reads no local
+  draft, and removes a draft only if its own session wrote it. It writes
+  again only when the student continues the attempt there. A tab that holds
+  no session is given the current one. Such a read still replaces the
+  attempt's beacon token, and two tabs of one browser can share a session.
 - **Keys.** A–E choose an option; a sixth has no key, because F flags the
   question. The arrows move between questions and stop at either end. Esc
   closes a dialog or the sheet. None acts in a text field or another control
@@ -1256,7 +1292,7 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 | `copy` / `cut` / `paste` | listeners on `document` | Always recorded; **blocked** only when `blockCopyPaste` is on. |
 | `context_menu` | `contextmenu` | Recorded; blocking off by default (it breaks assistive tooling). |
 | `network_offline` / `network_online` | `navigator.onLine` + fetch failures | Distinguishes cheating from bad wifi. Matters for fairness. |
-| `audio_play` / `audio_ended` / `audio_blocked` | player (§11.4) | Gives the teacher listening behaviour. The events only report: a question's play is counted by `POST /app/attempts/:id/audio-play`. |
+| `audio_play` / `audio_ended` / `audio_blocked` / `audio_seek` | player (§11.4) | Gives the teacher listening behaviour. `audio_seek` is a jump the player put back on a recording that may not be skipped. The events only report: a question's play is counted by `POST /app/attempts/:id/audio-play`. |
 | `resume` | server-side | Re-entry into an `in_progress` attempt: reload, crash, device change. |
 | `session_takeover` | server-side | Attempt opened in another tab/device. |
 | `page_hide` | `pagehide` | Best-effort final flush via `navigator.sendBeacon`. |
@@ -1294,7 +1330,13 @@ Announced, visible, never silent.
 
 ### 10.4 Admin review
 
-`/admin/attempts/:id` → **Integrity** tab: chronological timeline with event kind, wall-clock time, offset from attempt start, duration for paired events, and the question on screen. Summary strip: total away-time, away episodes ≥ `minAwayMs`, paste count, resume count, audio replays. Neutral text — no red banners, no "CHEATING DETECTED". The teacher judges; the app reports. An audio play with no recorded end shows no duration and is not called ongoing.
+`/admin/attempts/:id` → **Integrity** tab: ordered timeline with event kind, wall-clock time, offset from attempt start, duration for paired events, and the question on screen. Summary strip: total away-time, away episodes ≥ `minAwayMs`, paste count, resume count, audio replays. Neutral text — no red banners, no "CHEATING DETECTED". The teacher judges; the app reports. An audio play with no recorded end shows no duration and is not called ongoing.
+
+Sessions are ordered by their earliest `receivedAt`, with `sessionId` breaking
+ties. Within a session, `resume` comes first and `session_takeover` last.
+Within each priority, two events with different non-null `clientSeq` values
+compare by `clientSeq`; otherwise by `occurredAt` and then event id. This order
+is not a guarantee of wall-clock chronology across tabs or sessions.
 
 ### 10.5 Honest limits — say this in the UI help text
 
@@ -1302,9 +1344,40 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 ### 10.6 Client implementation
 
-- One `useIntegrityMonitor` hook owns every DOM listener that records a signal or stops one, registered and torn down in a single `useEffect`. Three signals are recorded outside it, by a question's audio player through `recordAudioEvent` (§11.4): `audio_play` from its play callback, `audio_ended` when playback reaches the end, and `audio_blocked` when the browser refuses to start it. None of the three changes a play count. A shared recording's play is written by the server (§11.5) and records no end. Other hooks listen to some of the same events and record and stop nothing: `useClipboardNotice` has its own `copy`, `cut` and `paste` listeners on `document`, only to show §10.2's toast; `useSaveStatus` listens to `online` and `offline` on `window`, only for the save line (§9); `useVersionWatch` listens to `visibilitychange` on `document`, only to look for a newer build (§9). The monitor records and stops whether or not they run.
+- One `useIntegrityMonitor` hook owns every DOM listener that records a
+  signal or stops one, registered and torn down in a single `useEffect`.
+  Four signals are recorded outside it, by a question's audio player through
+  `recordAudioEvent` (§11.4): `audio_play` from its play callback,
+  `audio_ended` when playback reaches the end, `audio_blocked` when the browser
+  refuses to start it, and `audio_seek` when the player puts a jump back.
+  None changes a play count. A shared recording's play is written by the
+  server (§11.5); the browser records its end and block with `scope: group`
+  and `recordingId` in `meta`, without a question id. A known end duration is
+  elapsed device wall time since the latest start, clamped to zero if the
+  clock moved backwards; it is not total listening time. A resume overwrites
+  that start; an end or block clears it. The timeline pairs the latest open
+  play once, by question id first or otherwise by recording id. It accepts
+  numeric `durationMs` from 0 through 86,400,000, truncating fractions to
+  whole milliseconds; missing, malformed or out-of-range durations fall back to the
+  nonnegative span between event clocks. Delayed play counts or clock skew
+  can leave events unpaired. Overlapping sessions have no play-id matching.
+  Other hooks listen to some of the same events and record and stop nothing:
+  `useClipboardNotice` has its own `copy`, `cut` and `paste` listeners on
+  `document`, only to show §10.2's toast; `useSaveStatus` listens to `online`
+  and `offline` on `window`, only for the save line (§9); `useVersionWatch`
+  listens to `visibilitychange` on `document`, only to look for a newer build
+  (§9). The monitor records and stops whether or not they run.
 - Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`. Leaving the engine while the attempt goes on sends what is buffered through the same beacon and keeps the sequence in `sessionStorage`, so a return in the same session numbers on from it; the buffer is forgotten once the attempt has ended.
-- `clientSeq` is monotonic so the server can order events despite clock skew.
+- `clientSeq` uses an attempt-relative millisecond offset, calibrated by
+  `getAttempt` from `startedAt` and `serverTime`, and is never below the tab's
+  stored next sequence. It increases within a tab. The offset component caps
+  at 2,000,000,000; subsequent local increments can exceed that value.
+  Response latency, clock changes and local increments can cause reordering
+  or collisions across tabs, even for events in different milliseconds.
+  Cross-tab chronology and uniqueness are not guaranteed. Older builds still
+  send counters from zero, which the server accepts. The append-only dedup
+  key remains `(attempt, session, clientSeq)`; a repeated key is treated as a
+  retry and not stored.
 - Failed background event flushes do not block answering or manual submission.
   The immediate `auto_submit` policy retries its final answer/event batch before
   confirming submission so the violation is retained with the answers.
@@ -1339,6 +1412,10 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 - Controls: play/pause, elapsed/total time, a progress bar that is **display-only when `allowSeek` is false**, and a plays-remaining indicator. The total shown is the server's probed length when it is known; the file's own length drives the track and the seek.
 - `preload="metadata"` so duration renders without downloading the file.
 - **Autoplay is impossible** — browsers block audio without a user gesture. The first play is always a tap. Do not attempt to auto-start; do not treat the block as an error state.
+  A play refused with `NotAllowedError` says so under the player, which stays
+  in place. `AbortError`, including a pause before playback started, says
+  nothing. Other playback rejections or a file-load failure show the
+  expired-link card.
 - iOS Safari: only one audio element plays at a time, and playback must originate from a gesture handler (not an async continuation). Call `.play()` synchronously in the click handler; do not `await` anything before it.
 - `allowSeek: false` implementation: no `<input type="range">`, and an `onSeeking` handler that resets `currentTime` to the last known position. Note that OS-level media controls can still seek in some browsers — record an `audio_seek` event rather than pretending it cannot happen.
 - Accessibility: real `<button>` elements, `aria-label` on each, keyboard-operable, `aria-live` announcement of plays remaining. When `showTranscriptAfterSubmit` is on, the transcript appears on the result page — this is also the accessibility fallback for hard-of-hearing students.
@@ -1943,6 +2020,10 @@ POST   /app/assignments/:id/attempts    → create or resume → Attempt + order
                                           startOrResumeAttempt accepts resume; a Continue never
                                           starts an attempt (#237)
 GET    /app/attempts/:id                → Attempt + questions + serverTime + audioPlays
+                                       optional session names the tab's held session;
+                                       a different session on a live attempt answers
+                                       200 with superseded:true, that held session id,
+                                       and an empty beacon token, without a write
 PATCH  /app/attempts/:id/answers        {sessionId,answers:[...],events:[...]} → {savedAt, serverTime, deadlineAt}
 POST   /app/attempts/:id/events         standalone flush (sendBeacon path)
 POST   /app/attempts/:id/audio-play     {questionId} → {plays, maxPlays}
@@ -1962,6 +2043,17 @@ GET    /app/media/:assetId/url          → short-lived signed URL
 **During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it. A `POST /auth/logout` refused this way still clears the refresh and docs cookies when it carried the refresh cookie. The family is not revoked: the device is signed out, but a copy of the token held elsewhere stays usable for as long as it is rotated, because each rotation renews the lifetime and the cleared cookie can no longer trigger reuse detection; only a password reset, a disable or a password change ends it. The same holds for a logout the limiter refuses (429) and one whose revoke fails (500).
 
 **A request the contract does not describe** is answered in the envelope, in the caller's language and with the request id. A path nothing serves answers `404 NOT_FOUND`, without the maintenance window being read. A path the router cleans (`//auth/me`, `/a/../b`) is first redirected to the cleaned path with 307, as before. A path under a method it does not serve answers `405 METHOD_NOT_ALLOWED` with an `Allow` header naming the methods it does serve; during a window it answers the 503 as every request to that path does. `HEAD` is answered as `GET` without a body on the operations that need no token (`GET /public/status`), and on `/livez` and `/healthz` as before; on a `GET` that needs a token it answers the same 405, with or without a token. Neither answer reaches a handler or spends a rate-limit bucket.
+
+**Body readers and refusals.** The rate limiter's body key reads first on
+login, Google sign-in, join preview and in-app join; the body-limit middleware
+reads next, and the contract validator reads the buffered body last. A
+non-streamed body the limit middleware cannot finish reading answers
+`408 REQUEST_INCOMPLETE`: the request may be sent again. The earlier body-key
+reader can swallow a read error on those four operations, so a declared body
+that ends early can still answer 400 instead of 408. Streamed uploads have
+separate handling. Every operation taking a JSON body declares the
+validator's 400 response; malformed or schema-invalid bodies are
+`400 VALIDATION_FAILED`.
 
 **`liveAnsweredCount`** on a student's assignment card is the number of the live attempt's saved answers that say something, by the rule the engine's navigator applies (`web/src/features/take-test/answered.ts`): a choice with an option picked, a true/false with a value, a text that is not blank, and a fill-in with every blank of the frozen question filled. Blank means empty after removing the whitespace JavaScript's `trim()` removes. An answer that exists only in the browser's draft is not counted. The field is absent when there is no live attempt. The teacher's monitor applies the same rule to a row's `answeredCount`, so a saved answer the student has since cleared counts on neither screen.
 
