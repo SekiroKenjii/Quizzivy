@@ -471,6 +471,17 @@ ALTER TABLE app.media_assets DROP CONSTRAINT media_assets_bytes_check;
   the library. `media_assets_replaced_by_check` refuses a file replaced by
   itself. No index on the column: a row is hard-deleted only by a test, and
   the release adds no index to a populated table.
+  Replacement uses the existing 00082–00084 fields and constraints; T-R4.17b
+  adds no migration or index. It locks owner-eligible groups and current
+  questions in sorted order, then the old asset and its owner's existing quota
+  advisory lock. After waiting it rechecks owner, library eligibility, kind,
+  name and play limit; an owner change aborts rather than acquiring another
+  owner's locks. It inserts with explicit locked owner and acting uploader,
+  repoints only the retained current graph and audits the counts. Published
+  versions, import review JSON, foreign bindings and test timestamps stay
+  unchanged. Its repository entry accepts a concrete pool and owns the outer
+  transaction; raw/acquired connections, wrappers and nested transactions are
+  refused before mutation.
 - **`width` and `height`** are an image's pixels, read from its header at
   upload (`platform/probe/image.go`). Both are NULL for audio, for an image
   whose header could not be read, and for every row stored before 00083:
