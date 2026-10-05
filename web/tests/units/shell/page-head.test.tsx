@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { MemoryRouter } from "react-router";
+import { useCrumbs } from "@/layouts/shell/crumbs";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { writeSidebarState } from "@/layouts/shell/sidebarState";
 import { useAuthStore } from "@/stores/auth";
@@ -25,6 +28,19 @@ function crumbs() {
   return within(screen.getByRole("navigation", { name: TRAIL }))
     .getAllByRole("listitem")
     .map((item) => item.textContent);
+}
+
+function NamedPage() {
+  const [head, setHead] = useState(false);
+  useCrumbs([{ label: "Mid-term Reading Mock" }]);
+  return (
+    <>
+      <button type="button" onClick={() => setHead((shown) => !shown)}>
+        đổi tiêu đề
+      </button>
+      {head && <PageHead title="Nguyễn Gia Bảo" />}
+    </>
+  );
 }
 
 beforeEach(() => {
@@ -185,5 +201,27 @@ describe("PageHead in the shell", () => {
 
     expect(crumbs()).toEqual(["Lớp học", "Đang tải…"]);
     expect(document.title).toBe("Đang tải… · Quizzivy");
+  });
+
+  it("leaves the name a page gave with useCrumbs when a head without crumb comes and goes", async () => {
+    const user = userEvent.setup();
+    serveDashboard({ ...dashboardBody, openAssignments: 0, awaitingGrading: 0 });
+    renderShell("/teacher/classes/c1", [
+      { path: "classes/:id", handle: CLASS, element: <NamedPage /> },
+    ]);
+    const swap = await screen.findByRole("button", { name: "đổi tiêu đề" });
+    expect(crumbs()).toEqual(["Lớp học", "Mid-term Reading Mock"]);
+
+    await user.click(swap);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Nguyễn Gia Bảo",
+    );
+    expect(crumbs()).toEqual(["Lớp học", "Mid-term Reading Mock"]);
+    expect(document.title).toBe("Mid-term Reading Mock · Quizzivy");
+
+    await user.click(swap);
+    expect(screen.queryByRole("heading")).toBeNull();
+    expect(crumbs()).toEqual(["Lớp học", "Mid-term Reading Mock"]);
+    expect(document.title).toBe("Mid-term Reading Mock · Quizzivy");
   });
 });

@@ -102,8 +102,18 @@ describe("useCrumbs", () => {
   it("hands over nothing while a record loads", () => {
     for (const tail of [null, undefined, []]) {
       const { set, unmount } = inShell(tail);
-      expect(set.mock.calls).toEqual([[null]]);
       unmount();
+      expect(set).not.toHaveBeenCalled();
+    }
+  });
+
+  it("clears a tail that goes from named to empty, once", () => {
+    for (const empty of [null, undefined, []]) {
+      const { set, show, unmount } = inShell([{ label: "IELTS 6.5 Evening" }]);
+      show(empty);
+      expect(set.mock.calls).toEqual([[[{ label: "IELTS 6.5 Evening" }]], [null]]);
+      unmount();
+      expect(set).toHaveBeenCalledTimes(2);
     }
   });
 

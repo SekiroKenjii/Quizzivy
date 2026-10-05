@@ -55,15 +55,16 @@ function decode(signature: string): PageCrumb[] | null {
  * useCrumbs names the record a page shows in the teacher shell's breadcrumb
  * trail and document title. While the page is mounted, a tail of n crumbs
  * replaces the last n crumbs of its route's trail; null, undefined or an
- * empty tail leaves the route's own labels, which is what shows while a
- * record loads. The tail is compared by value, so a fresh array on every
- * render is fine. Outside the shell it does nothing.
+ * empty tail does nothing unless this caller previously named the tail,
+ * which is cleared when it becomes empty or unmounts. The tail is compared
+ * by value, so a fresh array on every render is fine. Outside the shell it
+ * does nothing.
  */
 export function useCrumbs(tail: readonly PageCrumb[] | null | undefined): void {
   const set = useContext(CrumbTailContext);
   const signature = encode(tail);
   useLayoutEffect(() => {
-    if (set === null) return;
+    if (set === null || signature === "") return;
     set(decode(signature));
     return () => set(null);
   }, [set, signature]);
