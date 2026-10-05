@@ -37,23 +37,31 @@ export function MarqueeText({
       ref={box}
       title={overflows ? text : undefined}
       className={cn(
-        "qz-marquee block min-w-0 overflow-hidden whitespace-nowrap",
+        "qz-marquee relative block min-w-0 overflow-hidden whitespace-nowrap",
         moving ? "qz-marquee-masked" : "text-ellipsis",
         className,
       )}
     >
+      <span
+        ref={measure}
+        data-slot="marquee-measure"
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute top-0 left-0 w-max max-w-none whitespace-nowrap"
+      >
+        {text}
+      </span>
       {moving ? (
         <span
           className="qz-marquee-track inline-flex"
           style={{ animationDuration: `${seconds}s` }}
         >
-          <span ref={measure}>{text}</span>
+          <span>{text}</span>
           <span aria-hidden="true" className="pl-8">
             {text}
           </span>
         </span>
       ) : (
-        <span ref={measure}>{text}</span>
+        <span>{text}</span>
       )}
     </span>
   );
