@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { Dashboard } from "@/features/dashboard/api";
+import type { Dashboard, TeacherSummary } from "@/features/dashboard/api";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import {
   ASSIGNMENT_ID,
@@ -40,8 +40,9 @@ async function prepare(
         awaitingGrading: 2,
         activeStudents: 3,
         flaggedAttempts: 1,
+        newestFlaggedAttempt: null,
         recentAttempts: [],
-        takingNow: { students: 0, assignments: 0 },
+        takingNow: { students: 0, assignments: 0, assignmentId: null },
         submissions: {
           days: Array.from({ length: 14 }, (_, index) => ({
             date: new Date(Date.UTC(2026, 8, 23 + index)).toISOString().slice(0, 10),
@@ -53,6 +54,13 @@ async function prepare(
         today: [],
         recentActivity: [],
       } satisfies Dashboard,
+    },
+    "GET /teacher/summary": {
+      body: {
+        liveAssignments: 1,
+        answersToGrade: 2,
+        unreadNotifications: 0,
+      } satisfies TeacherSummary,
     },
     [`GET /teacher/assignments/${ASSIGNMENT_ID}`]: {
       body: assignment({ testTitle: title }),
