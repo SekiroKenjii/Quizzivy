@@ -338,6 +338,7 @@ func isolationCases() map[string]isoCase {
 		"reopenAssignment":       {body: fixed(map[string]any{"closesAt": later, "reason": "Kiểm tra cách ly"})},
 		"getAssignmentMonitor":   {},
 
+		"listGradingQueue":    {},
 		"listAttempts":        {},
 		"getAttemptForReview": {},
 		"getAttemptEvents":    {},

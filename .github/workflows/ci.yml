@@ -237,6 +237,24 @@ jobs:
       - name: Apply migrations
         run: goose -dir migrations postgres "$TEST_DATABASE_URL" up
 
+      - name: Prepare grading queue concurrency database
+        id: grading-queue-db
+        env:
+          QUEUE_MIGRATION_DATABASE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy_grading_queue?sslmode=disable
+        run: |
+          createdb --owner=quizzivy_migrate quizzivy_grading_queue
+          object="$(psql -X -v ON_ERROR_STOP=1 -At -F '|' -d postgres -c "SELECT oid, pg_get_userbyid(datdba) FROM pg_database WHERE datname='quizzivy_grading_queue'")"
+          case "$object" in
+            *'|quizzivy_migrate') ;;
+            *) echo "::error::created grading database identity is not proven"; exit 1 ;;
+          esac
+          database_oid="${object%%|*}"
+          case "$database_oid" in
+            ''|*[!0-9]*) echo "::error::invalid grading database oid"; exit 1 ;;
+          esac
+          printf 'database_oid=%s\n' "$database_oid" >> "$GITHUB_OUTPUT"
+          goose -dir migrations postgres "$QUEUE_MIGRATION_DATABASE_URL" up
+
       # The three tiers the test taxonomy names, each its own step so a failure
       # says which tier fell: unit (no database), integration (repositories
       # and use cases against Postgres and the object store), end-to-end (the
@@ -262,6 +280,7 @@ jobs:
       - name: Integration tests
         working-directory: server
         env:
+          QUEUE_COMMITTED_DATABASE_URL: postgres://quizzivy_app:app@localhost:5432/quizzivy_grading_queue?sslmode=disable
           S3_ENDPOINT: http://localhost:9000
           S3_REGION: us-east-1
           S3_BUCKET: quizzivy-imports
@@ -269,6 +288,26 @@ jobs:
           S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
           S3_FORCE_PATH_STYLE: "true"
         run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
+
+      - name: Dispose grading queue concurrency database
+        if: ${{ always() && steps.grading-queue-db.outputs.database_oid != '' }}
+        env:
+          OWNED_GRADING_DATABASE_OID: ${{ steps.grading-queue-db.outputs.database_oid }}
+        run: |
+          case "$OWNED_GRADING_DATABASE_OID" in
+            ''|*[!0-9]*) echo "::error::invalid owned grading database oid"; exit 1 ;;
+          esac
+          object="$(psql -X -v ON_ERROR_STOP=1 -At -F '|' -d postgres -c "SELECT oid, pg_get_userbyid(datdba), (SELECT count(*) FROM pg_stat_activity WHERE datname='quizzivy_grading_queue') FROM pg_database WHERE datname='quizzivy_grading_queue'")"
+          if [ "$object" != "$OWNED_GRADING_DATABASE_OID|quizzivy_migrate|0" ]; then
+            echo "::error::grading database identity or zero connections is not proven; preserve"
+            exit 1
+          fi
+          dropdb quizzivy_grading_queue
+          remaining="$(psql -X -v ON_ERROR_STOP=1 -At -d postgres -c "SELECT count(*) FROM pg_database WHERE datname='quizzivy_grading_queue'")"
+          if [ "$remaining" != '0' ]; then
+            echo "::error::grading database disposal is not proven"
+            exit 1
+          fi
 
       # The converter refuses a tag and takes an image id, so the id is what
       # the next step is given.

@@ -31,6 +31,7 @@ GET /teacher/classes/{id} workspace.teacher
 GET /teacher/classes/{id}/join-code teaching.classes.write
 GET /teacher/classes/{id}/members people.students.read
 GET /teacher/dashboard workspace.teacher
+GET /teacher/grading/queue teaching.grading
 GET /teacher/imports content.tests.write
 GET /teacher/imports/capabilities content.tests.write
 GET /teacher/imports/limits content.tests.write
