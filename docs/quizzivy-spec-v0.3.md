@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.54 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.55 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.54**
+
+R4, import history and source upload presentation (T-R4.36):
+
+- §16 History uses one responsive card/grid with URL-backed filters and real
+  pagination. File intake keeps selected files and the title across Source mode
+  changes. Facets, text metadata and paste intake follow in T-R4.21, T-R4.55 and
+  T-R4.57; their data and operations are not synthesized by the presentation.
 
 **Changes since v0.53**
 
@@ -2198,6 +2207,22 @@ Finished imports stay reviewable and committable. The client hides the feature
 where intake is off. Where processing is off, it withholds new imports, retries
 and reprocessing, and says why. Production runs both: O-24 was decided on 2026-09-25, and the
 import worker runs there as its own Fly process group.
+
+The R4 history presents the existing list contract as one card/grid that changes
+at 960px of its outer container. Six ordered filter controls, search, page and
+page size use the URL; active-import polling pauses while idle and refreshes on
+resume. Counts and review chips require T-R4.21's response, and pasted-source
+names and character counts require T-R4.55's text metadata. Until those contracts
+land, Processing queries the literal `processing` status, and rows show existing
+file, status, retention and review information without invented counts.
+
+The R4 upload page keeps one source-intake instance mounted across
+`?source=paste` changes, preserving selected files and the typed title. T-R4.57
+supplies paste editing and its real intake operation; before that release the
+paste mode explicitly reports its availability and cannot start an import.
+File mode retains automatic recognition, actual limits and retention, the privacy
+notice and a sticky Cancel/Start footer. Leaving during upload quietly stops
+intake, as before. Neither page infers provider policy from capability data.
 
 `/teacher/imports` creates an empty record idempotently and lists history by status,
 title or current filename. A source upload accepts exactly one native `.docx`, with

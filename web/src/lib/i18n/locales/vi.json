@@ -2164,11 +2164,11 @@
   },
   "imports": {
     "historyTitle": "Lịch sử nhập đề từ Word/PDF",
-    "historyHint": "Mỗi lần nhập giữ tệp gốc, tiến trình xử lý và phần rà soát của bạn. Bạn có thể quay lại bất cứ lúc nào.",
+    "historyHint": "Các tệp Word và PDF bạn đang chuyển thành đề. Mỗi lượt nhập giữ tệp gốc, tiến trình và bản rà soát để bạn có thể quay lại bất cứ lúc nào.",
     "backToTests": "Về danh sách đề thi",
     "backToHistory": "Về lịch sử nhập đề",
     "start": "Nhập đề từ Word/PDF",
-    "searchPlaceholder": "Tìm theo tên đề hoặc tên tệp",
+    "searchPlaceholder": "Tìm tên tệp hoặc tên đề",
     "statusFilter": "Lọc theo trạng thái",
     "allStatuses": "Tất cả trạng thái",
     "columnTitle": "Tên đề",
@@ -2179,7 +2179,7 @@
     "columnActions": "Thao tác",
     "historyFailed": "Không tải được lịch sử nhập đề.",
     "empty": "Chưa có lần nhập đề nào.",
-    "emptyHint": "Tải lên một đề thi Word hoặc PDF để hệ thống dựng lại cấu trúc, rồi rà soát trước khi tạo bản nháp.",
+    "emptyHint": "Tải đề Word hoặc PDF lên để nhận diện cấu trúc, rồi rà soát trước khi tạo bản nháp. Bạn cũng có thể mở chế độ dán đề để xem khả năng hiện có.",
     "noMatches": "Không có lần nhập nào khớp bộ lọc.",
     "clearFilters": "Xoá bộ lọc",
     "noSources": "Chưa có tệp",
@@ -2264,7 +2264,20 @@
       "start": "Bắt đầu xử lý",
       "replaceAndStart": "Tải lên và xử lý lại",
       "starting": "Đang tải lên…",
-      "keepOpen": "Giữ trang này mở cho đến khi tải lên xong."
+      "keepOpen": "Giữ trang này mở cho đến khi tải lên xong.",
+      "source": "Nguồn",
+      "fileMode": "Tải tệp lên",
+      "pasteMode": "Dán văn bản",
+      "pasteDeferred": "Dán đề chưa khả dụng.",
+      "pasteDeferredHint": "Bạn có thể tải tệp Word hoặc PDF lên. Nhập đề từ văn bản sẽ được bổ sung sau.",
+      "recognitionHeading": "Cách đọc nội dung",
+      "automatic": "Tự động nhận diện",
+      "privacyLead": "Nội dung của bạn được xử lý ở đâu.",
+      "privacy": "Tệp chỉ thuộc lượt nhập của bạn, không phải tài liệu học viên. {{processing}} Dán văn bản chưa khả dụng trên trang này.",
+      "processingOn": "Máy chủ đang bật tiếp nhận và xử lý tài liệu.",
+      "processingUnknown": "Đang kiểm tra khả năng xử lý của máy chủ.",
+      "readyHint": "Kiểm tra tên đề và tệp trước khi bắt đầu.",
+      "chooseHint": "Thêm tệp đề thi để tiếp tục."
     },
     "processing": {
       "stagesLabel": "Các bước xử lý",
@@ -2697,6 +2710,21 @@
       "reviewRemoved": "Bản rà soát của lượt nhập này đã được xoá theo chính sách lưu trữ.",
       "viewImport": "Xem lượt nhập",
       "sourceRemoved": "Tệp gốc đã được xoá theo chính sách lưu trữ nên không còn xem được nội dung trích ra."
+    },
+    "pasteTest": "Dán đề",
+    "history": {
+      "file": "Tệp",
+      "review": "Cần rà soát",
+      "test": "Đề",
+      "pageSize": "Số lượt nhập mỗi trang",
+      "rows": "{{count}} lượt mỗi trang",
+      "withKey": "kèm {{name}}",
+      "noTest": "chưa có",
+      "openTest": "Mở đề {{title}}",
+      "actionsNamed": "Thao tác với {{title}}",
+      "filesRemoved": "Tệp đã được xoá theo chính sách lưu trữ.",
+      "openReview": "Mở bản rà soát",
+      "recognising": "Đang nhận diện cấu trúc…"
     }
   },
   "controls": {

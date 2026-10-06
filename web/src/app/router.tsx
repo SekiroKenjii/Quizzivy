@@ -80,12 +80,14 @@ const teacherTree: RouteObject = {
           children: [
             {
               index: true,
+              handle: { crumb: [{ key: "imports.historyTitle" }], width: 1320 },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/ImportsListPage"),
               ),
             },
             {
               path: "new",
+              handle: { crumb: [{ key: "imports.newTitle" }], width: 860 },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/NewImportPage"),
               ),
