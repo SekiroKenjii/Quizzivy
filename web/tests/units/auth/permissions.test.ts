@@ -97,7 +97,7 @@ describe("the hooks", () => {
     act(() => useAuthStore.getState().setSession("t", assistantUser));
     expect(result.current).toEqual({ grade: true, teacher: true });
 
-    act(() => useAuthStore.getState().setUser(studentUser));
+    act(() => useAuthStore.getState().setSession("t", studentUser));
     expect(result.current).toEqual({ grade: false, teacher: false });
   });
 
