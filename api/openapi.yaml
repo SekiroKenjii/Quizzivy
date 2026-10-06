@@ -1281,6 +1281,78 @@ components:
           type: array
           items: { $ref: '#/components/schemas/PublishValidationError' }
 
+    GradingQueue:
+      type: object
+      additionalProperties: false
+      required: [groups, items, answersRemaining, studentsWaiting]
+      description: Complete filtered pending counts with a deterministic prefix of at most 200 saved answers.
+      properties:
+        groups:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GradingQueueGroup' }
+          description: Only groups represented in items, in queue order; remaining counts each group's complete filtered work.
+        items:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GradingQueueItem' }
+        answersRemaining: { type: integer, minimum: 0 }
+        studentsWaiting: { type: integer, minimum: 0, description: Distinct student UUIDs across all filtered eligible answers. }
+
+    GradingQueueGroup:
+      type: object
+      additionalProperties: false
+      required: [key, kind, label, sub, remaining]
+      properties:
+        key:
+          type: string
+          minLength: 36
+          maxLength: 73
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$'
+          description: Canonical lowercase student UUID, or assignmentUUID:versionQuestionUUID in question mode.
+        kind: { type: string, enum: [student, question] }
+        label: { type: string, description: Raw current student full name or decimal paper question number for client localization. }
+        sub: { type: string, description: Live assignment title of this group's first returned item. }
+        remaining: { type: integer, minimum: 1, description: Complete filtered eligible answer count; may exceed the returned prefix for this group. }
+
+    GradingQueueItem:
+      type: object
+      additionalProperties: false
+      required: [attemptId, questionId, assignmentId, assignmentTitle, studentId, studentName, questionNumber, type, prompt, answer, points, score, comment]
+      description: One saved pending-manual answer and its frozen teacher question; identity is attemptId plus questionId.
+      properties:
+        attemptId: { $ref: '#/components/schemas/Uuid' }
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        assignmentId: { $ref: '#/components/schemas/Uuid' }
+        assignmentTitle: { type: string }
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        studentName: { type: string, description: Raw current full name, without private account fields. }
+        questionNumber: { type: integer, minimum: 1, description: One-based section/question paper order, independent of the student's shuffle. }
+        type: { $ref: '#/components/schemas/QuestionType' }
+        prompt: { type: string, minLength: 1 }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        answer: { $ref: '#/components/schemas/Answer' }
+        points: { $ref: '#/components/schemas/Points' }
+        score: { type: [number, 'null'], format: double, minimum: 0, description: Manual score; null while this answer remains in the pending queue. }
+        comment: { type: [string, 'null'] }
+        media:
+          oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        audio:
+          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+        transcript: { type: [string, 'null'] }
+        options: { type: array, items: { $ref: '#/components/schemas/AdminQuestionOption' } }
+        blanks: { type: array, items: { $ref: '#/components/schemas/AdminQuestionBlank' } }
+        explanation: { type: [string, 'null'] }
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        sampleAnswer: { type: [string, 'null'] }
+        sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
+
     QuestionAnswerRow:
       type: object
       description: One paper's answer to the question G-04 is grading.
@@ -5961,6 +6033,61 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/grading/queue:
+    get:
+      operationId: listGradingQueue
+      x-permission: teaching.grading
+      x-resource:
+        - { in: query, name: assignmentId, kind: assignment }
+        - { in: query, name: studentId, kind: student }
+      x-resource-list: attempt
+      tags: [teacher-attempts]
+      summary: Pending manual answers in grading order
+      description: |
+        Read-only queue of reachable submitted or timed_out papers' saved answers
+        requiring manual grading with no manual score. Graded, voided, in-progress,
+        missing saved answers and marked zero scores are excluded. Normal
+        AssignmentIDs and Papers reach apply; scope.all widens the existing read.
+        Filters apply before complete counts, grouping and the first 200 items.
+        Groups order by their earliest known eligible submitted_at ascending,
+        all-null groups last, then student UUID or assignment/question UUID tuple.
+        Within a group items order by submitted_at ascending nulls last, attempt
+        UUID, paper ordinal and frozen question UUID. Only represented groups are
+        returned, with full remaining counts even when split at the cap.
+        Each supplied reference is independently checked: unknown and foreign
+        references answer the same 404, while reachable empty intersections are
+        empty successes. studentId selects an already authorized historical paper
+        taker, not a student-account target: it requires either a current strict
+        student-like account in StudentIDs reach or existing history satisfying
+        BOTH AssignmentIDs and Papers reach, independent of status or pending work.
+        A privileged account without reached history cannot use the strict branch.
+        Membership, counts, reference flags and prefix share one statement snapshot;
+        later immutable-content and signed-media enrichment is not a live whole
+        response snapshot. Names and titles are current text; question/group keys
+        and content are frozen. Grades and completion use existing gradeAttempt
+        and finishGrading; this read never writes or finishes a paper.
+      parameters:
+        - name: mode
+          in: query
+          schema: { type: string, enum: [student, question], default: student }
+        - name: assignmentId
+          in: query
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: studentId
+          in: query
+          description: Historical paper-taker identity filter, not a strict student-account lookup.
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: Full filtered counts and the first 200 pending answers.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GradingQueue' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/assignments/{id}/answers:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]

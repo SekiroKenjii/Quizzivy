@@ -47,6 +47,7 @@ type Repository interface {
 // grading key, marking it, and noting it, each only on an assignment the scope
 // reaches.
 type ReviewRepository interface {
+	GradingQueue(ctx context.Context, q GradingQueueQuery) (GradingQueue, error)
 	GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
 	GroupTranscripts(ctx context.Context, versionID string) (map[string]string, error)
 	Get(ctx context.Context, scope access.Scope, attemptID string) (Review, error)

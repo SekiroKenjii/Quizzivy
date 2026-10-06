@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.53 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.54 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.53**
+
+R4, read-only grading queue (T-R4.14):
+
+- §8, §15 Teachers can read pending manual answers grouped by student or frozen
+  question, with complete counts and a deterministic first200-item prefix.
+  Historical paper reach and the existing explicit Finish operation are preserved.
 
 **Changes since v0.52**
 
@@ -1197,6 +1205,19 @@ calendar zone through `ports.Zones`; the default adapter and a nil port use
 `Asia/Ho_Chi_Minh` until T-R4.7 wires the profile zone. Legacy readings retain
 their SQL clocks. An absent notifications summary port returns 501.
 
+The grading queue requires `teaching.grading` and preserves the existing assignment
+and paper scope. It includes saved, unmarked manual answers in submitted or timed-out
+papers; a manual score of zero is marked. Student groups use student IDs; question
+groups use the assignment and frozen question IDs together. Counts cover the complete
+filtered set before the deterministic first200 items, with oldest submissions first
+and null times last. Optional assignment and student filters apply to counts and items.
+Group labels use current names or the global one-based frozen question number;
+assignment titles are current, while question keys, rich content and group context
+come from the published version. The aggregate, groups and item prefix share one SQL
+statement snapshot; later immutable enrichment does not claim a whole-request
+repeatable-read snapshot. Reading or exhausting the queue never finishes grading;
+the teacher still invokes Finish explicitly. The rebuilt web queue is T-R4.28.
+
 Admin list behaviour (approved change request, 2026-09-22):
 
 - Tests, questions, media, classes, students and assignments support explicit multi-selection and confirmed bulk removal. Class rosters support bulk membership removal. Failed items remain selected with an individual explanation; successful items are not retried. Attempt history, grading records and integrity/audit events remain retained.
@@ -2042,6 +2063,8 @@ POST   /teacher/attempts/:id/void       {reason}
 GET    /teacher/attempts/:id | GET /teacher/attempts/:id/events
 POST   /teacher/attempts/:id/grade      {items:[{questionId,points,comment}]}
 POST   /teacher/attempts/:id/finish-grading
+GET    /teacher/grading/queue?mode=student|question&assignmentId=&studentId=
+                                          → {groups,items,answersRemaining,studentsWaiting}; default student
 GET    /teacher/students | POST | GET /:id
 PATCH  /teacher/students/:id            403 FORBIDDEN when disabled is sent without
                                           people.users.manage or the subset rule refuses; 403 STUDENT_SHARED
