@@ -159,7 +159,7 @@ export default function LoginPage() {
             {google.pending ? (
               <LoaderCircle
                 aria-hidden="true"
-                className="size-[18px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused]"
+                className="size-[18px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused] motion-reduce:animate-none"
               />
             ) : (
               <GoogleMark className="size-[18px]" />
@@ -272,7 +272,7 @@ export default function LoginPage() {
           {submitting && (
             <LoaderCircle
               aria-hidden="true"
-              className="size-[17px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused]"
+              className="size-[17px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused] motion-reduce:animate-none"
             />
           )}
           {t(submitting ? "login.submitting" : "login.submit")}
