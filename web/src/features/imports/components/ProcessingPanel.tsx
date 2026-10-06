@@ -35,7 +35,7 @@ export function ProcessingPanel({ run }: Readonly<{ run: ImportRun | undefined }
     <Card
       role="status"
       tabIndex={0}
-      className="group focus-visible:ring-focus gap-0 overflow-hidden py-0 focus-visible:ring-2 focus-visible:outline-none"
+      className="group gap-0 overflow-hidden py-0"
     >
       <ol
         className="divide-border divide-y"
