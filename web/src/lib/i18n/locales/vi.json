@@ -2724,7 +2724,10 @@
       "actionsNamed": "Thao tác với {{title}}",
       "filesRemoved": "Tệp đã được xoá theo chính sách lưu trữ.",
       "openReview": "Mở bản rà soát",
-      "recognising": "Đang nhận diện cấu trúc…"
+      "recognising": "Đang nhận diện cấu trúc…",
+      "needsAction": "{{count}} cần xử lý",
+      "toConfirm": "{{count}} cần xác nhận",
+      "nothingOpen": "Không còn mục cần xử lý"
     }
   },
   "controls": {
