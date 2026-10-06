@@ -62,7 +62,7 @@ function settleBootFailure(cause: unknown) {
     return;
   }
   if (isSignedOut(cause)) {
-    if (useAuthStore.getState().user === null) useAuthStore.getState().clearSession();
+    if (useAuthStore.getState().user === null) authStore.refuseAnonymous();
     state.setBootPhase("ready");
     return;
   }
