@@ -35,6 +35,22 @@ beforeEach(() => {
         formats: ["docx"],
       }),
     ),
+    http.get(`${BASE}/teacher/imports/:id/review`, () =>
+      contractJson(
+        "/teacher/imports/{id}/review",
+        "get",
+        200,
+        review(
+          [
+            section([
+              question({ id: "q1", label: "1" }),
+              question({ id: "q2", label: "2" }),
+            ]),
+          ],
+          [],
+        ),
+      ),
+    ),
     capabilities(),
     http.get(`${BASE}/teacher/imports/:id`, () =>
       contractJson("/teacher/imports/{id}", "get", 200, current),
@@ -278,7 +294,7 @@ describe("an import back under review", () => {
       review([section([question({ id: "q1", label: "1" })])], []),
     );
     renderDetail(client);
-    await screen.findByRole("link", { name: "Tiếp tục rà soát" });
+    await screen.findByRole("link", { name: "Bắt đầu rà soát" });
     await waitFor(() =>
       expect(client.getQueryData(["word-import-review", IMPORT_ID])).toBeUndefined(),
     );
@@ -433,7 +449,11 @@ describe("an import while processing is switched off", () => {
     renderDetail();
 
     await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu nên chưa tải tệp lên/);
-    expect(screen.getByText("de-thi-hk1.docx")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Tệp gốc" })).getByText(
+        "de-thi-hk1.docx",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("explains a withheld retry after a failed reprocess", async () => {
@@ -531,7 +551,11 @@ describe("an import whose files retention removed", () => {
     expect(
       await screen.findByText(/^Tệp gốc và bản rà soát đã được xoá ngày 02\/10\/2026/),
     ).toBeInTheDocument();
-    expect(screen.getByText("de-thi-hk1.docx")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Tệp gốc" })).getByText(
+        "de-thi-hk1.docx",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.queryByText("Tệp gốc vẫn được giữ theo chính sách lưu trữ."),
     ).toBeNull();

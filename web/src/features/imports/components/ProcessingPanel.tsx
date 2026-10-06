@@ -1,21 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { Check, Circle, CircleDot } from "lucide-react";
+import { Check, LoaderCircle } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { useTick } from "@/hooks/useTick";
 import { countdown } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import type { ImportRun } from "../api";
-import {
-  isWaitingToRetry,
-  PROCESSING_STAGES,
-  stageStates,
-  type StageState,
-} from "../status";
-
-const ICONS: Record<StageState, typeof Check> = {
-  done: Check,
-  current: CircleDot,
-  waiting: Circle,
-};
+import { isWaitingToRetry, PROCESSING_STAGES, stageStates } from "../status";
 
 /**
  * ProcessingPanel shows the run's current stage, its elapsed time and its
@@ -42,29 +32,58 @@ export function ProcessingPanel({ run }: Readonly<{ run: ImportRun | undefined }
     : t("imports.processing.current", { stage: currentLabel });
 
   return (
-    <div className="space-y-4">
-      <ol className="space-y-2" aria-label={t("imports.processing.stagesLabel")}>
+    <Card
+      role="status"
+      tabIndex={0}
+      className="group focus-visible:ring-focus gap-0 overflow-hidden py-0 focus-visible:ring-2 focus-visible:outline-none"
+    >
+      <ol
+        className="divide-border divide-y"
+        aria-label={t("imports.processing.stagesLabel")}
+      >
         {PROCESSING_STAGES.map((stage, index) => {
           const state = states[index] ?? "waiting";
-          const Icon = ICONS[state];
           return (
             <li
               key={stage.key}
               aria-current={state === "current" ? "step" : undefined}
               className={cn(
-                "flex items-center gap-2.5 text-sm",
+                "flex flex-wrap items-center gap-3 px-4.5 py-3.25 text-sm",
                 state === "waiting" && "text-muted-foreground",
                 state === "current" && "font-medium",
               )}
             >
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
-              <span>{t(`imports.processing.stage.${stage.key}`)}</span>
+              <span
+                className={cn(
+                  "grid size-6 shrink-0 place-items-center rounded-full",
+                  state === "done" && "bg-success-soft text-success-ink",
+                  state === "waiting" && "bg-muted text-muted-fg",
+                )}
+              >
+                {state === "done" ? (
+                  <Check className="size-3.5" aria-hidden="true" />
+                ) : null}
+                {state === "current" ? (
+                  <LoaderCircle
+                    className="size-4 group-focus-within:[animation-play-state:paused] group-hover:[animation-play-state:paused] motion-safe:animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {state === "waiting" ? (
+                  <span className="text-xs" aria-hidden="true">
+                    {index + 1}
+                  </span>
+                ) : null}
+              </span>
+              <span className="min-w-0 flex-1">
+                {t(`imports.processing.stage.${stage.key}`)}
+              </span>
               <span className="sr-only">{t(`imports.processing.state.${state}`)}</span>
             </li>
           );
         })}
       </ol>
-      <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+      <div className="text-muted-fg flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-4.5 py-3 text-xs">
         <p role="status" aria-live="polite">
           {statusLine}
         </p>
@@ -73,7 +92,7 @@ export function ProcessingPanel({ run }: Readonly<{ run: ImportRun | undefined }
             {t("imports.processing.elapsed", { time: countdown(elapsed) })}
           </p>
         )}
-        {run !== undefined && run.attempt >= 1 && (run.attempt > 1 || waiting) ? (
+        {run !== undefined && run.attempt >= 1 ? (
           <p>
             {t("imports.processing.attempt", {
               attempt: run.attempt,
@@ -82,6 +101,6 @@ export function ProcessingPanel({ run }: Readonly<{ run: ImportRun | undefined }
           </p>
         ) : null}
       </div>
-    </div>
+    </Card>
   );
 }
