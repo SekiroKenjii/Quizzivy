@@ -11,7 +11,7 @@ const ROUTE =
 
 const TEACHER_TREE = [
   ["/teacher", "layouts/TeacherShell"],
-  ["/teacher (index)", "app/pages/AdminDashboardPage"],
+  ["/teacher (index)", "features/dashboard/pages/teacher/TeacherDashboardPage"],
   ["/teacher/tests", "features/tests/pages/teacher/TestsListPage"],
   ["/teacher/tests/:id", "features/tests/pages/teacher/TestDetailPage"],
   ["/teacher/tests/:id/edit", "features/tests/pages/teacher/TestBuilderPage"],
@@ -47,10 +47,6 @@ const TEACHER_TREE = [
   [
     "/teacher/assignments/:id/edit",
     "features/assignments/pages/teacher/AssignmentFormPage",
-  ],
-  [
-    "/teacher/assignments/:id/attempts",
-    "features/attempts/pages/teacher/AssignmentAttemptsPage",
   ],
   ["/teacher/attempts/:id", "features/attempts/pages/teacher/AttemptReviewPage"],
   ["/teacher/grading", "features/attempts/pages/teacher/GradingQueuePage"],

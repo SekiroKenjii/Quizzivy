@@ -10,17 +10,21 @@ import (
 // Summary is the teacher home with legacy figures and its calendar readings.
 type Summary struct {
 	Home
-	ClosingSoon     int
-	WaitingStudents int
-	OldestWaitingAt *time.Time
-	TotalStudents   int
-	NextClosing     *ClosingAssignment
-	OpenAssignments int
-	AwaitingGrading int
-	ActiveStudents  int
-	FlaggedAttempts int
-	Recent          []Recent
+	NewestFlaggedAttempt *FlaggedAttempt
+	ClosingSoon          int
+	WaitingStudents      int
+	OldestWaitingAt      *time.Time
+	TotalStudents        int
+	NextClosing          *ClosingAssignment
+	OpenAssignments      int
+	AwaitingGrading      int
+	ActiveStudents       int
+	FlaggedAttempts      int
+	Recent               []Recent
 }
+
+// FlaggedAttempt identifies one reachable flagged paper and its assignment.
+type FlaggedAttempt struct{ AssignmentID, AttemptID string }
 
 // Recent is one attempt as the teacher's queues list it.
 type Recent struct {
@@ -56,7 +60,10 @@ type Home struct {
 }
 
 // TakingNow counts distinct students and assignments before their attempt deadlines.
-type TakingNow struct{ Students, Assignments int }
+type TakingNow struct {
+	Students, Assignments int
+	AssignmentID          *string
+}
 
 // Submissions is a complete calendar series and the graded mean in that range.
 type Submissions struct {

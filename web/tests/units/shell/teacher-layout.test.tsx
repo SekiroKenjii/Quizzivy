@@ -20,21 +20,21 @@ import { adminUser, teacherUser } from "@tests/support/fixtures";
 import { viewport } from "@tests/support/viewport";
 import {
   crumbed,
-  dashboardBody,
-  failDashboard,
+  summaryBody,
+  failSummary,
   home,
   renderShell,
-  serveDashboard,
+  serveSummary,
 } from "./support";
 import "@/lib/i18n";
 
 const NAV = "Điều hướng chính";
 const TRAIL = "Đường dẫn";
 const STORED = "quizzivy.sidebar";
-const QUIET = { ...dashboardBody, openAssignments: 0, awaitingGrading: 0 };
+const QUIET = { ...summaryBody, liveAssignments: 0, answersToGrade: 0 };
 
 const LIVE = /^Bài giao\s*3 bài giao đang mở$/;
-const TO_GRADE = /^Chấm bài\s*6 bài chờ chấm$/;
+const TO_GRADE = /^Chấm bài\s*6 câu trả lời chờ chấm$/;
 const NAMES = [
   /^Tổng quan$/,
   LIVE,
@@ -110,7 +110,7 @@ afterEach(() => {
 
 describe("the teacher shell from 768", () => {
   it("draws the sidebar, the top bar and the page as landmarks on one deck surface", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     const main = await screen.findByRole("main");
     const root = main.closest<HTMLElement>("[data-scale='deck']")!;
@@ -137,7 +137,7 @@ describe("the teacher shell from 768", () => {
   });
 
   it("lists the eight destinations under their groups, the current one lit", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher/classes", [home(), { ...CLASSES, element: <p>các lớp</p> }]);
     await screen.findByText("các lớp");
 
@@ -176,7 +176,7 @@ describe("the teacher shell from 768", () => {
   });
 
   it("lights nothing on Settings", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher/settings/security", [
       { ...SETTINGS, element: <p>bảo mật</p> },
     ]);
@@ -185,7 +185,7 @@ describe("the teacher shell from 768", () => {
   });
 
   it("leaves out Students for a role that may not read them", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()], {
       ...teacherUser,
       permissions: teacherUser.permissions.filter(
@@ -199,7 +199,7 @@ describe("the teacher shell from 768", () => {
   });
 
   it("keeps the workspace block a label, for an admin too, and puts the account at the foot", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()], adminUser);
     await screen.findByRole("main");
 
@@ -214,7 +214,7 @@ describe("the teacher shell from 768", () => {
 
 describe("the sidebar's counts", () => {
   it("shows live assignments quietly and papers to grade in the accent, and says what each counts", async () => {
-    serveDashboard();
+    serveSummary();
     renderShell("/teacher", [home()]);
 
     const live = await within(nav()).findByRole("link", { name: LIVE });
@@ -233,10 +233,12 @@ describe("the sidebar's counts", () => {
   });
 
   it("draws no badge at zero, for either figure", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     const { client } = renderShell("/teacher", [home()]);
     await waitFor(() =>
-      expect(client.getQueryState(["admin-dashboard"])?.status).toBe("success"),
+      expect(client.getQueryState(["admin-dashboard", "summary"])?.status).toBe(
+        "success",
+      ),
     );
     expect(badges()).toHaveLength(0);
     expect(within(nav()).getByRole("link", { name: "Bài giao" })).toBeInTheDocument();
@@ -244,18 +246,22 @@ describe("the sidebar's counts", () => {
   });
 
   it("draws the one that is not zero", async () => {
-    serveDashboard({ ...dashboardBody, openAssignments: 0, awaitingGrading: 1 });
+    serveSummary({ ...summaryBody, liveAssignments: 0, answersToGrade: 1 });
     renderShell("/teacher", [home()]);
-    await within(nav()).findByRole("link", { name: /^Chấm bài\s*1 bài chờ chấm$/ });
+    await within(nav()).findByRole("link", {
+      name: /^Chấm bài\s*1 câu trả lời chờ chấm$/,
+    });
     expect(within(nav()).getByRole("link", { name: "Bài giao" })).toBeInTheDocument();
     expect(badges()).toHaveLength(1);
   });
 
   it("draws none, and no error, when the request fails", async () => {
-    const seen = failDashboard();
+    const seen = failSummary();
     const { client } = renderShell("/teacher", [home()]);
     await waitFor(() =>
-      expect(client.getQueryState(["admin-dashboard"])?.status).toBe("error"),
+      expect(client.getQueryState(["admin-dashboard", "summary"])?.status).toBe(
+        "error",
+      ),
     );
     expect(seen.asked).toBe(1);
     expect(badges()).toHaveLength(0);
@@ -264,11 +270,11 @@ describe("the sidebar's counts", () => {
   });
 
   it("takes them away when a later request fails, and follows a write that invalidates the dashboard", async () => {
-    serveDashboard();
+    serveSummary();
     const { client } = renderShell("/teacher", [home()]);
     await within(nav()).findByRole("link", { name: LIVE });
 
-    serveDashboard({ ...dashboardBody, openAssignments: 4 });
+    serveSummary({ ...summaryBody, liveAssignments: 4 });
     await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
     expect(
       await within(nav()).findByRole("link", {
@@ -276,14 +282,14 @@ describe("the sidebar's counts", () => {
       }),
     ).toBeInTheDocument();
 
-    failDashboard();
+    failSummary();
     await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
     await waitFor(() => expect(badges()).toHaveLength(0));
   });
 
   it("asks again every minute, stops after ten idle minutes and asks once when the user comes back", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    const seen = serveDashboard();
+    const seen = serveSummary();
     renderShell("/teacher", [home()]);
     await waitFor(() => expect(seen.asked).toBe(1));
 
@@ -311,7 +317,7 @@ describe("the sidebar's counts", () => {
 describe("collapsing the sidebar", () => {
   it("leaves icons that keep their names, and remembers the choice", async () => {
     const user = userEvent.setup();
-    serveDashboard();
+    serveSummary();
     const first = renderShell("/teacher", [home()]);
     await within(nav()).findByRole("link", { name: LIVE });
 
@@ -353,7 +359,7 @@ describe("collapsing the sidebar", () => {
 
   it("never collapses by itself, however narrow the window from 768", async () => {
     viewport(768);
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
     expect(sidebar()).toHaveAttribute("data-state", "expanded");
@@ -371,7 +377,7 @@ describe("collapsing the sidebar", () => {
 
   it("starts a route that asks for it collapsed, for the visit only, and leaves the stored choice alone", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", pages);
     await screen.findByRole("main");
     expect(sidebar()).toHaveAttribute("data-state", "expanded");
@@ -399,7 +405,7 @@ describe("collapsing the sidebar", () => {
   it("returns to a stored collapse on leaving, whatever the visit did", async () => {
     const user = userEvent.setup();
     writeSidebarState("collapsed");
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher/review", pages);
     await screen.findByRole("main");
     expect(sidebar()).toHaveAttribute("data-state", "collapsed");
@@ -423,7 +429,7 @@ describe("collapsing the sidebar", () => {
 
 describe("the breadcrumb trail and the document title", () => {
   it("links the ancestors, marks the last crumb current and names the tab after it", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher/classes/c1", [
       home(),
       { path: "classes/:id", handle: CLASS, element: <ClassPage /> },
@@ -450,7 +456,7 @@ describe("the breadcrumb trail and the document title", () => {
 
   it("puts the record's name in the last crumb and the title once the page knows it", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     const view = renderShell("/teacher/classes/c1", [
       home(),
       { path: "classes/:id", handle: CLASS, element: <ClassPage /> },
@@ -477,7 +483,7 @@ describe("the breadcrumb trail and the document title", () => {
 
   it("never names the tab after the page the user left", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher/classes/c1", [
       home(),
       { path: "classes/:id", handle: CLASS, element: <ClassPage /> },
@@ -492,7 +498,7 @@ describe("the breadcrumb trail and the document title", () => {
   });
 
   it("names the tab after the product on a route with no crumb", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [
       { index: true, handle: { crumb: [] }, element: <p>trang</p> },
     ]);
@@ -516,7 +522,7 @@ describe("the page's frame", () => {
   ] as [ContentWidth | undefined, string][])(
     "centres a page of width %s under %s",
     async (width, limit) => {
-      serveDashboard(QUIET);
+      serveSummary(QUIET);
       const handle = crumbed("teacherShell.nav.tests", width ? { width } : {});
       renderShell("/teacher", [{ index: true, handle, element: <p>trang</p> }]);
       const page = (await screen.findByText("trang")).parentElement!;
@@ -528,7 +534,7 @@ describe("the page's frame", () => {
   );
 
   it("sets no limit on a full-width page", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [{ index: true, handle: REVIEW, element: <p>trang</p> }]);
     const page = (await screen.findByText("trang")).parentElement!;
     expect(page).toHaveClass("mx-auto", "w-full");
@@ -536,7 +542,7 @@ describe("the page's frame", () => {
   });
 
   it("registers main before a page first renders, and unregisters it on the way out", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     const seen: boolean[] = [];
     function Measures() {
       seen.push(useContentWidthAtLeast(860));
@@ -553,7 +559,7 @@ describe("the page's frame", () => {
 
   it("gives the keyboard the page: main takes focus on a new route, unless the page took it", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [
       home(),
       { ...CLASSES, element: <TakesFocus /> },
@@ -574,7 +580,7 @@ describe("the page's frame", () => {
 
   it("returns to the top when the route changes", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home(), { ...CLASSES, element: <p>các lớp</p> }]);
     const main = await screen.findByRole("main");
     main.scrollTop = 240;
@@ -584,7 +590,7 @@ describe("the page's frame", () => {
   });
 
   it("neither scrolls nor takes focus when only a parameter changes", async () => {
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     const { router } = renderShell("/teacher/settings", [
       { ...SETTINGS, element: <p>cài đặt</p> },
     ]);
@@ -602,7 +608,7 @@ describe("the page's frame", () => {
   it("keeps what a page holds when the width crosses 768, either way", async () => {
     const user = userEvent.setup();
     const width = viewport(1280);
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home(<input aria-label="Ghi chú" />)]);
     const note = await screen.findByRole("textbox", { name: "Ghi chú" });
     await user.type(note, "đang viết");
@@ -622,7 +628,7 @@ describe("the page's frame", () => {
 describe("the top bar", () => {
   it("switches the theme and remembers it", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
 
@@ -637,7 +643,7 @@ describe("the top bar", () => {
 
   it("stays dark under a stored dark theme, with the mark drawn for it", async () => {
     writeThemePreference("dark");
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
 
@@ -651,7 +657,7 @@ describe("the top bar", () => {
 
   it("opens the command palette from the search button and with Ctrl+K, outside the deck surface", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
 
@@ -682,7 +688,7 @@ describe("the top bar", () => {
 
   it("keeps the sidebar in the page's flow at 800", async () => {
     viewport(800);
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
 
@@ -706,7 +712,7 @@ describe("the teacher shell below 768", () => {
   }
 
   it("has no sidebar in the page's flow, and a toggle that opens the menu", async () => {
-    serveDashboard();
+    serveSummary();
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
 
@@ -721,7 +727,7 @@ describe("the teacher shell below 768", () => {
   it("opens a drawer with labels and badges, whatever is stored", async () => {
     const user = userEvent.setup();
     writeSidebarState("collapsed");
-    serveDashboard();
+    serveSummary();
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
     const drawer = await openDrawer(user);
@@ -743,7 +749,7 @@ describe("the teacher shell below 768", () => {
 
   it("closes on Escape and gives focus back to the toggle", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
     await openDrawer(user);
@@ -756,7 +762,7 @@ describe("the teacher shell below 768", () => {
 
   it("closes when a destination is chosen, and leaves focus on main", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home(), { ...CLASSES, element: <p>các lớp</p> }]);
     await screen.findByRole("main");
     const drawer = await openDrawer(user);
@@ -769,7 +775,7 @@ describe("the teacher shell below 768", () => {
 
   it("closes on a navigation that keeps the route, and still leaves focus on main", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     const { router } = renderShell("/teacher/settings", [
       { ...SETTINGS, element: <p>cài đặt</p> },
     ]);
@@ -783,7 +789,7 @@ describe("the teacher shell below 768", () => {
 
   it("stays closed when the user goes back to the entry it was opened at", async () => {
     const user = userEvent.setup();
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     const { router } = renderShell("/teacher", [
       home(),
       { ...CLASSES, element: <p>các lớp</p> },
@@ -802,7 +808,7 @@ describe("the teacher shell below 768", () => {
   it("closes when the window grows past 768, and stays closed when it shrinks again", async () => {
     const user = userEvent.setup();
     const width = viewport(360);
-    serveDashboard(QUIET);
+    serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
     await openDrawer(user);

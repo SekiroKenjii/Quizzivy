@@ -79,7 +79,7 @@ function NavItem({
       <span className={collapsed ? "sr-only" : "min-w-0 flex-1 truncate leading-4.25"}>
         {label}
       </span>
-      {item.count && value > 0 && (
+      {item.count && value !== null && value > 0 && (
         <CountBadge count={item.count} value={value} collapsed={collapsed} />
       )}
     </Link>

@@ -24,8 +24,8 @@ type store struct {
 	counts   int
 }
 
-func (s *store) Summary(_ context.Context, scope access.Scope) (domain.Summary, error) {
-	s.scope = scope
+func (s *store) Summary(_ context.Context, q domain.SummaryQuery) (domain.Summary, error) {
+	s.scope = q.Scope
 	return domain.Summary{}, nil
 }
 func (s *store) Home(_ context.Context, q domain.HomeQuery) (domain.Home, error) {

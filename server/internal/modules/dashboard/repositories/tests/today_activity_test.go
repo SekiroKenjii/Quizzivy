@@ -6,6 +6,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/assignments/domain"
 	assignmentrepo "quizzivy/internal/modules/assignments/repositories"
+	dashboarddomain "quizzivy/internal/modules/dashboard/domain"
 	"quizzivy/internal/modules/dashboard/repositories"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
@@ -128,7 +129,7 @@ func TestNavCountsMatchTheOpenListAndKeepTeacherAndAdminReach(t *testing.T) {
 		if got != page.Total {
 			t.Fatalf("scope%+v nav%d list%d", scope, got, page.Total)
 		}
-		summary, err := store.Summary(context.Background(), scope)
+		summary, err := store.Summary(context.Background(), dashboarddomain.SummaryQuery{Scope: scope})
 		if err != nil {
 			t.Fatal(err)
 		}

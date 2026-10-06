@@ -22,15 +22,7 @@ import { useLocale } from "@/lib/i18n/useLocale";
 import { pageRange } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 
-/**
- * PagerProps is what a list screen passes to Pager. `page`, `pageSize` and
- * `total` are what the API answered. `noun` returns the screen's noun for the
- * rows in the plural that fits `count`; it is called with the total, and with
- * 0 for an empty list. `sizes` is the rows-per-page choice, `PAGE_SIZES` when
- * absent, and is the list the screen gives `usePageSize`. `frame` is `"card"`
- * for the bar inside a card and `"plain"` for the bar under a list that is not
- * one card.
- */
+/** PagerProps supplies a list's figures, size choices and frame with optional hash-preserving navigation. */
 export type PagerProps = Readonly<{
   page: number;
   pageSize: number;
@@ -38,6 +30,7 @@ export type PagerProps = Readonly<{
   noun: (count: number) => string;
   sizes?: readonly number[] | undefined;
   frame?: "card" | "plain" | undefined;
+  preserveHash?: boolean | undefined;
 }>;
 
 const BAR = "text-muted-fg flex flex-wrap items-center justify-between gap-3 text-sm";
@@ -73,20 +66,7 @@ function Arrow({
   );
 }
 
-/**
- * Pager is the bar under a list on a deck surface: the range of rows shown
- * ("1–10 of 312 assignments"), the rows per page, "Page 1 of 32" and four
- * arrows to the first, previous, next and last page. It is drawn for one page
- * and for an empty list too, where it reads "No assignments" and "Page 1 of
- * 1". The figures are grouped for the current locale. The arrows are links
- * that keep every other search parameter; one that cannot move points at the
- * current page, is `aria-disabled` and takes no pointer. The rows-per-page
- * select shows the size in `?size=` and writes it through `usePageSize`,
- * which goes back to page 1. Below 768px the select and the first and last
- * arrows are not drawn. `frame` is the screen's choice at every width: the
- * card bar has a top border and stays at the left edge of a table that
- * scrolls sideways, the plain bar has neither. It renders inside a router.
- */
+/** Pager renders the responsive range, size choice and page links with hash preservation only when requested. */
 export function Pager({
   page,
   pageSize,
@@ -94,17 +74,22 @@ export function Pager({
   noun,
   sizes = PAGE_SIZES,
   frame = "card",
+  preserveHash = false,
 }: PagerProps) {
   const { t } = useTranslation();
   const locale = useLocale();
-  const { search } = useLocation();
+  const { pathname, search, hash } = useLocation();
   const wide = useMediaQuery("(min-width: 768px)");
-  const [size, setSize] = usePageSize(sizes);
+  const [size, setSize] = usePageSize(sizes, preserveHash);
   const labelId = useId();
   const figure = useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const range = pageRange(page, pageSize, total);
   const first = range.page <= 1;
   const last = range.page >= range.pages;
+  const href = (next: number) =>
+    preserveHash
+      ? `${pathname}${pageHref(search, next)}${hash}`
+      : pageHref(search, next);
 
   return (
     <nav
@@ -160,27 +145,27 @@ export function Pager({
         <div className="flex gap-1.5">
           {wide ? (
             <Arrow
-              to={pageHref(search, 1)}
+              to={href(1)}
               label={t("pager.first")}
               icon={ChevronsLeft}
               off={first}
             />
           ) : null}
           <Arrow
-            to={pageHref(search, Math.max(1, range.page - 1))}
+            to={href(Math.max(1, range.page - 1))}
             label={t("pager.previous")}
             icon={ChevronLeft}
             off={first}
           />
           <Arrow
-            to={pageHref(search, Math.min(range.pages, range.page + 1))}
+            to={href(Math.min(range.pages, range.page + 1))}
             label={t("pager.next")}
             icon={ChevronRight}
             off={last}
           />
           {wide ? (
             <Arrow
-              to={pageHref(search, range.pages)}
+              to={href(range.pages)}
               label={t("pager.last")}
               icon={ChevronsRight}
               off={last}

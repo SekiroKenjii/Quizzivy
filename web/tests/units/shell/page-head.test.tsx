@@ -8,7 +8,7 @@ import { PageHead } from "@/layouts/shell/PageHead";
 import { writeSidebarState } from "@/layouts/shell/sidebarState";
 import { useAuthStore } from "@/stores/auth";
 import { viewport } from "@tests/support/viewport";
-import { dashboardBody, renderShell, serveDashboard } from "./support";
+import { summaryBody, renderShell, serveSummary } from "./support";
 import "@/lib/i18n";
 
 const TRAIL = "Đường dẫn";
@@ -174,7 +174,7 @@ describe("PageHead, the detail form", () => {
 
 describe("PageHead in the shell", () => {
   it("names the page in the trail and the tab when asked to", async () => {
-    serveDashboard({ ...dashboardBody, openAssignments: 0, awaitingGrading: 0 });
+    serveSummary({ ...summaryBody, liveAssignments: 0, answersToGrade: 0 });
     renderShell("/teacher/classes/c1", [
       {
         path: "classes/:id",
@@ -189,7 +189,7 @@ describe("PageHead in the shell", () => {
   });
 
   it("leaves the route's own label when not asked", async () => {
-    serveDashboard({ ...dashboardBody, openAssignments: 0, awaitingGrading: 0 });
+    serveSummary({ ...summaryBody, liveAssignments: 0, answersToGrade: 0 });
     renderShell("/teacher/classes/c1", [
       {
         path: "classes/:id",
@@ -205,7 +205,7 @@ describe("PageHead in the shell", () => {
 
   it("leaves the name a page gave with useCrumbs when a head without crumb comes and goes", async () => {
     const user = userEvent.setup();
-    serveDashboard({ ...dashboardBody, openAssignments: 0, awaitingGrading: 0 });
+    serveSummary({ ...summaryBody, liveAssignments: 0, answersToGrade: 0 });
     renderShell("/teacher/classes/c1", [
       { path: "classes/:id", handle: CLASS, element: <NamedPage /> },
     ]);

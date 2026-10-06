@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import AdminDashboardPage from "@/app/pages/AdminDashboardPage";
+import TeacherDashboardPage from "@/features/dashboard/pages/teacher/TeacherDashboardPage";
+import { useAuthStore } from "@/stores/auth";
+import { teacherUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -14,6 +16,7 @@ let creations = 0;
 
 beforeEach(() => {
   creations = 0;
+  useAuthStore.getState().setSession("token", teacherUser);
   server.use(
     http.get(`${BASE}/teacher/dashboard`, () =>
       contractJson("/teacher/dashboard", "get", 200, {
@@ -21,8 +24,9 @@ beforeEach(() => {
         awaitingGrading: 7,
         activeStudents: 23,
         flaggedAttempts: 0,
+        newestFlaggedAttempt: null,
         recentAttempts: [],
-        takingNow: { students: 0, assignments: 0 },
+        takingNow: { students: 0, assignments: 0, assignmentId: null },
         submissions: {
           days: Array.from({ length: 14 }, (_, i) => ({
             date: new Date(Date.UTC(2026, 8, 22 + i)).toISOString().slice(0, 10),
@@ -67,7 +71,7 @@ function renderDashboard() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/teacher", element: <AdminDashboardPage /> },
+      { path: "/teacher", element: <TeacherDashboardPage /> },
       { path: "/teacher/tests/:id/edit", element: <p>builder</p> },
     ],
     { initialEntries: ["/teacher"] },
@@ -81,21 +85,21 @@ function renderDashboard() {
 }
 
 describe("the dashboard's work queue", () => {
-  it("links the tile that has work and disables the ones that do not", async () => {
+  it("links the tile that has work and leaves the ones without work noninteractive", async () => {
     renderDashboard();
 
-    expect(await screen.findByRole("link", { name: "Chấm" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /Chờ chấm/ })).toHaveAttribute(
       "href",
       "/teacher/grading",
     );
-    expect(screen.getByRole("button", { name: "Xem" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Xem" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Xem" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Theo dõi" })).toBeDisabled();
+    expect(screen.queryByRole("link", { name: /Đóng trong 24 giờ/ })).toBeNull();
   });
 
-  it("creates a draft from A-01's Đề thi mới and opens the builder", async () => {
+  it("creates a draft from Đề thi mới and opens the builder", async () => {
     const user = renderDashboard();
-    await screen.findByRole("link", { name: "Chấm" });
+    await screen.findByRole("link", { name: /Chờ chấm/ });
 
     await user.click(screen.getByRole("button", { name: "Đề thi mới" }));
 

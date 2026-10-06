@@ -4283,16 +4283,29 @@ export interface components {
             /** @description Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here. */
             activeStudents: number;
             flaggedAttempts: number;
+            /** @description Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible. */
+            newestFlaggedAttempt: components["schemas"]["DashboardFlaggedAttempt"] | null;
             recentAttempts: components["schemas"]["AttemptListRow"][];
             takingNow: components["schemas"]["DashboardTakingNow"];
             submissions: components["schemas"]["DashboardSubmissions"];
             today: components["schemas"]["DashboardToday"][];
             recentActivity: components["schemas"]["DashboardActivity"][];
         };
+        DashboardFlaggedAttempt: {
+            /** Format: uuid */
+            assignmentId: string;
+            /** Format: uuid */
+            attemptId: string;
+        };
         /** @description Distinct students and assignments with reachable in-progress attempts before their deadline. */
         DashboardTakingNow: {
             students: number;
             assignments: number;
+            /**
+             * Format: uuid
+             * @description Assignment of the newest started reachable in-progress paper strictly before its deadline at the supplied application clock, ordered by started_at then id descending, from the taking count statement snapshot; null when none qualifies.
+             */
+            assignmentId: string | null;
         };
         /** @description Handed-in papers within the chosen calendar range in the actor's zone, including graded papers. */
         DashboardSubmissions: {

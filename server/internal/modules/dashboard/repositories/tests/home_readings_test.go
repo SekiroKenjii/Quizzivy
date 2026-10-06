@@ -118,11 +118,15 @@ func TestTakingNowExcludesTheDeadlineAndCountsDistinctSubjects(t *testing.T) {
 	execHome(t, w, `UPDATE app.attempts SET student_id=$2 WHERE id=$1`, w.p6, w.s1)
 	execHome(t, w, `UPDATE app.attempts SET deadline_at=$2 WHERE id=$1`, w.p7, now)
 	out := homeAt(t, w, scope, now, "Asia/Ho_Chi_Minh", 14)
-	if out.TakingNow != (domain.TakingNow{Students: 1, Assignments: 2}) {
+	expectedAssignment := w.aB
+	if w.p6 > w.p1 {
+		expectedAssignment = w.aB2
+	}
+	if !reflect.DeepEqual(out.TakingNow, domain.TakingNow{Students: 1, Assignments: 2, AssignmentID: &expectedAssignment}) {
 		t.Fatalf("taking=%+v", out.TakingNow)
 	}
 	execHome(t, w, `UPDATE app.attempts SET deadline_at=$2 WHERE id=$1`, w.p7, now.Add(-time.Second))
-	if got := homeAt(t, w, scope, now, "Asia/Ho_Chi_Minh", 14).TakingNow; got != out.TakingNow {
+	if got := homeAt(t, w, scope, now, "Asia/Ho_Chi_Minh", 14).TakingNow; !reflect.DeepEqual(got, out.TakingNow) {
 		t.Fatalf("past deadline=%+v", got)
 	}
 }
