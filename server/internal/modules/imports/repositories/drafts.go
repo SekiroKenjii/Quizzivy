@@ -55,12 +55,13 @@ func (s *Postgres) SaveDraft(ctx context.Context, in domain.SaveDraft) (domain.S
 	if len(body) > maxDraftBytes {
 		return domain.StoredDraft{}, domain.ErrTooLarge
 	}
+	summary := domain.Assess(in.Draft).Summary
 	var out domain.StoredDraft
 	err = s.InTx(ctx, "save import draft", func(tx pgx.Tx) error {
 		if err := touchUnderReview(ctx, tx, in.ImportID, in.Actor); err != nil {
 			return err
 		}
-		tag, err := tx.Exec(ctx, `UPDATE app.word_import_drafts SET body=$2, revision=revision+1, edited_by=$3 WHERE import_id=$1 AND revision=$4`, in.ImportID, body, in.Actor.ID, in.ExpectedRevision)
+		tag, err := tx.Exec(ctx, `UPDATE app.word_import_drafts SET body=$2, revision=revision+1, edited_by=$3, open_action_count=$5, open_confirm_count=$6 WHERE import_id=$1 AND revision=$4`, in.ImportID, body, in.Actor.ID, in.ExpectedRevision, summary.Blocking, summary.NeedsDecision)
 		if err != nil {
 			return err
 		}
@@ -83,8 +84,8 @@ func (s *Postgres) AdoptCandidate(ctx context.Context, in domain.AdoptCandidate)
 			return err
 		}
 		var revision int64
-		var pending bool
-		err := tx.QueryRow(ctx, `SELECT revision, candidate IS NOT NULL FROM app.word_import_drafts WHERE import_id=$1 FOR UPDATE`, in.ImportID).Scan(&revision, &pending)
+		var candidate []byte
+		err := tx.QueryRow(ctx, `SELECT revision, candidate FROM app.word_import_drafts WHERE import_id=$1 FOR UPDATE`, in.ImportID).Scan(&revision, &candidate)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrNoDraft
 		}
@@ -93,10 +94,15 @@ func (s *Postgres) AdoptCandidate(ctx context.Context, in domain.AdoptCandidate)
 			return err
 		case revision != in.ExpectedRevision:
 			return domain.ErrStale
-		case !pending:
+		case len(candidate) == 0:
 			return domain.ErrConflict
 		}
-		if _, err := tx.Exec(ctx, `UPDATE app.word_import_drafts SET body=candidate, run_id=candidate_run_id, candidate=NULL, candidate_run_id=NULL, edited_by=NULL, revision=revision+1 WHERE import_id=$1`, in.ImportID); err != nil {
+		var draft domain.Draft
+		if err := json.Unmarshal(candidate, &draft); err != nil {
+			return err
+		}
+		summary := domain.Assess(draft).Summary
+		if _, err := tx.Exec(ctx, `UPDATE app.word_import_drafts SET body=candidate, run_id=candidate_run_id, candidate=NULL, candidate_run_id=NULL, edited_by=NULL, revision=revision+1, open_action_count=$2, open_confirm_count=$3 WHERE import_id=$1`, in.ImportID, summary.Blocking, summary.NeedsDecision); err != nil {
 			return err
 		}
 		if err := auditImport(ctx, tx, in.Actor, in.ImportID, "import.reprocessed_adopted"); err != nil {
@@ -127,13 +133,20 @@ func storeMachineDraft(ctx context.Context, tx pgx.Tx, c domain.Claim, draft jso
 	if len(draft) == 0 || len(draft) > maxDraftBytes || !json.Valid(draft) {
 		return domain.ErrInvalidResult
 	}
-	_, err := tx.Exec(ctx, `INSERT INTO app.word_import_drafts AS d (import_id, run_id, body) VALUES ($1,$2,$3)
+	var parsed domain.Draft
+	if err := json.Unmarshal(draft, &parsed); err != nil {
+		return domain.ErrInvalidResult
+	}
+	summary := domain.Assess(parsed).Summary
+	_, err := tx.Exec(ctx, `INSERT INTO app.word_import_drafts AS d (import_id, run_id, body, open_action_count, open_confirm_count) VALUES ($1,$2,$3,$4,$5)
  ON CONFLICT (import_id) DO UPDATE SET
    body = CASE WHEN d.edited_by IS NULL THEN EXCLUDED.body ELSE d.body END,
    run_id = CASE WHEN d.edited_by IS NULL THEN EXCLUDED.run_id ELSE d.run_id END,
+   open_action_count = CASE WHEN d.edited_by IS NULL THEN EXCLUDED.open_action_count ELSE d.open_action_count END,
+   open_confirm_count = CASE WHEN d.edited_by IS NULL THEN EXCLUDED.open_confirm_count ELSE d.open_confirm_count END,
    revision = CASE WHEN d.edited_by IS NULL THEN d.revision + 1 ELSE d.revision END,
    candidate = CASE WHEN d.edited_by IS NULL THEN NULL ELSE EXCLUDED.body END,
-   candidate_run_id = CASE WHEN d.edited_by IS NULL THEN NULL ELSE EXCLUDED.run_id END`, c.ImportID, c.RunID, draft)
+   candidate_run_id = CASE WHEN d.edited_by IS NULL THEN NULL ELSE EXCLUDED.run_id END`, c.ImportID, c.RunID, draft, summary.Blocking, summary.NeedsDecision)
 	return err
 }
 

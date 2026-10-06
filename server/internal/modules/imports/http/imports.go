@@ -61,7 +61,10 @@ func (h Imports) ListWordImports(ctx context.Context, request openapi.ListWordIm
 	}
 	in := query.List{Search: httpapi.DerefString(request.Params.Q), Scope: httpapi.ScopeFromContext(ctx).Own()}
 	if request.Params.Status != nil {
-		in.Status = string(*request.Params.Status)
+		in.Status = make([]string, len(*request.Params.Status))
+		for i, status := range *request.Params.Status {
+			in.Status[i] = string(status)
+		}
 	}
 	if request.Params.Page != nil {
 		in.Page = *request.Params.Page
@@ -73,10 +76,10 @@ func (h Imports) ListWordImports(ctx context.Context, request openapi.ListWordIm
 	if err != nil {
 		return nil, err
 	}
-	out := openapi.ListWordImports200JSONResponse{Items: make([]openapi.WordImport, len(v.Items)), Page: v.Page.Number, PageSize: v.Page.Size, Total: v.Page.Total}
+	out := openapi.ListWordImports200JSONResponse{Items: make([]openapi.WordImportHistoryItem, len(v.Items)), Facets: openapi.ImportStatusFacets{All: v.Facets.All, Processing: v.Facets.Processing, NeedsReview: v.Facets.NeedsReview, Failed: v.Facets.Failed, Committed: v.Facets.Committed, Cancelled: v.Facets.Cancelled}, Page: v.Page.Number, PageSize: v.Page.Size, Total: v.Page.Total}
 	queued := false
 	for i, v := range v.Items {
-		out.Items[i] = toImport(v)
+		out.Items[i] = toHistoryItem(v)
 		queued = queued || v.Status == "queued"
 	}
 	if queued {
@@ -185,4 +188,13 @@ func toImport(v domain.Import) openapi.WordImport {
 }
 func toSource(s domain.Source) openapi.ImportSource {
 	return openapi.ImportSource{Id: httpapi.ParseUUID(s.ID), Role: openapi.ImportSourceRole(s.Role), Filename: s.Filename, Format: openapi.ImportSourceFormat(s.Format), Bytes: s.Bytes, Sha256: hex.EncodeToString(s.SHA256), UploadedBy: httpapi.ParseUUID(s.UploadedBy), CreatedAt: s.CreatedAt}
+}
+
+func toHistoryItem(v domain.Import) openapi.WordImportHistoryItem {
+	base := toImport(v)
+	out := openapi.WordImportHistoryItem{Id: base.Id, Title: base.Title, Status: base.Status, Revision: base.Revision, SourceRevision: base.SourceRevision, CreatedBy: base.CreatedBy, CreatedAt: base.CreatedAt, UpdatedAt: base.UpdatedAt, PendingUploads: base.PendingUploads, Sources: base.Sources, DraftRevision: base.DraftRevision, TestId: base.TestId, FilesRemovedAt: base.FilesRemovedAt, ClosedIdle: base.ClosedIdle, Run: base.Run}
+	if v.ReviewCounts != nil {
+		out.ReviewCounts = &openapi.ImportReviewCounts{NeedsAction: v.ReviewCounts.NeedsAction, ToConfirm: v.ReviewCounts.ToConfirm}
+	}
+	return out
 }

@@ -26,7 +26,15 @@ beforeEach(() => {
       if (failing) return new Response(null, { status: 503 });
       const visible = query.has("status") || query.has("q") ? [] : items;
       return contractJson("/teacher/imports", "get", 200, {
-        items: visible,
+        items: visible.map((item) => ({ ...item, reviewCounts: null })),
+        facets: {
+          all: items.length,
+          processing: 0,
+          needsReview: 0,
+          failed: 0,
+          committed: 0,
+          cancelled: 0,
+        },
         page: 1,
         pageSize: 20,
         total: visible.length,

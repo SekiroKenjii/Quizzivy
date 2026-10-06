@@ -64,7 +64,7 @@ export default function ImportsListPage() {
         {
           page,
           limit: PAGE_SIZE,
-          ...(status === null ? {} : { status }),
+          ...(status === null ? {} : { status: [status] }),
           ...(search === "" ? {} : { q: search }),
         },
         signal,
