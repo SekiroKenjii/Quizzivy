@@ -1102,6 +1102,47 @@ export interface paths {
         patch: operations["updateAssignment"];
         trace?: never;
     };
+    "/teacher/grading/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pending manual answers in grading order
+         * @description Read-only queue of reachable submitted or timed_out papers' saved answers
+         *     requiring manual grading with no manual score. Graded, voided, in-progress,
+         *     missing saved answers and marked zero scores are excluded. Normal
+         *     AssignmentIDs and Papers reach apply; scope.all widens the existing read.
+         *     Filters apply before complete counts, grouping and the first 200 items.
+         *     Groups order by their earliest known eligible submitted_at ascending,
+         *     all-null groups last, then student UUID or assignment/question UUID tuple.
+         *     Within a group items order by submitted_at ascending nulls last, attempt
+         *     UUID, paper ordinal and frozen question UUID. Only represented groups are
+         *     returned, with full remaining counts even when split at the cap.
+         *     Each supplied reference is independently checked: unknown and foreign
+         *     references answer the same 404, while reachable empty intersections are
+         *     empty successes. studentId selects an already authorized historical paper
+         *     taker, not a student-account target: it requires either a current strict
+         *     student-like account in StudentIDs reach or existing history satisfying
+         *     BOTH AssignmentIDs and Papers reach, independent of status or pending work.
+         *     A privileged account without reached history cannot use the strict branch.
+         *     Membership, counts, reference flags and prefix share one statement snapshot;
+         *     later immutable-content and signed-media enrichment is not a live whole
+         *     response snapshot. Names and titles are current text; question/group keys
+         *     and content are frozen. Grades and completion use existing gradeAttempt
+         *     and finishGrading; this read never writes or finishes a paper.
+         */
+        get: operations["listGradingQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/assignments/{id}/answers": {
         parameters: {
             query?: never;
@@ -2874,6 +2915,59 @@ export interface components {
         PublishConflict: {
             error: components["schemas"]["ErrorDetail"];
             violations?: components["schemas"]["PublishValidationError"][];
+        };
+        /** @description Complete filtered pending counts with a deterministic prefix of at most 200 saved answers. */
+        GradingQueue: {
+            /** @description Only groups represented in items, in queue order; remaining counts each group's complete filtered work. */
+            groups: components["schemas"]["GradingQueueGroup"][];
+            items: components["schemas"]["GradingQueueItem"][];
+            answersRemaining: number;
+            /** @description Distinct student UUIDs across all filtered eligible answers. */
+            studentsWaiting: number;
+        };
+        GradingQueueGroup: {
+            /** @description Canonical lowercase student UUID, or assignmentUUID:versionQuestionUUID in question mode. */
+            key: string;
+            /** @enum {string} */
+            kind: "student" | "question";
+            /** @description Raw current student full name or decimal paper question number for client localization. */
+            label: string;
+            /** @description Live assignment title of this group's first returned item. */
+            sub: string;
+            /** @description Complete filtered eligible answer count; may exceed the returned prefix for this group. */
+            remaining: number;
+        };
+        /** @description One saved pending-manual answer and its frozen teacher question; identity is attemptId plus questionId. */
+        GradingQueueItem: {
+            attemptId: components["schemas"]["Uuid"];
+            questionId: components["schemas"]["Uuid"];
+            assignmentId: components["schemas"]["Uuid"];
+            assignmentTitle: string;
+            studentId: components["schemas"]["Uuid"];
+            /** @description Raw current full name */
+            studentName: string;
+            /** @description One-based section/question paper order */
+            questionNumber: number;
+            type: components["schemas"]["QuestionType"];
+            prompt: string;
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
+            answer: components["schemas"]["Answer"];
+            points: components["schemas"]["Points"];
+            /**
+             * Format: double
+             * @description Manual score; null while this answer remains in the pending queue.
+             */
+            score: number | null;
+            comment: string | null;
+            media?: components["schemas"]["MediaAsset"] | null;
+            audio?: components["schemas"]["AudioPolicy"] | null;
+            transcript?: string | null;
+            options?: components["schemas"]["AdminQuestionOption"][];
+            blanks?: components["schemas"]["AdminQuestionBlank"][];
+            explanation?: string | null;
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            sampleAnswer?: string | null;
+            sharedContext?: components["schemas"]["SharedReviewContext"];
         };
         /** @description One paper's answer to the question G-04 is grading. */
         QuestionAnswerRow: {
@@ -7212,6 +7306,35 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    listGradingQueue: {
+        parameters: {
+            query?: {
+                mode?: "student" | "question";
+                assignmentId?: components["schemas"]["Uuid"];
+                /** @description Historical paper-taker identity filter, not a strict student-account lookup. */
+                studentId?: components["schemas"]["Uuid"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Full filtered counts and the first 200 pending answers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GradingQueue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listAnswersForQuestion: {
