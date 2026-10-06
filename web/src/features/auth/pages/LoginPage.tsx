@@ -150,14 +150,17 @@ export default function LoginPage() {
             type="button"
             variant="outline"
             size="xl"
-            className="bg-card shadow-card hover:bg-muted text-body w-full gap-2.5 font-medium"
+            className="group/login-busy bg-card shadow-card hover:bg-muted text-body w-full gap-2.5 font-medium"
             aria-busy={google.pending || undefined}
             onClick={() => {
               if (!google.pending) void google.start({ next, joinCode: joining?.code });
             }}
           >
             {google.pending ? (
-              <LoaderCircle aria-hidden="true" className="size-[18px] animate-spin" />
+              <LoaderCircle
+                aria-hidden="true"
+                className="size-[18px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused]"
+              />
             ) : (
               <GoogleMark className="size-[18px]" />
             )}
@@ -263,11 +266,14 @@ export default function LoginPage() {
         <Button
           type="submit"
           size="xl"
-          className="w-full"
+          className="group/login-busy w-full"
           aria-busy={submitting || undefined}
         >
           {submitting && (
-            <LoaderCircle aria-hidden="true" className="size-[17px] animate-spin" />
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-[17px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused]"
+            />
           )}
           {t(submitting ? "login.submitting" : "login.submit")}
         </Button>
