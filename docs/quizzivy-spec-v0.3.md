@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.55 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.56 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.55**
+
+R4, import history read model (T-R4.21):
+
+- §16 History adds search-scoped status facets and nullable counts from the
+  current review body. Repeated statuses are OR-ed; Processing includes all
+  four active statuses. Legacy uncomputed counts remain unknown, and a pending
+  machine candidate never replaces the counts of the teacher's current edits.
 
 **Changes since v0.54**
 
@@ -2211,10 +2220,16 @@ import worker runs there as its own Fly process group.
 The R4 history presents the existing list contract as one card/grid that changes
 at 960px of its outer container. Six ordered filter controls, search, page and
 page size use the URL; active-import polling pauses while idle and refreshes on
-resume. Counts and review chips require T-R4.21's response, and pasted-source
-names and character counts require T-R4.55's text metadata. Until those contracts
-land, Processing queries the literal `processing` status, and rows show existing
-file, status, retention and review information without invented counts.
+resume. History returns six facets under the caller's own scope and search,
+ignoring the selected status. Repeated status values are OR-ed, with a single
+value still valid; Processing selects `awaiting_sources`, `queued`, `processing`
+and `committing`. Each history item carries `reviewCounts {needsAction,
+toConfirm}|null`, derived from the exact current review body. Machine completion,
+review save and candidate adoption update counts with that body; an unadopted
+candidate leaves current counts intact. An untouched historical draft remains
+unknown, while computed zero is an exact zero. Facets, pagination and hydrated
+items share one repeatable-read snapshot. Pasted-source names and character
+counts still require T-R4.55's text metadata.
 
 The R4 upload page keeps one source-intake instance mounted across
 `?source=paste` changes, preserving selected files and the typed title. T-R4.57

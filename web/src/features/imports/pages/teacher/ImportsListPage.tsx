@@ -5,6 +5,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ClipboardPaste, FileText, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -40,6 +41,8 @@ import {
   isImportStatus,
 } from "../../status";
 
+type HistoryItem = Awaited<ReturnType<typeof listWordImports>>["items"][number];
+
 const PAGE_SIZES = [20, 30, 50] as const;
 const HISTORY_FILTERS = [
   "processing",
@@ -47,6 +50,19 @@ const HISTORY_FILTERS = [
   "failed",
   "committed",
   "cancelled",
+] as const;
+const FACET_KEYS = {
+  processing: "processing",
+  needs_review: "needsReview",
+  failed: "failed",
+  committed: "committed",
+  cancelled: "cancelled",
+} as const;
+const PROCESSING_STATUSES = [
+  "awaiting_sources",
+  "queued",
+  "processing",
+  "committing",
 ] as const;
 const GRID =
   "@[960px]/import-history:grid-cols-[minmax(200px,2.4fr)_minmax(160px,1fr)_minmax(150px,1.4fr)_minmax(110px,1fr)_minmax(150px,1fr)_32px]";
@@ -73,7 +89,11 @@ export default function ImportsListPage() {
         {
           page,
           limit: size,
-          ...(status === null ? {} : { status }),
+          ...(status === null
+            ? {}
+            : {
+                status: status === "processing" ? [...PROCESSING_STATUSES] : [status],
+              }),
           ...(search === "" ? {} : { q: search }),
         },
         signal,
@@ -86,6 +106,7 @@ export default function ImportsListPage() {
     refetchIntervalInBackground: false,
   });
   useRefetchOnResume(list.refetch);
+  const facets = list.isPlaceholderData ? undefined : list.data?.facets;
   const filtered = search !== "" || status !== null;
   const clearFilters = () =>
     setParams(
@@ -203,10 +224,11 @@ export default function ImportsListPage() {
           scroll
           value={status ?? ALL}
           options={[
-            { value: ALL, label: t("imports.allStatuses") },
+            { value: ALL, label: t("imports.allStatuses"), count: facets?.all },
             ...HISTORY_FILTERS.map((value) => ({
               value,
               label: t(`imports.status.${value}`),
+              count: facets?.[FACET_KEYS[value]],
             })),
           ]}
           onChange={(value) => setFilter("status", value === ALL ? null : value)}
@@ -258,7 +280,7 @@ function HistoryRow({
   item,
   locale,
   processing,
-}: Readonly<{ item: WordImport; locale: Locale; processing: boolean }>) {
+}: Readonly<{ item: HistoryItem; locale: Locale; processing: boolean }>) {
   const { t } = useTranslation();
   const creator = useAuthStore((state) =>
     state.user?.id === item.createdBy ? state.user.fullName : null,
@@ -322,7 +344,7 @@ function HistoryRow({
         role="cell"
         className="text-muted-fg col-start-1 min-w-0 text-xs @[960px]/import-history:col-start-3 @[960px]/import-history:row-start-1"
       >
-        {reviewLabel(item, t)}
+        <ReviewFindings item={item} />
       </div>
       <div
         role="cell"
@@ -376,4 +398,31 @@ function reviewLabel(item: WordImport, t: TFunction): string {
   if (item.status === "needs_review") return t("imports.history.openReview");
   if (isActiveStatus(item.status)) return t("imports.history.recognising");
   return "—";
+}
+
+function ReviewFindings({ item }: Readonly<{ item: HistoryItem }>) {
+  const { t } = useTranslation();
+  if (
+    item.filesRemovedAt ||
+    item.status !== "needs_review" ||
+    item.reviewCounts === null
+  )
+    return <>{reviewLabel(item, t)}</>;
+  const { needsAction, toConfirm } = item.reviewCounts;
+  if (needsAction === 0 && toConfirm === 0)
+    return <>{t("imports.history.nothingOpen")}</>;
+  return (
+    <div className="flex min-w-0 flex-wrap gap-1.5">
+      {needsAction > 0 ? (
+        <Badge variant="danger" className="in-data-[scale=deck]:rounded-sm">
+          {t("imports.history.needsAction", { count: needsAction })}
+        </Badge>
+      ) : null}
+      {toConfirm > 0 ? (
+        <Badge variant="warning" className="in-data-[scale=deck]:rounded-sm">
+          {t("imports.history.toConfirm", { count: toConfirm })}
+        </Badge>
+      ) : null}
+    </div>
+  );
 }

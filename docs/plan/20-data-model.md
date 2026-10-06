@@ -1937,7 +1937,8 @@ parsing. A stage manifest grants no learner media authorization.
 ## 26. Review drafts and commits (W-18, W-20)
 
 Migrations: `00045_create_word_import_drafts.sql`, `00046_create_word_import_commits.sql`,
-`00047_add_word_import_run_profile.sql`, `00048_allow_legacy_word_sources.sql`.
+`00047_add_word_import_run_profile.sql`, `00048_allow_legacy_word_sources.sql`,
+`00089_add_word_import_draft_counts.sql`.
 
 `word_import_drafts` holds exactly one review copy per import (the primary key is the
 import). `revision` is the optimistic-concurrency token for teacher saves: an update
@@ -1949,6 +1950,17 @@ draft is kept in `candidate`/`candidate_run_id` and never overwrites the edits. 
 body is bounded to 8 MiB as JSONB. The application role may update drafts but not
 delete them; draft saves are not audited individually because autosave would flood
 the log.
+
+`00089` adds nullable `open_action_count integer` and
+`open_confirm_count integer`, each checked nonnegative, without a default or
+backfill. They store `domain.Assess(current body).Summary` (`Blocking` and
+`NeedsDecision`) in the same write as the body. A pending candidate preserves
+the current counters; adoption computes them from the locked candidate. NULL
+means a historical current draft has not been assessed by this binary, not zero.
+Valid existing draft shapes can exceed32767 findings, so SMALLINT would impose
+an unrelated new authoring limit; the existing8MiB body limit remains unchanged.
+History reads these counters with its facets and rows in one repeatable-read
+snapshot. Down drops only the two reporting columns.
 
 `word_import_commits` is append-only (no UPDATE or DELETE for the application role)
 and has one row per import. It records the request identity, the committed draft
