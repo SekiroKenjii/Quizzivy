@@ -125,10 +125,16 @@ func toCurrentUser(u domain.User, permissions access.Set) openapi.CurrentUser {
 	for _, w := range access.Workspaces(permissions) {
 		workspaces = append(workspaces, openapi.Workspace(w))
 	}
+	prefs := toAPIPreferences(u.Preferences)
 	return openapi.CurrentUser{
 		Id:                 httpapi.ParseUUID(u.ID),
 		Email:              openapi_types.Email(u.Email),
 		FullName:           u.FullName,
+		DisplayName:        u.DisplayName,
+		Phone:              u.Phone,
+		Locale:             (*openapi.CurrentUserLocale)(u.Locale),
+		TimeZone:           u.TimeZone,
+		Preferences:        &prefs,
 		Role:               openapi.Role(u.Role),
 		HasPassword:        u.HasPassword(),
 		LinkedProviders:    providers,

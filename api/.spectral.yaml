@@ -6,3 +6,13 @@ rules:
   operation-operationId: error
   operation-tag-defined: error
   operation-operationId-unique: error
+  body-limit-status:
+    description: A body limit selects only the supported oversized response statuses.
+    severity: error
+    given: "$..['x-body-limit-status']"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: integer
+          enum: [400, 413]

@@ -159,17 +159,12 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Rename yourself
-         * @description The one thing an account may change about itself, and the only write
-         *     behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
-         *
-         *     The name is the account's own; the email is not. An address is issued
-         *     by the teacher or arrives from Google, it is the login, and moving it
-         *     would move who the account is — so it stays read-only here and only
-         *     `PATCH /teacher/students/{id}` can change it. Role, password and provider
-         *     links each have their own endpoint for the same reason.
-         *
-         *     Bounds match `users_full_name_check` and createStudent.
+         * Update your profile
+         * @description Updates only supplied profile fields. Omission preserves a field;
+         *     null clears displayName or phone. Names are trimmed, while phone
+         *     keeps the literal accepted pattern. timeZone must be a valid stable
+         *     IANA zone or UTC; blank and Local are refused. Email, role, password,
+         *     provider links and photo changes use their separate operations.
          */
         patch: operations["updateCurrentUser"];
         trace?: never;
@@ -2157,6 +2152,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update your stored preferences
+         * @description Merges supplied top-level keys into the caller's stored preferences;
+         *     assignmentDefaults replaces that whole nested object. False is a
+         *     supplied value and an empty object is a no-op. Null and unknown keys
+         *     are refused. Raw request bytes and the normalized merged JSONB object
+         *     each have an inclusive 8192-byte cap; exceeding either answers
+         *     400 VALIDATION_FAILED after the existing authentication gates.
+         */
+        patch: operations["updatePreferences"];
+        trace?: never;
+    };
     "/me/summary": {
         parameters: {
             query?: never;
@@ -2807,6 +2827,9 @@ export interface components {
             /** Format: email */
             email: string;
             fullName: string;
+            displayName?: string;
+            /** Format: uri */
+            avatarUrl?: string;
             role: components["schemas"]["Role"];
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
@@ -2814,6 +2837,20 @@ export interface components {
             /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description Stored account preferences; omitted keys use client defaults without materializing them. */
+        UserPreferences: {
+            /** @enum {string} */
+            theme?: "light" | "dark" | "system";
+            compactTables?: boolean;
+            largerTestText?: boolean;
+            assignmentDefaults?: {
+                durationMinutes?: number;
+                shuffleQuestions?: boolean;
+                showScore?: boolean;
+                blockCopyPaste?: boolean;
+                requireFullscreen?: boolean;
+            };
         };
         /**
          * @description A console the signed-in user may enter: `teacher` for any `content.*`,
@@ -2840,6 +2877,14 @@ export interface components {
             /** Format: email */
             email: string;
             fullName: string;
+            displayName?: string;
+            /** Format: uri */
+            avatarUrl?: string;
+            phone?: string;
+            /** @enum {string} */
+            locale?: "vi" | "en";
+            timeZone?: string;
+            preferences?: components["schemas"]["UserPreferences"];
             role: components["schemas"]["Role"];
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
@@ -4953,12 +4998,17 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    fullName: string;
+                    fullName?: string;
+                    displayName?: string | null;
+                    phone?: string | null;
+                    /** @enum {string} */
+                    locale?: "vi" | "en";
+                    timeZone?: string;
                 };
             };
         };
         responses: {
-            /** @description Saved. The whole user, so the client can replace its session copy. */
+            /** @description The whole persisted caller profile and permissions. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4967,7 +5017,7 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentUser"];
                 };
             };
-            /** @description `VALIDATION_FAILED` — the name is empty or too long. */
+            /** @description `VALIDATION_FAILED` — a supplied field is invalid. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8907,6 +8957,41 @@ export interface operations {
             204: components["responses"]["NoContent"];
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    updatePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPreferences"];
+            };
+        };
+        responses: {
+            /** @description The merged persisted preferences, without materialized defaults. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferences"];
+                };
+            };
+            /** @description `VALIDATION_FAILED` — the shape or either byte cap is invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Maintenance"];
         };
     };
     getMySummary: {

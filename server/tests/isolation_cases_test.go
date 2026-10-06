@@ -409,5 +409,6 @@ func isolationCases() map[string]isoCase {
 		"getMySummary":                  {},
 		"getNotificationPreferences":    {},
 		"updateNotificationPreferences": {},
+		"updatePreferences":             {},
 	}
 }

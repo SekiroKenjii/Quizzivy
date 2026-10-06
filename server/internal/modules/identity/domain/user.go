@@ -14,6 +14,11 @@ type User struct {
 	ID                 string
 	Email              string
 	FullName           string
+	DisplayName        *string
+	Phone              *string
+	Locale             *string
+	TimeZone           *string
+	Preferences        Preferences
 	Role               string
 	PasswordHash       *string
 	MustChangePassword bool
