@@ -32,11 +32,7 @@ export function ProcessingPanel({ run }: Readonly<{ run: ImportRun | undefined }
     : t("imports.processing.current", { stage: currentLabel });
 
   return (
-    <Card
-      role="status"
-      tabIndex={0}
-      className="group gap-0 overflow-hidden py-0"
-    >
+    <Card role="status" tabIndex={0} className="group gap-0 overflow-hidden py-0">
       <ol
         className="divide-border divide-y"
         aria-label={t("imports.processing.stagesLabel")}
