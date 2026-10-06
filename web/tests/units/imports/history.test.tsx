@@ -26,7 +26,15 @@ beforeEach(() => {
       if (failing) return new Response(null, { status: 503 });
       const visible = query.has("status") || query.has("q") ? [] : items;
       return contractJson("/teacher/imports", "get", 200, {
-        items: visible,
+        items: visible.map((item) => ({ ...item, reviewCounts: null })),
+        facets: {
+          all: items.length,
+          processing: 0,
+          needsReview: 0,
+          failed: 0,
+          committed: 0,
+          cancelled: 0,
+        },
         page: 1,
         pageSize: 20,
         total: visible.length,
@@ -188,12 +196,12 @@ describe("the Word import history", () => {
     const buttons = within(filters).getAllByRole("button");
     expect(buttons).toHaveLength(6);
     expect(buttons.map((button) => button.textContent)).toEqual([
-      "Tất cả trạng thái",
-      "Đang xử lý",
-      "Sẵn sàng rà soát",
-      "Xử lý không thành công",
-      "Đã tạo bản nháp",
-      "Đã huỷ",
+      "Tất cả trạng thái 0",
+      "Đang xử lý 0",
+      "Sẵn sàng rà soát 0",
+      "Xử lý không thành công 0",
+      "Đã tạo bản nháp 0",
+      "Đã huỷ 0",
     ]);
     expect(queries[0]?.get("page")).toBe("3");
     expect(queries[0]?.get("limit")).toBe("30");
@@ -201,7 +209,9 @@ describe("the Word import history", () => {
       "href",
       "/teacher/imports/new?source=paste",
     );
-    await user.click(within(filters).getByRole("button", { name: "Sẵn sàng rà soát" }));
+    await user.click(
+      within(filters).getByRole("button", { name: "Sẵn sàng rà soát 0" }),
+    );
     await waitFor(() =>
       expect(router.state.location.search).toBe("?q=hk1&size=30&status=needs_review"),
     );

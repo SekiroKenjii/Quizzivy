@@ -2541,6 +2541,65 @@ export interface components {
              */
             closedIdle?: boolean;
         };
+        /**
+         * @description History-only current draft counts; unknown for a draft untouched since deploy.
+         *     Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+         *     any import by id; the history (`listWordImports`) holds only the
+         *     caller's own.
+         *     Sources are private originals, never learner media. Source revision zero
+         *     means no completed source set. Upload completion does not mean recognition.
+         *     Pending uploads are durable reservations and cannot be downloaded or processed.
+         */
+        WordImportHistoryItem: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            status: components["schemas"]["ImportStatus"];
+            /** Format: int64 */
+            revision: number;
+            /** Format: int64 */
+            sourceRevision: number;
+            sources: components["schemas"]["ImportSource"][];
+            pendingUploads: number;
+            createdBy: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            run?: components["schemas"]["ImportRun"];
+            /**
+             * Format: int64
+             * @description Zero until processing has produced a reviewable draft.
+             */
+            draftRevision?: number;
+            /** @description The draft test created by commit. */
+            testId?: components["schemas"]["Uuid"];
+            /**
+             * @description When retention removed this import's original files and review draft.
+             *     Set only on committed or cancelled imports. Afterwards the history row
+             *     and source metadata remain, but downloads, the source view and the
+             *     review answer 410 IMPORT_FILES_REMOVED.
+             */
+            filesRemovedAt?: components["schemas"]["Timestamp"];
+            /**
+             * @description Present and true when retention closed this import because nobody
+             *     touched it for the idle period, rather than a teacher cancelling it.
+             */
+            closedIdle?: boolean;
+            reviewCounts: components["schemas"]["ImportReviewCounts"] | null;
+        };
+        /** @description Findings from the current review body, never a pending reprocessing candidate. */
+        ImportReviewCounts: {
+            needsAction: number;
+            toConfirm: number;
+        };
+        /** @description Counts under the same search and caller-owned scope, ignoring the status filter. */
+        ImportStatusFacets: {
+            all: number;
+            /** @description awaiting_sources, queued, processing and committing together. */
+            processing: number;
+            needsReview: number;
+            failed: number;
+            committed: number;
+            cancelled: number;
+        };
         /** @description The latest processing run. errorCode names why a failed run stopped; keyPaper is the answer-key paper the teacher chose for it, absent when recognition picked one. */
         ImportRun: {
             id: components["schemas"]["Uuid"];
@@ -6270,7 +6329,8 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
-                status?: components["schemas"]["ImportStatus"];
+                /** @description Repeated statuses are OR-ed; a single status remains valid. */
+                status?: components["schemas"]["ImportStatus"][];
                 limit?: number;
             };
             header?: never;
@@ -6286,7 +6346,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
-                        items: components["schemas"]["WordImport"][];
+                        items: components["schemas"]["WordImportHistoryItem"][];
+                        facets: components["schemas"]["ImportStatusFacets"];
                     };
                 };
             };

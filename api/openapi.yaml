@@ -690,6 +690,78 @@ components:
           description: |
             Present and true when retention closed this import because nobody
             touched it for the idle period, rather than a teacher cancelling it.
+    WordImportHistoryItem:
+      type: object
+      additionalProperties: false
+      required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt, reviewCounts]
+      description: |
+        History-only current draft counts; unknown for a draft untouched since deploy.
+        Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+        any import by id; the history (`listWordImports`) holds only the
+        caller's own.
+        Sources are private originals, never learner media. Source revision zero
+        means no completed source set. Upload completion does not mean recognition.
+        Pending uploads are durable reservations and cannot be downloaded or processed.
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        status: { $ref: '#/components/schemas/ImportStatus' }
+        revision: { type: integer, format: int64, minimum: 1 }
+        sourceRevision: { type: integer, format: int64, minimum: 0 }
+        sources:
+          type: array
+          maxItems: 2
+          items: { $ref: '#/components/schemas/ImportSource' }
+        pendingUploads: { type: integer, minimum: 0 }
+        createdBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        run: { $ref: '#/components/schemas/ImportRun' }
+        draftRevision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Zero until processing has produced a reviewable draft.
+        testId:
+          $ref: '#/components/schemas/Uuid'
+          description: The draft test created by commit.
+        filesRemovedAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: |
+            When retention removed this import's original files and review draft.
+            Set only on committed or cancelled imports. Afterwards the history row
+            and source metadata remain, but downloads, the source view and the
+            review answer 410 IMPORT_FILES_REMOVED.
+        closedIdle:
+          type: boolean
+          description: |
+            Present and true when retention closed this import because nobody
+            touched it for the idle period, rather than a teacher cancelling it.
+        reviewCounts:
+          oneOf: [{ $ref: '#/components/schemas/ImportReviewCounts' }, { type: 'null' }]
+    ImportReviewCounts:
+      type: object
+      additionalProperties: false
+      required: [needsAction, toConfirm]
+      description: Findings from the current review body, never a pending reprocessing candidate.
+      properties:
+        needsAction: { type: integer, minimum: 0 }
+        toConfirm: { type: integer, minimum: 0 }
+    ImportStatusFacets:
+      type: object
+      additionalProperties: false
+      required: [all, processing, needsReview, failed, committed, cancelled]
+      description: Counts under the same search and caller-owned scope, ignoring the status filter.
+      properties:
+        all: { type: integer, minimum: 0 }
+        processing:
+          type: integer
+          minimum: 0
+          description: awaiting_sources, queued, processing and committing together.
+        needsReview: { type: integer, minimum: 0 }
+        failed: { type: integer, minimum: 0 }
+        committed: { type: integer, minimum: 0 }
+        cancelled: { type: integer, minimum: 0 }
     ImportRun:
       type: object
       additionalProperties: false
@@ -5185,7 +5257,14 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Query'
-        - { name: status, in: query, schema: { $ref: '#/components/schemas/ImportStatus' } }
+        - name: status
+          in: query
+          style: form
+          explode: true
+          description: Repeated statuses are OR-ed; a single status remains valid.
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/ImportStatus' }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
         '200':
@@ -5196,11 +5275,12 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/PageInfo'
                   - type: object
-                    required: [items]
+                    required: [items, facets]
                     properties:
                       items:
                         type: array
-                        items: { $ref: '#/components/schemas/WordImport' }
+                        items: { $ref: '#/components/schemas/WordImportHistoryItem' }
+                      facets: { $ref: '#/components/schemas/ImportStatusFacets' }
   /teacher/imports/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:

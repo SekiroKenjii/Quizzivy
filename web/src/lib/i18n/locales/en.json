@@ -2746,7 +2746,10 @@
       "actionsNamed": "Actions for {{title}}",
       "filesRemoved": "Files removed under the retention policy.",
       "openReview": "Open the review",
-      "recognising": "Recognising the structure…"
+      "recognising": "Recognising the structure…",
+      "needsAction": "{{count}} need action",
+      "toConfirm": "{{count}} to confirm",
+      "nothingOpen": "Nothing open"
     },
     "failureTitle": {
       "SOURCE_INVALID": "The exam file could not be read",
