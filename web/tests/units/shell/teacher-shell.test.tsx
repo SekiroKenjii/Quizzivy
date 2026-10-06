@@ -7,16 +7,10 @@ import { writeSidebarState } from "@/layouts/shell/sidebarState";
 import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
 import { viewport } from "@tests/support/viewport";
-import {
-  crumbed,
-  DASHBOARD,
-  dashboardBody,
-  renderRoutes,
-  serveDashboard,
-} from "./support";
+import { crumbed, DASHBOARD, summaryBody, renderRoutes, serveSummary } from "./support";
 import "@/lib/i18n";
 
-const QUIET = { ...dashboardBody, openAssignments: 0, awaitingGrading: 0 };
+const QUIET = { ...summaryBody, liveAssignments: 0, answersToGrade: 0 };
 
 const rebuilt = () => document.getElementById("teacher-sidebar");
 const legacy = () => document.getElementById("admin-sidebar");
@@ -28,7 +22,7 @@ function tree(children: Parameters<typeof renderRoutes>[1]) {
 beforeEach(() => {
   viewport(1440);
   document.title = "Quizzivy";
-  serveDashboard(QUIET);
+  serveSummary(QUIET);
 });
 
 afterEach(() => {

@@ -38,7 +38,11 @@ func (p *Postgres) Home(ctx context.Context, q domain.HomeQuery) (domain.Home, e
 
 func (p *Postgres) takingNow(ctx context.Context, q domain.HomeQuery) (domain.TakingNow, error) {
 	var out domain.TakingNow
-	err := p.QueryRow(ctx, `SELECT count(DISTINCT at.student_id),count(DISTINCT at.assignment_id)
- FROM app.attempts at WHERE at.status = 'in_progress' AND at.deadline_at > $3 AND `+ownPapers(), append(homeArgs(q.Scope), q.Now)...).Scan(&out.Students, &out.Assignments)
+	err := p.QueryRow(ctx, `WITH taking AS (
+ SELECT at.id,at.student_id,at.assignment_id,at.started_at FROM app.attempts at
+ WHERE at.status = 'in_progress' AND at.deadline_at > $3 AND `+ownPapers()+`)
+ SELECT count(DISTINCT student_id),count(DISTINCT assignment_id),
+ (SELECT assignment_id::text FROM taking ORDER BY started_at DESC,id DESC LIMIT 1)
+ FROM taking`, append(homeArgs(q.Scope), q.Now)...).Scan(&out.Students, &out.Assignments, &out.AssignmentID)
 	return out, err
 }

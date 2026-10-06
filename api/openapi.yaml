@@ -3179,7 +3179,7 @@ components:
         console, but this operation never requests it. Legacy fields retain their
         meaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents
         and recentAttempts, and R5 removes them. Range affects submissions only.
-      required: [openAssignments, awaitingGrading, activeStudents, flaggedAttempts, recentAttempts, takingNow, submissions, today, recentActivity]
+      required: [openAssignments, awaitingGrading, activeStudents, flaggedAttempts, newestFlaggedAttempt, recentAttempts, takingNow, submissions, today, recentActivity]
       additionalProperties: false
       properties:
         closingSoon: { type: integer, minimum: 0, description: Open assignments closing within the next 24 hours. }
@@ -3192,6 +3192,9 @@ components:
         awaitingGrading: { type: integer, minimum: 0 }
         activeStudents: { type: integer, minimum: 0, description: 'Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here.' }
         flaggedAttempts: { type: integer, minimum: 0 }
+        newestFlaggedAttempt:
+          oneOf: [{ $ref: '#/components/schemas/DashboardFlaggedAttempt' }, { type: 'null' }]
+          description: Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible.
         recentAttempts:
           type: array
           maxItems: 10
@@ -3208,14 +3211,26 @@ components:
           maxItems: 10
           items: { $ref: '#/components/schemas/DashboardActivity' }
 
+    DashboardFlaggedAttempt:
+      type: object
+      additionalProperties: false
+      required: [assignmentId, attemptId]
+      properties:
+        assignmentId: { type: string, format: uuid }
+        attemptId: { type: string, format: uuid }
+
     DashboardTakingNow:
       type: object
       additionalProperties: false
-      required: [students, assignments]
+      required: [students, assignments, assignmentId]
       description: Distinct students and assignments with reachable in-progress attempts before their deadline.
       properties:
         students: { type: integer, minimum: 0 }
         assignments: { type: integer, minimum: 0 }
+        assignmentId:
+          type: [string, 'null']
+          format: uuid
+          description: Assignment of the newest started reachable in-progress paper strictly before its deadline at the supplied application clock, ordered by started_at then id descending, from the taking count statement snapshot; null when none qualifies.
 
     DashboardSubmissions:
       type: object

@@ -52,8 +52,8 @@ func gated(t *testing.T, principal access.Principal, pattern string) context.Con
 
 type recordingHome struct{ seen *access.Scope }
 
-func (r recordingHome) Summary(_ context.Context, scope access.Scope) (domain.Summary, error) {
-	*r.seen = scope
+func (r recordingHome) Summary(_ context.Context, q domain.SummaryQuery) (domain.Summary, error) {
+	*r.seen = q.Scope
 	return domain.Summary{}, nil
 }
 

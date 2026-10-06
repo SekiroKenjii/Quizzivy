@@ -54,7 +54,13 @@ const teacherTree: RouteObject = {
     {
       lazy: page(() => import("@/layouts/TeacherShell")),
       children: [
-        { index: true, lazy: page(() => import("@/app/pages/AdminDashboardPage")) },
+        {
+          index: true,
+          handle: { crumb: [{ key: "teacherShell.nav.dashboard" }], width: 1320 },
+          lazy: page(
+            () => import("@/features/dashboard/pages/teacher/TeacherDashboardPage"),
+          ),
+        },
         {
           path: "tests",
           lazy: page(() => import("@/features/tests/pages/teacher/TestsListPage")),

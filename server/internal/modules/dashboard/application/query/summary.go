@@ -10,8 +10,9 @@ import (
 // Summary reads the teacher's home over what Scope reaches; a zero Scope
 // reads nothing.
 type Summary struct {
-	Scope access.Scope
-	Range string
+	Scope            access.Scope
+	Range            string
+	CanReviewFlagged bool
 }
 
 type SummaryHandler struct {
@@ -31,7 +32,7 @@ func (s SummaryHandler) Handle(ctx context.Context, q Summary) (domain.Summary, 
 	if err != nil {
 		return domain.Summary{}, err
 	}
-	out, err := s.Repo.Summary(ctx, q.Scope)
+	out, err := s.Repo.Summary(ctx, domain.SummaryQuery{Scope: q.Scope, CanReviewFlagged: q.CanReviewFlagged})
 	out.Home = home
 	return out, err
 }

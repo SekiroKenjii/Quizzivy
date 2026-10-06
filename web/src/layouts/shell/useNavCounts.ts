@@ -1,39 +1,33 @@
 import { useQuery } from "@tanstack/react-query";
-import { getDashboard } from "@/features/dashboard/api";
+import { useWorkspace } from "@/features/auth/permissions";
+import { getTeacherSummary } from "@/features/dashboard/api";
+import { dashboardKeys } from "@/features/dashboard/keys";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 
-/**
- * NavCounts are the two figures the teacher sidebar draws beside a
- * destination: the caller's live assignments and the papers waiting for a
- * mark.
- */
+/** NavCounts preserves unavailable figures as null rather than claiming no work. */
 export interface NavCounts {
-  liveAssignments: number;
-  toGrade: number;
+  liveAssignments: number | null;
+  toGrade: number | null;
 }
 
 const POLL_MS = 60_000;
 
-/**
- * useNavCounts reads the sidebar's two figures, and answers null while they
- * load and whenever the last request failed. It shares the dashboard's query
- * key, so a write that invalidates the dashboard refreshes the sidebar too.
- * It asks again every minute while the tab is visible and the user is
- * active, and once when the user comes back.
- */
+/** useNavCounts reads compatible summary figures while the Teacher workspace is active and hides failed badges. */
 export function useNavCounts(): NavCounts | null {
-  const refetchInterval = useIdlePolling(POLL_MS);
+  const enabled = useWorkspace("teacher");
+  const refetchInterval = useIdlePolling(POLL_MS, enabled);
   const query = useQuery({
-    queryKey: ["admin-dashboard"],
-    queryFn: ({ signal }) => getDashboard(signal),
+    queryKey: dashboardKeys.summary,
+    queryFn: ({ signal }) => getTeacherSummary(signal),
+    enabled,
     staleTime: POLL_MS,
     refetchInterval,
     refetchIntervalInBackground: false,
   });
-  useRefetchOnResume(query.refetch);
-  if (query.isError || query.data === undefined) return null;
+  useRefetchOnResume(query.refetch, enabled);
+  if (!enabled || query.isError || query.data === undefined) return null;
   return {
-    liveAssignments: query.data.openAssignments,
-    toGrade: query.data.awaitingGrading,
+    liveAssignments: query.data.liveAssignments,
+    toGrade: query.data.answersToGrade,
   };
 }

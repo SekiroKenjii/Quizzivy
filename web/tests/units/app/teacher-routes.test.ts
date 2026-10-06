@@ -11,7 +11,7 @@ const ROUTE =
 
 const TEACHER_TREE = [
   ["/teacher", "layouts/TeacherShell"],
-  ["/teacher (index)", "app/pages/AdminDashboardPage"],
+  ["/teacher (index)", "features/dashboard/pages/teacher/TeacherDashboardPage"],
   ["/teacher/tests", "features/tests/pages/teacher/TestsListPage"],
   ["/teacher/tests/:id", "features/tests/pages/teacher/TestDetailPage"],
   ["/teacher/tests/:id/edit", "features/tests/pages/teacher/TestBuilderPage"],
