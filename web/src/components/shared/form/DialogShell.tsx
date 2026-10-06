@@ -55,7 +55,12 @@ export function DialogShell({
           const active = document.activeElement;
           opener.current =
             active instanceof HTMLElement && active !== document.body ? active : null;
-          page.current = opener.current?.closest("main") ?? null;
+          page.current =
+            (returnFocus?.current?.isConnected
+              ? returnFocus.current.closest<HTMLElement>("main")
+              : null) ??
+            opener.current?.closest("main") ??
+            null;
           onOpenAutoFocus?.(event);
         }}
         onCloseAutoFocus={(event) => {

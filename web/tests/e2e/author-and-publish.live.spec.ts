@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Response } from "@playwright/test";
+import type { Monitor } from "../../src/features/attempts/api";
 import { assignToClass } from "./support/live";
 
 /**
@@ -143,9 +144,42 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(row).toBeVisible();
   await expect(row.getByText("Đang mở")).toBeVisible();
 
-  // The monitor lists the class, nobody started, and says it will keep looking.
-  await row.getByRole("link", { name: title }).click();
+  const link = row.getByRole("link", { name: title });
+  const href = await link.getAttribute("href");
+  expect(href).toMatch(/^\/teacher\/assignments\/[0-9a-f-]+$/);
+  const monitorPath = `${href}/attempts`;
+  const isMonitor = (response: Response) =>
+    response.request().method() === "GET" &&
+    new URL(response.url()).pathname === monitorPath;
+  const firstRead = page.waitForResponse(isMonitor);
+  await link.click();
   await expect(page).toHaveURL(/\/teacher\/assignments\/[0-9a-f-]+$/);
-  await expect(page.getByText("Tự cập nhật 15 giây/lần")).toBeVisible();
-  await expect(page.getByText("Chưa bắt đầu").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("tab", { name: "Học viên", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.locator('[data-slot="page-head"]').getByText(/Tiếng Anh giao tiếp — Lớp A/),
+  ).toBeVisible();
+  const first = await firstRead;
+  expect(first.status()).toBe(200);
+  const initial: Monitor = await first.json();
+  expect(initial.rows.length).toBeGreaterThan(0);
+  expect(
+    initial.rows.every(
+      (student) => student.state === "not_started" && !student.attemptId,
+    ),
+  ).toBe(true);
+  const studentRow = page
+    .getByRole("row")
+    .filter({ hasText: initial.rows[0]!.fullName });
+  await expect(studentRow).toBeVisible();
+  await expect(studentRow.getByText("Chưa bắt đầu", { exact: true })).toBeVisible();
+  const next = await page.waitForResponse(isMonitor, { timeout: 20_000 });
+  expect(next.status()).toBe(200);
+  const refreshed: Monitor = await next.json();
+  expect(refreshed.rows.map((student) => [student.studentId, student.state])).toEqual(
+    initial.rows.map((student) => [student.studentId, student.state]),
+  );
+  await expect(studentRow.getByText("Chưa bắt đầu", { exact: true })).toBeVisible();
 });

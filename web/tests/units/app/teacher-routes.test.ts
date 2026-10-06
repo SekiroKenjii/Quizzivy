@@ -48,10 +48,6 @@ const TEACHER_TREE = [
     "/teacher/assignments/:id/edit",
     "features/assignments/pages/teacher/AssignmentFormPage",
   ],
-  [
-    "/teacher/assignments/:id/attempts",
-    "features/attempts/pages/teacher/AssignmentAttemptsPage",
-  ],
   ["/teacher/attempts/:id", "features/attempts/pages/teacher/AttemptReviewPage"],
   ["/teacher/grading", "features/attempts/pages/teacher/GradingQueuePage"],
   ["/teacher/students", "features/students/pages/teacher/StudentsListPage"],

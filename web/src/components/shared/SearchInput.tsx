@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-/** The list search box every admin list draws at the toolbar's right edge. */
+/** SearchInput is a list-toolbar search field with icon clearance at either density. */
 export function SearchInput({
   value,
   onChange,
@@ -27,7 +27,11 @@ export function SearchInput({
       />
       <Input
         type="search"
-        className={cn("pl-9", dense && "h-8 pl-8 text-xs lg:text-xs")}
+        className={cn(
+          "pl-9 in-data-[scale=deck]:pl-9",
+          dense &&
+            "h-8 pl-8 text-xs in-data-[scale=deck]:h-8 in-data-[scale=deck]:pl-8 lg:text-xs",
+        )}
         value={value}
         placeholder={placeholder}
         aria-label={placeholder}

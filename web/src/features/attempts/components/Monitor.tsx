@@ -1,404 +1,361 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Clock, Eye, RotateCw, UserPlus } from "lucide-react";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
-import { RowMenu } from "@/components/shared/RowMenu";
+import { Link, useLocation, useNavigate } from "react-router";
+import { Ban, Clock, Flag, RotateCw } from "lucide-react";
+import {
+  DataTable,
+  type DataColumn,
+  type DataTableMenuContext,
+} from "@/components/shared/data/DataTable";
+import { Pager } from "@/components/shared/data/Pager";
+import { EmptyState } from "@/components/shared/ListState";
+import { SearchInput } from "@/components/shared/SearchInput";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Avatar } from "@/components/ui/avatar";
-import { badgeVariants } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Assignment } from "@/features/assignments/api";
-import { scoreText } from "@/features/assignments/studentTime";
-import { useLocale } from "@/lib/i18n/useLocale";
-import { countdown, formatTime } from "@/lib/i18n/datetime";
-import { cn } from "@/lib/utils";
-import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
-import { useTick } from "@/hooks/useTick";
 import {
-  getMonitor,
-  isHandedIn,
-  type Monitor as MonitorData,
-  type MonitorRow,
-} from "../api";
-import { POLL_MS, monitorKey } from "../keys";
-import { FocusLossCell } from "./FocusLossCell";
+  elapsedMinutes,
+  orderedRoster,
+  pendingAnswers,
+  rosterFilter,
+  rosterMatches,
+} from "@/features/assignments/pages/teacher/assignmentDetail";
+import { assignmentDetailLocation } from "@/features/assignments/pages/teacher/assignmentDetailUrl";
+import { scoreText } from "@/features/assignments/studentTime";
+import { useCan } from "@/features/auth/permissions";
+import { usePage, usePageSize } from "@/hooks/usePage";
+import { compactMoment } from "@/lib/i18n/datetime";
+import { useLocale } from "@/lib/i18n/useLocale";
+import { pageRange } from "@/lib/pagination";
+import { cn } from "@/lib/utils";
+import type { Monitor as MonitorData, MonitorRow } from "../api";
 import { InterventionDialog, type Intervention } from "./InterventionDialog";
-import type { TFunction } from "i18next";
 
-/** Under five minutes the remaining time turns warning ink, as G-02 draws it. */
-const URGENT_MS = 5 * 60_000;
-const HOUR_MS = 60 * 60_000;
-const DAY_MS = 24 * HOUR_MS;
+type StudentRow = MonitorRow & { id: string };
+const FILTERS = ["all", "submitted", "pending", "flagged", "notStarted"] as const;
 
-/**
- * G-02: one row per targeted student, polled every 15s only while the
- * assignment is open (the query pauses itself in a hidden tab), with the three
- * interventions behind one menu.
- */
+function RowStatus({
+  row,
+  compact = false,
+}: Readonly<{ row: MonitorRow; compact?: boolean }>) {
+  const { t } = useTranslation();
+  return pendingAnswers(row) > 0 ? (
+    <Badge variant="warning" className={compact ? "block min-w-0 truncate" : undefined}>
+      {t("assignmentDetail.needsGrading")}
+    </Badge>
+  ) : (
+    <StatusBadge
+      kind="attempt"
+      status={row.state}
+      className={compact ? "block min-w-0 truncate" : undefined}
+    />
+  );
+}
+
+/** Monitor renders the full assignment read as a filtered, paginated roster with authorized sheet and intervention actions. */
 export function Monitor({
   assignment,
-  live,
+  data,
+  selectedAttempt,
+  onOpen,
+  onRefresh,
 }: Readonly<{
   assignment: Assignment;
-  /** Polls and shows a countdown while true; a closed assignment reads once. */
-  live: boolean;
+  data: MonitorData;
+  selectedAttempt: string | null;
+  onOpen: (attemptId: string) => void;
+  onRefresh: () => Promise<void>;
 }>) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
+  const locale = useLocale();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = new URLSearchParams(location.search);
+  const query = params.get("q") ?? "";
+  const filter = rosterFilter(params.get("roster"));
+  const grade = useCan("teaching.grading");
+  const intervene = useCan("teaching.attempts.intervene");
+  const canRead = grade || intervene;
   const [dialog, setDialog] = useState<{ kind: Intervention; row: MonitorRow } | null>(
     null,
   );
-
-  const refetchInterval = useIdlePolling(POLL_MS, live);
-  const monitor = useQuery({
-    queryKey: monitorKey(assignment.id),
-    queryFn: ({ signal }) => getMonitor(assignment.id, signal),
-    refetchInterval,
-    refetchIntervalInBackground: false,
-  });
-  useRefetchOnResume(monitor.refetch, live);
-
-  const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: monitorKey(assignment.id) });
-    await queryClient.invalidateQueries({
-      queryKey: ["admin-assignment", assignment.id],
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const [page] = usePage(`${filter}:${query}`, true);
+  const [size] = usePageSize(undefined, true);
+  const rows = useMemo(
+    () =>
+      orderedRoster(data.rows)
+        .filter((row) => rosterMatches(row, filter, query))
+        .map((row) => ({ ...row, id: row.studentId })),
+    [data.rows, filter, query],
+  );
+  const range = pageRange(page, size, rows.length);
+  const shown = rows.slice((range.page - 1) * size, range.page * size);
+  const columns = useMemo<readonly DataColumn<StudentRow>[]>(
+    () => [
+      {
+        id: "student",
+        header: t("monitor.student"),
+        track: "minmax(180px,2fr)",
+        cell: (row, visible) => (
+          <span className="flex min-w-0 items-center gap-2.5">
+            <Avatar name={row.fullName} className="text-2xs size-7.5" />
+            <span className="min-w-0">
+              <span className="block truncate font-medium">{row.fullName}</span>
+              {!visible.has("status") && (
+                <span className="flex min-w-0 items-center gap-1 text-xs leading-4">
+                  <RowStatus row={row} compact />
+                  {row.flagged && (
+                    <span
+                      className="text-danger-ink inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap"
+                      aria-label={`${t("status.attention.flagged")} · ${row.focusLossCount == null ? "—" : t("assignmentDetail.focusCount", { count: row.focusLossCount })}`}
+                    >
+                      <Flag aria-hidden="true" className="size-3" />
+                      <span aria-hidden="true">{row.focusLossCount ?? "—"}</span>
+                    </span>
+                  )}
+                </span>
+              )}
+            </span>
+          </span>
+        ),
+      },
+      {
+        id: "status",
+        header: t("monitor.state"),
+        track: "130px",
+        showFrom: 560,
+        cell: (row) => <RowStatus row={row} />,
+      },
+      {
+        id: "score",
+        header: t("monitor.score"),
+        track: "90px",
+        cell: (row) => (
+          <span
+            className={cn(
+              "tabular-nums",
+              row.score === null || row.score === undefined
+                ? "text-muted-fg"
+                : "font-medium",
+            )}
+          >
+            {row.score == null
+              ? "—"
+              : scoreText(row.score.earned, row.score.total, locale, t)}
+            {pendingAnswers(row) > 0 && (
+              <span
+                aria-label={t("monitor.pendingBadge", { count: pendingAnswers(row) })}
+              >
+                {t("assignmentDetail.pendingMark")}
+              </span>
+            )}
+          </span>
+        ),
+      },
+      {
+        id: "time",
+        header: t("assignmentDetail.time"),
+        track: "80px",
+        showFrom: 820,
+        cell: (row) => {
+          const spent = elapsedMinutes(row);
+          let spentLabel = "—";
+          if (spent !== null) {
+            spentLabel =
+              spent < 1
+                ? t("papers.tookUnderMinute")
+                : t("papers.tookMinutes", { count: spent });
+          }
+          return <span className="text-muted-fg tabular-nums">{spentLabel}</span>;
+        },
+      },
+      {
+        id: "focus",
+        header: t("assignmentDetail.focusLost"),
+        track: "100px",
+        showFrom: 700,
+        cell: (row) => (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 tabular-nums",
+              row.flagged ? "text-danger-ink" : "text-muted-fg",
+            )}
+          >
+            {row.flagged && <Flag aria-hidden="true" className="size-3.25" />}
+            {row.focusLossCount == null ? "—" : row.focusLossCount}
+          </span>
+        ),
+      },
+      {
+        id: "submitted",
+        header: t("assignmentDetail.submitted"),
+        track: "100px",
+        showFrom: 940,
+        cell: (row) => (
+          <span className="text-muted-fg tabular-nums">
+            {row.submittedAt ? compactMoment(row.submittedAt) : "—"}
+          </span>
+        ),
+      },
+    ],
+    [t, locale],
+  );
+  const change = (key: string, value: string) =>
+    navigate(assignmentDetailLocation(location, { [key]: value, page: null }), {
+      replace: true,
     });
-    await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+  const act = (kind: Intervention, row: MonitorRow, context: DataTableMenuContext) => {
+    if (
+      intervene &&
+      row.attemptId &&
+      row.state !== "voided" &&
+      (kind !== "extend" || row.state === "in_progress")
+    ) {
+      returnFocus.current = context.triggerRef.current;
+      setDialog({ kind, row });
+    }
   };
-
-  if (monitor.isPending) return <ListSkeleton />;
-  if (monitor.isError) {
-    return (
-      <LoadError error={monitor.error} onRetry={() => void monitor.refetch()}>
-        {t("monitor.loadFailed")}
-      </LoadError>
-    );
-  }
-  const data = monitor.data;
-  if (data.rows.length === 0) {
-    const firstClass = assignment.targets.classes[0];
+  if (data.rows.length === 0)
     return (
       <EmptyState
         action={
-          <Button size="sm" asChild>
+          <Button variant="outline" asChild>
             <Link
-              to={firstClass ? `/teacher/classes/${firstClass.id}` : "/teacher/classes"}
+              to={
+                assignment.targets.classes[0]
+                  ? `/teacher/classes/${assignment.targets.classes[0].id}`
+                  : "/teacher/classes"
+              }
             >
-              <UserPlus aria-hidden="true" />
               {t("monitor.addStudents")}
             </Link>
           </Button>
         }
       >
-        {t("monitor.empty")}
+        {t("assignmentDetail.noStudents")}
       </EmptyState>
     );
-  }
-
   return (
-    <div className="space-y-4">
-      <Cards
-        data={data}
-        assignment={assignment}
-        receivedAt={monitor.dataUpdatedAt}
-        live={live}
-      />
-      <Card className="gap-0 overflow-hidden py-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[22%]">{t("monitor.student")}</TableHead>
-              <TableHead>{t("monitor.state")}</TableHead>
-              <TableHead>{t("monitor.startedAt")}</TableHead>
-              <TableHead className="text-right">{t("monitor.remaining")}</TableHead>
-              <TableHead className="w-[150px]">{t("monitor.progress")}</TableHead>
-              <TableHead className="text-right">{t("monitor.focusLoss")}</TableHead>
-              <TableHead className="text-right">{t("monitor.score")}</TableHead>
-              <TableHead className="w-10">
-                <span className="sr-only">{t("common.actions")}</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.rows.map((row) => (
-              <Row
-                key={row.studentId}
-                row={row}
-                questionCount={data.questionCount}
-                serverTime={data.serverTime}
-                receivedAt={monitor.dataUpdatedAt}
-                live={live}
-                onAct={(kind) => setDialog({ kind, row })}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-      <InterventionDialog
-        kind={dialog?.kind ?? null}
-        row={dialog?.row ?? null}
-        onOpenChange={(open) => {
-          if (!open) setDialog(null);
-        }}
-        onDone={refresh}
-      />
-    </div>
-  );
-}
-
-function Cards({
-  data,
-  assignment,
-  receivedAt,
-  live,
-}: Readonly<{
-  data: MonitorData;
-  assignment: Assignment;
-  receivedAt: number;
-  live: boolean;
-}>) {
-  const { t } = useTranslation();
-  const rows = data.rows;
-  const submitted = rows.filter((r) => isHandedIn(r.state)).length;
-  const inProgress = rows.filter((r) => r.state === "in_progress").length;
-  const notStarted = rows.filter((r) => r.state === "not_started").length;
-  const flagged = rows.filter((r) => r.flagged === true).length;
-  const closesIn = useCountdown(
-    assignment.window.closesAt,
-    data.serverTime,
-    receivedAt,
-    live,
-  );
-  return (
-    <div className="grid grid-cols-5 gap-4">
-      <Stat label={t("monitor.cards.submitted")}>
-        {submitted}
-        <span className="text-muted-foreground text-base">/{rows.length}</span>
-      </Stat>
-      <Stat label={t("monitor.cards.inProgress")}>{inProgress}</Stat>
-      <Stat label={t("monitor.cards.notStarted")}>{notStarted}</Stat>
-      <Stat label={t("monitor.cards.flagged")}>{flagged}</Stat>
-      <Stat label={t("monitor.cards.closesIn")} urgent={closesIn < URGENT_MS}>
-        {closesInText(closesIn, t)}
-      </Stat>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  urgent = false,
-  children,
-}: Readonly<{
-  label: string;
-  urgent?: boolean;
-  children: React.ReactNode;
-}>) {
-  return (
-    <Card>
-      <CardContent>
-        <p className="text-muted-foreground text-xs">{label}</p>
-        <p
-          className={cn(
-            "mt-1 text-2xl font-semibold tabular-nums",
-            urgent && "text-warning-ink",
-          )}
-        >
-          {children}
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Milliseconds until `until` on the server's clock: the offset between
- * serverTime and the moment it arrived is applied to every later second.
- */
-function useCountdown(
-  until: string,
-  serverTime: string,
-  receivedAt: number,
-  live: boolean,
-): number {
-  const tick = useTick(live);
-  const skew = new Date(serverTime).getTime() - receivedAt;
-  const now = live ? tick * 1000 : receivedAt;
-  return new Date(until).getTime() - (now + skew);
-}
-
-function Row({
-  row,
-  questionCount,
-  serverTime,
-  receivedAt,
-  live,
-  onAct,
-}: Readonly<{
-  row: MonitorRow;
-  questionCount: number;
-  serverTime: string;
-  receivedAt: number;
-  live: boolean;
-  onAct: (kind: Intervention) => void;
-}>) {
-  const { t } = useTranslation();
-  const locale = useLocale();
-  const remaining = useCountdown(
-    row.deadlineAt ?? serverTime,
-    serverTime,
-    receivedAt,
-    live && row.state === "in_progress",
-  );
-  const answered = row.answeredCount ?? null;
-  const handedIn = isHandedIn(row.state);
-  const dash = <span className="text-muted-foreground">—</span>;
-
-  return (
-    <TableRow>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <Avatar name={row.fullName} size="sm" />
-          <span className="font-medium">{row.fullName}</span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <StatusBadge kind="attempt" status={row.state} />
-      </TableCell>
-      <TableCell className="text-muted-foreground tabular-nums">
-        {row.startedAt ? formatTime(row.startedAt) : dash}
-      </TableCell>
-      <TableCell
-        className={cn(
-          "text-right tabular-nums",
-          row.state === "in_progress" &&
-            remaining < URGENT_MS &&
-            "text-warning-ink font-medium",
-        )}
-      >
-        {row.state === "in_progress" ? countdown(remaining) : dash}
-      </TableCell>
-      <TableCell>
-        {answered === null ? (
-          dash
-        ) : (
-          <ProgressCell
-            answered={answered}
-            total={questionCount}
-            settled={handedIn && row.state !== "timed_out"}
-          />
-        )}
-      </TableCell>
-      <TableCell className="text-right tabular-nums">
-        <FocusLossCell count={row.focusLossCount} flagged={row.flagged} />
-      </TableCell>
-      <TableCell className="text-right">
-        {row.score ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              className={cn("tabular-nums", row.state === "graded" && "font-medium")}
-            >
-              {scoreText(row.score.earned, row.score.total, locale, t)}
-            </span>
-            {row.score.pendingManual > 0 && row.attemptId && (
-              <Link
-                to={`/teacher/attempts/${row.attemptId}`}
-                className={cn(badgeVariants({ variant: "outline" }), "hover:bg-accent")}
-              >
-                {t("monitor.pendingBadge", { count: row.score.pendingManual })}
-              </Link>
-            )}
-          </span>
-        ) : (
-          dash
-        )}
-      </TableCell>
-      <TableCell className="text-right">
-        {row.attemptId && (
-          <RowMenu>
-            <DropdownMenuItem asChild>
-              <Link to={`/teacher/attempts/${row.attemptId}`}>
-                <Eye aria-hidden="true" />
-                {t("monitor.menu.view")}
-              </Link>
-            </DropdownMenuItem>
-            {row.state === "in_progress" && (
-              <DropdownMenuItem onSelect={() => onAct("extend")}>
-                <Clock aria-hidden="true" />
-                {t("monitor.menu.extend")}
-              </DropdownMenuItem>
-            )}
-            {row.state !== "voided" && (
-              <>
-                <DropdownMenuItem onSelect={() => onAct("reset")}>
-                  <RotateCw aria-hidden="true" />
-                  {t("monitor.menu.reset")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={() => onAct("void")}>
-                  <Ban aria-hidden="true" />
-                  {t("monitor.menu.void")}
-                </DropdownMenuItem>
-              </>
-            )}
-          </RowMenu>
-        )}
-      </TableCell>
-    </TableRow>
-  );
-}
-
-/** "Đóng sau": days, then hours, then the running clock, as G-02 draws it. */
-function closesInText(closesIn: number, t: TFunction): string {
-  if (closesIn >= DAY_MS)
-    return t("monitor.closesInDays", { count: Math.floor(closesIn / DAY_MS) });
-  if (closesIn >= HOUR_MS)
-    return t("monitor.closesInHours", { count: Math.floor(closesIn / HOUR_MS) });
-  return countdown(closesIn);
-}
-
-/** A handed-in paper shows its count; a running one draws the bar. */
-function ProgressCell({
-  answered,
-  total,
-  settled,
-}: Readonly<{ answered: number; total: number; settled: boolean }>) {
-  const { t } = useTranslation();
-  if (settled) {
-    return (
-      <span className="text-muted-foreground text-xs tabular-nums">
-        {answered}/{total}
-      </span>
-    );
-  }
-  const percent = total === 0 ? 0 : Math.round((answered / total) * 100);
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className="bg-secondary h-1.5 flex-1 overflow-hidden rounded-full"
-        role="img"
-        aria-label={t("monitor.answeredOf", { answered, total })}
-      >
-        <span
-          className="bg-foreground block h-full rounded-full"
-          style={{ width: `${percent}%` }}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchInput
+          dense
+          value={query}
+          onChange={(value) => {
+            void change("q", value);
+          }}
+          placeholder={t("papers.search")}
+          className="min-w-0 flex-[1_1_180px]"
         />
-      </span>
-      <span className="text-muted-foreground text-xs tabular-nums">
-        {answered}/{total}
-      </span>
+        <Select
+          value={filter}
+          onValueChange={(value) => {
+            void change("roster", value);
+          }}
+        >
+          <SelectTrigger aria-label={t("papers.filter")} className="w-auto">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FILTERS.map((value) => (
+              <SelectItem key={value} value={value}>
+                {t(`papers.tabs.${value}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <DataTable
+        label={t("assignmentDetail.roster")}
+        columns={columns}
+        rows={shown}
+        rowSize={{ height: 54 }}
+        canOpen={(row) =>
+          canRead && Boolean(row.attemptId) && row.state !== "not_started"
+        }
+        onOpen={(row) => {
+          if (canRead && row.attemptId && row.state !== "not_started")
+            onOpen(row.attemptId);
+        }}
+        rowTone={(row) => rowTone(row, selectedAttempt)}
+        menu={
+          intervene
+            ? (row, context) =>
+                !row.attemptId || row.state === "not_started" ? null : (
+                  <>
+                    {row.attemptId && (
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          if (canRead) onOpen(row.attemptId!);
+                        }}
+                      >
+                        {t("monitor.menu.view")}
+                      </DropdownMenuItem>
+                    )}
+                    {row.attemptId && row.state === "in_progress" && (
+                      <DropdownMenuItem onSelect={() => act("extend", row, context)}>
+                        <Clock aria-hidden="true" />
+                        {t("monitor.menu.extend")}
+                      </DropdownMenuItem>
+                    )}
+                    {row.attemptId && row.state !== "voided" && (
+                      <>
+                        <DropdownMenuItem onSelect={() => act("reset", row, context)}>
+                          <RotateCw aria-hidden="true" />
+                          {t("monitor.menu.reset")}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => act("void", row, context)}
+                        >
+                          <Ban aria-hidden="true" />
+                          {t("monitor.menu.void")}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </>
+                )
+            : undefined
+        }
+        empty={t("papers.noMatches", { query })}
+        footer={
+          <Pager
+            preserveHash
+            page={range.page}
+            pageSize={size}
+            total={rows.length}
+            noun={(count) => t("assignmentDetail.studentsNoun", { count })}
+          />
+        }
+      />
+      {intervene && (
+        <InterventionDialog
+          returnFocus={returnFocus}
+          kind={dialog?.kind ?? null}
+          row={dialog?.row ?? null}
+          onOpenChange={(open) => {
+            if (!open) setDialog(null);
+          }}
+          onDone={onRefresh}
+        />
+      )}
     </div>
   );
+}
+
+function rowTone(row: MonitorRow, selectedAttempt: string | null) {
+  if (selectedAttempt !== null && row.attemptId === selectedAttempt) return "selected";
+  return row.flagged ? "danger" : undefined;
 }

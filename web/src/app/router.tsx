@@ -5,7 +5,10 @@ import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
 import { StudentArea, TeacherWorkspace } from "@/app/guards/RequireWorkspace";
 import { HomeRedirect } from "@/app/guards/HomeRedirect";
-import { LegacyTeacherRedirect } from "@/app/LegacyTeacherRedirect";
+import {
+  AssignmentPapersRedirect,
+  LegacyTeacherRedirect,
+} from "@/app/LegacyTeacherRedirect";
 
 /**
  * §3's three route trees: public, /teacher for the teacher, /app for students.
@@ -149,6 +152,13 @@ const teacherTree: RouteObject = {
         },
         {
           path: "assignments/:id",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
+              { key: "assignmentDetail.title" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/assignments/pages/teacher/AssignmentDetailPage"),
           ),
@@ -161,9 +171,7 @@ const teacherTree: RouteObject = {
         },
         {
           path: "assignments/:id/attempts",
-          lazy: page(
-            () => import("@/features/attempts/pages/teacher/AssignmentAttemptsPage"),
-          ),
+          element: <AssignmentPapersRedirect />,
         },
         {
           path: "attempts/:id",

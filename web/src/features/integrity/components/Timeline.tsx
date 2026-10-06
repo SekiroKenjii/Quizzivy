@@ -33,16 +33,14 @@ import {
 
 const FILTERS: TimelineFilter[] = ["all", "away", "audio", "network"];
 
-/**
- * G-05: the summary strip, then the chronological list. Neutral by design --
- * counts and durations, no verdicts, and the honest-limits card beside it.
- */
+/** Timeline presents neutral paired events, preserving the full review by default and omitting its autosave note in compact mode. */
 export function Timeline({
   attemptId,
   questions,
   live,
   note,
   onViewPaper,
+  presentation = "full",
 }: Readonly<{
   attemptId: string;
   questions: AdminQuestion[];
@@ -51,6 +49,7 @@ export function Timeline({
   /** G-05's private note as last saved; the card autosaves from here. */
   note: string | null;
   onViewPaper: () => void;
+  presentation?: "full" | "compact";
 }>) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<TimelineFilter>("all");
@@ -63,7 +62,12 @@ export function Timeline({
   });
   useRefetchOnResume(events.refetch, live);
 
-  if (events.isPending) return <TimelineSkeleton />;
+  if (events.isPending)
+    return presentation === "compact" ? (
+      <Skeleton className="h-24 w-full" />
+    ) : (
+      <TimelineSkeleton />
+    );
   if (events.isError) {
     return (
       <div className="space-y-1">
@@ -80,6 +84,59 @@ export function Timeline({
   const open = hasOpenEpisode(data.events);
   const rows = timelineRows(data.events, filter);
   const numberOf = new Map(questions.map((q, i) => [q.id, i + 1]));
+
+  if (presentation === "compact") {
+    return (
+      <section aria-label={t("assignmentDetail.sheet.timeline")}>
+        <h2 className="mb-2 text-sm font-semibold">
+          {t("assignmentDetail.sheet.timeline")}
+        </h2>
+        <ol className="text-sm">
+          <li className="flex gap-3 pb-3.5">
+            <span
+              aria-hidden="true"
+              className="bg-info mt-1.25 size-2.5 shrink-0 rounded-full"
+            />
+            <div>
+              {t("timeline.kind.started")}
+              <p className="text-muted-fg text-xs tabular-nums">
+                {clockTime(data.startedAt)}
+              </p>
+            </div>
+          </li>
+          {rows.map(({ event, ongoing, playNo }) => (
+            <li key={event.id} className="flex gap-3 pb-3.5">
+              <span
+                aria-hidden="true"
+                className="bg-muted-fg mt-1.25 size-2.5 shrink-0 rounded-full"
+              />
+              <div className="min-w-0 flex-1">
+                <EventLabel
+                  event={event}
+                  playNo={playNo}
+                  ongoing={ongoing}
+                  questions={questions}
+                />
+                <p className="text-muted-fg text-xs tabular-nums">
+                  {clockTime(event.occurredAt)} ·{" "}
+                  <DurationCell event={event} ongoing={ongoing} />
+                  {event.questionId && numberOf.has(event.questionId)
+                    ? ` · ${t("timeline.columns.question")} ${numberOf.get(event.questionId)}`
+                    : ""}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <details className="text-muted-fg text-xs">
+          <summary className="cursor-pointer">{t("timeline.help.title")}</summary>
+          <p className="mt-2">{t("timeline.help.cannotSee")}</p>
+          <p className="mt-2">{t("timeline.help.duration")}</p>
+          <p className="mt-2">{t("timeline.help.conversation")}</p>
+        </details>
+      </section>
+    );
+  }
 
   return (
     <div className="space-y-5">

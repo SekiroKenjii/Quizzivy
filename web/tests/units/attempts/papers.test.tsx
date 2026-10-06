@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
 import AssignmentAttemptsPage from "@/features/attempts/pages/teacher/AssignmentAttemptsPage";
+import AssignmentDetailPage from "@/features/assignments/pages/teacher/AssignmentDetailPage";
+import { useAuthStore } from "@/stores/auth";
+import { teacherUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -90,6 +93,9 @@ function serve() {
         }),
       ),
     ),
+    http.get(`${BASE}/teacher/tests/:id/versions`, () =>
+      contractJson("/teacher/tests/{id}/versions", "get", 200, { items: [] }),
+    ),
     http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/attempts`, () =>
       contractJson("/teacher/assignments/{id}/attempts", "get", 200, monitor(rows())),
     ),
@@ -117,7 +123,7 @@ function renderPage(search = "") {
         path: "/teacher/assignments/:id/attempts",
         element: <AssignmentAttemptsPage />,
       },
-      { path: "/teacher/assignments/:id", element: <p>the assignment</p> },
+      { path: "/teacher/assignments/:id", element: <AssignmentDetailPage /> },
     ],
     { initialEntries: [`/teacher/assignments/${ASSIGNMENT_ID}/attempts${search}`] },
   );
@@ -129,8 +135,9 @@ function renderPage(search = "") {
   return userEvent.setup();
 }
 
-describe("the papers of one assignment (G-11)", () => {
+describe("canonical assignment papers in the Students roster", () => {
   beforeEach(() => {
+    useAuthStore.getState().setSession("token", teacherUser);
     reset = null;
     serve();
   });
@@ -139,23 +146,17 @@ describe("the papers of one assignment (G-11)", () => {
     renderPage();
 
     expect(
-      await screen.findByRole("heading", {
-        name: "Bài làm · Unit 5 — Present perfect & listening",
-      }),
+      await screen.findByRole("heading", { level: 1, name: assignment().testTitle }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("3/4 đã nộp · 1 chờ chấm · 1 cần xem lại"),
-    ).toBeInTheDocument();
+      await screen.findByRole("button", { name: "Chấm 2 câu trả lời" }),
+    ).toBeEnabled();
 
     const table = await screen.findByRole("table");
     const names = within(table)
       .getAllByRole("row")
       .slice(1)
-      .map(
-        (row) =>
-          within(row).getAllByRole("cell")[0]!.querySelector("span:last-child")
-            ?.textContent,
-      );
+      .map((row) => row.querySelector('[role="cell"] .font-medium')?.textContent);
     expect(names).toEqual([
       "Hoàng Tiến Dũng",
       "Lê Khánh Vy",
@@ -163,51 +164,47 @@ describe("the papers of one assignment (G-11)", () => {
       "Phạm Gia Hân",
     ]);
     expect(
-      within(table).getByRole("columnheader", { name: "Thời gian làm" }),
+      within(table).getByRole("columnheader", { name: "Thời gian" }),
     ).toBeInTheDocument();
     expect(within(table).queryByRole("columnheader", { name: "Còn lại" })).toBeNull();
 
     const vy = within(table).getByRole("row", { name: /Lê Khánh Vy/ });
-    expect(within(vy).getByText("1/2")).toBeInTheDocument();
     expect(within(vy).getByText("08:38 · 04/09")).toBeInTheDocument();
     expect(within(vy).getByText("38 phút")).toBeInTheDocument();
     expect(within(vy).getByText("29/30")).toBeInTheDocument();
 
     const minh = within(table).getByRole("row", { name: /Nguyễn Đức Minh/ });
-    expect(within(minh).getByText("2/2")).toBeInTheDocument();
-    expect(within(minh).getByRole("link", { name: "chờ chấm 2" })).toHaveAttribute(
-      "href",
-      "/teacher/attempts/018f0000-0000-7000-8000-0000000000a8",
-    );
+    expect(within(minh).getByLabelText("chờ chấm 2")).toBeInTheDocument();
+    expect(within(minh).getByRole("button", { name: "Nguyễn Đức Minh" })).toBeEnabled();
   });
 
-  it("the tabs are the results strip's numbers; timed out counts as handed in", async () => {
+  it("keeps all five old paper filters and treats timed-out papers as handed in", async () => {
     const user = renderPage();
-
     await screen.findByRole("table");
-    const tabs = screen.getByRole("tablist", { name: "Lọc bài làm" });
-    expect(within(tabs).getByRole("tab", { name: /Tất cả/ })).toHaveTextContent("4");
-    expect(within(tabs).getByRole("tab", { name: /Đã nộp/ })).toHaveTextContent("3");
-    expect(within(tabs).getByRole("tab", { name: /Chờ chấm/ })).toHaveTextContent("1");
-    expect(within(tabs).getByRole("tab", { name: /Cần xem lại/ })).toHaveTextContent(
-      "1",
-    );
-    expect(within(tabs).getByRole("tab", { name: /Chưa nộp/ })).toHaveTextContent("1");
-
-    await user.click(within(tabs).getByRole("tab", { name: /Chưa nộp/ }));
+    const filter = screen.getByRole("combobox", { name: "Lọc bài làm" });
+    await user.click(filter);
+    expect(screen.getAllByRole("option")).toHaveLength(5);
+    await user.click(screen.getByRole("option", { name: "Chưa nộp" }));
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(2));
     expect(screen.getByText("Hoàng Tiến Dũng")).toBeInTheDocument();
-
-    await user.click(within(tabs).getByRole("tab", { name: /Cần xem lại/ }));
-    await waitFor(() => expect(screen.getByText("Phạm Gia Hân")).toBeInTheDocument());
+    await user.click(filter);
+    await user.click(screen.getByRole("option", { name: "Cần xem lại" }));
+    expect(await screen.findByText("Phạm Gia Hân")).toBeInTheDocument();
     expect(screen.queryByText("Lê Khánh Vy")).toBeNull();
+    await user.click(filter);
+    await user.click(screen.getByRole("option", { name: "Đã nộp" }));
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
+    expect(screen.getByText("Phạm Gia Hân")).toBeInTheDocument();
+    expect(screen.queryByText("Hoàng Tiến Dũng")).toBeNull();
   });
 
-  it("opens on the tab the link asked for", async () => {
+  it("translates an old pending tab into the separate roster filter", async () => {
     renderPage("?tab=pending");
-
     await screen.findByRole("table");
-    expect(screen.getByRole("tab", { name: /Chờ chấm/ })).toHaveAttribute(
+    expect(screen.getByRole("combobox", { name: "Lọc bài làm" })).toHaveTextContent(
+      "Chờ chấm",
+    );
+    expect(screen.getByRole("tab", { name: "Học viên" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -230,17 +227,14 @@ describe("the papers of one assignment (G-11)", () => {
     ).toBeInTheDocument();
   });
 
-  it("the row menu is G-02's without the clock: view, reset, void", async () => {
+  it("preserves real row view, reset and void actions without inventing an extend for a handed-in paper", async () => {
     const user = renderPage();
 
     const table = await screen.findByRole("table");
     const vy = within(table).getByRole("row", { name: /Lê Khánh Vy/ });
     await user.click(within(vy).getByRole("button", { name: "Thao tác" }));
     const menu = await screen.findByRole("menu");
-    expect(within(menu).getByRole("menuitem", { name: "Xem bài làm" })).toHaveAttribute(
-      "href",
-      `/teacher/attempts/${VY_ATTEMPT}`,
-    );
+    expect(within(menu).getByRole("menuitem", { name: "Xem bài làm" })).toBeEnabled();
     expect(
       within(menu).queryByRole("menuitem", { name: "Gia hạn thời gian" }),
     ).toBeNull();

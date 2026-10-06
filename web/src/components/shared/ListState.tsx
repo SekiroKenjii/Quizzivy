@@ -14,7 +14,7 @@ export function ListSkeleton({ rows = 5 }: Readonly<{ rows?: number }>) {
       role="status"
       aria-live="polite"
       aria-label={t("common.loading")}
-      className="space-y-2"
+      className="space-y-2 in-data-[scale=deck]:focus-within:[&_[data-slot=skeleton]]:[animation-play-state:paused]! in-data-[scale=deck]:hover:[&_[data-slot=skeleton]]:[animation-play-state:paused]!"
     >
       {Array.from({ length: rows }, (_, i) => (
         <Skeleton key={i} className={i === rows - 1 ? "h-9 w-72" : "h-9 w-full"} />
