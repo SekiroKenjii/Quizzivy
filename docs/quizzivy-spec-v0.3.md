@@ -1,7 +1,22 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.53 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.54 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.53**
+
+R4, private caller profile and preferences (T-R4.7, staged):
+
+- §7, §15 Public users gain optional display name/avatar; only the caller gains
+  phone, locale, zone and preferences. Self profile PATCH preserves omitted keys
+  and supports explicit clearing of display name/phone. Preferences merge top-level
+  keys with bounded, closed payloads and atomic audits.
+- §8 The Dashboard zone port now reads the caller's stored valid zone, defaulting
+  only a stored NULL to Vietnam time. §13 records migrations00085/00086.
+- Frontend account preference adoption, actor/cookie ordering and reactive date
+  display remain the staged companion's acceptance gates. Existing datetime
+  input parsing stays fixed to Vietnam time; full profile controls/photo follow
+  T-R4.43/T-R4.8. No completed frontend or release is claimed by this record.
 
 **Changes since v0.52**
 
@@ -714,6 +729,18 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   - `learnsOnly` (the student app is the user's only workspace) keeps v0.7.0's rules on `/join` and the Settings role label (§6.2).
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`.
+- T-R4.7's staged companion applies accepted server locale/theme/display zone/larger
+  text over browser mirrors, with omitted defaults `vi`/`light`/`Asia/Ho_Chi_Minh`/false
+  and no default-materialization PATCH. Anonymous choices remain local. Authenticated
+  controls preview pending changes, restore acknowledged presentation on failure and
+  retain an explicit Retry. A browser-unsupported account zone retains its exact
+  server value, reports compatibility and temporarily presents Vietnam time without
+  saving that fallback. Actor departure invalidates stale asynchronous effects.
+- The companion orders refresh/login/Google-login/logout cookie sends and global
+  draft cleanup before replacement admission. Refresh remains single-flight. A20s
+  transport/admission UI deadline and10s cleanup deadline show pending status without
+  abandoning raw ownership; late timed-out login never auto-admits. Permanent hangs
+  may keep admission closed. Cross-tab ordering is not promised by this design.
 - Password reset in v1: a holder of `people.students.reset_password` sets a temporary password from the student detail page, under the shared-student rule below. No self-service email flow (§17.1).
 - New passwords have three rules:
   - at least 8 characters;
@@ -825,6 +852,8 @@ type Role = 'admin' | 'student';        // legacy: 'student' for a student-like 
 
 interface User {
   id; email; fullName; role: Role;
+  displayName?: string;
+  avatarUrl?: string;
   hasPassword: boolean;                 // false for Google-only accounts
   linkedProviders: ('google')[];
   mustChangePassword: boolean;
@@ -837,6 +866,23 @@ type Workspace = 'teacher' | 'admin' | 'app';
 interface CurrentUser extends User {    // the signed-in user only; a payload about anyone else carries User
   permissions: PermissionKey[];         // the role's effective keys, in catalogue order
   workspaces: Workspace[];              // derived from permissions; the web guards read these (§5.4)
+  phone?: string;
+  locale?: 'vi' | 'en';
+  timeZone?: string;
+  preferences?: UserPreferences;
+}
+
+interface UserPreferences {
+  theme?: 'light' | 'dark' | 'system';
+  compactTables?: boolean;
+  largerTestText?: boolean;
+  assignmentDefaults?: {
+    durationMinutes?: number;
+    shuffleQuestions?: boolean;
+    showScore?: boolean;
+    blockCopyPaste?: boolean;
+    requireFullscreen?: boolean;
+  };
 }
 
 interface Class {
@@ -1193,9 +1239,12 @@ notifications. The grading count is null and its query is not run without
 `teaching.grading`; live assignments is currently always a number. Both home
 operations use `.Own()` even for an Admin, while `listAttempts` keeps its wider
 scope. The application supplies the new queries' clock and resolves the IANA
-calendar zone through `ports.Zones`; the default adapter and a nil port use
-`Asia/Ho_Chi_Minh` until T-R4.7 wires the profile zone. Legacy readings retain
-their SQL clocks. An absent notifications summary port returns 501.
+calendar zone through `ports.Zones`; T-R4.7 wires the identity effective-zone
+query. Only a stored NULL defaults to `Asia/Ho_Chi_Minh`; an invalid stored zone
+or ineligible account propagates an error. A nil port retains the default for
+existing callers. Frontend reactive zone adoption remains staged in T-R4.7;
+existing local datetime inputs remain fixed-HCM. Legacy readings retain their
+SQL clocks. An absent notifications summary port returns 501.
 
 Admin list behaviour (approved change request, 2026-09-22):
 
@@ -1657,6 +1706,16 @@ CREATE TABLE app.users (
 );
 CREATE UNIQUE INDEX users_email_lower_key ON app.users (lower(email));
 
+ALTER TABLE app.users
+  ADD COLUMN display_name text CHECK (char_length(btrim(display_name)) BETWEEN 1 AND 80),
+  ADD COLUMN phone text CHECK (phone ~ '^[0-9+ ]{6,20}$'),
+  ADD COLUMN avatar_key text,
+  ADD COLUMN locale text CHECK (locale IN ('vi', 'en')),
+  ADD COLUMN time_zone text CHECK (char_length(time_zone) BETWEEN 1 AND 64),
+  ADD COLUMN preferences jsonb NOT NULL DEFAULT '{}'::jsonb
+    CHECK (jsonb_typeof(preferences) = 'object')
+    CHECK (octet_length(preferences::text) <= 8192);
+
 CREATE TABLE app.user_identities (
   id               uuid PRIMARY KEY DEFAULT uuidv7(),
   user_id          uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
@@ -2015,7 +2074,12 @@ POST   /auth/refresh                    (cookie) → {accessToken}
 # authenticated
 POST   /auth/logout
 GET    /auth/me                         → CurrentUser
-PATCH  /auth/me                         {fullName} → CurrentUser
+PATCH  /auth/me                         {fullName?,displayName?|null,phone?|null,locale?,timeZone?}
+                                          → CurrentUser; at least one supplied field;
+                                          omitted fields unchanged; unknown zone400 VALIDATION_FAILED
+PATCH  /me/preferences                 top-level UserPreferences merge → UserPreferences;
+                                          nested assignmentDefaults replaces its key, {} no-op;
+                                          raw/stored UTF8 cap8192 bytes,400 on excess
 POST   /auth/change-password            400 VALIDATION_FAILED on the rules (§5.4), 400 PASSWORD_UNCHANGED
 POST   /auth/google/link                link Google to current account → CurrentUser
 DELETE /auth/google/link                rejected if it would leave no login method
@@ -2092,9 +2156,15 @@ GET    /app/attempts/:id/result         → Attempt + review policy + sections +
 GET    /app/media/:assetId/url          → short-lived signed URL
 ```
 
-**Prefixes.** `/teacher/*` holds the teaching operations, `/admin/*` the platform's, `/app/*` the student's and `/auth/*` the caller's own session and account. Every operation that requires a bearer token declares its permission as `x-permission` (§5). Under `/teacher/*` and `/app/*`, an id the caller does not reach answers exactly as a missing one does. The v0.7.0 paths under `/admin/*` that moved still answer until v0.9.1 (T-R3.3): the server rewrites each to its new path (`DELETE /admin/students/:id` becomes `DELETE /admin/users/:id`) and logs `legacy_admin_path`.
+**Prefixes.** `/teacher/*` holds the teaching operations, `/admin/*` the platform's, `/app/*` the student's and `/auth/*` the caller's own session and account; `/me/*` accepts only the `self` requirement. Every operation that requires a bearer token declares its permission as `x-permission` (§5). Under `/teacher/*` and `/app/*`, an id the caller does not reach answers exactly as a missing one does. The v0.7.0 paths under `/admin/*` that moved still answer until v0.9.1 (T-R3.3): the server rewrites each to its new path (`DELETE /admin/students/:id` becomes `DELETE /admin/users/:id`) and logs `legacy_admin_path`.
 
-**`CurrentUser`** is `User`'s fields plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.
+**`User`** adds only optional `displayName` and `avatarUrl`; it never carries
+phone, locale, timeZone or preferences. Student class/intro/join-preview teacher
+names use the chosen display name, falling back to full name, without a new
+private field. Avatar operations remain T-R4.8.
+
+**`CurrentUser`** adds optional private `phone`, `locale`, `timeZone` and
+`preferences` to `User`'s fields, plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.
 
 `deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`, `deleteQuestionGroup`) answer `RESOURCE_REFERENCED` without details.
 
