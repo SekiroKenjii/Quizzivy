@@ -2323,6 +2323,7 @@
     },
     "staleData": "Không cập nhật được thông tin mới nhất; đang hiển thị dữ liệu trước đó.",
     "detail": {
+      "pageTitle": "Lượt nhập",
       "awaitingTitle": "Chưa bắt đầu xử lý",
       "awaitingBody": "Lần nhập này còn thiếu tệp hoặc chưa được bắt đầu. Thêm tệp còn thiếu rồi bắt đầu xử lý.",
       "processingTitle": "Đang xử lý",

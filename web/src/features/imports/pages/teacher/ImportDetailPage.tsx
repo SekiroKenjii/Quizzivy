@@ -306,7 +306,7 @@ function ReadyPanel({
       }
       description={t("imports.detail.readyBody")}
       status={
-        <Badge variant="success" className="self-start rounded-full!">
+        <Badge variant="success" className="w-fit self-start rounded-full!">
           {t("imports.status.needs_review")}
         </Badge>
       }
@@ -470,7 +470,7 @@ function ClosedPanel({
   return (
     <Panel
       status={
-        <Badge variant="secondary" className="self-start rounded-full!">
+        <Badge variant="secondary" className="w-fit self-start rounded-full!">
           {t("imports.status.cancelled")}
         </Badge>
       }
@@ -782,7 +782,10 @@ function FailureStage({ value }: Readonly<{ value: WordImport }>) {
   const label =
     labels.length === 0 ? t("imports.processing.waitingToStart") : labels.join(" · ");
   return (
-    <Badge variant="danger" className="self-start rounded-full! whitespace-normal">
+    <Badge
+      variant="danger"
+      className="w-fit self-start rounded-full! whitespace-normal"
+    >
       {t("imports.detail.stoppedAt", { stage: label })}
     </Badge>
   );

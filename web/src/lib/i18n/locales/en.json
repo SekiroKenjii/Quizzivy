@@ -2323,6 +2323,7 @@
     },
     "staleData": "Couldn't refresh; showing the last known information.",
     "detail": {
+      "pageTitle": "Import",
       "awaitingTitle": "Not processed yet",
       "awaitingBody": "This import is missing files or hasn't been started. Add what's missing, then start processing.",
       "processingTitle": "Processing",
