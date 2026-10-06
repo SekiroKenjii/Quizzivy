@@ -1,4 +1,13 @@
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { Link } from "react-router";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -6,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatBytes } from "@/features/media/format";
-import { getWordImportLimits, type WordImport } from "../api";
+import { getWordImportLimits, type WordImport, type ImportRetention } from "../api";
 import { SOURCE_ROLES, useSourceIntake } from "../useSourceIntake";
 import { FileSlot } from "./FileSlot";
 
@@ -28,11 +37,21 @@ function titleFromFilename(name: string): string {
 export function SourceIntake({
   existing,
   replacing = false,
+  deck = false,
+  enabled = true,
+  fileMode = true,
+  retention,
+  privacy,
   onChanged,
   onStarted,
 }: Readonly<{
   existing: WordImport | null;
   replacing?: boolean;
+  deck?: boolean;
+  enabled?: boolean;
+  fileMode?: boolean;
+  retention?: ImportRetention | undefined;
+  privacy?: ReactNode;
   onChanged?: ((next: WordImport) => void) | undefined;
   onStarted: (started: WordImport) => void;
 }>) {
@@ -59,16 +78,10 @@ export function SourceIntake({
   const accept = (limits.data?.formats ?? ["docx"])
     .map((format) => `.${format}`)
     .join(",");
-  const canStart = intake.ready && (!askTitle || title.trim() !== "");
+  const canStart = enabled && intake.ready && (!askTitle || title.trim() !== "");
 
-  return (
-    <form
-      className="space-y-6"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (canStart) void intake.start(title.trim());
-      }}
-    >
+  const files = (
+    <>
       <LimitsLine
         pending={limits.isPending}
         failed={limits.isError}
@@ -76,7 +89,7 @@ export function SourceIntake({
         formats={limits.data?.formats}
         onRetry={() => void limits.refetch()}
       />
-      <div className="space-y-5">
+      <div className="flex flex-col gap-5">
         {SOURCE_ROLES.map((role) => (
           <FileSlot
             key={role}
@@ -90,8 +103,32 @@ export function SourceIntake({
           />
         ))}
       </div>
+    </>
+  );
+
+  return (
+    <form
+      className="flex flex-col gap-6"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (canStart) void intake.start(title.trim());
+      }}
+    >
+      <div hidden={!fileMode}>
+        {deck ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("imports.newHeading")}</CardTitle>
+              <CardDescription>{t("imports.newHint")}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">{files}</CardContent>
+          </Card>
+        ) : (
+          files
+        )}
+      </div>
       {askTitle ? (
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor={titleId}>{t("imports.upload.titleLabel")}</Label>
           <Input
             id={titleId}
@@ -108,27 +145,106 @@ export function SourceIntake({
           </p>
         </div>
       ) : null}
-      {replacing ? null : (
-        <p className="text-muted-foreground text-xs leading-relaxed">
-          {t("imports.upload.recognitionNote")}
-        </p>
-      )}
+      <Recognition deck={deck} replacing={replacing} />
+      {deck ? (
+        <>
+          {privacy}
+          {retention === undefined ? null : (
+            <p className="text-muted-fg text-xs leading-relaxed">
+              {t("imports.retention.policy", {
+                afterCommit: retention.afterCommitDays,
+                afterCancel: retention.afterCancelDays,
+                idle: retention.idleDays,
+              })}
+            </p>
+          )}
+        </>
+      ) : null}
       {intake.error === null ? null : (
         <p role="alert" className="text-destructive text-sm">
           {intake.error}
         </p>
       )}
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={!canStart}>
-          {submitLabel(intake.busy, replacing, t)}
-        </Button>
-        {intake.busy ? (
-          <span role="status" className="text-muted-foreground text-xs">
-            {t("imports.upload.keepOpen")}
-          </span>
-        ) : null}
-      </div>
+      <IntakeFooter
+        deck={deck}
+        fileMode={fileMode}
+        canStart={canStart}
+        busy={intake.busy}
+        replacing={replacing}
+      />
     </form>
+  );
+}
+
+function Recognition({
+  deck,
+  replacing,
+}: Readonly<{ deck: boolean; replacing: boolean }>) {
+  const { t } = useTranslation();
+  if (replacing) return null;
+  if (!deck)
+    return (
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        {t("imports.upload.recognitionNote")}
+      </p>
+    );
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("imports.upload.recognitionHeading")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm font-medium">{t("imports.upload.automatic")}</p>
+        <p className="text-muted-fg text-xs leading-relaxed">
+          {t("imports.upload.recognitionNote")}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function IntakeFooter({
+  deck,
+  fileMode,
+  canStart,
+  busy,
+  replacing,
+}: Readonly<{
+  deck: boolean;
+  fileMode: boolean;
+  canStart: boolean;
+  busy: boolean;
+  replacing: boolean;
+}>) {
+  const { t } = useTranslation();
+  let hint = t("imports.upload.chooseHint");
+  if (busy) hint = t("imports.upload.starting");
+  else if (!fileMode) hint = t("imports.upload.pasteDeferredHint");
+  else if (canStart) hint = t("imports.upload.readyHint");
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-3",
+        deck && "bg-background sticky bottom-0 justify-end border-t py-3",
+      )}
+    >
+      {deck ? (
+        <>
+          <span className="text-muted-fg min-w-0 flex-[1_1_200px] text-xs">{hint}</span>
+          <Button asChild type="button" variant="outline">
+            <Link to="/teacher/imports">{t("common.cancel")}</Link>
+          </Button>
+        </>
+      ) : null}
+      <Button type="submit" disabled={!canStart}>
+        {submitLabel(busy, replacing, t)}
+      </Button>
+      {busy ? (
+        <span role="status" className="text-muted-foreground text-xs">
+          {t("imports.upload.keepOpen")}
+        </span>
+      ) : null}
+    </div>
   );
 }
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -82,7 +82,9 @@ describe("the Word import history", () => {
     renderHistory();
     const table = await screen.findByRole("table");
     const row = (title: string) =>
-      within(table).getByRole("link", { name: title }).closest("tr")!;
+      within(table)
+        .getByRole("link", { name: title })
+        .closest<HTMLElement>('[role="row"]')!;
 
     expect(within(row("Đề A")).getByText("Sẵn sàng rà soát")).toBeInTheDocument();
     expect(
@@ -127,6 +129,7 @@ describe("the Word import history", () => {
     ).toBeInTheDocument();
     expect(await screen.findByRole("table")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Nhập đề từ Word/PDF" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Dán đề" })).toBeNull();
   });
 
   it("offers to view, not continue uploading, an import waiting for files while processing is switched off", async () => {
@@ -147,6 +150,7 @@ describe("the Word import history", () => {
     expect(await screen.findByText("Chưa có lần nhập đề nào.")).toBeInTheDocument();
     await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu/);
     expect(screen.queryByRole("link", { name: "Nhập đề từ Word/PDF" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Dán đề" })).toBeNull();
   });
 
   it("reads its filters from the URL and offers to clear them when nothing matches", async () => {
@@ -176,5 +180,86 @@ describe("the Word import history", () => {
     items = [wordImport()];
     await user.click(screen.getByRole("button", { name: "Thử lại" }));
     expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+  it("offers six honest status filters, both entry links and resets page while preserving search and size", async () => {
+    const { user, router } = renderHistory("/teacher/imports?q=hk1&page=3&size=30");
+    await screen.findByText("Không có lần nhập nào khớp bộ lọc.");
+    const filters = screen.getByRole("group", { name: "Lọc theo trạng thái" });
+    const buttons = within(filters).getAllByRole("button");
+    expect(buttons).toHaveLength(6);
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "Tất cả trạng thái",
+      "Đang xử lý",
+      "Sẵn sàng rà soát",
+      "Xử lý không thành công",
+      "Đã tạo bản nháp",
+      "Đã huỷ",
+    ]);
+    expect(queries[0]?.get("page")).toBe("3");
+    expect(queries[0]?.get("limit")).toBe("30");
+    expect(screen.getByRole("link", { name: "Dán đề" })).toHaveAttribute(
+      "href",
+      "/teacher/imports/new?source=paste",
+    );
+    await user.click(within(filters).getByRole("button", { name: "Sẵn sàng rà soát" }));
+    await waitFor(() =>
+      expect(router.state.location.search).toBe("?q=hk1&size=30&status=needs_review"),
+    );
+    await waitFor(() => expect(queries.at(-1)?.get("status")).toBe("needs_review"));
+    expect(queries.at(-1)?.get("page")).toBe("1");
+    expect(queries.at(-1)?.get("limit")).toBe("30");
+  });
+
+  it("requests originals only on a menu action and reports a download refusal", async () => {
+    items = [wordImport()];
+    const requested: string[] = [];
+    server.use(
+      http.get(
+        `${BASE}/teacher/imports/:id/sources/:sourceId/download`,
+        ({ params }) => {
+          requested.push(String(params.sourceId));
+          return new Response(null, { status: 503 });
+        },
+      ),
+    );
+    const { user } = renderHistory();
+    await screen.findByRole("table");
+    expect(requested).toEqual([]);
+    await user.click(
+      screen.getByRole("button", { name: "Thao tác với Đề thi học kỳ 1" }),
+    );
+    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
+    await user.click(
+      screen.getByRole("menuitem", { name: "Tải bản gốc de-thi-hk1.docx" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không tải được tệp gốc.",
+    );
+    expect(requested).toEqual([items[0]!.sources[0]!.id]);
+  });
+
+  it("keeps removed source metadata and disables every original download", async () => {
+    items = [
+      wordImport({
+        status: "committed",
+        testId: TEST_ID,
+        filesRemovedAt: "2026-10-01T00:00:00Z",
+      }),
+    ];
+    const { user } = renderHistory();
+    await screen.findByRole("table");
+    expect(screen.getByText("de-thi-hk1.docx")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tệp đã được xoá theo chính sách lưu trữ."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Mở đề Đề thi học kỳ 1" })).toHaveAttribute(
+      "href",
+      `/teacher/tests/${TEST_ID}/edit`,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Thao tác với Đề thi học kỳ 1" }),
+    );
+    for (const item of screen.getAllByRole("menuitem"))
+      expect(item).toHaveAttribute("data-disabled");
   });
 });

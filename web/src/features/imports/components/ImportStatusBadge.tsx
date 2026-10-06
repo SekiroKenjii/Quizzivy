@@ -18,10 +18,10 @@ type Variant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
 
 const LOOK: Record<ImportStatus, { icon: LucideIcon; variant: Variant }> = {
   awaiting_sources: { icon: FileUp, variant: "outline" },
-  queued: { icon: Clock, variant: "outline" },
-  processing: { icon: Cog, variant: "secondary" },
+  queued: { icon: Clock, variant: "info" },
+  processing: { icon: Cog, variant: "info" },
   needs_review: { icon: ListChecks, variant: "warning" },
-  committing: { icon: Hourglass, variant: "secondary" },
+  committing: { icon: Hourglass, variant: "info" },
   committed: { icon: CircleCheck, variant: "success" },
   failed: { icon: CircleAlert, variant: "danger" },
   cancelled: { icon: Ban, variant: "outline" },
