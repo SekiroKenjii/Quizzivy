@@ -13,6 +13,8 @@ const BASE = "http://localhost:8080";
 
 function question(overrides: Partial<Record<string, unknown>> = {}) {
   return {
+    level: null,
+    skill: null,
     id: "018f0000-0000-7000-8000-0000000000b1",
     type: "single_choice" as const,
     prompt: "Người phụ nữ đề nghị làm gì?",
@@ -41,6 +43,23 @@ beforeEach(() => {
       requests.push(new URL(request.url));
       return contractJson("/teacher/questions", "get", 200, {
         facets: {
+          levels: {
+            pre_a1: 0,
+            a1: 0,
+            a2: 0,
+            b1: 0,
+            b2: 0,
+            c1: 0,
+            c2: 0,
+          },
+          skills: {
+            grammar: 0,
+            vocabulary: 0,
+            reading: 0,
+            listening: 0,
+            writing: 0,
+            speaking: 0,
+          },
           all: 0,
           single_choice: 0,
           multiple_choice: 0,
@@ -117,6 +136,23 @@ describe("the question bank list", () => {
         const page = Number(url.searchParams.get("page") ?? "1");
         return contractJson("/teacher/questions", "get", 200, {
           facets: {
+            levels: {
+              pre_a1: 0,
+              a1: 0,
+              a2: 0,
+              b1: 0,
+              b2: 0,
+              c1: 0,
+              c2: 0,
+            },
+            skills: {
+              grammar: 0,
+              vocabulary: 0,
+              reading: 0,
+              listening: 0,
+              writing: 0,
+              speaking: 0,
+            },
             all: 0,
             single_choice: 0,
             multiple_choice: 0,
@@ -158,6 +194,23 @@ describe("the question bank list", () => {
       http.get(`${BASE}/teacher/questions`, () =>
         contractJson("/teacher/questions", "get", 200, {
           facets: {
+            levels: {
+              pre_a1: 0,
+              a1: 0,
+              a2: 0,
+              b1: 0,
+              b2: 0,
+              c1: 0,
+              c2: 0,
+            },
+            skills: {
+              grammar: 0,
+              vocabulary: 0,
+              reading: 0,
+              listening: 0,
+              writing: 0,
+              speaking: 0,
+            },
             all: 0,
             single_choice: 0,
             multiple_choice: 0,
@@ -187,6 +240,23 @@ describe("the question bank list", () => {
       http.get(`${BASE}/teacher/questions`, () =>
         contractJson("/teacher/questions", "get", 200, {
           facets: {
+            levels: {
+              pre_a1: 0,
+              a1: 0,
+              a2: 0,
+              b1: 0,
+              b2: 0,
+              c1: 0,
+              c2: 0,
+            },
+            skills: {
+              grammar: 0,
+              vocabulary: 0,
+              reading: 0,
+              listening: 0,
+              writing: 0,
+              speaking: 0,
+            },
             all: 0,
             single_choice: 0,
             multiple_choice: 0,
@@ -218,6 +288,23 @@ describe("the question bank list", () => {
       http.get(`${BASE}/teacher/questions`, () =>
         contractJson("/teacher/questions", "get", 200, {
           facets: {
+            levels: {
+              pre_a1: 0,
+              a1: 0,
+              a2: 0,
+              b1: 0,
+              b2: 0,
+              c1: 0,
+              c2: 0,
+            },
+            skills: {
+              grammar: 0,
+              vocabulary: 0,
+              reading: 0,
+              listening: 0,
+              writing: 0,
+              speaking: 0,
+            },
             all: 0,
             single_choice: 0,
             multiple_choice: 0,
@@ -270,6 +357,23 @@ describe("the question bank list", () => {
         listings += 1;
         return contractJson("/teacher/questions", "get", 200, {
           facets: {
+            levels: {
+              pre_a1: 0,
+              a1: 0,
+              a2: 0,
+              b1: 0,
+              b2: 0,
+              c1: 0,
+              c2: 0,
+            },
+            skills: {
+              grammar: 0,
+              vocabulary: 0,
+              reading: 0,
+              listening: 0,
+              writing: 0,
+              speaking: 0,
+            },
             all: 0,
             single_choice: 0,
             multiple_choice: 0,

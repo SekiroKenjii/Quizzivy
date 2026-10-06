@@ -1,7 +1,7 @@
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 
-export type GroupBundle = components["schemas"]["QuestionGroupBundle"];
+export type GroupBundle = components["schemas"]["StoredQuestionGroupBundle"];
 export type StoredGroup = components["schemas"]["StoredQuestionGroup"];
 export type GroupSummary = components["schemas"]["QuestionGroupSummary"];
 export type GroupCreateInput = components["schemas"]["GroupCreateInput"];

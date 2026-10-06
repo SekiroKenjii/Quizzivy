@@ -1,6 +1,9 @@
 package domain
 
-import "encoding/json"
+import (
+	"encoding/json"
+	questions "quizzivy/internal/modules/questions/domain"
+)
 
 // DraftContent is the whole outline, resolved against the bank, ready to validate and
 // freeze.
@@ -28,6 +31,8 @@ type DraftQuestion struct {
 	SourceID           string
 	Ordinal            int
 	Type               string
+	Level              *questions.Level
+	Skill              *questions.Skill
 	Prompt             string
 	MediaAssetID       *string
 	MediaAssetKind     *string

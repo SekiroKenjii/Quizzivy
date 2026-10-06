@@ -3287,6 +3287,10 @@ export interface components {
         };
         /** @enum {string} */
         QuestionType: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer";
+        /** @enum {string} */
+        QuestionLevel: "pre_a1" | "a1" | "a2" | "b1" | "b2" | "c1" | "c2";
+        /** @enum {string} */
+        QuestionSkill: "grammar" | "vocabulary" | "reading" | "listening" | "writing" | "speaking";
         /** @description Present if and only if the attached asset is audio (§7). */
         AudioPolicy: {
             /**
@@ -3483,10 +3487,29 @@ export interface components {
             true_false: number;
             fill_blank: number;
             short_answer: number;
+            levels: {
+                pre_a1: number;
+                a1: number;
+                a2: number;
+                b1: number;
+                b2: number;
+                c1: number;
+                c2: number;
+            };
+            skills: {
+                grammar: number;
+                vocabulary: number;
+                reading: number;
+                listening: number;
+                writing: number;
+                speaking: number;
+            };
         };
         AdminQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
+            level: components["schemas"]["QuestionLevel"] | null;
+            skill: components["schemas"]["QuestionSkill"] | null;
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             /**
              * @description Legacy Markdown, or exact plain projection when promptContent is present. Markdown is rendered with rehype-sanitize — never
@@ -3735,12 +3758,20 @@ export interface components {
             group: components["schemas"]["QuestionGroup"];
             questions: components["schemas"]["GroupQuestionInput"][];
         };
+        StoredQuestionGroupBundle: {
+            group: components["schemas"]["QuestionGroup"];
+            questions: components["schemas"]["StoredGroupQuestionInput"][];
+        };
         GroupQuestionInput: {
             id: components["schemas"]["Uuid"];
             input: components["schemas"]["QuestionInput"];
         };
+        StoredGroupQuestionInput: {
+            id: components["schemas"]["Uuid"];
+            input: components["schemas"]["StoredQuestionInput"];
+        };
         StoredQuestionGroup: {
-            bundle: components["schemas"]["QuestionGroupBundle"];
+            bundle: components["schemas"]["StoredQuestionGroupBundle"];
             /** Format: uuid */
             ownerSectionId: string | null;
             /** Format: int64 */
@@ -3830,6 +3861,8 @@ export interface components {
             questionCount: number;
             /** @description Draft questions with their own audio or a shared group recording, counted once per question. Backs A-03's headphone badge. */
             audioCount: number;
+            /** @description Sorted distinct non-null skills of the current draft, including grouped members. */
+            skills: components["schemas"]["QuestionSkill"][];
             /** @description The **draft** outline. Published content lives in versions. */
             sections: components["schemas"]["TestSection"][];
             createdAt: components["schemas"]["Timestamp"];
@@ -4463,6 +4496,59 @@ export interface components {
          */
         QuestionInput: {
             type: components["schemas"]["QuestionType"];
+            level?: components["schemas"]["QuestionLevel"] | null;
+            skill?: components["schemas"]["QuestionSkill"] | null;
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
+            /** @description Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown. */
+            prompt: string;
+            /** Format: uuid */
+            mediaAssetId?: string | null;
+            /** @description Required if and only if the asset is audio (§7). */
+            audio?: components["schemas"]["AudioPolicy"] | null;
+            /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */
+            transcript?: string | null;
+            /** @description Order in the array is the stored ordinal. */
+            options?: {
+                /**
+                 * Format: uuid
+                 * @description Omit to create.
+                 */
+                id?: string | null;
+                content?: components["schemas"]["OptionContent"] | null;
+                text: string;
+                isCorrect: boolean;
+            }[];
+            blanks?: {
+                /** Format: uuid */
+                id?: string | null;
+                gapId?: string | null;
+                ordinal: number;
+                acceptedAnswers: string[];
+                /** @default false */
+                caseSensitive: boolean;
+            }[];
+            points: components["schemas"]["Points"];
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            explanation?: string | null;
+            /** @description `short_answer` only. Rejected on any other type. */
+            sampleAnswer?: string | null;
+            tags?: string[];
+        };
+        /**
+         * @description Stored editable content used by teacher reads, bodyless copies and version
+         *     restoration. Existing choice arrays retain their length; the eight-option
+         *     limit applies to authoring requests. Cross-field rules that a single
+         *     schema cannot express — single_choice and true_false need exactly one correct
+         *     option (true_false has exactly two options), multiple_choice needs at least one correct
+         *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
+         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+         *     server and again at publish (§8). Failing them returns
+         *     `VALIDATION_FAILED` with per-field `details`.
+         */
+        StoredQuestionInput: {
+            type: components["schemas"]["QuestionType"];
+            level: components["schemas"]["QuestionLevel"] | null;
+            skill: components["schemas"]["QuestionSkill"] | null;
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             /** @description Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown. */
             prompt: string;
@@ -5930,6 +6016,9 @@ export interface operations {
             query?: {
                 type?: components["schemas"]["QuestionType"][];
                 tag?: string[];
+                level?: components["schemas"]["QuestionLevel"][];
+                skill?: components["schemas"]["QuestionSkill"][];
+                tagMatch?: "any" | "all";
                 /** @description A-06's "Chỉ câu có audio". */
                 hasAudio?: boolean;
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */

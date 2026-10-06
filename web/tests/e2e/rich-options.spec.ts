@@ -10,6 +10,8 @@ test("builder flushes rich edits before switching questions and previews the sav
   const testID = "018f0000-0000-7000-8000-0000000000a1";
   const secondID = "018f0000-0000-7000-8000-0000000000b2";
   let question: components["schemas"]["AdminQuestion"] = {
+    level: null,
+    skill: null,
     id: QUESTION_ID,
     type: "single_choice",
     prompt: "First question",
@@ -50,6 +52,7 @@ test("builder flushes rich edits before switching questions and previews the sav
     ...sessionAs(adminUser),
     [`GET /teacher/tests/${testID}`]: {
       body: {
+        skills: [],
         id: testID,
         title: "Rich builder",
         status: "draft",
@@ -83,6 +86,23 @@ test("builder flushes rich edits before switching questions and previews the sav
         total: 0,
         bankTotal: 0,
         facets: {
+          levels: {
+            pre_a1: 0,
+            a1: 0,
+            a2: 0,
+            b1: 0,
+            b2: 0,
+            c1: 0,
+            c2: 0,
+          },
+          skills: {
+            grammar: 0,
+            vocabulary: 0,
+            reading: 0,
+            listening: 0,
+            writing: 0,
+            speaking: 0,
+          },
           all: 0,
           single_choice: 0,
           multiple_choice: 0,
@@ -140,6 +160,8 @@ test("bank formatting survives save and reload without changing the answer key",
   page,
 }) => {
   let question: components["schemas"]["AdminQuestion"] = {
+    level: null,
+    skill: null,
     id: QUESTION_ID,
     type: "single_choice",
     prompt: "Choose the underlined sound",
@@ -188,6 +210,23 @@ test("bank formatting survives save and reload without changing the answer key",
         total: 0,
         bankTotal: 0,
         facets: {
+          levels: {
+            pre_a1: 0,
+            a1: 0,
+            a2: 0,
+            b1: 0,
+            b2: 0,
+            c1: 0,
+            c2: 0,
+          },
+          skills: {
+            grammar: 0,
+            vocabulary: 0,
+            reading: 0,
+            listening: 0,
+            writing: 0,
+            speaking: 0,
+          },
           all: 0,
           single_choice: 0,
           multiple_choice: 0,

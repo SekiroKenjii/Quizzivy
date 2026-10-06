@@ -56,7 +56,7 @@ func readFrozenGroup(ctx context.Context, tx pgx.Tx, id string) (domain.GroupBun
 func readFrozenMembers(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundle) error {
 	rows, err := tx.Query(ctx, `SELECT q.id::text,q.type::text,q.prompt,q.prompt_content,q.explanation_content,q.points::text,
 		q.media_asset_id::text,q.media_asset_kind::text,q.audio_max_plays,q.audio_allow_seek,q.audio_show_transcript_after,
-		q.transcript,q.explanation,q.sample_answer,m.ordinal,m.option_order
+		q.transcript,q.explanation,q.sample_answer,m.ordinal,m.option_order,q.level,q.skill
 		FROM app.test_version_group_members m JOIN app.test_version_questions q ON q.id=m.question_id
 		WHERE m.group_id=$1 ORDER BY m.ordinal`, bundle.Group.ID)
 	if err != nil {
@@ -72,7 +72,7 @@ func readFrozenMembers(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundl
 		var maxPlays *int
 		in := &question.Input
 		if err := rows.Scan(&question.ID, &in.Type, &in.Prompt, &in.PromptContent, &in.ExplanationContent, &in.Points,
-			&in.MediaAssetID, &question.MediaAssetKind, &maxPlays, &allow, &show, &in.Transcript, &in.Explanation, &in.SampleAnswer, &ordinal, &member.OptionOrder); err != nil {
+			&in.MediaAssetID, &question.MediaAssetKind, &maxPlays, &allow, &show, &in.Transcript, &in.Explanation, &in.SampleAnswer, &ordinal, &member.OptionOrder, &in.Level, &in.Skill); err != nil {
 			return err
 		}
 		if ordinal != len(bundle.Questions) {

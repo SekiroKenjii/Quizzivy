@@ -84,6 +84,8 @@ function review(): AttemptReview {
     },
     questions: questions.map((question, index) => ({
       ...question,
+      level: null,
+      skill: null,
       type: index === 1 ? "short_answer" : "single_choice",
       tags: [],
       blanks: [],

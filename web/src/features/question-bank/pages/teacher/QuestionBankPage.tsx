@@ -531,7 +531,7 @@ function FilterRail({
   onTags,
   onAudioOnly,
 }: Readonly<{
-  facets: Record<string, number> | undefined;
+  facets: Record<QuestionType | "all", number> | undefined;
   types: readonly QuestionType[];
   tags: readonly string[];
   shownTags: readonly string[];
