@@ -9,7 +9,12 @@ import { toast } from "@/components/ui/sonner";
 import { reopenAssignment, type Assignment } from "@/features/assignments/api";
 import type { ReopenChoice } from "@/features/assignments/components/ReopenMenu";
 import { ApiError } from "@/lib/api/errors";
-import { formatMoment, fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
+import {
+  formatMoment,
+  fromDateTimeInput,
+  toDateTimeInput,
+  useDisplayTimeZone,
+} from "@/lib/i18n/datetime";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -31,6 +36,7 @@ export function ReopenDialog({
   onOpenChange: (open: boolean) => void;
   onDone: () => Promise<void> | void;
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const [picked, setPicked] = useState(() =>
     toDateTimeInput(new Date(Date.now() + DAY_MS)),

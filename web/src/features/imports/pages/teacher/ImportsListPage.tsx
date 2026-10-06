@@ -26,7 +26,11 @@ import { Pager } from "@/components/shared/Pager";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage } from "@/hooks/usePage";
-import { formatDateTime, formatRelative } from "@/lib/i18n/datetime";
+import {
+  formatDateTime,
+  formatRelative,
+  useDisplayTimeZone,
+} from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
@@ -48,6 +52,7 @@ const ALL = "all";
 const HISTORY_POLL_MS = 5000;
 
 export default function ImportsListPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const locale = useLocale();
   const { params, setParams, setFilter } = useListFilters();

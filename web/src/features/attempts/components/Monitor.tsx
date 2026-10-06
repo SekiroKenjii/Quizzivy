@@ -34,7 +34,7 @@ import { assignmentDetailLocation } from "@/features/assignments/pages/teacher/a
 import { scoreText } from "@/features/assignments/studentTime";
 import { useCan } from "@/features/auth/permissions";
 import { usePage, usePageSize } from "@/hooks/usePage";
-import { compactMoment } from "@/lib/i18n/datetime";
+import { compactMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { pageRange } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
@@ -76,6 +76,7 @@ export function Monitor({
   onOpen: (attemptId: string) => void;
   onRefresh: () => Promise<void>;
 }>) {
+  const zone = useDisplayTimeZone();
   const { t } = useTranslation();
   const locale = useLocale();
   const location = useLocation();
@@ -204,12 +205,12 @@ export function Monitor({
         showFrom: 940,
         cell: (row) => (
           <span className="text-muted-fg tabular-nums">
-            {row.submittedAt ? compactMoment(row.submittedAt) : "—"}
+            {row.submittedAt ? compactMoment(row.submittedAt, zone) : "—"}
           </span>
         ),
       },
     ],
-    [t, locale],
+    [t, locale, zone],
   );
   const change = (key: string, value: string) =>
     navigate(assignmentDetailLocation(location, { [key]: value, page: null }), {

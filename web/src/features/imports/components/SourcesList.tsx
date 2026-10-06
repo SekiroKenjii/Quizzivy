@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/features/media/format";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, failureMessage } from "@/lib/api/errors";
-import { formatDateTime } from "@/lib/i18n/datetime";
+import { formatDateTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { downloadImportSource, type ImportSource } from "../api";
 
@@ -24,6 +24,7 @@ export function SourcesList({
   pendingUploads: number;
   removed?: boolean;
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const locale = useLocale();
   const [busy, setBusy] = useState<string | null>(null);

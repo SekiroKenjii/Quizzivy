@@ -11,6 +11,7 @@ import {
   formatTime,
   weekdayDate,
   weekdayShort,
+  useDisplayTimeZone,
 } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import type { ComingUpPill, ComingUpRow } from "../studentHome";
@@ -40,6 +41,7 @@ export function ComingUp({
   rows,
   now,
 }: Readonly<{ rows: readonly ComingUpRow[]; now: Date }>) {
+  useDisplayTimeZone();
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const heading = useId();

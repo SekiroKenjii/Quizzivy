@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -14,6 +14,11 @@ import { useLogout } from "@/features/auth/useSession";
 import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
 import { studentUser } from "@tests/support/fixtures";
+
+vi.mock("@/lib/drafts/store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/drafts/store")>()),
+  clearAuthoringDrafts: async () => undefined,
+}));
 
 const BASE = "http://localhost:8080";
 

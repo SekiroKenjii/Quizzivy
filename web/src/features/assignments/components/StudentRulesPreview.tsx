@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { IntegrityPolicy, ReviewPolicy } from "@/features/assignments/api";
 import { studentRules } from "@/features/assignments/studentRules";
 import type { Locale } from "@/lib/i18n";
-import { fromDateTimeInput } from "@/lib/i18n/datetime";
+import { APP_TIME_ZONE, fromDateTimeInput } from "@/lib/i18n/datetime";
 
 /**
  * StudentRulesPreview is the teacher's "what students will read" panel: the
@@ -37,6 +37,7 @@ export function StudentRulesPreview({
     t,
     i18n.language as Locale,
     now,
+    APP_TIME_ZONE,
   );
 
   return (

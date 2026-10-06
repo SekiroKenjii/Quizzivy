@@ -3,7 +3,7 @@ import { Check, CircleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { AutosaveStatus } from "@/features/tests/useAutosave";
-import { formatTime } from "@/lib/i18n/datetime";
+import { formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 
 /**
  * §8: autosave is reported in words, never as a spinner that leaves the teacher
@@ -18,6 +18,7 @@ export function AutosaveStatusLabel({
   onRetry?: () => void;
   staleLabel?: string;
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
 
   if (status.kind === "idle") return null;
