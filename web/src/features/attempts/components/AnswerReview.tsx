@@ -8,6 +8,11 @@ import type { AdminQuestion, ReviewAnswer } from "../api";
 import { OPTION, optionKey } from "./answerStyles";
 import type { TFunction } from "i18next";
 
+type ReviewQuestion = Pick<
+  AdminQuestion,
+  "type" | "prompt" | "promptContent" | "media" | "options" | "blanks"
+>;
+
 /**
  * A question as the teacher reads it after the fact: the prompt, the
  * student's answer against the key, and the audio if there was any (G-03).
@@ -16,7 +21,7 @@ export function AnswerReview({
   question,
   answer,
 }: Readonly<{
-  question: AdminQuestion;
+  question: ReviewQuestion;
   answer: ReviewAnswer | undefined;
 }>) {
   const given = answer?.answer ?? null;
@@ -45,7 +50,7 @@ export function AnswerReview({
 function Body({
   question,
   given,
-}: Readonly<{ question: AdminQuestion; given: Answer | null }>) {
+}: Readonly<{ question: ReviewQuestion; given: Answer | null }>) {
   const { t } = useTranslation();
   switch (question.type) {
     case "short_answer":

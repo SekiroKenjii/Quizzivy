@@ -17,6 +17,19 @@ export type AdminQuestion = components["schemas"]["AdminQuestion"];
 export type AttemptScore = components["schemas"]["AttemptScore"];
 export type Attempt = components["schemas"]["Attempt"];
 export type AttemptStatus = components["schemas"]["AttemptStatus"];
+export type GradingQueue = components["schemas"]["GradingQueue"];
+export type GradingQueueItem = components["schemas"]["GradingQueueItem"];
+export type GradingQueueParams = NonNullable<
+  paths["/teacher/grading/queue"]["get"]["parameters"]["query"]
+>;
+
+/** listGradingQueue reads complete counts and the current pending-answer prefix. */
+export function listGradingQueue(params: GradingQueueParams, signal?: AbortSignal) {
+  return api("get", "/teacher/grading/queue", {
+    query: params,
+    ...(signal ? { signal } : {}),
+  });
+}
 
 export function getMonitor(assignmentId: string, signal?: AbortSignal) {
   return api("get", "/teacher/assignments/{id}/attempts", {
@@ -104,12 +117,19 @@ export interface GradeItem {
   comment?: string | null;
 }
 
-export function gradeAttempt(id: string, items: GradeItem[]) {
-  return api("post", "/teacher/attempts/{id}/grade", { path: { id }, body: { items } });
+export function gradeAttempt(id: string, items: GradeItem[], signal?: AbortSignal) {
+  return api("post", "/teacher/attempts/{id}/grade", {
+    path: { id },
+    body: { items },
+    ...(signal ? { signal } : {}),
+  });
 }
 
-export function finishGrading(id: string) {
-  return api("post", "/teacher/attempts/{id}/finish-grading", { path: { id } });
+export function finishGrading(id: string, signal?: AbortSignal) {
+  return api("post", "/teacher/attempts/{id}/finish-grading", {
+    path: { id },
+    ...(signal ? { signal } : {}),
+  });
 }
 
 /** The monitor's "settled" states: the paper is out of the student's hands. */
