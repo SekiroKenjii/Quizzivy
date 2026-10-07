@@ -62,9 +62,13 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
 
   const title = `E2E 1a — ${Date.now()}`;
-  await page.getByLabel("Tên đề thi").fill(title);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).fill(title);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần" }).click();
-  await expect(page.getByText("Phần 1")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Phần 1 \d+ · [\d.,]+đ$/ }),
+  ).toBeVisible();
 
   // ------------------------------------------------------- single_choice
   await addQuestion(page, "Một đáp án", "They ___ to the museum last weekend.");

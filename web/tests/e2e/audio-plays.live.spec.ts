@@ -24,9 +24,13 @@ async function publishListeningTest(page: Page, title: string) {
   await page.getByRole("button", { name: "Đề thi mới" }).first().click();
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
 
-  await page.getByLabel("Tên đề thi").fill(title);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).fill(title);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần" }).click();
-  await expect(page.getByText("Phần 1")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Phần 1 \d+ · [\d.,]+đ$/ }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
   await page.getByLabel("Nội dung câu hỏi").fill("Người phụ nữ đề nghị làm gì?");

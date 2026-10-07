@@ -17,18 +17,22 @@ test("mixed builder saves new sections, moves complete groups, copies context an
   await page.getByRole("button", { name: "Đề thi mới", exact: true }).click();
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
   const builderPath = new URL(page.url()).pathname;
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Tên đề thi", exact: true })
     .fill(`Đề nhóm ${Date.now()}`);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   const sections = page.locator("[data-outline-section]");
   await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
   await saved(page);
   const sectionCount = await sections.count();
   expect(sectionCount).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
   await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("End");
   await page
     .getByRole("textbox", { name: "Tên đề thi", exact: true })
     .pressSequentially(" kiểm tra");
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await saved(page);
   await expect(sections).toHaveCount(sectionCount);
   await page

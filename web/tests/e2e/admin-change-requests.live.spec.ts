@@ -10,7 +10,9 @@ import {
 test.use({ actionTimeout: 10_000 });
 
 async function addQuestion(page: Page, prompt: string) {
-  await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Thêm câu hỏi vào Phần 1", exact: true })
+    .click();
   const input = page.getByLabel("Nội dung câu hỏi", { exact: true });
   await expect(input).toHaveValue("Câu hỏi mới — nhập nội dung ở đây");
   await input.click();
@@ -42,7 +44,9 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
   const id = page.url().split("/").at(-2);
   const title = `Admin CR ${Date.now()}`;
-  await page.getByLabel("Tên đề thi").fill(title);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).fill(title);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
   await addQuestion(page, "First saved prompt");
   await page.getByLabel("Thẻ", { exact: true }).fill("Ngữ pháp CR");
@@ -71,7 +75,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
     "First updated promptly",
   );
 
-  await page.getByText("Phần 1", { exact: true }).dblclick();
+  await page.getByRole("button", { name: /^Phần 1 \d+ · [\d.,]+đ$/ }).dblclick();
   await page.getByLabel("Tên phần").fill("Grammar");
   await page.getByLabel("Tên phần").press("Enter");
   await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
