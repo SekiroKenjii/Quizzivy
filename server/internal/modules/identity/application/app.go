@@ -48,7 +48,8 @@ type Commands struct {
 	Logout               cqrs.CommandHandler[command.Logout, cqrs.Nothing]
 	PruneExpiredTokens   cqrs.CommandHandler[command.PruneExpiredTokens, int64]
 	Refresh              cqrs.CommandHandler[command.Refresh, model.RefreshResult]
-	Rename               cqrs.CommandHandler[command.Rename, domain.User]
+	UpdateProfile        cqrs.CommandHandler[command.UpdateProfile, domain.User]
+	UpdatePreferences    cqrs.CommandHandler[command.UpdatePreferences, domain.Preferences]
 	ResetStudentPassword cqrs.CommandHandler[command.ResetStudentPassword, string]
 	UnlinkGoogle         cqrs.CommandHandler[command.UnlinkGoogle, cqrs.Nothing]
 	UpdateStudent        cqrs.CommandHandler[command.UpdateStudent, domain.Student]
@@ -56,6 +57,7 @@ type Commands struct {
 
 type Queries struct {
 	CurrentUser    cqrs.QueryHandler[query.CurrentUser, domain.User]
+	EffectiveZone  cqrs.QueryHandler[query.EffectiveZone, string]
 	GetStudent     cqrs.QueryHandler[query.GetStudent, domain.Student]
 	ListStudents   cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
 	StudentAccount cqrs.QueryHandler[query.StudentAccount, domain.Account]
@@ -76,13 +78,15 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 			Logout:               command.LogoutHandler{Service: service},
 			PruneExpiredTokens:   command.PruneExpiredTokensHandler{Service: service},
 			Refresh:              command.RefreshHandler{Service: service},
-			Rename:               command.RenameHandler{Service: service},
+			UpdateProfile:        command.UpdateProfileHandler{Service: service},
+			UpdatePreferences:    command.UpdatePreferencesHandler{Service: service},
 			ResetStudentPassword: command.ResetStudentPasswordHandler{Students: students},
 			UnlinkGoogle:         command.UnlinkGoogleHandler{Service: service},
 			UpdateStudent:        command.UpdateStudentHandler{Students: students},
 		},
 		Queries: Queries{
 			CurrentUser:    query.CurrentUserHandler{Service: service},
+			EffectiveZone:  query.EffectiveZoneHandler{Service: service},
 			GetStudent:     query.GetStudentHandler{Students: students},
 			ListStudents:   query.ListStudentsHandler{Students: students},
 			StudentAccount: query.StudentAccountHandler{Students: students},

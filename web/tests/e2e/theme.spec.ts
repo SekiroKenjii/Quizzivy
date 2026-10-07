@@ -43,7 +43,8 @@ test("follows the device while the preference is system", async ({ page }) => {
 test("keeps a console not yet rebuilt light under a dark preference", async ({
   page,
 }) => {
-  await stubApi(page, sessionAs(adminUser));
+  const user = { ...adminUser, preferences: { theme: "dark" as const } };
+  await stubApi(page, sessionAs(user));
   await prefer(page, "dark");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/teacher/settings");
@@ -62,8 +63,9 @@ test("keeps a console not yet rebuilt light under a dark preference", async ({
 test("restores the dark preference after visiting old teacher settings through SPA links", async ({
   page,
 }) => {
+  const user = { ...adminUser, preferences: { theme: "dark" as const } };
   await stubApi(page, {
-    ...sessionAs(adminUser),
+    ...sessionAs(user),
     "GET /teacher/dashboard": async (route) => {
       await route.fulfill({
         status: 200,

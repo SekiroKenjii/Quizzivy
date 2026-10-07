@@ -1,5 +1,13 @@
+import {
+  chooseAccountPreference,
+  retryAccountPreference,
+  refreshAccount,
+  runAccountMutation,
+  saveProfilePatch,
+  useAccountPreferenceStatus,
+} from "@/features/auth/accountPreferences";
 import { PasswordInput } from "@/components/shared/PasswordInput";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
@@ -10,12 +18,7 @@ import { toast } from "@/components/ui/sonner";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  changePassword,
-  fetchCurrentUser,
-  openDocsSession,
-  updateProfile,
-} from "@/features/auth/api";
+import { changePassword, openDocsSession } from "@/features/auth/api";
 import {
   changePasswordSchema,
   type ChangePasswordValues,
@@ -27,8 +30,8 @@ import {
 } from "@/features/auth/google/useGoogleSignIn";
 import { api, BASE_URL } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
-import { SUPPORTED_LOCALES, setLocale, type Locale } from "@/lib/i18n";
-import { useAuthStore } from "@/stores/auth";
+import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { authStore, useAuthStore } from "@/stores/auth";
 
 function Section({
   title,
@@ -60,24 +63,38 @@ function Section({
 export function ProfileSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
-  const setUser = useAuthStore((s) => s.setUser);
+  const mounted = useMounted();
   const [error, setError] = useState<string | null>(null);
 
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
-    values: { fullName: user?.fullName ?? "" },
+    defaultValues: { fullName: user?.fullName ?? "" },
     mode: "onTouched",
   });
   const nameError = form.formState.errors.fullName;
+  const dirty = form.formState.isDirty;
+  const fullName = user?.fullName ?? "";
+  const { reset } = form;
+  useEffect(() => {
+    if (!dirty) reset({ fullName });
+  }, [dirty, fullName, reset]);
 
   const onSubmit = form.handleSubmit(async (values) => {
+    const lease = authStore.captureActor();
+    const submittedName = form.getValues("fullName");
     setError(null);
     try {
-      setUser(await updateProfile(values.fullName));
+      const saved = await saveProfilePatch({ fullName: values.fullName });
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
+      form.reset(
+        { fullName: saved.fullName },
+        { keepValues: form.getValues("fullName") !== submittedName },
+      );
       // F-08: a completed action is confirmed by a toast, not by a sentence
       // that stays on the screen and pushes the button under the pointer.
       toast(t("settings.profileSaved"));
     } catch (cause) {
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       setError(cause instanceof ApiError ? cause.message : t("api.failed"));
     }
   });
@@ -140,7 +157,7 @@ export function ProfileSection() {
 export function PasswordSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
-  const setUser = useAuthStore((s) => s.setUser);
+  const mounted = useMounted();
 
   const [error, setError] = useState<string | null>(null);
   const form = useForm<ChangePasswordValues>({
@@ -151,13 +168,17 @@ export function PasswordSection() {
   const newPasswordError = form.formState.errors.newPassword;
 
   const onSubmit = form.handleSubmit(async (values) => {
+    const lease = authStore.captureActor();
     setError(null);
     try {
-      await changePassword(values.currentPassword, values.newPassword);
-      setUser(await fetchCurrentUser());
+      await runAccountMutation(() =>
+        changePassword(values.currentPassword, values.newPassword),
+      );
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       form.reset();
       toast(t("settings.passwordChanged"));
     } catch (cause) {
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       setError(
         cause instanceof ApiError && cause.code === "PASSWORD_UNCHANGED"
           ? t("changePassword.errors.unchanged")
@@ -229,7 +250,7 @@ export function PasswordSection() {
 export function GoogleSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
-  const setUser = useAuthStore((s) => s.setUser);
+  const mounted = useMounted();
   const google = useGoogleSignIn();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -240,13 +261,15 @@ export function GoogleSection() {
   async function unlink() {
     setError(null);
     setPending(true);
+    const lease = authStore.captureActor();
     try {
-      await api("delete", "/auth/google/link");
-      setUser(await fetchCurrentUser());
+      await runAccountMutation(() => api("delete", "/auth/google/link"));
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
     } catch (cause) {
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       setError(cause instanceof ApiError ? cause.message : t("api.failed"));
     } finally {
-      setPending(false);
+      if (mounted.current && authStore.isCurrent(lease)) setPending(false);
     }
   }
 
@@ -312,18 +335,27 @@ export function GoogleSection() {
 
 export function LanguageSection() {
   const { t, i18n } = useTranslation();
+  const preferenceStatus = useAccountPreferenceStatus();
 
   return (
     <Section title={t("common.language")} labelledBy="settings-language">
-      <Segmented
-        label={t("common.language")}
-        value={i18n.language}
-        options={SUPPORTED_LOCALES.map((locale: Locale) => ({
-          value: locale,
-          label: t(`settings.locale.${locale}`),
-        }))}
-        onChange={(locale) => setLocale(locale as Locale)}
-      />
+      <fieldset
+        disabled={preferenceStatus.phase === "saving"}
+        className="m-0 min-w-0 border-0 p-0"
+      >
+        <Segmented
+          label={t("common.language")}
+          value={i18n.language}
+          options={SUPPORTED_LOCALES.map((locale: Locale) => ({
+            value: locale,
+            label: t(`settings.locale.${locale}`),
+          }))}
+          onChange={(locale) =>
+            void chooseAccountPreference({ locale: locale as Locale })
+          }
+        />
+      </fieldset>
+      <PreferenceNotice />
       {/* S-17 writes this under the switch; S-10's phone card is the tabs and
           nothing else, so the sentence arrives with the room for it. */}
       <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
@@ -361,7 +393,9 @@ export function ApiDocsSection() {
   const { t } = useTranslation();
   const [problem, setProblem] = useState<"blocked" | "failed" | null>(null);
   const [pending, setPending] = useState(false);
+  const mounted = useMounted();
   const open = () => {
+    const lease = authStore.captureActor();
     const tab = window.open("about:blank", "_blank");
     if (!tab) {
       setProblem("blocked");
@@ -373,14 +407,20 @@ export function ApiDocsSection() {
     openDocsSession()
       .then(
         () => {
+          if (!mounted.current || !authStore.isCurrent(lease)) {
+            tab.close();
+            return;
+          }
           tab.location.href = `${BASE_URL}/docs`;
         },
         () => {
           tab.close();
-          setProblem("failed");
+          if (mounted.current && authStore.isCurrent(lease)) setProblem("failed");
         },
       )
-      .finally(() => setPending(false));
+      .finally(() => {
+        if (mounted.current && authStore.isCurrent(lease)) setPending(false);
+      });
   };
   return (
     <Section title={t("settings.apiDocs.title")} labelledBy="settings-api-docs">
@@ -396,5 +436,62 @@ export function ApiDocsSection() {
         </p>
       ) : null}
     </Section>
+  );
+}
+
+function useMounted() {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  return mounted;
+}
+
+function PreferenceNotice() {
+  const { t } = useTranslation();
+  const status = useAccountPreferenceStatus();
+  const message = {
+    idle: "settings.preferenceSaved",
+    saving: "settings.preferenceSaving",
+    saved: "settings.preferenceSaved",
+    failed: "settings.preferenceFailed",
+  }[status.phase];
+  return (
+    <>
+      {status.phase !== "idle" && (
+        <p
+          role={status.phase === "failed" ? "alert" : "status"}
+          className="text-muted-fg mt-3 text-sm"
+        >
+          {t(message)}
+          {status.phase === "failed" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void retryAccountPreference()}
+            >
+              {t("common.retry")}
+            </Button>
+          )}
+        </p>
+      )}
+      {status.unsupportedZone && (
+        <p role="alert" className="text-muted-fg mt-3 text-sm">
+          {t("settings.accountZoneUnsupported")}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void refreshAccount().catch(() => undefined)}
+          >
+            {t("auth.transition.checkStatus")}
+          </Button>
+        </p>
+      )}
+    </>
   );
 }

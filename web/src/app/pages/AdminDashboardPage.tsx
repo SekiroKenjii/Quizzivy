@@ -23,7 +23,12 @@ import {
   type Assignment,
 } from "@/features/dashboard/api";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { compactMoment, weekdayDate, formatRelative } from "@/lib/i18n/datetime";
+import {
+  compactMoment,
+  weekdayDate,
+  formatRelative,
+  useDisplayTimeZone,
+} from "@/lib/i18n/datetime";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
@@ -35,6 +40,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
  * it is, and the one action that clears it.
  */
 export default function AdminDashboardPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const locale = useLocale();
   const navigate = useNavigate();

@@ -13,7 +13,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTick } from "@/hooks/useTick";
 import { ApiError } from "@/lib/api/errors";
 import type { Locale } from "@/lib/i18n";
-import { dayDate } from "@/lib/i18n/datetime";
+import { dayDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import { getAttemptResult, type AttemptResult } from "../api";
 import { ResultFailure, ResultSkeleton } from "../components/ResultStates";
@@ -115,6 +115,7 @@ function metaLine(
  * that the shell's header has it.
  */
 export default function ResultPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const { attemptId = "" } = useParams<{ attemptId: string }>();
   const wide = useMediaQuery("(min-width: 768px)");

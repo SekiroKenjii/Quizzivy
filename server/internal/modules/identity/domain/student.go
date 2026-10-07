@@ -25,6 +25,7 @@ type Student struct {
 // role derived from what that role holds now: "student" for a student-like
 // role and "admin" otherwise, as tokens and /auth/me derive it.
 type Account struct {
+	DisplayName        *string
 	ID                 string
 	Email              string
 	FullName           string

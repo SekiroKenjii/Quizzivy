@@ -1271,6 +1271,8 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         email: { type: string, format: email, maxLength: 254 }
         fullName: { type: string, minLength: 1, maxLength: 200 }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        avatarUrl: { type: string, format: uri, maxLength: 2048 }
         role: { $ref: '#/components/schemas/Role' }
         hasPassword:
           type: boolean
@@ -1283,6 +1285,24 @@ components:
           type: boolean
           description: Forces `/change-password`. Always false for Google-only users (§5.4).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    UserPreferences:
+      type: object
+      description: Stored account preferences; omitted keys use client defaults without materializing them.
+      additionalProperties: false
+      properties:
+        theme: { type: string, enum: [light, dark, system] }
+        compactTables: { type: boolean }
+        largerTestText: { type: boolean }
+        assignmentDefaults:
+          type: object
+          additionalProperties: false
+          properties:
+            durationMinutes: { type: integer, minimum: 1, maximum: 600 }
+            shuffleQuestions: { type: boolean }
+            showScore: { type: boolean }
+            blockCopyPaste: { type: boolean }
+            requireFullscreen: { type: boolean }
 
     Workspace:
       type: string
@@ -1312,6 +1332,12 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         email: { type: string, format: email, maxLength: 254 }
         fullName: { type: string, minLength: 1, maxLength: 200 }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        avatarUrl: { type: string, format: uri, maxLength: 2048 }
+        phone: { type: string, pattern: '^[0-9+ ]{6,20}$' }
+        locale: { type: string, enum: [vi, en] }
+        timeZone: { type: string, minLength: 1, maxLength: 64 }
+        preferences: { $ref: '#/components/schemas/UserPreferences' }
         role: { $ref: '#/components/schemas/Role' }
         hasPassword:
           type: boolean
@@ -4134,36 +4160,44 @@ paths:
       operationId: updateCurrentUser
       x-permission: self
       tags: [auth]
-      summary: Rename yourself
+      summary: Update your profile
       description: |
-        The one thing an account may change about itself, and the only write
-        behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
-
-        The name is the account's own; the email is not. An address is issued
-        by the teacher or arrives from Google, it is the login, and moving it
-        would move who the account is — so it stays read-only here and only
-        `PATCH /teacher/students/{id}` can change it. Role, password and provider
-        links each have their own endpoint for the same reason.
-
-        Bounds match `users_full_name_check` and createStudent.
+        Updates only supplied profile fields. Omission preserves a field;
+        null clears displayName or phone. Names are trimmed, while phone
+        keeps the literal accepted pattern. timeZone must be a valid stable
+        IANA zone or UTC; blank and Local are refused. Email, role, password,
+        provider links and photo changes use their separate operations.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [fullName]
+              minProperties: 1
               additionalProperties: false
               properties:
                 fullName: { type: string, minLength: 1, maxLength: 200 }
+                displayName:
+                  type: [string, 'null']
+                  minLength: 1
+                  maxLength: 80
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                phone:
+                  type: [string, 'null']
+                  pattern: '^[0-9+ ]{6,20}$'
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                locale: { type: string, enum: [vi, en] }
+                timeZone: { type: string, minLength: 1, maxLength: 64 }
       responses:
         '200':
-          description: Saved. The whole user, so the client can replace its session copy.
+          description: The whole persisted caller profile and permissions.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CurrentUser' }
         '400':
-          description: '`VALIDATION_FAILED` — the name is empty or too long.'
+          description: '`VALIDATION_FAILED` — a supplied field is invalid.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -8036,6 +8070,40 @@ paths:
         '204': { $ref: '#/components/responses/NoContent' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/preferences:
+    patch:
+      operationId: updatePreferences
+      x-permission: self
+      tags: [auth]
+      summary: Update your stored preferences
+      description: |
+        Merges supplied top-level keys into the caller's stored preferences;
+        assignmentDefaults replaces that whole nested object. False is a
+        supplied value and an empty object is a no-op. Null and unknown keys
+        are refused. Raw request bytes and the normalized merged JSONB object
+        each have an inclusive 8192-byte cap; exceeding either answers
+        400 VALIDATION_FAILED after the existing authentication gates.
+      x-max-body-bytes: 8192
+      x-body-limit-status: 400
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserPreferences' }
+      responses:
+        '200':
+          description: The merged persisted preferences, without materialized defaults.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserPreferences' }
+        '400':
+          description: '`VALIDATION_FAILED` — the shape or either byte cap is invalid.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Maintenance' }
 
   /me/summary:
     get:

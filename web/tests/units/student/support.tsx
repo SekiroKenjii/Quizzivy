@@ -5,6 +5,7 @@ import { http } from "msw";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { useAuthStore } from "@/stores/auth";
+import type { components } from "@/lib/api/schema";
 
 export const BASE = "http://localhost:8080";
 export const ASSIGNMENT = "018f0000-0000-7000-8000-0000000000d1";
@@ -120,8 +121,9 @@ export function renderAt(
   path: string,
   routes: RouteObject[],
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  user: components["schemas"]["CurrentUser"] = STUDENT,
 ) {
-  useAuthStore.getState().setSession("token", STUDENT);
+  useAuthStore.getState().setSession("token", user);
   const router = createMemoryRouter(
     [...routes, { path: "/app/attempts/:id", element: <p>engine</p> }],
     { initialEntries: [path] },

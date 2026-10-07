@@ -52,7 +52,7 @@ import { Pager } from "@/components/shared/Pager";
 import { RowMenu } from "@/components/shared/RowMenu";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { usePage } from "@/hooks/usePage";
-import { shortDate } from "@/lib/i18n/datetime";
+import { shortDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +62,7 @@ const TABS: Tab[] = ["all", "joinable", "archived"];
 
 /** §8's classes list, as the deck's G-08: archive and delete unused archived classes. */
 export default function ClassesListPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const bulk = useBulkSelection<Class>();

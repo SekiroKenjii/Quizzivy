@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { authStore, useAuthStore, type ActorLease } from "@/stores/auth";
+import { transitionStatus } from "@/lib/api/authTransition";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { buildAuthorizationRequest, rememberPending } from "./pkce";
 
@@ -9,11 +11,30 @@ export function googleSignInAvailable(): boolean {
   return typeof CLIENT_ID === "string" && CLIENT_ID.length > 0;
 }
 
-/** Starts the §5.3 flow by navigating the whole tab to Google. */
+/** useGoogleSignIn starts an actor-bound PKCE flow and ignores departed UI outcomes. */
 export function useGoogleSignIn() {
   const { t } = useTranslation();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const mounted = useRef(true);
+  const attempt = useRef(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const generation = useAuthStore((state) => state.actorGeneration);
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const [failure, setFailure] = useState<{
+    actor: ActorLease;
+    message: string;
+  } | null>(null);
+  const [pendingActor, setPendingActor] = useState<ActorLease | null>(null);
+  const error =
+    failure?.actor.generation === generation && failure.actor.userId === userId
+      ? failure.message
+      : null;
+  const pending =
+    pendingActor?.generation === generation && pendingActor.userId === userId;
 
   async function start(
     options: {
@@ -23,11 +44,23 @@ export function useGoogleSignIn() {
     } = {},
   ) {
     if (!CLIENT_ID) {
-      setError(t("login.googleUnavailable"));
+      setFailure({
+        actor: authStore.captureActor(),
+        message: t("login.googleUnavailable"),
+      });
       return;
     }
-    setError(null);
-    setPending(true);
+    if (transitionStatus().kind !== "idle") {
+      setFailure({
+        actor: authStore.captureActor(),
+        message: t("auth.transition.accountPending"),
+      });
+      return;
+    }
+    const lease = authStore.captureActor();
+    const ownAttempt = ++attempt.current;
+    setFailure(null);
+    setPendingActor(lease);
     try {
       const request = await buildAuthorizationRequest({
         clientId: CLIENT_ID,
@@ -35,11 +68,31 @@ export function useGoogleSignIn() {
         next: options.next,
         joinCode: options.joinCode,
       });
+      if (
+        !mounted.current ||
+        !authStore.isCurrent(lease) ||
+        attempt.current !== ownAttempt
+      )
+        return;
+      if (transitionStatus().kind !== "idle") {
+        setFailure({ actor: lease, message: t("auth.transition.accountPending") });
+        setPendingActor(null);
+        return;
+      }
       rememberPending(request.pending);
       window.location.assign(request.url);
     } catch {
-      setError(t("login.googleUnavailable"));
-      setPending(false);
+      if (
+        !mounted.current ||
+        !authStore.isCurrent(lease) ||
+        attempt.current !== ownAttempt
+      )
+        return;
+      setFailure({
+        actor: authStore.captureActor(),
+        message: t("login.googleUnavailable"),
+      });
+      setPendingActor(null);
     }
   }
 

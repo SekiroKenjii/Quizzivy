@@ -12,7 +12,12 @@ import { nextByClass, type ComingUpRow } from "@/features/assignments/studentHom
 import { JoinDialog } from "@/features/join/components/JoinDialog";
 import { useMinute } from "@/hooks/useTick";
 import type { Locale } from "@/lib/i18n";
-import { appDaysUntil, dayDate, formatTime } from "@/lib/i18n/datetime";
+import {
+  appDaysUntil,
+  dayDate,
+  formatTime,
+  useDisplayTimeZone,
+} from "@/lib/i18n/datetime";
 import { myClassesQuery, type MyClass } from "../api";
 
 const CARD = "bg-card shadow-card flex flex-col overflow-hidden rounded-2xl border";
@@ -46,6 +51,7 @@ function nextLine(next: ComingUpRow, now: Date, locale: Locale, t: TFunction): s
  * later refetch fails.
  */
 export default function StudentClassesPage() {
+  useDisplayTimeZone();
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const [joining, setJoining] = useState(false);

@@ -1,4 +1,12 @@
-import { useState } from "react";
+import {
+  chooseAccountPreference,
+  retryAccountPreference,
+  refreshAccount,
+  runAccountMutation,
+  saveProfilePatch,
+  useAccountPreferenceStatus,
+} from "@/features/auth/accountPreferences";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { TFunction } from "i18next";
@@ -18,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { changePassword, fetchCurrentUser, updateProfile } from "@/features/auth/api";
+import { changePassword } from "@/features/auth/api";
 import {
   changePasswordSchema,
   type ChangePasswordValues,
@@ -31,17 +39,13 @@ import {
 import { profileSchema, type ProfileValues } from "@/features/auth/profileSchema";
 import { api } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
-import { SUPPORTED_LOCALES, setLocale, type Locale } from "@/lib/i18n";
+import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { passwordRules, passwordStrength } from "@/lib/password";
-import { useLargerTestText, writeLargerTestText } from "@/lib/testText";
-import {
-  useThemePreference,
-  writeThemePreference,
-  type ThemePreference,
-} from "@/lib/theme";
+import { useLargerTestText } from "@/lib/testText";
+import { useThemePreference, type ThemePreference } from "@/lib/theme";
 import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/stores/auth";
+import { authStore, useAuthStore } from "@/stores/auth";
 
 const CARD = "bg-card shadow-card rounded-xl border";
 const FIELD = "flex flex-col gap-1.5";
@@ -82,24 +86,37 @@ export function StudentProfileSection() {
   const { t, i18n } = useTranslation();
   const fullName = useAuthStore((s) => s.user?.fullName);
   const email = useAuthStore((s) => s.user?.email);
-  const setUser = useAuthStore((s) => s.setUser);
+  const displayName = useAuthStore((s) => s.user?.displayName);
+  const preferenceStatus = useAccountPreferenceStatus();
+  const mounted = useMounted();
   const [failure, setFailure] = useState<string | null>(null);
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
-    values: { fullName: fullName ?? "" },
+    defaultValues: { fullName: fullName ?? "" },
     mode: "onTouched",
   });
   const nameError = form.formState.errors.fullName;
   const { isDirty, isSubmitting } = form.formState;
 
+  const { reset } = form;
+  useEffect(() => {
+    if (!isDirty) reset({ fullName: fullName ?? "" });
+  }, [fullName, isDirty, reset]);
+
   const save = form.handleSubmit(async (values) => {
+    const lease = authStore.captureActor();
+    const submittedName = form.getValues("fullName");
     setFailure(null);
     try {
-      const saved = await updateProfile(values.fullName);
-      setUser(saved);
-      form.reset({ fullName: saved.fullName });
+      const saved = await saveProfilePatch({ fullName: values.fullName });
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
+      form.reset(
+        { fullName: saved.fullName },
+        { keepValues: form.getValues("fullName") !== submittedName },
+      );
       notify.success(t("settings.profileSaved"));
     } catch (cause) {
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       setFailure(failureMessage(cause, t("api.failed")));
     }
   });
@@ -128,7 +145,12 @@ export function StudentProfileSection() {
         className={cn(CARD, "flex flex-col gap-4 p-4.5")}
       >
         <div className="flex items-center gap-3.5">
-          <Avatar name={fullName} size="56" tone="self" className="text-stat-sm" />
+          <Avatar
+            name={displayName ?? fullName}
+            size="56"
+            tone="self"
+            className="text-stat-sm"
+          />
         </div>
         <div className={FIELD}>
           <Label htmlFor={NAME} className={LABEL}>
@@ -179,7 +201,10 @@ export function StudentProfileSection() {
           </Label>
           <Select
             value={i18n.language}
-            onValueChange={(locale) => setLocale(locale as Locale)}
+            disabled={preferenceStatus.phase === "saving"}
+            onValueChange={(locale) =>
+              void chooseAccountPreference({ locale: locale as Locale })
+            }
           >
             <SelectTrigger id={LANGUAGE} size="lg" className="w-full pr-[11px]">
               <SelectValue />
@@ -193,6 +218,7 @@ export function StudentProfileSection() {
             </SelectContent>
           </Select>
         </div>
+        <PreferenceNotice />
       </section>
       {isDirty && (
         <div className="bg-card shadow-float sticky bottom-3 flex flex-wrap items-center gap-2.5 rounded-xl border py-2.5 pr-3 pl-4">
@@ -274,7 +300,7 @@ function meterHint(password: string, t: TFunction): string {
 
 function PasswordRow() {
   const { t } = useTranslation();
-  const setUser = useAuthStore((s) => s.setUser);
+  const mounted = useMounted();
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const form = useForm<ChangePasswordValues>({
@@ -293,16 +319,20 @@ function PasswordRow() {
   };
 
   const update = form.handleSubmit(async (values) => {
+    const lease = authStore.captureActor();
     setFailure(null);
     try {
-      await changePassword(values.currentPassword, values.newPassword);
-      const reread = await fetchCurrentUser().catch(() => null);
-      if (reread !== null) setUser(reread);
+      await runAccountMutation(
+        () => changePassword(values.currentPassword, values.newPassword),
+        true,
+      );
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       form.reset();
       setOpen(false);
       document.getElementById(KEY_TOGGLE)?.focus();
       notify.success(t("student.settings.passwordUpdated"));
     } catch (cause) {
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       setFailure(
         cause instanceof ApiError && cause.code === "PASSWORD_UNCHANGED"
           ? t("changePassword.errors.unchanged")
@@ -421,7 +451,7 @@ function GoogleRow() {
     (s) => s.user?.linkedProviders.includes("google") ?? false,
   );
   const hasPassword = useAuthStore((s) => s.user?.hasPassword ?? false);
-  const setUser = useAuthStore((s) => s.setUser);
+  const mounted = useMounted();
   const google = useGoogleSignIn();
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -433,14 +463,16 @@ function GoogleRow() {
   async function unlink() {
     setFailure(null);
     setPending(true);
+    const lease = authStore.captureActor();
     try {
-      await api("delete", "/auth/google/link");
-      setUser(await fetchCurrentUser());
+      await runAccountMutation(() => api("delete", "/auth/google/link"));
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       notify.success(t("student.settings.googleUnlinked"));
     } catch (cause) {
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       setFailure(failureMessage(cause, t("api.failed")));
     } finally {
-      setPending(false);
+      if (mounted.current && authStore.isCurrent(lease)) setPending(false);
     }
   }
 
@@ -512,15 +544,12 @@ function googleStatus(
     : t("login.googleUnavailable");
 }
 
-/**
- * StudentAppearanceSection is the Appearance card of the student's settings,
- * as the design deck draws it: the Light, Dark and Device themes, and "Larger
- * text in tests". Both apply at once and are kept in this browser.
- */
+/** StudentAppearanceSection previews and saves the account theme and larger-test-text choices. */
 export function StudentAppearanceSection() {
   const { t } = useTranslation();
   const preference = useThemePreference();
   const larger = useLargerTestText();
+  const preferenceStatus = useAccountPreferenceStatus();
   return (
     <section
       aria-label={t("student.settings.sections.appearance")}
@@ -539,7 +568,8 @@ export function StudentAppearanceSection() {
               "bg-card flex flex-col gap-2 rounded-lg border p-2 text-left",
               preference === theme && "border-primary ring-primary ring-1",
             )}
-            onClick={() => writeThemePreference(theme)}
+            disabled={preferenceStatus.phase === "saving"}
+            onClick={() => void chooseAccountPreference({ theme })}
           >
             <span
               data-swatch={theme}
@@ -568,9 +598,70 @@ export function StudentAppearanceSection() {
           checked={larger}
           aria-labelledby={LARGER}
           aria-describedby={`${LARGER}-hint`}
-          onCheckedChange={writeLargerTestText}
+          disabled={preferenceStatus.phase === "saving"}
+          onCheckedChange={(largerTestText) =>
+            void chooseAccountPreference({ largerTestText })
+          }
         />
       </div>
+      <PreferenceNotice />
     </section>
+  );
+}
+
+function useMounted() {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  return mounted;
+}
+
+function PreferenceNotice() {
+  const { t } = useTranslation();
+  const status = useAccountPreferenceStatus();
+  const message = {
+    idle: "settings.preferenceSaved",
+    saving: "settings.preferenceSaving",
+    saved: "settings.preferenceSaved",
+    failed: "settings.preferenceFailed",
+  }[status.phase];
+  return (
+    <>
+      {status.phase !== "idle" && (
+        <p
+          role={status.phase === "failed" ? "alert" : "status"}
+          className="text-muted-fg mt-3 text-sm"
+        >
+          {t(message)}
+          {status.phase === "failed" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void retryAccountPreference()}
+            >
+              {t("common.retry")}
+            </Button>
+          )}
+        </p>
+      )}
+      {status.unsupportedZone && (
+        <p role="alert" className="text-muted-fg mt-3 text-sm">
+          {t("settings.accountZoneUnsupported")}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void refreshAccount().catch(() => undefined)}
+          >
+            {t("auth.transition.checkStatus")}
+          </Button>
+        </p>
+      )}
+    </>
   );
 }

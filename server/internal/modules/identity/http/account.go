@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/identity/application/command"
@@ -36,48 +37,71 @@ func (h Identity) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserRe
 	return openapi.GetCurrentUser200JSONResponse(toCurrentUser(user, principal.Access.Permissions)), nil
 }
 
-// UpdateCurrentUser implements PATCH /auth/me: the "Hồ sơ" card's save.
+// UpdateCurrentUser applies the caller's supplied profile fields.
 func (h Identity) UpdateCurrentUser(ctx context.Context, request openapi.UpdateCurrentUserRequestObject) (openapi.UpdateCurrentUserResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
 	if !ok {
-		return openapi.UpdateCurrentUser401JSONResponse{
-			UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx)),
-		}, nil
+		return openapi.UpdateCurrentUser401JSONResponse{UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx))}, nil
 	}
 	if request.Body == nil {
-		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			httpx.Text(ctx, "Thiếu họ và tên.", "The name is missing."))), nil
+		return openapi.UpdateCurrentUser400JSONResponse(profileError(ctx, domain.ErrProfileEmpty)), nil
 	}
-
+	patch, err := profilePatch(*request.Body)
+	if err != nil {
+		return openapi.UpdateCurrentUser400JSONResponse(profileError(ctx, err)), nil
+	}
 	meta := httpx.RequestMetaFromContext(ctx)
-	user, err := h.app.Commands.Rename.Handle(ctx, command.Rename{
-		UserID:    principal.UserID,
-		FullName:  request.Body.FullName,
-		IP:        meta.IP,
-		UserAgent: meta.UserAgent,
-	})
-	switch {
-	case err == nil:
+	user, err := h.app.Commands.UpdateProfile.Handle(ctx, command.UpdateProfile{UserID: principal.UserID, Patch: patch, IP: meta.IP, UserAgent: meta.UserAgent})
+	if err == nil {
 		return openapi.UpdateCurrentUser200JSONResponse(toCurrentUser(user, principal.Access.Permissions)), nil
+	}
+	if errors.Is(err, domain.ErrAccountDisabled) || errors.Is(err, domain.ErrUserNotFound) {
+		return openapi.UpdateCurrentUser401JSONResponse{UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx))}, nil
+	}
+	if profileValidation(err) {
+		return openapi.UpdateCurrentUser400JSONResponse(profileError(ctx, err)), nil
+	}
+	return nil, err
+}
 
+func profilePatch(body openapi.UpdateCurrentUserJSONRequestBody) (domain.ProfilePatch, error) {
+	p := domain.ProfilePatch{FullName: body.FullName, DisplayNameSet: len(body.DisplayName) > 0, PhoneSet: len(body.Phone) > 0, Locale: (*string)(body.Locale), TimeZone: body.TimeZone}
+	if p.DisplayNameSet {
+		if err := json.Unmarshal(body.DisplayName, &p.DisplayName); err != nil {
+			return p, domain.ErrDisplayNameInvalid
+		}
+	}
+	if p.PhoneSet {
+		if err := json.Unmarshal(body.Phone, &p.Phone); err != nil {
+			return p, domain.ErrPhoneInvalid
+		}
+	}
+	return p, nil
+}
+
+func profileValidation(err error) bool {
+	return errors.Is(err, domain.ErrProfileEmpty) || errors.Is(err, domain.ErrNameRequired) || errors.Is(err, domain.ErrNameTooLong) || errors.Is(err, domain.ErrDisplayNameInvalid) || errors.Is(err, domain.ErrPhoneInvalid) || errors.Is(err, domain.ErrLocaleInvalid) || errors.Is(err, domain.ErrTimeZoneInvalid)
+}
+
+func profileError(ctx context.Context, err error) openapi.ErrorResponse {
+	switch {
 	case errors.Is(err, domain.ErrNameRequired):
-		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			httpx.Text(ctx, "Họ và tên không được để trống.", "Enter your name."))), nil
-
+		return httpapi.FieldError(ctx, "fullName", httpx.Text(ctx, "Họ và tên không được để trống.", "Enter your name."))
 	case errors.Is(err, domain.ErrNameTooLong):
-		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			httpx.Text(ctx, "Họ và tên quá dài.", "The name is too long."))), nil
-
-	case errors.Is(err, domain.ErrAccountDisabled), errors.Is(err, domain.ErrUserNotFound):
-		return openapi.UpdateCurrentUser401JSONResponse{
-			UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx)),
-		}, nil
-
+		return httpapi.FieldError(ctx, "fullName", httpx.Text(ctx, "Họ và tên quá dài.", "The name is too long."))
+	case errors.Is(err, domain.ErrDisplayNameInvalid):
+		return httpapi.FieldError(ctx, "displayName", httpx.Text(ctx, "Tên hiển thị không hợp lệ.", "The display name is not valid."))
+	case errors.Is(err, domain.ErrPhoneInvalid):
+		return httpapi.FieldError(ctx, "phone", httpx.Text(ctx, "Số điện thoại không hợp lệ.", "The phone number is not valid."))
+	case errors.Is(err, domain.ErrLocaleInvalid):
+		return httpapi.FieldError(ctx, "locale", httpx.Text(ctx, "Ngôn ngữ không hợp lệ.", "The language is not valid."))
+	case errors.Is(err, domain.ErrTimeZoneInvalid):
+		return httpapi.FieldError(ctx, "timeZone", httpx.Text(ctx, "Múi giờ không hợp lệ.", "The time zone is not valid."))
 	default:
-		return nil, err
+		return httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Thiếu thông tin hồ sơ.", "Supply a profile field."))
 	}
 }
 

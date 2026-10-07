@@ -181,7 +181,7 @@ func (s *Postgres) Facets(ctx context.Context, scope access.Scope, query string)
 func (s *Postgres) ListMine(ctx context.Context, userID string) ([]domain.MyClass, error) {
 	rows, err := s.Query(ctx, `
 	SELECT c.id::text, c.name, c.description, me.joined_at,
-	       (SELECT t.full_name FROM app.users t WHERE t.id = c.teacher_id)
+	       (SELECT coalesce(t.display_name, t.full_name) FROM app.users t WHERE t.id = c.teacher_id)
 	  FROM app.classes c
 	  JOIN app.class_members me ON me.class_id = c.id AND me.user_id = $1::uuid
 	  JOIN app.users student ON student.id = me.user_id AND student.disabled_at IS NULL

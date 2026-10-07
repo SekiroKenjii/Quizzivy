@@ -1,7 +1,7 @@
 import { BankNavigation } from "@/features/question-groups/components/BankNavigation";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { BulkActions } from "@/components/shared/BulkActions";
-import { formatRelative } from "@/lib/i18n/datetime";
+import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
@@ -78,6 +78,7 @@ const TYPES: QuestionType[] = [
 const PAGE_SIZE = 20;
 
 export default function QuestionBankPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const navigate = useNavigate();
 

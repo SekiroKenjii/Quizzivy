@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { http } from "msw";
@@ -44,7 +45,13 @@ function arrive(pending: { joinCode?: string }) {
     ],
     { initialEntries: [`/auth/google/callback?code=abc&state=${state}`] },
   );
-  render(<RouterProvider router={router} />);
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 }
 
 beforeEach(() => {

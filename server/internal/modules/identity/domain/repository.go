@@ -21,7 +21,9 @@ type Users interface {
 	RevokeFamilyByToken(ctx context.Context, tokenHash []byte, now time.Time) (string, error)
 	DeleteExpired(ctx context.Context, before time.Time) (int64, error)
 	ChangePassword(ctx context.Context, in ChangePasswordRecord) error
-	Rename(ctx context.Context, in RenameRecord) (User, error)
+	UpdateProfile(ctx context.Context, in ProfileRecord) (User, error)
+	UpdatePreferences(ctx context.Context, in PreferencesRecord) (Preferences, error)
+	EffectiveZone(ctx context.Context, userID string) (string, error)
 }
 
 // Students is the roster of student accounts, each teacher reaching the

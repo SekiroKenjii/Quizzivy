@@ -63,7 +63,7 @@ import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useCrumbs } from "@/layouts/shell/crumbs";
 import { ApiError } from "@/lib/api/errors";
-import { formatMoment } from "@/lib/i18n/datetime";
+import { formatMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useAuthStore } from "@/stores/auth";
 import { getAssignment, updateAssignment, type Assignment } from "../../api";
 import { CloseEarlyDialog } from "../../components/CloseEarlyDialog";
@@ -77,6 +77,7 @@ import { assignmentDetailLocation } from "./assignmentDetailUrl";
 
 /** AssignmentDetailPage owns the assignment monitor and preserves authorized actions and note drafts across its URL-controlled tabs and sheet. */
 export default function AssignmentDetailPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const { id = "" } = useParams<{ id: string }>();
   const location = useLocation();

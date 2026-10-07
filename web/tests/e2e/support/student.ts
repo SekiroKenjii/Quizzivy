@@ -38,9 +38,13 @@ export function assignment(index: number, live: boolean): Assignment {
 }
 
 /** student signs the student in with one class, two papers in progress and one still to start. */
-export async function student(page: Page) {
+export async function student(
+  page: Page,
+  user: Parameters<typeof sessionAs>[0] &
+    Pick<components["schemas"]["CurrentUser"], "locale" | "preferences"> = studentUser,
+) {
   await stubApi(page, {
-    ...sessionAs(studentUser),
+    ...sessionAs(user),
     "GET /app/classes": { body: { items: classes } },
     "GET /app/assignments": {
       body: {

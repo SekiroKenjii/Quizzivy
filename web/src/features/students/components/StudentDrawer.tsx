@@ -21,7 +21,7 @@ import {
 import { removeMember } from "@/features/classes/api";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatDate } from "@/lib/i18n/datetime";
+import { formatDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { failureMessage } from "@/lib/api/errors";
 import type { TFunction } from "i18next";
 
@@ -36,6 +36,7 @@ export function StudentDrawer({
   student: Student;
   onClose: () => void;
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [temporary, setTemporary] = useState<string | null>(null);

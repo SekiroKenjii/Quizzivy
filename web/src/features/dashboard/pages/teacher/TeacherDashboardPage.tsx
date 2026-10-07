@@ -23,7 +23,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useMinute } from "@/hooks/useTick";
 import { useAuthStore } from "@/stores/auth";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { APP_TIME_ZONE, formatRelative } from "@/lib/i18n/datetime";
+import { useDisplayTimeZone, formatRelative } from "@/lib/i18n/datetime";
 import {
   getDashboard,
   listAssignments,
@@ -49,19 +49,22 @@ const FRAME = "bg-card shadow-card min-w-0 rounded-xl border";
 export default function TeacherDashboardPage() {
   const { t } = useTranslation();
   const locale = useLocale();
+  const zone = useDisplayTimeZone();
   const location = useLocation();
   const navigate = useNavigate();
   const client = useQueryClient();
   const workspace = useWorkspace("teacher");
   const writeTests = useCan("content.tests.write");
   const assign = useCan("teaching.assignments.write");
-  const name = useAuthStore((state) => givenName(state.user?.fullName ?? ""));
+  const name = useAuthStore((state) =>
+    givenName(state.user?.displayName ?? state.user?.fullName ?? ""),
+  );
   const minute = useMinute(workspace);
   const now = new Date(minute * 60_000);
   const range = dashboardRange(location.search);
   const interval = useIdlePolling(30_000, workspace);
   const home = useQuery({
-    queryKey: dashboardKeys.home(range),
+    queryKey: [...dashboardKeys.home(range), zone],
     queryFn: ({ signal }) => getDashboard(signal, range),
     enabled: workspace,
     staleTime: 30_000,
@@ -178,7 +181,7 @@ export default function TeacherDashboardPage() {
             </h2>
             <time className="text-muted-fg text-meta">
               {new Intl.DateTimeFormat(locale, {
-                timeZone: APP_TIME_ZONE,
+                timeZone: zone,
                 weekday: "short",
                 day: "numeric",
               }).format(now)}
@@ -379,6 +382,7 @@ function Submissions({
 function Today({ data }: Readonly<{ data: Dashboard }>) {
   const { t } = useTranslation();
   const locale = useLocale();
+  const zone = useDisplayTimeZone();
   if (data.today.length === 0)
     return <EmptyState>{t("dashboard.home.noToday")}</EmptyState>;
   return (
@@ -393,7 +397,7 @@ function Today({ data }: Readonly<{ data: Dashboard }>) {
             className="text-muted-fg text-meta w-11 shrink-0 pt-px tabular-nums"
           >
             {new Intl.DateTimeFormat(locale, {
-              timeZone: APP_TIME_ZONE,
+              timeZone: zone,
               hour: "2-digit",
               minute: "2-digit",
               hourCycle: "h23",

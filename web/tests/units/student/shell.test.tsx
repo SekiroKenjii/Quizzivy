@@ -16,7 +16,7 @@ import { viewport } from "@tests/support/viewport";
 import { useAuthStore } from "@/stores/auth";
 import { skeletonFor } from "@/app/boot/handoff";
 import { writeThemePreference } from "@/lib/theme";
-import { ASSIGNMENT, BASE, card, detail, renderAt } from "./support";
+import { ASSIGNMENT, BASE, STUDENT, card, detail, renderAt } from "./support";
 import "@/lib/i18n";
 
 const flags = vi.hoisted(() => ({
@@ -62,13 +62,19 @@ const shell = (
   page: React.ReactElement,
   handle?: object,
   route: string = path,
+  user: Parameters<typeof renderAt>[3] = STUDENT,
 ) =>
-  renderAt(path, [
-    {
-      element: <StudentLayout />,
-      children: [{ path: route, element: page, ...(handle ? { handle } : {}) }],
-    },
-  ]);
+  renderAt(
+    path,
+    [
+      {
+        element: <StudentLayout />,
+        children: [{ path: route, element: page, ...(handle ? { handle } : {}) }],
+      },
+    ],
+    undefined,
+    user,
+  );
 
 beforeEach(() => {
   viewport("desktop");
@@ -191,7 +197,10 @@ describe("the shell from 768", () => {
   it("follows the chosen theme and draws the mark for it", async () => {
     writeThemePreference("dark");
     serveStudent({});
-    shell("/app", <p>trang</p>);
+    shell("/app", <p>trang</p>, undefined, "/app", {
+      ...STUDENT,
+      preferences: { theme: "dark" },
+    });
     const logo = await screen.findByRole("link", { name: "Trang chủ Quizzivy" });
 
     expect(document.documentElement.classList.contains("dark")).toBe(true);

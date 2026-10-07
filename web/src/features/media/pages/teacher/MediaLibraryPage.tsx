@@ -42,7 +42,7 @@ import { AudioPreviewRow } from "@/features/question-bank/components/AudioPrevie
 import { useFileDrop } from "@/hooks/useFileDrop";
 import { deleteMedia, listMedia, type LibraryAsset } from "@/features/media/api";
 import { formatBytes } from "@/features/media/format";
-import { audioLength, shortDate } from "@/lib/i18n/datetime";
+import { audioLength, shortDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
@@ -54,6 +54,7 @@ import { usePage } from "@/hooks/usePage";
 const PAGE_SIZE = 24;
 
 export default function MediaLibraryPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const bulk = useBulkSelection<LibraryAsset>();

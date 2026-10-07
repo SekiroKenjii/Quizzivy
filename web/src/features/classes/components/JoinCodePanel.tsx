@@ -33,7 +33,7 @@ import {
   type JoinCodeOptions,
 } from "@/features/classes/api";
 import { invalidateClass } from "@/features/classes/invalidate";
-import { formatDateTime } from "@/lib/i18n/datetime";
+import { formatDateTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { ApiError } from "@/lib/api/errors";
@@ -45,6 +45,7 @@ const MAX_USES_CEILING = 1000;
 
 /** §6.4's join-code panel. */
 export function JoinCodePanel({ klass }: Readonly<{ klass: Class }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
