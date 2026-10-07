@@ -1,19 +1,22 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.59 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.60 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.58**
+**Changes since v0.59**
 
-R4, question metadata and authoring compatibility (T-R4.15, staged):
+R4, question metadata and authoring compatibility (T-R4.15):
 
 - Teacher question reads and authoring carry nullable level and skill; draft test
   lists expose distinct sorted skills. Published metadata stays frozen through
   later bank edits and draft restoration.
 - New authoring accepts at most eight choice options. Stored reads, bodyless
   copies, publication and restoration preserve legacy longer arrays. Migrations
-  00087/00088 add nullable metadata without backfill. Source/contract checks are
-  complete; purpose-database and historical Neon rehearsal gates remain open.
+  00087/00088 add nullable metadata without backfill. Local PG18 up/down/up,
+  isolated app/migrate behavior and unchanged critical canaries pass. A separate read-only Neon data copy reports zero oversized
+  questions among 64 bank and 23 frozen rows; no cloud DDL was executed.
+
+**Changes since v0.58**
 
 R4, import processing presentation (T-R4.37):
 
