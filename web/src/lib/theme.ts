@@ -12,6 +12,7 @@ const DARK_QUERY = "(prefers-color-scheme: dark)";
 const listeners = new Set<() => void>();
 let forcedLight = 0;
 let unsaved: ThemePreference | null = null;
+let accountValue: ThemePreference | null = null;
 
 /**
  * readThemePreference returns the stored preference, or `light` when nothing
@@ -19,6 +20,7 @@ let unsaved: ThemePreference | null = null;
  * keep is returned for as long as the page lives.
  */
 export function readThemePreference(): ThemePreference {
+  if (accountValue !== null) return accountValue;
   if (unsaved !== null) return unsaved;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -31,6 +33,7 @@ export function readThemePreference(): ThemePreference {
 
 /** writeThemePreference stores the preference and applies it at once. */
 export function writeThemePreference(preference: ThemePreference): void {
+  if (accountValue !== null) accountValue = preference;
   try {
     localStorage.setItem(STORAGE_KEY, preference);
     unsaved = null;
@@ -119,4 +122,11 @@ export function useForcedLightTheme(): void {
       apply();
     };
   }, []);
+}
+
+/** setAccountTheme applies authoritative account presentation while leaving anonymous storage behavior intact. */
+export function setAccountTheme(value: ThemePreference | null) {
+  accountValue = value;
+  if (value !== null) writeThemePreference(value);
+  apply();
 }

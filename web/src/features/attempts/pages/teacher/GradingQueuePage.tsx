@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { usePage } from "@/hooks/usePage";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatRelative } from "@/lib/i18n/datetime";
+import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { listAttempts, type AttemptListRow } from "../../api";
 
 type Tab = "pending" | "flagged";
@@ -34,6 +34,7 @@ const PAGE_SIZE = 20;
  * used to be reachable only through a monitor screen.
  */
 export default function GradingQueuePage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const { params, setParams } = useListFilters();
   const tab: Tab = params.get("tab") === "flagged" ? "flagged" : "pending";

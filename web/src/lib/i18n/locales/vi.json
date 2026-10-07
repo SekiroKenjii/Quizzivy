@@ -567,7 +567,11 @@
       "profile": "Hồ sơ",
       "security": "Bảo mật",
       "preferences": "Tuỳ chọn"
-    }
+    },
+    "preferenceSaving": "Đang lưu tùy chọn…",
+    "preferenceSaved": "Đã lưu tùy chọn.",
+    "preferenceFailed": "Chưa lưu được tùy chọn.",
+    "accountZoneUnsupported": "Trình duyệt này chưa hỗ trợ múi giờ của tài khoản. Thời gian tạm hiển thị theo giờ Việt Nam."
   },
   "media": {
     "cancel": "Huỷ",
@@ -2822,6 +2826,12 @@
     "panel": {
       "headline": "Bài kiểm tra, bài học và luyện tập cho lớp tiếng Anh của bạn.",
       "help": "Cần hỗ trợ đăng nhập? Hãy hỏi giáo viên hoặc quầy lễ tân."
+    },
+    "transition": {
+      "accountPending": "Yêu cầu tài khoản vẫn đang được xử lý.",
+      "cleanupPending": "Việc dọn dữ liệu tài khoản chưa hoàn tất.",
+      "cleanupFailed": "Không thể dọn dữ liệu tài khoản. Thử lại.",
+      "checkStatus": "Kiểm tra lại"
     }
   },
   "forgot": {

@@ -673,6 +673,14 @@ describe("profile", () => {
   });
 
   it("switches the language at once, stores it, and is never an unsaved change", async () => {
+    const patches: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/auth/me`, async ({ request }) => {
+        const patch = await request.json();
+        patches.push(patch);
+        return contractJson("/auth/me", "patch", 200, account({ locale: "en" }));
+      }),
+    );
     const user = userEvent.setup();
     open();
     const trigger = await screen.findByRole("combobox", { name: "Ngôn ngữ" });
@@ -694,6 +702,8 @@ describe("profile", () => {
       "English",
     );
     expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+    await waitFor(() => expect(useAuthStore.getState().user?.locale).toBe("en"));
+    expect(patches).toEqual([{ locale: "en" }]);
   });
 });
 
@@ -1212,6 +1222,16 @@ describe("sign-in: Google", () => {
 
 describe("appearance", () => {
   it("draws the three themes with the stored one on, and applies a choice at once", async () => {
+    const patches: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/me/preferences`, async ({ request }) => {
+        const patch = (await request.json()) as {
+          theme: "light" | "dark" | "system";
+        };
+        patches.push(patch);
+        return contractJson("/me/preferences", "patch", 200, patch);
+      }),
+    );
     const user = userEvent.setup();
     open("/app/settings/appearance");
     const card = within(await screen.findByRole("region", { name: "Giao diện" }));
@@ -1243,12 +1263,29 @@ describe("appearance", () => {
       "false",
     );
 
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("dark"),
+    );
     await user.click(themes.getByRole("button", { name: "Sáng" }));
     expect(readThemePreference()).toBe("light");
     expect(document.documentElement).not.toHaveClass("dark");
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("light"),
+    );
+    expect(patches).toEqual([{ theme: "dark" }, { theme: "light" }]);
   });
 
   it("follows the device when Device is chosen, and keeps Device on", async () => {
+    const patches: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/me/preferences`, async ({ request }) => {
+        const patch = (await request.json()) as {
+          theme: "light" | "dark" | "system";
+        };
+        patches.push(patch);
+        return contractJson("/me/preferences", "patch", 200, patch);
+      }),
+    );
     vi.stubGlobal(
       "matchMedia",
       (query: string) =>
@@ -1274,6 +1311,10 @@ describe("appearance", () => {
       "aria-pressed",
       "false",
     );
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("system"),
+    );
+    expect(patches).toEqual([{ theme: "system" }]);
   });
 
   it("follows the account menu's theme item", async () => {
@@ -1308,6 +1349,14 @@ describe("appearance", () => {
   });
 
   it("turns larger text in tests on and off, in the key the engine reads", async () => {
+    const patches: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/me/preferences`, async ({ request }) => {
+        const patch = (await request.json()) as { largerTestText: boolean };
+        patches.push(patch);
+        return contractJson("/me/preferences", "patch", 200, patch);
+      }),
+    );
     const user = userEvent.setup();
     open("/app/settings/appearance");
     const larger = await screen.findByRole("switch", {
@@ -1321,15 +1370,22 @@ describe("appearance", () => {
     expect(localStorage.getItem("quizzivy.testText")).toBe("large");
     expect(readLargerTestText()).toBe(true);
 
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.largerTestText).toBe(true),
+    );
     await user.click(larger);
     expect(larger).not.toBeChecked();
     expect(localStorage.getItem("quizzivy.testText")).toBe("default");
     expect(readLargerTestText()).toBe(false);
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.largerTestText).toBe(false),
+    );
+    expect(patches).toEqual([{ largerTestText: true }, { largerTestText: false }]);
   });
 
   it("opens with larger text on when it was chosen before", async () => {
     localStorage.setItem("quizzivy.testText", "large");
-    open("/app/settings/appearance");
+    open("/app/settings/appearance", { preferences: { largerTestText: true } });
     expect(
       await screen.findByRole("switch", { name: "Chữ lớn hơn khi làm bài" }),
     ).toBeChecked();
@@ -1384,8 +1440,8 @@ describe("in English", () => {
         () => new Response(null, { status: 204 }),
       ),
     );
-    meServes(account({ linkedProviders: [] }));
-    open("/app/settings", { linkedProviders: ["google"] });
+    meServes(account({ linkedProviders: [], locale: "en" }));
+    open("/app/settings", { linkedProviders: ["google"], locale: "en" });
     expect(
       await screen.findByRole("heading", { level: 1, name: "Settings" }),
     ).toBeInTheDocument();

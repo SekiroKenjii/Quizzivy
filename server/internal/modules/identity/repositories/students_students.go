@@ -174,7 +174,7 @@ func (s *Students) get(ctx context.Context, scope access.Scope, id string, inclu
 func (s *Students) Account(ctx context.Context, id string) (domain.Account, error) {
 	var a domain.Account
 	err := s.QueryRow(ctx, `
-		SELECT u.id::text, u.email, u.full_name,
+		SELECT u.id::text, u.email, u.full_name, u.display_name,
 		       CASE WHEN EXISTS (SELECT 1 FROM app.student_like_roles r WHERE r.id = u.role_id)
 		            THEN 'student' ELSE 'admin' END,
 		       u.password_hash IS NOT NULL,
@@ -182,7 +182,7 @@ func (s *Students) Account(ctx context.Context, id string) (domain.Account, erro
 		                   FROM app.user_identities i WHERE i.user_id = u.id), '{}'),
 		       u.must_change_password, u.created_at
 		  FROM app.users u
-		 WHERE u.id = $1::uuid`, id).Scan(&a.ID, &a.Email, &a.FullName, &a.Role,
+		 WHERE u.id = $1::uuid`, id).Scan(&a.ID, &a.Email, &a.FullName, &a.DisplayName, &a.Role,
 		&a.HasPassword, &a.LinkedProviders, &a.MustChangePassword, &a.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Account{}, domain.ErrStudentNotFound

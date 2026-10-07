@@ -171,7 +171,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 	)
 
 	err := s.QueryRow(ctx, studentCardColumns+`,
-	       (SELECT au.full_name FROM app.users au WHERE au.id = a.created_by),
+	       (SELECT coalesce(au.display_name, au.full_name) FROM app.users au WHERE au.id = a.created_by),
 	       a.review_show_correct_answers, a.review_show_explanations,
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 	       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,

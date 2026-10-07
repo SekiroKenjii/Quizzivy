@@ -17,7 +17,7 @@ func (s *Postgres) LookupByCode(ctx context.Context, code domain.JoinCodeLookup)
 		SELECT c.id::text, c.name, c.self_join_enabled AND c.archived_at IS NULL,
 		       jc.lookup_scheme, jc.key_id, jc.code_hash,
 		       jc.revoked_at, jc.expires_at, jc.max_uses, jc.uses_count,
-		       (SELECT t.full_name FROM app.users t WHERE t.id = c.teacher_id)
+		       (SELECT coalesce(t.display_name, t.full_name) FROM app.users t WHERE t.id = c.teacher_id)
 		  FROM app.class_join_codes jc
 		  JOIN app.classes c ON c.id = jc.class_id
 		 WHERE jc.code_hash = ANY($1::bytea[])

@@ -33,7 +33,7 @@ import { fetchClass } from "@/features/classes/api";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatDateTime } from "@/lib/i18n/datetime";
+import { formatDateTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
@@ -57,6 +57,7 @@ const TABS: (AssignmentStatus | "all")[] = [
 const PAGE_SIZE = 20;
 
 export default function AssignmentsListPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const bulk = useBulkSelection<Assignment>();

@@ -1,13 +1,21 @@
-import { clearAuthoringDrafts } from "@/lib/drafts/store";
+import "./accountPreferences";
+import i18n from "@/lib/i18n";
+import { toast } from "@/components/ui/sonner";
+import {
+  transitionStatus,
+  reserveTransition,
+  waitForTransition,
+  TransitionPendingError,
+  type AccountTransition,
+} from "@/lib/api/authTransition";
+import { beginAccountDeparture, checkAccountDeparture } from "./accountDeparture";
 import { useEffect } from "react";
-import { clearGroupPlayDrafts } from "@/features/take-test/groupPlaybackDraft";
-import { clearAnswerDrafts } from "@/features/take-test/draft";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { fetchCurrentUser, logout as logoutRequest } from "./api";
 import { ApiError, maintenanceWindow } from "@/lib/api/errors";
 import { useAppState } from "@/stores/appState";
-import { useAuthStore } from "@/stores/auth";
+import { authStore, useAuthStore, type ActorLease } from "@/stores/auth";
 
 /**
  * useBootstrapSession restores the session on app load (§5.4), and again each
@@ -20,46 +28,60 @@ import { useAuthStore } from "@/stores/auth";
 export function useBootstrapSession() {
   const setSessionUser = useAuthStore((s) => s.setUser);
   const finishBootstrap = useAuthStore((s) => s.finishBootstrap);
-  const clearSession = useAuthStore((s) => s.clearSession);
   const bootAttempt = useAppState((s) => s.bootAttempt);
   const setBootPhase = useAppState((s) => s.setBootPhase);
-  const showOverlay = useAppState((s) => s.showOverlay);
 
   useEffect(() => {
     const controller = new AbortController();
+    const lease = authStore.captureActor();
     void (async () => {
       try {
         const user = await fetchCurrentUser(controller.signal);
+        if (
+          !bootstrapCurrent(lease, controller.signal) ||
+          (lease.userId !== null && user.id !== lease.userId)
+        )
+          return;
         setSessionUser(user);
         finishBootstrap();
         setBootPhase("ready");
       } catch (cause) {
-        if (controller.signal.aborted) return;
-        const window = maintenanceWindow(cause);
-        if (window) {
-          showOverlay({ kind: "maintenance", window });
-        } else if (isSignedOut(cause)) {
-          if (useAuthStore.getState().user === null) clearSession();
-          setBootPhase("ready");
-        } else if (isUnanswered(cause)) {
-          setBootPhase("offline");
-        } else {
-          setBootPhase(
-            "failed",
-            cause instanceof Error ? cause : new Error(String(cause)),
-          );
-        }
+        if (!bootstrapCurrent(lease, controller.signal)) return;
+        settleBootFailure(cause);
       }
     })();
     return () => controller.abort();
-  }, [
-    bootAttempt,
-    setSessionUser,
-    clearSession,
-    finishBootstrap,
-    setBootPhase,
-    showOverlay,
-  ]);
+  }, [bootAttempt, setSessionUser, finishBootstrap, setBootPhase]);
+}
+
+function settleBootFailure(cause: unknown) {
+  const state = useAppState.getState();
+  const window = maintenanceWindow(cause);
+  if (window) {
+    state.showOverlay({ kind: "maintenance", window });
+    return;
+  }
+  if (isSignedOut(cause)) {
+    if (useAuthStore.getState().user === null) authStore.refuseAnonymous();
+    state.setBootPhase("ready");
+    return;
+  }
+  if (isUnanswered(cause)) {
+    state.setBootPhase("offline");
+    return;
+  }
+  state.setBootPhase(
+    "failed",
+    cause instanceof Error ? cause : new Error(String(cause)),
+  );
+}
+
+function bootstrapCurrent(lease: ActorLease, signal: AbortSignal) {
+  return (
+    !signal.aborted &&
+    authStore.isCurrent(lease) &&
+    ["idle", "refresh"].includes(transitionStatus().kind)
+  );
 }
 
 function isSignedOut(cause: unknown): boolean {
@@ -72,31 +94,71 @@ function isUnanswered(cause: unknown): boolean {
   );
 }
 
-/**
- * §5.4's logout: revoke server-side, then forget everything client-side. A
- * "sign in again" overlay raised while the sign-out was on its way is closed
- * once the session is cleared. The session is ended as a sign-out, so no page
- * of this user is offered to the next one.
- */
+/** checkLogoutCleanup retries only a naturally failed cleanup under its original departure owner. */
+export function checkLogoutCleanup() {
+  return checkAccountDeparture();
+}
+
+function reportTransition(
+  error: unknown,
+  lease: ActorLease = authStore.captureActor(),
+) {
+  if (!authStore.isCurrent(lease)) return;
+  const pending = error instanceof TransitionPendingError;
+  let message = "auth.transition.cleanupFailed";
+  if (pending)
+    message =
+      error.phase === "cleanup"
+        ? "auth.transition.cleanupPending"
+        : "auth.transition.accountPending";
+  toast(i18n.t(message), {
+    id: `account-transition-${lease.generation}`,
+    duration: Infinity,
+    action: {
+      label: i18n.t(pending ? "auth.transition.checkStatus" : "common.retry"),
+      onClick: () => {
+        if (authStore.isCurrent(lease))
+          void checkLogoutCleanup().catch((cause: unknown) =>
+            reportTransition(cause, lease),
+          );
+      },
+    },
+  });
+}
+
+/** useLogout invalidates local actor work before draining its cookie operation and global draft cleanup. */
 export function useLogout() {
   const queryClient = useQueryClient();
-  const signOut = useAuthStore((s) => s.signOut);
   const navigate = useNavigate();
 
   return async function logout() {
+    let ticket: AccountTransition;
     try {
-      await logoutRequest();
-    } catch {
-      // A failed server logout must not strand the user in a signed-in shell.
+      ticket = reserveTransition("logout", authStore.getGeneration());
+    } catch (error) {
+      reportTransition(error);
+      return;
     }
-    await navigate("/login", { replace: true });
-    signOut();
-    if (useAppState.getState().overlay.kind === "expired") {
-      useAppState.getState().closeOverlay();
+    const departure = beginAccountDeparture(
+      ticket,
+      queryClient,
+      true,
+      async (lease, interested) => {
+        toast.dismiss(`account-transition-${lease.generation}`);
+        if (interested) await navigate("/login", { replace: true });
+      },
+    );
+    const lease = departure.actor;
+    const raw = logoutRequest(ticket).catch(() => undefined);
+    const completion = raw.then(() => departure.clean());
+    void completion.catch((error: unknown) => {
+      reportTransition(error, lease);
+    });
+    try {
+      await waitForTransition(ticket, raw);
+      await waitForTransition(ticket, completion);
+    } catch (error) {
+      reportTransition(error, lease);
     }
-    clearAnswerDrafts();
-    clearGroupPlayDrafts();
-    await clearAuthoringDrafts().catch(() => undefined);
-    queryClient.clear();
   };
 }

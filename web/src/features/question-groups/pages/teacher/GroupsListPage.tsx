@@ -35,7 +35,7 @@ import { useListFilters } from "@/hooks/useListFilters";
 import { usePage } from "@/hooks/usePage";
 import { useDebounced } from "@/lib/useDebounced";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatRelative } from "@/lib/i18n/datetime";
+import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 import {
   archiveGroup,
@@ -50,6 +50,7 @@ import { BankNavigation } from "../../components/BankNavigation";
 
 type Action = { kind: "archive" | "restore" | "delete"; group: GroupSummary };
 export default function GroupsListPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const locale = useLocale();
   const navigate = useNavigate();

@@ -567,7 +567,11 @@
       "profile": "Profile",
       "security": "Security",
       "preferences": "Preferences"
-    }
+    },
+    "preferenceSaving": "Saving preference…",
+    "preferenceSaved": "Preference saved.",
+    "preferenceFailed": "Could not save preference.",
+    "accountZoneUnsupported": "This browser does not support your account time zone. Times are temporarily shown in Vietnam time."
   },
   "media": {
     "cancel": "Cancel",
@@ -2822,6 +2826,12 @@
     "panel": {
       "headline": "Tests, lessons and practice for your English classes.",
       "help": "Need help signing in? Ask your teacher or the front desk."
+    },
+    "transition": {
+      "accountPending": "Your account request is still being processed.",
+      "cleanupPending": "Account data cleanup has not finished.",
+      "cleanupFailed": "Could not clear account data. Retry.",
+      "checkStatus": "Check again"
     }
   },
   "forgot": {

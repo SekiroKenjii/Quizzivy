@@ -4,7 +4,7 @@ import { CircleCheck, Clock } from "lucide-react";
 import { ErrorActions, ErrorScreen } from "@/app/pages/ErrorScreen";
 import { MaintenanceArt } from "@/app/pages/errorArt";
 import { Button } from "@/components/ui/button";
-import { clockTime } from "@/lib/i18n/datetime";
+import { clockTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 
 /**
  * MaintenancePage says the API is down for the window it is given, when it
@@ -20,6 +20,7 @@ export function MaintenancePage({
   onCheck: () => void;
   now?: Date;
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const minutes = Math.max(
     1,

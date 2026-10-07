@@ -36,6 +36,7 @@ import {
   dayDate,
   formatTime,
   weekdayName,
+  useDisplayTimeZone,
 } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import { continueAttempt, getMyAssignment, type StudentAssignmentDetail } from "../api";
@@ -109,6 +110,7 @@ function startBody(a: Detail, now: Date, t: TFunction): string {
  * test's close passes. The server decides what the test's state is.
  */
 export default function AssignmentIntroPage() {
+  useDisplayTimeZone();
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const { id } = useParams<{ id: string }>();

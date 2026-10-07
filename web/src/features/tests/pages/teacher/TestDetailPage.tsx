@@ -30,7 +30,7 @@ import {
 } from "@/features/tests/api";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatDateTime } from "@/lib/i18n/datetime";
+import { formatDateTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 import { ListSkeleton, LoadError, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -41,6 +41,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
  * have received before.
  */
 export default function TestDetailPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const { id = "" } = useParams();
   const locale = useLocale();

@@ -17,7 +17,7 @@ import {
 import { listAssignments, type Assignment } from "@/features/assignments/api";
 import { statusAt } from "@/features/assignments/status";
 import type { Locale } from "@/lib/i18n";
-import { formatMoment } from "@/lib/i18n/datetime";
+import { formatMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 
 const SHOWN = 5;
@@ -25,6 +25,7 @@ const ORDER = { open: 0, scheduled: 1, draft: 2, closed: 3 } as const;
 
 /** G-06's second list: what the class has been given, open ones first. */
 export function ClassAssignmentsCard({ classId }: Readonly<{ classId: string }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const locale = useLocale();
   const now = new Date();

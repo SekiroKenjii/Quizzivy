@@ -1,8 +1,16 @@
 package adapters
 
-import "context"
+import (
+	"context"
+	identityquery "quizzivy/internal/modules/identity/application/query"
+	"quizzivy/internal/shared/cqrs"
+)
 
-// DefaultZone supplies the calendar zone until profile preferences replace it.
-type DefaultZone struct{}
+// ProfileZone supplies the actor's calendar zone through the identity query port.
+type ProfileZone struct {
+	Query cqrs.QueryHandler[identityquery.EffectiveZone, string]
+}
 
-func (DefaultZone) ZoneOf(context.Context, string) (string, error) { return "Asia/Ho_Chi_Minh", nil }
+func (a ProfileZone) ZoneOf(ctx context.Context, userID string) (string, error) {
+	return a.Query.Handle(ctx, identityquery.EffectiveZone{UserID: userID})
+}

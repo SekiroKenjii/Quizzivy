@@ -37,6 +37,7 @@ void i18n.use(initReactI18next).init({
   returnNull: false,
 });
 
+/** setLocale applies the current explicit language choice and mirrors it when storage permits. */
 export function setLocale(locale: Locale) {
   void i18n.changeLanguage(locale);
   document.documentElement.lang = locale;
