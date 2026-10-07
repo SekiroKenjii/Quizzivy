@@ -749,11 +749,7 @@ function IntakePanel({
   return (
     <Panel
       status={failed ? <FailureStage value={value} /> : undefined}
-      title={
-        failed
-          ? t(`imports.failureTitle.${runErrorKey(value.run?.errorCode)}`)
-          : t("imports.detail.awaitingTitle")
-      }
+      title={failed ? failureTitle(value, t) : t("imports.detail.awaitingTitle")}
       description={failed ? failureDescription(value, t) : awaitingBody}
     >
       {processingOff ? (
@@ -877,6 +873,15 @@ function readyTitle(summary: ImportReviewSummary, t: TFunction): string {
 function isTextImport(value: WordImport): boolean {
   return value.sources.some(
     (source) => source.role === "exam" && source.format === "text",
+  );
+}
+
+function failureTitle(value: WordImport, t: TFunction): string {
+  const key = runErrorKey(value.run?.errorCode);
+  return t(
+    isTextImport(value)
+      ? [`imports.textFailureTitle.${key}`, `imports.failureTitle.${key}`]
+      : `imports.failureTitle.${key}`,
   );
 }
 

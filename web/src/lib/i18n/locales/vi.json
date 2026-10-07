@@ -2787,6 +2787,10 @@
       "toConfirm": "{{count}} cần xác nhận",
       "nothingOpen": "Không còn mục cần xử lý"
     },
+    "textFailureTitle": {
+      "SOURCE_INVALID": "Không đọc được một nguồn nhập đề",
+      "SOURCE_TOO_LARGE": "Nguồn nhập đề vượt quá giới hạn"
+    },
     "failureTitle": {
       "SOURCE_INVALID": "Tệp đề thi không đọc được",
       "SOURCE_UNSUPPORTED": "Định dạng tệp không được hỗ trợ",

@@ -2787,6 +2787,10 @@
       "toConfirm": "{{count}} to confirm",
       "nothingOpen": "Nothing open"
     },
+    "textFailureTitle": {
+      "SOURCE_INVALID": "An import source could not be read",
+      "SOURCE_TOO_LARGE": "An import source exceeds the limits"
+    },
     "failureTitle": {
       "SOURCE_INVALID": "The exam file could not be read",
       "SOURCE_UNSUPPORTED": "This file format is not supported",

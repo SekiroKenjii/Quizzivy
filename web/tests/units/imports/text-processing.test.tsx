@@ -539,3 +539,62 @@ describe("source-aware text failure recovery", () => {
     },
   );
 });
+
+describe("pasted text failure headings", () => {
+  const titles = {
+    vi: {
+      SOURCE_INVALID: "Không đọc được một nguồn nhập đề",
+      SOURCE_TOO_LARGE: "Nguồn nhập đề vượt quá giới hạn",
+    },
+    en: {
+      SOURCE_INVALID: "An import source could not be read",
+      SOURCE_TOO_LARGE: "An import source exceeds the limits",
+    },
+  };
+  for (const language of ["vi", "en"] as const) {
+    for (const errorCode of ["SOURCE_INVALID", "SOURCE_TOO_LARGE"] as const) {
+      it.each([false, true])(
+        `names the source neutrally for ${errorCode} in ${language} with companion=%s`,
+        async (companion) => {
+          await i18n.changeLanguage(language);
+          try {
+            current = {
+              ...current,
+              status: "failed",
+              sources: companion ? [exam, source("answer_key")] : [exam],
+              run: run({ status: "failed", stage: "source_validation", errorCode }),
+            };
+            mount();
+            const title = titles[language][errorCode];
+            expect(await screen.findByText(title)).toBeInTheDocument();
+            expect(
+              screen.queryByText(i18n.t(`imports.failureTitle.${errorCode}`)),
+            ).toBeNull();
+            expect(
+              screen.getByText(i18n.t("imports.detail.errorCode", { code: errorCode })),
+            ).toBeInTheDocument();
+          } finally {
+            await i18n.changeLanguage("vi");
+          }
+        },
+      );
+      it(`preserves the file heading for ${errorCode} in ${language}`, async () => {
+        await i18n.changeLanguage(language);
+        try {
+          current = {
+            ...current,
+            status: "failed",
+            sources: [source("exam")],
+            run: run({ status: "failed", stage: "source_validation", errorCode }),
+          };
+          mount();
+          expect(
+            await screen.findByText(i18n.t(`imports.failureTitle.${errorCode}`)),
+          ).toBeInTheDocument();
+        } finally {
+          await i18n.changeLanguage("vi");
+        }
+      });
+    }
+  }
+});
