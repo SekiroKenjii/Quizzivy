@@ -14,6 +14,7 @@ import { useGradingQueue } from "./useGradingQueue";
 import { GradingQueueAside } from "./GradingQueueAside";
 import { GradingAnswerCard } from "./GradingAnswerCard";
 import "@/features/attempts/gradingMessages";
+import { cn } from "@/lib/utils";
 
 /** GradingPage presents pending work and explicit Finish recovery without changing independent regrading. */
 export default function GradingPage() {
@@ -160,10 +161,15 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
             <Button
               key={value}
               size="sm"
-              variant={mode === value ? "secondary" : "ghost"}
+              variant="ghost"
               aria-pressed={mode === value}
               disabled={model.busy}
-              className="h-7.5 rounded-[7px] px-3"
+              className={cn(
+                "h-7.5 rounded-[7px] px-3",
+                mode === value
+                  ? "bg-card! text-foreground shadow-[var(--qz-shadow),0_0_0_1px_var(--border)]"
+                  : "text-muted-foreground",
+              )}
               onClick={() => change("mode", value)}
             >
               {t(value === "student" ? "grading.byStudent" : "grading.byQuestion")}
@@ -257,10 +263,10 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                   onScore={(points) => void model.pickScore(selected, points)}
                   onComment={(comment) => model.comment(selected, comment)}
                   onPrevious={() => model.move(-1)}
-                  onNext={() =>
+                  onNext={(numericIntent = false) =>
                     void (model.finishReady?.attemptId === selected.attemptId
                       ? model.confirmFinish()
-                      : model.next())
+                      : model.next(numericIntent))
                   }
                   onRetryMaterial={() => void model.queue.refetch()}
                   onReview={(event) =>

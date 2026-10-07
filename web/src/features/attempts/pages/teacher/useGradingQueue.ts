@@ -44,6 +44,11 @@ export function useGradingQueue(params: GradingQueueParams) {
   const [actor] = useState(authStore.captureActor);
   const [controller] = useState(() => new AbortController());
   const lock = useRef(false);
+  const scoreSave = useRef<{
+    key: string;
+    result: Promise<GradingDraft | null>;
+  } | null>(null);
+  const waitingNext = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, GradingDraft>>({});
@@ -160,8 +165,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     invalidate(item, false);
     return score;
   };
-  const flush = async (item: GradingQueueItem) => {
-    const next = draftFor(item);
+  const flush = async (item: GradingQueueItem, next = draftFor(item)) => {
     if (next.points === null) return null;
     const ack = next.acknowledged;
     if (ack?.points === next.points && ack.comment === next.comment.trim()) return null;
@@ -174,13 +178,21 @@ export function useGradingQueue(params: GradingQueueParams) {
     const next = { ...draftFor(item), points };
     setDrafts((previous) => ({ ...previous, [gradingItemKey(item)]: next }));
     setPicked(gradingItemKey(item));
-    try {
-      await write(item, next);
-    } catch (cause) {
-      if (current()) setError(notify(cause));
-    } finally {
-      release();
-    }
+    const result = (async () => {
+      try {
+        const saved = await write(item, next);
+        return saved && current()
+          ? { ...next, acknowledged: { points, comment: next.comment.trim() } }
+          : null;
+      } catch (cause) {
+        if (current()) setError(notify(cause));
+        return null;
+      } finally {
+        release();
+      }
+    })();
+    scoreSave.current = { key: gradingItemKey(item), result };
+    await result;
   };
   const comment = (item: GradingQueueItem, value: string) => {
     if (!current() || lock.current) return;
@@ -267,9 +279,24 @@ export function useGradingQueue(params: GradingQueueParams) {
       return undefined;
     return review.attempt.score?.pendingManual;
   };
-  const next = async () => {
-    if (!selected || !acquire()) return;
+  const waitForScore = async (item: GradingQueueItem, numericIntent: boolean) => {
+    if (waitingNext.current || !current()) return false;
+    if (!lock.current && !numericIntent) return undefined;
+    const operation = scoreSave.current;
+    if (!operation || operation.key !== gradingItemKey(item)) return false;
+    waitingNext.current = true;
+    try {
+      const acknowledged = await operation.result;
+      return acknowledged && current() ? acknowledged : false;
+    } finally {
+      waitingNext.current = false;
+    }
+  };
+  const next = async (numericIntent = false) => {
+    if (!selected) return;
     const item = selected;
+    const savedDraft = await waitForScore(item, numericIntent);
+    if (savedDraft === false || !acquire()) return;
     const index = items.findIndex(
       (row) => gradingItemKey(row) === gradingItemKey(item),
     );
@@ -283,7 +310,8 @@ export function useGradingQueue(params: GradingQueueParams) {
           ),
       );
     try {
-      if (draftFor(item).points === null) {
+      const nextDraft = savedDraft ?? draftFor(item);
+      if (nextDraft.points === null) {
         const count = scoreOptions(item.points).length;
         const message = t(count ? "grading.pickFirstKeys" : "grading.pickFirst", {
           n: count,
@@ -292,7 +320,7 @@ export function useGradingQueue(params: GradingQueueParams) {
         toast.error(message);
         return;
       }
-      const saved = await flush(item);
+      const saved = await flush(item, nextDraft);
       if (!current()) return;
       const pending = await pendingAfterSave(item, saved?.pendingManual);
       if (!current()) return;

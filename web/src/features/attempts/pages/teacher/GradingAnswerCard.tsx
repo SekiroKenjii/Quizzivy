@@ -1,6 +1,6 @@
 import { Avatar } from "@/components/ui/avatar";
 import { givenName } from "@/features/assignments/studentTime";
-import { useState, type MouseEvent } from "react";
+import { useRef, useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { ReviewGroup } from "@/features/media/components/ReviewGroup";
 import type { GradingQueueItem } from "../../api";
 import type { GradingDraft } from "./useGradingQueue";
 import { scoreOptions } from "./gradingRecovery";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 /** GradingAnswerCard preserves the frozen answer and local comment while each chosen score saves immediately. */
 export function GradingAnswerCard({
@@ -36,12 +38,19 @@ export function GradingAnswerCard({
   onScore: (points: number) => void;
   onComment: (comment: string) => void;
   onPrevious: () => void;
-  onNext: () => void;
+  onNext: (numericIntent?: boolean) => void;
   onRetryMaterial: () => void;
   onReview: (event: MouseEvent<HTMLAnchorElement>) => void;
 }>) {
   const { t } = useTranslation();
   const [number, setNumber] = useState(String(draft?.points ?? item.score ?? ""));
+  const numeric = useRef<HTMLInputElement>(null);
+  const [numericNext, setNumericNext] = useState(false);
+  const validNumber =
+    number.trim() !== "" &&
+    Number.isFinite(Number(number)) &&
+    Number(number) >= 0 &&
+    Number(number) <= item.points;
   const points = draft?.points ?? item.score;
   const comment = draft?.comment ?? item.comment ?? "";
   const choices = scoreOptions(item.points);
@@ -66,7 +75,7 @@ export function GradingAnswerCard({
             </div>
           </div>
           <span className="text-muted-foreground text-[12.5px]">
-            <span className="mr-2 rounded-full border px-2 py-0.5">
+            <span className="mr-2 rounded-full border px-2.25 py-0.25">
               {t(`questionEditor.type.${item.type}`, { defaultValue: item.type })}
             </span>
             {t("grading.questionPoints", { n: item.questionNumber, max: item.points })}
@@ -83,17 +92,22 @@ export function GradingAnswerCard({
             onRetry={onRetryMaterial}
           />
         )}
-        <div
-          className={
-            item.type === "short_answer"
-              ? "[&>div>div:last-child]:bg-muted [&>div>div:last-child]:rounded-[10px] [&>div>div:last-child]:border-0"
-              : undefined
-          }
-        >
-          <AnswerReview
-            question={item}
-            answer={{ answer: item.answer, manualScore: points }}
-          />
+        <div>
+          <p className="text-muted-foreground mb-1.5 text-xs font-medium">
+            {t("grading.prompt")}
+          </p>
+          <div
+            className={cn(
+              "[&>div>div:first-child]:text-[15px] [&>div>div:first-child]:leading-[1.6] [&>div>div:first-child]:[text-wrap:pretty]",
+              item.type === "short_answer" &&
+                "[&>div>div:last-child]:bg-muted [&>div>div:last-child]:rounded-[10px] [&>div>div:last-child]:border-0",
+            )}
+          >
+            <AnswerReview
+              question={item}
+              answer={{ answer: item.answer, manualScore: points }}
+            />
+          </div>
         </div>
         {item.blanks && item.blanks.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
@@ -137,7 +151,7 @@ export function GradingAnswerCard({
                   {value}
                   <kbd
                     aria-hidden="true"
-                    className="rounded border border-current px-1 text-[10.5px] font-medium opacity-60"
+                    className="rounded border border-current px-1 font-sans text-[10.5px] font-medium opacity-60"
                   >
                     {index + 1}
                   </kbd>
@@ -148,6 +162,7 @@ export function GradingAnswerCard({
             <label className="block space-y-2 text-sm">
               <span>{t("grading.numberScore", { max: item.points })}</span>
               <Input
+                ref={numeric}
                 type="number"
                 min={0}
                 max={item.points}
@@ -185,7 +200,7 @@ export function GradingAnswerCard({
             value={comment}
             placeholder={t("grading.commentPlaceholder")}
             onChange={(event) => onComment(event.target.value)}
-            className="bg-background resize-y rounded-[9px] px-3 py-2.5 text-sm"
+            className="bg-background min-h-16 resize-y rounded-[9px] px-3 py-2.5 text-[14px]! leading-[1.5]"
           />
           <div className="flex flex-wrap gap-1.5">
             {[0, 1, 2, 3].map((index) => {
@@ -196,7 +211,7 @@ export function GradingAnswerCard({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="text-muted-foreground h-auto rounded-full px-2.5 py-1 text-xs"
+                  className="text-muted-foreground h-auto! rounded-full! px-2.5 py-0.75 text-[12.5px]!"
                   onClick={() => onComment(`${comment.trim()} ${text}.`.trim())}
                 >
                   {text}
@@ -213,8 +228,14 @@ export function GradingAnswerCard({
             n: total,
             name: givenName(item.studentName),
           })}
-          <span className="ml-2.5 hidden min-[768px]:inline">
-            {t("grading.moveKeys")}
+          <span className="ml-2.5 hidden items-center gap-1 min-[768px]:inline-flex">
+            <kbd className="rounded border px-1.25 font-sans text-[11px]">
+              {t("grading.previousKey")}
+            </kbd>{" "}
+            <kbd className="rounded border px-1.25 font-sans text-[11px]">
+              {t("grading.nextKey")}
+            </kbd>{" "}
+            {t("grading.toMove")}
           </span>
         </span>
         <div className="flex flex-wrap gap-2">
@@ -229,13 +250,39 @@ export function GradingAnswerCard({
           </Button>
           <Button
             variant="outline"
+            size="md"
             disabled={busy || position <= 1}
             onClick={onPrevious}
           >
-            {t("common.previous")}
+            <ArrowLeft aria-hidden="true" />
+            {t("takeTest.previous")}
           </Button>
-          <Button disabled={busy} onClick={onNext}>
+          <Button
+            size="md"
+            disabled={busy && !numericNext}
+            onPointerDown={(event) => {
+              if (
+                event.button === 0 &&
+                !busy &&
+                !finishReady &&
+                choices.length === 0 &&
+                document.activeElement === numeric.current &&
+                validNumber
+              )
+                setNumericNext(true);
+            }}
+            onPointerCancel={() => setNumericNext(false)}
+            onPointerLeave={(event) => {
+              if (event.buttons) setNumericNext(false);
+            }}
+            onBlur={() => setNumericNext(false)}
+            onClick={() => {
+              setNumericNext(false);
+              onNext(numericNext);
+            }}
+          >
             {t(finishReady ? "review.finish" : "grading.saveNext")}
+            <ArrowRight aria-hidden="true" />
           </Button>
         </div>
       </div>

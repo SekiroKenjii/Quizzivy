@@ -1077,3 +1077,260 @@ it("places denied grading text in Alert's content column without revealing priva
   expect(grades).toHaveLength(0);
   expect(finishes).toBe(0);
 });
+
+it("one numeric blur and Save-next click waits for its sole Grade before offering explicit Finish", async () => {
+  let release: (() => void) | undefined;
+  let asked = false;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let blurs = 0;
+  server.use(
+    http.get(`${BASE}/teacher/grading/queue`, () =>
+      contractJson("/teacher/grading/queue", "get", 200, {
+        items: marked ? [] : [{ ...item, points: 5 }],
+        groups: marked
+          ? []
+          : [
+              {
+                key: STUDENT_ID,
+                kind: "student",
+                label: item.studentName,
+                sub: item.assignmentTitle,
+                remaining: 1,
+              },
+            ],
+        answersRemaining: marked ? 0 : 1,
+        studentsWaiting: marked ? 0 : 1,
+      }),
+    ),
+    http.post(`${BASE}/teacher/attempts/${ATTEMPT_ID}/grade`, async ({ request }) => {
+      grades.push(await request.json());
+      asked = true;
+      await held;
+      marked = true;
+      return contractJson("/teacher/attempts/{id}/grade", "post", 200, {
+        earned: 2.5,
+        total: 5,
+        pendingManual: 0,
+      });
+    }),
+  );
+  const { user } = mount();
+  const input = await screen.findByRole("spinbutton", { name: "Điểm (0–5)" });
+  input.addEventListener("blur", () => {
+    blurs += 1;
+  });
+  await user.type(input, "2.5");
+  await user.click(screen.getByRole("button", { name: "Lưu & câu tiếp theo" }));
+  await waitFor(() => expect(asked).toBe(true));
+  expect(blurs).toBe(1);
+  expect(grades).toEqual([
+    { items: [{ questionId: ESSAY_ID, points: 2.5, comment: null }] },
+  ]);
+  expect(finishes).toBe(0);
+  expect(
+    screen.queryByRole("button", { name: "Hoàn tất chấm" }),
+  ).not.toBeInTheDocument();
+  await act(async () => {
+    release?.();
+    await held;
+  });
+  expect(await screen.findByRole("button", { name: "Hoàn tất chấm" })).toBeEnabled();
+  expect(grades).toHaveLength(1);
+  expect(finishes).toBe(0);
+  await user.click(screen.getByRole("button", { name: "Hoàn tất chấm" }));
+  await waitFor(() => expect(finishes).toBe(1));
+  expect(grades).toHaveLength(1);
+});
+
+it("numeric Save-next blur keeps a failed mark visible without advancing or finishing", async () => {
+  server.use(
+    http.get(`${BASE}/teacher/grading/queue`, () =>
+      contractJson("/teacher/grading/queue", "get", 200, {
+        items: [{ ...item, points: 5 }],
+        groups: [
+          {
+            key: STUDENT_ID,
+            kind: "student",
+            label: item.studentName,
+            sub: item.assignmentTitle,
+            remaining: 1,
+          },
+        ],
+        answersRemaining: 1,
+        studentsWaiting: 1,
+      }),
+    ),
+    http.post(`${BASE}/teacher/attempts/${ATTEMPT_ID}/grade`, async ({ request }) => {
+      grades.push(await request.json());
+      return HttpResponse.json(
+        { error: { code: "UNKNOWN", message: "Numeric save refused" } },
+        { status: 500 },
+      );
+    }),
+  );
+  const { user } = mount();
+  const input = await screen.findByRole("spinbutton", { name: "Điểm (0–5)" });
+  await user.type(input, "2.5");
+  await user.click(screen.getByRole("button", { name: "Lưu & câu tiếp theo" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Numeric save refused");
+  expect(input).toHaveValue(2.5);
+  expect(grades).toHaveLength(1);
+  expect(finishes).toBe(0);
+  expect(
+    screen.queryByRole("button", { name: "Hoàn tất chấm" }),
+  ).not.toBeInTheDocument();
+});
+
+it("grading footer exposes the existing translated Previous control", async () => {
+  mount();
+  expect(await screen.findByRole("button", { name: "Trước" })).toBeDisabled();
+  expect(screen.queryByText("common.previous")).not.toBeInTheDocument();
+});
+
+it("pointer cancellation leaves numeric blur as Grade only and does not queue advancement", async () => {
+  let release: (() => void) | undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  server.use(
+    http.get(`${BASE}/teacher/grading/queue`, () =>
+      contractJson("/teacher/grading/queue", "get", 200, {
+        items: [{ ...item, points: 5 }],
+        groups: [
+          {
+            key: STUDENT_ID,
+            kind: "student",
+            label: item.studentName,
+            sub: item.assignmentTitle,
+            remaining: 1,
+          },
+        ],
+        answersRemaining: 1,
+        studentsWaiting: 1,
+      }),
+    ),
+    http.post(`${BASE}/teacher/attempts/${ATTEMPT_ID}/grade`, async ({ request }) => {
+      grades.push(await request.json());
+      await held;
+      return contractJson("/teacher/attempts/{id}/grade", "post", 200, {
+        earned: 2.5,
+        total: 5,
+        pendingManual: 0,
+      });
+    }),
+  );
+  const { user } = mount();
+  const input = await screen.findByRole("spinbutton", { name: "Điểm (0–5)" });
+  await user.type(input, "2.5");
+  const next = screen.getByRole("button", { name: "Lưu & câu tiếp theo" });
+  await user.pointer({ keys: "[MouseLeft>]", target: next });
+  await waitFor(() => expect(grades).toHaveLength(1));
+  fireEvent.pointerCancel(next);
+  expect(next).toBeDisabled();
+  await user.pointer({ keys: "[/MouseLeft]", target: next });
+  await act(async () => {
+    release?.();
+    await held;
+  });
+  await waitFor(() => expect(next).toBeEnabled());
+  expect(grades).toHaveLength(1);
+  expect(finishes).toBe(0);
+  expect(
+    screen.queryByRole("button", { name: "Hoàn tất chấm" }),
+  ).not.toBeInTheDocument();
+});
+
+it("actor departure cancels a numeric Save-next intent waiting for the old Grade", async () => {
+  let release: (() => void) | undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  server.use(
+    http.get(`${BASE}/teacher/grading/queue`, () =>
+      contractJson("/teacher/grading/queue", "get", 200, {
+        items: [{ ...item, points: 5 }],
+        groups: [
+          {
+            key: STUDENT_ID,
+            kind: "student",
+            label: item.studentName,
+            sub: item.assignmentTitle,
+            remaining: 1,
+          },
+        ],
+        answersRemaining: 1,
+        studentsWaiting: 1,
+      }),
+    ),
+    http.post(`${BASE}/teacher/attempts/${ATTEMPT_ID}/grade`, async ({ request }) => {
+      grades.push(await request.json());
+      await held;
+      return contractJson("/teacher/attempts/{id}/grade", "post", 200, {
+        earned: 2.5,
+        total: 5,
+        pendingManual: 0,
+      });
+    }),
+  );
+  const { user } = mount();
+  await user.type(await screen.findByRole("spinbutton", { name: "Điểm (0–5)" }), "2.5");
+  await user.click(screen.getByRole("button", { name: "Lưu & câu tiếp theo" }));
+  await waitFor(() => expect(grades).toHaveLength(1));
+  await act(() =>
+    useAuthStore
+      .getState()
+      .setSession("new-token", { ...teacherUser, permissions: [] }),
+  );
+  await act(async () => {
+    release?.();
+    await held;
+  });
+  expect(screen.queryByText("Saved answer")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Hoàn tất chấm" }),
+  ).not.toBeInTheDocument();
+  expect(grades).toHaveLength(1);
+  expect(finishes).toBe(0);
+});
+
+it("numeric refusal before pointer-up is not replayed by the same Save-next activation", async () => {
+  server.use(
+    http.get(`${BASE}/teacher/grading/queue`, () =>
+      contractJson("/teacher/grading/queue", "get", 200, {
+        items: [{ ...item, points: 5 }],
+        groups: [
+          {
+            key: STUDENT_ID,
+            kind: "student",
+            label: item.studentName,
+            sub: item.assignmentTitle,
+            remaining: 1,
+          },
+        ],
+        answersRemaining: 1,
+        studentsWaiting: 1,
+      }),
+    ),
+    http.post(`${BASE}/teacher/attempts/${ATTEMPT_ID}/grade`, async ({ request }) => {
+      grades.push(await request.json());
+      return HttpResponse.json(
+        { error: { code: "UNKNOWN", message: "Already refused" } },
+        { status: 500 },
+      );
+    }),
+  );
+  const { user } = mount();
+  await user.type(await screen.findByRole("spinbutton", { name: "Điểm (0–5)" }), "2.5");
+  const next = screen.getByRole("button", { name: "Lưu & câu tiếp theo" });
+  await user.pointer({ keys: "[MouseLeft>]", target: next });
+  expect(await screen.findByRole("alert")).toHaveTextContent("Already refused");
+  await user.pointer({ keys: "[/MouseLeft]", target: next });
+  await waitFor(() => expect(next).toBeEnabled());
+  expect(grades).toHaveLength(1);
+  expect(finishes).toBe(0);
+  expect(
+    screen.queryByRole("button", { name: "Hoàn tất chấm" }),
+  ).not.toBeInTheDocument();
+});
