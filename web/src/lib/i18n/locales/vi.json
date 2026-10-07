@@ -2170,7 +2170,7 @@
     "historyTitle": "Lịch sử nhập đề từ Word/PDF",
     "historyHint": "Các tệp Word và PDF bạn đang chuyển thành đề. Mỗi lượt nhập giữ tệp gốc, tiến trình và bản rà soát để bạn có thể quay lại bất cứ lúc nào.",
     "backToTests": "Về danh sách đề thi",
-    "backToHistory": "Về lịch sử nhập đề",
+    "backToHistory": "Về mục Nhập đề",
     "start": "Nhập đề từ Word/PDF",
     "searchPlaceholder": "Tìm tên tệp hoặc tên đề",
     "statusFilter": "Lọc theo trạng thái",
@@ -2343,8 +2343,8 @@
       "awaitingTitle": "Chưa bắt đầu xử lý",
       "awaitingBody": "Lần nhập này còn thiếu tệp hoặc chưa được bắt đầu. Thêm tệp còn thiếu rồi bắt đầu xử lý.",
       "processingTitle": "Đang xử lý",
-      "processingBody": "Bạn có thể rời trang này; việc xử lý vẫn tiếp tục và bạn có thể quay lại từ lịch sử nhập đề.",
-      "leave": "Về lịch sử nhập đề",
+      "processingBody": "Bạn có thể rời trang này. Việc xử lý vẫn tiếp tục và bạn có thể mở lại từ mục Nhập đề.",
+      "leave": "Về mục Nhập đề",
       "cancel": "Huỷ xử lý",
       "cancelTitle": "Huỷ lần nhập này?",
       "cancelBody": "Việc xử lý sẽ dừng và lần nhập sẽ được đóng; không thể tiếp tục lần nhập này. Tệp gốc vẫn được giữ theo chính sách lưu trữ.",
@@ -2433,8 +2433,8 @@
       }
     },
     "sources": {
-      "title": "Tệp gốc",
-      "meta": "{{role}} · {{size}} · tải lên {{at}}",
+      "title": "Nguồn ban đầu",
+      "meta": "{{role}} · {{size}} · thêm lúc {{at}}",
       "download": "Tải bản gốc",
       "downloadNamed": "Tải bản gốc {{name}}",
       "downloadFailed": "Không tải được tệp gốc."
@@ -2764,7 +2764,7 @@
     "retention": {
       "policy": "Tệp gốc và bản rà soát được giữ {{afterCommit}} ngày sau khi tạo đề và {{afterCancel}} ngày sau khi huỷ. Lượt nhập không có thay đổi trong {{idle}} ngày sẽ tự đóng.",
       "removed": "Tệp gốc và bản rà soát đã được xoá ngày {{date}} theo chính sách lưu trữ. Lịch sử lượt nhập vẫn được giữ.",
-      "idleWarning": "Lượt nhập không có thay đổi trong {{days}} ngày sẽ tự đóng và xoá tệp.",
+      "idleWarning": "Lượt nhập không có thay đổi trong {{days}} ngày sẽ tự đóng và xoá nội dung gốc.",
       "reviewRemoved": "Bản rà soát của lượt nhập này đã được xoá theo chính sách lưu trữ.",
       "viewImport": "Xem lượt nhập",
       "sourceRemoved": "Tệp gốc đã được xoá theo chính sách lưu trữ nên không còn xem được nội dung trích ra."

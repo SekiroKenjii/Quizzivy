@@ -102,7 +102,7 @@ describe("pasted text processing on the public detail page", () => {
     );
     expect(screen.getByText("Đề thi học kỳ 1")).toBeInTheDocument();
     expect(screen.getByText(/từ văn bản đã dán/)).toHaveTextContent("dap-an-hk1.docx");
-    const originals = screen.getByRole("region", { name: "Tệp gốc" });
+    const originals = screen.getByRole("region", { name: "Nguồn ban đầu" });
     expect(within(originals).getByText("Văn bản đã dán")).toBeInTheDocument();
     expect(
       within(originals).getByRole("button", { name: "Tải bản gốc Văn bản đã dán" }),

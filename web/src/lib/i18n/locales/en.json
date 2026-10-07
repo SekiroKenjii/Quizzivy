@@ -2170,7 +2170,7 @@
     "historyTitle": "Word and PDF import history",
     "historyHint": "Word and PDF files you are turning into tests. Each import keeps its original files, its progress and your review, so you can come back at any time.",
     "backToTests": "Back to tests",
-    "backToHistory": "Back to import history",
+    "backToHistory": "Back to imports",
     "start": "Import from Word/PDF",
     "searchPlaceholder": "Search file or test name",
     "statusFilter": "Filter by status",
@@ -2286,11 +2286,11 @@
     "processing": {
       "stagesLabel": "Processing steps",
       "stage": {
-        "validate": "Check files",
-        "read": "Read content",
-        "structure": "Recognise structure",
-        "answers": "Match answers",
-        "check": "Check the exam"
+        "validate": "Check the files",
+        "read": "Read the content",
+        "structure": "Recognise the structure",
+        "answers": "Match the answers",
+        "check": "Check the test"
       },
       "state": {
         "done": "done",
@@ -2343,8 +2343,8 @@
       "awaitingTitle": "Not processed yet",
       "awaitingBody": "This import is missing files or hasn't been started. Add what's missing, then start processing.",
       "processingTitle": "Processing",
-      "processingBody": "You can leave this page; processing continues and you can come back from the import history.",
-      "leave": "Go to import history",
+      "processingBody": "You can leave this page. Processing continues, and you can open it again from Imports.",
+      "leave": "Back to imports",
       "cancel": "Cancel processing",
       "cancelTitle": "Cancel this import?",
       "cancelBody": "Processing stops and the import is closed; it can't be continued. The original files are kept under the retention policy.",
@@ -2433,8 +2433,8 @@
       }
     },
     "sources": {
-      "title": "Original files",
-      "meta": "{{role}} · {{size}} · uploaded {{at}}",
+      "title": "Original sources",
+      "meta": "{{role}} · {{size}} · added {{at}}",
       "download": "Download original",
       "downloadNamed": "Download original {{name}}",
       "downloadFailed": "Couldn't download the original."
@@ -2764,7 +2764,7 @@
     "retention": {
       "policy": "Original files and the review are kept for {{afterCommit}} days after the test is created and {{afterCancel}} days after cancelling. An import with no changes for {{idle}} days is closed automatically.",
       "removed": "The original files and the review were removed on {{date}} under the retention policy. The import's history is kept.",
-      "idleWarning": "An import with no changes for {{days}} days is closed and its files removed.",
+      "idleWarning": "An import with no changes for {{days}} days is closed and its original content removed.",
       "reviewRemoved": "This import's review was removed under the retention policy.",
       "viewImport": "View the import",
       "sourceRemoved": "The original file was removed under the retention policy, so its extracted text is no longer available."
