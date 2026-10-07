@@ -8,7 +8,16 @@ import ImportDetailPage from "@/features/imports/pages/teacher/ImportDetailPage"
 import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { BASE, IMPORT_ID, capabilities, run, wordImport } from "./fixtures";
+import {
+  BASE,
+  IMPORT_ID,
+  capabilities,
+  run,
+  wordImport,
+  review,
+  section,
+  question,
+} from "./fixtures";
 import "@/lib/i18n";
 
 let reads = 0;
@@ -21,6 +30,22 @@ beforeEach(() => {
   cancels = [];
   states = [wordImport({ status: "processing", run: run({ stage: "extraction" }) })];
   server.use(
+    http.get(`${BASE}/teacher/imports/:id/review`, () =>
+      contractJson(
+        "/teacher/imports/{id}/review",
+        "get",
+        200,
+        review(
+          [
+            section([
+              question({ id: "q1", label: "1" }),
+              question({ id: "q2", label: "2" }),
+            ]),
+          ],
+          [],
+        ),
+      ),
+    ),
     capabilities(),
     http.get(`${BASE}/teacher/imports/:id`, () => {
       const next = states[Math.min(reads, states.length - 1)]!;
@@ -102,9 +127,9 @@ describe("the processing screen", () => {
     await renderDetail();
     await act(() => vi.advanceTimersByTimeAsync(2000));
     expect(
-      await screen.findByText("Sẵn sàng rà soát", { selector: "div" }),
+      await screen.findByRole("link", { name: "Bắt đầu rà soát" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Tiếp tục rà soát" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Bắt đầu rà soát" })).toHaveAttribute(
       "href",
       `/teacher/imports/${IMPORT_ID}/review`,
     );
@@ -163,7 +188,7 @@ describe("the processing screen", () => {
         selector: "p:not([aria-live])",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Tiếp tục rà soát" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Bắt đầu rà soát" })).toBeInTheDocument();
   });
 
   it("shows a run waiting to retry without a current stage", async () => {
@@ -234,5 +259,59 @@ describe("the processing screen", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Các bước xử lý" })).toBeInTheDocument();
     expect(screen.queryByText("Không tải được lần nhập này.")).toBeNull();
+  });
+});
+
+describe("pasted text polling", () => {
+  it("follows queued, check, read, recognition and ready from current responses with completed-only receipts", async () => {
+    const exam = {
+      ...wordImport().sources[0]!,
+      format: "text" as const,
+      characters: 4921,
+    };
+    states = ["queued", "source_validation", "extraction", "recognition"].map((stage) =>
+      wordImport({
+        status: stage === "queued" ? "queued" : "processing",
+        sources: [exam],
+        run: run({ stage: stage as NonNullable<WordImport["run"]>["stage"] }),
+      }),
+    );
+    states.push(
+      wordImport({
+        status: "needs_review",
+        sources: [exam],
+        draftRevision: 1,
+        run: run({ status: "succeeded", stage: "ready" }),
+      }),
+    );
+    await renderDetail();
+    expect(screen.getByText("Kiểm tra văn bản")).toBeInTheDocument();
+    expect(screen.queryByText(/Đã kiểm tra/)).toBeNull();
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(screen.getByText("Kiểm tra văn bản").closest("li")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(screen.queryByText(/Đã kiểm tra/)).toBeNull();
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(screen.getByText("Đã kiểm tra 4921 ký tự")).toBeInTheDocument();
+    expect(screen.queryByText("Văn bản thuần · không có định dạng")).toBeNull();
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(screen.getByText("Văn bản thuần · không có định dạng")).toBeInTheDocument();
+    expect(screen.getByText("Nhận diện cấu trúc").closest("li")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(screen.getByText("Đối chiếu đáp án").closest("li")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(
+      await screen.findByRole("link", { name: "Bắt đầu rà soát" }),
+    ).toBeInTheDocument();
+    const finalReads = reads;
+    await act(() => vi.advanceTimersByTimeAsync(6000));
+    expect(reads).toBe(finalReads);
   });
 });
