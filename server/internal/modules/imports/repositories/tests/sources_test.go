@@ -43,10 +43,7 @@ func setup(t *testing.T) harness {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	var id string
-	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role_id) VALUES($1,'Import teacher',(SELECT id FROM app.roles WHERE builtin_key = 'teacher')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&id); err != nil {
-		t.Fatal(err)
-	}
+	id := uuid.NewString()
 	connection := pool
 	if dsn := os.Getenv("TEST_APP_DATABASE_URL"); dsn != "" {
 		connection, err = pgxpool.New(ctx, dsn)
@@ -75,6 +72,9 @@ func setup(t *testing.T) harness {
 			}
 		}
 	})
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users(id,email,full_name,role_id) VALUES($1,$2,'Import teacher',(SELECT id FROM app.roles WHERE builtin_key = 'teacher')) RETURNING id::text`, id, uuid.NewString()+"@example.test").Scan(&id); err != nil {
+		t.Fatal(err)
+	}
 	quotas := domain.DefaultQuotas()
 	quotas.GlobalImports = 100000
 	return harness{pool: pool, repo: repositories.NewPostgres(db.NewContext(connection)), actor: actor.Actor{ID: id}, quotas: quotas}

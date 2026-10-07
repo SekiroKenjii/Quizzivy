@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.55 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.57 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.54**
+**Changes since v0.56**
 
 R4, private caller profile and preferences (T-R4.7, staged):
 
@@ -17,6 +17,24 @@ R4, private caller profile and preferences (T-R4.7, staged):
   display remain the staged companion's acceptance gates. Existing datetime
   input parsing stays fixed to Vietnam time; full profile controls/photo follow
   T-R4.43/T-R4.8. No completed frontend or release is claimed by this record.
+
+**Changes since v0.55**
+
+R4, import history read model (T-R4.21):
+
+- §16 History adds search-scoped status facets and nullable counts from the
+  current review body. Repeated statuses are OR-ed; Processing includes all
+  four active statuses. Legacy uncomputed counts remain unknown, and a pending
+  machine candidate never replaces the counts of the teacher's current edits.
+
+**Changes since v0.54**
+
+R4, import history and source upload presentation (T-R4.36):
+
+- §16 History uses one responsive card/grid with URL-backed filters and real
+  pagination. File intake keeps selected files and the title across Source mode
+  changes. Facets, text metadata and paste intake follow in T-R4.21, T-R4.55 and
+  T-R4.57; their data and operations are not synthesized by the presentation.
 
 **Changes since v0.53**
 
@@ -2268,6 +2286,28 @@ Finished imports stay reviewable and committable. The client hides the feature
 where intake is off. Where processing is off, it withholds new imports, retries
 and reprocessing, and says why. Production runs both: O-24 was decided on 2026-09-25, and the
 import worker runs there as its own Fly process group.
+
+The R4 history presents the existing list contract as one card/grid that changes
+at 960px of its outer container. Six ordered filter controls, search, page and
+page size use the URL; active-import polling pauses while idle and refreshes on
+resume. History returns six facets under the caller's own scope and search,
+ignoring the selected status. Repeated status values are OR-ed, with a single
+value still valid; Processing selects `awaiting_sources`, `queued`, `processing`
+and `committing`. Each history item carries `reviewCounts {needsAction,
+toConfirm}|null`, derived from the exact current review body. Machine completion,
+review save and candidate adoption update counts with that body; an unadopted
+candidate leaves current counts intact. An untouched historical draft remains
+unknown, while computed zero is an exact zero. Facets, pagination and hydrated
+items share one repeatable-read snapshot. Pasted-source names and character
+counts still require T-R4.55's text metadata.
+
+The R4 upload page keeps one source-intake instance mounted across
+`?source=paste` changes, preserving selected files and the typed title. T-R4.57
+supplies paste editing and its real intake operation; before that release the
+paste mode explicitly reports its availability and cannot start an import.
+File mode retains automatic recognition, actual limits and retention, the privacy
+notice and a sticky Cancel/Start footer. Leaving during upload quietly stops
+intake, as before. Neither page infers provider policy from capability data.
 
 `/teacher/imports` creates an empty record idempotently and lists history by status,
 title or current filename. A source upload accepts exactly one native `.docx`, with
