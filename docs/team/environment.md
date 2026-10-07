@@ -30,31 +30,9 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat.
    `quizzivy-minio:development` with `pull_policy: never`, so compose starts it
    only when the image is already local. Check with
    `docker image inspect quizzivy-minio:development`. If it is missing,
-   `docker compose build minio` is the documented route (`docker/minio/README.md`)
-   but fails here, so build the same pinned commits on the host:
-
-   ```
-   B=$(mktemp -d); cd "$B"
-   git init minio && git -C minio fetch --depth=1 https://github.com/minio/minio.git 07c3a429bfed433e49018cb0f78a52145d4bedeb && git -C minio checkout --detach FETCH_HEAD
-   git init mc    && git -C mc    fetch --depth=1 https://github.com/minio/mc.git    7394ce0dd2a80935aded936b09fa12cbb3cb8096 && git -C mc    checkout --detach FETCH_HEAD
-   mkdir out
-   (cd minio && CGO_ENABLED=0 GOTOOLCHAIN=go1.27.0 go build -trimpath -ldflags="$(GOTOOLCHAIN=go1.27.0 go run buildscripts/gen-ldflags.go)" -o ../out/minio .)
-   (cd mc    && CGO_ENABLED=0 GOTOOLCHAIN=go1.27.0 go build -trimpath -ldflags="$(GOTOOLCHAIN=go1.27.0 go run buildscripts/gen-ldflags.go)" -o ../out/mc .)
-   cat > Dockerfile <<'EOF'
-   FROM golang:1.27-alpine AS certs
-   FROM alpine:3.22
-   COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-   COPY out/minio out/mc /usr/bin/
-   ENTRYPOINT ["minio"]
-   EOF
-   docker build -t quizzivy-minio:development .
-   ```
-
-   The commits are the ones in `docker/minio/README.md`; keep them in step with
-   it. The base images `golang:1.27-alpine` and `alpine:3.22` must already be
-   local. The two compile steps take several minutes. This recipe was written
-   from the build that produced the image in use on 2026-10-07 and has not been
-   re-run end to end since; correct it the first time it is.
+   `docker compose build minio` is the documented route (`docker/minio/README.md`),
+   but it fails in this container; "What did not work" records the one-off host
+   build that produced the image used on 2026-10-07.
 
 4. **Start the services.** `make up` also builds the image, which fails here, so
    start them directly:
@@ -170,8 +148,30 @@ Credentials are the compose defaults: Postgres superuser `postgres`/`postgres`,
 ## What did not work
 
 - **`docker compose build minio`** fails: BuildKit cannot reach the Alpine
-  mirror (`apk add git` answers HTTP 403 through the proxy). The host build in
-  step 3 avoids it, because the host has Go, git and the proxy's CA bundle.
+  mirror (`apk add git` answers HTTP 403 through the proxy). The image in use on
+  2026-10-07 was built once on the host instead, which has Go, git and the proxy's
+  CA bundle, from the pinned commits in `docker/minio/README.md`:
+
+  ```
+  B=$(mktemp -d); cd "$B"
+  git init minio && git -C minio fetch --depth=1 https://github.com/minio/minio.git 07c3a429bfed433e49018cb0f78a52145d4bedeb && git -C minio checkout --detach FETCH_HEAD
+  git init mc    && git -C mc    fetch --depth=1 https://github.com/minio/mc.git    7394ce0dd2a80935aded936b09fa12cbb3cb8096 && git -C mc    checkout --detach FETCH_HEAD
+  mkdir out
+  (cd minio && CGO_ENABLED=0 GOTOOLCHAIN=go1.27.0 go build -trimpath -ldflags="$(GOTOOLCHAIN=go1.27.0 go run buildscripts/gen-ldflags.go)" -o ../out/minio .)
+  (cd mc    && CGO_ENABLED=0 GOTOOLCHAIN=go1.27.0 go build -trimpath -ldflags="$(GOTOOLCHAIN=go1.27.0 go run buildscripts/gen-ldflags.go)" -o ../out/mc .)
+  cat > Dockerfile <<'EOF'
+  FROM golang:1.27-alpine AS certs
+  FROM alpine:3.22
+  COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+  COPY out/minio out/mc /usr/bin/
+  ENTRYPOINT ["minio"]
+  EOF
+  docker build -t quizzivy-minio:development .
+  ```
+
+  The base images `golang:1.27-alpine` and `alpine:3.22` were already local, and
+  the two compiles took several minutes. This was not re-run end to end; whoever
+  next needs the image runs it, corrects it, and moves it into step 3.
 - **`make up`** runs the same build, so use the two `docker compose` commands in
   step 4.
 - **Go without the pin.** `make lint` exits 2 after 267 s; with
