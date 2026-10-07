@@ -26,7 +26,7 @@ agent. Resolved is what the transcript metadata recorded on every turn (README,
 | Tech Lead | Opus 5.5, high or more | primary session | `claude-opus-5-5`, xhigh (session metadata) | active |
 | `principal_swe` | Fable 5.1, high or more | general-purpose, `model: fable`, `effort: high` | `claude-fable-5-1`, high | onboarded |
 | `senior_swe_backend` | Sonnet 5.5, xhigh | general-purpose, `model: sonnet`, `effort: xhigh` | `claude-sonnet-5-5`, xhigh | onboarded |
-| `senior_swe_frontend` | Opus 5.5, high or more | general-purpose, `model: opus`, `effort: high` | `claude-opus-5-5`, high | onboarding |
+| `senior_swe_frontend` | Opus 5.5, high or more | general-purpose, `model: opus`, `effort: high` | `claude-opus-5-5`, high | onboarded |
 | `senior_swe_platform` | Sonnet 5.5, high or more | general-purpose, `model: sonnet`, `effort: high` | `claude-sonnet-5-5`, high | onboarding |
 | `senior_tester` | Sonnet 5.5, high or more | general-purpose, `model: sonnet`, `effort: high` | `claude-sonnet-5-5`, high | onboarded |
 
@@ -110,7 +110,8 @@ The Principal recommends starting the heads of A and B together (W0).
    teacher and adds up to four dependencies on the student path (DG-110); T-R4.11's note to
    students; T-R4.54's own-row lists for the Admin (already built).
 3. **Who drives #414 and #416.**
-4. **Capacity:** a second frontend-capable implementer once the Go work runs out.
+4. **Capacity:** a second frontend-capable implementer once the Go work runs out. The
+   frontend survey sizes T-R4.57 as L and 63, 35 and 27a as M+.
 5. **Criteria the tester could not make testable** (`verification.md` §9): the deck
    tolerance, the effective close under `after_close` with overrides, the class-average
    counting rule, the limits in T-R4.13, the Neon compute-hours threshold.
@@ -138,6 +139,7 @@ The Principal recommends starting the heads of A and B together (W0).
 | F-4 | #414 is red because two new test files build a `Test` without `skills`, which #415 made required; the contract validator rejects the stub. Fixture-only fix. | owner of #414 | reported |
 | F-5 | #416's run 718 ended `failure` with every job green and no **CI result** job, apparently the gate never ran. "Re-run failed jobs" on run 718 is the next step. | owner of #416 | reported |
 | F-6 | `70` §6 names the teacher sidebar key `quizzivy.column.sidebar`; the code stores `quizzivy.sidebar` (`web/src/layouts/shell/sidebarState.ts`). | Tech Lead, docs | open |
+| F-8 | T-R4.5b's ticked "Done when" item (`74-r4.md:1331-1336`) says the `router-chunks` media pattern was narrowed to `features/media/(pages/\|components/(UploadPanel\|AssetLibraryDialog))`; the code still names all of `features/media/` (`router-chunks.test.ts:51`). So T-R4.35 needs no canary edit. | Tech Lead, docs | open |
 | F-7 | This container has Node 22 and pnpm 10.28; CI uses Node 24, pnpm 11.25.0 and Go 1.27. Only Chromium is available, so the Firefox and WebKit paste checks of T-R4.51 cannot run here. | senior_swe_platform | open |
 
 ## Next action
