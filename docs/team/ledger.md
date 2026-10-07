@@ -47,7 +47,10 @@ Taken from merged pull requests on 2026-10-07. The plan's "Done when" boxes lag 
   T-R4.27a, 32, 35, 46, 57, 63. T-R3.1 to T-R3.3 (v0.9.1) become eligible on 2026-10-10.
 - **Blocked:** the rest. Close-out (T-R4.48 to 52) comes last.
 - **Next migration number:** 00092. Per-task readiness, sizes and open questions are in
-  [r4-readiness.md](r4-readiness.md); 16 is nearer L and 12 nearer XL (split 12a/12b).
+  [r4-readiness.md](r4-readiness.md). 16 is nearer L. 12 is nearer XL and is proposed as
+  two PRs: 12a the overrides table, extend and the override operations; 12b the attempt
+  deadline recompute, the monitor and the maintenance windows. The split is decided when
+  12 starts and written into `74-r4.md` T-R4.12 by its first PR (CONTRIBUTING, 70 §3).
 
 | Task | Waits for |
 |---|---|
@@ -90,7 +93,7 @@ frontend tasks left; the backend runs out of Go work after about two waves.
 | Wave | Backend | Frontend | Platform | Tester |
 |---|---|---|---|---|
 | W0 | T-R4.16 | T-R4.63 | environment, baseline, migration register | checks for 16, 63, 35, 11 |
-| W1 | 11 → 12 → 13, serial (both 11 and 12 edit `assignments/repositories/student.go`) | 64 → 66 | #414 if the user makes it ours | verify 16, 63 |
+| W1 | 11 → 12 → 13, serial (both 11 and 12 edit `assignments/repositories/student.go`) | 64 → 66, and #414's fixture-only fix if the user makes it ours | as needed | verify 16, 63 |
 | W2 | 8, 20, 9, then 62, 18, 10b | 35 → 65 → 62 web | as needed | verify 11, 12, 13 |
 | W3+ | review, then a second frontend stream | 31b, 33, 38, 39 | close-out support | route matrix (T-R4.51) |
 
@@ -144,17 +147,25 @@ The Principal recommends starting the heads of A and B together (W0).
 
 | ID | Finding | Owner | State |
 |---|---|---|---|
-| F-1 | Plan drift: "Done when" boxes unticked on merged tasks (T-R4.1, 4, 10a, 22, 23, 36, 53, 54, 56 among others); the schema table still says `NNNNN_` for 7, 15 and 55 though 00085 to 00091 exist; T-R4.10b still routes the bell to Grading although T-R4.45a moved that rule to the web; `73-r3.md` says the newest migration is 00079; `AGENTS.md` still describes the teacher console as not yet rebuilt. | Tech Lead, with T-R4.50 or a docs PR | open |
+| F-1 | Plan drift: "Done when" boxes unticked on merged tasks (T-R4.1, 4, 10a, 22, 23, 36, 53, 54, 56 among others); the schema table still says `NNNNN_` for 7, 15 and 55 though 00085 to 00091 exist; T-R4.10b still routes the bell to Grading although T-R4.45a moved that rule to the web; `73-r3.md` says the newest migration is 00079; `AGENTS.md` still describes the teacher console as not yet rebuilt; T-R4.11 asks for a "new DG entry" that exists as DG-71; T-R4.20's first Done-when bullet has shipped; several "Touches" lists omit files (`r4-readiness.md` names them). | Tech Lead, with T-R4.50 or a docs PR | open |
 | F-2 | Underscores in a definition's `name` are not documented as valid (the docs show hyphens). The next session must confirm that `principal_swe` loads, or rename all five to hyphens. | Tech Lead | open |
 | F-3 | v0.9.1 cannot take 00080: `work/redesign-r4` already merged 00080 to 00091, and `develop` ends at 00079. If v0.9.1 takes 00092 and deploys first, production's `cmd/migrate` (`goose.Up`, missing versions not allowed) refuses R4's 00080 to 00091. | the user decides; platform executes | open |
 | F-4 | #414 is red because two new test files build a `Test` without `skills`, which #415 made required; the contract validator rejects the stub. Fixture-only fix. | owner of #414 | reported |
 | F-5 | #416's run 718 ended `failure` with every job green and no **CI result** job, apparently the gate never ran. "Re-run failed jobs" on run 718 is the next step. | owner of #416 | reported |
 | F-6 | `70` §6 names the teacher sidebar key `quizzivy.column.sidebar`; the code stores `quizzivy.sidebar` (`web/src/layouts/shell/sidebarState.ts`). | Tech Lead, docs | open |
+| F-7 | This container has Node 22 and pnpm 10.28; CI uses Node 24, pnpm 11.25.0 and Go 1.27. Only Chromium is available, so the Firefox and WebKit paste checks of T-R4.51 cannot run here. | senior_swe_platform | open |
 | F-8 | T-R4.5b's ticked "Done when" item (`74-r4.md:1331-1336`) says the `router-chunks` media pattern was narrowed to `features/media/(pages/\|components/(UploadPanel\|AssetLibraryDialog))`; the code still names all of `features/media/` (`router-chunks.test.ts:51`). So T-R4.35 needs no canary edit. | Tech Lead, docs | open |
 | F-9 | Setting up the container takes a session's first half hour by hand. The platform engineer proposes a SessionStart hook (dockerd, `.env`, the MinIO image, compose, goose, `pnpm install`, `goose up`, the toolchain pin); it would change every session, so it waits for the user. | the user decides | open |
-| F-7 | This container has Node 22 and pnpm 10.28; CI uses Node 24, pnpm 11.25.0 and Go 1.27. Only Chromium is available, so the Firefox and WebKit paste checks of T-R4.51 cannot run here. | senior_swe_platform | open |
+
+## Reviews
+
+- **REV-ARTIFACTS (2026-10-07, `principal_swe`, at `50964df5`).** Ten defects: a missing
+  full code reviewer for frontend PRs, two schedules that contradicted the ledger, an
+  unrecorded split of T-R4.12, two canary runs the plan requires, the owner of #414's fix,
+  an unverified recipe step, unmarked tool assertions, and plan corrections kept in a
+  survey. All are fixed in the commit after it, except trimming `verification.md` where it
+  restates the plan, which is left for its next edit.
 
 ## Next action
 
-The Principal reviews the whole artifact set; then ask the user to choose the next
-objective and settle the decisions above.
+Ask the user to choose the next objective and settle "Decisions the user owes".

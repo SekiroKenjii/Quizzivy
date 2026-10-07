@@ -26,9 +26,10 @@ replaces or closes agents.
 A role name or a sentence in a prompt does not change a model. The model is set in two
 supported places, highest precedence first:
 
-1. The Agent tool's `model` and `effort` parameters on one launch. `model` takes only a
-   family alias (`opus`, `sonnet`, `fable`, `haiku`), which resolves to the canonical model
-   of that family, or to the main session's exact model when the family matches.
+1. The Agent tool's `model` and `effort` parameters on one launch. As observed on
+   2026-10-07, `model` takes only a family alias (`opus`, `sonnet`, `fable`, `haiku`),
+   which resolves to the canonical model of that family, or to the main session's exact
+   model when the family matches.
 2. The definition's frontmatter, which pins the full model id and the effort.
 
 So a launch from a definition passes no `model`, and the full id in the frontmatter
@@ -43,10 +44,9 @@ The Tech Lead reads them with
 requested, configured and resolved values in the ledger. A mismatch is reported to the
 user, not silently accepted.
 
-Definitions in `.claude/agents/` load when a session starts. A session that creates that
-directory cannot launch from them until the next session (the watcher covers only
-directories that existed at start), so it launches with explicit parameters and a
-self-contained brief instead.
+As observed on 2026-10-07, a session that creates `.claude/agents/` cannot launch from
+it until the next session, because the watcher covers only directories that existed at
+start. Such a session launches with explicit parameters and a self-contained brief.
 
 ## Decision rights
 
@@ -96,7 +96,7 @@ and `ready`, `in_progress` holds the three working states (the stage is in the t
 | Author | Code review | Architecture review | Verification |
 |---|---|---|---|
 | `senior_swe_backend` | `senior_swe_platform` | `principal_swe` when high-risk or cross-module | `senior_tester` |
-| `senior_swe_frontend` | `senior_swe_backend` for contract use, `principal_swe` for structure | `principal_swe` when high-risk | `senior_tester` |
+| `senior_swe_frontend` | `principal_swe`, the whole PR: correctness, the React rules, i18n, accessibility, clarity; `senior_swe_backend` too when it consumes a changed contract | `principal_swe` when high-risk | `senior_tester` |
 | `senior_swe_platform` | `senior_swe_backend` | `principal_swe` for CI or migration policy | `senior_tester` |
 | `senior_tester` (tests, harness) | the owner of the code under test | — | the Tech Lead checks the evidence |
 

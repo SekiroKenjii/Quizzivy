@@ -27,7 +27,7 @@ under `server/`. The next migration number on `work/redesign-r4` is **00092**.
 - The isolation runner requires a missing id to fail (`isolation_runner_test.go:306`) or
   an `excuse`. `/auth/*` is outside the suite. A new `/me/*` operation needs a row even
   without a uuid.
-- Several plan "Touches" lists omit files; they are named below.
+- Where a plan "Touches" list omits a file, the task below names it (ledger F-1).
 
 ### T-R4.16: publish base, usage, diff and change note (plan M, realistically L, split 16a/16b)
 
@@ -78,7 +78,6 @@ under `server/`. The next migration number on `work/redesign-r4` is **00092**.
   - The type of `classAverage`, and who counts toward the three.
   - The lock's precedence over `VERSION_LOCKED`.
   - One shared "effective close" helper that 12 extends (R9 reuses it, `79-r9.md:291`).
-  - The plan's "new DG entry" already exists as DG-71.
 
 ### T-R4.12: extensions and per-student overrides (plan L, realistically XL, split 12a/12b)
 
@@ -173,7 +172,6 @@ under `server/`. The next migration number on `work/redesign-r4` is **00092**.
   - `POST /teacher/students/reset-passwords` (`people.students.reset_password`; 2 a
     minute and 10 an hour per actor; joins `theCredentialMinters`).
   - `listStudents` gains `classId[]` and `mustChangePassword`.
-  - The first Done-when bullet has already shipped.
 - **Reuse.** `ResetPassword` and the unshared rule (`students_write.go:171,216`), and
   `hashSlots`.
 - **Tests.**
@@ -192,17 +190,13 @@ under `server/`. The next migration number on `work/redesign-r4` is **00092**.
   is file-disjoint from 11, 12 and 16.
 - **16** stands alone; 62 follows it.
 - **8, 9 and 20** share `identity/application/app.go`, `ratelimits.go` and
-  `credential_limits_test.go`. 9 and 20, and 8 and 20, can run in parallel; 8 and 9 merge in
-  sequence.
+  `credential_limits_test.go`. They can be built in parallel worktrees but merge one at a
+  time, and each later one regenerates after bringing in the integration branch.
 - **Parallel worktrees are safe** for 16, 11, 20 and 9. The contract, generated code and
   pinned tests always merge serially.
-- **Recommended order:**
-  - Wave 1: 11 (it introduces `EffectiveClose`), 16, 20, 9.
-  - Wave 2: 12a then 12b, 8, and 13's attempts half.
-  - Wave 3: 13's assignments half, 10b, 18, 62.
-- The Principal's wave plan (`ledger.md`) starts with 16 and runs 11 → 12 → 13 serially.
-  Both agree that the assignments cluster is serial. The choice of first task is the
-  Tech Lead's when the objective is set.
+- **Inputs to the schedule** (the one schedule is the ledger's): 11 introduces
+  `EffectiveClose`, which 12 and 10b extend; 16 unblocks 62, 29, 30 and 31b; 13's
+  attempts half is file-disjoint and can fill a gap.
 
 ## Frontend (`senior_swe_frontend`)
 
@@ -342,10 +336,11 @@ and deck line numbers in `Quizzivy Teacher.dc.html`.
 - **#414** shares `router.tsx`, the `builder` locale namespace, `MarqueeText.tsx`,
   `index.css` and separate hunks of `admin-change-requests.live.spec.ts`. **#416** shares
   `router.tsx:192` and `teacher-routes.test.ts:52`, one line from 27a's and 35's rows.
-- **Order.**
-  1. 63, 46 and 35 together, in separate worktrees.
-  2. Then 32, and 57 if it skips the router edit.
-  3. 27a last, after #416 and 35 land and the interim-steps question is settled.
+- **Inputs to the schedule** (the one schedule is the ledger's). With one frontend
+  engineer the order is 63 (the critical path), then 35, 46, 32, 57 and 27a. If a second
+  implementer joins, 63, 46 and 35 are file-disjoint and can run in separate worktrees.
+  27a goes after 35, whose rows sit beside its own in `router.tsx` and
+  `teacher-routes.test.ts`, and after the interim-steps question is settled.
 - **Serialize** anything editing `router.tsx` or `teacher-routes.test.ts`. Locale
   namespaces merge one at a time.
 
