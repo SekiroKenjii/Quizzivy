@@ -29,6 +29,7 @@ func (f *failure) write(w http.ResponseWriter) error {
 }
 func (f *failure) VisitCreateWordImportResponse(w http.ResponseWriter) error     { return f.write(w) }
 func (f *failure) VisitGetWordImportResponse(w http.ResponseWriter) error        { return f.write(w) }
+func (f *failure) VisitPasteImportSourceResponse(w http.ResponseWriter) error    { return f.write(w) }
 func (f *failure) VisitUploadImportSourceResponse(w http.ResponseWriter) error   { return f.write(w) }
 func (f *failure) VisitDownloadImportSourceResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f *failure) VisitProcessWordImportResponse(w http.ResponseWriter) error    { return f.write(w) }
@@ -70,4 +71,14 @@ func importFailure(ctx context.Context, err error) (*failure, error) {
 		}
 	}
 	return nil, err
+}
+
+func pasteFailure(ctx context.Context, err error) (*failure, error) {
+	if errors.Is(err, domain.ErrTooLarge) {
+		return &failure{status: 413, body: httpapi.Error(ctx, openapi.IMPORTSOURCETOOLARGE, httpx.Text(ctx, "Văn bản vượt 100.000 ký tự hoặc 20.000 dòng có nội dung. Hãy chia nhỏ văn bản.", "Text exceeds 100,000 characters or 20,000 nonblank lines. Split the text."))}, nil
+	}
+	if errors.Is(err, domain.ErrInvalid) {
+		return &failure{status: 415, body: httpapi.Error(ctx, openapi.IMPORTSOURCEINVALID, httpx.Text(ctx, "Văn bản phải có nội dung, dùng UTF-8 hợp lệ và không chứa ký tự NUL.", "Text must be nonblank valid UTF-8 without NUL characters."))}, nil
+	}
+	return importFailure(ctx, err)
 }

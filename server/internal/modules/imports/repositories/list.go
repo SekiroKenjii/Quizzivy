@@ -20,7 +20,7 @@ func (s *Postgres) List(ctx context.Context, in domain.Filter) (domain.List, err
 	out.Page = paging.Page{Number: page, Size: size}
 	where := ` WHERE ($1='' OR app.immutable_unaccent(lower(i.title)) LIKE app.immutable_unaccent(lower($2)) OR EXISTS (
  SELECT 1 FROM app.word_import_source_set_items si JOIN app.word_import_sources src ON src.id=si.source_id
- WHERE si.import_id=i.id AND si.revision=i.source_revision AND app.immutable_unaccent(lower(src.filename)) LIKE app.immutable_unaccent(lower($2))))`
+ WHERE si.import_id=i.id AND si.revision=i.source_revision AND src.format<>'text' AND app.immutable_unaccent(lower(src.filename)) LIKE app.immutable_unaccent(lower($2))))`
 	args := []any{in.Search, "%" + db.EscapeLike(in.Search) + "%"}
 	if !in.Scope.All {
 		args = append(args, opt.String(in.Scope.UserID))

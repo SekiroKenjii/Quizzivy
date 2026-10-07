@@ -273,6 +273,14 @@ jobs:
         with:
           token: ${{ github.token }}
 
+      - name: Prepare text import purpose
+        id: text-import-purpose
+        env:
+          TEXT_IMPORT_APP_BASE_URL: postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable
+          S3_ACCESS_KEY_ID: quizzivy
+          S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
+        run: python3 scripts/ci/text-import-purpose.py prepare "$RUNNER_TEMP/text-import-purpose/journal.json"
+
       # S3_* is set on the steps that use the object store, never on the job:
       # one storage test file carries no build tag, so the unit tier compiles
       # it too and has to skip it there, before MinIO is up. The bucket is the
@@ -281,13 +289,33 @@ jobs:
         working-directory: server
         env:
           QUEUE_COMMITTED_DATABASE_URL: postgres://quizzivy_app:app@localhost:5432/quizzivy_grading_queue?sslmode=disable
+          TEST_TEXT_IMPORT_DATABASE_URL: ${{ steps.text-import-purpose.outputs.app_url }}
+          TEST_TEXT_IMPORT_MIGRATE_DATABASE_URL: ${{ steps.text-import-purpose.outputs.migrate_url }}
+          TEST_TEXT_IMPORT_DATABASE_NAME: ${{ steps.text-import-purpose.outputs.database }}
+          TEST_TEXT_IMPORT_BUCKET: ${{ steps.text-import-purpose.outputs.bucket }}
           S3_ENDPOINT: http://localhost:9000
           S3_REGION: us-east-1
           S3_BUCKET: quizzivy-imports
           S3_ACCESS_KEY_ID: quizzivy
           S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
           S3_FORCE_PATH_STYLE: "true"
-        run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
+        run: python3 ../scripts/ci/text-import-purpose.py run "$RUNNER_TEMP/text-import-purpose/journal.json" -- go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
+
+      - name: Dispose text import purpose
+        if: always()
+        env:
+          S3_ACCESS_KEY_ID: quizzivy
+          S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
+        run: python3 scripts/ci/text-import-purpose.py cleanup "$RUNNER_TEMP/text-import-purpose/journal.json"
+
+      - name: Upload text import lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: text-import-purpose-lifecycle
+          path: ${{ runner.temp }}/text-import-purpose/
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Dispose grading queue concurrency database
         if: ${{ always() && steps.grading-queue-db.outputs.database_oid != '' }}

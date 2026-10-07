@@ -639,11 +639,27 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         role: { $ref: '#/components/schemas/ImportSourceRole' }
         filename: { type: string, minLength: 1, maxLength: 255 }
-        format: { type: string, enum: [docx, doc, pdf] }
+        format: { type: string, enum: [docx, doc, pdf, text] }
+        characters: { type: integer, minimum: 1, maximum: 100000 }
         bytes: { type: integer, format: int64, minimum: 1, maximum: 26214400 }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         uploadedBy: { $ref: '#/components/schemas/Uuid' }
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+      oneOf:
+        - properties:
+            format: { enum: [text] }
+          required: [characters]
+        - properties:
+            format: { enum: [docx, doc, pdf] }
+          not: { required: [characters] }
+    PasteImportSource:
+      type: object
+      additionalProperties: false
+      required: [uploadId, expectedRevision, text]
+      properties:
+        uploadId: { $ref: '#/components/schemas/Uuid' }
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        text: { type: string, minLength: 1, maxLength: 100000, pattern: '\S' }
     WordImport:
       type: object
       additionalProperties: false
@@ -836,8 +852,9 @@ components:
     ImportLimits:
       type: object
       additionalProperties: false
-      required: [maxBytes, formats]
+      required: [maxBytes, formats, pasteMaxCharacters]
       properties:
+        pasteMaxCharacters: { type: integer, minimum: 1, maximum: 100000 }
         maxBytes: { type: integer, format: int64, minimum: 1 }
         formats:
           type: array
@@ -5374,6 +5391,69 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429':
           description: IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /teacher/imports/{id}/sources/text:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: pasteImportSource
+      x-resource:
+        - { in: path, name: id, kind: import }
+        - { in: body, name: /uploadId, kind: none }
+      x-permission: content.tests.write
+      tags: [teacher-imports]
+      summary: Store a private pasted-text exam source
+      description: |
+        Plain text only, normalized to NFC and stored as pasted-text.txt with role exam.
+        At most 100000 Unicode code points and 20000 nonblank lines; no NUL.
+        The default raw JSON body limit applies independently of text length.
+        Identical normalized text with the same uploadId and expectedRevision replays
+        the original immutable receipt; changed content conflicts. Quotas, intake
+        capacity, ownership and retention are shared with file uploads.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasteImportSource' }
+      responses:
+        '201':
+          description: Stored and associated with one source revision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportUploadReceipt' }
+        '400':
+          description: Malformed text request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: IMPORT_SOURCE_TOO_LARGE — normalized character or nonblank line limit exceeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — invalid UTF-8, NUL or empty text.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501':
+          description: Private source intake is not configured.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
