@@ -27,7 +27,7 @@ agent. Resolved is what the transcript metadata recorded on every turn (README,
 | `principal_swe` | Fable 5.1, high or more | general-purpose, `model: fable`, `effort: high` | `claude-fable-5-1`, high | onboarded |
 | `senior_swe_backend` | Sonnet 5.5, xhigh | general-purpose, `model: sonnet`, `effort: xhigh` | `claude-sonnet-5-5`, xhigh | onboarded |
 | `senior_swe_frontend` | Opus 5.5, high or more | general-purpose, `model: opus`, `effort: high` | `claude-opus-5-5`, high | onboarded |
-| `senior_swe_platform` | Sonnet 5.5, high or more | general-purpose, `model: sonnet`, `effort: high` | `claude-sonnet-5-5`, high | onboarding |
+| `senior_swe_platform` | Sonnet 5.5, high or more | general-purpose, `model: sonnet`, `effort: high`; relaunched twice with a checkpoint after server-side API 500s | `claude-sonnet-5-5`, high | onboarded |
 | `senior_tester` | Sonnet 5.5, high or more | general-purpose, `model: sonnet`, `effort: high` | `claude-sonnet-5-5`, high | onboarded |
 
 The definitions in `.claude/agents/` pin the full model ids. This session created that
@@ -68,6 +68,17 @@ Taken from merged pull requests on 2026-10-07. The plan's "Done when" boxes lag 
 | T-R4.43, 44 settings | 8, 9 |
 | T-R4.45b bell and student settings | 10b, 8 |
 | T-R4.47 attempt review | 46, 28 |
+
+## Environment baseline
+
+The container reaches CI's gates by the recipe in [environment.md](environment.md):
+dockerd, `postgres:18` and MinIO under compose, `GOTOOLCHAIN=go1.27.0`, and CI's
+provisioning for the Go integration tier. At `bb4d4000` every gate run here passes:
+deck, goose up/down/up, `make gen-check`, `make lint`, the Go unit, integration and
+e2e tiers, `pnpm lint`, `typecheck`, `format:check`, `test:unit` (3936 tests),
+`test:integration` (120 tests) and `build`. Not run here: the Word converter tests,
+`pnpm e2e`, `e2e:content` and `e2e:live`. PostgreSQL (5432) and MinIO (9000, 9001)
+stay running for the team.
 
 ## Critical path and waves
 
@@ -140,9 +151,10 @@ The Principal recommends starting the heads of A and B together (W0).
 | F-5 | #416's run 718 ended `failure` with every job green and no **CI result** job, apparently the gate never ran. "Re-run failed jobs" on run 718 is the next step. | owner of #416 | reported |
 | F-6 | `70` §6 names the teacher sidebar key `quizzivy.column.sidebar`; the code stores `quizzivy.sidebar` (`web/src/layouts/shell/sidebarState.ts`). | Tech Lead, docs | open |
 | F-8 | T-R4.5b's ticked "Done when" item (`74-r4.md:1331-1336`) says the `router-chunks` media pattern was narrowed to `features/media/(pages/\|components/(UploadPanel\|AssetLibraryDialog))`; the code still names all of `features/media/` (`router-chunks.test.ts:51`). So T-R4.35 needs no canary edit. | Tech Lead, docs | open |
+| F-9 | Setting up the container takes a session's first half hour by hand. The platform engineer proposes a SessionStart hook (dockerd, `.env`, the MinIO image, compose, goose, `pnpm install`, `goose up`, the toolchain pin); it would change every session, so it waits for the user. | the user decides | open |
 | F-7 | This container has Node 22 and pnpm 10.28; CI uses Node 24, pnpm 11.25.0 and Go 1.27. Only Chromium is available, so the Firefox and WebKit paste checks of T-R4.51 cannot run here. | senior_swe_platform | open |
 
 ## Next action
 
-Collect the backend, frontend and platform onboarding reports, record the environment
-baseline, then ask the user to choose the next objective and settle the decisions above.
+The Principal reviews the whole artifact set; then ask the user to choose the next
+objective and settle the decisions above.
