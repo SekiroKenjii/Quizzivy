@@ -1013,3 +1013,67 @@ it("editing a comment clears Finish readiness and flushes the latest comment bef
   await waitFor(() => expect(finishes).toBe(1));
   expect(grades).toHaveLength(2);
 });
+
+it("keeps Finish recovery text and real retry/review controls together in Alert's content column", async () => {
+  finishFails = true;
+  const { user } = mount();
+  await user.click(await screen.findByRole("button", { name: "Chấm 0 điểm" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Lưu & câu tiếp theo" })).toBeEnabled(),
+  );
+  await user.click(screen.getByRole("button", { name: "Lưu & câu tiếp theo" }));
+  await user.click(await screen.findByRole("button", { name: "Hoàn tất chấm" }));
+  const notice = await screen.findByText("Điểm đã lưu, nhưng chưa hoàn tất chấm bài.");
+  const alert = screen.getByRole("alert");
+  const description = alert.querySelector(":scope > [data-slot=alert-description]");
+  expect(description).toContainElement(notice);
+  expect(description).toContainElement(screen.getByText("Finish failed"));
+  expect(description).toContainElement(
+    screen.getByRole("button", { name: "Thử hoàn tất lại" }),
+  );
+  expect(description).toContainElement(
+    within(alert).getByRole("link", { name: "Xem toàn bộ bài" }),
+  );
+  expect(description).toHaveClass("col-start-2");
+  expect(alert.children).toHaveLength(1);
+  expect(grades).toHaveLength(1);
+  expect(finishes).toBe(1);
+  finishFails = false;
+  await user.click(screen.getByRole("button", { name: "Thử hoàn tất lại" }));
+  await waitFor(() => expect(finishes).toBe(2));
+  expect(grades).toHaveLength(1);
+});
+
+it("places a current-count refusal in Alert's content column without sending Finish", async () => {
+  const { user } = mount();
+  await user.click(await screen.findByRole("button", { name: "Chấm 0 điểm" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Lưu & câu tiếp theo" })).toBeEnabled(),
+  );
+  await user.click(screen.getByRole("button", { name: "Lưu & câu tiếp theo" }));
+  const finish = await screen.findByRole("button", { name: "Hoàn tất chấm" });
+  freshPending = 1;
+  await user.click(finish);
+  const alert = await screen.findByRole("alert");
+  const description = alert.querySelector(":scope > [data-slot=alert-description]");
+  expect(description).toHaveTextContent(
+    "Chưa xác nhận được số câu còn chờ chấm. Xem lại bài trước khi hoàn tất.",
+  );
+  expect(description).toHaveClass("col-start-2");
+  expect(alert.children).toHaveLength(1);
+  expect(finishes).toBe(0);
+  expect(grades).toHaveLength(1);
+});
+
+it("places denied grading text in Alert's content column without revealing private work", () => {
+  useAuthStore.getState().setUser({ ...teacherUser, permissions: [] });
+  mount();
+  const alert = screen.getByRole("alert");
+  const description = alert.querySelector(":scope > [data-slot=alert-description]");
+  expect(description).toHaveTextContent("Bạn không có quyền chấm bài tại đây.");
+  expect(description).toHaveClass("col-start-2");
+  expect(alert.children).toHaveLength(1);
+  expect(screen.queryByText("Saved answer")).not.toBeInTheDocument();
+  expect(grades).toHaveLength(0);
+  expect(finishes).toBe(0);
+});

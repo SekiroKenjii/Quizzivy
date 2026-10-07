@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useRef, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ListSkeleton, LoadError, EmptyState } from "@/components/shared/ListState";
 import { useCan, useWorkspace } from "@/features/auth/permissions";
 import { useAuthStore } from "@/stores/auth";
@@ -13,6 +13,7 @@ import { gradingGroupKey, gradingItemKey, scoreOptions } from "./gradingRecovery
 import { useGradingQueue } from "./useGradingQueue";
 import { GradingQueueAside } from "./GradingQueueAside";
 import { GradingAnswerCard } from "./GradingAnswerCard";
+import "@/features/attempts/gradingMessages";
 
 /** GradingPage presents pending work and explicit Finish recovery without changing independent regrading. */
 export default function GradingPage() {
@@ -26,7 +27,12 @@ export default function GradingPage() {
   const mode = search.get("mode") === "question" ? "question" : "student";
   const assignment = search.get("assignment") ?? "";
   const student = search.get("student") ?? "";
-  if (!allowed) return <Alert variant="danger">{t("grading.unavailable")}</Alert>;
+  if (!allowed)
+    return (
+      <Alert variant="danger">
+        <AlertDescription>{t("grading.unavailable")}</AlertDescription>
+      </Alert>
+    );
   return (
     <QueuePage
       key={JSON.stringify([generation, mode, assignment, student])}
@@ -166,27 +172,36 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
         </div>
       </header>
       <Filters model={model} params={params} onChange={change} />
-      {model.error && <Alert variant="danger">{model.error}</Alert>}
+      {model.error && (
+        <Alert variant="danger">
+          <AlertDescription>{model.error}</AlertDescription>
+        </Alert>
+      )}
       {Object.values(model.finishes).map((state) => (
         <Alert key={state.item.attemptId} variant="danger">
-          <p>{t("grading.finishFailed")}</p>
-          <p>{state.error}</p>
-          <div className="mt-2 flex gap-2">
-            <Button disabled={model.busy} onClick={() => void model.retryFinish(state)}>
-              {t("grading.retryFinish")}
-            </Button>
-            <Button asChild variant="outline">
-              <Link
-                to={`/teacher/attempts/${state.item.attemptId}`}
-                aria-disabled={model.busy}
-                onClick={(event) =>
-                  openReview(event, `/teacher/attempts/${state.item.attemptId}`)
-                }
+          <AlertDescription>
+            <p>{t("grading.finishFailed")}</p>
+            <p>{state.error}</p>
+            <div className="mt-2 flex gap-2">
+              <Button
+                disabled={model.busy}
+                onClick={() => void model.retryFinish(state)}
               >
-                {t("grading.openReview")}
-              </Link>
-            </Button>
-          </div>
+                {t("grading.retryFinish")}
+              </Button>
+              <Button asChild variant="outline">
+                <Link
+                  to={`/teacher/attempts/${state.item.attemptId}`}
+                  aria-disabled={model.busy}
+                  onClick={(event) =>
+                    openReview(event, `/teacher/attempts/${state.item.attemptId}`)
+                  }
+                >
+                  {t("grading.openReview")}
+                </Link>
+              </Button>
+            </div>
+          </AlertDescription>
         </Alert>
       ))}
       {model.queue.isPending && <ListSkeleton />}
