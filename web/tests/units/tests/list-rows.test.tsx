@@ -15,6 +15,7 @@ const PUBLISHED_ID = "018f0000-0000-7000-8000-0000000000a2";
 
 function test(id: string, title: string, status: "draft" | "published") {
   return {
+    skills: [],
     id,
     title,
     description: null,

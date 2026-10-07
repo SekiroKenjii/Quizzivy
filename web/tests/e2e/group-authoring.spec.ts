@@ -1,3 +1,4 @@
+import { storedGroupBundle } from "@tests/support/storedGroupBundle";
 import { expect, test, type Page } from "@playwright/test";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import type { components } from "../../src/lib/api/schema";
@@ -74,7 +75,7 @@ async function setup(page: Page) {
       expect(body.expectedRevision).toBe(state.stored.revision);
       state.stored = {
         ...state.stored,
-        bundle: body.bundle,
+        bundle: storedGroupBundle(body.bundle),
         revision: state.stored.revision + 1,
       };
       return route.fulfill({ json: state.stored });
@@ -102,7 +103,7 @@ async function setup(page: Page) {
       const body = route
         .request()
         .postDataJSON() as components["schemas"]["GroupCreateInput"];
-      const copy = { ...initial(), bundle: body.bundle };
+      const copy = { ...initial(), bundle: storedGroupBundle(body.bundle) };
       state.copies.push(copy);
       await page.route(
         `http://localhost:8080/teacher/question-groups/${copy.bundle.group.id}`,

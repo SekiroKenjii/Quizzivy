@@ -10,6 +10,8 @@ import { contractJson } from "@tests/support/contractResponse";
 
 it("loads attached tests on expansion and renders links in a nested table", async () => {
   const question = {
+    level: null,
+    skill: null,
     id: "018f0000-0000-7000-8000-0000000000b1",
     type: "single_choice",
     prompt: "Linked question",
@@ -31,6 +33,23 @@ it("loads attached tests on expansion and renders links in a nested table", asyn
         bankTotal: 1,
         tags: [],
         facets: {
+          levels: {
+            pre_a1: 0,
+            a1: 0,
+            a2: 0,
+            b1: 0,
+            b2: 0,
+            c1: 0,
+            c2: 0,
+          },
+          skills: {
+            grammar: 0,
+            vocabulary: 0,
+            reading: 0,
+            listening: 0,
+            writing: 0,
+            speaking: 0,
+          },
           all: 1,
           single_choice: 1,
           multiple_choice: 0,

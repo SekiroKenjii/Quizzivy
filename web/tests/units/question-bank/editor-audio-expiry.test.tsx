@@ -16,6 +16,8 @@ let fetches = 0;
 
 function question(url: string) {
   return {
+    level: null,
+    skill: null,
     id: ID,
     type: "short_answer" as const,
     prompt: "Người phụ nữ đề nghị làm gì?",

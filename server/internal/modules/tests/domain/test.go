@@ -17,6 +17,7 @@ type Test struct {
 	TotalPoints    string
 	QuestionCount  int
 	AudioCount     int
+	Skills         []string
 	Sections       []Section
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

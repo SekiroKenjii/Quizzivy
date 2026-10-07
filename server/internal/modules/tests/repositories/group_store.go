@@ -134,7 +134,7 @@ func (s *GroupsPostgres) readGraph(ctx context.Context, tx pgx.Tx, stored *domai
 
 func groupQuestionInput(q questions.Question) questions.Input {
 	in := questions.Input{
-		Type: q.Type, Prompt: q.Prompt, PromptContent: q.PromptContent, Points: q.Points,
+		Type: q.Type, Level: q.Level, Skill: q.Skill, Prompt: q.Prompt, PromptContent: q.PromptContent, Points: q.Points,
 		Explanation: q.Explanation, ExplanationContent: q.ExplanationContent, SampleAnswer: q.SampleAnswer,
 		MediaAssetID: q.MediaAssetID, Audio: q.Audio, Transcript: q.Transcript, Tags: q.Tags,
 	}

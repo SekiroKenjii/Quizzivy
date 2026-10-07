@@ -112,6 +112,7 @@ export function dashboard23Assignments(all = 1, populated = true) {
 /** dashboard23Draft is the created draft response used by public creation and navigation cases. */
 export function dashboard23Draft(): components["schemas"]["Test"] {
   return {
+    skills: [],
     id: "018f0000-0000-7000-8000-0000000000a1",
     title: "Đề thi chưa đặt tên",
     description: null,
