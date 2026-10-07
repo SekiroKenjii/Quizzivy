@@ -1,9 +1,8 @@
 import { Tooltip } from "@/components/shared/Tooltip";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DndContext,
-  KeyboardSensor,
   PointerSensor,
   closestCenter,
   useDroppable,
@@ -68,6 +67,7 @@ import {
 } from "../outlineUnits";
 import type { GroupBundle } from "@/features/question-groups/api";
 import { OutlineGroupRow } from "./OutlineGroupRow";
+import { OutlineKeyboardSensor } from "./OutlineKeyboardSensor";
 import type { TFunction } from "i18next";
 
 /** OutlineQuestion carries a loaded question’s title, score, type and publish finding in the outline. */
@@ -138,9 +138,25 @@ export function OutlineTree({
   const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(
     null,
   );
+  const keyboardDisposers = useRef(new Set<() => void>());
+  const registerKeyboard = useCallback((cancel: () => void) => {
+    keyboardDisposers.current.add(cancel);
+    return () => {
+      keyboardDisposers.current.delete(cancel);
+    };
+  }, []);
+  useEffect(() => {
+    const disposers = keyboardDisposers.current;
+    return () => {
+      for (const cancel of [...disposers]) cancel();
+    };
+  }, []);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: outlineKeyboardCoordinates }),
+    useSensor(OutlineKeyboardSensor, {
+      coordinateGetter: outlineKeyboardCoordinates,
+      register: registerKeyboard,
+    }),
   );
 
   function trackDrop(event: DragMoveEvent) {
