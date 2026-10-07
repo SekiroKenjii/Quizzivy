@@ -25,7 +25,7 @@ agent. Resolved is what the transcript metadata recorded on every turn (README,
 |---|---|---|---|---|
 | Tech Lead | Opus 5.5, high or more | primary session | `claude-opus-5-5`, xhigh (session metadata) | active |
 | `principal_swe` | Fable 5.1, high or more | general-purpose, `model: fable`, `effort: high` | `claude-fable-5-1`, high | onboarded |
-| `senior_swe_backend` | Sonnet 5.5, xhigh | general-purpose, `model: sonnet`, `effort: xhigh` | `claude-sonnet-5-5`, xhigh | onboarding |
+| `senior_swe_backend` | Sonnet 5.5, xhigh | general-purpose, `model: sonnet`, `effort: xhigh` | `claude-sonnet-5-5`, xhigh | onboarded |
 | `senior_swe_frontend` | Opus 5.5, high or more | general-purpose, `model: opus`, `effort: high` | `claude-opus-5-5`, high | onboarding |
 | `senior_swe_platform` | Sonnet 5.5, high or more | general-purpose, `model: sonnet`, `effort: high` | `claude-sonnet-5-5`, high | onboarding |
 | `senior_tester` | Sonnet 5.5, high or more | general-purpose, `model: sonnet`, `effort: high` | `claude-sonnet-5-5`, high | onboarded |
@@ -46,6 +46,8 @@ Taken from merged pull requests on 2026-10-07. The plan's "Done when" boxes lag 
 - **Ready (every dependency merged):** backend T-R4.8, 9, 11, 12, 13, 16, 20; frontend
   T-R4.27a, 32, 35, 46, 57, 63. T-R3.1 to T-R3.3 (v0.9.1) become eligible on 2026-10-10.
 - **Blocked:** the rest. Close-out (T-R4.48 to 52) comes last.
+- **Next migration number:** 00092. Per-task readiness, sizes and open questions are in
+  [r4-readiness.md](r4-readiness.md); 16 is nearer L and 12 nearer XL (split 12a/12b).
 
 | Task | Waits for |
 |---|---|

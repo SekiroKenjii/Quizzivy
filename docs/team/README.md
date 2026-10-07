@@ -3,8 +3,9 @@
 How Quizzivy's multi-agent team runs Phase R work. `AGENTS.md` is the rule set and wins
 over anything here; this file adds only who does what, how work moves, and what evidence
 closes it. The team's current state is in [`ledger.md`](ledger.md), the verification
-environment in [`environment.md`](environment.md), and the release's verification strategy
-in [`verification.md`](verification.md).
+environment in [`environment.md`](environment.md), the release's verification strategy
+in [`verification.md`](verification.md), and the dated readiness survey of the ready tasks
+in [`r4-readiness.md`](r4-readiness.md).
 
 ## Roster
 
