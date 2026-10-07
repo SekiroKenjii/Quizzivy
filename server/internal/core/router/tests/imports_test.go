@@ -41,7 +41,7 @@ func TestImportOperationsRequireTeacherBeforeReadingSourceBytes(t *testing.T) {
 			count++
 		}
 	}
-	if count != 14 {
+	if count != 15 {
 		t.Fatalf("protected import operations: %d", count)
 	}
 }

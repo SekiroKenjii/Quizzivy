@@ -117,6 +117,27 @@ func (h Imports) UploadImportSource(ctx context.Context, request openapi.UploadI
 	}
 	return openapi.UploadImportSource201JSONResponse{Import: toImport(v.Import), Source: toSource(v.Source), SourceRevision: v.Source.SourceRevision}, nil
 }
+func (h Imports) PasteImportSource(ctx context.Context, request openapi.PasteImportSourceRequestObject) (openapi.PasteImportSourceResponseObject, error) {
+	if h.app == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	a, ok := httpapi.ActorFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+	select {
+	case h.slots <- struct{}{}:
+		defer func() { <-h.slots }()
+	default:
+		return importFailure(ctx, domain.ErrBusy)
+	}
+	v, err := h.app.Commands.Paste.Handle(ctx, command.Paste{ImportID: request.Id.String(), UploadID: request.Body.UploadId.String(), ExpectedRevision: request.Body.ExpectedRevision, Text: request.Body.Text, Actor: actor.Actor(a)})
+	if err != nil {
+		return pasteFailure(ctx, err)
+	}
+	return openapi.PasteImportSource201JSONResponse{Import: toImport(v.Import), Source: toSource(v.Source), SourceRevision: v.Source.SourceRevision}, nil
+}
+
 func (h Imports) DownloadImportSource(ctx context.Context, request openapi.DownloadImportSourceRequestObject) (openapi.DownloadImportSourceResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
@@ -187,7 +208,7 @@ func toImport(v domain.Import) openapi.WordImport {
 	return out
 }
 func toSource(s domain.Source) openapi.ImportSource {
-	return openapi.ImportSource{Id: httpapi.ParseUUID(s.ID), Role: openapi.ImportSourceRole(s.Role), Filename: s.Filename, Format: openapi.ImportSourceFormat(s.Format), Bytes: s.Bytes, Sha256: hex.EncodeToString(s.SHA256), UploadedBy: httpapi.ParseUUID(s.UploadedBy), CreatedAt: s.CreatedAt}
+	return openapi.ImportSource{Id: httpapi.ParseUUID(s.ID), Role: openapi.ImportSourceRole(s.Role), Filename: s.Filename, Format: openapi.ImportSourceFormat(s.Format), Characters: s.Characters, Bytes: s.Bytes, Sha256: hex.EncodeToString(s.SHA256), UploadedBy: httpapi.ParseUUID(s.UploadedBy), CreatedAt: s.CreatedAt}
 }
 
 func toHistoryItem(v domain.Import) openapi.WordImportHistoryItem {

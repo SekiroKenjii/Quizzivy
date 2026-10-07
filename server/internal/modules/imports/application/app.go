@@ -18,6 +18,7 @@ type Application struct {
 type Commands struct {
 	Create     cqrs.CommandHandler[command.Create, domain.Import]
 	Upload     cqrs.CommandHandler[command.Upload, domain.Receipt]
+	Paste      cqrs.CommandHandler[command.Paste, domain.Receipt]
 	Process    cqrs.CommandHandler[command.Process, domain.Import]
 	Nudge      cqrs.CommandHandler[command.Nudge, cqrs.Nothing]
 	Cancel     cqrs.CommandHandler[command.Cancel, domain.Import]
@@ -60,11 +61,13 @@ type Dependencies struct {
 }
 
 func New(d Dependencies) *Application {
+	upload := command.UploadHandler{Repo: d.Repo, Store: d.Store, Inspector: d.Inspector, WorkDir: d.WorkDir, Quotas: d.Quotas, Slots: make(chan struct{}, 1), Legacy: d.Legacy}
 	reader := worker.EvidenceReader{Artifacts: d.Artifacts, Store: d.Store, WorkDir: d.WorkDir}
 	return &Application{
 		Commands: Commands{
 			Create:     command.CreateHandler{Repo: d.Repo, Quotas: d.Quotas},
-			Upload:     command.UploadHandler{Repo: d.Repo, Store: d.Store, Inspector: d.Inspector, WorkDir: d.WorkDir, Quotas: d.Quotas, Slots: make(chan struct{}, 1), Legacy: d.Legacy},
+			Upload:     upload,
+			Paste:      command.PasteHandler{Upload: upload},
 			Process:    command.ProcessHandler{Repo: d.Repo, Runs: d.Runs, Worker: d.Worker, Enabled: d.Processing},
 			Nudge:      command.NudgeHandler{Worker: d.Worker},
 			Cancel:     command.CancelHandler{Runs: d.Runs},

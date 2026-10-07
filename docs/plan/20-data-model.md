@@ -1447,6 +1447,8 @@ the file it adds.
 | `00082_add_media_assets_library_fields.sql` | `media_assets.display_name`, `default_max_plays`, `replaced_by` and their four constraints | R4 (T-R4.17a), D-29 |
 | `00083_add_media_assets_dimensions.sql` | `media_assets.width`, `height` and their three checks | R4 (T-R4.17a), D-29 |
 | `00084_widen_media_assets_audio_bytes.sql` | `media_assets_bytes_by_kind` in place of `media_assets_bytes_check`; Down re-adds the old rule `NOT VALID` | R4 (T-R4.17a), D-29, DG-63 |
+| `00090_allow_text_import_sources.sql` | Plaintext exam-source format | R4 (T-R4.55) |
+| `00091_add_word_import_sources_characters.sql` | Bounded character metadata exactly for text sources | R4 (T-R4.55) |
 
 Notes on migration mechanics (§13.7):
 
@@ -1861,6 +1863,24 @@ Local Docker verification uses the migration owner for fixture setup and the
 `quizzivy_app` role for intake, plus a separate private MinIO bucket. Up/down/up is
 verified on a disposable database. Automatic source retention remains undecided;
 this migration does not infer it from the integrity-event retention policy.
+
+### R4 pasted-text source extension (T-R4.55)
+
+`00090_allow_text_import_sources.sql` extends the existing format CHECK to
+`docx`, `doc`, `pdf` and `text`. Its Down restores the file-only CHECK `NOT VALID`,
+so existing text rows remain retained while new text writes are refused.
+`00091_add_word_import_sources_characters.sql` adds nullable integer `characters`
+with named range 1–100000 and format constraints: it is non-null exactly for text
+sources and null for files. Existing file inserts using the old column list remain
+valid. No owner, grant, index, source-set or append-only audit policy changes.
+
+Intake writes the NFC Unicode code-point count; bytes, hash and private-original
+metadata keep their existing meaning. Migration 91 Down drops the character
+column. Empty-purpose 90/91 up/down/up is reversible. After retained text loses
+its counts through 91 Down, 91 Up must refuse atomically: bytes and hash cannot
+reconstruct truthful character counts. There is no invented count, backfill or
+retained-row repair. A separate disposable purpose verifies this refusal and is
+ordinarily disposed only under its exact lifecycle authorization.
 
 
 ## 24. Durable import runs (W-11a)

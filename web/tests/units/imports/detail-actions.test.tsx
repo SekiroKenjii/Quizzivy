@@ -31,6 +31,7 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/teacher/imports/limits`, () =>
       contractJson("/teacher/imports/limits", "get", 200, {
+        pasteMaxCharacters: 100000,
         maxBytes: 25 * 1024 * 1024,
         formats: ["docx"],
       }),
