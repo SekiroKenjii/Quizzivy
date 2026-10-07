@@ -102,7 +102,7 @@ describe("pasted text processing on the public detail page", () => {
     );
     expect(screen.getByText("Đề thi học kỳ 1")).toBeInTheDocument();
     expect(screen.getByText(/từ văn bản đã dán/)).toHaveTextContent("dap-an-hk1.docx");
-    const originals = screen.getByRole("region", { name: "Tệp gốc" });
+    const originals = screen.getByRole("region", { name: "Nguồn ban đầu" });
     expect(within(originals).getByText("Văn bản đã dán")).toBeInTheDocument();
     expect(
       within(originals).getByRole("button", { name: "Tải bản gốc Văn bản đã dán" }),
@@ -183,6 +183,11 @@ describe("pasted text processing on the public detail page", () => {
       expect(screen.queryByRole("link", { name: "Thay tệp đề thi" })).toBeNull();
       expect(screen.queryByLabelText("Tệp đề thi")).toBeNull();
       expect(screen.getByText("Mã lỗi: SOURCE_INVALID")).toBeInTheDocument();
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent(
+        "Không đọc được văn bản đã dán hoặc một tệp đi kèm.",
+      );
+      expect(alert).toHaveTextContent("Mã lỗi: SOURCE_INVALID");
     },
   );
 
@@ -347,6 +352,7 @@ describe("pasted text processing on the public detail page", () => {
       mount();
       await screen.findByRole("link", { name: "Bắt đầu rà soát" });
       await screen.findByText("2 ghi chú");
+      expect(screen.queryByRole("alert")).toBeNull();
       expect(screen.queryByText("Mỗi câu đều có đáp án") !== null).toBe(complete);
       expect(screen.queryByText("0 cần xử lý")).toBeNull();
       expect(screen.queryByText("11 ghi chú")).toBeNull();

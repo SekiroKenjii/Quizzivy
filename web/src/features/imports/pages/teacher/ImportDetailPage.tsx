@@ -15,7 +15,17 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
 import { Callout } from "@/components/shared/Callout";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardPaste, FileText, ArrowRight } from "lucide-react";
+import {
+  ClipboardPaste,
+  FileText,
+  ArrowRight,
+  CircleCheck,
+  CircleAlert,
+  CircleHelp,
+  CircleX,
+  Info,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { formatRelative, formatDateTime } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -161,12 +171,16 @@ function DetailHead({ value }: Readonly<{ value: WordImport }>) {
   const name = text ? t("imports.detail.pastedText") : (exam?.filename ?? value.title);
   return (
     <header className="flex min-w-0 flex-col gap-3">
-      <Link
-        to="/teacher/imports"
-        className="text-muted-fg hover:text-fg self-start text-sm"
-      >
-        {t("imports.backToHistory")}
-      </Link>
+      {value.status === "processing" ||
+      value.status === "needs_review" ||
+      value.status === "failed" ? null : (
+        <Link
+          to="/teacher/imports"
+          className="text-muted-fg hover:text-fg self-start text-sm"
+        >
+          {t("imports.backToHistory")}
+        </Link>
+      )}
       <div className="flex min-w-0 items-center gap-3">
         <span className="bg-info-soft text-info-ink grid size-10 shrink-0 place-items-center rounded-[10px]">
           {text ? (
@@ -210,19 +224,44 @@ function Panel({
   description,
   status,
   children,
+  groupHeading,
 }: Readonly<{
   title: string;
   description?: string | undefined;
   status?: ReactNode;
   children?: ReactNode;
+  groupHeading?: "ready" | "failed" | undefined;
 }>) {
+  const heading = (
+    <>
+      <CardTitle
+        className={cn("text-[17px] leading-snug", groupHeading && "leading-normal")}
+      >
+        {title}
+      </CardTitle>
+      {description === undefined ? null : (
+        <CardDescription
+          className={cn(
+            groupHeading && "text-ui leading-normal",
+            groupHeading === "failed" && "leading-[1.55]",
+          )}
+        >
+          {description}
+        </CardDescription>
+      )}
+    </>
+  );
   return (
-    <Card className="gap-3.5 py-5">
-      <CardHeader className="px-5">
+    <Card
+      role={groupHeading === "failed" ? "alert" : undefined}
+      className="gap-3.5 py-5"
+    >
+      <CardHeader className={cn("px-5", groupHeading && "gap-3.5")}>
         {status}
-        <CardTitle className="text-[17px] leading-snug">{title}</CardTitle>
-        {description === undefined ? null : (
-          <CardDescription>{description}</CardDescription>
+        {groupHeading ? (
+          <div className="flex flex-col gap-0.5">{heading}</div>
+        ) : (
+          heading
         )}
       </CardHeader>
       {children === undefined ? null : (
@@ -312,8 +351,13 @@ function ReadyPanel({
           : readyTitle(review.data.summary, t)
       }
       description={t("imports.detail.readyBody")}
+      groupHeading="ready"
       status={
-        <Badge variant="success" className="w-fit self-start rounded-full!">
+        <Badge
+          variant="success"
+          className="h-6.5! w-fit self-start rounded-full! text-[12.5px]"
+        >
+          <CircleCheck className="size-[13px]" aria-hidden="true" />
           {t("imports.status.needs_review")}
         </Badge>
       }
@@ -343,14 +387,14 @@ function ReadyPanel({
           {t("imports.availability.reprocessOff")}
         </ProcessingOffNotice>
       ) : null}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button asChild>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild size="md" className="h-10 px-4 text-[14px] font-semibold">
           <Link to={`/teacher/imports/${value.id}/review`}>
             {t("imports.detail.startReview")}
             <ArrowRight aria-hidden="true" />
           </Link>
         </Button>
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" size="md" className="h-10">
           <Link to="/teacher/imports">{t("imports.detail.later")}</Link>
         </Button>
         <CloseImport value={value} onChange={onChange} />
@@ -394,22 +438,26 @@ function ReadyPills({ review }: Readonly<{ review: ImportReview }>) {
   return (
     <div className="flex flex-wrap gap-2">
       {complete ? (
-        <Badge variant="success" className="rounded-full!">
+        <Badge variant="success" className="h-6.5! rounded-full! text-[12.5px]">
+          <CircleCheck className="size-[13px]" aria-hidden="true" />
           {t("imports.detail.everyAnswer")}
         </Badge>
       ) : null}
       {summary.blocking > 0 ? (
-        <Badge variant="danger" className="rounded-full!">
+        <Badge variant="danger" className="h-6.5! rounded-full! text-[12.5px]">
+          <CircleAlert className="size-[13px]" aria-hidden="true" />
           {t("imports.detail.needAction", { count: summary.blocking })}
         </Badge>
       ) : null}
       {summary.needsDecision > 0 ? (
-        <Badge variant="warning" className="rounded-full!">
+        <Badge variant="warning" className="h-6.5! rounded-full! text-[12.5px]">
+          <CircleHelp className="size-[13px]" aria-hidden="true" />
           {t("imports.detail.toConfirm", { count: summary.needsDecision })}
         </Badge>
       ) : null}
       {notes > 0 ? (
-        <Badge variant="secondary" className="rounded-full!">
+        <Badge variant="secondary" className="h-6.5! rounded-full! text-[12.5px]">
+          <Info className="size-[13px]" aria-hidden="true" />
           {t("imports.detail.notes", { count: notes })}
         </Badge>
       ) : null}
@@ -553,7 +601,15 @@ function CloseImport({
     <>
       <Button
         variant="ghost"
-        className="text-muted-foreground self-start"
+        size={
+          value.status === "needs_review" || value.status === "failed"
+            ? "md"
+            : "default"
+        }
+        className={cn(
+          "text-muted-foreground self-start",
+          (value.status === "needs_review" || value.status === "failed") && "h-10",
+        )}
         disabled={close.mutation.isPending}
         onClick={close.ask}
       >
@@ -613,12 +669,12 @@ function ProcessingState({
           {cancel.error}
         </p>
       )}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button asChild variant="outline" size="sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="outline" size="md">
           <Link to="/teacher/imports">{t("imports.detail.leave")}</Link>
         </Button>
         {reprocess ? (
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="md">
             <Link to={`/teacher/imports/${value.id}/review`}>
               {t("imports.detail.viewReview")}
             </Link>
@@ -627,7 +683,7 @@ function ProcessingState({
         <Button
           variant="ghost"
           className="text-danger-ink hover:bg-danger-soft"
-          size="sm"
+          size="md"
           disabled={cancel.mutation.isPending}
           onClick={cancel.ask}
         >
@@ -751,6 +807,7 @@ function IntakePanel({
       status={failed ? <FailureStage value={value} /> : undefined}
       title={failed ? failureTitle(value, t) : t("imports.detail.awaitingTitle")}
       description={failed ? failureDescription(value, t) : awaitingBody}
+      groupHeading={failed ? "failed" : undefined}
     >
       {processingOff ? (
         <ProcessingOffNotice>{t("imports.availability.intakeOff")}</ProcessingOffNotice>
@@ -760,6 +817,11 @@ function IntakePanel({
       ) : null}
       {processing ? (
         <IntakeActions value={value} onChange={onChange} failed={failed} />
+      ) : null}
+      {!processing && failed ? (
+        <Button asChild variant="outline" size="md" className="h-10 self-start">
+          <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
+        </Button>
       ) : null}
       <CloseImport value={value} onChange={onChange} />
       <IdleWarning />
@@ -775,11 +837,16 @@ function IntakeActions({
   const { t } = useTranslation();
   if (isTextImport(value))
     return failed ? (
-      <Button asChild className="self-start">
-        <Link to="/teacher/imports/new?source=paste">
-          {t("imports.detail.startOver")}
-        </Link>
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild size="md" className="h-10 px-4 text-[14px] font-semibold">
+          <Link to="/teacher/imports/new?source=paste">
+            {t("imports.detail.startOver")}
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="md" className="h-10">
+          <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
+        </Button>
+      </div>
     ) : (
       <RetryRun
         value={value}
@@ -801,9 +868,14 @@ function FileIntake({
   return (
     <>
       {failed ? (
-        <Button asChild className="self-start">
-          <a href={`#${headingId}`}>{t("imports.detail.replaceExam")}</a>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="md" className="h-10 px-4 text-[14px] font-semibold">
+            <a href={`#${headingId}`}>{t("imports.detail.replaceExam")}</a>
+          </Button>
+          <Button asChild variant="outline" size="md" className="h-10">
+            <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
+          </Button>
+        </div>
       ) : null}
       <section
         id={headingId}
@@ -850,8 +922,9 @@ function FailureStage({ value }: Readonly<{ value: WordImport }>) {
   return (
     <Badge
       variant="danger"
-      className="w-fit self-start rounded-full! whitespace-normal"
+      className="h-6.5! w-fit self-start rounded-full! text-[12.5px] whitespace-normal"
     >
+      <CircleX className="size-[13px]" aria-hidden="true" />
       {t("imports.detail.stoppedAt", { stage: label })}
     </Badge>
   );
