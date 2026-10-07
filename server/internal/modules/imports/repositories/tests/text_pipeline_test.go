@@ -289,10 +289,10 @@ func TestTextPipelineCompanionKeySourceViewDownloadAndRetention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := h.repo.Claim(ctx, domain.ClaimPolicy{WorkerID: "old", PipelineVersion: "word-pipeline-v2", Lease: time.Minute, GlobalLimit: 2, ActorLimit: 1}); !errors.Is(err, domain.ErrNoWork) {
+	if _, err := h.repo.Claim(ctx, domain.ClaimPolicy{WorkerID: uuid.NewString(), PipelineVersion: "word-pipeline-v2", Lease: time.Minute, GlobalLimit: 2, ActorLimit: 1}); !errors.Is(err, domain.ErrNoWork) {
 		t.Fatalf("v2 claimed v3: %v", err)
 	}
-	run, err := h.repo.Claim(ctx, domain.ClaimPolicy{WorkerID: "text", PipelineVersion: worker.PipelineVersion, Lease: time.Minute, GlobalLimit: 2, ActorLimit: 1})
+	run, err := h.repo.Claim(ctx, domain.ClaimPolicy{WorkerID: uuid.NewString(), PipelineVersion: worker.PipelineVersion, Lease: time.Minute, GlobalLimit: 2, ActorLimit: 1})
 	if err != nil || run.ID != scheduled.ID {
 		t.Fatalf("claim: %+v %v", run, err)
 	}
