@@ -2473,8 +2473,8 @@ Private fields appear only in the caller's `CurrentUser`. Public `User`
 projections exclude phone, locale, zone and preferences. Student class, intro
 and join-preview teacher names use `coalesce(display_name, full_name)` and
 add no private field. `/join/preview` still exposes only the teacher's chosen
-student-facing name through its existing field. Actual network isolation and
-contract checks remain required before task integration.
+student-facing name through its existing field. Contract and hosted API/isolation
+checks cover these public/private projection boundaries.
 
 The independently verified fixture helpers register cleanup before insert,
 use only newly allocated ordinary Student IDs, drain repository writers before

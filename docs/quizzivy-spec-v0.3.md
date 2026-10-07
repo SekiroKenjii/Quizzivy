@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.57 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.58 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.57**
+
+R4, account preference adoption (T-R4.7):
+
+- Server-authoritative account preferences, reactive date displays and same-page
+  actor/cookie/cleanup ordering are complete. Teacher wall-clock inputs remain
+  fixed-HCM until T-R4.43; full profile controls and photo operations remain
+  T-R4.43 and T-R4.8. This task completion is not a production release.
 
 **Changes since v0.56**
 
@@ -761,14 +770,14 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   - `learnsOnly` (the student app is the user's only workspace) keeps v0.7.0's rules on `/join` and the Settings role label (§6.2).
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`.
-- T-R4.7's staged companion applies accepted server locale/theme/display zone/larger
+- The frontend applies accepted server locale/theme/display zone/larger
   text over browser mirrors, with omitted defaults `vi`/`light`/`Asia/Ho_Chi_Minh`/false
   and no default-materialization PATCH. Anonymous choices remain local. Authenticated
   controls preview pending changes, restore acknowledged presentation on failure and
   retain an explicit Retry. A browser-unsupported account zone retains its exact
   server value, reports compatibility and temporarily presents Vietnam time without
   saving that fallback. Actor departure invalidates stale asynchronous effects.
-- The companion orders refresh/login/Google-login/logout cookie sends and global
+- The frontend orders refresh/login/Google-login/logout cookie sends and global
   draft cleanup before replacement admission. Refresh remains single-flight. A20s
   transport/admission UI deadline and10s cleanup deadline show pending status without
   abandoning raw ownership; late timed-out login never auto-admits. Permanent hangs
@@ -1274,8 +1283,9 @@ scope. The application supplies the new queries' clock and resolves the IANA
 calendar zone through `ports.Zones`; T-R4.7 wires the identity effective-zone
 query. Only a stored NULL defaults to `Asia/Ho_Chi_Minh`; an invalid stored zone
 or ineligible account propagates an error. A nil port retains the default for
-existing callers. Frontend reactive zone adoption remains staged in T-R4.7;
-existing local datetime inputs remain fixed-HCM. Legacy readings retain their
+existing callers. Frontend date displays react to the caller's accepted display
+zone; existing local datetime inputs and their rules preview remain fixed-HCM
+until T-R4.43. Legacy readings retain their
 SQL clocks. An absent notifications summary port returns 501.
 
 The grading queue requires `teaching.grading` and preserves the existing assignment
@@ -1654,7 +1664,7 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the strip's 34px squares, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the count button and the question sheet's squares are 44px. An option row is at least 52px high.
 - **Dialogs** use the deck's frame: 440px (420px for the "you left the test" alert) or the width less 24px, no close button, the actions at the right; the alert has one button, as wide as the dialog. A dialog with a field sits 12% from the top below 768, so the keyboard does not cover it (DG-103).
 - **The timer** is a pill centred in the header's free space. Each digit sits in a cell one zero wide, because Be Vietnam Pro has no tabular figures and the pill would otherwise change width every second. Under five minutes it takes the danger tones.
-- **Text in a test.** The passage is 16px on a 1.75 line and cannot be selected, the prompt 17px, an option 15px. "Chữ lớn hơn khi làm bài" raises them to 18, 19 and 17px; the choice is stored in this browser until R4's preferences.
+- **Text in a test.** The passage is 16px on a 1.75 line and cannot be selected, the prompt 17px, an option 15px. "Chữ lớn hơn khi làm bài" raises them to 18, 19 and 17px; the signed-in choice is an account preference mirrored in this browser; anonymous choices remain local.
 - **Content keeps a light paper surface in dark mode** (DG-35): images and rich tables in the engine and on the result.
 
 The rules below carry over from v0.43, restated in the deck's tokens, except that the shadow and radius limits now follow the deck. Typography, motion, the front door, dark mode and the lime accent are new in R1.
