@@ -106,6 +106,7 @@ export function GradingAnswerCard({
             <AnswerReview
               question={item}
               answer={{ answer: item.answer, manualScore: points }}
+              shortAnswerPresentation={{ label: t("grading.studentAnswer") }}
             />
           </div>
         </div>
@@ -134,7 +135,7 @@ export function GradingAnswerCard({
         )}
         <fieldset disabled={busy} className="space-y-2">
           <legend className="text-muted-foreground mb-2 text-xs font-medium">
-            {t("review.points")}
+            {t("grading.scoreLabel")}
           </legend>
           {choices.length > 0 ? (
             <div className="flex flex-wrap gap-2">
@@ -211,7 +212,7 @@ export function GradingAnswerCard({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="text-muted-foreground h-auto! rounded-full! px-2.5 py-0.75 text-[12.5px]!"
+                  className="text-muted-foreground bg-card! hover:border-ring hover:bg-card! hover:text-foreground h-auto! rounded-full! px-2.5 py-0.75 text-[12.5px]! leading-[normal] font-normal shadow-none"
                   onClick={() => onComment(`${comment.trim()} ${text}.`.trim())}
                 >
                   {text}

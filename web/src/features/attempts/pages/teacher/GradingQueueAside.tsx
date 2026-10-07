@@ -35,7 +35,7 @@ export function GradingQueueAside({
   }
   return (
     <aside className="bg-card w-full min-w-0 overflow-hidden rounded-xl border shadow-sm min-[768px]:max-w-75 min-[768px]:flex-[1_1_260px]">
-      <h2 className="text-muted-foreground border-b px-3.5 py-3 text-xs font-medium">
+      <h2 className="text-muted-foreground border-b px-3.5 py-3 text-[12.5px] leading-[1.5] font-medium">
         {t(mode === "student" ? "grading.studentsWaiting" : "grading.questionsWaiting")}
       </h2>
       <div className="max-h-45 overflow-y-auto min-[768px]:max-h-140">
@@ -71,7 +71,7 @@ export function GradingQueueAside({
               })}
               aria-current={active ? "true" : undefined}
               className={cn(
-                "hover:bg-muted flex w-full items-center gap-2.5 border-b px-3.5 py-2.5 text-left disabled:opacity-50",
+                "hover:bg-muted flex w-full items-center gap-2.5 border-b px-3.5 py-2.5 text-left leading-[normal] disabled:opacity-50",
                 active && "bg-muted shadow-[inset_2px_0_0_var(--accent-c)]",
               )}
             >
@@ -86,16 +86,16 @@ export function GradingQueueAside({
                 </span>
               )}
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-medium">
+                <span className="block truncate text-[13.5px] leading-[normal] font-medium">
                   {label}
                 </span>
-                <span className="text-muted-foreground block truncate text-xs">
+                <span className="text-muted-foreground block truncate text-xs leading-[normal]">
                   {group.sub}
                 </span>
               </span>
               <span
                 className={cn(
-                  "text-xs font-medium tabular-nums",
+                  "text-xs leading-[normal] font-medium tabular-nums",
                   group.remaining === 0 && "text-success-ink",
                 )}
               >
