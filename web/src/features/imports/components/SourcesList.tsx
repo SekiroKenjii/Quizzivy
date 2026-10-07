@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, FileText } from "lucide-react";
+import { ClipboardPaste, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/features/media/format";
 import { useQueryClient } from "@tanstack/react-query";
@@ -9,10 +9,7 @@ import { formatDateTime } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { downloadImportSource, type ImportSource } from "../api";
 
-/**
- * SourcesList names an import's current original files and hands out
- * short-lived download links on request, unless retention has removed them.
- */
+/** SourcesList names current originals and requests their short-lived download links until retention removes them. */
 export function SourcesList({
   importId,
   sources,
@@ -52,12 +49,23 @@ export function SourcesList({
       <ul className="divide-y rounded-md border">
         {sources.map((source) => (
           <li key={source.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
-            <FileText
-              className="text-muted-foreground size-4 shrink-0"
-              aria-hidden="true"
-            />
+            {source.role === "exam" && source.format === "text" ? (
+              <ClipboardPaste
+                className="text-muted-foreground size-4 shrink-0"
+                aria-hidden="true"
+              />
+            ) : (
+              <FileText
+                className="text-muted-foreground size-4 shrink-0"
+                aria-hidden="true"
+              />
+            )}
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium break-all">{source.filename}</p>
+              <p className="text-sm font-medium break-all">
+                {source.role === "exam" && source.format === "text"
+                  ? t("imports.detail.pastedText")
+                  : source.filename}
+              </p>
               <p className="text-muted-foreground text-xs">
                 {t("imports.sources.meta", {
                   role: t(`imports.role.${source.role}`),
@@ -72,7 +80,10 @@ export function SourcesList({
                 size="xs"
                 disabled={busy !== null}
                 aria-label={t("imports.sources.downloadNamed", {
-                  name: source.filename,
+                  name:
+                    source.role === "exam" && source.format === "text"
+                      ? t("imports.detail.pastedText")
+                      : source.filename,
                 })}
                 onClick={() => void download(source)}
               >

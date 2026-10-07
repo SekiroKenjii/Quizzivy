@@ -261,3 +261,57 @@ describe("the processing screen", () => {
     expect(screen.queryByText("Không tải được lần nhập này.")).toBeNull();
   });
 });
+
+describe("pasted text polling", () => {
+  it("follows queued, check, read, recognition and ready from current responses with completed-only receipts", async () => {
+    const exam = {
+      ...wordImport().sources[0]!,
+      format: "text" as const,
+      characters: 4921,
+    };
+    states = ["queued", "source_validation", "extraction", "recognition"].map((stage) =>
+      wordImport({
+        status: stage === "queued" ? "queued" : "processing",
+        sources: [exam],
+        run: run({ stage: stage as NonNullable<WordImport["run"]>["stage"] }),
+      }),
+    );
+    states.push(
+      wordImport({
+        status: "needs_review",
+        sources: [exam],
+        draftRevision: 1,
+        run: run({ status: "succeeded", stage: "ready" }),
+      }),
+    );
+    await renderDetail();
+    expect(screen.getByText("Kiểm tra văn bản")).toBeInTheDocument();
+    expect(screen.queryByText(/Đã kiểm tra/)).toBeNull();
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(screen.getByText("Kiểm tra văn bản").closest("li")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(screen.queryByText(/Đã kiểm tra/)).toBeNull();
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(screen.getByText("Đã kiểm tra 4921 ký tự")).toBeInTheDocument();
+    expect(screen.queryByText("Văn bản thuần · không có định dạng")).toBeNull();
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(screen.getByText("Văn bản thuần · không có định dạng")).toBeInTheDocument();
+    expect(screen.getByText("Nhận diện cấu trúc").closest("li")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(screen.getByText("Đối chiếu đáp án").closest("li")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(
+      await screen.findByRole("link", { name: "Bắt đầu rà soát" }),
+    ).toBeInTheDocument();
+    const finalReads = reads;
+    await act(() => vi.advanceTimersByTimeAsync(6000));
+    expect(reads).toBe(finalReads);
+  });
+});

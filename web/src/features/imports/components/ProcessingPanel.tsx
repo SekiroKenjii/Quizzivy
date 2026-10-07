@@ -4,16 +4,16 @@ import { Card } from "@/components/ui/card";
 import { useTick } from "@/hooks/useTick";
 import { countdown } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
-import type { ImportRun } from "../api";
+import type { ImportRun, ImportSource } from "../api";
 import { isWaitingToRetry, PROCESSING_STAGES, stageStates } from "../status";
 
-/**
- * ProcessingPanel shows the run's current stage, its elapsed time and its
- * attempt, without a percentage. A run queued again after a temporary failure
- * says it will be retried automatically instead of showing a current stage.
- */
-export function ProcessingPanel({ run }: Readonly<{ run: ImportRun | undefined }>) {
+/** ProcessingPanel shows actual run progress and completed text-source receipts without a percentage. */
+export function ProcessingPanel({
+  run,
+  exam,
+}: Readonly<{ run: ImportRun | undefined; exam?: ImportSource | undefined }>) {
   const { t } = useTranslation();
+  const text = exam?.role === "exam" && exam.format === "text";
   const waiting = isWaitingToRetry(run);
   const now = useTick(!waiting);
   const states = stageStates(run?.stage, waiting);
@@ -25,7 +25,13 @@ export function ProcessingPanel({ run }: Readonly<{ run: ImportRun | undefined }
     currentIndex === -1
       ? t("imports.processing.waitingToStart")
       : PROCESSING_STAGES.filter((_, index) => states[index] === "current")
-          .map((stage) => t(`imports.processing.stage.${stage.key}`))
+          .map((stage) =>
+            t(
+              text && stage.key === "validate"
+                ? "imports.processing.textCheck"
+                : `imports.processing.stage.${stage.key}`,
+            ),
+          )
           .join(" · ");
   const statusLine = waiting
     ? t("imports.processing.retryWaiting")
@@ -72,8 +78,27 @@ export function ProcessingPanel({ run }: Readonly<{ run: ImportRun | undefined }
                 ) : null}
               </span>
               <span className="min-w-0 flex-1">
-                {t(`imports.processing.stage.${stage.key}`)}
+                {t(
+                  text && stage.key === "validate"
+                    ? "imports.processing.textCheck"
+                    : `imports.processing.stage.${stage.key}`,
+                )}
               </span>
+              {text &&
+              state === "done" &&
+              stage.key === "validate" &&
+              exam.characters !== undefined ? (
+                <span className="text-muted-fg text-right text-xs">
+                  {t("imports.processing.charactersChecked", {
+                    count: exam.characters,
+                  })}
+                </span>
+              ) : null}
+              {text && state === "done" && stage.key === "read" ? (
+                <span className="text-muted-fg text-right text-xs">
+                  {t("imports.processing.plainText")}
+                </span>
+              ) : null}
               <span className="sr-only">{t(`imports.processing.state.${state}`)}</span>
             </li>
           );
