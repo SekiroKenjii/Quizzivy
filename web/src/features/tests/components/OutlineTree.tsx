@@ -1013,7 +1013,8 @@ function dropPosition(
 }
 
 const outlineKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
-  const { active, over, droppableContainers, droppableRects } = args.context;
+  const { active, over, droppableContainers, droppableRects, collisionRect } =
+    args.context;
   if (active?.data.current?.["kind"] !== "section")
     return sortableKeyboardCoordinates(event, args);
   if (event.code !== "ArrowUp" && event.code !== "ArrowDown") return;
@@ -1030,7 +1031,11 @@ const outlineKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
         container.data.current["sectionIndex"] === next,
     );
   const rect = target && droppableRects.get(target.id);
-  if (rect) return { x: rect.left, y: rect.top };
+  if (rect && collisionRect)
+    return {
+      x: rect.left + (rect.width - collisionRect.width) / 2,
+      y: rect.top + (rect.height - collisionRect.height) / 2,
+    };
 };
 
 function isAfterDrop(event: DragEndEvent): boolean {
