@@ -39,7 +39,7 @@ func TestCalendarRangesPadDaysAndAverageOnlyScoredGradedPapers(t *testing.T) {
 	execHome(t, w, `UPDATE app.attempts SET assignment_id=$2,status='graded',graded_at=$3,submitted_at=$3,score_earned=NULL,score_total=NULL WHERE id=$1`, w.p6, w.aA, now)
 	execHome(t, w, `UPDATE app.attempts SET assignment_id=$2,attempt_no=2,status='submitted',submitted_at=$3,score_earned=1,score_total=1 WHERE id=$1`, w.p10, w.aA, now)
 	execHome(t, w, `UPDATE app.attempts SET assignment_id=$2,status='voided',void_reason='test',submitted_at=$3 WHERE id=$1`, w.p5, w.aA, now)
-	execHome(t, w, `UPDATE app.attempts SET assignment_id=$2,status='in_progress',submitted_at=NULL,deadline_at=$3 WHERE id=$1`, w.p7, w.aA, now.Add(time.Hour))
+	execHome(t, w, `UPDATE app.attempts SET assignment_id=$2,status='in_progress',submitted_at=NULL,started_at=$3,deadline_at=$4 WHERE id=$1`, w.p7, w.aA, now.Add(-time.Hour), now.Add(time.Hour))
 	for _, days := range []int{7, 14, 30} {
 		out := homeAt(t, w, scope, now, "Asia/Ho_Chi_Minh", days).Submissions
 		want := 4
