@@ -3,11 +3,13 @@
 package repositories_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strconv"
@@ -106,8 +108,9 @@ func TestTextPipelineDeckSampleHasExactReviewCounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(actual) != string(expected) {
-		t.Fatal("stored review changed emitted candidate draft")
+	if !textCandidateJSONEqual(t, actual, expected) {
+		path, category := textCandidateDifference(textCandidateJSONTree(t, actual), textCandidateJSONTree(t, expected), "$")
+		t.Fatalf("stored review changed emitted candidate draft at %s (%s)", path, category)
 	}
 	if recognition.Version != "rules-v3" || worker.PipelineVersion != "word-pipeline-v3" {
 		t.Fatal("recognition/pipeline identity changed")
@@ -115,4 +118,155 @@ func TestTextPipelineDeckSampleHasExactReviewCounts(t *testing.T) {
 	if _, err := h.app.Queries.Review.Handle(ctx, query.Review{ImportID: parent.ID, Scope: access.Scope{UserID: uuid.NewString()}}); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("foreign review: %v", err)
 	}
+}
+
+func TestTextCandidateJSONEqualityIgnoresOnlyObjectOrder(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("fixture source path missing")
+	}
+	raw, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../../api/testdata/pasted-text-counts.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cases []struct {
+		Name string
+		Text string
+	}
+	if err := json.Unmarshal(raw, &cases); err != nil {
+		t.Fatal(err)
+	}
+	var sample string
+	for _, c := range cases {
+		if c.Name == "deck-sample" {
+			sample = c.Text
+		}
+	}
+	if sample == "" {
+		t.Fatal("pinned deck sample missing")
+	}
+	evidence, err := adapters.TextEvidence(sample, "ordering-regression", "exam")
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft, err := recognition.Recognize(context.Background(), []domain.EvidenceDocument{evidence}, domain.RecognitionProfile{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	emitted, err := json.Marshal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reordered, err := json.Marshal(textCandidateJSONTree(t, emitted))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored domain.Draft
+	if err := json.Unmarshal(reordered, &stored); err != nil {
+		t.Fatal(err)
+	}
+	actual, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(actual, emitted) {
+		t.Fatal("real recognized draft did not exercise nested RawMessage object order")
+	}
+	if !textCandidateJSONEqual(t, actual, emitted) {
+		t.Fatal("object member order changed the full recognized draft equality")
+	}
+}
+
+func TestTextCandidateJSONEqualityRetainsEveryValue(t *testing.T) {
+	cases := []struct {
+		name     string
+		actual   string
+		expected string
+		path     string
+		category string
+	}{
+		{"question-id", "{\"id\":\"q1\"}", "{\"id\":\"q2\"}", "$.id", "value"},
+		{"answer-id", "{\"answer\":{\"optionIds\":[\"a\"]}}", "{\"answer\":{\"optionIds\":[\"b\"]}}", "$.answer.optionIds[0]", "value"},
+		{"text", "{\"prompt\":{\"text\":\"original\"}}", "{\"prompt\":{\"text\":\"changed\"}}", "$.prompt.text", "value"},
+		{"option-content", "{\"options\":[{\"content\":{\"text\":\"A\"}}]}", "{\"options\":[{\"content\":{\"text\":\"B\"}}]}", "$.options[0].content.text", "value"},
+		{"array-order", "{\"options\":[\"a\",\"b\"]}", "{\"options\":[\"b\",\"a\"]}", "$.options[0]", "value"},
+		{"array-length", "{\"options\":[\"a\"]}", "{\"options\":[\"a\",\"b\"]}", "$.options", "array-length"},
+		{"null-array", "{\"blanks\":null}", "{\"blanks\":[]}", "$.blanks", "type"},
+		{"null-object", "{\"prompt\":null}", "{\"prompt\":{}}", "$.prompt", "type"},
+		{"missing-key", "{}", "{\"answer\":null}", "$.answer", "missing-key"},
+		{"exact-large-number", "{\"n\":9007199254740992}", "{\"n\":9007199254740993}", "$.n", "value"},
+		{"numeric-token", "{\"n\":1}", "{\"n\":1.0}", "$.n", "value"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if textCandidateJSONEqual(t, []byte(c.actual), []byte(c.expected)) {
+				t.Fatal("changed JSON value was accepted")
+			}
+			path, category := textCandidateDifference(textCandidateJSONTree(t, []byte(c.actual)), textCandidateJSONTree(t, []byte(c.expected)), "$")
+			if path != c.path || category != c.category {
+				t.Fatalf("difference location: %s (%s), expected %s (%s)", path, category, c.path, c.category)
+			}
+		})
+	}
+}
+
+func textCandidateJSONEqual(t *testing.T, actual, expected []byte) bool {
+	t.Helper()
+	return reflect.DeepEqual(textCandidateJSONTree(t, actual), textCandidateJSONTree(t, expected))
+}
+
+func textCandidateJSONTree(t *testing.T, raw []byte) any {
+	t.Helper()
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var tree any
+	if err := decoder.Decode(&tree); err != nil {
+		t.Fatal(err)
+	}
+	return tree
+}
+
+func textCandidateDifference(actual, expected any, path string) (string, string) {
+	if reflect.DeepEqual(actual, expected) {
+		return "", ""
+	}
+	if reflect.TypeOf(actual) != reflect.TypeOf(expected) {
+		return path, "type"
+	}
+	switch a := actual.(type) {
+	case map[string]any:
+		e := expected.(map[string]any)
+		keys := make([]string, 0, len(a)+len(e))
+		for key := range a {
+			keys = append(keys, key)
+		}
+		for key := range e {
+			if _, ok := a[key]; !ok {
+				keys = append(keys, key)
+			}
+		}
+		slices.Sort(keys)
+		for _, key := range keys {
+			av, aok := a[key]
+			ev, eok := e[key]
+			child := path + "." + key
+			if aok != eok {
+				return child, "missing-key"
+			}
+			if !reflect.DeepEqual(av, ev) {
+				return textCandidateDifference(av, ev, child)
+			}
+		}
+	case []any:
+		e := expected.([]any)
+		if len(a) != len(e) {
+			return path, "array-length"
+		}
+		for i := range a {
+			if !reflect.DeepEqual(a[i], e[i]) {
+				return textCandidateDifference(a[i], e[i], path+"["+strconv.Itoa(i)+"]")
+			}
+		}
+	}
+	return path, "value"
 }
