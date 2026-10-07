@@ -14,6 +14,7 @@ const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 const QUESTION_ID = "018f0000-0000-7000-8000-0000000000b1";
 
 const test = {
+  skills: [],
   id: TEST_ID,
   title: "Unit 5",
   description: null,
@@ -36,6 +37,8 @@ const test = {
 };
 
 const question = {
+  level: null,
+  skill: null,
   id: QUESTION_ID,
   type: "single_choice" as const,
   prompt: "They ___ to the museum.",

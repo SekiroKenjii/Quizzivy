@@ -18,6 +18,7 @@ const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
  * had rows in it and failed the first time it ran against an empty one.
  */
 const created = {
+  skills: [],
   id: TEST_ID,
   title: "Đề thi chưa đặt tên",
   description: null,

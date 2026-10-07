@@ -20,6 +20,8 @@ globalThis.ResizeObserver ??= class {
 };
 
 const question = {
+  level: null,
+  skill: null,
   id: QUESTION_ID,
   type: "short_answer" as const,
   prompt: "Viết 2–3 câu tả thói quen buổi sáng.",
@@ -48,6 +50,7 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/teacher/tests/${TEST_ID}`, () =>
       contractJson("/teacher/tests/{id}", "get", 200, {
+        skills: [],
         id: TEST_ID,
         title: "Unit 5",
         description: null,

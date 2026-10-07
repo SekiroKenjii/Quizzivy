@@ -2041,6 +2041,14 @@ components:
       type: string
       enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer]
 
+    QuestionLevel:
+      type: string
+      enum: [pre_a1, a1, a2, b1, b2, c1, c2]
+
+    QuestionSkill:
+      type: string
+      enum: [grammar, vocabulary, reading, listening, writing, speaking]
+
     AudioPolicy:
       type: object
       description: Present if and only if the attached asset is audio (§7).
@@ -2346,7 +2354,7 @@ components:
       description: |
         How many questions each type holds for the CURRENT tag and search,
         ignoring the type filter itself. Backs A-06's rail counts.
-      required: [all, single_choice, multiple_choice, true_false, fill_blank, short_answer]
+      required: [all, single_choice, multiple_choice, true_false, fill_blank, short_answer, levels, skills]
       additionalProperties: false
       properties:
         all: { type: integer, minimum: 0 }
@@ -2355,14 +2363,41 @@ components:
         true_false: { type: integer, minimum: 0 }
         fill_blank: { type: integer, minimum: 0 }
         short_answer: { type: integer, minimum: 0 }
+        levels:
+          type: object
+          additionalProperties: false
+          required: [pre_a1, a1, a2, b1, b2, c1, c2]
+          properties:
+            pre_a1: { type: integer, minimum: 0 }
+            a1: { type: integer, minimum: 0 }
+            a2: { type: integer, minimum: 0 }
+            b1: { type: integer, minimum: 0 }
+            b2: { type: integer, minimum: 0 }
+            c1: { type: integer, minimum: 0 }
+            c2: { type: integer, minimum: 0 }
+        skills:
+          type: object
+          additionalProperties: false
+          required: [grammar, vocabulary, reading, listening, writing, speaking]
+          properties:
+            grammar: { type: integer, minimum: 0 }
+            vocabulary: { type: integer, minimum: 0 }
+            reading: { type: integer, minimum: 0 }
+            listening: { type: integer, minimum: 0 }
+            writing: { type: integer, minimum: 0 }
+            speaking: { type: integer, minimum: 0 }
 
     AdminQuestion:
       type: object
-      required: [id, type, prompt, points, tags, createdAt, updatedAt]
+      required: [id, type, prompt, points, tags, level, skill, createdAt, updatedAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         type: { $ref: '#/components/schemas/QuestionType' }
+        level:
+          oneOf: [{ $ref: '#/components/schemas/QuestionLevel' }, { type: 'null' }]
+        skill:
+          oneOf: [{ $ref: '#/components/schemas/QuestionSkill' }, { type: 'null' }]
         promptContent:
           oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
@@ -2745,6 +2780,17 @@ components:
           maxItems: 200
           items: { $ref: '#/components/schemas/GroupQuestionInput' }
 
+    StoredQuestionGroupBundle:
+      type: object
+      additionalProperties: false
+      required: [group, questions]
+      properties:
+        group: { $ref: '#/components/schemas/QuestionGroup' }
+        questions:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/StoredGroupQuestionInput' }
+
     GroupQuestionInput:
       type: object
       additionalProperties: false
@@ -2753,12 +2799,20 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         input: { $ref: '#/components/schemas/QuestionInput' }
 
+    StoredGroupQuestionInput:
+      type: object
+      additionalProperties: false
+      required: [id, input]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        input: { $ref: '#/components/schemas/StoredQuestionInput' }
+
     StoredQuestionGroup:
       type: object
       additionalProperties: false
       required: [bundle, ownerSectionId, revision, archivedAt, createdAt, updatedAt, assets, unavailableAssetIds]
       properties:
-        bundle: { $ref: '#/components/schemas/QuestionGroupBundle' }
+        bundle: { $ref: '#/components/schemas/StoredQuestionGroupBundle' }
         ownerSectionId: { type: [string, 'null'], format: uuid }
         revision: { type: integer, format: int64, minimum: 1 }
         testUpdatedAt:
@@ -2858,7 +2912,7 @@ components:
 
     Test:
       type: object
-      required: [id, title, status, currentVersion, totalPoints, questionCount, audioCount, sections, createdAt, updatedAt]
+      required: [id, title, status, currentVersion, totalPoints, questionCount, audioCount, skills, sections, createdAt, updatedAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -2875,6 +2929,10 @@ components:
           type: integer
           minimum: 0
           description: Draft questions with their own audio or a shared group recording, counted once per question. Backs A-03's headphone badge.
+        skills:
+          type: array
+          items: { $ref: '#/components/schemas/QuestionSkill' }
+          description: Sorted distinct non-null skills of the current draft, including grouped members.
         sections:
           type: array
           items: { $ref: '#/components/schemas/TestSection' }
@@ -3718,6 +3776,90 @@ components:
       additionalProperties: false
       properties:
         type: { $ref: '#/components/schemas/QuestionType' }
+        level:
+          oneOf: [{ $ref: '#/components/schemas/QuestionLevel' }, { type: 'null' }]
+        skill:
+          oneOf: [{ $ref: '#/components/schemas/QuestionSkill' }, { type: 'null' }]
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        prompt:
+          type: string
+          minLength: 1
+          description: Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown.
+        mediaAssetId: { type: [string, 'null'], format: uuid }
+        audio:
+          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+          description: Required if and only if the asset is audio (§7).
+        transcript:
+          type: [string, 'null']
+          description: Audio questions only. Teacher-authored; the student sees it only per policy.
+        options:
+          type: array
+          maxItems: 8
+          items:
+            type: object
+            required: [text, isCorrect]
+            additionalProperties: false
+            properties:
+              id: { type: [string, 'null'], format: uuid, description: Omit to create. }
+              content:
+                oneOf: [{ $ref: '#/components/schemas/OptionContent' }, { type: 'null' }]
+                x-go-type: json.RawMessage
+                x-go-type-skip-optional-pointer: true
+              text: { type: string, minLength: 1 }
+              isCorrect: { type: boolean }
+          description: Order in the array is the stored ordinal.
+        blanks:
+          type: array
+          items:
+            type: object
+            required: [ordinal, acceptedAnswers]
+            additionalProperties: false
+            properties:
+              id: { type: [string, 'null'], format: uuid }
+              gapId: { type: [string, 'null'], pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+              ordinal: { type: integer, minimum: 1, maximum: 32767 }
+              acceptedAnswers:
+                type: array
+                minItems: 1
+                items: { type: string, minLength: 1 }
+              caseSensitive: { type: boolean, default: false }
+        points:
+          allOf: [{ $ref: '#/components/schemas/Points' }]
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        explanation: { type: [string, 'null'] }
+        sampleAnswer:
+          type: [string, 'null']
+          description: '`short_answer` only. Rejected on any other type.'
+        tags: { type: array, items: { type: string, minLength: 1 } }
+
+    StoredQuestionInput:
+      type: object
+      description: |
+        Stored editable content used by teacher reads, bodyless copies and version
+        restoration. Existing choice arrays retain their length; the eight-option
+        limit applies to authoring requests. Cross-field rules that a single
+        schema cannot express — single_choice and true_false need exactly one correct
+        option (true_false has exactly two options), multiple_choice needs at least one correct
+        option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
+        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+        server and again at publish (§8). Failing them returns
+        `VALIDATION_FAILED` with per-field `details`.
+      required: [type, prompt, points, level, skill]
+      additionalProperties: false
+      properties:
+        type: { $ref: '#/components/schemas/QuestionType' }
+        level:
+          oneOf: [{ $ref: '#/components/schemas/QuestionLevel' }, { type: 'null' }]
+        skill:
+          oneOf: [{ $ref: '#/components/schemas/QuestionSkill' }, { type: 'null' }]
         promptContent:
           oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
@@ -3776,6 +3918,8 @@ components:
           type: [string, 'null']
           description: '`short_answer` only. Rejected on any other type.'
         tags: { type: array, items: { type: string, minLength: 1 } }
+
+
 
     AssignmentInput:
       type: object
@@ -5052,6 +5196,23 @@ paths:
           schema:
             type: array
             items: { type: string }
+        - name: level
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/QuestionLevel' }
+        - name: skill
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/QuestionSkill' }
+        - name: tagMatch
+          in: query
+          schema: { type: string, enum: [any, all], default: any }
         - name: hasAudio
           in: query
           description: A-06's "Chỉ câu có audio".

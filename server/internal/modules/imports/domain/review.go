@@ -108,8 +108,12 @@ func (a *assessor) question(q *DraftQuestion) int {
 		a.add(CodeUnsupportedInteraction, Blocking, q.ID, "type", 1, q.Source)
 		return 1
 	}
+	oversized := isChoice(q.Type) && len(q.Options) > 8
+	if oversized {
+		a.add(CodeInvalidQuestion, Blocking, q.ID, "options", 1, q.Source)
+	}
 	a.answer(q)
-	if q.Answer.State == AnswerKnown || q.Type == string(questions.ShortAnswer) {
+	if !oversized && (q.Answer.State == AnswerKnown || q.Type == string(questions.ShortAnswer)) {
 		if field, invalid := invalidField(q); invalid {
 			a.add(CodeInvalidQuestion, Blocking, q.ID, field, 1, q.Source)
 		}

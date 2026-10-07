@@ -9,13 +9,13 @@ import (
 )
 
 // ToAPIInput returns an editable question shape for a complete-context graph, retaining keys and stable gap bindings.
-func ToAPIInput(in domain.Input) (openapi.QuestionInput, error) {
+func ToAPIInput(in domain.Input) (openapi.StoredQuestionInput, error) {
 	points, err := strconv.ParseFloat(in.Points, 64)
 	if err != nil {
-		return openapi.QuestionInput{}, err
+		return openapi.StoredQuestionInput{}, err
 	}
 	tags := append([]string{}, in.Tags...)
-	out := openapi.QuestionInput{Type: openapi.QuestionType(in.Type), Prompt: in.Prompt, PromptContent: in.PromptContent, Points: points,
+	out := openapi.StoredQuestionInput{Level: (*openapi.QuestionLevel)(in.Level), Skill: (*openapi.QuestionSkill)(in.Skill), Type: openapi.QuestionType(in.Type), Prompt: in.Prompt, PromptContent: in.PromptContent, Points: points,
 		Explanation: in.Explanation, ExplanationContent: in.ExplanationContent, SampleAnswer: in.SampleAnswer, Transcript: in.Transcript, Tags: &tags}
 	if in.MediaAssetID != nil {
 		out.MediaAssetId = httpapi.Ptr(httpapi.ParseUUID(*in.MediaAssetID))

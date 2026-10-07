@@ -8,6 +8,8 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   page,
 }) => {
   let question: components["schemas"]["AdminQuestion"] = {
+    level: null,
+    skill: null,
     id: ID,
     type: "fill_blank",
     prompt: "**They** {{2}}, she {{1}}.",

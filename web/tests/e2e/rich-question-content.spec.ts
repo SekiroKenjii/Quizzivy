@@ -10,6 +10,8 @@ type QuestionInput = components["schemas"]["QuestionInput"];
 
 function sample(): Question {
   return {
+    level: null,
+    skill: null,
     id: ID,
     type: "short_answer",
     prompt: "**Đọc kỹ**\n\nDòng thứ hai.",
@@ -42,6 +44,23 @@ async function setup(page: Page, initial = sample(), delayed = false) {
         total: 0,
         bankTotal: 0,
         facets: {
+          levels: {
+            pre_a1: 0,
+            a1: 0,
+            a2: 0,
+            b1: 0,
+            b2: 0,
+            c1: 0,
+            c2: 0,
+          },
+          skills: {
+            grammar: 0,
+            vocabulary: 0,
+            reading: 0,
+            listening: 0,
+            writing: 0,
+            speaking: 0,
+          },
           all: 0,
           single_choice: 0,
           multiple_choice: 0,
@@ -66,6 +85,7 @@ async function setup(page: Page, initial = sample(), delayed = false) {
     },
     [`GET /teacher/tests/${TEST}`]: {
       body: {
+        skills: [],
         id: TEST,
         title: "Soạn nội dung",
         status: "draft",
