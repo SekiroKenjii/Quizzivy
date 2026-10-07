@@ -151,6 +151,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const [violations, setViolations] = useState<PublishViolation[] | null>(null);
   const [picking, setPicking] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [creating, setCreating] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
@@ -667,6 +668,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     return (
       <QuestionPane
         settingsOpen={settingsOpen}
+        settingsTriggerRef={settingsTriggerRef}
         onSettingsOpenChange={setSettingsOpen}
         key={selectedId}
         questionId={selectedId}
@@ -708,7 +710,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           <Button
             variant="outline"
             size="sm"
-            className="lg:hidden"
+            ref={settingsTriggerRef}
+            aria-label={t("questionEditor.settings")}
             onClick={() => setSettingsOpen(true)}
           >
             <SlidersHorizontal aria-hidden="true" />
@@ -1024,6 +1027,7 @@ function QuestionPane({
   onStatus,
   contextLabel,
   settingsOpen,
+  settingsTriggerRef,
   onSettingsOpenChange,
 }: Readonly<{
   questionId: string;
@@ -1033,6 +1037,7 @@ function QuestionPane({
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
   settingsOpen: boolean;
+  settingsTriggerRef: RefObject<HTMLButtonElement | null>;
   onSettingsOpenChange: (open: boolean) => void;
 }>) {
   const { t } = useTranslation();
@@ -1066,6 +1071,7 @@ function QuestionPane({
       onStatus={onStatus}
       contextLabel={contextLabel}
       settingsOpen={settingsOpen}
+      settingsTriggerRef={settingsTriggerRef}
       onSettingsOpenChange={onSettingsOpenChange}
     />
   );
@@ -1080,6 +1086,7 @@ function QuestionForm({
   onStatus,
   contextLabel,
   settingsOpen,
+  settingsTriggerRef,
   onSettingsOpenChange,
 }: Readonly<{
   questionId: string;
@@ -1090,6 +1097,7 @@ function QuestionForm({
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
   settingsOpen: boolean;
+  settingsTriggerRef: RefObject<HTMLButtonElement | null>;
   onSettingsOpenChange: (open: boolean) => void;
 }>) {
   const queryClient = useQueryClient();
@@ -1128,6 +1136,8 @@ function QuestionForm({
         contextLabel={contextLabel}
         settings={{
           hideBelow: "lg",
+          always: true,
+          triggerRef: settingsTriggerRef,
           open: settingsOpen,
           onOpenChange: onSettingsOpenChange,
         }}

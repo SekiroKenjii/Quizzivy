@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { BlankPromptField } from "./BlankPromptField";
 import { questionGaps } from "@/components/shared/content/gaps";
 import { useTranslation } from "react-i18next";
@@ -43,15 +44,17 @@ interface QuestionEditorProps {
   onAssetChange: (asset: MediaAsset | null) => void;
   /** Refetches the question so an expired media URL can be replaced. */
   onRefresh?: (() => void) | undefined;
-  /** The builder has no room for a third column below 1024px, so it takes the panel as a sheet. */
-  settings?: { hideBelow: "lg"; open: boolean; onOpenChange: (open: boolean) => void };
+  /** The host controls when question settings use its dialog. */
+  settings?: {
+    hideBelow: "lg";
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    always?: boolean;
+    triggerRef?: RefObject<HTMLElement | null> | undefined;
+  };
 }
 
-/**
- * §7's five question types in one editor, laid out as the deck's A-04: the
- * prompt and the answer in the middle column, everything about the question in
- * the settings rail.
- */
+/** QuestionEditor edits a controlled question and optionally presents its settings in a dialog. */
 export function QuestionEditor({
   value,
   clearPromptOnFocus = false,
@@ -212,7 +215,12 @@ export function QuestionEditor({
           ? {}
           : {
               hideBelow: settings.hideBelow,
-              sheet: { open: settings.open, onOpenChange: settings.onOpenChange },
+              sheet: {
+                open: settings.open,
+                onOpenChange: settings.onOpenChange,
+                always: settings.always ?? false,
+                triggerRef: settings.triggerRef,
+              },
             })}
       >
         <div>
