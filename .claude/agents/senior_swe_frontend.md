@@ -39,8 +39,8 @@ works.
 - `pnpm typecheck`, never `tsc --noEmit`.
 - The student shell branches at 768px in code (`useMediaQuery`, `min-[768px]:`), never `md:`.
 - Canaries stay green and untouched: `audio-player.test.tsx` (`.play()` in the click's own
-  tick), `client.refresh.test.ts` (single-flight refresh), `router-chunks.test.ts` (the
-  teacher tree stays out of the entry chunk). `builder/autosave-unmount.test.tsx` too.
+  tick), `client.refresh.test.ts` (single-flight refresh), `router-chunks.test.ts` ("keeps the
+  admin tree out of the entry chunk"; its regexes may change, its assertions never). `builder/autosave-unmount.test.tsx` too.
   Autosave flushes on unmount and before publish.
 - Zod form schemas carry an `Expect<Equal<…>>` against the generated request type.
 - Tests go in `web/tests/` by cost (`units/`, `integration/`, `e2e/`). Phone boards pin
