@@ -95,6 +95,9 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
 
   // ------------------------------------------ audio, with a real upload
   await addQuestion(page, "Một đáp án", "Người phụ nữ đề nghị làm gì?");
+  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Cài đặt câu hỏi", exact: true });
+  await expect(settings).toBeVisible();
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
 
   await expect(async () => {
@@ -120,6 +123,9 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(
     page.getByRole("switch", { name: "Hiện lời thoại sau khi nộp" }),
   ).toBeChecked();
+
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
 
   await setOptions(page, ["Gọi lại sau", "Đổi lịch hẹn"]);
 

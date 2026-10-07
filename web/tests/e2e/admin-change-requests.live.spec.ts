@@ -49,14 +49,23 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
   await addQuestion(page, "First saved prompt");
+  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Cài đặt câu hỏi", exact: true });
+  await expect(settings).toBeVisible();
   await page.getByLabel("Thẻ", { exact: true }).fill("Ngữ pháp CR");
   await page.getByLabel("Thẻ", { exact: true }).press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
   await addQuestion(page, "Second prompt");
+  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
+  await expect(settings).toBeVisible();
   await page.getByLabel("Thẻ", { exact: true }).fill("ngu phap cr");
   await expect(
     page.getByRole("button", { name: "Ngữ pháp CR", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Ngữ pháp CR", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
   await page.getByRole("button", { name: "First saved prompt", exact: true }).click();
   await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
     "First saved prompt",

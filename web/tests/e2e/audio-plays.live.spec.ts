@@ -35,6 +35,9 @@ async function publishListeningTest(page: Page, title: string) {
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
   await page.getByLabel("Nội dung câu hỏi").fill("Người phụ nữ đề nghị làm gì?");
 
+  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Cài đặt câu hỏi", exact: true });
+  await expect(settings).toBeVisible();
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
   // The upload is a real round trip through the API and object storage, and a
   // rejection renders as an alert rather than as a slow success.
@@ -51,6 +54,9 @@ async function publishListeningTest(page: Page, title: string) {
   }).toPass({ timeout: 60_000 });
   // §11.1's default, and exactly the allowance this test needs.
   await expect(page.getByLabel("Số lần được nghe")).toHaveText("2 lần");
+
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
 
   for (const [index, text] of ["Gọi lại sau", "Đổi lịch hẹn"].entries()) {
     await page.getByPlaceholder(`Lựa chọn ${index + 1}`).fill(text);
@@ -70,6 +76,9 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
 
   const teacher = await browser.newContext();
   const student = await browser.newContext();
+  let bodyFailed = false;
+  let bodyError: unknown;
+  let closeOutcomes: PromiseSettledResult<void>[] = [];
   try {
     const admin = await teacher.newPage();
     await signInAsAdmin(admin);
@@ -102,8 +111,27 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
     // that comes back was read from attempt_audio_plays.
     await page.reload();
     await expect(page.getByText("Đã nghe 2/2 lượt")).toBeVisible({ timeout: 30_000 });
+  } catch (error) {
+    bodyFailed = true;
+    bodyError = error;
   } finally {
-    await teacher.close();
-    await student.close();
+    closeOutcomes = await Promise.allSettled(
+      [teacher, student].map(async (context) => {
+        await context.close();
+      }),
+    );
   }
+  for (const [index, outcome] of closeOutcomes.entries()) {
+    test.info().annotations.push({
+      type: "context-cleanup",
+      description: `${index === 0 ? "teacher" : "student"}: ${outcome.status}${
+        outcome.status === "rejected" ? `: ${String(outcome.reason)}` : ""
+      }`,
+    });
+  }
+  if (bodyFailed) throw bodyError;
+  const failures: unknown[] = closeOutcomes.flatMap((outcome) =>
+    outcome.status === "rejected" ? [outcome.reason] : [],
+  );
+  if (failures.length) throw new AggregateError(failures, "Context cleanup failed");
 });
