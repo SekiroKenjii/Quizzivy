@@ -119,6 +119,8 @@ test("form validation requires a complete unique binding set and refuses gaps in
 
 test("the publish outline validates rich bindings without requiring Markdown markers", () => {
   const question = {
+    level: null,
+    skill: null,
     id: "q",
     type: "fill_blank" as const,
     prompt: "[2]\t[1]",

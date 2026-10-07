@@ -15,5 +15,8 @@ type CreateHandler struct {
 }
 
 func (s CreateHandler) Handle(ctx context.Context, cmd Create) (domain.Question, error) {
+	if err := cmd.Request.Input.ValidateAuthoring(); err != nil {
+		return domain.Question{}, err
+	}
 	return s.Write(ctx, cmd.Request, false)
 }

@@ -17,6 +17,7 @@ const ARCHIVED_AT = "2026-02-02T02:02:02Z";
 
 function test(over: Record<string, unknown> = {}) {
   return {
+    skills: [],
     id: TEST_ID,
     title: "Unit 5",
     description: null,

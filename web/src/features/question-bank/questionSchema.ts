@@ -75,6 +75,14 @@ export const questionSchema = z
       "fill_blank",
       "short_answer",
     ]),
+    level: z
+      .enum(["pre_a1", "a1", "a2", "b1", "b2", "c1", "c2"])
+      .nullable()
+      .default(null),
+    skill: z
+      .enum(["grammar", "vocabulary", "reading", "listening", "writing", "speaking"])
+      .nullable()
+      .default(null),
     promptContent: questionPromptContentSchema.nullable().optional(),
     explanationContent: questionContentSchema.nullable().optional(),
     prompt: z
@@ -189,6 +197,8 @@ function validateChoice(
 export function emptyQuestion(): QuestionValues {
   return {
     type: "single_choice",
+    level: null,
+    skill: null,
     prompt: "",
     mediaAssetId: null,
     audio: null,

@@ -35,6 +35,8 @@ export function emptyMaterial(title: string): GroupMaterial {
 export function memberValues(input: GroupQuestionInput): QuestionValues {
   return {
     ...input,
+    level: input.level ?? null,
+    skill: input.skill ?? null,
     promptContent: input.promptContent ?? null,
     explanationContent: input.explanationContent ?? null,
     mediaAssetId: input.mediaAssetId ?? null,
@@ -61,6 +63,8 @@ export function newGroupQuestion(t: TFunction): GroupBundle["questions"][number]
     id: crypto.randomUUID(),
     input: {
       type: "single_choice",
+      level: null,
+      skill: null,
       prompt: t("builder.starterPrompt"),
       points: 1,
       options: [

@@ -63,13 +63,14 @@ const testColumns = `
 	       (SELECT count(*) FROM (` + draftQuestionRows + `) q
 	         WHERE q.media_asset_kind = 'audio' OR EXISTS (
 	           SELECT 1 FROM app.group_recordings r WHERE r.group_id=q.context_group_id)),
+	       coalesce((SELECT array_agg(DISTINCT q.skill ORDER BY q.skill) FILTER (WHERE q.skill IS NOT NULL) FROM (` + draftQuestionRows + `) q), '{}'::text[]),
 	       t.created_at, t.updated_at, t.deleted_at`
 
 func scanTest(row pgx.Row) (domain.Test, error) {
 	var t domain.Test
 	var status string
 	err := row.Scan(&t.ID, &t.Title, &t.Description, &status, &t.CurrentVersion,
-		&t.TotalPoints, &t.QuestionCount, &t.AudioCount, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt)
+		&t.TotalPoints, &t.QuestionCount, &t.AudioCount, &t.Skills, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Test{}, domain.ErrNotFound
 	}

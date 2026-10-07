@@ -9,6 +9,9 @@ export interface ListQuestionsParams {
   /** Repeatable. Several types widen the results; see A-06's rail. */
   type?: QuestionType[];
   tag?: string[];
+  level?: components["schemas"]["QuestionLevel"][];
+  skill?: components["schemas"]["QuestionSkill"][];
+  tagMatch?: "any" | "all";
   hasAudio?: boolean;
   q?: string;
   page?: number;
@@ -19,6 +22,9 @@ export function listQuestions(params: ListQuestionsParams = {}, signal?: AbortSi
   const query: Record<string, unknown> = {};
   if (params.type?.length) query["type"] = params.type;
   if (params.tag?.length) query["tag"] = params.tag;
+  if (params.level?.length) query["level"] = params.level;
+  if (params.skill?.length) query["skill"] = params.skill;
+  if (params.tagMatch !== undefined) query["tagMatch"] = params.tagMatch;
   if (params.hasAudio !== undefined) query["hasAudio"] = params.hasAudio;
   if (params.q) query["q"] = params.q;
   if (params.page && params.page > 1) query["page"] = params.page;
@@ -35,11 +41,16 @@ export function getQuestion(id: string, signal?: AbortSignal) {
 }
 
 export function createQuestion(body: QuestionValues) {
-  return api("post", "/teacher/questions", { body });
+  return api("post", "/teacher/questions", {
+    body: { ...body, level: body.level ?? null, skill: body.skill ?? null },
+  });
 }
 
 export function updateQuestion(id: string, body: QuestionValues) {
-  return api("patch", "/teacher/questions/{id}", { path: { id }, body });
+  return api("patch", "/teacher/questions/{id}", {
+    path: { id },
+    body: { ...body, level: body.level ?? null, skill: body.skill ?? null },
+  });
 }
 
 /**
@@ -50,6 +61,8 @@ export function updateQuestion(id: string, body: QuestionValues) {
 export function toFormValues(question: AdminQuestion): QuestionValues {
   return {
     type: question.type,
+    level: question.level,
+    skill: question.skill,
     prompt: question.prompt,
     promptContent: question.promptContent ?? null,
     explanationContent: question.explanationContent ?? null,

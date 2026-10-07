@@ -25,11 +25,7 @@ func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuesti
 	}
 
 	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx).Own()}
-	if request.Params.Type != nil {
-		for _, t := range *request.Params.Type {
-			in.Types = append(in.Types, domain.Type(t))
-		}
-	}
+	questionListDimensions(&in, request.Params)
 	if request.Params.Tag != nil {
 		in.Tags = append(in.Tags, *request.Params.Tag...)
 	}
@@ -82,6 +78,19 @@ func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuesti
 		PageSize:  page.Size,
 		Total:     page.Total,
 	}
+	out.Facets.Levels.PreA1 = facets.ByLevel["pre_a1"]
+	out.Facets.Levels.A1 = facets.ByLevel["a1"]
+	out.Facets.Levels.A2 = facets.ByLevel["a2"]
+	out.Facets.Levels.B1 = facets.ByLevel["b1"]
+	out.Facets.Levels.B2 = facets.ByLevel["b2"]
+	out.Facets.Levels.C1 = facets.ByLevel["c1"]
+	out.Facets.Levels.C2 = facets.ByLevel["c2"]
+	out.Facets.Skills.Grammar = facets.BySkill["grammar"]
+	out.Facets.Skills.Vocabulary = facets.BySkill["vocabulary"]
+	out.Facets.Skills.Reading = facets.BySkill["reading"]
+	out.Facets.Skills.Listening = facets.BySkill["listening"]
+	out.Facets.Skills.Writing = facets.BySkill["writing"]
+	out.Facets.Skills.Speaking = facets.BySkill["speaking"]
 	for i, q := range found {
 		out.Items[i], err = h.toAPIQuestion(ctx, q)
 		if err != nil {
@@ -248,6 +257,8 @@ func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, 
 func ToQuestionInput(body openapi.QuestionInput) domain.Input {
 	in := domain.Input{
 		Type:               domain.Type(body.Type),
+		Level:              (*domain.Level)(body.Level),
+		Skill:              (*domain.Skill)(body.Skill),
 		Prompt:             body.Prompt,
 		PromptContent:      body.PromptContent,
 		Transcript:         body.Transcript,
@@ -305,6 +316,8 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 	out := openapi.AdminQuestion{
 		Id:                 httpapi.ParseUUID(q.ID),
 		Type:               openapi.QuestionType(q.Type),
+		Level:              (*openapi.QuestionLevel)(q.Level),
+		Skill:              (*openapi.QuestionSkill)(q.Skill),
 		Prompt:             q.Prompt,
 		PromptContent:      q.PromptContent,
 		Points:             points,
@@ -394,4 +407,25 @@ func optionID(id *openapi.Uuid) *string {
 	}
 	value := id.String()
 	return &value
+}
+
+func questionListDimensions(in *domain.ListInput, params openapi.ListQuestionsParams) {
+	if params.Type != nil {
+		for _, t := range *params.Type {
+			in.Types = append(in.Types, domain.Type(t))
+		}
+	}
+	if params.Level != nil {
+		for _, level := range *params.Level {
+			in.Levels = append(in.Levels, domain.Level(level))
+		}
+	}
+	if params.Skill != nil {
+		for _, skill := range *params.Skill {
+			in.Skills = append(in.Skills, domain.Skill(skill))
+		}
+	}
+	if params.TagMatch != nil {
+		in.TagMatch = string(*params.TagMatch)
+	}
 }

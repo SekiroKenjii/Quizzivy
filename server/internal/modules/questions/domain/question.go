@@ -15,6 +15,8 @@ type Question struct {
 	ExplanationContent json.RawMessage
 	ID                 string
 	Type               Type
+	Level              *Level
+	Skill              *Skill
 	Prompt             string
 	MediaAssetID       *string
 	MediaAssetKind     *string
@@ -69,8 +71,10 @@ type AudioPolicy struct {
 
 // TypeFacets is how many bank questions each type holds for one search.
 type TypeFacets struct {
-	All    int
-	ByType map[Type]int
+	All     int
+	ByType  map[Type]int
+	ByLevel map[Level]int
+	BySkill map[Skill]int
 }
 
 // isChoice reports whether the answer is a set of options.

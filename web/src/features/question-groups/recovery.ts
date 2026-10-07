@@ -25,6 +25,14 @@ const question = z.object({
     "fill_blank",
     "short_answer",
   ]),
+  level: z
+    .enum(["pre_a1", "a1", "a2", "b1", "b2", "c1", "c2"])
+    .nullable()
+    .default(null),
+  skill: z
+    .enum(["grammar", "vocabulary", "reading", "listening", "writing", "speaking"])
+    .nullable()
+    .default(null),
   prompt: z.string(),
   points: z.number(),
   promptContent: questionPromptContentSchema.nullish(),

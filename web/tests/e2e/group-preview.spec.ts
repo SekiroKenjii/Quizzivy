@@ -13,6 +13,7 @@ async function setup(page: Page) {
     ...sessionAs(adminUser),
     [`GET /teacher/tests/${testID}`]: {
       body: {
+        skills: [],
         id: testID,
         title: "Đề kiểm tra ngữ liệu",
         status: "published",

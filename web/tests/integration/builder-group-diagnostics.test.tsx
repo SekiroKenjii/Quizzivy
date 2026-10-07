@@ -31,6 +31,7 @@ test("a publication finding opens the owned member editor without trying the sta
     unavailableAssetIds: [],
   };
   const draft: Test = {
+    skills: [],
     id: crypto.randomUUID(),
     title: "Đề thử nhóm",
     description: null,

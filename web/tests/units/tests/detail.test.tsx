@@ -15,6 +15,7 @@ const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 
 /** The DRAFT holds the teacher's latest edit. */
 let draft: components["schemas"]["Test"] = {
+  skills: [],
   id: TEST_ID,
   title: "Unit 5",
   description: null,
@@ -44,6 +45,7 @@ let previewCalls = 0;
 beforeEach(() => {
   previewCalls = 0;
   draft = {
+    skills: [],
     id: TEST_ID,
     title: "Unit 5",
     description: null,

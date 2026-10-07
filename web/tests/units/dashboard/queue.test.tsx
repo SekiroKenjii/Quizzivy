@@ -51,6 +51,7 @@ beforeEach(() => {
     http.post(`${BASE}/teacher/tests`, () => {
       creations += 1;
       return contractJson("/teacher/tests", "post", 201, {
+        skills: [],
         id: "018f0000-0000-7000-8000-0000000000a1",
         title: "Đề thi chưa đặt tên",
         description: null,

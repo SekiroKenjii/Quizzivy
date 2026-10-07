@@ -27,6 +27,7 @@ beforeEach(() => {
         tags: [],
         items: [
           {
+            skills: [],
             id: TEST_ID,
             title: "Unit 5 — Present perfect",
             description: null,
@@ -48,6 +49,23 @@ beforeEach(() => {
     http.get(`${BASE}/teacher/questions`, () =>
       contractJson("/teacher/questions", "get", 200, {
         facets: {
+          levels: {
+            pre_a1: 0,
+            a1: 0,
+            a2: 0,
+            b1: 0,
+            b2: 0,
+            c1: 0,
+            c2: 0,
+          },
+          skills: {
+            grammar: 0,
+            vocabulary: 0,
+            reading: 0,
+            listening: 0,
+            writing: 0,
+            speaking: 0,
+          },
           all: 1,
           single_choice: 1,
           multiple_choice: 0,
@@ -59,6 +77,8 @@ beforeEach(() => {
         bankTotal: 1,
         items: [
           {
+            level: null,
+            skill: null,
             id: QUESTION_ID,
             type: "single_choice" as const,
             prompt: "Unit 5 · Người phụ nữ đề nghị làm gì?",
