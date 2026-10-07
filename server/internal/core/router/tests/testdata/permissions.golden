@@ -88,6 +88,7 @@ POST /teacher/imports/{id}/commit content.tests.write
 POST /teacher/imports/{id}/process content.tests.write
 POST /teacher/imports/{id}/review/adopt content.tests.write
 POST /teacher/imports/{id}/sources content.tests.write
+POST /teacher/imports/{id}/sources/text content.tests.write
 POST /teacher/media content.media.write
 POST /teacher/media/{id}/replace content.media.write
 POST /teacher/question-groups content.questions.write | content.tests.write

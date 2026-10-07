@@ -18,6 +18,12 @@ R4, private caller profile and preferences (T-R4.7, staged):
   input parsing stays fixed to Vietnam time; full profile controls/photo follow
   T-R4.43/T-R4.8. No completed frontend or release is claimed by this record.
 
+R4, private pasted-text sources (T-R4.55):
+
+- §16 Adds plaintext exam intake, source character counts and text evidence using
+  the existing private upload lifecycle. Recognition conventions and paste editing
+  remain separate T-R4.56 and T-R4.57.
+
 **Changes since v0.55**
 
 R4, import history read model (T-R4.21):
@@ -2298,8 +2304,9 @@ toConfirm}|null`, derived from the exact current review body. Machine completion
 review save and candidate adoption update counts with that body; an unadopted
 candidate leaves current counts intact. An untouched historical draft remains
 unknown, while computed zero is an exact zero. Facets, pagination and hydrated
-items share one repeatable-read snapshot. Pasted-source names and character
-counts still require T-R4.55's text metadata.
+items share one repeatable-read snapshot. Text sources carry their normalized
+character count; filename search excludes only their stored `pasted-text.txt` name,
+while title and companion-file search remain available.
 
 The R4 upload page keeps one source-intake instance mounted across
 `?source=paste` changes, preserving selected files and the typed title. T-R4.57
@@ -2308,6 +2315,25 @@ paste mode explicitly reports its availability and cannot start an import.
 File mode retains automatic recognition, actual limits and retention, the privacy
 notice and a sticky Cancel/Start footer. Leaving during upload quietly stops
 intake, as before. Neither page infers provider policy from capability data.
+
+`POST /teacher/imports/{id}/sources/text` accepts a closed JSON body with
+`uploadId`, `expectedRevision` and plaintext `text`, under `content.tests.write`.
+It normalizes NFC and stores a private `pasted-text.txt` exam source using the
+file upload's ownership, replay, revision, quota, intake-capacity and retention
+rules. `ImportLimits.pasteMaxCharacters` is 100000; file `formats` stay unchanged.
+The request schema rejects more than 100000 sent code points with 400. The command
+rejects NUL or invalid UTF-8 with 415, and more than 100000 normalized code points
+or 20000 nonblank lines with 413. Invalid UTF-8 is a command boundary assertion;
+JSON decoding can replace malformed wire bytes. The default raw-body limit still
+applies. A multipart `.txt` file remains unsupported.
+
+Text extraction removes an initial BOM, normalizes line breaks and NFC, and emits
+plain paragraph blocks with original line-number IDs, no formatting spans and
+`TEXT_MARKS_UNAVAILABLE`. The private original and existing download, source view
+and retention operations remain available. `word-pipeline-v3` fences these runs
+from v2 workers; recognition remains `rules-v2` until T-R4.56. A companion answer-key
+file uses the existing upload operation. T-R4.55 adds the typed client operation,
+not the paste editor or T-R4.56 recognition/count corpus; T-R4.57 supplies that UI.
 
 `/teacher/imports` creates an empty record idempotently and lists history by status,
 title or current filename. A source upload accepts exactly one native `.docx`, with

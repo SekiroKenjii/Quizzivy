@@ -28,6 +28,9 @@ var (
 
 const MaxSourceBytes int64 = 25 << 20
 
+const MaxPasteCharacters = 100000
+const MaxPasteLines = 20000
+
 // Statuses in which a teacher may add or replace a source; a new source set returns the import to awaiting_sources.
 func AcceptsSources(status string) bool {
 	return status == "awaiting_sources" || status == "failed" || status == "needs_review"
@@ -59,6 +62,7 @@ type RunSummary struct {
 type Source struct {
 	ID, ImportID, UploadID, Role, Filename, Format, StorageKey, UploadedBy string
 	ExpectedRevision, Bytes, SourceRevision                                int64
+	Characters                                                             *int
 	SHA256                                                                 []byte
 	Ready                                                                  bool
 	CreatedAt                                                              time.Time

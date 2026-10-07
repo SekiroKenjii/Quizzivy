@@ -49,6 +49,7 @@ export const OBJECT_REASONS = [
   "RENDERER_LAYOUT_REQUIRES_REVIEW",
   "ALTERNATE_CONTENT_REQUIRES_RESOLUTION",
   "PDF_MARKS_UNAVAILABLE",
+  "TEXT_MARKS_UNAVAILABLE",
   "PDF_REPEATED_LINE_REQUIRES_REVIEW",
   "PDF_COLUMNS_REQUIRE_REVIEW",
 ] as const;
@@ -58,6 +59,7 @@ const KNOWN_REASONS: ReadonlySet<string> = new Set(OBJECT_REASONS);
 /** TITLED_REASONS are the document-object reasons whose finding has its own title rather than the generic "objects not read". */
 export const TITLED_REASONS = [
   "PDF_MARKS_UNAVAILABLE",
+  "TEXT_MARKS_UNAVAILABLE",
   "PDF_REPEATED_LINE_REQUIRES_REVIEW",
   "PDF_COLUMNS_REQUIRE_REVIEW",
 ] as const;
