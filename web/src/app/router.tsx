@@ -96,7 +96,7 @@ const teacherTree: RouteObject = {
               path: ":id",
               handle: {
                 crumb: [
-                  { key: "teacherShell.nav.imports", to: "/teacher/imports" },
+                  { key: "imports.historyTitle", to: "/teacher/imports" },
                   { key: "imports.detail.pageTitle" },
                 ],
                 width: 720,
