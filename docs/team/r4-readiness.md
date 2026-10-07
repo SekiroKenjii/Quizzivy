@@ -206,4 +206,158 @@ under `server/`. The next migration number on `work/redesign-r4` is **00092**.
 
 ## Frontend (`senior_swe_frontend`)
 
-Pending.
+Read-only survey; only `git fetch` and diffs were run. References are paths under `web/`
+and deck line numbers in `Quizzivy Teacher.dc.html`.
+
+### The teacher tree today
+
+- `layouts/TeacherShell.tsx` renders `TeacherLayout` (inside the deck scale) when the leaf
+  route has a teacher handle, and `AdminLayout` otherwise. `AdminLayout` still forces
+  light (`AdminLayout.tsx:88`).
+- **Rebuilt to the deck:** the Dashboard, the imports list, new import and import run,
+  and the assignment detail. **Still old:** tests, test detail, builder, import review,
+  bank, groups, question editor, media, assignments list, new and edit, attempts,
+  grading, students, classes and settings.
+- **Composites available:**
+  - `components/shared/data/` (`DataTable`, `Pager`, `FacetFilter`), `CardGrid`,
+    `BulkActions`.
+  - `form/` (`FormDialog`, `DialogShell`, `ChipInput`, `TagCombobox`, `NumberStepper`,
+    `RadioCard`, `FileDrop`, fields).
+  - `Sheet`, `CopyField`, `DirtyBar`, `SettingsLayout`, `ConfirmDialog`.
+  - `stats/` (`KpiTile`, `StatStrip`, `ProgressBar`, `Meter`), `charts/BarChart`,
+    `IconTile`, `Callout`, `LockNotice`, `EventList`, `SplitPane`, `Waveform`.
+  - The hooks `useIdlePolling`, `useFileDrop`, `usePage`; `layouts/shell/` (`PageHead`,
+    `useCrumbs`, `useContentWidthAtLeast`, `handle`); `ui/segmented`, `RowMenu`.
+  - Test support: `tests/units/shell/support.tsx`.
+- **Content widths** (sidebar 248 expanded or 60 collapsed, side padding 28): 464 or 652
+  at 768, 720 or 908 at 1024, 976 or 1164 at 1280, 1136 or 1320 at 1440, and 332 in the
+  drawer at 360.
+
+### T-R4.63: content editor frame (plan M, realistically M+)
+
+- **Outcome.** `ContentEditor` gets the deck's box, toolbar, link popover, table row,
+  notice band, word count and `readOnly`. Pasted images are left out and counted.
+- **References.** Deck 742-760 and 813, script 3955-4030; DG-30, 35, 36, 109, 110, 115,
+  116.
+- **Files.**
+  - `components/shared/content/editor/` (`ContentEditor`, `ContentToolbar`,
+    `PastePreview`).
+  - New `TableToolbar`, `LinkPopover`, `NoticeBand`.
+  - `clipboardHTML.ts`, `useContentPaste.ts`, `extensions.ts`, `content.css`.
+  - The content unit tests, and `e2e/rich-question-content.spec.ts`.
+- **API.** None. i18n under `contentEditor`.
+- **Open points.**
+  - "Touches" omits the six hosts. The recommendation is that 63 ships the new props
+    with defaults and edits only the group and option hosts.
+  - Every host is still an old, forced-light screen behind `VITE_RICH_QUESTION_EDITOR`,
+    so the dark and five-width check needs a deck-harness case (`cases/r4-63.tsx`).
+  - DG-115 is an unconfirmed default.
+- **Accessibility.** The toolbar becomes one tab stop with roving arrow keys. The link
+  popover traps focus and returns it on Esc. A selection survives a touch press.
+- **Canaries.** `router-chunks` stays untouched.
+
+### T-R4.57: paste a test (plan M, realistically L)
+
+- **Outcome.** Paste mode replaces the deferred placeholder in `NewImportPage.tsx:66-70`.
+- **References.** Deck 1595-1701; DG-12, 14, 15, 17, 21.
+- **API.** Everything exists. The 46-case count fixture is already in CI's web set.
+  `TEXT_MARKS_UNAVAILABLE` already has copy in both languages.
+- **Size.** `paste.ts` ports part of a roughly 1,460-line Go grammar, and each rule is
+  mutation-tested, so this is L.
+- **Open points.**
+  - The crumb can come from `PageHead`, which avoids editing `router.tsx` and
+    `teacher-routes.test.ts` and so the collision with 27a.
+  - "Tips beside the example from 900px" should be a container query.
+  - `[&_button]:min-w-[168px]` (`NewImportPage.tsx:62`) contradicts DG-21.
+- **Accessibility.** Ctrl or ⌘+Enter never fires during IME composition, and leaving asks
+  first.
+
+### T-R4.35: media library (plan M, realistically M+)
+
+- **Outcome.** The deck's Media page, the Upload, Replace and Rename dialogs, and
+  `useMediaUpload`.
+- **References.** Deck 1168-1202, script 3383-3388 and 3484; DG-09, 63, 69, 83.
+- **Files.**
+  - `MediaLibraryPage` becomes `MediaPage` (`router.tsx:148`, `teacher-routes.test.ts:40`).
+  - New `MediaCard`, `UploadDialog`, `ReplaceDialog`, `useMediaUpload.ts`; `UploadPanel`
+    is retired.
+  - The upload call in `QuestionMediaField` and `MaterialAssetDialog`.
+  - `limits.ts`, `probe.ts`, and `media/api.ts`, which lacks `q`, `unused`,
+    `replaceMedia` and `updateMedia`.
+- **Contract gap.** "Download": `LibraryAsset.url` is a cross-origin signed URL, so
+  `<a download>` cannot name the file. Either it opens in a tab, or the backend adds a
+  disposition.
+- **Canaries.** No `router-chunks` edit is needed: `ADMIN` already covers all of
+  `features/media/`. Do not export the hook from `features/media/index.ts`, which
+  `ResultPage` imports. `audio-player.test.tsx` stays untouched, and the media card's
+  play button needs its own same-tick test.
+- **Open points.**
+  - The two former `UploadPanel` hosts need their own progress and error UI.
+  - The image pre-checks are new client logic.
+  - DG-63 and DG-09 override the deck's copy.
+
+### T-R4.32: question bank (plan M)
+
+- **References.** Deck 477-549, script 4197-4296.
+- **Files.** `QuestionBankPage.tsx` (648 lines), a handle in `router.tsx:117`, and
+  `tests/units/question-bank/`.
+- **Contract gaps.**
+  - No count for "Audio", although the plan asks for server counts.
+  - No per-tag counts, which the deck's popover shows.
+  - No operation to remove a tag from a row: `tagQuestions` only adds.
+- **Decision left to this task by T-R4.1a.** The column thresholds: content width (the
+  deck's, which overflows by up to 62px at 1024 expanded beside the 220px aside) or the
+  table's own width.
+- **Level groups.** The deck groups "A1–A2"; the plan wants Pre-A1 to C2.
+
+### T-R4.27a: wizard frame, test and students (plan M, realistically M+)
+
+- **References.** Deck 854-940; DG-65.
+- **Files.**
+  - New `AssignmentWizardPage` and `WizardStepper`, replacing the 925-line
+    `AssignmentFormPage`.
+  - `router.tsx:157,177` and `teacher-routes.test.ts:42,50`.
+  - The four `?testId`/`?classId` link sites.
+  - `e2e/support/live.ts:123-145` and `admin-change-requests.live.spec.ts:125-155`.
+- **Main open point.** 27a ships steps 1 and 2, while Schedule, Rules and the final
+  Assign are 27b, which waits for T-R4.11. Between them the integration branch would lose
+  scheduling, rules, the §10.5 honest-limits text and the Assign that `assignToClass`
+  drives. Proposal: 27a mounts today's schedule and rules groups as interim steps 3 and
+  4, keeps a final Assign, and keeps `/:id/edit` working for published assignments.
+
+### T-R4.46: integrity on the teacher side (plan S, high-risk)
+
+- **Mostly built already.** The Dashboard's Flagged tile, the roster's flag tone, and
+  `KIND_LOOK` flagged. `FocusLossCell` is dead code.
+- **What remains.**
+  - Consolidate the tones in `integrity/tones.ts`.
+  - Colour the compact timeline's dots (`Timeline.tsx:99,108`).
+  - There is no "submitted" event (it comes from the attempt as a prop), and no
+    autosave event behind the deck's "Answers autosaved".
+- **For the Principal.** Danger dots against spec §10.4 ("neutral text"); AGENTS.md D8
+  appears to settle it.
+
+### Collisions and order
+
+- **#414** shares `router.tsx`, the `builder` locale namespace, `MarqueeText.tsx`,
+  `index.css` and separate hunks of `admin-change-requests.live.spec.ts`. **#416** shares
+  `router.tsx:192` and `teacher-routes.test.ts:52`, one line from 27a's and 35's rows.
+- **Order.**
+  1. 63, 46 and 35 together, in separate worktrees.
+  2. Then 32, and 57 if it skips the router edit.
+  3. 27a last, after #416 and 35 land and the interim-steps question is settled.
+- **Serialize** anything editing `router.tsx` or `teacher-routes.test.ts`. Locale
+  namespaces merge one at a time.
+
+## Decisions the surveys leave open
+
+For the Principal (approach) or the user (product), before the task that needs them:
+
+1. T-R4.11 and 12: omitted-field preservation on PATCH, one `EffectiveClose`, how an
+   override meets an early close, the PUT semantics.
+2. T-R4.16: the change count, `assignmentCount`, `against=previous` for version 1.
+3. T-R4.27a: the interim steps 3 and 4.
+4. T-R4.32: the three contract gaps and the column thresholds.
+5. T-R4.35: Download.
+6. T-R4.46: danger tones on the compact timeline.
+7. DG-115 and DG-110 (user).
