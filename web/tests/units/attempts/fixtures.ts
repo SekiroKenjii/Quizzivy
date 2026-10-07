@@ -167,6 +167,8 @@ export function review(over: { essayScore?: number | null } = {}): Review {
     maxAttempts: 2,
     questions: [
       {
+        level: null,
+        skill: null,
         id: CHOICE_ID,
         type: "single_choice",
         prompt: "Thủ đô của Việt Nam?",
@@ -181,6 +183,8 @@ export function review(over: { essayScore?: number | null } = {}): Review {
         updatedAt: "2026-08-20T00:00:00Z",
       },
       {
+        level: null,
+        skill: null,
         id: ESSAY_ID,
         type: "short_answer",
         prompt: "Viết 2–3 câu tả thói quen buổi sáng.",

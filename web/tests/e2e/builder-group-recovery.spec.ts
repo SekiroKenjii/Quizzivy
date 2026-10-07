@@ -1,3 +1,4 @@
+import { storedGroupBundle } from "@tests/support/storedGroupBundle";
 import { expect, test } from "@playwright/test";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import type { components } from "../../src/lib/api/schema";
@@ -32,6 +33,7 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
     unavailableAssetIds: [],
   };
   const draft: components["schemas"]["Test"] = {
+    skills: [],
     id: testId,
     title: "Đề phục hồi",
     description: null,
@@ -77,7 +79,11 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
         .request()
         .postDataJSON() as components["schemas"]["GroupUpdateInput"];
       expect(input.expectedRevision).toBe(stored.revision);
-      stored = { ...stored, bundle: input.bundle, revision: stored.revision + 1 };
+      stored = {
+        ...stored,
+        bundle: storedGroupBundle(input.bundle),
+        revision: stored.revision + 1,
+      };
       return route.fulfill({ json: stored });
     },
   });

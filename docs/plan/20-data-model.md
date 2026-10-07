@@ -1354,6 +1354,7 @@ listed here matches the spec.
 | D-28 | Add `notifications` and `notification_preferences`. `notifications.params` and `target` are `jsonb`, bounded objects rather than columns, and `kind` is a checked dotted `text`, not an enum | §13.3 has no notification. Each kind carries its own few fields and every release adds kinds, so columns would be mostly NULL and an enum a migration per kind; the contract's closed `NotificationParams` and the Go type per kind are the schema. A name in `params` is a copy, not a reference: R5's anonymisation (T-R5.17a) deletes or scrubs the notifications that name an anonymised user (§34, T-R4.10a) |
 | D-29 | `media_assets` gains `display_name`, `default_max_plays`, `replaced_by`, `width` and `height`, and its size limit depends on the kind: audio 50 MiB, an image 10 MiB | §13.3's row is a stored file and nothing else, and §11.1 allowed 10 MB for either kind. The deck's Media page names a file, gives it a play limit, shows an image's size and replaces a file in place (DG-63, DG-09); a replaced row stays, because published versions still point at it (§6, T-R4.17a, T-R4.17b) |
 | D-30 | `users` gains nullable profile fields and bounded object `preferences` | The caller's private profile and account settings are required by T-R4.7; student-facing teacher names use the chosen display name without exposing private account fields |
+| D-31 | Questions and frozen version questions gain nullable level and skill; the choice cap applies to authoring only | DG-62/DG-63 and T-R4.15 preserve historical question content while adding teacher metadata and filters |
 
 ---
 
@@ -1450,6 +1451,9 @@ the file it adds.
 | `00084_widen_media_assets_audio_bytes.sql` | `media_assets_bytes_by_kind` in place of `media_assets_bytes_check`; Down re-adds the old rule `NOT VALID` | R4 (T-R4.17a), D-29, DG-63 |
 | `00085_add_users_profile_fields.sql` | `users.display_name`, `phone`, `avatar_key`, `locale`, `time_zone` and four checks | R4 (T-R4.7), D-30 |
 | `00086_add_users_preferences.sql` | `users.preferences` and object/8192-byte checks | R4 (T-R4.7), D-30 |
+| `00087_add_questions_level_skill.sql` | Nullable bank `level` and `skill`, with closed CHECK sets | R4 (T-R4.15), D-31 |
+| `00088_add_test_version_questions_level_skill.sql` | Nullable frozen `level` and `skill`, with closed CHECK sets | R4 (T-R4.15), D-31 |
+| `00089_add_word_import_draft_counts.sql` | Draft recognition counts for import-history reads | R4 (T-R4.21) |
 | `00090_allow_text_import_sources.sql` | Plaintext exam-source format | R4 (T-R4.55) |
 | `00091_add_word_import_sources_characters.sql` | Bounded character metadata exactly for text sources | R4 (T-R4.55) |
 
@@ -2483,3 +2487,32 @@ the owned user leaves the audit actor null through the existing foreign key.
 Failure coverage requires real reached-stage markers and canceled-Commit
 proof; successful cleanup cannot stand in for an intended failure branch.
 No legacy user, role, owner trigger or compatibility alias is removed here.
+
+## 36. Question level, skill and legacy choice compatibility (T-R4.15)
+
+Migrations `00087_add_questions_level_skill.sql` and
+`00088_add_test_version_questions_level_skill.sql` add nullable text columns
+`level` and `skill` to the bank and frozen question tables. Named CHECK sets
+accept the seven CEFR levels and six skills recorded in spec §7.1; null remains
+valid. There is no backfill, index, new privilege or trigger. Each Down removes
+only its two columns and matching checks.
+
+New teacher authoring rejects a choice array above eight. Storage and frozen
+read contracts remain uncapped so historical nine-option content can be read,
+bodylessly copied, published and restored. Included import questions undergo
+the same authoring refusal; a late refusal rolls back earlier writes in the
+commit transaction. These restrictions do not delete or rewrite old content.
+
+Bank writes, standalone and grouped snapshots, structural copies and restored
+drafts carry both fields. Snapshot values are independent of subsequent bank
+edits; existing question/media row-lock ordering is unchanged. Draft list skills
+combine both standalone and group-member arms, drop nulls and return a distinct
+sorted array. Metadata facets retain the other dimensions and owner scope while
+omitting their own dimension. The existing accent-folded search expression is
+unchanged. No representative query-plan or runtime performance claim is made.
+
+The combined candidate contains the full migration inventory 00001–00091.
+Its purpose-database app/migrate tests, the isolated 87/88 down/up rehearsal and
+the separate historical oversized-choice Neon inventory remain acceptance gates.
+A synthetic nine-option fixture is compatibility evidence, not a count of real
+historical rows.

@@ -15,6 +15,8 @@ const B = "018f0000-0000-7000-8000-0000000000a2";
 
 function question(id: string, prompt: string) {
   return {
+    level: null,
+    skill: null,
     id,
     type: "short_answer" as const,
     prompt,
@@ -40,6 +42,23 @@ beforeEach(() => {
         pageSize: 50,
         total: 0,
         facets: {
+          levels: {
+            pre_a1: 0,
+            a1: 0,
+            a2: 0,
+            b1: 0,
+            b2: 0,
+            c1: 0,
+            c2: 0,
+          },
+          skills: {
+            grammar: 0,
+            vocabulary: 0,
+            reading: 0,
+            listening: 0,
+            writing: 0,
+            speaking: 0,
+          },
           all: 2,
           single_choice: 0,
           multiple_choice: 0,
@@ -149,6 +168,23 @@ describe("A-06's tag rail", () => {
           pageSize: 50,
           total: 2,
           facets: {
+            levels: {
+              pre_a1: 0,
+              a1: 0,
+              a2: 0,
+              b1: 0,
+              b2: 0,
+              c1: 0,
+              c2: 0,
+            },
+            skills: {
+              grammar: 0,
+              vocabulary: 0,
+              reading: 0,
+              listening: 0,
+              writing: 0,
+              speaking: 0,
+            },
             all: 2,
             single_choice: 0,
             multiple_choice: 0,
@@ -185,6 +221,23 @@ describe("A-06's tag rail", () => {
           pageSize: 50,
           total: 2,
           facets: {
+            levels: {
+              pre_a1: 0,
+              a1: 0,
+              a2: 0,
+              b1: 0,
+              b2: 0,
+              c1: 0,
+              c2: 0,
+            },
+            skills: {
+              grammar: 0,
+              vocabulary: 0,
+              reading: 0,
+              listening: 0,
+              writing: 0,
+              speaking: 0,
+            },
             all: 2,
             single_choice: 0,
             multiple_choice: 0,

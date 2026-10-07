@@ -7,6 +7,8 @@ import (
 func InputOf(q domain.Question) domain.Input {
 	in := domain.Input{
 		Type:               q.Type,
+		Level:              q.Level,
+		Skill:              q.Skill,
 		Prompt:             q.Prompt,
 		PromptContent:      q.PromptContent,
 		MediaAssetID:       q.MediaAssetID,
