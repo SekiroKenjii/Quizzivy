@@ -230,6 +230,7 @@ export async function chooseAccountPreference(
   choiceToast = toast(i18n.t("settings.preferenceSaving"), {
     id: `account-choice-${lease.generation}`,
     duration: Infinity,
+    action: null,
   });
   try {
     if ("locale" in intent) await saveProfilePatch(intent);
@@ -238,6 +239,8 @@ export async function chooseAccountPreference(
     publish({ ...status, phase: "saved", intent: null });
     choiceToast = toast(i18n.t("settings.preferenceSaved"), {
       id: `account-choice-${lease.generation}`,
+      duration: 4000,
+      action: null,
     });
     return true;
   } catch {
@@ -250,8 +253,11 @@ export async function chooseAccountPreference(
       duration: Infinity,
       action: {
         label: i18n.t("common.retry"),
-        onClick: () => {
-          if (authStore.isCurrent(lease)) void chooseAccountPreference(intent);
+        onClick: (event) => {
+          if (authStore.isCurrent(lease)) {
+            event.preventDefault();
+            void chooseAccountPreference(intent);
+          }
         },
       },
     });
