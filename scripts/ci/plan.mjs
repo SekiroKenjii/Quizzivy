@@ -26,10 +26,10 @@ const NOT_CODE = [
  */
 export const SETS = {
   deck: { base: 'none', include: ['docs/design/', 'scripts/check-design-deck.mjs'], exclude: [] },
-  server: { base: 'all', include: ['web/tests/e2e/fixtures/'], exclude: [...NOT_CODE, 'web/'] },
+  server: { base: 'all', include: ['web/tests/e2e/fixtures/', 'api/testdata/pasted-text-counts.json'], exclude: [...NOT_CODE, 'web/'] },
   web: {
     base: 'all',
-    include: ['server/internal/modules/classes/domain/joincode.go'],
+    include: ['server/internal/modules/classes/domain/joincode.go', 'api/testdata/pasted-text-counts.json'],
     exclude: [...NOT_CODE, 'server/', 'migrations/', 'seed/', 'docker/'],
   },
   code: { base: 'all', include: [], exclude: NOT_CODE },

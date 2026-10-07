@@ -1,0 +1,372 @@
+[
+  {
+    "name": "deck-sample",
+    "text": "Unit 5 Quick Check\n\nPart 1. Choose the best answer.\n1. She ___ in Hanoi since 2019.\nA. lives\nB. has lived *\nC. lived\nD. is living\n2. I ___ him yesterday at the station.\nA. saw *\nB. have seen\nC. see\nD. was seeing\n3. They ___ the report yet.\nA. didn't finish\nB. haven't finished *\nC. don't finish\nD. hadn't finished\n4. How long ___ you known each other?\nA. do\nB. did\nC. have\nD. are\n\nPart 2. Decide if each statement is True, False or Not given.\nGreen space pays for itself. Homes that overlook a park sell for up to 15 per cent more than similar homes a few streets away.\n5. Homes near parks always sell for 15 per cent more.\nAnswer: False\n6. Parks are cheaper to build than roads.\nAnswer: Not given\n7. Trees can cool streets in summer.\n\nPart 3. Write ONE word in each gap.\n8. We have lived here ___ 2015.\n9. She has worked here ___ three years.\n10. Have you ever ___ to Da Nang?\n\nAnswer key: 8-since 9-for 10-been",
+    "sections": 3,
+    "questions": 10,
+    "answered": 8,
+    "missing": [4, 7]
+  },
+  {
+    "name": "deck-example",
+    "text": "Part 1. Choose the best answer.\n1. She ___ in Hanoi since 2019.\nA. lives\nB. has lived *\nC. lived\n\nPart 2. True, False or Not given.\n2. Parks are cheaper than roads.\nAnswer: Not given\n\nAnswer key: 3-since 4-for",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "local-Answer:",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "local-Ans:",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\nAns: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "local-Answer -",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer - B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "local-Đáp án:",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\nĐáp án: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "global-Answer key-",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nAnswer key: 1-B 2-C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Answer key:",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nAnswer key: 1:B 2:C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Answer key.",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nAnswer key: 1.B 2.C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Answer key)",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nAnswer key: 1)B 2)C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Key-",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nKey: 1-B 2-C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Key:",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nKey: 1:B 2:C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Key.",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nKey: 1.B 2.C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Key)",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nKey: 1)B 2)C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Đáp án-",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nĐáp án: 1-B 2-C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Đáp án:",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nĐáp án: 1:B 2:C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Đáp án.",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nĐáp án: 1.B 2.C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Đáp án)",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nĐáp án: 1)B 2)C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Answers-",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nAnswers: 1-B 2-C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Answers:",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nAnswers: 1:B 2:C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Answers.",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nAnswers: 1.B 2.C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "global-Answers)",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nAnswers: 1)B 2)C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "star-first",
+    "text": "1. First?\nA. * alpha\nB. beta",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "star-last",
+    "text": "1. First?\nA. alpha\nB. beta *",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "multi-star",
+    "text": "1. First?\nA. alpha\nB. * beta\nC. gamma\nD. delta *",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "internal-star",
+    "text": "1. Stem * remains.\nA. alpha*beta\nB. gamma",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": [1]
+  },
+  {
+    "name": "lowercase-and-colon",
+    "text": "1: First?\na. alpha\nb. beta *\nc. gamma",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "underscore-three",
+    "text": "1. We live ___ here.\nAnswer: since",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "dots-ellipsis",
+    "text": "1. Word ...\nAnswer: north\n2. Word …\nAnswer: south\n3. Word ....\nAnswer: east\n4. Word ……\nAnswer: west",
+    "sections": 1,
+    "questions": 4,
+    "answered": 4,
+    "missing": []
+  },
+  {
+    "name": "not-given",
+    "text": "Part 1. Decide True or False or Not given.\n1. Parks cost less.\nAnswer: Not given",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "keyword-Question 1",
+    "text": "Question 1 Stem?\nAnswer: north",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "keyword-Q1.",
+    "text": "Q1. Stem?\nAnswer: north",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "keyword-Cau 1.",
+    "text": "Cau 1. Stem?\nAnswer: north",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "bare-roman",
+    "text": "I\n1. First?\nAnswer: north\nII\n2. Second?\nAnswer: south",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "part-letter",
+    "text": "Part A. Choose the best answer.\n1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "bai-tap",
+    "text": "Bài tập 1. Choose the best answer.\n1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "points-instruction",
+    "text": "Part 1. Choose the best answer.\n0.25 points each\n1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "key-heading-alone",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\n2. Second?\nA. one\nB. two\nC. three\nAnswer key:\n1. B\n2. C",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "restart",
+    "text": "Part 1. Choose the best answer.\n1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer: B\nPart 2. Choose the best answer.\n1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer: C",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "inline-answer",
+    "text": "1. First? Ans: north",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "nfd-section",
+    "text": "Phần 1. Choose the best answer.\n1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "single-local-key",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\nĐáp án: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "single-global-key-ignored",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer key: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": [1]
+  },
+  {
+    "name": "bare-repeat",
+    "text": "1. First?\n2. Second?\n2. Duplicate?\n3. Third?",
+    "sections": 1,
+    "questions": 3,
+    "answered": 0,
+    "missing": [1, 2, 3],
+    "duplicates": [2]
+  },
+  {
+    "name": "bare-out-of-order",
+    "text": "1. First?\n3. Third?\n2. Second?\n4. Fourth?",
+    "sections": 1,
+    "questions": 3,
+    "answered": 0,
+    "missing": [1, 3, 4]
+  },
+  {
+    "name": "keyword-repeat",
+    "text": "Question 1 First?\nQuestion 2 Second?\nQuestion 2 Duplicate?\nQuestion 3 Third?",
+    "sections": 1,
+    "questions": 4,
+    "answered": 0,
+    "missing": [1, 2, 2, 3],
+    "duplicates": [2]
+  }
+]
