@@ -614,6 +614,13 @@ screen first, because a version snapshots what is SAVED. Both were real bugs
 that shipped past every unit test and were caught by E2E 1a; `builder/
 autosave-unmount.test.tsx` pins the first.
 
+## Agent team
+
+Multi-agent work runs as the team in `docs/team/README.md`: the primary session is the
+Tech Lead, and the five specialists are defined in `.claude/agents/`, each pinned to its
+model. `docs/team/ledger.md` is the team's checkpoint: read it after an interruption. The
+team adds no rule; this file still governs.
+
 ## When you are unsure
 
 Ask one precise question. Do not guess on §5 (auth), §6 (join codes),
