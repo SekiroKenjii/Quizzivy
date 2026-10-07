@@ -15,6 +15,13 @@ R4, question metadata and authoring compatibility (T-R4.15, staged):
   00087/00088 add nullable metadata without backfill. Source/contract checks are
   complete; purpose-database and historical Neon rehearsal gates remain open.
 
+R4, import processing presentation (T-R4.37):
+
+- The teacher processing page follows the deck for file and pasted-text sources,
+  preserving real run stages, revision guards, cancellation, retention and review
+  states. Text failure titles and recovery copy do not guess which source failed.
+  Paste intake editing remains T-R4.57; run-event history remains unavailable.
+
 **Changes since v0.57**
 
 R4, account preference adoption (T-R4.7):
@@ -2358,6 +2365,19 @@ paste mode explicitly reports its availability and cannot start an import.
 File mode retains automatic recognition, actual limits and retention, the privacy
 notice and a sticky Cancel/Start footer. Leaving during upload quietly stops
 intake, as before. Neither page infers provider policy from capability data.
+
+The R4 processing page uses the deck's 720px frame and five presentation rows
+mapped to the actual run stage. It retains elapsed time, attempts and retry waiting,
+shows completed receipts only after their stages, and exposes no invented run-event
+history. The actual exam source's role and format select the pasted-text header,
+character receipt and plain-text/no-formatting receipt, independently of filename
+or title. Failed text imports keep the actual error code and stage; source-invalid
+and size titles and recovery instructions remain neutral about the pasted text or
+its companion file. Restart opens the paste-mode destination, whose editor remains
+T-R4.57. Cancellation and closed states use configured retention and finality; Ready
+uses the current review's real counts, severity and conflict rules. The active-stage
+spinner pauses on hover and keyboard focus and stays static under reduced motion;
+retry waiting has no active spinner. This page's source title is static.
 
 `POST /teacher/imports/{id}/sources/text` accepts a closed JSON body with
 `uploadId`, `expectedRevision` and plaintext `text`, under `content.tests.write`.

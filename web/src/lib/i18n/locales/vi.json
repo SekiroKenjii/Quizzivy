@@ -2301,7 +2301,19 @@
       "waitingToStart": "Đang chờ đến lượt",
       "elapsed": "Đã chạy {{time}}",
       "retryWaiting": "Đang chờ thử lại tự động. Bạn không cần làm gì.",
-      "attempt": "Lần thử {{attempt}}/{{max}}"
+      "attempt": "Lần thử {{attempt}}/{{max}}",
+      "textCheck": "Kiểm tra văn bản",
+      "charactersChecked": "Đã kiểm tra {{count}} ký tự",
+      "plainText": "Văn bản thuần · không có định dạng"
+    },
+    "textRunError": {
+      "SOURCE_INVALID": "Không đọc được văn bản đã dán hoặc một tệp đi kèm. Hãy kiểm tra các nguồn rồi bắt đầu một lần nhập mới.",
+      "SOURCE_TOO_LARGE": "Văn bản đã dán hoặc một tệp đi kèm vượt giới hạn xử lý. Hãy giảm nội dung hoặc kích thước nguồn rồi bắt đầu một lần nhập mới.",
+      "STORAGE_INTEGRITY_FAILED": "Không đọc được bản gốc đã lưu của văn bản đã dán hoặc một tệp đi kèm. Hãy bắt đầu một lần nhập mới từ các nguồn gốc.",
+      "STOPPED": "Việc xử lý đã dừng. Văn bản đã dán và tệp đi kèm không thể tiếp tục được xử lý trong lần nhập này; hãy kiểm tra các nguồn rồi bắt đầu một lần nhập mới.",
+      "TEMPORARY": "Dịch vụ xử lý gặp sự cố tạm thời. Văn bản đã dán và tệp đi kèm vẫn được giữ; hãy thử lại sau ít phút.",
+      "INTERNAL": "Hệ thống chưa hoàn tất được việc xử lý. Văn bản đã dán và tệp đi kèm vẫn được giữ; hãy thử lại.",
+      "UNKNOWN": "Việc xử lý dừng lại vì một lỗi chưa xác định. Văn bản đã dán và tệp đi kèm vẫn được giữ; hãy thử lại."
     },
     "runError": {
       "SOURCE_INVALID": "Tệp bị hỏng hoặc không phải tài liệu Word hợp lệ. Hãy mở bằng Word, lưu thành .docx rồi tải lên lại.",
@@ -2327,6 +2339,7 @@
     },
     "staleData": "Không cập nhật được thông tin mới nhất; đang hiển thị dữ liệu trước đó.",
     "detail": {
+      "pageTitle": "Lượt nhập",
       "awaitingTitle": "Chưa bắt đầu xử lý",
       "awaitingBody": "Lần nhập này còn thiếu tệp hoặc chưa được bắt đầu. Thêm tệp còn thiếu rồi bắt đầu xử lý.",
       "processingTitle": "Đang xử lý",
@@ -2378,7 +2391,46 @@
       "cancelledBodyReviewDays": "Phần rà soát và tệp gốc vẫn xem được {{days}} ngày kể từ khi đóng, sau đó được xoá.",
       "closeBodyDays": "Lần nhập sẽ được đóng và không thể tiếp tục. Tệp gốc vẫn xem được thêm {{days}} ngày, sau đó được xoá.",
       "closeBodyReviewDays": "Lần nhập sẽ được đóng và bạn sẽ không thể tạo bản nháp đề từ phần rà soát này nữa. Phần rà soát và tệp gốc vẫn xem được thêm {{days}} ngày, sau đó được xoá.",
-      "cancelBodyDays": "Việc xử lý sẽ dừng và lần nhập sẽ được đóng; không thể tiếp tục lần nhập này. Tệp gốc được giữ thêm {{days}} ngày, sau đó được xoá."
+      "cancelBodyDays": "Việc xử lý sẽ dừng và lần nhập sẽ được đóng; không thể tiếp tục lần nhập này. Tệp gốc được giữ thêm {{days}} ngày, sau đó được xoá.",
+      "started": "Bắt đầu {{when}}",
+      "found": "Đã tìm thấy {{questions}} với {{answers}} trong {{sections}}",
+      "startReview": "Bắt đầu rà soát",
+      "later": "Để sau",
+      "summaryLoading": "Đang đọc kết quả nhận diện…",
+      "summaryFailed": "Không tải được tóm tắt. Bạn vẫn có thể mở bản rà soát hoặc thử lại.",
+      "everyAnswer": "Mỗi câu đều có đáp án",
+      "needAction": "{{count}} cần xử lý",
+      "toConfirm": "{{count}} cần xác nhận",
+      "notes": "{{count}} ghi chú",
+      "replaceExam": "Thay tệp đề thi",
+      "stoppedAt": "Dừng ở “{{stage}}”",
+      "created": "Tạo {{when}}",
+      "waitingLeave": "Bạn có thể rời trang. Lần nhập vẫn ở hàng đợi cho đến khi máy chủ bật lại việc xử lý.",
+      "questionCount_one": "{{count}} câu hỏi",
+      "questionCount_other": "{{count}} câu hỏi",
+      "answerCount_one": "{{count}} đáp án",
+      "answerCount_other": "{{count}} đáp án",
+      "sectionCount_one": "{{count}} phần",
+      "sectionCount_other": "{{count}} phần",
+      "notes_one": "{{count}} ghi chú",
+      "notes_other": "{{count}} ghi chú",
+      "pastedText": "Văn bản đã dán",
+      "fromPastedText": "từ văn bản đã dán",
+      "text": {
+        "awaitingBody": "Văn bản đã dán đã được lưu. Bắt đầu xử lý để dựng bản rà soát.",
+        "cancelBody": "Việc xử lý sẽ dừng và lần nhập sẽ được đóng; không thể tiếp tục lần nhập này. Văn bản đã dán và tệp đi kèm vẫn được giữ theo chính sách lưu trữ.",
+        "cancelBodyDays": "Việc xử lý sẽ dừng và lần nhập sẽ được đóng; không thể tiếp tục lần nhập này. Văn bản đã dán và tệp đi kèm được giữ thêm {{days}} ngày, sau đó được xoá.",
+        "closeBody": "Lần nhập sẽ được đóng và không thể tiếp tục. Văn bản đã dán và tệp đi kèm vẫn xem được theo chính sách lưu trữ.",
+        "closeBodyDays": "Lần nhập sẽ được đóng và không thể tiếp tục. Văn bản đã dán và tệp đi kèm vẫn xem được thêm {{days}} ngày, sau đó được xoá.",
+        "closeBodyReview": "Lần nhập sẽ được đóng và bạn sẽ không thể tạo bản nháp đề từ phần rà soát này nữa. Phần rà soát, văn bản đã dán và tệp đi kèm vẫn xem được theo chính sách lưu trữ.",
+        "closeBodyReviewDays": "Lần nhập sẽ được đóng và bạn sẽ không thể tạo bản nháp đề từ phần rà soát này nữa. Phần rà soát, văn bản đã dán và tệp đi kèm vẫn xem được thêm {{days}} ngày, sau đó được xoá.",
+        "cancelledBody": "Văn bản đã dán và tệp đi kèm vẫn được giữ theo chính sách lưu trữ.",
+        "cancelledBodyDays": "Văn bản đã dán và tệp đi kèm được giữ {{days}} ngày kể từ khi đóng, sau đó được xoá.",
+        "cancelledBodyReview": "Phần rà soát, văn bản đã dán và tệp đi kèm vẫn xem được theo chính sách lưu trữ.",
+        "cancelledBodyReviewDays": "Phần rà soát, văn bản đã dán và tệp đi kèm vẫn xem được {{days}} ngày kể từ khi đóng, sau đó được xoá.",
+        "closedIdleBody": "Lượt nhập văn bản đã dán đã tự đóng vì không có thay đổi trong {{days}} ngày.",
+        "closedIdleBodyPlain": "Lượt nhập văn bản đã dán đã tự đóng vì lâu không có thay đổi."
+      }
     },
     "sources": {
       "title": "Tệp gốc",
@@ -2734,6 +2786,28 @@
       "needsAction": "{{count}} cần xử lý",
       "toConfirm": "{{count}} cần xác nhận",
       "nothingOpen": "Không còn mục cần xử lý"
+    },
+    "textFailureTitle": {
+      "SOURCE_INVALID": "Không đọc được một nguồn nhập đề",
+      "SOURCE_TOO_LARGE": "Nguồn nhập đề vượt quá giới hạn"
+    },
+    "failureTitle": {
+      "SOURCE_INVALID": "Tệp đề thi không đọc được",
+      "SOURCE_UNSUPPORTED": "Định dạng tệp không được hỗ trợ",
+      "SOURCE_TOO_LARGE": "Tệp đề thi quá lớn",
+      "LEGACY_CONVERSION_UNAVAILABLE": "Chưa có bộ chuyển đổi Word cũ",
+      "PDF_NO_TEXT": "PDF không có lớp văn bản để đọc",
+      "PDF_PROTECTED": "PDF được bảo vệ bằng mật khẩu",
+      "PDF_INVALID": "PDF không hợp lệ",
+      "PDF_TOO_LARGE": "PDF vượt quá giới hạn",
+      "CONVERSION_FAILED": "Không chuyển đổi được tài liệu",
+      "STORAGE_INTEGRITY_FAILED": "Bản gốc đã lưu không còn nguyên vẹn",
+      "STOPPED": "Không thể tiếp tục nhận diện đáp án",
+      "STORAGE_QUOTA_EXCEEDED": "Kho lưu trữ đã đầy",
+      "PIPELINE_RETIRED": "Bộ nhận diện này đã ngừng hoạt động",
+      "TEMPORARY": "Xử lý tạm thời bị gián đoạn",
+      "INTERNAL": "Không hoàn tất được việc xử lý",
+      "UNKNOWN": "Xử lý đã dừng"
     }
   },
   "controls": {
