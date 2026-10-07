@@ -38,6 +38,7 @@ describe("the teacher Settings page", () => {
       screen.queryByRole("button", { name: "Mở tài liệu API", hidden: true }),
     ).toBeNull();
     teacher.unmount();
+    useAuthStore.getState().clearSession();
 
     openPreferencesAs(adminUser);
     expect(screen.getByRole("heading", { name: "Ngôn ngữ" })).toBeInTheDocument();

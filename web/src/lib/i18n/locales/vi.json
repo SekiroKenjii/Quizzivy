@@ -567,7 +567,11 @@
       "profile": "Hồ sơ",
       "security": "Bảo mật",
       "preferences": "Tuỳ chọn"
-    }
+    },
+    "preferenceSaving": "Đang lưu tùy chọn…",
+    "preferenceSaved": "Đã lưu tùy chọn.",
+    "preferenceFailed": "Chưa lưu được tùy chọn.",
+    "accountZoneUnsupported": "Trình duyệt này chưa hỗ trợ múi giờ của tài khoản. Thời gian tạm hiển thị theo giờ Việt Nam."
   },
   "media": {
     "cancel": "Huỷ",
@@ -2164,11 +2168,11 @@
   },
   "imports": {
     "historyTitle": "Lịch sử nhập đề từ Word/PDF",
-    "historyHint": "Mỗi lần nhập giữ tệp gốc, tiến trình xử lý và phần rà soát của bạn. Bạn có thể quay lại bất cứ lúc nào.",
+    "historyHint": "Các tệp Word và PDF bạn đang chuyển thành đề. Mỗi lượt nhập giữ tệp gốc, tiến trình và bản rà soát để bạn có thể quay lại bất cứ lúc nào.",
     "backToTests": "Về danh sách đề thi",
     "backToHistory": "Về lịch sử nhập đề",
     "start": "Nhập đề từ Word/PDF",
-    "searchPlaceholder": "Tìm theo tên đề hoặc tên tệp",
+    "searchPlaceholder": "Tìm tên tệp hoặc tên đề",
     "statusFilter": "Lọc theo trạng thái",
     "allStatuses": "Tất cả trạng thái",
     "columnTitle": "Tên đề",
@@ -2179,7 +2183,7 @@
     "columnActions": "Thao tác",
     "historyFailed": "Không tải được lịch sử nhập đề.",
     "empty": "Chưa có lần nhập đề nào.",
-    "emptyHint": "Tải lên một đề thi Word hoặc PDF để hệ thống dựng lại cấu trúc, rồi rà soát trước khi tạo bản nháp.",
+    "emptyHint": "Tải đề Word hoặc PDF lên để nhận diện cấu trúc, rồi rà soát trước khi tạo bản nháp. Bạn cũng có thể mở chế độ dán đề để xem khả năng hiện có.",
     "noMatches": "Không có lần nhập nào khớp bộ lọc.",
     "clearFilters": "Xoá bộ lọc",
     "noSources": "Chưa có tệp",
@@ -2264,7 +2268,20 @@
       "start": "Bắt đầu xử lý",
       "replaceAndStart": "Tải lên và xử lý lại",
       "starting": "Đang tải lên…",
-      "keepOpen": "Giữ trang này mở cho đến khi tải lên xong."
+      "keepOpen": "Giữ trang này mở cho đến khi tải lên xong.",
+      "source": "Nguồn",
+      "fileMode": "Tải tệp lên",
+      "pasteMode": "Dán văn bản",
+      "pasteDeferred": "Dán đề chưa khả dụng.",
+      "pasteDeferredHint": "Bạn có thể tải tệp Word hoặc PDF lên. Nhập đề từ văn bản sẽ được bổ sung sau.",
+      "recognitionHeading": "Cách đọc nội dung",
+      "automatic": "Tự động nhận diện",
+      "privacyLead": "Nội dung của bạn được xử lý ở đâu.",
+      "privacy": "Tệp chỉ thuộc lượt nhập của bạn, không phải tài liệu học viên. {{processing}} Dán văn bản chưa khả dụng trên trang này.",
+      "processingOn": "Máy chủ đang bật tiếp nhận và xử lý tài liệu.",
+      "processingUnknown": "Đang kiểm tra khả năng xử lý của máy chủ.",
+      "readyHint": "Kiểm tra tên đề và tệp trước khi bắt đầu.",
+      "chooseHint": "Thêm tệp đề thi để tiếp tục."
     },
     "processing": {
       "stagesLabel": "Các bước xử lý",
@@ -2517,11 +2534,13 @@
         "RENDERER_LAYOUT_REQUIRES_REVIEW": "Bố cục trang của tài liệu không được giữ nguyên.",
         "ALTERNATE_CONTENT_REQUIRES_RESOLUTION": "Tài liệu có nội dung thay thế, ví dụ hình có hai phiên bản. Kiểm tra bản được dùng.",
         "PDF_MARKS_UNAVAILABLE": "Tệp PDF không giữ được gạch chân, in đậm hay màu chữ. Nếu câu hỏi hoặc đáp án dựa vào các dấu này, hãy đánh dấu lại khi rà soát.",
+        "TEXT_MARKS_UNAVAILABLE": "Văn bản thuần không giữ được gạch chân, in đậm hay màu chữ. Nếu câu hỏi hoặc đáp án dựa vào các dấu này, hãy đánh dấu lại khi rà soát.",
         "PDF_REPEATED_LINE_REQUIRES_REVIEW": "Các dòng này lặp lại ở đầu hoặc cuối nhiều trang nên được coi là tiêu đề trang và bỏ khỏi đề. Nếu đó là nội dung của đề, ví dụ một yêu cầu đề bài, hãy thêm lại khi rà soát.",
         "PDF_COLUMNS_REQUIRE_REVIEW": "Trang PDF có vẻ chia hai cột nên các câu hai bên bị ghép vào cùng một dòng. Hãy tách lại các câu được chỉ ra, hoặc dùng tệp Word của đề."
       },
       "objectTitles": {
         "PDF_MARKS_UNAVAILABLE": "PDF không giữ định dạng chữ",
+        "TEXT_MARKS_UNAVAILABLE": "Văn bản dán không giữ định dạng chữ",
         "PDF_REPEATED_LINE_REQUIRES_REVIEW_one": "{{count}} dòng lặp lại ở đầu hoặc cuối trang đã được bỏ ra",
         "PDF_REPEATED_LINE_REQUIRES_REVIEW_other": "{{count}} dòng lặp lại ở đầu hoặc cuối trang đã được bỏ ra",
         "PDF_COLUMNS_REQUIRE_REVIEW_one": "{{count}} dòng có hai câu nằm cạnh nhau",
@@ -2697,6 +2716,24 @@
       "reviewRemoved": "Bản rà soát của lượt nhập này đã được xoá theo chính sách lưu trữ.",
       "viewImport": "Xem lượt nhập",
       "sourceRemoved": "Tệp gốc đã được xoá theo chính sách lưu trữ nên không còn xem được nội dung trích ra."
+    },
+    "pasteTest": "Dán đề",
+    "history": {
+      "file": "Tệp",
+      "review": "Cần rà soát",
+      "test": "Đề",
+      "pageSize": "Số lượt nhập mỗi trang",
+      "rows": "{{count}} lượt mỗi trang",
+      "withKey": "kèm {{name}}",
+      "noTest": "chưa có",
+      "openTest": "Mở đề {{title}}",
+      "actionsNamed": "Thao tác với {{title}}",
+      "filesRemoved": "Tệp đã được xoá theo chính sách lưu trữ.",
+      "openReview": "Mở bản rà soát",
+      "recognising": "Đang nhận diện cấu trúc…",
+      "needsAction": "{{count}} cần xử lý",
+      "toConfirm": "{{count}} cần xác nhận",
+      "nothingOpen": "Không còn mục cần xử lý"
     }
   },
   "controls": {
@@ -2719,6 +2756,12 @@
     "panel": {
       "headline": "Bài kiểm tra, bài học và luyện tập cho lớp tiếng Anh của bạn.",
       "help": "Cần hỗ trợ đăng nhập? Hãy hỏi giáo viên hoặc quầy lễ tân."
+    },
+    "transition": {
+      "accountPending": "Yêu cầu tài khoản vẫn đang được xử lý.",
+      "cleanupPending": "Việc dọn dữ liệu tài khoản chưa hoàn tất.",
+      "cleanupFailed": "Không thể dọn dữ liệu tài khoản. Thử lại.",
+      "checkStatus": "Kiểm tra lại"
     }
   },
   "forgot": {

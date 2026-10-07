@@ -4,7 +4,7 @@ import { Timer } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Assignment } from "@/features/assignments/api";
-import { formatMoment, formatTime } from "@/lib/i18n/datetime";
+import { formatMoment, formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 
 /** G-09's "Đóng sớm" confirm: restates S-04's promise and asks for one tick. */
 export function CloseEarlyDialog({
@@ -22,6 +22,7 @@ export function CloseEarlyDialog({
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const [understood, setUnderstood] = useState(false);
 

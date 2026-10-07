@@ -14,7 +14,7 @@ import (
 )
 
 // PipelineVersion pins the default deterministic workflow; configuration-specific output versions also fence stage reuse.
-const PipelineVersion = "word-pipeline-v2"
+const PipelineVersion = "word-pipeline-v3"
 
 // Pipeline joins private source reads, durable stages and conservative recognition; only Runner may complete its live claim.
 type Pipeline struct {
@@ -81,7 +81,7 @@ func (p Pipeline) process(ctx context.Context, run domain.Run, progress func(str
 func (p Pipeline) normalizeSources(ctx context.Context, claim domain.Claim, sources []domain.Source) ([]pipelineSource, error) {
 	prepared := make([]pipelineSource, 0, len(sources))
 	for _, source := range sources {
-		if source.Format == "pdf" || (source.Format == "docx" && !p.Engine.Converts()) {
+		if source.Format == "text" || source.Format == "pdf" || (source.Format == "docx" && !p.Engine.Converts()) {
 			prepared = append(prepared, pipelineSource{source: source, identity: source.ID})
 			continue
 		}

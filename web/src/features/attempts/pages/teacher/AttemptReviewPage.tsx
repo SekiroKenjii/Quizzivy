@@ -27,7 +27,7 @@ import { clockSpan } from "@/features/integrity/timeline";
 import { scoreText } from "@/features/assignments/studentTime";
 import { failureMessage } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatTime } from "@/lib/i18n/datetime";
+import { formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import {
   finishGrading,
@@ -48,6 +48,7 @@ type Tab = "paper" | "integrity";
 
 /** G-03: read, award, comment, next -- with the integrity tab beside it (G-05). */
 export default function AttemptReviewPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const { id = "" } = useParams<{ id: string }>();
   const queryClient = useQueryClient();

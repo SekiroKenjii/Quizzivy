@@ -22,7 +22,7 @@ import { POLL_MS, eventsKey } from "@/features/attempts/keys";
 import { TeacherNoteCard } from "@/features/attempts/components/TeacherNoteCard";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { formatInTimeZone } from "date-fns-tz";
-import { APP_TIME_ZONE } from "@/lib/i18n/datetime";
+import { getDisplayTimeZone, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import {
   clockSpan,
@@ -51,6 +51,7 @@ export function Timeline({
   onViewPaper: () => void;
   presentation?: "full" | "compact";
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const [filter, setFilter] = useState<TimelineFilter>("all");
   const refetchInterval = useIdlePolling(POLL_MS, live);
@@ -409,7 +410,7 @@ function TimelineSkeleton() {
 
 /** "09:48:02", wall-clock in the app's zone. */
 function clockTime(utc: string | Date): string {
-  return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm:ss");
+  return formatInTimeZone(utc, getDisplayTimeZone(), "HH:mm:ss");
 }
 
 /** G-05's "Kéo dài": still open, nothing to pair, or the span it lasted. */

@@ -1353,6 +1353,7 @@ listed here matches the spec.
 | D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
 | D-28 | Add `notifications` and `notification_preferences`. `notifications.params` and `target` are `jsonb`, bounded objects rather than columns, and `kind` is a checked dotted `text`, not an enum | §13.3 has no notification. Each kind carries its own few fields and every release adds kinds, so columns would be mostly NULL and an enum a migration per kind; the contract's closed `NotificationParams` and the Go type per kind are the schema. A name in `params` is a copy, not a reference: R5's anonymisation (T-R5.17a) deletes or scrubs the notifications that name an anonymised user (§34, T-R4.10a) |
 | D-29 | `media_assets` gains `display_name`, `default_max_plays`, `replaced_by`, `width` and `height`, and its size limit depends on the kind: audio 50 MiB, an image 10 MiB | §13.3's row is a stored file and nothing else, and §11.1 allowed 10 MB for either kind. The deck's Media page names a file, gives it a play limit, shows an image's size and replaces a file in place (DG-63, DG-09); a replaced row stays, because published versions still point at it (§6, T-R4.17a, T-R4.17b) |
+| D-30 | `users` gains nullable profile fields and bounded object `preferences` | The caller's private profile and account settings are required by T-R4.7; student-facing teacher names use the chosen display name without exposing private account fields |
 
 ---
 
@@ -1447,6 +1448,10 @@ the file it adds.
 | `00082_add_media_assets_library_fields.sql` | `media_assets.display_name`, `default_max_plays`, `replaced_by` and their four constraints | R4 (T-R4.17a), D-29 |
 | `00083_add_media_assets_dimensions.sql` | `media_assets.width`, `height` and their three checks | R4 (T-R4.17a), D-29 |
 | `00084_widen_media_assets_audio_bytes.sql` | `media_assets_bytes_by_kind` in place of `media_assets_bytes_check`; Down re-adds the old rule `NOT VALID` | R4 (T-R4.17a), D-29, DG-63 |
+| `00085_add_users_profile_fields.sql` | `users.display_name`, `phone`, `avatar_key`, `locale`, `time_zone` and four checks | R4 (T-R4.7), D-30 |
+| `00086_add_users_preferences.sql` | `users.preferences` and object/8192-byte checks | R4 (T-R4.7), D-30 |
+| `00090_allow_text_import_sources.sql` | Plaintext exam-source format | R4 (T-R4.55) |
+| `00091_add_word_import_sources_characters.sql` | Bounded character metadata exactly for text sources | R4 (T-R4.55) |
 
 Notes on migration mechanics (§13.7):
 
@@ -1862,6 +1867,24 @@ Local Docker verification uses the migration owner for fixture setup and the
 verified on a disposable database. Automatic source retention remains undecided;
 this migration does not infer it from the integrity-event retention policy.
 
+### R4 pasted-text source extension (T-R4.55)
+
+`00090_allow_text_import_sources.sql` extends the existing format CHECK to
+`docx`, `doc`, `pdf` and `text`. Its Down restores the file-only CHECK `NOT VALID`,
+so existing text rows remain retained while new text writes are refused.
+`00091_add_word_import_sources_characters.sql` adds nullable integer `characters`
+with named range 1–100000 and format constraints: it is non-null exactly for text
+sources and null for files. Existing file inserts using the old column list remain
+valid. No owner, grant, index, source-set or append-only audit policy changes.
+
+Intake writes the NFC Unicode code-point count; bytes, hash and private-original
+metadata keep their existing meaning. Migration 91 Down drops the character
+column. Empty-purpose 90/91 up/down/up is reversible. After retained text loses
+its counts through 91 Down, 91 Up must refuse atomically: bytes and hash cannot
+reconstruct truthful character counts. There is no invented count, backfill or
+retained-row repair. A separate disposable purpose verifies this refusal and is
+ordinarily disposed only under its exact lifecycle authorization.
+
 
 ## 24. Durable import runs (W-11a)
 
@@ -1937,7 +1960,8 @@ parsing. A stage manifest grants no learner media authorization.
 ## 26. Review drafts and commits (W-18, W-20)
 
 Migrations: `00045_create_word_import_drafts.sql`, `00046_create_word_import_commits.sql`,
-`00047_add_word_import_run_profile.sql`, `00048_allow_legacy_word_sources.sql`.
+`00047_add_word_import_run_profile.sql`, `00048_allow_legacy_word_sources.sql`,
+`00089_add_word_import_draft_counts.sql`.
 
 `word_import_drafts` holds exactly one review copy per import (the primary key is the
 import). `revision` is the optimistic-concurrency token for teacher saves: an update
@@ -1949,6 +1973,17 @@ draft is kept in `candidate`/`candidate_run_id` and never overwrites the edits. 
 body is bounded to 8 MiB as JSONB. The application role may update drafts but not
 delete them; draft saves are not audited individually because autosave would flood
 the log.
+
+`00089` adds nullable `open_action_count integer` and
+`open_confirm_count integer`, each checked nonnegative, without a default or
+backfill. They store `domain.Assess(current body).Summary` (`Blocking` and
+`NeedsDecision`) in the same write as the body. A pending candidate preserves
+the current counters; adoption computes them from the locked candidate. NULL
+means a historical current draft has not been assessed by this binary, not zero.
+Valid existing draft shapes can exceed32767 findings, so SMALLINT would impose
+an unrelated new authoring limit; the existing8MiB body limit remains unchanged.
+History reads these counters with its facets and rows in one repeatable-read
+snapshot. Down drops only the two reporting columns.
 
 `word_import_commits` is append-only (no UPDATE or DELETE for the application role)
 and has one row per import. It records the request identity, the committed draft
@@ -2402,3 +2437,49 @@ Indexes, and the statement each exists for:
 transaction it rolls back and asserts that the list reads
 `notifications_user_recent_idx` alone, with the cursor as an index condition
 and no sort, and that the count uses `notifications_unread_idx`.
+
+## 35. Caller profile and preferences (T-R4.7)
+
+`00085_add_users_profile_fields.sql` adds five nullable text columns to
+`app.users`. The display-name check accepts 1–80 characters after `btrim`;
+the application stores the trimmed value. Phone accepts 6–20 digits, spaces
+and plus signs. Locale is `vi` or `en`. A non-null time zone has 1–64
+characters; the application additionally validates it with `time.LoadLocation`.
+`avatar_key` reserves the storage reference for T-R4.8; this migration does
+not add a photo operation. Down drops the five columns and their checks.
+
+`00086_add_users_preferences.sql` adds `preferences jsonb NOT NULL DEFAULT
+'{}'`. Named checks require an object and at most 8192 bytes of normalized
+`preferences::text`, measured by `octet_length`. This is the stored UTF8
+representation limit, separate from the HTTP body limit. Down drops the
+column and both checks. No new index or privilege is needed. Existing inserts
+that omit these columns retain nullable fields and an empty object.
+
+The contract restricts preference keys and nested assignment-default fields.
+A PATCH merges top-level keys; a supplied nested object replaces that key's
+previous object. An empty object is a no-op. Read defaults do not materialize
+locale, zone or preference keys in the row. The effective display zone is
+`Asia/Ho_Chi_Minh` until the caller explicitly stores another valid zone.
+
+Both profile and preference writes lock and read the current row before
+merging. Mutation and audit insertion use one data-modifying CTE. Only actual
+changed fields are audited, with sorted private field names; no-op writes
+produce no audit. Invalid audit metadata rolls back the mutation as well.
+Concurrent disjoint writes therefore retain both changes, while the same key
+follows lock acquisition order. Disabled callers are rechecked against the
+locked row. The legacy full-name rename audit remains compatible.
+
+Private fields appear only in the caller's `CurrentUser`. Public `User`
+projections exclude phone, locale, zone and preferences. Student class, intro
+and join-preview teacher names use `coalesce(display_name, full_name)` and
+add no private field. `/join/preview` still exposes only the teacher's chosen
+student-facing name through its existing field. Contract and hosted API/isolation
+checks cover these public/private projection boundaries.
+
+The independently verified fixture helpers register cleanup before insert,
+use only newly allocated ordinary Student IDs, drain repository writers before
+releasing locks, and check exact removal. Audit rows are retained; deleting
+the owned user leaves the audit actor null through the existing foreign key.
+Failure coverage requires real reached-stage markers and canceled-Commit
+proof; successful cleanup cannot stand in for an intended failure branch.
+No legacy user, role, owner trigger or compatibility alias is removed here.

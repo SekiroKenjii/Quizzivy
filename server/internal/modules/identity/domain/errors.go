@@ -6,6 +6,16 @@ import (
 
 var ErrUserNotFound = errors.New("user not found")
 
+var (
+	ErrDisplayNameInvalid  = errors.New("display name is invalid")
+	ErrPhoneInvalid        = errors.New("phone is invalid")
+	ErrLocaleInvalid       = errors.New("locale is invalid")
+	ErrTimeZoneInvalid     = errors.New("time zone is invalid")
+	ErrProfileEmpty        = errors.New("profile patch is empty")
+	ErrPreferencesInvalid  = errors.New("preferences shape is invalid")
+	ErrPreferencesTooLarge = errors.New("preferences exceed the stored byte cap")
+)
+
 // ErrInvalidCredentials is returned for every failed login, whatever the actual
 // cause: no such email, a Google-only account, a disabled account, or the wrong
 // password.

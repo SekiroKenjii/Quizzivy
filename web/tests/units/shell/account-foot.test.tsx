@@ -10,6 +10,7 @@ import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
 import { adminUser, teacherUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
+import { contractJson } from "@tests/support/contractResponse";
 import { STUDENT } from "../student/support";
 import "@/lib/i18n";
 
@@ -144,9 +145,24 @@ describe("the account row at the foot of the teacher sidebar", () => {
   );
 
   it("switches the theme from its menu", async () => {
+    const saved: unknown[] = [];
+    server.use(
+      http.patch("http://localhost:8080/me/preferences", async ({ request }) => {
+        const body = (await request.json()) as { theme: "light" | "dark" };
+        saved.push(body);
+        return contractJson("/me/preferences", "patch", 200, {
+          ...useAuthStore.getState().user?.preferences,
+          ...body,
+        });
+      }),
+    );
     const user = foot("expanded");
     await user.click(account());
     await user.click(screen.getByRole("menuitem", { name: "Chế độ tối" }));
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("dark"),
+    );
+    expect(saved).toEqual([{ theme: "dark" }]);
     expect(document.documentElement).toHaveClass("dark");
     expect(localStorage.getItem("quizzivy.theme")).toBe("dark");
 

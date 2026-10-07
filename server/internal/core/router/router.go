@@ -23,6 +23,11 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		return nil, err
 	}
 
+	bodyLimits, err := httpx.RequestBodyLimits(spec)
+	if err != nil {
+		return nil, err
+	}
+
 	limits := RateLimits()
 	principalLimits := PrincipalRateLimits()
 
@@ -85,7 +90,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
 			httpx.RequirePermission(requirements, deps.Principals),
 			httpx.PrincipalRateLimit(principalLimits),
-			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20, httpx.RequestBodyLimits(spec)),
+			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20, bodyLimits),
 			validate,
 		),
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
 import "@/lib/i18n";
 
@@ -18,10 +19,13 @@ function renderLogin() {
     { path: "/teacher", element: <p>admin home</p> },
     { path: "/app", element: <p>student home</p> },
   ];
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <RouterProvider
-      router={createMemoryRouter(routes, { initialEntries: ["/login"] })}
-    />,
+    <QueryClientProvider client={client}>
+      <RouterProvider
+        router={createMemoryRouter(routes, { initialEntries: ["/login"] })}
+      />
+    </QueryClientProvider>,
   );
 }
 
@@ -39,6 +43,9 @@ describe("/login without Google configured", () => {
 
   it("does not render a Google button or a dangling divider", () => {
     renderLogin();
+
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Đăng nhập" })).toBeEnabled();
 
     expect(screen.queryByRole("button", { name: "Tiếp tục với Google" })).toBeNull();
     expect(screen.queryByText("hoặc dùng email")).toBeNull();

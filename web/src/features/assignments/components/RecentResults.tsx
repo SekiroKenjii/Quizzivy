@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { Hourglass } from "lucide-react";
 import { useTick } from "@/hooks/useTick";
 import type { Locale } from "@/lib/i18n";
-import { dayDate } from "@/lib/i18n/datetime";
+import { dayDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import type { StudentAssignmentCard } from "../api";
 import { justSubmitted, type ResultRow } from "../studentHome";
@@ -53,6 +53,7 @@ function when(card: StudentAssignmentCard, now: Date, locale: Locale, fresh: str
 export function RecentResults({
   results,
 }: Readonly<{ results: readonly ResultRow[] }>) {
+  useDisplayTimeZone();
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const heading = useId();

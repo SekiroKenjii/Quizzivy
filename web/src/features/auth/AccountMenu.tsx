@@ -1,4 +1,10 @@
-import { useState } from "react";
+import {
+  chooseAccountPreference,
+  refreshAccount,
+  retryAccountPreference,
+  useAccountPreferenceStatus,
+} from "@/features/auth/accountPreferences";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { ChevronDown, ChevronsUpDown, LogOut, Moon, Settings, Sun } from "lucide-react";
@@ -13,9 +19,9 @@ import { useWorkspace } from "@/features/auth/permissions";
 import { useLogout } from "@/features/auth/useSession";
 import { givenName } from "@/features/assignments/studentTime";
 import type { components } from "@/lib/api/schema";
-import { useResolvedTheme, writeThemePreference } from "@/lib/theme";
+import { useResolvedTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/stores/auth";
+import { authStore, useAuthStore } from "@/stores/auth";
 
 type User = components["schemas"]["CurrentUser"];
 type SidebarForm = "expanded" | "collapsed";
@@ -38,11 +44,22 @@ const FOOT = {
 } as const;
 
 function useSignOut() {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const logout = useLogout();
   const [pending, setPending] = useState(false);
   const signOut = () => {
     setPending(true);
-    void logout();
+    const completion = logout();
+    const lease = authStore.captureActor();
+    void completion.finally(() => {
+      if (mounted.current && authStore.isCurrent(lease)) setPending(false);
+    });
   };
   return { pending, signOut };
 }
@@ -73,27 +90,42 @@ function DeckAccountMenu({
 }: Readonly<{ user: User; settingsTo: string; sidebar: SidebarForm | undefined }>) {
   const { t } = useTranslation();
   const theme = useResolvedTheme();
+  const preferenceStatus = useAccountPreferenceStatus();
   const { pending, signOut } = useSignOut();
+  const preferenceMessage = {
+    idle: "settings.preferenceSaved",
+    failed: "common.retry",
+    saving: "settings.preferenceSaving",
+    saved: "settings.preferenceSaved",
+  }[preferenceStatus.phase];
   const form = sidebar === undefined ? TOP_BAR : FOOT;
   const dark = theme === "dark";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={t("nav.account", { name: user.fullName })}
+        aria-label={t("nav.account", { name: user.displayName ?? user.fullName })}
         className={cn(form.trigger, sidebar === "collapsed" && "justify-center")}
       >
-        <Avatar name={user.fullName} tone="self" {...form.avatar} />
-        {sidebar === "expanded" && <FootIdentity name={user.fullName} />}
+        <Avatar name={user.displayName ?? user.fullName} tone="self" {...form.avatar} />
+        {sidebar === "expanded" && (
+          <FootIdentity name={user.displayName ?? user.fullName} />
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent
         {...form.menu}
         className="data-[scale=deck]:bg-card data-[scale=deck]:shadow-float data-[scale=deck]:z-(--z-popover) data-[scale=deck]:w-60 data-[scale=deck]:rounded-lg data-[scale=deck]:p-1.5"
       >
         <div className="mb-1 flex items-center gap-2.5 border-b px-2 pt-1.5 pb-2.5">
-          <Avatar name={user.fullName} tone="self" {...form.avatar} />
+          <Avatar
+            name={user.displayName ?? user.fullName}
+            tone="self"
+            {...form.avatar}
+          />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{user.fullName}</p>
+            <p className="truncate text-sm font-semibold">
+              {user.displayName ?? user.fullName}
+            </p>
             <p className="text-muted-fg truncate text-xs">{user.email}</p>
           </div>
         </div>
@@ -105,11 +137,40 @@ function DeckAccountMenu({
         </DropdownMenuItem>
         <DropdownMenuItem
           className={DECK_ITEM}
-          onSelect={() => writeThemePreference(dark ? "light" : "dark")}
+          disabled={preferenceStatus.phase === "saving"}
+          onSelect={() =>
+            void chooseAccountPreference({ theme: dark ? "light" : "dark" })
+          }
         >
           {dark ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
           {dark ? t("common.lightMode") : t("common.darkMode")}
         </DropdownMenuItem>
+        {preferenceStatus.phase === "failed" && (
+          <div role="alert" className="text-meta px-2 py-1">
+            {t("settings.preferenceFailed")}
+          </div>
+        )}
+        {preferenceStatus.unsupportedZone && (
+          <>
+            <div role="alert" className="text-meta px-2 py-1">
+              {t("settings.accountZoneUnsupported")}
+            </div>
+            <DropdownMenuItem
+              onSelect={() => void refreshAccount().catch(() => undefined)}
+            >
+              {t("auth.transition.checkStatus")}
+            </DropdownMenuItem>
+          </>
+        )}
+        {(preferenceStatus.phase === "saving" ||
+          preferenceStatus.phase === "failed") && (
+          <DropdownMenuItem
+            disabled={preferenceStatus.phase !== "failed"}
+            onSelect={() => void retryAccountPreference()}
+          >
+            {t(preferenceMessage)}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           disabled={pending}
           onSelect={signOut}
@@ -134,24 +195,26 @@ function LegacyAccountMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={t("nav.account", { name: user.fullName })}
+        aria-label={t("nav.account", { name: user.displayName ?? user.fullName })}
         className={
           named
             ? "hover:bg-accent inline-flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors"
             : "rounded-full"
         }
       >
-        <Avatar name={user.fullName} size="sm" />
+        <Avatar name={user.displayName ?? user.fullName} size="sm" />
         {named && (
           <>
-            {givenName(user.fullName)}
+            {givenName(user.displayName ?? user.fullName)}
             <ChevronDown className="text-muted-foreground size-4" aria-hidden="true" />
           </>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
         <div className="px-2 py-1.5">
-          <p className="truncate text-sm font-medium">{user.fullName}</p>
+          <p className="truncate text-sm font-medium">
+            {user.displayName ?? user.fullName}
+          </p>
           <p className="text-muted-foreground truncate text-xs">{user.email}</p>
         </div>
         <DropdownMenuItem asChild>

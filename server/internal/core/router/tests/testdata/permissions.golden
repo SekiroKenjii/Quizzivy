@@ -31,6 +31,7 @@ GET /teacher/classes/{id} workspace.teacher
 GET /teacher/classes/{id}/join-code teaching.classes.write
 GET /teacher/classes/{id}/members people.students.read
 GET /teacher/dashboard workspace.teacher
+GET /teacher/grading/queue teaching.grading
 GET /teacher/imports content.tests.write
 GET /teacher/imports/capabilities content.tests.write
 GET /teacher/imports/limits content.tests.write
@@ -52,6 +53,7 @@ GET /teacher/tests/{id}/preview workspace.teacher
 GET /teacher/tests/{id}/versions workspace.teacher
 PATCH /app/attempts/{id}/answers learning.take_tests
 PATCH /auth/me self
+PATCH /me/preferences self
 PATCH /teacher/assignments/{id} teaching.assignments.write
 PATCH /teacher/attempts/{id}/note teaching.grading
 PATCH /teacher/classes/{id} teaching.classes.write
@@ -86,6 +88,7 @@ POST /teacher/imports/{id}/commit content.tests.write
 POST /teacher/imports/{id}/process content.tests.write
 POST /teacher/imports/{id}/review/adopt content.tests.write
 POST /teacher/imports/{id}/sources content.tests.write
+POST /teacher/imports/{id}/sources/text content.tests.write
 POST /teacher/media content.media.write
 POST /teacher/media/{id}/replace content.media.write
 POST /teacher/question-groups content.questions.write | content.tests.write

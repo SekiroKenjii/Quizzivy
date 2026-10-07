@@ -1,5 +1,5 @@
 import type { BarChartDatum } from "@/components/shared/charts/BarChart";
-import { APP_TIME_ZONE, appHour, formatDate } from "@/lib/i18n/datetime";
+import { getDisplayTimeZone, appHour } from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import type { Dashboard } from "./api";
 
@@ -32,14 +32,14 @@ export function dashboardGreeting(now: Date): "morning" | "afternoon" | "evening
 /** dashboardLongDate formats the deck's long date in the staged app zone rather than the device zone. */
 export function dashboardLongDate(now: Date, locale: Locale): string {
   const text = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : locale, {
-    timeZone: APP_TIME_ZONE,
+    timeZone: getDisplayTimeZone(),
     weekday: "long",
     day: "numeric",
     month: "long",
   }).format(now);
   if (locale === "en") {
     const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: APP_TIME_ZONE,
+      timeZone: getDisplayTimeZone(),
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -78,14 +78,14 @@ export function dashboardDestinations(
 /** dashboardBars retains calendar-date keys and every server-provided zero day. */
 export function dashboardBars(
   days: Dashboard["submissions"]["days"],
-  locale: Locale,
+  _locale: Locale,
   title: (count: number, date: string) => string,
 ): BarChartDatum[] {
   return days.map((day) => ({
     key: day.date,
     label: String(Number(day.date.slice(-2))),
     value: day.count,
-    title: title(day.count, formatDate(`${day.date}T12:00:00+07:00`, locale)),
+    title: title(day.count, day.date.split("-").reverse().join("/")),
   }));
 }
 

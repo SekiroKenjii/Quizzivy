@@ -294,9 +294,12 @@ func isolationCases() map[string]isoCase {
 		"deleteQuestion":    {fresh: freshQuestion},
 		"duplicateQuestion": {},
 
-		"createWordImport":          {},
-		"listWordImports":           {},
-		"getWordImport":             {},
+		"createWordImport": {},
+		"listWordImports":  {},
+		"getWordImport":    {},
+		"pasteImportSource": {body: func(*iso, *party, string) any {
+			return map[string]any{"uploadId": uuid.NewString(), "expectedRevision": 1, "text": "Question 1. Plain text"}
+		}},
 		"uploadImportSource":        {query: map[string]string{"role": "exam", "expectedRevision": "1"}, format: "docx"},
 		"downloadImportSource":      {},
 		"getWordImportCapabilities": {},
@@ -338,6 +341,7 @@ func isolationCases() map[string]isoCase {
 		"reopenAssignment":       {body: fixed(map[string]any{"closesAt": later, "reason": "Kiểm tra cách ly"})},
 		"getAssignmentMonitor":   {},
 
+		"listGradingQueue":    {},
 		"listAttempts":        {},
 		"getAttemptForReview": {},
 		"getAttemptEvents":    {},
@@ -409,5 +413,6 @@ func isolationCases() map[string]isoCase {
 		"getMySummary":                  {},
 		"getNotificationPreferences":    {},
 		"updateNotificationPreferences": {},
+		"updatePreferences":             {},
 	}
 }

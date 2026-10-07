@@ -39,6 +39,7 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/teacher/imports/limits`, () =>
       contractJson("/teacher/imports/limits", "get", 200, {
+        pasteMaxCharacters: 100000,
         maxBytes: 25 * 1024 * 1024,
         formats: ["docx", "pdf"],
       }),
@@ -113,21 +114,21 @@ beforeEach(() => {
   );
 });
 
-function renderPage() {
+function renderPage(entry = "/teacher/imports/new") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
       { path: "/teacher/imports/new", element: <NewImportPage /> },
       { path: "/teacher/imports/:id", element: <p>detail page</p> },
     ],
-    { initialEntries: ["/teacher/imports/new"] },
+    { initialEntries: [entry] },
   );
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return userEvent.setup();
+  return { ...userEvent.setup(), router };
 }
 
 describe("starting a Word import", () => {
@@ -376,5 +377,47 @@ describe("starting a Word import", () => {
     renderPage();
     expect(await screen.findByText("Chọn tệp để nhập")).toBeInTheDocument();
     expect(screen.getAllByText("Bắt buộc")).toHaveLength(1);
+  });
+  it("reads paste mode from the URL without pretending a text intake endpoint exists", async () => {
+    const user = renderPage("/teacher/imports/new?source=paste&keep=1");
+    expect(screen.getByRole("button", { name: "Dán văn bản" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByText("Dán đề chưa khả dụng.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bắt đầu xử lý" })).toBeDisabled();
+    expect(screen.getByText("Cách đọc nội dung")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Tải tệp lên" }));
+    expect(user.router.state.location.search).toBe("?keep=1");
+    expect(screen.getByRole("button", { name: "Tải tệp lên" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await screen.findByText(/Nhận tệp/);
+    expect(calls).toEqual([]);
+  });
+
+  it("keeps both chosen files and a typed title across source switches, then uses the real file flow", async () => {
+    const user = renderPage("/teacher/imports/new?source=other&keep=1");
+    await screen.findByText(/Nhận tệp/);
+    await user.upload(screen.getByLabelText("Tệp đề thi"), docx("de-thi.docx"));
+    await user.upload(screen.getByLabelText("Tệp đáp án"), docx("dap-an.docx"));
+    await user.clear(screen.getByLabelText("Tên đề"));
+    await user.type(screen.getByLabelText("Tên đề"), "Đề đã sửa");
+    await user.click(screen.getByRole("button", { name: "Dán văn bản" }));
+    expect(user.router.state.location.search).toBe("?source=paste&keep=1");
+    expect(screen.getByLabelText("Tên đề")).toHaveValue("Đề đã sửa");
+    expect(screen.getByRole("button", { name: "Bắt đầu xử lý" })).toBeDisabled();
+    expect(calls).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Tải tệp lên" }));
+    expect(screen.getByText("de-thi.docx")).toBeInTheDocument();
+    expect(screen.getByText("dap-an.docx")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tên đề")).toHaveValue("Đề đã sửa");
+    await user.click(screen.getByRole("button", { name: "Bắt đầu xử lý" }));
+    expect(await screen.findByText("detail page")).toBeInTheDocument();
+    expect(
+      calls.map((call) => (call.kind === "upload" ? call.role : call.kind)),
+    ).toEqual(["create", "exam", "answer_key", "process"]);
+    expect(calls[0]).toMatchObject({ title: "Đề đã sửa" });
   });
 });

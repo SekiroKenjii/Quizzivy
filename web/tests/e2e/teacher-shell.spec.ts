@@ -27,13 +27,14 @@ async function prepare(
     },
     { theme, collapsed },
   );
+  const user = { ...adminUser, preferences: { theme } };
   let note: string | null = "Ghi chú đã lưu";
   const rows = monitor().rows.map((row) =>
     row.attemptId === ATTEMPT_ID ? { ...row, fullName: student } : row,
   );
   const data = review();
   await stubApi(page, {
-    ...sessionAs(adminUser),
+    ...sessionAs(user),
     "GET /teacher/dashboard": {
       body: {
         openAssignments: 1,

@@ -13,6 +13,7 @@ import {
   dayMonth,
   formatTime,
   weekdayName,
+  useDisplayTimeZone,
 } from "@/lib/i18n/datetime";
 import { modules } from "@/app/modules";
 import { useMinute } from "@/hooks/useTick";
@@ -62,6 +63,7 @@ function subLine(sub: HomeSub, now: Date, locale: Locale, t: TFunction): string 
  * in no class is offered the Join dialog.
  */
 export default function StudentHomePage() {
+  useDisplayTimeZone();
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const user = useAuthStore((s) => s.user);
@@ -83,7 +85,7 @@ export default function StudentHomePage() {
       <div>
         <h1 className="text-stat min-[768px]:text-h1-student font-semibold tracking-[-0.02em]">
           {t(`student.home.greeting.${greetingPeriod(now)}`, {
-            name: givenName(user?.fullName ?? ""),
+            name: givenName(user?.displayName ?? user?.fullName ?? ""),
           })}
         </h1>
         {line !== null && (

@@ -34,7 +34,7 @@ import {
 } from "@/features/students/api";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatRelative } from "@/lib/i18n/datetime";
+import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -47,6 +47,7 @@ const PAGE_SIZE = 20;
 
 /** §8's students table, as the deck's G-07. */
 export default function StudentsListPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const bulk = useBulkSelection<Student>();
   const canManageUsers = useCan("people.users.manage");

@@ -57,7 +57,7 @@ import {
 } from "@/features/tests/api";
 import { useImportAvailability } from "@/features/imports/availability";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatRelative } from "@/lib/i18n/datetime";
+import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { ApiError } from "@/lib/api/errors";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -76,6 +76,7 @@ const TABS: (TestStatus | "all")[] = ["all", "draft", "published", "archived"];
 const PAGE_SIZE = 20;
 
 export default function TestsListPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const bulk = useBulkSelection<Test>();

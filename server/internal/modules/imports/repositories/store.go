@@ -24,7 +24,7 @@ var anyImport = access.Scope{All: true}
 const scopedImport = `($2::boolean OR created_by = $3::uuid)`
 
 const importColumns = `id::text, title, status, revision, coalesce(source_revision,0), created_by::text, created_at, updated_at, files_removed_at, closed_idle`
-const sourceColumns = `id::text, import_id::text, upload_id::text, expected_revision, role, filename, format, bytes, checksum_sha256, storage_key, uploaded_by::text, ready, coalesce(source_revision,0), created_at`
+const sourceColumns = `id::text, import_id::text, upload_id::text, expected_revision, role, filename, format, characters, bytes, checksum_sha256, storage_key, uploaded_by::text, ready, coalesce(source_revision,0), created_at`
 
 func scanImport(row pgx.Row) (domain.Import, error) {
 	var v domain.Import
@@ -36,7 +36,7 @@ func scanImport(row pgx.Row) (domain.Import, error) {
 }
 func scanSource(row pgx.Row) (domain.Source, error) {
 	var v domain.Source
-	err := row.Scan(&v.ID, &v.ImportID, &v.UploadID, &v.ExpectedRevision, &v.Role, &v.Filename, &v.Format, &v.Bytes, &v.SHA256, &v.StorageKey, &v.UploadedBy, &v.Ready, &v.SourceRevision, &v.CreatedAt)
+	err := row.Scan(&v.ID, &v.ImportID, &v.UploadID, &v.ExpectedRevision, &v.Role, &v.Filename, &v.Format, &v.Characters, &v.Bytes, &v.SHA256, &v.StorageKey, &v.UploadedBy, &v.Ready, &v.SourceRevision, &v.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, domain.ErrNotFound
 	}

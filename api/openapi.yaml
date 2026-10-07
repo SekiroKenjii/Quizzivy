@@ -639,11 +639,27 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         role: { $ref: '#/components/schemas/ImportSourceRole' }
         filename: { type: string, minLength: 1, maxLength: 255 }
-        format: { type: string, enum: [docx, doc, pdf] }
+        format: { type: string, enum: [docx, doc, pdf, text] }
+        characters: { type: integer, minimum: 1, maximum: 100000 }
         bytes: { type: integer, format: int64, minimum: 1, maximum: 26214400 }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         uploadedBy: { $ref: '#/components/schemas/Uuid' }
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+      oneOf:
+        - properties:
+            format: { enum: [text] }
+          required: [characters]
+        - properties:
+            format: { enum: [docx, doc, pdf] }
+          not: { required: [characters] }
+    PasteImportSource:
+      type: object
+      additionalProperties: false
+      required: [uploadId, expectedRevision, text]
+      properties:
+        uploadId: { $ref: '#/components/schemas/Uuid' }
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        text: { type: string, minLength: 1, maxLength: 100000, pattern: '\S' }
     WordImport:
       type: object
       additionalProperties: false
@@ -690,6 +706,78 @@ components:
           description: |
             Present and true when retention closed this import because nobody
             touched it for the idle period, rather than a teacher cancelling it.
+    WordImportHistoryItem:
+      type: object
+      additionalProperties: false
+      required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt, reviewCounts]
+      description: |
+        History-only current draft counts; unknown for a draft untouched since deploy.
+        Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+        any import by id; the history (`listWordImports`) holds only the
+        caller's own.
+        Sources are private originals, never learner media. Source revision zero
+        means no completed source set. Upload completion does not mean recognition.
+        Pending uploads are durable reservations and cannot be downloaded or processed.
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        status: { $ref: '#/components/schemas/ImportStatus' }
+        revision: { type: integer, format: int64, minimum: 1 }
+        sourceRevision: { type: integer, format: int64, minimum: 0 }
+        sources:
+          type: array
+          maxItems: 2
+          items: { $ref: '#/components/schemas/ImportSource' }
+        pendingUploads: { type: integer, minimum: 0 }
+        createdBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        run: { $ref: '#/components/schemas/ImportRun' }
+        draftRevision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Zero until processing has produced a reviewable draft.
+        testId:
+          $ref: '#/components/schemas/Uuid'
+          description: The draft test created by commit.
+        filesRemovedAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: |
+            When retention removed this import's original files and review draft.
+            Set only on committed or cancelled imports. Afterwards the history row
+            and source metadata remain, but downloads, the source view and the
+            review answer 410 IMPORT_FILES_REMOVED.
+        closedIdle:
+          type: boolean
+          description: |
+            Present and true when retention closed this import because nobody
+            touched it for the idle period, rather than a teacher cancelling it.
+        reviewCounts:
+          oneOf: [{ $ref: '#/components/schemas/ImportReviewCounts' }, { type: 'null' }]
+    ImportReviewCounts:
+      type: object
+      additionalProperties: false
+      required: [needsAction, toConfirm]
+      description: Findings from the current review body, never a pending reprocessing candidate.
+      properties:
+        needsAction: { type: integer, minimum: 0 }
+        toConfirm: { type: integer, minimum: 0 }
+    ImportStatusFacets:
+      type: object
+      additionalProperties: false
+      required: [all, processing, needsReview, failed, committed, cancelled]
+      description: Counts under the same search and caller-owned scope, ignoring the status filter.
+      properties:
+        all: { type: integer, minimum: 0 }
+        processing:
+          type: integer
+          minimum: 0
+          description: awaiting_sources, queued, processing and committing together.
+        needsReview: { type: integer, minimum: 0 }
+        failed: { type: integer, minimum: 0 }
+        committed: { type: integer, minimum: 0 }
+        cancelled: { type: integer, minimum: 0 }
     ImportRun:
       type: object
       additionalProperties: false
@@ -764,8 +852,9 @@ components:
     ImportLimits:
       type: object
       additionalProperties: false
-      required: [maxBytes, formats]
+      required: [maxBytes, formats, pasteMaxCharacters]
       properties:
+        pasteMaxCharacters: { type: integer, minimum: 1, maximum: 100000 }
         maxBytes: { type: integer, format: int64, minimum: 1 }
         formats:
           type: array
@@ -1182,6 +1271,8 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         email: { type: string, format: email, maxLength: 254 }
         fullName: { type: string, minLength: 1, maxLength: 200 }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        avatarUrl: { type: string, format: uri, maxLength: 2048 }
         role: { $ref: '#/components/schemas/Role' }
         hasPassword:
           type: boolean
@@ -1194,6 +1285,24 @@ components:
           type: boolean
           description: Forces `/change-password`. Always false for Google-only users (§5.4).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    UserPreferences:
+      type: object
+      description: Stored account preferences; omitted keys use client defaults without materializing them.
+      additionalProperties: false
+      properties:
+        theme: { type: string, enum: [light, dark, system] }
+        compactTables: { type: boolean }
+        largerTestText: { type: boolean }
+        assignmentDefaults:
+          type: object
+          additionalProperties: false
+          properties:
+            durationMinutes: { type: integer, minimum: 1, maximum: 600 }
+            shuffleQuestions: { type: boolean }
+            showScore: { type: boolean }
+            blockCopyPaste: { type: boolean }
+            requireFullscreen: { type: boolean }
 
     Workspace:
       type: string
@@ -1223,6 +1332,12 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         email: { type: string, format: email, maxLength: 254 }
         fullName: { type: string, minLength: 1, maxLength: 200 }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        avatarUrl: { type: string, format: uri, maxLength: 2048 }
+        phone: { type: string, pattern: '^[0-9+ ]{6,20}$' }
+        locale: { type: string, enum: [vi, en] }
+        timeZone: { type: string, minLength: 1, maxLength: 64 }
+        preferences: { $ref: '#/components/schemas/UserPreferences' }
         role: { $ref: '#/components/schemas/Role' }
         hasPassword:
           type: boolean
@@ -1280,6 +1395,78 @@ components:
         violations:
           type: array
           items: { $ref: '#/components/schemas/PublishValidationError' }
+
+    GradingQueue:
+      type: object
+      additionalProperties: false
+      required: [groups, items, answersRemaining, studentsWaiting]
+      description: Complete filtered pending counts with a deterministic prefix of at most 200 saved answers.
+      properties:
+        groups:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GradingQueueGroup' }
+          description: Only groups represented in items, in queue order; remaining counts each group's complete filtered work.
+        items:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GradingQueueItem' }
+        answersRemaining: { type: integer, minimum: 0 }
+        studentsWaiting: { type: integer, minimum: 0, description: Distinct student UUIDs across all filtered eligible answers. }
+
+    GradingQueueGroup:
+      type: object
+      additionalProperties: false
+      required: [key, kind, label, sub, remaining]
+      properties:
+        key:
+          type: string
+          minLength: 36
+          maxLength: 73
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$'
+          description: Canonical lowercase student UUID, or assignmentUUID:versionQuestionUUID in question mode.
+        kind: { type: string, enum: [student, question] }
+        label: { type: string, description: Raw current student full name or decimal paper question number for client localization. }
+        sub: { type: string, description: Live assignment title of this group's first returned item. }
+        remaining: { type: integer, minimum: 1, description: Complete filtered eligible answer count; may exceed the returned prefix for this group. }
+
+    GradingQueueItem:
+      type: object
+      additionalProperties: false
+      required: [attemptId, questionId, assignmentId, assignmentTitle, studentId, studentName, questionNumber, type, prompt, answer, points, score, comment]
+      description: One saved pending-manual answer and its frozen teacher question; identity is attemptId plus questionId.
+      properties:
+        attemptId: { $ref: '#/components/schemas/Uuid' }
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        assignmentId: { $ref: '#/components/schemas/Uuid' }
+        assignmentTitle: { type: string }
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        studentName: { type: string, description: Raw current full name, without private account fields. }
+        questionNumber: { type: integer, minimum: 1, description: One-based section/question paper order, independent of the student's shuffle. }
+        type: { $ref: '#/components/schemas/QuestionType' }
+        prompt: { type: string, minLength: 1 }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        answer: { $ref: '#/components/schemas/Answer' }
+        points: { $ref: '#/components/schemas/Points' }
+        score: { type: [number, 'null'], format: double, minimum: 0, description: Manual score; null while this answer remains in the pending queue. }
+        comment: { type: [string, 'null'] }
+        media:
+          oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        audio:
+          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+        transcript: { type: [string, 'null'] }
+        options: { type: array, items: { $ref: '#/components/schemas/AdminQuestionOption' } }
+        blanks: { type: array, items: { $ref: '#/components/schemas/AdminQuestionBlank' } }
+        explanation: { type: [string, 'null'] }
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        sampleAnswer: { type: [string, 'null'] }
+        sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
 
     QuestionAnswerRow:
       type: object
@@ -4117,36 +4304,44 @@ paths:
       operationId: updateCurrentUser
       x-permission: self
       tags: [auth]
-      summary: Rename yourself
+      summary: Update your profile
       description: |
-        The one thing an account may change about itself, and the only write
-        behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
-
-        The name is the account's own; the email is not. An address is issued
-        by the teacher or arrives from Google, it is the login, and moving it
-        would move who the account is — so it stays read-only here and only
-        `PATCH /teacher/students/{id}` can change it. Role, password and provider
-        links each have their own endpoint for the same reason.
-
-        Bounds match `users_full_name_check` and createStudent.
+        Updates only supplied profile fields. Omission preserves a field;
+        null clears displayName or phone. Names are trimmed, while phone
+        keeps the literal accepted pattern. timeZone must be a valid stable
+        IANA zone or UTC; blank and Local are refused. Email, role, password,
+        provider links and photo changes use their separate operations.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [fullName]
+              minProperties: 1
               additionalProperties: false
               properties:
                 fullName: { type: string, minLength: 1, maxLength: 200 }
+                displayName:
+                  type: [string, 'null']
+                  minLength: 1
+                  maxLength: 80
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                phone:
+                  type: [string, 'null']
+                  pattern: '^[0-9+ ]{6,20}$'
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                locale: { type: string, enum: [vi, en] }
+                timeZone: { type: string, minLength: 1, maxLength: 64 }
       responses:
         '200':
-          description: Saved. The whole user, so the client can replace its session copy.
+          description: The whole persisted caller profile and permissions.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CurrentUser' }
         '400':
-          description: '`VALIDATION_FAILED` — the name is empty or too long.'
+          description: '`VALIDATION_FAILED` — a supplied field is invalid.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -5274,7 +5469,14 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Query'
-        - { name: status, in: query, schema: { $ref: '#/components/schemas/ImportStatus' } }
+        - name: status
+          in: query
+          style: form
+          explode: true
+          description: Repeated statuses are OR-ed; a single status remains valid.
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/ImportStatus' }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
         '200':
@@ -5285,11 +5487,12 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/PageInfo'
                   - type: object
-                    required: [items]
+                    required: [items, facets]
                     properties:
                       items:
                         type: array
-                        items: { $ref: '#/components/schemas/WordImport' }
+                        items: { $ref: '#/components/schemas/WordImportHistoryItem' }
+                      facets: { $ref: '#/components/schemas/ImportStatusFacets' }
   /teacher/imports/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
@@ -5383,6 +5586,69 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429':
           description: IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /teacher/imports/{id}/sources/text:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: pasteImportSource
+      x-resource:
+        - { in: path, name: id, kind: import }
+        - { in: body, name: /uploadId, kind: none }
+      x-permission: content.tests.write
+      tags: [teacher-imports]
+      summary: Store a private pasted-text exam source
+      description: |
+        Plain text only, normalized to NFC and stored as pasted-text.txt with role exam.
+        At most 100000 Unicode code points and 20000 nonblank lines; no NUL.
+        The default raw JSON body limit applies independently of text length.
+        Identical normalized text with the same uploadId and expectedRevision replays
+        the original immutable receipt; changed content conflicts. Quotas, intake
+        capacity, ownership and retention are shared with file uploads.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasteImportSource' }
+      responses:
+        '201':
+          description: Stored and associated with one source revision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportUploadReceipt' }
+        '400':
+          description: Malformed text request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: IMPORT_SOURCE_TOO_LARGE — normalized character or nonblank line limit exceeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — invalid UTF-8, NUL or empty text.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501':
+          description: Private source intake is not configured.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -6122,6 +6388,61 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/grading/queue:
+    get:
+      operationId: listGradingQueue
+      x-permission: teaching.grading
+      x-resource:
+        - { in: query, name: assignmentId, kind: assignment }
+        - { in: query, name: studentId, kind: student }
+      x-resource-list: attempt
+      tags: [teacher-attempts]
+      summary: Pending manual answers in grading order
+      description: |
+        Read-only queue of reachable submitted or timed_out papers' saved answers
+        requiring manual grading with no manual score. Graded, voided, in-progress,
+        missing saved answers and marked zero scores are excluded. Normal
+        AssignmentIDs and Papers reach apply; scope.all widens the existing read.
+        Filters apply before complete counts, grouping and the first 200 items.
+        Groups order by their earliest known eligible submitted_at ascending,
+        all-null groups last, then student UUID or assignment/question UUID tuple.
+        Within a group items order by submitted_at ascending nulls last, attempt
+        UUID, paper ordinal and frozen question UUID. Only represented groups are
+        returned, with full remaining counts even when split at the cap.
+        Each supplied reference is independently checked: unknown and foreign
+        references answer the same 404, while reachable empty intersections are
+        empty successes. studentId selects an already authorized historical paper
+        taker, not a student-account target: it requires either a current strict
+        student-like account in StudentIDs reach or existing history satisfying
+        BOTH AssignmentIDs and Papers reach, independent of status or pending work.
+        A privileged account without reached history cannot use the strict branch.
+        Membership, counts, reference flags and prefix share one statement snapshot;
+        later immutable-content and signed-media enrichment is not a live whole
+        response snapshot. Names and titles are current text; question/group keys
+        and content are frozen. Grades and completion use existing gradeAttempt
+        and finishGrading; this read never writes or finishes a paper.
+      parameters:
+        - name: mode
+          in: query
+          schema: { type: string, enum: [student, question], default: student }
+        - name: assignmentId
+          in: query
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: studentId
+          in: query
+          description: Historical paper-taker identity filter, not a strict student-account lookup.
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: Full filtered counts and the first 200 pending answers.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GradingQueue' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/assignments/{id}/answers:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -7910,6 +8231,40 @@ paths:
         '204': { $ref: '#/components/responses/NoContent' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/preferences:
+    patch:
+      operationId: updatePreferences
+      x-permission: self
+      tags: [auth]
+      summary: Update your stored preferences
+      description: |
+        Merges supplied top-level keys into the caller's stored preferences;
+        assignmentDefaults replaces that whole nested object. False is a
+        supplied value and an empty object is a no-op. Null and unknown keys
+        are refused. Raw request bytes and the normalized merged JSONB object
+        each have an inclusive 8192-byte cap; exceeding either answers
+        400 VALIDATION_FAILED after the existing authentication gates.
+      x-max-body-bytes: 8192
+      x-body-limit-status: 400
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserPreferences' }
+      responses:
+        '200':
+          description: The merged persisted preferences, without materialized defaults.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserPreferences' }
+        '400':
+          description: '`VALIDATION_FAILED` — the shape or either byte cap is invalid.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Maintenance' }
 
   /me/summary:
     get:

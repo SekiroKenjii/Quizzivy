@@ -122,6 +122,7 @@ var theMeTree = []struct{ method, path, body string }{
 	{http.MethodGet, "/me/summary", ""},
 	{http.MethodGet, "/me/notification-preferences", ""},
 	{http.MethodPut, "/me/notification-preferences", switches(theFiveEvents...)},
+	{http.MethodPatch, "/me/preferences", `{}`},
 }
 
 func TestTheMeTreeRefusesWhatItsContractRefuses(t *testing.T) {

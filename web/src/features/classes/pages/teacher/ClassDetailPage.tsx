@@ -35,7 +35,7 @@ import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { scorePercent } from "@/features/students/api";
 import { ApiError } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatDate } from "@/lib/i18n/datetime";
+import { formatDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import {
   keepPreviousData,
   useMutation,
@@ -54,6 +54,7 @@ import { useDebounced } from "@/lib/useDebounced";
 const MEMBERS_PAGE_SIZE = 20;
 
 export default function ClassDetailPage() {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id = "" } = useParams();

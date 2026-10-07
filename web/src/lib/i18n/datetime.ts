@@ -1,31 +1,88 @@
+import { useSyncExternalStore } from "react";
 import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 import { vi, enUS } from "date-fns/locale";
 import type { Locale as AppLocale } from "./index";
 
-/**
- * Everything is stored and transported as UTC (§13.2). This module is the only
- * place a timezone is applied, so "store UTC, render Asia/Ho_Chi_Minh" is a
- * property of the codebase rather than a convention people remember.
- */
+/** APP_TIME_ZONE preserves the legacy teacher input wall-clock interpretation. */
 export const APP_TIME_ZONE = "Asia/Ho_Chi_Minh";
+
+let requestedZone = APP_TIME_ZONE;
+let displayZone = APP_TIME_ZONE;
+const zoneListeners = new Set<() => void>();
+
+/** getDisplayTimeZone returns the supported zone currently used for instant presentation. */
+export function getDisplayTimeZone() {
+  return displayZone;
+}
+
+/** getRequestedTimeZone retains the exact account value even when the formatter cannot support it. */
+export function getRequestedTimeZone() {
+  return requestedZone;
+}
+
+/** setDisplayTimeZone updates presentation without rewriting an unsupported account value. */
+export function setDisplayTimeZone(zone: string): boolean {
+  requestedZone = zone;
+  let supported = true;
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: zone }).format(0);
+  } catch {
+    supported = false;
+  }
+  const next = supported ? zone : APP_TIME_ZONE;
+  if (displayZone !== next) {
+    displayZone = next;
+    for (const listener of zoneListeners) listener();
+  }
+  return supported;
+}
+
+/** subscribeDisplayTimeZone observes primitive presentation-zone changes. */
+export function subscribeDisplayTimeZone(listener: () => void) {
+  zoneListeners.add(listener);
+  return () => {
+    zoneListeners.delete(listener);
+  };
+}
+
+/** useDisplayTimeZone keeps mounted instant presentation reactive without remounting forms. */
+export function useDisplayTimeZone() {
+  return useSyncExternalStore(
+    subscribeDisplayTimeZone,
+    getDisplayTimeZone,
+    () => APP_TIME_ZONE,
+  );
+}
 
 const dateFnsLocale = { vi, en: enUS } as const;
 
-export function formatDateTime(utc: string | Date, locale: AppLocale = "vi") {
-  return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm, dd/MM/yyyy", {
+export function formatDateTime(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return formatInTimeZone(utc, zone, "HH:mm, dd/MM/yyyy", {
     locale: dateFnsLocale[locale],
   });
 }
 
-export function formatDate(utc: string | Date, locale: AppLocale = "vi") {
-  return formatInTimeZone(utc, APP_TIME_ZONE, "dd/MM/yyyy", {
+export function formatDate(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return formatInTimeZone(utc, zone, "dd/MM/yyyy", {
     locale: dateFnsLocale[locale],
   });
 }
 
 /** G-09's moment: "08:00 · Thứ hai, 07/09", weekday capitalised as the deck writes it. */
-export function formatMoment(utc: string | Date, locale: AppLocale = "vi") {
-  const text = formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm · EEEE, dd/MM", {
+export function formatMoment(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  const text = formatInTimeZone(utc, zone, "HH:mm · EEEE, dd/MM", {
     locale: dateFnsLocale[locale],
   });
   const sentence = locale === "vi" ? text.toLocaleLowerCase("vi") : text;
@@ -36,20 +93,23 @@ export function formatMoment(utc: string | Date, locale: AppLocale = "vi") {
 }
 
 /** "26/08" */
-export function shortDate(utc: string | Date) {
-  return formatInTimeZone(utc, APP_TIME_ZONE, "dd/MM");
+export function shortDate(utc: string | Date, zone = getDisplayTimeZone()) {
+  return formatInTimeZone(utc, zone, "dd/MM");
 }
 
-export function sameAppDay(a: string | Date, b: string | Date): boolean {
+export function sameAppDay(
+  a: string | Date,
+  b: string | Date,
+  zone = getDisplayTimeZone(),
+): boolean {
   return (
-    formatInTimeZone(a, APP_TIME_ZONE, "yyyy-MM-dd") ===
-    formatInTimeZone(b, APP_TIME_ZONE, "yyyy-MM-dd")
+    formatInTimeZone(a, zone, "yyyy-MM-dd") === formatInTimeZone(b, zone, "yyyy-MM-dd")
   );
 }
 
 /** appHour is the hour of the day, 0 to 23, in the app's zone. */
-export function appHour(utc: string | Date): number {
-  return Number(formatInTimeZone(utc, APP_TIME_ZONE, "H"));
+export function appHour(utc: string | Date, zone = getDisplayTimeZone()): number {
+  return Number(formatInTimeZone(utc, zone, "H"));
 }
 
 /**
@@ -57,9 +117,13 @@ export function appHour(utc: string | Date): number {
  * to the day of `utc`: 0 on the same day, 1 on the next, negative for a day
  * already past.
  */
-export function appDaysUntil(utc: string | Date, now: string | Date): number {
+export function appDaysUntil(
+  utc: string | Date,
+  now: string | Date,
+  zone = getDisplayTimeZone(),
+): number {
   const day = (moment: string | Date) => {
-    const [y = 0, m = 1, d = 1] = formatInTimeZone(moment, APP_TIME_ZONE, "yyyy-M-d")
+    const [y = 0, m = 1, d = 1] = formatInTimeZone(moment, zone, "yyyy-M-d")
       .split("-")
       .map(Number);
     return Date.UTC(y, m - 1, d);
@@ -68,8 +132,12 @@ export function appDaysUntil(utc: string | Date, now: string | Date): number {
 }
 
 /** weekdayShort is "T5" or "CN" in Vietnamese and "Thu" in English. */
-export function weekdayShort(utc: string | Date, locale: AppLocale = "vi") {
-  return formatInTimeZone(utc, APP_TIME_ZONE, locale === "vi" ? "EEEEE" : "EEE", {
+export function weekdayShort(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return formatInTimeZone(utc, zone, locale === "vi" ? "EEEEE" : "EEE", {
     locale: dateFnsLocale[locale],
   });
 }
@@ -78,21 +146,29 @@ export function weekdayShort(utc: string | Date, locale: AppLocale = "vi") {
  * weekdayName is the weekday as it reads inside a sentence: "thứ năm" in
  * Vietnamese, "Thursday" in English.
  */
-export function weekdayName(utc: string | Date, locale: AppLocale = "vi") {
-  const text = formatInTimeZone(utc, APP_TIME_ZONE, "EEEE", {
+export function weekdayName(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  const text = formatInTimeZone(utc, zone, "EEEE", {
     locale: dateFnsLocale[locale],
   });
   return locale === "vi" ? text.toLocaleLowerCase("vi") : text;
 }
 
 /** dayOfMonth is the day number without a leading zero: "5", "25". */
-export function dayOfMonth(utc: string | Date) {
-  return formatInTimeZone(utc, APP_TIME_ZONE, "d");
+export function dayOfMonth(utc: string | Date, zone = getDisplayTimeZone()) {
+  return formatInTimeZone(utc, zone, "d");
 }
 
 /** dayMonth is a date without its year: "05/09" in Vietnamese, "5 Sep" in English. */
-export function dayMonth(utc: string | Date, locale: AppLocale = "vi") {
-  return formatInTimeZone(utc, APP_TIME_ZONE, locale === "vi" ? "dd/MM" : "d MMM", {
+export function dayMonth(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return formatInTimeZone(utc, zone, locale === "vi" ? "dd/MM" : "d MMM", {
     locale: dateFnsLocale[locale],
   });
 }
@@ -101,13 +177,14 @@ export function dayMonth(utc: string | Date, locale: AppLocale = "vi") {
  * dayDate is a short weekday and date: "Thứ 6, 19/09" in Vietnamese, "Fri 19
  * Sep" in English.
  */
-export function dayDate(utc: string | Date, locale: AppLocale = "vi") {
-  return formatInTimeZone(
-    utc,
-    APP_TIME_ZONE,
-    locale === "vi" ? "EEE, dd/MM" : "EEE d MMM",
-    { locale: dateFnsLocale[locale] },
-  );
+export function dayDate(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return formatInTimeZone(utc, zone, locale === "vi" ? "EEE, dd/MM" : "EEE d MMM", {
+    locale: dateFnsLocale[locale],
+  });
 }
 
 /** "Thứ hai, 01/09" -- the weekday the deck writes on upcoming rows. */
@@ -115,15 +192,11 @@ export function weekdayDate(
   utc: string | Date,
   locale: AppLocale = "vi",
   year = false,
+  zone = getDisplayTimeZone(),
 ) {
-  const text = formatInTimeZone(
-    utc,
-    APP_TIME_ZONE,
-    year ? "EEEE, dd/MM/yyyy" : "EEEE, dd/MM",
-    {
-      locale: dateFnsLocale[locale],
-    },
-  );
+  const text = formatInTimeZone(utc, zone, year ? "EEEE, dd/MM/yyyy" : "EEEE, dd/MM", {
+    locale: dateFnsLocale[locale],
+  });
   const sentence = locale === "vi" ? text.toLocaleLowerCase("vi") : text;
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
@@ -135,16 +208,24 @@ export function audioLength(ms: number | null | undefined): string {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
-export function formatTime(utc: string | Date, locale: AppLocale = "vi") {
-  return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm", {
+export function formatTime(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return formatInTimeZone(utc, zone, "HH:mm", {
     locale: dateFnsLocale[locale],
   });
 }
 
 /** clockTime is "22:30" on the day of `now`, and "22:30, 02/10" on any other day. */
-export function clockTime(utc: string | Date, now: string | Date = new Date()) {
-  const time = formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm");
-  return sameAppDay(utc, now) ? time : `${time}, ${shortDate(utc)}`;
+export function clockTime(
+  utc: string | Date,
+  now: string | Date = new Date(),
+  zone = getDisplayTimeZone(),
+) {
+  const time = formatInTimeZone(utc, zone, "HH:mm");
+  return sameAppDay(utc, now, zone) ? time : `${time}, ${shortDate(utc, zone)}`;
 }
 
 /**
@@ -154,12 +235,16 @@ export function clockTime(utc: string | Date, now: string | Date = new Date()) {
  * a worse answer than the date, because the teacher is looking for a specific
  * test they remember by when they wrote it.
  */
-export function formatRelative(utc: string | Date, locale: AppLocale = "vi") {
+export function formatRelative(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
   const then = new Date(utc).getTime();
   const seconds = Math.round((then - Date.now()) / 1000);
   const days = Math.round(seconds / 86_400);
 
-  if (Math.abs(days) > 6) return formatDate(utc, locale);
+  if (Math.abs(days) > 6) return formatDate(utc, locale, zone);
 
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const minutes = Math.round(seconds / 60);
@@ -182,8 +267,8 @@ export function fromDateTimeInput(value: string): Date {
 }
 
 /** The same instant, expressed in the app's timezone. For date maths in the UI. */
-export function inAppZone(utc: string | Date) {
-  return toZonedTime(utc, APP_TIME_ZONE);
+export function inAppZone(utc: string | Date, zone = getDisplayTimeZone()) {
+  return toZonedTime(utc, zone);
 }
 
 /**
@@ -201,6 +286,6 @@ export function countdown(ms: number): string {
 }
 
 /** compactMoment formats a table timestamp without repeating the current year. */
-export function compactMoment(utc: string | Date) {
-  return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm · dd/MM");
+export function compactMoment(utc: string | Date, zone = getDisplayTimeZone()) {
+  return formatInTimeZone(utc, zone, "HH:mm · dd/MM");
 }

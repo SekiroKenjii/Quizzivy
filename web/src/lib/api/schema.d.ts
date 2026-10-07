@@ -159,17 +159,12 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Rename yourself
-         * @description The one thing an account may change about itself, and the only write
-         *     behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
-         *
-         *     The name is the account's own; the email is not. An address is issued
-         *     by the teacher or arrives from Google, it is the login, and moving it
-         *     would move who the account is — so it stays read-only here and only
-         *     `PATCH /teacher/students/{id}` can change it. Role, password and provider
-         *     links each have their own endpoint for the same reason.
-         *
-         *     Bounds match `users_full_name_check` and createStudent.
+         * Update your profile
+         * @description Updates only supplied profile fields. Omission preserves a field;
+         *     null clears displayName or phone. Names are trimmed, while phone
+         *     keeps the literal accepted pattern. timeZone must be a valid stable
+         *     IANA zone or UTC; blank and Local are refused. Email, role, password,
+         *     provider links and photo changes use their separate operations.
          */
         patch: operations["updateCurrentUser"];
         trace?: never;
@@ -718,6 +713,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teacher/imports/{id}/sources/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store a private pasted-text exam source
+         * @description Plain text only, normalized to NFC and stored as pasted-text.txt with role exam.
+         *     At most 100000 Unicode code points and 20000 nonblank lines; no NUL.
+         *     The default raw JSON body limit applies independently of text length.
+         *     Identical normalized text with the same uploadId and expectedRevision replays
+         *     the original immutable receipt; changed content conflicts. Quotas, intake
+         *     capacity, ownership and retention are shared with file uploads.
+         */
+        post: operations["pasteImportSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/imports/{id}/sources/{sourceId}/download": {
         parameters: {
             query?: never;
@@ -1100,6 +1122,47 @@ export interface paths {
          *     Existing attempts always carry their own version regardless (§7).
          */
         patch: operations["updateAssignment"];
+        trace?: never;
+    };
+    "/teacher/grading/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pending manual answers in grading order
+         * @description Read-only queue of reachable submitted or timed_out papers' saved answers
+         *     requiring manual grading with no manual score. Graded, voided, in-progress,
+         *     missing saved answers and marked zero scores are excluded. Normal
+         *     AssignmentIDs and Papers reach apply; scope.all widens the existing read.
+         *     Filters apply before complete counts, grouping and the first 200 items.
+         *     Groups order by their earliest known eligible submitted_at ascending,
+         *     all-null groups last, then student UUID or assignment/question UUID tuple.
+         *     Within a group items order by submitted_at ascending nulls last, attempt
+         *     UUID, paper ordinal and frozen question UUID. Only represented groups are
+         *     returned, with full remaining counts even when split at the cap.
+         *     Each supplied reference is independently checked: unknown and foreign
+         *     references answer the same 404, while reachable empty intersections are
+         *     empty successes. studentId selects an already authorized historical paper
+         *     taker, not a student-account target: it requires either a current strict
+         *     student-like account in StudentIDs reach or existing history satisfying
+         *     BOTH AssignmentIDs and Papers reach, independent of status or pending work.
+         *     A privileged account without reached history cannot use the strict branch.
+         *     Membership, counts, reference flags and prefix share one statement snapshot;
+         *     later immutable-content and signed-media enrichment is not a live whole
+         *     response snapshot. Names and titles are current text; question/group keys
+         *     and content are frozen. Grades and completion use existing gradeAttempt
+         *     and finishGrading; this read never writes or finishes a paper.
+         */
+        get: operations["listGradingQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/teacher/assignments/{id}/answers": {
@@ -2157,6 +2220,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update your stored preferences
+         * @description Merges supplied top-level keys into the caller's stored preferences;
+         *     assignmentDefaults replaces that whole nested object. False is a
+         *     supplied value and an empty object is a no-op. Null and unknown keys
+         *     are refused. Raw request bytes and the normalized merged JSONB object
+         *     each have an inclusive 8192-byte cap; exceeding either answers
+         *     400 VALIDATION_FAILED after the existing authentication gates.
+         */
+        patch: operations["updatePreferences"];
+        trace?: never;
+    };
     "/me/summary": {
         parameters: {
             query?: never;
@@ -2451,12 +2539,25 @@ export interface components {
             role: components["schemas"]["ImportSourceRole"];
             filename: string;
             /** @enum {string} */
-            format: "docx" | "doc" | "pdf";
+            format: "docx" | "doc" | "pdf" | "text";
+            characters?: number;
             /** Format: int64 */
             bytes: number;
             sha256: string;
             uploadedBy: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];
+        } & ({
+            /** @enum {unknown} */
+            format?: "text";
+        } | {
+            /** @enum {unknown} */
+            format?: "docx" | "doc" | "pdf";
+        });
+        PasteImportSource: {
+            uploadId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            expectedRevision: number;
+            text: string;
         };
         /**
          * @description Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
@@ -2499,6 +2600,65 @@ export interface components {
              *     touched it for the idle period, rather than a teacher cancelling it.
              */
             closedIdle?: boolean;
+        };
+        /**
+         * @description History-only current draft counts; unknown for a draft untouched since deploy.
+         *     Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+         *     any import by id; the history (`listWordImports`) holds only the
+         *     caller's own.
+         *     Sources are private originals, never learner media. Source revision zero
+         *     means no completed source set. Upload completion does not mean recognition.
+         *     Pending uploads are durable reservations and cannot be downloaded or processed.
+         */
+        WordImportHistoryItem: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            status: components["schemas"]["ImportStatus"];
+            /** Format: int64 */
+            revision: number;
+            /** Format: int64 */
+            sourceRevision: number;
+            sources: components["schemas"]["ImportSource"][];
+            pendingUploads: number;
+            createdBy: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            run?: components["schemas"]["ImportRun"];
+            /**
+             * Format: int64
+             * @description Zero until processing has produced a reviewable draft.
+             */
+            draftRevision?: number;
+            /** @description The draft test created by commit. */
+            testId?: components["schemas"]["Uuid"];
+            /**
+             * @description When retention removed this import's original files and review draft.
+             *     Set only on committed or cancelled imports. Afterwards the history row
+             *     and source metadata remain, but downloads, the source view and the
+             *     review answer 410 IMPORT_FILES_REMOVED.
+             */
+            filesRemovedAt?: components["schemas"]["Timestamp"];
+            /**
+             * @description Present and true when retention closed this import because nobody
+             *     touched it for the idle period, rather than a teacher cancelling it.
+             */
+            closedIdle?: boolean;
+            reviewCounts: components["schemas"]["ImportReviewCounts"] | null;
+        };
+        /** @description Findings from the current review body, never a pending reprocessing candidate. */
+        ImportReviewCounts: {
+            needsAction: number;
+            toConfirm: number;
+        };
+        /** @description Counts under the same search and caller-owned scope, ignoring the status filter. */
+        ImportStatusFacets: {
+            all: number;
+            /** @description awaiting_sources, queued, processing and committing together. */
+            processing: number;
+            needsReview: number;
+            failed: number;
+            committed: number;
+            cancelled: number;
         };
         /** @description The latest processing run. errorCode names why a failed run stopped; keyPaper is the answer-key paper the teacher chose for it, absent when recognition picked one. */
         ImportRun: {
@@ -2557,6 +2717,7 @@ export interface components {
             idleDays: number;
         };
         ImportLimits: {
+            pasteMaxCharacters: number;
             /** Format: int64 */
             maxBytes: number;
             /** @description Accepted file extensions; doc appears only when legacy conversion is enabled. */
@@ -2807,6 +2968,9 @@ export interface components {
             /** Format: email */
             email: string;
             fullName: string;
+            displayName?: string;
+            /** Format: uri */
+            avatarUrl?: string;
             role: components["schemas"]["Role"];
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
@@ -2814,6 +2978,20 @@ export interface components {
             /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description Stored account preferences; omitted keys use client defaults without materializing them. */
+        UserPreferences: {
+            /** @enum {string} */
+            theme?: "light" | "dark" | "system";
+            compactTables?: boolean;
+            largerTestText?: boolean;
+            assignmentDefaults?: {
+                durationMinutes?: number;
+                shuffleQuestions?: boolean;
+                showScore?: boolean;
+                blockCopyPaste?: boolean;
+                requireFullscreen?: boolean;
+            };
         };
         /**
          * @description A console the signed-in user may enter: `teacher` for any `content.*`,
@@ -2840,6 +3018,14 @@ export interface components {
             /** Format: email */
             email: string;
             fullName: string;
+            displayName?: string;
+            /** Format: uri */
+            avatarUrl?: string;
+            phone?: string;
+            /** @enum {string} */
+            locale?: "vi" | "en";
+            timeZone?: string;
+            preferences?: components["schemas"]["UserPreferences"];
             role: components["schemas"]["Role"];
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
@@ -2874,6 +3060,59 @@ export interface components {
         PublishConflict: {
             error: components["schemas"]["ErrorDetail"];
             violations?: components["schemas"]["PublishValidationError"][];
+        };
+        /** @description Complete filtered pending counts with a deterministic prefix of at most 200 saved answers. */
+        GradingQueue: {
+            /** @description Only groups represented in items, in queue order; remaining counts each group's complete filtered work. */
+            groups: components["schemas"]["GradingQueueGroup"][];
+            items: components["schemas"]["GradingQueueItem"][];
+            answersRemaining: number;
+            /** @description Distinct student UUIDs across all filtered eligible answers. */
+            studentsWaiting: number;
+        };
+        GradingQueueGroup: {
+            /** @description Canonical lowercase student UUID, or assignmentUUID:versionQuestionUUID in question mode. */
+            key: string;
+            /** @enum {string} */
+            kind: "student" | "question";
+            /** @description Raw current student full name or decimal paper question number for client localization. */
+            label: string;
+            /** @description Live assignment title of this group's first returned item. */
+            sub: string;
+            /** @description Complete filtered eligible answer count; may exceed the returned prefix for this group. */
+            remaining: number;
+        };
+        /** @description One saved pending-manual answer and its frozen teacher question; identity is attemptId plus questionId. */
+        GradingQueueItem: {
+            attemptId: components["schemas"]["Uuid"];
+            questionId: components["schemas"]["Uuid"];
+            assignmentId: components["schemas"]["Uuid"];
+            assignmentTitle: string;
+            studentId: components["schemas"]["Uuid"];
+            /** @description Raw current full name */
+            studentName: string;
+            /** @description One-based section/question paper order */
+            questionNumber: number;
+            type: components["schemas"]["QuestionType"];
+            prompt: string;
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
+            answer: components["schemas"]["Answer"];
+            points: components["schemas"]["Points"];
+            /**
+             * Format: double
+             * @description Manual score; null while this answer remains in the pending queue.
+             */
+            score: number | null;
+            comment: string | null;
+            media?: components["schemas"]["MediaAsset"] | null;
+            audio?: components["schemas"]["AudioPolicy"] | null;
+            transcript?: string | null;
+            options?: components["schemas"]["AdminQuestionOption"][];
+            blanks?: components["schemas"]["AdminQuestionBlank"][];
+            explanation?: string | null;
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            sampleAnswer?: string | null;
+            sharedContext?: components["schemas"]["SharedReviewContext"];
         };
         /** @description One paper's answer to the question G-04 is grading. */
         QuestionAnswerRow: {
@@ -5052,12 +5291,17 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    fullName: string;
+                    fullName?: string;
+                    displayName?: string | null;
+                    phone?: string | null;
+                    /** @enum {string} */
+                    locale?: "vi" | "en";
+                    timeZone?: string;
                 };
             };
         };
         responses: {
-            /** @description Saved. The whole user, so the client can replace its session copy. */
+            /** @description The whole persisted caller profile and permissions. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5066,7 +5310,7 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentUser"];
                 };
             };
-            /** @description `VALIDATION_FAILED` — the name is empty or too long. */
+            /** @description `VALIDATION_FAILED` — a supplied field is invalid. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6265,7 +6509,8 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
-                status?: components["schemas"]["ImportStatus"];
+                /** @description Repeated statuses are OR-ed; a single status remains valid. */
+                status?: components["schemas"]["ImportStatus"][];
                 limit?: number;
             };
             header?: never;
@@ -6281,7 +6526,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
-                        items: components["schemas"]["WordImport"][];
+                        items: components["schemas"]["WordImportHistoryItem"][];
+                        facets: components["schemas"]["ImportStatusFacets"];
                     };
                 };
             };
@@ -6439,6 +6685,95 @@ export interface operations {
             };
             /** @description IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    pasteImportSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasteImportSource"];
+            };
+        };
+        responses: {
+            /** @description Stored and associated with one source revision. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportUploadReceipt"];
+                };
+            };
+            /** @description Malformed text request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_TOO_LARGE — normalized character or nonblank line limit exceeded. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — invalid UTF-8, NUL or empty text. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Private source intake is not configured. */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7301,6 +7636,35 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    listGradingQueue: {
+        parameters: {
+            query?: {
+                mode?: "student" | "question";
+                assignmentId?: components["schemas"]["Uuid"];
+                /** @description Historical paper-taker identity filter, not a strict student-account lookup. */
+                studentId?: components["schemas"]["Uuid"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Full filtered counts and the first 200 pending answers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GradingQueue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listAnswersForQuestion: {
@@ -9009,6 +9373,41 @@ export interface operations {
             204: components["responses"]["NoContent"];
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    updatePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPreferences"];
+            };
+        };
+        responses: {
+            /** @description The merged persisted preferences, without materialized defaults. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferences"];
+                };
+            };
+            /** @description `VALIDATION_FAILED` — the shape or either byte cap is invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Maintenance"];
         };
     };
     getMySummary: {
