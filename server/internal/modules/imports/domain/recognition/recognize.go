@@ -13,7 +13,7 @@ import (
 )
 
 // Version identifies the rule set so stored drafts can be traced to the recognizer that produced them.
-const Version = "rules-v2"
+const Version = "rules-v3"
 
 const (
 	examRole     = "exam"
@@ -30,7 +30,7 @@ func Recognize(ctx context.Context, docs []domain.EvidenceDocument, p domain.Rec
 	}
 	examDoc, keyDoc := byRole(docs)
 	lines := documentLines(examDoc)
-	e := parseExam(examDoc.SourceID, lines)
+	e := parseExam(examDoc.SourceID, lines, examRules{text: examDoc.Version == "text-lines-v1"})
 	if e.questions > maxQuestions {
 		return domain.Draft{}, domain.ErrTooLarge
 	}
@@ -38,8 +38,10 @@ func Recognize(ctx context.Context, docs []domain.EvidenceDocument, p domain.Rec
 		return domain.Draft{}, err
 	}
 	b := newBuilder(e)
-	if len(e.keyLines) > 0 {
-		b.apply(parseKeys(e.keyLines, e.paper, keySameFile), 0)
+	if len(e.keyLines) > 0 || len(e.keyEntries) > 0 {
+		book := parseKeys(e.keyLines, e.paper, keySameFile)
+		book.paper(e.paper).entries = append(book.paper(e.paper).entries, e.keyEntries...)
+		b.apply(book, 0)
 	}
 	if keyDoc != nil {
 		b.apply(parseKeys(documentLines(keyDoc), 0, keyCompanion), p.KeyPaper)
