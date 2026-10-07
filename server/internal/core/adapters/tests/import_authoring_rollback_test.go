@@ -58,7 +58,7 @@ func TestImportAuthoringLateCapRollsBackRealPoolTransactionAndAudits(t *testing.
 		t.Fatal(err)
 	}
 	var written []string
-	var auditIDs []string
+	var auditIDs []int64
 	var createCalls int
 	committer := adapters.ImportCommitter{DB: db.NewContext(pool), Tests: func(scoped db.Context) *testsapp.Application {
 		return testsapp.New(testsrepo.NewPostgres(scoped, questionsrepo.NewPostgres(scoped), nil))
@@ -70,12 +70,12 @@ func TestImportAuthoringLateCapRollsBackRealPoolTransactionAndAudits(t *testing.
 			q, err := create.Handle(ctx, cmd)
 			if err == nil {
 				written = append(written, q.ID)
-				rows, e := scoped.Query(ctx, `SELECT id::text FROM app.audit_log WHERE actor_user_id=$1 ORDER BY id`, owner)
+				rows, e := scoped.Query(ctx, `SELECT id FROM app.audit_log WHERE actor_user_id=$1 ORDER BY id`, owner)
 				if e != nil {
 					t.Fatal(e)
 				}
 				for rows.Next() {
-					var id string
+					var id int64
 					if err := rows.Scan(&id); err != nil {
 						rows.Close()
 						t.Fatal(err)
@@ -107,7 +107,7 @@ func TestImportAuthoringLateCapRollsBackRealPoolTransactionAndAudits(t *testing.
 		t.Fatalf("late refusal not reached err=%v creates=%d written=%v audits=%v recorded=%v", err, createCalls, written, auditIDs, recorded)
 	}
 	var remaining int
-	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM app.questions WHERE id=ANY($1::uuid[]))+(SELECT count(*) FROM app.audit_log WHERE id=ANY($2::uuid[]))+(SELECT count(*) FROM app.tests WHERE created_by=$3)`, written, auditIDs, owner).Scan(&remaining); err != nil || remaining != 0 {
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM app.questions WHERE id=ANY($1::uuid[]))+(SELECT count(*) FROM app.audit_log WHERE id=ANY($2::bigint[]))+(SELECT count(*) FROM app.tests WHERE created_by=$3)`, written, auditIDs, owner).Scan(&remaining); err != nil || remaining != 0 {
 		t.Fatalf("real rollback left captured rows=%d err=%v", remaining, err)
 	}
 	t.Logf("real pool rollback reached owner=%s questions=%v audit=%v", owner, written, auditIDs)

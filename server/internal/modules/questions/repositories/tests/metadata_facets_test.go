@@ -212,7 +212,7 @@ func TestMetadataCountsAndPaginationCombineAudioAndExactTags(t *testing.T) {
 	add(foreign, false, a1, grammar, []string{"nghé"})
 	member := uuid.NewString()
 	groups := testsrepo.NewGroupsPostgres(dbx, adapters.GroupQuestions{}, mediarepo.NewPostgres(dbx))
-	_, err = groups.Create(ctx, testsdomain.CreateGroupInput{Bundle: testsdomain.GroupBundle{Group: testsdomain.QuestionGroup{ID: uuid.NewString(), Title: marker, Members: []testsdomain.GroupMember{{QuestionID: member, OptionOrder: "fixed"}}}, Questions: []testsdomain.GroupQuestion{{ID: member, Input: domain.Input{Type: domain.ShortAnswer, Prompt: marker, Points: "1", Tags: []string{"nghé"}, Level: &a1, Skill: &grammar}}}}, ActorID: owner, Scope: access.Scope{UserID: owner}, Grants: access.NewSet(access.ContentQuestionsWrite), Now: now})
+	_, err = groups.Create(ctx, testsdomain.CreateGroupInput{Bundle: testsdomain.GroupBundle{Group: testsdomain.QuestionGroup{ID: uuid.NewString(), Title: marker, Members: []testsdomain.GroupMember{{QuestionID: member, OptionOrder: "shuffle"}}}, Questions: []testsdomain.GroupQuestion{{ID: member, Input: domain.Input{Type: domain.ShortAnswer, Prompt: marker, Points: "1", Tags: []string{"nghé"}, Level: &a1, Skill: &grammar}}}}, ActorID: owner, Scope: access.Scope{UserID: owner}, Grants: access.NewSet(access.ContentQuestionsWrite), Now: now})
 	if err != nil {
 		t.Fatal(err)
 	}
