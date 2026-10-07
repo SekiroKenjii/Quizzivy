@@ -100,9 +100,13 @@ async function renderBuilder() {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(await screen.findByRole("button", { name: "Tên đề thi" }));
+  const title = screen.getByRole<HTMLInputElement>("textbox", { name: "Tên đề thi" });
+  title.setSelectionRange(title.value.length, title.value.length);
   return {
-    user: userEvent.setup({ advanceTimers: vi.advanceTimersByTime }),
-    title: await screen.findByLabelText("Tên đề thi"),
+    user,
+    title,
     router,
   };
 }

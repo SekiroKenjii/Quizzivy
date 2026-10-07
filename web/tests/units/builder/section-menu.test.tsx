@@ -106,7 +106,7 @@ describe("the section menu", () => {
       "Nghe hiểu",
       "Viết",
     ]);
-    expect(screen.getByText("Nghe hiểu")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Nghe hiểu \d/ })).toBeInTheDocument();
     expect(screen.queryByLabelText("Tên phần")).toBeNull();
   });
 
@@ -121,7 +121,7 @@ describe("the section menu", () => {
     await user.keyboard("Nghe hiểu{Escape}");
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByText("Nghe")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Nghe \d/ })).toBeInTheDocument();
   });
 
   it("refuses to commit an empty name", async () => {
@@ -134,7 +134,7 @@ describe("the section menu", () => {
     await user.keyboard("{Enter}");
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByText("Nghe")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Nghe \d/ })).toBeInTheDocument();
   });
 
   it("cannot move the first section up, and moves the second", async () => {
@@ -219,7 +219,7 @@ describe("the section menu", () => {
     await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByText("Ngữ pháp")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Ngữ pháp \d/ })).toBeInTheDocument();
   });
 
   it("edits a section's instructions through the same outline change", async () => {
@@ -264,7 +264,7 @@ describe("the section menu", () => {
     await user.click(headers[1]!);
 
     expect(screen.queryByText("Câu ba")).toBeNull();
-    expect(screen.getByText("Nghe")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Nghe \d/ })).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -309,7 +309,7 @@ describe("the section menu", () => {
 
 it("renames a section after a double click on its title", async () => {
   const { user, onChange } = renderTree();
-  await user.dblClick(screen.getByText("Nghe", { exact: true }));
+  await user.dblClick(screen.getByRole("button", { name: /^Nghe \d/ }));
   const field = await screen.findByLabelText("Tên phần");
   await user.clear(field);
   await user.type(field, "Listening{Enter}");

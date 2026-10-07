@@ -19,6 +19,10 @@ import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MarqueeText } from "@/components/shared/MarqueeText";
+import { SplitPane } from "@/components/shared/SplitPane";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
 import { PageAsideSlot } from "@/layouts/slots";
 import {
@@ -116,6 +120,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(test.title);
+  const wide = useMediaQuery("(min-width: 768px)");
+  const room = useContentWidthAtLeast(594);
+  const split = wide && room;
   const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
   const [sections, setSections] = useState<OutlineSection[]>(() =>
     editableOutline(test),
@@ -284,6 +291,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         id: questionId,
         prompt: result.data.prompt,
         points: result.data.points,
+        type: result.data.type,
         hasAudio: result.data.media?.kind === "audio",
         problem: publishProblem(result.data, t) ?? problemFor(violations, questionId),
       });
@@ -674,27 +682,23 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   return (
     <fieldset
       disabled={creating || publishing}
-      className="-m-6 flex h-[calc(100svh-3.5rem)] min-w-0 flex-col overflow-hidden"
+      data-scale="deck"
+      className="flex min-w-0 flex-col gap-3.5"
     >
-      <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+      <div className="flex shrink-0 flex-wrap items-center gap-3">
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon-lg"
           aria-label={t("common.back")}
           onClick={() => void navigate("/teacher/tests")}
         >
           <ArrowLeft aria-hidden="true" />
         </Button>
-        <Input
-          disabled={creating}
-          value={title}
-          aria-label={t("builder.titleLabel")}
-          className="h-8 w-96 min-w-32 border-transparent font-medium shadow-none"
-          onChange={(event) => updateTitle(event.target.value)}
-        />
+        <BuilderTitle title={title} onChange={updateTitle} />
         <StatusBadge kind="test" status={test.status} />
         <AutosaveStatusLabel
           status={saveStatus}
+          deck
           onRetry={() => {
             outline.retry();
             retryQuestion.current?.();
@@ -715,8 +719,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
+            size="md"
+            className="text-muted-foreground h-9"
             aria-label={t("builder.versions")}
             onClick={() => void navigate(`/teacher/tests/${test.id}#versions`)}
           >
@@ -725,7 +729,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           </Button>
           <Button
             variant="outline"
-            size="sm"
+            size="md"
             aria-label={t("builder.previewAsStudent")}
             onClick={() => void openPreview()}
           >
@@ -733,7 +737,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             <span className="hidden lg:inline">{t("builder.previewAsStudent")}</span>
           </Button>
           <Button
-            size="sm"
+            size="md"
+            className="h-9"
             disabled={publishing || stale}
             onClick={() => void onPublish()}
           >
@@ -765,39 +770,55 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         </p>
       )}
 
-      <div data-columns className="flex min-h-0 flex-1 overflow-hidden">
-        <fieldset disabled={creating} className="contents">
-          <Suspense
-            fallback={<div className="w-72 shrink-0 border-r" aria-hidden="true" />}
-          >
-            <OutlineTree
-              sections={sections}
-              groups={groups}
-              selectedGroupId={selectedGroupId}
-              onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
-              onCreateGroup={() => void insertGroup().catch(() => undefined)}
-              onRemoveGroup={(id) => setRemoving({ groupId: id })}
-              onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
-              questions={byId}
-              selectedId={selectedId}
-              creating={creating}
-              onSelect={(questionId) => void selectQuestion(questionId)}
-              onChange={updateOutline}
-              onCreateQuestion={() => void onCreateQuestion()}
-              onPickFromBank={() => setPicking(true)}
-              onAddSection={onAddSection}
-            />
-          </Suspense>
-        </fieldset>
-
-        <div data-resize-middle className="min-w-0 flex-1 overflow-y-auto p-6">
-          <PageAsideSlot.Provider value={asideSlot}>
-            {activeEditor()}
-          </PageAsideSlot.Provider>
-        </div>
-        {/* A-04 puts the settings column under the builder's own bar. */}
-        <div ref={setAsideSlot} className="contents" />
-      </div>
+      <SplitPane
+        label={t("builder.outlineWidth")}
+        unit="px"
+        defaultSize={300}
+        min={220}
+        max={Number.MAX_SAFE_INTEGER}
+        minSecond={360}
+        storageKey="quizzivy.builder.outline"
+        split={split}
+        className="items-stretch gap-y-3.5"
+        firstClassName="self-start"
+        secondClassName="flex min-w-0 items-start"
+        first={
+          <fieldset disabled={creating} className="contents">
+            <Suspense fallback={<ListSkeleton rows={5} />}>
+              <OutlineTree
+                sections={sections}
+                groups={groups}
+                selectedGroupId={selectedGroupId}
+                onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
+                onCreateGroup={() => void insertGroup().catch(() => undefined)}
+                onRemoveGroup={(id) => setRemoving({ groupId: id })}
+                onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
+                questions={byId}
+                selectedId={selectedId}
+                creating={creating}
+                onSelect={(questionId) => void selectQuestion(questionId)}
+                onChange={updateOutline}
+                onCreateQuestion={() => void onCreateQuestion()}
+                onPickFromBank={() => setPicking(true)}
+                onAddSection={onAddSection}
+              />
+            </Suspense>
+          </fieldset>
+        }
+        second={
+          <div data-columns className="flex min-w-0 flex-1 items-start">
+            <div
+              data-resize-middle
+              className="bg-card shadow-card min-w-0 flex-1 rounded-xl border p-4"
+            >
+              <PageAsideSlot.Provider value={asideSlot}>
+                {activeEditor()}
+              </PageAsideSlot.Provider>
+            </div>
+            <div ref={setAsideSlot} className="contents" />
+          </div>
+        }
+      />
 
       <QuestionPickerDialog
         open={picking}
@@ -935,11 +956,66 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   );
 }
 
-/**
- * The builder edits the BANK copy of a question, which is what §7's snapshot
- * model expects: published versions hold their own copy, so a bank edit never
- * reaches a test someone is already sitting.
- */
+function BuilderTitle({
+  title,
+  onChange,
+}: Readonly<{ title: string; onChange: (value: string) => void }>) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
+  useEffect(() => {
+    if (editing) {
+      input.current?.focus();
+      input.current?.select();
+    } else if (returnFocus.current) {
+      returnFocus.current = false;
+      trigger.current?.focus();
+    }
+  }, [editing]);
+  return (
+    <div className="min-w-0 flex-[1_1_320px]">
+      {editing ? (
+        <Input
+          ref={input}
+          value={title}
+          aria-label={t("builder.titleLabel")}
+          className="text-stat h-auto w-full px-2 py-1 font-semibold"
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={() => {
+            const next = title.trim() || t("tests.untitled");
+            if (next !== title) onChange(next);
+            setEditing(false);
+          }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key !== "Enter" && event.key !== "Escape") return;
+            event.preventDefault();
+            returnFocus.current = true;
+            event.currentTarget.blur();
+          }}
+        />
+      ) : (
+        <button
+          ref={trigger}
+          type="button"
+          aria-label={t("builder.titleLabel")}
+          className="group/builder-title hover:bg-hover text-stat hover:border-border relative -ml-2 block w-[calc(100%+8px)] min-w-0 rounded-lg border border-transparent px-2 py-1 text-left font-semibold transition-[background-color,border-color] duration-150 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none"
+          onClick={() => setEditing(true)}
+        >
+          <MarqueeText
+            text={title || t("tests.untitled")}
+            gapPx={48}
+            maskPx={16}
+            className="group-focus-within/builder-title:[&_.qz-marquee-track]:[animation-play-state:paused]! group-hover/builder-title:[&_.qz-marquee-track]:[animation-play-state:paused]!"
+          />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function QuestionPane({
   questionId,
   clearStarterPrompt,

@@ -5,18 +5,17 @@ import { Button } from "@/components/ui/button";
 import type { AutosaveStatus } from "@/features/tests/useAutosave";
 import { formatTime } from "@/lib/i18n/datetime";
 
-/**
- * §8: autosave is reported in words, never as a spinner that leaves the teacher
- * guessing whether it is safe to close the tab.
- */
+/** AutosaveStatusLabel reports pending, acknowledged, stale and failed saves in words. */
 export function AutosaveStatusLabel({
   status,
   onRetry,
   staleLabel,
+  deck = false,
 }: Readonly<{
   status: AutosaveStatus;
   onRetry?: () => void;
   staleLabel?: string;
+  deck?: boolean;
 }>) {
   const { t } = useTranslation();
 
@@ -40,7 +39,15 @@ export function AutosaveStatusLabel({
 
   if (status.kind === "saved") {
     return (
-      <Badge role="status" aria-live="polite">
+      <Badge
+        role="status"
+        aria-live="polite"
+        className={
+          deck
+            ? "text-muted-foreground border-transparent bg-transparent px-0 font-normal"
+            : undefined
+        }
+      >
         <Check aria-hidden="true" />
         {t("builder.saved", { time: formatTime(status.at) })}
       </Badge>

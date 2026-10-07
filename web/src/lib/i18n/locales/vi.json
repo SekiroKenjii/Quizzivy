@@ -739,6 +739,15 @@
     "removeOrphanConfirm": "Xoá đáp án"
   },
   "builder": {
+    "dragInstructions": "Bấm phím cách để nhấc mục, dùng phím mũi tên để chuyển, rồi bấm phím cách để thả hoặc Esc để huỷ.",
+    "dragStarted": "Đã nhấc mục.",
+    "dragOver": "Đã đến vị trí thả.",
+    "dragDropped": "Đã thả mục.",
+    "dragCancelled": "Đã huỷ thao tác kéo.",
+    "staysInBank": "Câu vẫn còn trong ngân hàng.",
+    "outlineWidth": "Độ rộng cấu trúc",
+    "reorderSection": "Kéo để đổi vị trí phần {{title}}",
+    "addQuestionTo": "vào {{title}}",
     "outline": "Cấu trúc",
     "outlineSummary": "{{questions}} câu · {{points}} điểm",
     "sectionSummary": "{{questions}} · {{points}}đ",
