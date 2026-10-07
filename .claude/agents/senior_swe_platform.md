@@ -19,8 +19,11 @@ how the team works.
 - CI: `.github/workflows/`, `scripts/ci/plan.mjs` and `docs/setup/ci.md`. A test that
   reads a file outside its job's tree needs that path in the set's `include`, in the
   same PR. Never make a test skip when a file is missing.
-- Migration coordination: the highest number on the integration branch, the number each
-  new file takes at merge, goose up/down/up on a database created for the purpose.
+- Migration coordination: the highest number on the integration branch and on `develop`,
+  the number each new file takes before its PR runs CI (goose refuses `NNNNN_`), the
+  renumbering when another PR merges first, and goose up/down/up on a database created for
+  the purpose. Production runs `cmd/migrate`, which calls `goose.Up` without allowing
+  missing versions, so a number applied out of order stops a deploy.
 - Code generation (`make gen`, `make gen-check`), dependency manifests and lockfiles,
   shared fixtures, compose services, the Word-import worker and storage
   (`docs/setup/word-import-worker.md`, `docs/setup/r2.md`).

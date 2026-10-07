@@ -31,7 +31,8 @@ supported places, highest precedence first:
 2. The definition's frontmatter, which pins the full model id and the effort.
 
 So a launch from a definition passes no `model`, and the full id in the frontmatter
-decides. A launch without a definition passes the alias and the effort explicitly, and
+decides. The ids in the roster are the ones requested; the ledger records what each
+launch actually resolved to. A launch without a definition passes the alias and the effort explicitly, and
 the resolved model is checked afterwards.
 
 The resolved model is checked from runtime metadata, never from what an agent says about
@@ -124,8 +125,10 @@ Repository state:        working directory, branch, base revision
   the Tech Lead first.
 - **Coordinated changes:** `api/openapi.yaml` and the generated code, migrations and
   their numbers, shared interfaces, `go.mod` and `pnpm-lock.yaml`, CI configuration, shared
-  fixtures, and the locale files. The Tech Lead serializes them. Migration numbers are
-  assigned at merge from the highest number on the integration branch.
+  fixtures, and the locale files (`en.json`, `vi.json`). The Tech Lead serializes them. A
+  migration is numbered before its PR runs CI, because goose refuses `NNNNN_`: the next
+  number after the highest on the integration branch, renumbered by its owner if another
+  PR merges first. `senior_swe_platform` keeps the register.
 - **Isolation.** Parallel implementers work in separate git worktrees (`isolation:
   "worktree"`), and git operations on a shared checkout are serialized. Worktrees do not
   isolate the database server, MinIO, or the ports 5173, 5175, 4173 and 8080: each test run

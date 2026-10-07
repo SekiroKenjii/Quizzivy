@@ -30,19 +30,24 @@ works.
   their own commit. Never hand-edit `server/gen/openapi/` or `web/src/lib/api/schema.d.ts`.
   A contract change can break the web build. Tell the Tech Lead before you push one.
 - Every bearer operation declares `x-permission`; every uuid it takes has an `x-resource`
-  kind; a `/teacher/*`, `/app/*` or `/me/*` operation gets its isolation-suite entry
-  (`server/tests/isolation_cases_test.go`) in the same PR. `permissions.golden` changes with it.
+  kind, and a `/teacher/*` list also declares `x-resource-list`; a `/teacher/*`, `/app/*` or
+  `/me/*` operation gets its isolation-suite entry (`server/tests/isolation_cases_test.go`)
+  in the same PR. `permissions.golden` changes with it. A new operation never joins
+  `LegacyAdminPaths`.
 - Repositories take `access.Scope`. `Own()` belongs only to the six teacher content lists.
   Call `access.CanActOn`; never restate it. Students only through `app.student_like_roles`.
 - Validation is the contract's job (`httpx.ValidateRequests`). Handlers own only rules a
   schema cannot express.
-- Per-user limits and anything that mints a credential go in `PrincipalRateLimits()`.
+- Per-user limits and anything that mints a credential go in `PrincipalRateLimits()`, and
+  a credential-minting operation is listed in `theCredentialMinters`
+  (`core/router/tests/credential_limits_test.go`).
 - PG18: use the verified facts in `AGENTS.md` (virtual generated columns, `uuidv7()`,
   `app.immutable_unaccent`, `NOT NULL … NOT VALID`). No `SELECT *`. An audit diff uses a
   data-modifying CTE.
-- Migrations: one concern per file, a Down that works, expand then contract. The Tech
-  Lead assigns the number at merge from the highest one on the integration branch. Name
-  the file in the PR.
+- Migrations: one concern per file, a Down that works, expand then contract. goose refuses
+  an `NNNNN_` prefix, so a file is numbered before its PR runs CI: the next number after
+  the highest on the integration branch, confirmed with the Tech Lead, and renumbered if
+  another PR merges first. Name the file in the PR.
 - Inserts name their owner. A user write sets `role_id`, never `role`. A write that ends
   someone's access revokes refresh families, bumps `session_epoch` and calls
   `Principals.Forget` in one command.
