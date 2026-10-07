@@ -319,7 +319,11 @@ export function OutlineTree({
                     id={`section:${key}`}
                     sectionIndex={sectionIndex}
                     dragging={dragging !== null}
-                    drop={dropPosition(dropTarget, `section:${key}`)}
+                    drop={
+                      dropTarget?.id === `head:section:${key}`
+                        ? "before"
+                        : dropPosition(dropTarget, `section:${key}`)
+                    }
                     title={section.title}
                     summary={
                       settled

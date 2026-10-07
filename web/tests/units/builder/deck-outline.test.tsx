@@ -277,3 +277,121 @@ describe("an unresolved shared-context unit", () => {
     expect(screen.getAllByText("Đang tải…")).toHaveLength(2);
   });
 });
+
+it("marks the collapsed header before a whole-group drop and writes its ordered unit only on drop", async () => {
+  const { emptyGroup, newGroupQuestion } =
+    await import("@/features/question-groups/model");
+  const i18n = (await import("@/lib/i18n")).default;
+  const bundle = emptyGroup("Whole group");
+  const first = { ...newGroupQuestion(i18n.t), id: "member-first" };
+  const second = { ...newGroupQuestion(i18n.t), id: "member-second" };
+  first.input.prompt = "First member";
+  second.input.prompt = "Second member";
+  bundle.questions = [first, second];
+  bundle.group.members = [
+    { questionId: first.id, optionOrder: "shuffle" },
+    { questionId: second.id, optionOrder: "shuffle" },
+  ];
+  const start: OutlineSection[] = [
+    {
+      ...initial[0]!,
+      questionIds: [],
+      units: [{ kind: "group", id: bundle.group.id }],
+    },
+    initial[1]!,
+  ];
+  const changed = vi.fn();
+  function Harness() {
+    const [sections, setSections] = useState(start);
+    return (
+      <OutlineTree
+        sections={sections}
+        questions={questions}
+        groups={new Map([[bundle.group.id, bundle]])}
+        selectedId={null}
+        creating={false}
+        onSelect={vi.fn()}
+        onCreateQuestion={vi.fn()}
+        onPickFromBank={vi.fn()}
+        onAddSection={vi.fn()}
+        onChange={(next) => {
+          changed(next);
+          setSections(next);
+        }}
+      />
+    );
+  }
+  const { container } = render(<Harness />);
+  const user = userEvent.setup();
+  const destination = screen.getByRole("button", {
+    name: /^A very long listening section /,
+  });
+  await user.click(destination);
+  expect(destination).toHaveAttribute("aria-expanded", "false");
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+    this: Element,
+  ) {
+    const section = this.closest("[data-outline-section]");
+    const index = [...document.querySelectorAll("[data-outline-section]")].indexOf(
+      section!,
+    );
+    const top =
+      Math.max(0, index) * 120 + (this.closest("[data-outline-group]") ? 40 : 0);
+    const height = this.parentElement?.hasAttribute("data-outline-section") ? 100 : 32;
+    return {
+      width: 300,
+      height,
+      top,
+      left: 0,
+      right: 300,
+      bottom: top + height,
+      x: 0,
+      y: top,
+      toJSON: () => ({}),
+    };
+  });
+  const grip = screen.getByRole("button", { name: "Kéo nhóm Whole group" });
+  grip.focus();
+  await user.keyboard(" ");
+  await waitFor(() => expect(grip).toHaveAttribute("aria-pressed", "true"));
+  await user.keyboard("{ArrowDown}");
+  await waitFor(() =>
+    expect(screen.getByText("Đã đến vị trí thả.")).toBeInTheDocument(),
+  );
+  expect(changed).not.toHaveBeenCalled();
+  const targetSection = container.querySelector<HTMLElement>(
+    '[data-outline-section="s2"]',
+  )!;
+  await waitFor(() =>
+    expect(
+      targetSection.querySelector('[data-outline-drop="before"]'),
+    ).toBeInTheDocument(),
+  );
+  expect(targetSection.querySelector('[data-outline-drop="before"]')).toHaveClass(
+    "h-0.5",
+    "top-0",
+  );
+  expect(changed).not.toHaveBeenCalled();
+  await user.keyboard(" ");
+  await waitFor(() => expect(changed).toHaveBeenCalledOnce());
+  const result = changed.mock.calls[0]![0] as OutlineSection[];
+  expect(result[0]!.units).toEqual([]);
+  expect(result[1]!.units).toEqual([
+    { kind: "group", id: bundle.group.id },
+    { kind: "question", id: "q2" },
+  ]);
+  expect(result.map((section) => section.clientId)).toEqual(
+    start.map((section) => section.clientId),
+  );
+  expect(
+    container.querySelectorAll(`[data-outline-group="${bundle.group.id}"]`),
+  ).toHaveLength(1);
+  expect(destination).toHaveAttribute("aria-expanded", "true");
+  const members = within(targetSection).getAllByRole("button", {
+    name: /First member|Second member/,
+  });
+  expect(members.map((member) => member.textContent)).toEqual([
+    "1First member",
+    "2Second member",
+  ]);
+});
