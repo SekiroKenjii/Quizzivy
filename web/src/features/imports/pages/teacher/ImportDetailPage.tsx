@@ -252,7 +252,10 @@ function Panel({
     </>
   );
   return (
-    <Card className="gap-3.5 py-5">
+    <Card
+      role={groupHeading === "failed" ? "alert" : undefined}
+      className="gap-3.5 py-5"
+    >
       <CardHeader className={cn("px-5", groupHeading && "gap-3.5")}>
         {status}
         {groupHeading ? (
