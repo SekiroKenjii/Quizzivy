@@ -2369,7 +2369,7 @@
       "committingTitle": "Creating the draft test",
       "committingBody": "This usually takes a few seconds. The page updates by itself.",
       "readyTitle": "Ready for review",
-      "readyBody": "The exam has been rebuilt from the document. Review what must be fixed or confirmed before creating the draft.",
+      "readyBody": "Nothing is saved as a test yet. Check the items below first.",
       "continueReview": "Continue review",
       "committedTitle": "Draft test created",
       "committedBody": "The draft test has been created and is in your tests. Open it in the builder to view and edit it.",
