@@ -718,6 +718,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teacher/imports/{id}/sources/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store a private pasted-text exam source
+         * @description Plain text only, normalized to NFC and stored as pasted-text.txt with role exam.
+         *     At most 100000 Unicode code points and 20000 nonblank lines; no NUL.
+         *     The default raw JSON body limit applies independently of text length.
+         *     Identical normalized text with the same uploadId and expectedRevision replays
+         *     the original immutable receipt; changed content conflicts. Quotas, intake
+         *     capacity, ownership and retention are shared with file uploads.
+         */
+        post: operations["pasteImportSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/imports/{id}/sources/{sourceId}/download": {
         parameters: {
             query?: never;
@@ -2492,12 +2519,25 @@ export interface components {
             role: components["schemas"]["ImportSourceRole"];
             filename: string;
             /** @enum {string} */
-            format: "docx" | "doc" | "pdf";
+            format: "docx" | "doc" | "pdf" | "text";
+            characters?: number;
             /** Format: int64 */
             bytes: number;
             sha256: string;
             uploadedBy: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];
+        } & ({
+            /** @enum {unknown} */
+            format?: "text";
+        } | {
+            /** @enum {unknown} */
+            format?: "docx" | "doc" | "pdf";
+        });
+        PasteImportSource: {
+            uploadId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            expectedRevision: number;
+            text: string;
         };
         /**
          * @description Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
@@ -2657,6 +2697,7 @@ export interface components {
             idleDays: number;
         };
         ImportLimits: {
+            pasteMaxCharacters: number;
             /** Format: int64 */
             maxBytes: number;
             /** @description Accepted file extensions; doc appears only when legacy conversion is enabled. */
@@ -6505,6 +6546,95 @@ export interface operations {
             };
             /** @description IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    pasteImportSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasteImportSource"];
+            };
+        };
+        responses: {
+            /** @description Stored and associated with one source revision. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportUploadReceipt"];
+                };
+            };
+            /** @description Malformed text request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_TOO_LARGE — normalized character or nonblank line limit exceeded. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — invalid UTF-8, NUL or empty text. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Private source intake is not configured. */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };

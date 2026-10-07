@@ -31,6 +31,9 @@ func (p ImportProcessing) NormalizationVersion() string { return "rendition-v1:"
 // ExtractionVersion names the extractor and projection for a source format, so
 // stage reuse never mixes a PDF's output with a Word document's.
 func (p ImportProcessing) ExtractionVersion(format string) string {
+	if format == textFormat {
+		return TextEvidenceVersion + ":projection-v1"
+	}
 	if format == pdfFormat {
 		return pdftext.Version + ":projection-v1"
 	}
