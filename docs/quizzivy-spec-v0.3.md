@@ -1,7 +1,37 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.56 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.58 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.57**
+
+R4, account preference adoption (T-R4.7):
+
+- Server-authoritative account preferences, reactive date displays and same-page
+  actor/cookie/cleanup ordering are complete. Teacher wall-clock inputs remain
+  fixed-HCM until T-R4.43; full profile controls and photo operations remain
+  T-R4.43 and T-R4.8. This task completion is not a production release.
+
+**Changes since v0.56**
+
+R4, private caller profile and preferences (T-R4.7, staged):
+
+- §7, §15 Public users gain optional display name/avatar; only the caller gains
+  phone, locale, zone and preferences. Self profile PATCH preserves omitted keys
+  and supports explicit clearing of display name/phone. Preferences merge top-level
+  keys with bounded, closed payloads and atomic audits.
+- §8 The Dashboard zone port now reads the caller's stored valid zone, defaulting
+  only a stored NULL to Vietnam time. §13 records migrations00085/00086.
+- Frontend account preference adoption, actor/cookie ordering and reactive date
+  display remain the staged companion's acceptance gates. Existing datetime
+  input parsing stays fixed to Vietnam time; full profile controls/photo follow
+  T-R4.43/T-R4.8. No completed frontend or release is claimed by this record.
+
+R4, private pasted-text sources (T-R4.55):
+
+- §16 Adds plaintext exam intake, source character counts and text evidence using
+  the existing private upload lifecycle. Recognition conventions and paste editing
+  remain separate T-R4.56 and T-R4.57.
 
 **Changes since v0.55**
 
@@ -740,6 +770,18 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   - `learnsOnly` (the student app is the user's only workspace) keeps v0.7.0's rules on `/join` and the Settings role label (§6.2).
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`.
+- The frontend applies accepted server locale/theme/display zone/larger
+  text over browser mirrors, with omitted defaults `vi`/`light`/`Asia/Ho_Chi_Minh`/false
+  and no default-materialization PATCH. Anonymous choices remain local. Authenticated
+  controls preview pending changes, restore acknowledged presentation on failure and
+  retain an explicit Retry. A browser-unsupported account zone retains its exact
+  server value, reports compatibility and temporarily presents Vietnam time without
+  saving that fallback. Actor departure invalidates stale asynchronous effects.
+- The frontend orders refresh/login/Google-login/logout cookie sends and global
+  draft cleanup before replacement admission. Refresh remains single-flight. A20s
+  transport/admission UI deadline and10s cleanup deadline show pending status without
+  abandoning raw ownership; late timed-out login never auto-admits. Permanent hangs
+  may keep admission closed. Cross-tab ordering is not promised by this design.
 - Password reset in v1: a holder of `people.students.reset_password` sets a temporary password from the student detail page, under the shared-student rule below. No self-service email flow (§17.1).
 - New passwords have three rules:
   - at least 8 characters;
@@ -851,6 +893,8 @@ type Role = 'admin' | 'student';        // legacy: 'student' for a student-like 
 
 interface User {
   id; email; fullName; role: Role;
+  displayName?: string;
+  avatarUrl?: string;
   hasPassword: boolean;                 // false for Google-only accounts
   linkedProviders: ('google')[];
   mustChangePassword: boolean;
@@ -863,6 +907,23 @@ type Workspace = 'teacher' | 'admin' | 'app';
 interface CurrentUser extends User {    // the signed-in user only; a payload about anyone else carries User
   permissions: PermissionKey[];         // the role's effective keys, in catalogue order
   workspaces: Workspace[];              // derived from permissions; the web guards read these (§5.4)
+  phone?: string;
+  locale?: 'vi' | 'en';
+  timeZone?: string;
+  preferences?: UserPreferences;
+}
+
+interface UserPreferences {
+  theme?: 'light' | 'dark' | 'system';
+  compactTables?: boolean;
+  largerTestText?: boolean;
+  assignmentDefaults?: {
+    durationMinutes?: number;
+    shuffleQuestions?: boolean;
+    showScore?: boolean;
+    blockCopyPaste?: boolean;
+    requireFullscreen?: boolean;
+  };
 }
 
 interface Class {
@@ -1219,9 +1280,13 @@ notifications. The grading count is null and its query is not run without
 `teaching.grading`; live assignments is currently always a number. Both home
 operations use `.Own()` even for an Admin, while `listAttempts` keeps its wider
 scope. The application supplies the new queries' clock and resolves the IANA
-calendar zone through `ports.Zones`; the default adapter and a nil port use
-`Asia/Ho_Chi_Minh` until T-R4.7 wires the profile zone. Legacy readings retain
-their SQL clocks. An absent notifications summary port returns 501.
+calendar zone through `ports.Zones`; T-R4.7 wires the identity effective-zone
+query. Only a stored NULL defaults to `Asia/Ho_Chi_Minh`; an invalid stored zone
+or ineligible account propagates an error. A nil port retains the default for
+existing callers. Frontend date displays react to the caller's accepted display
+zone; existing local datetime inputs and their rules preview remain fixed-HCM
+until T-R4.43. Legacy readings retain their
+SQL clocks. An absent notifications summary port returns 501.
 
 The grading queue requires `teaching.grading` and preserves the existing assignment
 and paper scope. It includes saved, unmarked manual answers in submitted or timed-out
@@ -1599,7 +1664,7 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the strip's 34px squares, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the count button and the question sheet's squares are 44px. An option row is at least 52px high.
 - **Dialogs** use the deck's frame: 440px (420px for the "you left the test" alert) or the width less 24px, no close button, the actions at the right; the alert has one button, as wide as the dialog. A dialog with a field sits 12% from the top below 768, so the keyboard does not cover it (DG-103).
 - **The timer** is a pill centred in the header's free space. Each digit sits in a cell one zero wide, because Be Vietnam Pro has no tabular figures and the pill would otherwise change width every second. Under five minutes it takes the danger tones.
-- **Text in a test.** The passage is 16px on a 1.75 line and cannot be selected, the prompt 17px, an option 15px. "Chữ lớn hơn khi làm bài" raises them to 18, 19 and 17px; the choice is stored in this browser until R4's preferences.
+- **Text in a test.** The passage is 16px on a 1.75 line and cannot be selected, the prompt 17px, an option 15px. "Chữ lớn hơn khi làm bài" raises them to 18, 19 and 17px; the signed-in choice is an account preference mirrored in this browser; anonymous choices remain local.
 - **Content keeps a light paper surface in dark mode** (DG-35): images and rich tables in the engine and on the result.
 
 The rules below carry over from v0.43, restated in the deck's tokens, except that the shadow and radius limits now follow the deck. Typography, motion, the front door, dark mode and the lime accent are new in R1.
@@ -1695,6 +1760,16 @@ CREATE TABLE app.users (
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX users_email_lower_key ON app.users (lower(email));
+
+ALTER TABLE app.users
+  ADD COLUMN display_name text CHECK (char_length(btrim(display_name)) BETWEEN 1 AND 80),
+  ADD COLUMN phone text CHECK (phone ~ '^[0-9+ ]{6,20}$'),
+  ADD COLUMN avatar_key text,
+  ADD COLUMN locale text CHECK (locale IN ('vi', 'en')),
+  ADD COLUMN time_zone text CHECK (char_length(time_zone) BETWEEN 1 AND 64),
+  ADD COLUMN preferences jsonb NOT NULL DEFAULT '{}'::jsonb
+    CHECK (jsonb_typeof(preferences) = 'object')
+    CHECK (octet_length(preferences::text) <= 8192);
 
 CREATE TABLE app.user_identities (
   id               uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -2054,7 +2129,12 @@ POST   /auth/refresh                    (cookie) → {accessToken}
 # authenticated
 POST   /auth/logout
 GET    /auth/me                         → CurrentUser
-PATCH  /auth/me                         {fullName} → CurrentUser
+PATCH  /auth/me                         {fullName?,displayName?|null,phone?|null,locale?,timeZone?}
+                                          → CurrentUser; at least one supplied field;
+                                          omitted fields unchanged; unknown zone400 VALIDATION_FAILED
+PATCH  /me/preferences                 top-level UserPreferences merge → UserPreferences;
+                                          nested assignmentDefaults replaces its key, {} no-op;
+                                          raw/stored UTF8 cap8192 bytes,400 on excess
 POST   /auth/change-password            400 VALIDATION_FAILED on the rules (§5.4), 400 PASSWORD_UNCHANGED
 POST   /auth/google/link                link Google to current account → CurrentUser
 DELETE /auth/google/link                rejected if it would leave no login method
@@ -2133,9 +2213,15 @@ GET    /app/attempts/:id/result         → Attempt + review policy + sections +
 GET    /app/media/:assetId/url          → short-lived signed URL
 ```
 
-**Prefixes.** `/teacher/*` holds the teaching operations, `/admin/*` the platform's, `/app/*` the student's and `/auth/*` the caller's own session and account. Every operation that requires a bearer token declares its permission as `x-permission` (§5). Under `/teacher/*` and `/app/*`, an id the caller does not reach answers exactly as a missing one does. The v0.7.0 paths under `/admin/*` that moved still answer until v0.9.1 (T-R3.3): the server rewrites each to its new path (`DELETE /admin/students/:id` becomes `DELETE /admin/users/:id`) and logs `legacy_admin_path`.
+**Prefixes.** `/teacher/*` holds the teaching operations, `/admin/*` the platform's, `/app/*` the student's and `/auth/*` the caller's own session and account; `/me/*` accepts only the `self` requirement. Every operation that requires a bearer token declares its permission as `x-permission` (§5). Under `/teacher/*` and `/app/*`, an id the caller does not reach answers exactly as a missing one does. The v0.7.0 paths under `/admin/*` that moved still answer until v0.9.1 (T-R3.3): the server rewrites each to its new path (`DELETE /admin/students/:id` becomes `DELETE /admin/users/:id`) and logs `legacy_admin_path`.
 
-**`CurrentUser`** is `User`'s fields plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.
+**`User`** adds only optional `displayName` and `avatarUrl`; it never carries
+phone, locale, timeZone or preferences. Student class/intro/join-preview teacher
+names use the chosen display name, falling back to full name, without a new
+private field. Avatar operations remain T-R4.8.
+
+**`CurrentUser`** adds optional private `phone`, `locale`, `timeZone` and
+`preferences` to `User`'s fields, plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.
 
 `deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`, `deleteQuestionGroup`) answer `RESOURCE_REFERENCED` without details.
 
@@ -2228,8 +2314,9 @@ toConfirm}|null`, derived from the exact current review body. Machine completion
 review save and candidate adoption update counts with that body; an unadopted
 candidate leaves current counts intact. An untouched historical draft remains
 unknown, while computed zero is an exact zero. Facets, pagination and hydrated
-items share one repeatable-read snapshot. Pasted-source names and character
-counts still require T-R4.55's text metadata.
+items share one repeatable-read snapshot. Text sources carry their normalized
+character count; filename search excludes only their stored `pasted-text.txt` name,
+while title and companion-file search remain available.
 
 The R4 upload page keeps one source-intake instance mounted across
 `?source=paste` changes, preserving selected files and the typed title. T-R4.57
@@ -2238,6 +2325,25 @@ paste mode explicitly reports its availability and cannot start an import.
 File mode retains automatic recognition, actual limits and retention, the privacy
 notice and a sticky Cancel/Start footer. Leaving during upload quietly stops
 intake, as before. Neither page infers provider policy from capability data.
+
+`POST /teacher/imports/{id}/sources/text` accepts a closed JSON body with
+`uploadId`, `expectedRevision` and plaintext `text`, under `content.tests.write`.
+It normalizes NFC and stores a private `pasted-text.txt` exam source using the
+file upload's ownership, replay, revision, quota, intake-capacity and retention
+rules. `ImportLimits.pasteMaxCharacters` is 100000; file `formats` stay unchanged.
+The request schema rejects more than 100000 sent code points with 400. The command
+rejects NUL or invalid UTF-8 with 415, and more than 100000 normalized code points
+or 20000 nonblank lines with 413. Invalid UTF-8 is a command boundary assertion;
+JSON decoding can replace malformed wire bytes. The default raw-body limit still
+applies. A multipart `.txt` file remains unsupported.
+
+Text extraction removes an initial BOM, normalizes line breaks and NFC, and emits
+plain paragraph blocks with original line-number IDs, no formatting spans and
+`TEXT_MARKS_UNAVAILABLE`. The private original and existing download, source view
+and retention operations remain available. `word-pipeline-v3` fences these runs
+from v2 workers; recognition remains `rules-v2` until T-R4.56. A companion answer-key
+file uses the existing upload operation. T-R4.55 adds the typed client operation,
+not the paste editor or T-R4.56 recognition/count corpus; T-R4.57 supplies that UI.
 
 `/teacher/imports` creates an empty record idempotently and lists history by status,
 title or current filename. A source upload accepts exactly one native `.docx`, with

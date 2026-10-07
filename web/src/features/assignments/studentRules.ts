@@ -1,7 +1,12 @@
 import type { TFunction } from "i18next";
 import type { IntegrityPolicy, ReviewPolicy } from "@/features/assignments/api";
 import type { Locale } from "@/lib/i18n";
-import { dayDate, formatTime, sameAppDay } from "@/lib/i18n/datetime";
+import {
+  dayDate,
+  formatTime,
+  getDisplayTimeZone,
+  sameAppDay,
+} from "@/lib/i18n/datetime";
 
 /**
  * RulesInput is what the sentences are generated from: the stored policies
@@ -33,10 +38,10 @@ export interface Rule {
   readonly text: string;
 }
 
-function moment(at: string | Date, t: TFunction, locale: Locale): string {
+function moment(at: string | Date, t: TFunction, locale: Locale, zone: string): string {
   return t("assignments.rules.moment", {
-    time: formatTime(at),
-    date: dayDate(at, locale),
+    time: formatTime(at, locale, zone),
+    date: dayDate(at, locale, zone),
   });
 }
 
@@ -45,21 +50,32 @@ function availability(
   t: TFunction,
   locale: Locale,
   now: Date,
+  zone: string,
 ): string {
   const { opensAt, closesAt } = window;
   if (!window.upcoming)
-    return sameAppDay(closesAt, now)
-      ? t("assignments.rules.availableUntilToday", { time: formatTime(closesAt) })
-      : t("assignments.rules.availableUntil", { when: moment(closesAt, t, locale) });
-  if (!sameAppDay(opensAt, closesAt))
+    return sameAppDay(closesAt, now, zone)
+      ? t("assignments.rules.availableUntilToday", {
+          time: formatTime(closesAt, locale, zone),
+        })
+      : t("assignments.rules.availableUntil", {
+          when: moment(closesAt, t, locale, zone),
+        });
+  if (!sameAppDay(opensAt, closesAt, zone))
     return t("assignments.rules.opens", {
-      from: moment(opensAt, t, locale),
-      to: moment(closesAt, t, locale),
+      from: moment(opensAt, t, locale, zone),
+      to: moment(closesAt, t, locale, zone),
     });
-  const hours = { from: formatTime(opensAt), to: formatTime(closesAt) };
-  return sameAppDay(opensAt, now)
+  const hours = {
+    from: formatTime(opensAt, locale, zone),
+    to: formatTime(closesAt, locale, zone),
+  };
+  return sameAppDay(opensAt, now, zone)
     ? t("assignments.rules.opensToday", hours)
-    : t("assignments.rules.opensSameDay", { ...hours, date: dayDate(opensAt, locale) });
+    : t("assignments.rules.opensSameDay", {
+        ...hours,
+        date: dayDate(opensAt, locale, zone),
+      });
 }
 
 function leaving(integrity: IntegrityPolicy, t: TFunction): string {
@@ -79,22 +95,13 @@ function score(review: ReviewPolicy, t: TFunction): string {
     : t("assignments.rules.score.only");
 }
 
-/**
- * studentRules writes "Before you start" from the stored policy and dates,
- * and from nothing else: every sentence is true of what the server and the
- * engine do with that value. In order: when the test is available, the timer,
- * fullscreen, copy and paste, leaving the test, audio plays, and what is seen
- * after submitting. A sentence appears only when its policy asks for it,
- * except the timer and leaving, which always apply: leaving is recorded even
- * when it has no limit. The teacher's preview and the student's intro call
- * this one function, each with its own inputs, so a sentence cannot differ
- * between them for the same input. `now` decides whether a date is today.
- */
+/** studentRules generates policy sentences using an explicit display zone while preserving engine behavior. */
 export function studentRules(
   input: RulesInput,
   t: TFunction,
   locale: Locale,
   now: Date,
+  zone = getDisplayTimeZone(),
 ): Rule[] {
   const { review, integrity, audio } = input;
   const rules: Rule[] = [];
@@ -102,7 +109,11 @@ export function studentRules(
     rules.push({ id, kind, text });
 
   if (input.window)
-    add("availability", "availability", availability(input.window, t, locale, now));
+    add(
+      "availability",
+      "availability",
+      availability(input.window, t, locale, now, zone),
+    );
   add(
     "timer",
     "timer",

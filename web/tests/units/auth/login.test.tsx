@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -20,7 +21,13 @@ function renderLogin(initialEntry = "/login") {
     { path: "/join/:code", element: <p>join page</p> },
   ];
   const router = createMemoryRouter(routes, { initialEntries: [initialEntry] });
-  render(<RouterProvider router={router} />);
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
   return router;
 }
 

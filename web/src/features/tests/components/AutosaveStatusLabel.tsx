@@ -3,7 +3,7 @@ import { Check, CircleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { AutosaveStatus } from "@/features/tests/useAutosave";
-import { formatTime } from "@/lib/i18n/datetime";
+import { formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 
 /** AutosaveStatusLabel reports pending, acknowledged, stale and failed saves in words. */
 export function AutosaveStatusLabel({
@@ -17,6 +17,7 @@ export function AutosaveStatusLabel({
   staleLabel?: string;
   deck?: boolean;
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
 
   if (status.kind === "idle") return null;

@@ -4,7 +4,7 @@ import { Shield, SlidersHorizontal, UserRound } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { SignOutButton } from "@/features/auth/SignOutButton";
 import { learnsOnly, useCan } from "@/features/auth/permissions";
-import { formatDate } from "@/lib/i18n/datetime";
+import { formatDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -25,6 +25,7 @@ const sections = [
 export function SettingsPage({
   base,
 }: Readonly<{ base: "/teacher/settings" | "/app/settings" }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const { section } = useParams();
   const navigate = useNavigate();

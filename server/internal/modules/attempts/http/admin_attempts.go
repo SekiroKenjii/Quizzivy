@@ -561,6 +561,7 @@ func toAPIUserFromAccount(st identitydomain.Account) openapi.User {
 		Id:                 httpapi.ParseUUID(st.ID),
 		Email:              openapi_types.Email(st.Email),
 		FullName:           st.FullName,
+		DisplayName:        st.DisplayName,
 		Role:               openapi.Role(st.Role),
 		HasPassword:        st.HasPassword,
 		LinkedProviders:    providers,

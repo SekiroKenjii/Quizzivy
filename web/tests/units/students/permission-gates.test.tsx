@@ -76,7 +76,7 @@ afterEach(() => {
 });
 
 function renderPageAs(signedIn: components["schemas"]["CurrentUser"]) {
-  useAuthStore.getState().setUser(signedIn);
+  useAuthStore.getState().setSession("token", signedIn);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [{ path: "/teacher/students", element: <StudentsListPage /> }],

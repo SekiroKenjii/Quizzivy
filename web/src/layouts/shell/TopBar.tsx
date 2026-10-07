@@ -1,3 +1,7 @@
+import {
+  chooseAccountPreference,
+  useAccountPreferenceStatus,
+} from "@/features/auth/accountPreferences";
 import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { Menu, Moon, PanelLeft, Search, Sun } from "lucide-react";
@@ -6,7 +10,7 @@ import { commandKeyLabel } from "@/features/search/useCommandPalette";
 import { Breadcrumbs } from "@/layouts/shell/Breadcrumbs";
 import type { PageCrumb } from "@/layouts/shell/crumbs";
 import { SIDEBAR_ID } from "@/layouts/shell/Sidebar";
-import { useResolvedTheme, writeThemePreference } from "@/lib/theme";
+import { useResolvedTheme } from "@/lib/theme";
 
 const KEY_CAP =
   "bg-muted text-muted-fg in-data-[scale=deck]:text-2xs h-auto min-w-0 border-b leading-3.5";
@@ -35,6 +39,7 @@ export function TopBar({
 }>) {
   const { t } = useTranslation();
   const theme = useResolvedTheme();
+  const preferenceStatus = useAccountPreferenceStatus();
   const dark = theme === "dark";
   const ToggleIcon = drawer ? Menu : PanelLeft;
   const ThemeIcon = dark ? Sun : Moon;
@@ -75,7 +80,10 @@ export function TopBar({
         </button>
         <button
           type="button"
-          onClick={() => writeThemePreference(dark ? "light" : "dark")}
+          disabled={preferenceStatus.phase === "saving"}
+          onClick={() =>
+            void chooseAccountPreference({ theme: dark ? "light" : "dark" })
+          }
           aria-label={dark ? t("common.lightMode") : t("common.darkMode")}
           className="hover:bg-hover grid size-8.5 flex-none place-items-center rounded-md"
         >

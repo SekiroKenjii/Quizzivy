@@ -18,6 +18,9 @@ import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
 import { adminUser, teacherUser } from "@tests/support/fixtures";
 import { viewport } from "@tests/support/viewport";
+import { http } from "msw";
+import { server } from "@tests/support/server";
+import { contractJson } from "@tests/support/contractResponse";
 import {
   crumbed,
   summaryBody,
@@ -627,16 +630,35 @@ describe("the page's frame", () => {
 
 describe("the top bar", () => {
   it("switches the theme and remembers it", async () => {
+    const saved: unknown[] = [];
+    server.use(
+      http.patch("http://localhost:8080/me/preferences", async ({ request }) => {
+        const body = (await request.json()) as { theme: "light" | "dark" };
+        saved.push(body);
+        return contractJson("/me/preferences", "patch", 200, {
+          ...useAuthStore.getState().user?.preferences,
+          ...body,
+        });
+      }),
+    );
     const user = userEvent.setup();
     serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     await screen.findByRole("main");
 
     await user.click(screen.getByRole("button", { name: "Chế độ tối" }));
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("dark"),
+    );
+    expect(saved).toEqual([{ theme: "dark" }]);
     expect(document.documentElement).toHaveClass("dark");
     expect(localStorage.getItem("quizzivy.theme")).toBe("dark");
 
     await user.click(screen.getByRole("button", { name: "Chế độ sáng" }));
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("light"),
+    );
+    expect(saved).toEqual([{ theme: "dark" }, { theme: "light" }]);
     expect(document.documentElement).not.toHaveClass("dark");
     expect(localStorage.getItem("quizzivy.theme")).toBe("light");
   });
@@ -644,7 +666,10 @@ describe("the top bar", () => {
   it("stays dark under a stored dark theme, with the mark drawn for it", async () => {
     writeThemePreference("dark");
     serveSummary(QUIET);
-    renderShell("/teacher", [home()]);
+    renderShell("/teacher", [home()], {
+      ...teacherUser,
+      preferences: { theme: "dark" },
+    });
     await screen.findByRole("main");
 
     expect(document.documentElement).toHaveClass("dark");

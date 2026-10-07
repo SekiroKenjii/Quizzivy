@@ -159,17 +159,12 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Rename yourself
-         * @description The one thing an account may change about itself, and the only write
-         *     behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
-         *
-         *     The name is the account's own; the email is not. An address is issued
-         *     by the teacher or arrives from Google, it is the login, and moving it
-         *     would move who the account is — so it stays read-only here and only
-         *     `PATCH /teacher/students/{id}` can change it. Role, password and provider
-         *     links each have their own endpoint for the same reason.
-         *
-         *     Bounds match `users_full_name_check` and createStudent.
+         * Update your profile
+         * @description Updates only supplied profile fields. Omission preserves a field;
+         *     null clears displayName or phone. Names are trimmed, while phone
+         *     keeps the literal accepted pattern. timeZone must be a valid stable
+         *     IANA zone or UTC; blank and Local are refused. Email, role, password,
+         *     provider links and photo changes use their separate operations.
          */
         patch: operations["updateCurrentUser"];
         trace?: never;
@@ -712,6 +707,33 @@ export interface paths {
          *     Source bytes and storage keys never enter ordinary logs or student payloads.
          */
         post: operations["uploadImportSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/imports/{id}/sources/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store a private pasted-text exam source
+         * @description Plain text only, normalized to NFC and stored as pasted-text.txt with role exam.
+         *     At most 100000 Unicode code points and 20000 nonblank lines; no NUL.
+         *     The default raw JSON body limit applies independently of text length.
+         *     Identical normalized text with the same uploadId and expectedRevision replays
+         *     the original immutable receipt; changed content conflicts. Quotas, intake
+         *     capacity, ownership and retention are shared with file uploads.
+         */
+        post: operations["pasteImportSource"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2198,6 +2220,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update your stored preferences
+         * @description Merges supplied top-level keys into the caller's stored preferences;
+         *     assignmentDefaults replaces that whole nested object. False is a
+         *     supplied value and an empty object is a no-op. Null and unknown keys
+         *     are refused. Raw request bytes and the normalized merged JSONB object
+         *     each have an inclusive 8192-byte cap; exceeding either answers
+         *     400 VALIDATION_FAILED after the existing authentication gates.
+         */
+        patch: operations["updatePreferences"];
+        trace?: never;
+    };
     "/me/summary": {
         parameters: {
             query?: never;
@@ -2492,12 +2539,25 @@ export interface components {
             role: components["schemas"]["ImportSourceRole"];
             filename: string;
             /** @enum {string} */
-            format: "docx" | "doc" | "pdf";
+            format: "docx" | "doc" | "pdf" | "text";
+            characters?: number;
             /** Format: int64 */
             bytes: number;
             sha256: string;
             uploadedBy: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];
+        } & ({
+            /** @enum {unknown} */
+            format?: "text";
+        } | {
+            /** @enum {unknown} */
+            format?: "docx" | "doc" | "pdf";
+        });
+        PasteImportSource: {
+            uploadId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            expectedRevision: number;
+            text: string;
         };
         /**
          * @description Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
@@ -2657,6 +2717,7 @@ export interface components {
             idleDays: number;
         };
         ImportLimits: {
+            pasteMaxCharacters: number;
             /** Format: int64 */
             maxBytes: number;
             /** @description Accepted file extensions; doc appears only when legacy conversion is enabled. */
@@ -2907,6 +2968,9 @@ export interface components {
             /** Format: email */
             email: string;
             fullName: string;
+            displayName?: string;
+            /** Format: uri */
+            avatarUrl?: string;
             role: components["schemas"]["Role"];
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
@@ -2914,6 +2978,20 @@ export interface components {
             /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description Stored account preferences; omitted keys use client defaults without materializing them. */
+        UserPreferences: {
+            /** @enum {string} */
+            theme?: "light" | "dark" | "system";
+            compactTables?: boolean;
+            largerTestText?: boolean;
+            assignmentDefaults?: {
+                durationMinutes?: number;
+                shuffleQuestions?: boolean;
+                showScore?: boolean;
+                blockCopyPaste?: boolean;
+                requireFullscreen?: boolean;
+            };
         };
         /**
          * @description A console the signed-in user may enter: `teacher` for any `content.*`,
@@ -2940,6 +3018,14 @@ export interface components {
             /** Format: email */
             email: string;
             fullName: string;
+            displayName?: string;
+            /** Format: uri */
+            avatarUrl?: string;
+            phone?: string;
+            /** @enum {string} */
+            locale?: "vi" | "en";
+            timeZone?: string;
+            preferences?: components["schemas"]["UserPreferences"];
             role: components["schemas"]["Role"];
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
@@ -5119,12 +5205,17 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    fullName: string;
+                    fullName?: string;
+                    displayName?: string | null;
+                    phone?: string | null;
+                    /** @enum {string} */
+                    locale?: "vi" | "en";
+                    timeZone?: string;
                 };
             };
         };
         responses: {
-            /** @description Saved. The whole user, so the client can replace its session copy. */
+            /** @description The whole persisted caller profile and permissions. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5133,7 +5224,7 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentUser"];
                 };
             };
-            /** @description `VALIDATION_FAILED` — the name is empty or too long. */
+            /** @description `VALIDATION_FAILED` — a supplied field is invalid. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6505,6 +6596,95 @@ export interface operations {
             };
             /** @description IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    pasteImportSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasteImportSource"];
+            };
+        };
+        responses: {
+            /** @description Stored and associated with one source revision. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportUploadReceipt"];
+                };
+            };
+            /** @description Malformed text request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_TOO_LARGE — normalized character or nonblank line limit exceeded. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — invalid UTF-8, NUL or empty text. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Private source intake is not configured. */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9104,6 +9284,41 @@ export interface operations {
             204: components["responses"]["NoContent"];
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    updatePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPreferences"];
+            };
+        };
+        responses: {
+            /** @description The merged persisted preferences, without materialized defaults. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferences"];
+                };
+            };
+            /** @description `VALIDATION_FAILED` — the shape or either byte cap is invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Maintenance"];
         };
     };
     getMySummary: {

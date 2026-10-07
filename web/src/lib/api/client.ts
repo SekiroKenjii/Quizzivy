@@ -1,7 +1,13 @@
-import type { paths } from "./schema";
+import type { paths, operations } from "./schema";
 import { ApiError, maintenanceWindow, toApiError, type ApiErrorCode } from "./errors";
 import i18n from "@/lib/i18n";
-import { authStore } from "@/stores/auth";
+import { authStore, type ActorLease } from "@/stores/auth";
+import {
+  cookieOperation,
+  transitionStatus,
+  type AccountTransition,
+  type CookieKind,
+} from "./authTransition";
 
 /**
  * The API client. Native `fetch`, no axios (§2), typed against the generated
@@ -71,7 +77,11 @@ type BodyOption<O> = O extends { requestBody: unknown }
 
 export type RequestOptions<O> = Optional<"path", PathParamsOf<O>> &
   Optional<"query", QueryParamsOf<O>> &
-  BodyOption<O> & { signal?: AbortSignal; cache?: RequestCache };
+  BodyOption<O> & {
+    signal?: AbortSignal;
+    cache?: RequestCache;
+    transition?: AccountTransition;
+  };
 
 // ------------------------------------------------------------ url building
 
@@ -109,12 +119,13 @@ function buildUrl(
 
 // ------------------------------------------------------- single-flight refresh
 
-type RefreshOutcome =
-  | { kind: "refreshed" }
-  | { kind: "refused" }
-  | { kind: "unavailable"; error: ApiError };
+type RefreshPayload =
+  operations["refreshSession"]["responses"][200]["content"]["application/json"];
+type RefreshResult =
+  { kind: "refreshed"; data: RefreshPayload } | { kind: "failed"; error: unknown };
 
-let inFlightRefresh: Promise<RefreshOutcome> | null = null;
+let inFlightRefresh: { actor: ActorLease; completion: Promise<RefreshResult> } | null =
+  null;
 
 /** Replaced in tests; in the app it sends the user to /login. */
 let onSessionLost: () => void = () => {
@@ -142,12 +153,12 @@ export function setSessionLostHandler(handler: () => void) {
   onSessionLost = handler;
 }
 
-function loseSession(sentWith: string | null) {
-  if (authStore.getAccessToken() !== sentWith) return;
+function loseSession(sentWith: string | null, lease: ActorLease) {
+  if (!authStore.isCurrent(lease) || authStore.getAccessToken() !== sentWith) return;
   if (authStore.isSignedIn()) {
     authStore.expire();
   } else {
-    authStore.clear();
+    authStore.refuseAnonymous();
   }
   onSessionLost();
 }
@@ -179,55 +190,106 @@ function unavailable(): ApiError {
   });
 }
 
-function noticed(error: ApiError): ApiError {
+function noticed(error: ApiError, lease: ActorLease): ApiError {
   const window = maintenanceWindow(error);
-  if (window) onMaintenance(window);
+  if (window && authStore.isCurrent(lease)) onMaintenance(window);
   return error;
 }
 
-async function performRefresh(): Promise<RefreshOutcome> {
-  let response: Response;
-  try {
-    response = await fetch(buildUrl("/auth/refresh"), {
+async function performRefresh(lease: ActorLease): Promise<RefreshPayload> {
+  return cookieOperation("refresh", lease.generation, async () => {
+    assertActor(lease);
+    const response = await fetch(buildUrl("/auth/refresh"), {
       method: "POST",
       credentials: "include",
       headers: { Accept: "application/json", "Accept-Language": language() },
     });
-  } catch {
-    return { kind: "unavailable", error: unavailable() };
-  }
-  if (response.status === 401 || response.status === 403) return { kind: "refused" };
-  if (!response.ok) {
-    const error = noticed(await toApiError(response));
-    return error.isRetryable ? { kind: "unavailable", error } : { kind: "refused" };
-  }
-
-  const data = (await response.json()) as { accessToken?: string };
-  if (!data.accessToken) return { kind: "refused" };
-
-  authStore.setAccessToken(data.accessToken);
-  return { kind: "refreshed" };
+    if (!response.ok) throw noticed(await toApiError(response), lease);
+    const data: unknown = await response.json();
+    assertActor(lease);
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !("accessToken" in data) ||
+      typeof data.accessToken !== "string" ||
+      !data.accessToken ||
+      !("expiresIn" in data) ||
+      typeof data.expiresIn !== "number"
+    )
+      throw unavailable();
+    authStore.setAccessToken(data.accessToken);
+    return { accessToken: data.accessToken, expiresIn: data.expiresIn };
+  });
 }
 
-/**
- * **Single-flight.** Concurrent callers share one in-flight request. A refused
- * refresh is a lost session; an unavailable one is not, and says nothing about
- * the session at all.
- */
-function refreshSession(): Promise<RefreshOutcome> {
-  inFlightRefresh ??= performRefresh()
-    .catch((): RefreshOutcome => ({ kind: "unavailable", error: unavailable() }))
+function refreshSession(lease: ActorLease): Promise<RefreshResult> {
+  if (
+    inFlightRefresh?.actor.generation === lease.generation &&
+    inFlightRefresh.actor.userId === lease.userId
+  )
+    return inFlightRefresh.completion;
+  const completion = performRefresh(lease)
+    .then(
+      (data): RefreshResult => ({ kind: "refreshed", data }),
+      (error: unknown): RefreshResult => ({ kind: "failed", error }),
+    )
     .finally(() => {
-      inFlightRefresh = null;
+      if (inFlightRefresh === mine) inFlightRefresh = null;
     });
-  return inFlightRefresh;
+  const mine = { actor: lease, completion };
+  inFlightRefresh = mine;
+  return completion;
 }
 
 // ------------------------------------------------------------------ request
 
 /** Endpoints that must never trigger a refresh-and-retry, or we loop. */
 function isAuthEntryPoint(path: string): boolean {
-  return path === "/auth/refresh" || path === "/auth/login" || path === "/auth/google";
+  return (
+    path === "/auth/refresh" ||
+    path === "/auth/login" ||
+    path === "/auth/google" ||
+    path === "/auth/logout"
+  );
+}
+
+function cookieKind(method: string, path: string): CookieKind | null {
+  if (method !== "post") return null;
+  if (path === "/auth/refresh") return "refresh";
+  if (path === "/auth/login") return "login";
+  if (path === "/auth/google") return "google";
+  if (path === "/auth/logout") return "logout";
+  return null;
+}
+
+async function tokenAfterRefresh(
+  lease: ActorLease,
+  sentWith: string | null,
+  originalError: () => Promise<ApiError>,
+  notifyAnonymous = true,
+) {
+  if (!authStore.isCurrent(lease) || authStore.isExpired()) throw await originalError();
+  if (!["idle", "refresh"].includes(transitionStatus().kind)) {
+    if (notifyAnonymous && !authStore.isSignedIn()) loseSession(sentWith, lease);
+    throw await originalError();
+  }
+  const outcome = await refreshSession(lease);
+  if (!authStore.isCurrent(lease)) throw await originalError();
+  if (outcome.kind === "failed") {
+    if (outcome.error instanceof ApiError && !outcome.error.isRetryable) {
+      loseSession(sentWith, lease);
+      throw await originalError();
+    }
+    throw outcome.error instanceof ApiError ? outcome.error : unavailable();
+  }
+  if (!["idle", "refresh"].includes(transitionStatus().kind))
+    throw await originalError();
+  assertActor(lease);
+  return authStore.getAccessToken();
+}
+
+function assertActor(lease: ActorLease) {
+  if (!authStore.isCurrent(lease)) throw new DOMException("Superseded", "AbortError");
 }
 
 /**
@@ -237,19 +299,27 @@ function isAuthEntryPoint(path: string): boolean {
  * send, loses the session only when the store still holds the token the
  * refused request was sent with; either way the 401 is thrown to the caller.
  */
+export function api<P extends keyof paths, M extends MethodsOf<P>>(
+  method: M,
+  path: P,
+  options?: RequestOptions<paths[P][M]>,
+): Promise<SuccessOf<paths[P][M]>>;
 export async function api<P extends keyof paths, M extends MethodsOf<P>>(
   method: M,
   path: P,
   options: RequestOptions<paths[P][M]> = {} as RequestOptions<paths[P][M]>,
-): Promise<SuccessOf<paths[P][M]>> {
+): Promise<unknown> {
   const opts = options as {
     path?: Record<string, unknown>;
     query?: Record<string, unknown>;
     body?: unknown;
     signal?: AbortSignal;
     cache?: RequestCache;
+    transition?: AccountTransition;
   };
   const url = buildUrl(path as string, opts.path, opts.query);
+  const lease = authStore.captureActor();
+  const kind = cookieKind(method, path as string);
 
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = {
@@ -264,36 +334,43 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
       headers,
       credentials: "include",
       ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
-      ...(opts.signal ? { signal: opts.signal } : {}),
+      ...(!kind && opts.signal ? { signal: opts.signal } : {}),
       ...(opts.cache ? { cache: opts.cache } : {}),
     });
   };
 
-  let sentWith = authStore.getAccessToken();
-  let response = await send(sentWith);
-
-  if (response.status === 401 && !isAuthEntryPoint(path as string)) {
-    if (authStore.isExpired()) throw await toApiError(response);
-    const outcome = await refreshSession();
-    if (outcome.kind === "unavailable") throw outcome.error;
-    if (outcome.kind === "refused") {
-      loseSession(sentWith);
-      throw await toApiError(response);
+  const request = async (): Promise<unknown> => {
+    assertActor(lease);
+    if (kind === "refresh") {
+      const result = await refreshSession(lease);
+      if (result.kind === "failed") throw result.error;
+      assertActor(lease);
+      if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      return result.data;
     }
-    sentWith = authStore.getAccessToken();
-    response = await send(sentWith);
-    if (response.status === 401) {
-      loseSession(sentWith);
-      throw await toApiError(response);
+    let sentWith = authStore.getAccessToken();
+    let response = await send(sentWith);
+    if (response.status === 401 && !isAuthEntryPoint(path as string)) {
+      sentWith = await tokenAfterRefresh(lease, sentWith, () => toApiError(response));
+      response = await send(sentWith);
+      if (response.status === 401) {
+        loseSession(sentWith, lease);
+        throw await toApiError(response);
+      }
     }
-  }
-
-  if (!response.ok) throw noticed(await toApiError(response));
-
-  if (response.status === 204 || response.headers.get("Content-Length") === "0") {
-    return undefined as SuccessOf<paths[P][M]>;
-  }
-  return (await response.json()) as SuccessOf<paths[P][M]>;
+    if (!response.ok) throw noticed(await toApiError(response), lease);
+    if (response.status === 204 || response.headers.get("Content-Length") === "0") {
+      assertActor(lease);
+      return undefined;
+    }
+    const data: unknown = await response.json();
+    assertActor(lease);
+    if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    return data;
+  };
+  return kind && kind !== "refresh"
+    ? cookieOperation(kind, lease.generation, request, opts.transition)
+    : request();
 }
 
 /** Progress and cancellation for an upload, which fetch cannot report. */
@@ -313,6 +390,7 @@ export async function uploadFile<T>(
   options: UploadOptions = {},
 ): Promise<T> {
   const url = buildUrl(path);
+  const lease = authStore.captureActor();
 
   const send = (token: string | null) =>
     new Promise<{ status: number; body: string }>((resolve, reject) => {
@@ -325,7 +403,8 @@ export async function uploadFile<T>(
 
       if (options.onProgress) {
         request.upload.onprogress = (event) => {
-          if (event.lengthComputable) options.onProgress?.(event.loaded / event.total);
+          if (event.lengthComputable && authStore.isCurrent(lease))
+            options.onProgress?.(event.loaded / event.total);
         };
       }
       request.onload = () =>
@@ -349,23 +428,22 @@ export async function uploadFile<T>(
   let sentWith = authStore.getAccessToken();
   let response = await send(sentWith);
   if (response.status === 401) {
-    if (authStore.isExpired()) throw toUploadError(response);
-    const outcome = await refreshSession();
-    if (outcome.kind === "unavailable") throw outcome.error;
-    if (outcome.kind === "refused") {
-      loseSession(sentWith);
-      throw toUploadError(response);
-    }
-    sentWith = authStore.getAccessToken();
+    sentWith = await tokenAfterRefresh(
+      lease,
+      sentWith,
+      () => Promise.resolve(toUploadError(response)),
+      false,
+    );
     response = await send(sentWith);
     if (response.status === 401) {
-      loseSession(sentWith);
+      loseSession(sentWith, lease);
       throw toUploadError(response);
     }
   }
   if (response.status < 200 || response.status >= 300)
-    throw noticed(toUploadError(response));
+    throw noticed(toUploadError(response), lease);
 
+  assertActor(lease);
   return JSON.parse(response.body) as T;
 }
 

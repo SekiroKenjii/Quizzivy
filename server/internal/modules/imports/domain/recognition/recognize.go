@@ -21,7 +21,7 @@ const (
 	maxQuestions = 2000
 )
 
-var evidenceVersions = []string{"ooxml-blocks-v1", "pdf-lines-v1"}
+var evidenceVersions = []string{"ooxml-blocks-v1", "pdf-lines-v1", "text-lines-v1"}
 
 // Recognize builds the machine draft for one exam and an optional companion answer key.
 func Recognize(ctx context.Context, docs []domain.EvidenceDocument, p domain.RecognitionProfile) (domain.Draft, error) {

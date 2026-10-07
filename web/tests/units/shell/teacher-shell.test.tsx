@@ -7,6 +7,7 @@ import { writeSidebarState } from "@/layouts/shell/sidebarState";
 import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
 import { viewport } from "@tests/support/viewport";
+import { teacherUser } from "@tests/support/fixtures";
 import { crumbed, DASHBOARD, summaryBody, renderRoutes, serveSummary } from "./support";
 import "@/lib/i18n";
 
@@ -39,6 +40,7 @@ describe("the shell a teacher page renders in", () => {
     renderRoutes(
       "/teacher/tests",
       tree([{ path: "tests", element: <p>đề thi cũ</p> }]),
+      { ...teacherUser, preferences: { theme: "dark" } },
     );
     await screen.findByText("đề thi cũ");
 
@@ -55,6 +57,7 @@ describe("the shell a teacher page renders in", () => {
     renderRoutes(
       "/teacher",
       tree([{ index: true, handle: DASHBOARD, element: <p>tổng quan mới</p> }]),
+      { ...teacherUser, preferences: { theme: "dark" } },
     );
     await screen.findByText("tổng quan mới");
 
@@ -78,6 +81,7 @@ describe("the shell a teacher page renders in", () => {
         },
         { path: "tests", element: <Link to="/teacher">về trang mới</Link> },
       ]),
+      { ...teacherUser, preferences: { theme: "dark" } },
     );
     await user.click(await screen.findByRole("link", { name: "sang trang cũ" }));
 

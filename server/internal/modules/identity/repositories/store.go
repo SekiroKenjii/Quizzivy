@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/identity/domain"
@@ -25,6 +24,7 @@ const userProjection = `
 	       CASE WHEN EXISTS (SELECT 1 FROM app.student_like_roles s WHERE s.id = u.role_id)
 	            THEN 'student' ELSE 'admin' END,
 	       u.password_hash, u.must_change_password, u.disabled_at, u.created_at, u.session_epoch,
+	       u.display_name, u.phone, u.locale, u.time_zone, u.preferences,
 	       coalesce(array_agg(i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}')
 	  FROM app.users u
 	  LEFT JOIN app.user_identities i ON i.user_id = u.id`
@@ -33,7 +33,8 @@ func scanUser(row pgx.Row) (domain.User, error) {
 	var u domain.User
 	err := row.Scan(
 		&u.ID, &u.Email, &u.FullName, &u.Role, &u.PasswordHash,
-		&u.MustChangePassword, &u.DisabledAt, &u.CreatedAt, &u.SessionEpoch, &u.LinkedProviders,
+		&u.MustChangePassword, &u.DisabledAt, &u.CreatedAt, &u.SessionEpoch,
+		&u.DisplayName, &u.Phone, &u.Locale, &u.TimeZone, &u.Preferences, &u.LinkedProviders,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, domain.ErrUserNotFound
@@ -64,53 +65,62 @@ func (s *Users) FindUserByID(ctx context.Context, id string) (domain.User, error
 	return scanUser(s.QueryRow(ctx, q, id))
 }
 
-// Rename writes an account's own display name, with the audit row in the same
-// transaction: a name change is how an account presents itself to the teacher,
-// so the trail and the change are one fact, not two that can diverge.
-func (s *Users) Rename(ctx context.Context, in domain.RenameRecord) (domain.User, error) {
+// UpdateProfile writes supplied fields and compatible actual-change audits atomically.
+func (s *Users) UpdateProfile(ctx context.Context, in domain.ProfileRecord) (domain.User, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("begin rename: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	var before string
-	err = tx.QueryRow(ctx, `
-		UPDATE app.users SET full_name = $2
-		 WHERE id = $1
-		RETURNING OLD.full_name`, in.UserID, in.FullName).Scan(&before)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.User{}, domain.ErrUserNotFound
-	}
-	if err != nil {
-		return domain.User{}, fmt.Errorf("rename user: %w", err)
-	}
-
-	diff, err := json.Marshal(map[string]string{"from": before, "to": in.FullName})
-	if err != nil {
-		return domain.User{}, fmt.Errorf("encode rename diff: %w", err)
-	}
-	if err := audit.Write(ctx, tx, audit.Entry{
-		ActorUserID: &in.UserID,
-		Action:      "user.renamed",
-		Entity:      "user",
-		EntityID:    &in.UserID,
-		OccurredAt:  in.Now,
-		IP:          in.IP,
-		UserAgent:   in.UserAgent,
-		Diff:        diff,
-	}); err != nil {
 		return domain.User{}, err
 	}
-
-	user, err := scanUser(tx.QueryRow(ctx, userProjection+`
-		 WHERE u.id = $1
-		 GROUP BY u.id`, in.UserID))
+	defer func() { _ = tx.Rollback(ctx) }()
+	p := in.Patch
+	const statement = `
+ WITH changed AS (
+  UPDATE app.users SET
+   full_name = CASE WHEN $2::text IS NULL THEN full_name ELSE $2 END,
+   display_name = CASE WHEN $3::boolean THEN $4::text ELSE display_name END,
+   phone = CASE WHEN $5::boolean THEN $6::text ELSE phone END,
+   locale = CASE WHEN $7::text IS NULL THEN locale ELSE $7 END,
+   time_zone = CASE WHEN $8::text IS NULL THEN time_zone ELSE $8 END
+  WHERE id = $1::uuid AND disabled_at IS NULL
+  RETURNING OLD.full_name AS old_name, NEW.full_name AS new_name,
+   array_remove(ARRAY[
+    CASE WHEN OLD.display_name IS DISTINCT FROM NEW.display_name THEN 'displayName' END,
+    CASE WHEN OLD.locale IS DISTINCT FROM NEW.locale THEN 'locale' END,
+    CASE WHEN OLD.phone IS DISTINCT FROM NEW.phone THEN 'phone' END,
+    CASE WHEN OLD.time_zone IS DISTINCT FROM NEW.time_zone THEN 'timeZone' END
+   ], NULL) AS fields
+ ), audited AS (
+  INSERT INTO app.audit_log (actor_user_id, action, entity, entity_id, occurred_at, ip, user_agent, diff)
+  SELECT $1::uuid, event.action, 'user', $1::uuid, $9, $10::inet, $11, event.diff
+  FROM changed CROSS JOIN LATERAL (
+   SELECT 'user.renamed' AS action, jsonb_build_object('from', old_name, 'to', new_name) AS diff
+    WHERE old_name IS DISTINCT FROM new_name
+   UNION ALL
+   SELECT 'user.profile_updated', jsonb_build_object('fields', fields)
+    WHERE cardinality(fields) > 0
+  ) AS event
+ ) SELECT EXISTS (SELECT 1 FROM changed)`
+	var updated bool
+	if err := tx.QueryRow(ctx, statement, in.UserID, p.FullName, p.DisplayNameSet, p.DisplayName, p.PhoneSet, p.Phone, p.Locale, p.TimeZone, in.Now, in.IP, in.UserAgent).Scan(&updated); err != nil {
+		return domain.User{}, fmt.Errorf("update profile: %w", err)
+	}
+	user, err := persistedUser(ctx, tx, in.UserID, updated)
 	if err != nil {
 		return domain.User{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return domain.User{}, fmt.Errorf("commit rename: %w", err)
+		return domain.User{}, err
+	}
+	return user, nil
+}
+
+func persistedUser(ctx context.Context, tx pgx.Tx, userID string, updated bool) (domain.User, error) {
+	user, err := scanUser(tx.QueryRow(ctx, userProjection+` WHERE u.id = $1::uuid GROUP BY u.id`, userID))
+	if err != nil {
+		return domain.User{}, err
+	}
+	if !updated && user.Disabled() {
+		return domain.User{}, domain.ErrAccountDisabled
 	}
 	return user, nil
 }

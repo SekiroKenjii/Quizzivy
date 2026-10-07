@@ -79,25 +79,60 @@ describe("the account menu on a console built to the deck", () => {
   });
 
   it("switches to the dark theme and back, remembering the choice", async () => {
+    useAuthStore.getState().setSession("token", STUDENT);
+    const patches: unknown[] = [];
+    server.use(
+      http.patch("http://localhost:8080/me/preferences", async ({ request }) => {
+        const patch = (await request.json()) as {
+          theme: "light" | "dark" | "system";
+        };
+        patches.push(patch);
+        return HttpResponse.json(patch);
+      }),
+    );
     const user = renderMenu(true);
     await user.click(trigger());
     await user.click(screen.getByRole("menuitem", { name: "Chế độ tối" }));
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(localStorage.getItem("quizzivy.theme")).toBe("dark");
 
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("dark"),
+    );
     await user.click(trigger());
     expect(itemNames()).toEqual(["Cài đặt", "Chế độ sáng", "Đăng xuất"]);
     await user.click(screen.getByRole("menuitem", { name: "Chế độ sáng" }));
     expect(document.documentElement.classList.contains("dark")).toBe(false);
     expect(localStorage.getItem("quizzivy.theme")).toBe("light");
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("light"),
+    );
+    expect(patches).toEqual([{ theme: "dark" }, { theme: "light" }]);
   });
 
   it("leaves the system setting for an explicit theme when the user picks one", async () => {
+    useAuthStore
+      .getState()
+      .setSession("token", { ...STUDENT, preferences: { theme: "system" } });
+    const patches: unknown[] = [];
+    server.use(
+      http.patch("http://localhost:8080/me/preferences", async ({ request }) => {
+        const patch = (await request.json()) as {
+          theme: "light" | "dark" | "system";
+        };
+        patches.push(patch);
+        return HttpResponse.json(patch);
+      }),
+    );
     writeThemePreference("system");
     const user = renderMenu(true);
     await user.click(trigger());
     await user.click(screen.getByRole("menuitem", { name: "Chế độ tối" }));
     expect(localStorage.getItem("quizzivy.theme")).toBe("dark");
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("dark"),
+    );
+    expect(patches).toEqual([{ theme: "dark" }]);
   });
 });
 

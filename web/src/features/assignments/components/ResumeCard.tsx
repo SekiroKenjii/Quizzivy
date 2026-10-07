@@ -9,7 +9,12 @@ import { startOrResumeAttempt } from "@/features/take-test/api";
 import { useTick } from "@/hooks/useTick";
 import { ApiError } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
-import { clockTime, formatTime, sameAppDay } from "@/lib/i18n/datetime";
+import {
+  clockTime,
+  formatTime,
+  sameAppDay,
+  useDisplayTimeZone,
+} from "@/lib/i18n/datetime";
 import { continueAttempt, type StudentAssignmentCard } from "../api";
 import { minutesLeft } from "../studentHome";
 import { HOME_PILL } from "./homeStyles";
@@ -24,6 +29,7 @@ import { HOME_PILL } from "./homeStyles";
  * a toast, because it has to outlive the card.
  */
 export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

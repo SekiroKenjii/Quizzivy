@@ -56,9 +56,12 @@ func TestGroupBodyBudgetIsBoundedBeforeJSONValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	limits := httpx.RequestBodyLimits(spec)
-	if len(limits) != 10 || limits["POST /teacher/imports/{id}/sources"] != (25<<20)+(128<<10) || limits["POST /teacher/media"] != (50<<20)+(128<<10) || limits["POST /teacher/media/{id}/replace"] != (50<<20)+(128<<10) || limits["PUT /teacher/imports/{id}/review"] != 8<<20 || limits["POST /teacher/question-groups"] != 4<<20 || limits["PUT /teacher/question-groups/{id}"] != 4<<20 ||
-		limits["POST /auth/login"] != 8<<10 || limits["POST /auth/google"] != 8<<10 || limits["POST /join/preview"] != 8<<10 || limits["POST /app/classes/join"] != 8<<10 {
+	limits, err := httpx.RequestBodyLimits(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(limits) != 11 || limits["PATCH /me/preferences"].Bytes != 8192 || limits["POST /teacher/imports/{id}/sources"].Bytes != (25<<20)+(128<<10) || limits["POST /teacher/media"].Bytes != (50<<20)+(128<<10) || limits["POST /teacher/media/{id}/replace"].Bytes != (50<<20)+(128<<10) || limits["PUT /teacher/imports/{id}/review"].Bytes != 8<<20 || limits["POST /teacher/question-groups"].Bytes != 4<<20 || limits["PUT /teacher/question-groups/{id}"].Bytes != 4<<20 ||
+		limits["POST /auth/login"].Bytes != 8<<10 || limits["POST /auth/google"].Bytes != 8<<10 || limits["POST /join/preview"].Bytes != 8<<10 || limits["POST /app/classes/join"].Bytes != 8<<10 {
 		t.Fatalf("unexpected contract budgets: %v", limits)
 	}
 	for _, bytes := range []int{2 << 20, (4 << 20) + 1} {
