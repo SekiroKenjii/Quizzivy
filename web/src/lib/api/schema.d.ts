@@ -4155,8 +4155,9 @@ export interface components {
              *     what the unpublished-changes banner reads.
              *
              *     Only `getTest` computes it. It is null for a test with no version,
-             *     in every row of `listTests`, in the answer of a write, and when the
-             *     draft's groups cannot be read; the page then shows no banner. A
+             *     in every row of `listTests`, in the answer of a write, and when a
+             *     group of the draft or of the latest version cannot be read; the
+             *     page then shows no banner. A
              *     bank edit to a question the draft uses counts, though it never
              *     moves `updatedAt`.
              */
@@ -4205,15 +4206,17 @@ export interface components {
         DiffSide: {
             /** @enum {string} */
             kind: "draft" | "version";
-            /** @description Present exactly when `kind` is `version`. */
+            /** @description The server sends it exactly when `kind` is `version`. The schema does not tie the two together. */
             version?: number;
-            /** @description Present exactly when `kind` is `version`. */
+            /** @description The server sends it exactly when `kind` is `version`. The schema does not tie the two together. */
             publishedAt?: components["schemas"]["Timestamp"];
         };
         /**
          * @description What one change reports. A question is never reported twice under one
-         *     kind, so the number of changes is the number of things a teacher would
-         *     list.
+         *     kind. An edit to the shared material of a group, or to a section,
+         *     reaches each of its questions as one `changed` entry (field `context`
+         *     or `section`), so `Test.unpublishedChanges` counts it once per
+         *     question.
          *
          *     | Kind | The question | `params` |
          *     |---|---|---|
@@ -6328,7 +6331,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description The draft's groups cannot be read (`against=draft` only), so there is no paper to compare. The builder reports the cause when the teacher publishes. */
+            /** @description A group of one of the two papers cannot be read, so there is no paper to compare. For the draft (`against=draft`) the builder reports the cause when the teacher publishes; for a version it is stored data that no longer reads back. */
             422: {
                 headers: {
                     [name: string]: unknown;
