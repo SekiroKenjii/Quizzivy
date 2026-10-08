@@ -126,24 +126,8 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 	if err != nil {
 		return domain.Assignment{}, err
 	}
-	if err := requireUnlocked(current, in); err != nil {
-		return domain.Assignment{}, err
-	}
-	versionReader := req.Scope()
-	if in.TestVersionID == current.versionID {
-		versionReader = anyAssignment
-	}
-	testID, err := publishedTestFor(ctx, tx, versionReader, in.TestVersionID)
+	testID, err := checkUpdate(ctx, tx, req, in, current)
 	if err != nil {
-		return domain.Assignment{}, err
-	}
-	if err := versionStillFree(ctx, tx, req.ID, in.TestVersionID, current.versionID); err != nil {
-		return domain.Assignment{}, err
-	}
-	if err := checkOptionShuffle(ctx, tx, in); err != nil {
-		return domain.Assignment{}, err
-	}
-	if err := checkTargets(ctx, tx, req.Scope(), req.ID, in); err != nil {
 		return domain.Assignment{}, err
 	}
 
@@ -211,6 +195,30 @@ type lockedRow struct {
 	closedAt, publishedAt *time.Time
 	durationMin           int
 	maxAttempts           int
+}
+
+func checkUpdate(ctx context.Context, tx pgx.Tx, req domain.Request, in domain.WriteInput, current lockedRow) (string, error) {
+	if err := requireUnlocked(current, in); err != nil {
+		return "", err
+	}
+	versionReader := req.Scope()
+	if in.TestVersionID == current.versionID {
+		versionReader = anyAssignment
+	}
+	testID, err := publishedTestFor(ctx, tx, versionReader, in.TestVersionID)
+	if err != nil {
+		return "", err
+	}
+	if err := versionStillFree(ctx, tx, req.ID, in.TestVersionID, current.versionID); err != nil {
+		return "", err
+	}
+	if err := checkOptionShuffle(ctx, tx, in); err != nil {
+		return "", err
+	}
+	if err := checkTargets(ctx, tx, req.Scope(), req.ID, in); err != nil {
+		return "", err
+	}
+	return testID, nil
 }
 
 func requireUnlocked(current lockedRow, in domain.WriteInput) error {

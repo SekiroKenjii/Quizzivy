@@ -32,60 +32,18 @@ func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord, now t
 	withheld := domain.Reviews.Withheld(rules.Review.Release, now, closes)
 	stored := rules.Review
 	rules.Review = domain.Reviews.Effective(stored, withheld)
-	sections, err := s.Sections(ctx, a.TestVersionID)
+	sections, paper, err := s.presentedPaper(ctx, a, rules)
 	if err != nil {
 		return domain.Result{}, err
 	}
-	base, err := s.Questions(ctx, a.TestVersionID)
+	questions, score, err := s.markedQuestions(ctx, a, paper, rules.Review, withheld)
 	if err != nil {
 		return domain.Result{}, err
 	}
-	version, err := s.DeliveryVersion(ctx, a.TestVersionID)
-	if err != nil {
-		return domain.Result{}, err
-	}
-	base, err = domain.Deal.PresentVersion(version, a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, sections, base)
-	if err != nil {
-		return domain.Result{}, err
-	}
-
-	extras, err := s.resultExtras(ctx, a.TestVersionID, rules.Review)
-	if err != nil {
-		return domain.Result{}, err
-	}
-	answers, err := s.gradedAnswers(ctx, a.ID)
-	if err != nil {
-		return domain.Result{}, err
-	}
-	plays, err := s.AudioPlays(ctx, a.ID)
-	if err != nil {
-		return domain.Result{}, err
-	}
-
 	out := domain.Result{
 		Attempt: a.Attempt, Review: rules.Review,
 		TestTitle: rules.TestTitle, MaxAttempts: rules.MaxAttempts,
-		Sections:  sections,
-		Questions: make([]domain.ResultQuestion, len(base)),
-	}
-	pending := 0
-	earned := 0.0
-	for i, q := range base {
-		rq, value := resultQuestion(q, extras, plays, answers, rules.Review.ShowScore, withheld)
-		switch {
-		case rq.PendingManual:
-			pending++
-		case value != nil:
-			earned += *value
-		}
-		out.Questions[i] = rq
-	}
-	if rules.Review.ShowScore {
-		total, err := s.scoreTotal(ctx, a.ID)
-		if err != nil {
-			return domain.Result{}, err
-		}
-		out.Score = &domain.Score{Earned: earned, Total: total, PendingManual: pending}
+		Sections: sections, Questions: questions, Score: score,
 	}
 	if withheld {
 		out.ReleasesAt = &closes
@@ -94,6 +52,62 @@ func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord, now t
 		return domain.Result{}, err
 	}
 	return out, nil
+}
+
+func (s *Postgres) presentedPaper(ctx context.Context, a domain.AttemptRecord, rules resultRules) ([]domain.Section, []domain.Question, error) {
+	sections, err := s.Sections(ctx, a.TestVersionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	base, err := s.Questions(ctx, a.TestVersionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	version, err := s.DeliveryVersion(ctx, a.TestVersionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	paper, err := domain.Deal.PresentVersion(version, a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, sections, base)
+	if err != nil {
+		return nil, nil, err
+	}
+	return sections, paper, nil
+}
+
+func (s *Postgres) markedQuestions(ctx context.Context, a domain.AttemptRecord, paper []domain.Question, review domain.ReviewPolicy, withheld bool) ([]domain.ResultQuestion, *domain.Score, error) {
+	extras, err := s.resultExtras(ctx, a.TestVersionID, review)
+	if err != nil {
+		return nil, nil, err
+	}
+	answers, err := s.gradedAnswers(ctx, a.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	plays, err := s.AudioPlays(ctx, a.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	questions := make([]domain.ResultQuestion, len(paper))
+	pending := 0
+	earned := 0.0
+	for i, q := range paper {
+		rq, value := resultQuestion(q, extras, plays, answers, review.ShowScore, withheld)
+		switch {
+		case rq.PendingManual:
+			pending++
+		case value != nil:
+			earned += *value
+		}
+		questions[i] = rq
+	}
+	if !review.ShowScore {
+		return questions, nil, nil
+	}
+	total, err := s.scoreTotal(ctx, a.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return questions, &domain.Score{Earned: earned, Total: total, PendingManual: pending}, nil
 }
 
 func (s *Postgres) classAverageOf(ctx context.Context, assignmentID string, stored domain.ReviewPolicy, withheld, closed bool) (*float64, error) {
