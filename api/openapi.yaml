@@ -5014,7 +5014,10 @@ paths:
                 changeNote:
                   type: [string, 'null']
                   maxLength: 200
-                  description: What changed in this version, in the teacher's words. Shown in the version history.
+                  description: >-
+                    What changed in this version, in the teacher's words. Shown
+                    in the version history. The 200-character limit applies to
+                    the text as sent, before it is trimmed.
       responses:
         '201':
           description: Published. `testUpdatedAt` is present.
