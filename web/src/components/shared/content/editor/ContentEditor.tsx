@@ -12,6 +12,7 @@ import { useContentPaste } from "./useContentPaste";
 import { PastePreview } from "./PastePreview";
 import { NoticeBand } from "./NoticeBand";
 import { EditorFooter, EditorPlaceholder } from "./EditorFooter";
+import { editorShortcut } from "./shortcuts";
 import "../content.css";
 
 type Frame = { minHeight?: number; fontSize?: number; footer: boolean };
@@ -108,7 +109,8 @@ function ActiveEditor({
   const message =
     notice === "file"
       ? (fileNotice ?? t("contentEditor.fileNotice"))
-      : notice && t(`contentEditor.${notice}`);
+      : notice &&
+        t(`contentEditor.${notice}`, { shortcut: editorShortcut("V", true).label });
   return (
     <div className={BOX} style={style}>
       <ContentToolbar

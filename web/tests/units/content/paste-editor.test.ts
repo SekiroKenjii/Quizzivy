@@ -314,6 +314,30 @@ describe("the notice band", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  test.each([
+    ["Win32", "Ctrl+Shift+V"],
+    ["MacIntel", "⇧⌘V"],
+  ])(
+    "names the plain-paste shortcut of %s in the band and the footer alike",
+    (platform, key) => {
+      const spy = vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+      const { textbox } = renderEditor();
+      fireEvent.paste(
+        textbox,
+        clipboard({ "text/html": `<p>${"a".repeat(262_145)}</p>` }),
+      );
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        `Dùng ${key} để dán văn bản thuần rồi định dạng lại.`,
+      );
+      expect(
+        screen.getByText(
+          `Định dạng từ Word hoặc Google Docs được giữ lại · ${key} để dán văn bản thuần`,
+        ),
+      ).toBeVisible();
+      spy.mockRestore();
+    },
+  );
+
   test("the preview says how many copied images were left out", async () => {
     const { textbox } = renderEditor();
     fireEvent.paste(

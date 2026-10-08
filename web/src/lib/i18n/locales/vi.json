@@ -2030,7 +2030,7 @@
     "assetUnbound": "Chưa liên kết tệp trong bản thử",
     "invalidContent": "Nội dung có cấu trúc chưa được hỗ trợ. Bản gốc không bị thay đổi.",
     "loading": "Đang mở trình soạn…",
-    "pasteBlocked": "Không thể chuyển đổi nội dung dán: nội dung có định dạng chưa được hỗ trợ hoặc vượt quá giới hạn. Nội dung hiện tại được giữ nguyên. Dùng Ctrl+Shift+V để dán văn bản thuần rồi định dạng lại.",
+    "pasteBlocked": "Không thể chuyển đổi nội dung dán: nội dung có định dạng chưa được hỗ trợ hoặc vượt quá giới hạn. Nội dung hiện tại được giữ nguyên. Dùng {{shortcut}} để dán văn bản thuần rồi định dạng lại.",
     "editBlocked": "Không thể áp dụng thay đổi này: cấu trúc không hỗ trợ, ô trống bị trùng hoặc nội dung vượt giới hạn. Nội dung trước đó được giữ nguyên.",
     "bold": "In đậm",
     "italic": "In nghiêng",

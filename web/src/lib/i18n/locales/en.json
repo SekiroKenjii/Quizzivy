@@ -2030,7 +2030,7 @@
     "assetUnbound": "Asset not linked in this prototype",
     "invalidContent": "This content has an unsupported structure. The original is unchanged.",
     "loading": "Opening editor…",
-    "pasteBlocked": "The paste could not be converted: it has unsupported formatting or is over the content limit. The current content is unchanged. Use Ctrl+Shift+V to paste plain text and reapply formatting.",
+    "pasteBlocked": "The paste could not be converted: it has unsupported formatting or is over the content limit. The current content is unchanged. Use {{shortcut}} to paste plain text and reapply formatting.",
     "editBlocked": "This change contains an unsupported structure, a duplicate gap, or exceeds the content limit. Previous content is unchanged.",
     "bold": "Bold",
     "italic": "Italic",
