@@ -42,7 +42,7 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | R1 | v0.7.0 | Foundations and front door | `71-r1.md` |
 | R2 | v0.8.0 | Access: permissions, ownership, `/teacher` rename, encrypted join codes (no screen changes) | `72-r2.md` |
 | R3 | v0.9.0 | Student console and the take-test engine | `73-r3.md` |
-| R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10 | `73-r3.md` |
+| R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10. By default carried inside v0.10.0 as T-R4.49 (2026-10-08; `73-r3.md`, "Migration numbers") | `73-r3.md` |
 | R4 | v0.10.0 | Teacher workspace | `74-r4.md` |
 | D4 | v0.10.1 | Deck update: the fourth export (2026-10-04). The take-test engine, the builder's shared content and the three previews, rebuilt to it | `74d-d4-deck-update.md` |
 | R5 | v0.11.0 | Admin console and email | `75-r5.md` |

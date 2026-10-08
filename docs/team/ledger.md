@@ -124,8 +124,9 @@ That settles the decisions owed on 2026-10-07:
    `verification.md` §9 are the working rule until the user says otherwise.
 
 Still the user's: the go for every merge to `main`, the production steps of the release
-checklist (Cloudflare, Fly, Neon, the smoke tests on real devices), and any reversal of
-the defaults above.
+checklist (Cloudflare, Fly, Neon, the smoke tests on real devices), reading production
+logs (T-R4.49 needs seven days of `legacy_admin_path` counts before the `/admin` alias goes),
+and any reversal of the defaults above.
 
 ## Decisions
 
