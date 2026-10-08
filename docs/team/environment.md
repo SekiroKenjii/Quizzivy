@@ -3,16 +3,49 @@
 How the team's cloud container reaches the state in which the gates in
 [`verification.md`](verification.md) run. `AGENTS.md` and `docs/setup/ci.md` win
 over this file. Written 2026-10-07 against `work/redesign-r4` @ `bb4d4000`;
-re-date it when a step changes.
+the MinIO build and the session-start hook were verified on 2026-10-08. Re-date it when a
+step changes.
 
 The container is Linux with 4 cores and 15 GB of memory. The Postgres and
 MinIO services run in Docker. Everything else runs on the host. Outbound
 traffic goes through the agent proxy, which allows npm, the Go module proxy and
 GitHub but not every registry (see "What did not work").
 
+## Session start
+
+`.claude/hooks/session-start.sh`, registered in `.claude/settings.json`, does the work of
+the steps below when a Claude Code cloud container starts: the daemon, `.env`, goose, the web
+dependencies, the MinIO image (built if missing), Postgres, MinIO and `make migrate`
+(not `make seed`). It runs
+only where `CLAUDE_CODE_REMOTE=true` and exits 0 silently elsewhere, so a laptop is
+never touched. It reports itself asynchronous, so the session starts while it works.
+It does not run steps 8 to 10: those create databases and buckets that need cleanup.
+
+- It exports `GOTOOLCHAIN=go1.27.0` and `/root/.local/bin` on `PATH` through
+  `CLAUDE_ENV_FILE`, before it does anything slow.
+- It skips a step whose result is already there, never fails the session, and logs
+  to `/tmp/quizzivy-session-start.log` (a line per step: `begin`, then `ok` or
+  `FAILED` with the time taken). `docker info`, `docker ps` and `make migrate`
+  show the same state. A second run takes seconds.
+- A cold container (daemon down, services stopped) is ready in about 10 s; building the
+  MinIO image adds about 150 s.
+- Rerun it by hand, from any directory, to see what is missing:
+
+  ```
+  CLAUDE_CODE_REMOTE=true /home/user/Quizzivy/.claude/hooks/session-start.sh
+  tail -n 30 /tmp/quizzivy-session-start.log
+  ```
+
+  When run by hand it prints one JSON line (the async notice) and waits for the work to
+  finish. A started session gets `GOTOOLCHAIN` and `PATH` from the env file; a shell
+  you open yourself needs the exports of steps 5 and 6.
+- The hook starts Postgres and MinIO and leaves them running. A step it could not
+  finish is in the log; fix that step by hand from the list below.
+
 ## Reaching the state
 
-Run from `/home/user/Quizzivy`. Each step is safe to repeat.
+Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps 1 to 5 (not
+`psql`) and the migration half of step 7.
 
 1. **Start the Docker daemon** if `docker info` fails. It inherits the proxy
    variables of the shell, which it needs to pull images.
@@ -29,10 +62,38 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat.
 3. **Make the MinIO image exist.** `docker-compose.yml` names
    `quizzivy-minio:development` with `pull_policy: never`, so compose starts it
    only when the image is already local. Check with
-   `docker image inspect quizzivy-minio:development`. If it is missing,
-   `docker compose build minio` is the documented route (`docker/minio/README.md`),
-   but it fails in this container; "What did not work" records the one-off host
-   build that produced the image used on 2026-10-07.
+   `docker image inspect quizzivy-minio:development`. The image survives a daemon
+   restart. If it is missing, build it on the host, from the pinned commits in
+   `docker/minio/README.md`. `docker compose build minio` is the documented route but
+   fails in this container (see "What did not work"). The host build needs the local
+   `golang:1.27-alpine` and `alpine:3.22` images and `GOTOOLCHAIN=go1.27.0`, and took
+   150 s on 2026-10-08:
+
+   ```
+   B=$(mktemp -d); cd "$B"
+   git init minio && git -C minio fetch --depth=1 https://github.com/minio/minio.git 07c3a429bfed433e49018cb0f78a52145d4bedeb && git -C minio checkout --detach FETCH_HEAD
+   git init mc    && git -C mc    fetch --depth=1 https://github.com/minio/mc.git    7394ce0dd2a80935aded936b09fa12cbb3cb8096 && git -C mc    checkout --detach FETCH_HEAD
+   mkdir out licenses-minio licenses-mc
+   export GOTOOLCHAIN=go1.27.0 CGO_ENABLED=0
+   (cd minio && go build -trimpath -ldflags="$(go run buildscripts/gen-ldflags.go)" -o ../out/minio .)
+   (cd mc    && go build -trimpath -ldflags="$(go run buildscripts/gen-ldflags.go)" -o ../out/mc .)
+   cp minio/LICENSE minio/CREDITS licenses-minio/; cp mc/LICENSE mc/CREDITS licenses-mc/
+   cat > Dockerfile <<'EOF'
+   FROM golang:1.27-alpine AS certs
+   FROM alpine:3.22
+   COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+   COPY out/minio out/mc /usr/bin/
+   COPY licenses-minio/ /licenses/minio/
+   COPY licenses-mc/ /licenses/mc/
+   ENTRYPOINT ["minio"]
+   EOF
+   docker build -t quizzivy-minio:development .
+   cd /home/user/Quizzivy; rm -rf "$B"
+   ```
+
+   Verified: `minio --version` and `mc --version` report the pinned commits, the
+   licence files are in `/licenses`, and `wget` (the healthcheck) and `/bin/sh`
+   (`minio-init`) exist in the image. It lacks the repository Dockerfile's description label.
 
 4. **Start the services.** `make up` also builds the image, which fails here, so
    start them directly:
@@ -148,30 +209,8 @@ Credentials are the compose defaults: Postgres superuser `postgres`/`postgres`,
 ## What did not work
 
 - **`docker compose build minio`** fails: BuildKit cannot reach the Alpine
-  mirror (`apk add git` answers HTTP 403 through the proxy). The image in use on
-  2026-10-07 was built once on the host instead, which has Go, git and the proxy's
-  CA bundle, from the pinned commits in `docker/minio/README.md`:
-
-  ```
-  B=$(mktemp -d); cd "$B"
-  git init minio && git -C minio fetch --depth=1 https://github.com/minio/minio.git 07c3a429bfed433e49018cb0f78a52145d4bedeb && git -C minio checkout --detach FETCH_HEAD
-  git init mc    && git -C mc    fetch --depth=1 https://github.com/minio/mc.git    7394ce0dd2a80935aded936b09fa12cbb3cb8096 && git -C mc    checkout --detach FETCH_HEAD
-  mkdir out
-  (cd minio && CGO_ENABLED=0 GOTOOLCHAIN=go1.27.0 go build -trimpath -ldflags="$(GOTOOLCHAIN=go1.27.0 go run buildscripts/gen-ldflags.go)" -o ../out/minio .)
-  (cd mc    && CGO_ENABLED=0 GOTOOLCHAIN=go1.27.0 go build -trimpath -ldflags="$(GOTOOLCHAIN=go1.27.0 go run buildscripts/gen-ldflags.go)" -o ../out/mc .)
-  cat > Dockerfile <<'EOF'
-  FROM golang:1.27-alpine AS certs
-  FROM alpine:3.22
-  COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-  COPY out/minio out/mc /usr/bin/
-  ENTRYPOINT ["minio"]
-  EOF
-  docker build -t quizzivy-minio:development .
-  ```
-
-  The base images `golang:1.27-alpine` and `alpine:3.22` were already local, and
-  the two compiles took several minutes. This was not re-run end to end; whoever
-  next needs the image runs it, corrects it, and moves it into step 3.
+  mirror (`apk add git` answers HTTP 403 through the proxy). Step 3 builds the image
+  on the host instead.
 - **`make up`** runs the same build, so use the two `docker compose` commands in
   step 4.
 - **Go without the pin.** `make lint` exits 2 after 267 s; with
@@ -197,7 +236,7 @@ Credentials are the compose defaults: Postgres superuser `postgres`/`postgres`,
 | Go | 1.24.7 host, 1.27.0 by `GOTOOLCHAIN` | 1.27 |
 | `psql` client | 16.15 (server is 18.6) | 18 |
 | Postgres | `postgres:18` in compose, shared by every run | a service container per job |
-| MinIO image | built on the host from the pinned commits | pulled from `ghcr.io`, or built by compose |
+| MinIO image | built on the host from the pinned commits (step 3) | pulled from `ghcr.io`, or built by compose |
 | Browsers | Chromium only, in `/opt/pw-browsers` (`PLAYWRIGHT_BROWSERS_PATH`) | what the Playwright config installs |
 | Parallelism | 4 cores, one shared Postgres | one job per runner |
 | Word converter tests | not run | run |
