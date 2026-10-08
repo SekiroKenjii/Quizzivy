@@ -1206,6 +1206,12 @@
         "explanations": "Bạn sẽ xem được điểm và giải thích sau khi nộp bài.",
         "all": "Bạn sẽ xem được điểm, đáp án đúng và giải thích sau khi nộp bài."
       },
+      "scoreAfterClose": {
+        "only": "Bạn sẽ xem được điểm sau khi bài đóng.",
+        "answers": "Bạn sẽ xem được điểm và đáp án đúng sau khi bài đóng.",
+        "explanations": "Bạn sẽ xem được điểm và giải thích sau khi bài đóng.",
+        "all": "Bạn sẽ xem được điểm, đáp án đúng và giải thích sau khi bài đóng."
+      },
       "audioLimited_one": "Mỗi bài nghe có giới hạn riêng, từ {{count}} lượt. Lượt nghe thêm được ghi lại.",
       "audioLimited_other": "Mỗi bài nghe có giới hạn riêng, từ {{count}} lượt. Lượt nghe thêm được ghi lại.",
       "audioShared": "Các câu dùng chung bài nghe cũng dùng chung lượt nghe. Đổi câu hoặc tải lại trang không đặt lại lượt nghe.",

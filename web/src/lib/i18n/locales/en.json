@@ -1206,6 +1206,12 @@
         "explanations": "You will see your score and explanations after submitting.",
         "all": "You will see your score, the correct answers and explanations after submitting."
       },
+      "scoreAfterClose": {
+        "only": "You will see your score after the test closes.",
+        "answers": "You will see your score and the correct answers after the test closes.",
+        "explanations": "You will see your score and explanations after the test closes.",
+        "all": "You will see your score, the correct answers and explanations after the test closes."
+      },
       "audioLimited_one": "Each recording has its own limit, starting at {{count}} play. Additional plays are recorded.",
       "audioLimited_other": "Each recording has its own limit, starting at {{count}} plays. Additional plays are recorded.",
       "audioShared": "Questions sharing a recording share its allowance. Changing questions or reloading does not reset it.",

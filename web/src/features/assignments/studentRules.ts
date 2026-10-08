@@ -91,12 +91,13 @@ function leaving(integrity: IntegrityPolicy, t: TFunction): string {
 }
 
 function score(review: RulesInput["review"], t: TFunction): string {
-  if (review.showCorrectAnswers && review.showExplanations)
-    return t("assignments.rules.score.all");
-  if (review.showCorrectAnswers) return t("assignments.rules.score.answers");
-  return review.showExplanations
-    ? t("assignments.rules.score.explanations")
-    : t("assignments.rules.score.only");
+  const group =
+    review.release === "after_close"
+      ? "assignments.rules.scoreAfterClose"
+      : "assignments.rules.score";
+  if (review.showCorrectAnswers && review.showExplanations) return t(`${group}.all`);
+  if (review.showCorrectAnswers) return t(`${group}.answers`);
+  return review.showExplanations ? t(`${group}.explanations`) : t(`${group}.only`);
 }
 
 /** studentRules generates policy sentences using an explicit display zone while preserving engine behavior. */
