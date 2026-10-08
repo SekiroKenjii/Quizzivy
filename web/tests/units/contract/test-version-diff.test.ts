@@ -146,11 +146,8 @@ describe("test version diff wire boundaries", () => {
     ]) {
       expect(accepts(value)).toBe(false);
     }
-    expect(Object.keys(operation.responses).sort()).toEqual([
-      "200",
-      "400",
-      "404",
-      "422",
-    ]);
+    expect(new Set(Object.keys(operation.responses))).toEqual(
+      new Set(["200", "400", "404", "422"]),
+    );
   });
 });
