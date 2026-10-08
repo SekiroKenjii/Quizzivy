@@ -70,7 +70,7 @@ func (s *Postgres) loadDraftUnits(ctx context.Context, tx pgx.Tx, section *domai
 
 func draftGroupQuestion(q domain.GroupQuestion, ordinal int) domain.DraftQuestion {
 	in := q.Input
-	out := domain.DraftQuestion{SourceID: q.ID, Ordinal: ordinal, Type: string(in.Type), Prompt: in.Prompt,
+	out := domain.DraftQuestion{SourceID: q.ID, Ordinal: ordinal, Type: string(in.Type), Level: in.Level, Skill: in.Skill, Prompt: in.Prompt,
 		PromptContent: in.PromptContent, ExplanationContent: in.ExplanationContent, Points: in.Points,
 		MediaAssetID: in.MediaAssetID, MediaAssetKind: q.MediaAssetKind, Transcript: in.Transcript, Explanation: in.Explanation, SampleAnswer: in.SampleAnswer}
 	if in.Audio != nil {

@@ -16,6 +16,8 @@ type Input struct {
 	PromptContent      json.RawMessage
 	ExplanationContent json.RawMessage
 	Type               Type
+	Level              *Level
+	Skill              *Skill
 	Prompt             string
 	MediaAssetID       *string
 	Audio              *AudioPolicy
@@ -84,6 +86,9 @@ type BlankInput struct {
 // questions, or every teacher's under scope.all; a zero Scope matches nothing.
 type ListInput struct {
 	Types    []Type
+	Levels   []Level
+	Skills   []Skill
+	TagMatch string
 	Tags     []string
 	HasAudio *bool
 	Query    string
@@ -100,6 +105,12 @@ func (in Input) Validate(assetKind *string) error {
 	if !in.Type.valid() {
 		add("type", "Loại câu hỏi không hợp lệ.")
 		return &ValidationError{Fields: errs}
+	}
+	if in.Level != nil && !validLevel(*in.Level) {
+		add("level", "Trình độ không hợp lệ.")
+	}
+	if in.Skill != nil && !validSkill(*in.Skill) {
+		add("skill", "Kỹ năng không hợp lệ.")
 	}
 	if strings.TrimSpace(in.Prompt) == "" {
 		add("prompt", "Nội dung câu hỏi không được để trống.")

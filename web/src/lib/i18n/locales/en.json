@@ -2179,7 +2179,7 @@
     "historyTitle": "Word and PDF import history",
     "historyHint": "Word and PDF files you are turning into tests. Each import keeps its original files, its progress and your review, so you can come back at any time.",
     "backToTests": "Back to tests",
-    "backToHistory": "Back to import history",
+    "backToHistory": "Back to imports",
     "start": "Import from Word/PDF",
     "searchPlaceholder": "Search file or test name",
     "statusFilter": "Filter by status",
@@ -2295,11 +2295,11 @@
     "processing": {
       "stagesLabel": "Processing steps",
       "stage": {
-        "validate": "Check files",
-        "read": "Read content",
-        "structure": "Recognise structure",
-        "answers": "Match answers",
-        "check": "Check the exam"
+        "validate": "Check the files",
+        "read": "Read the content",
+        "structure": "Recognise the structure",
+        "answers": "Match the answers",
+        "check": "Check the test"
       },
       "state": {
         "done": "done",
@@ -2310,7 +2310,19 @@
       "waitingToStart": "Waiting for a turn",
       "elapsed": "Running for {{time}}",
       "retryWaiting": "Waiting to retry automatically. There's nothing you need to do.",
-      "attempt": "Attempt {{attempt}} of {{max}}"
+      "attempt": "Attempt {{attempt}} of {{max}}",
+      "textCheck": "Check the text",
+      "charactersChecked": "{{count}} characters checked",
+      "plainText": "Plain text · no formatting"
+    },
+    "textRunError": {
+      "SOURCE_INVALID": "The pasted text or a companion file could not be read. Check the sources and start a new import.",
+      "SOURCE_TOO_LARGE": "The pasted text or a companion file exceeds a processing limit. Reduce the content or source size and start a new import.",
+      "STORAGE_INTEGRITY_FAILED": "The stored original of the pasted text or a companion file can no longer be read. Start a new import from the original sources.",
+      "STOPPED": "Processing stopped. The pasted text and companion files cannot be processed further in this import; check the sources and start a new import.",
+      "TEMPORARY": "The processing service hit a temporary problem. The pasted text and companion files are still kept; try again in a few minutes.",
+      "INTERNAL": "The system could not finish processing. The pasted text and companion files are still kept; try again.",
+      "UNKNOWN": "Processing stopped for an unknown reason. The pasted text and companion files are still kept; try again."
     },
     "runError": {
       "SOURCE_INVALID": "The file is damaged or isn't a valid Word document. Open it in Word, save it as .docx and upload it again.",
@@ -2336,11 +2348,12 @@
     },
     "staleData": "Couldn't refresh; showing the last known information.",
     "detail": {
+      "pageTitle": "Import",
       "awaitingTitle": "Not processed yet",
       "awaitingBody": "This import is missing files or hasn't been started. Add what's missing, then start processing.",
       "processingTitle": "Processing",
-      "processingBody": "You can leave this page; processing continues and you can come back from the import history.",
-      "leave": "Go to import history",
+      "processingBody": "You can leave this page. Processing continues, and you can open it again from Imports.",
+      "leave": "Back to imports",
       "cancel": "Cancel processing",
       "cancelTitle": "Cancel this import?",
       "cancelBody": "Processing stops and the import is closed; it can't be continued. The original files are kept under the retention policy.",
@@ -2365,7 +2378,7 @@
       "committingTitle": "Creating the draft test",
       "committingBody": "This usually takes a few seconds. The page updates by itself.",
       "readyTitle": "Ready for review",
-      "readyBody": "The exam has been rebuilt from the document. Review what must be fixed or confirmed before creating the draft.",
+      "readyBody": "Nothing is saved as a test yet. Check the items below first.",
       "continueReview": "Continue review",
       "committedTitle": "Draft test created",
       "committedBody": "The draft test has been created and is in your tests. Open it in the builder to view and edit it.",
@@ -2387,11 +2400,50 @@
       "cancelledBodyReviewDays": "The review and the original files stay viewable for {{days}} days after closing, then are removed.",
       "closeBodyDays": "The import will be closed and cannot continue. The original files stay viewable for {{days}} more days, then are removed.",
       "closeBodyReviewDays": "The import will be closed and you won't be able to create a draft test from this review. The review and the original files stay viewable for {{days}} more days, then are removed.",
-      "cancelBodyDays": "Processing will stop and the import will be closed; it cannot be continued. The original files are kept for {{days}} more days, then removed."
+      "cancelBodyDays": "Processing will stop and the import will be closed; it cannot be continued. The original files are kept for {{days}} more days, then removed.",
+      "started": "Started {{when}}",
+      "found": "We found {{questions}} with {{answers}} in {{sections}}",
+      "startReview": "Start review",
+      "later": "Later",
+      "summaryLoading": "Reading the recognition result…",
+      "summaryFailed": "Could not load the summary. You can still open the review or retry.",
+      "everyAnswer": "Every question has an answer",
+      "needAction": "{{count}} need action",
+      "toConfirm": "{{count}} to confirm",
+      "notes": "{{count}} notes",
+      "replaceExam": "Replace exam file",
+      "stoppedAt": "Stopped at “{{stage}}”",
+      "created": "Created {{when}}",
+      "waitingLeave": "You can leave this page. The import stays queued until this server enables processing again.",
+      "questionCount_one": "{{count}} question",
+      "questionCount_other": "{{count}} questions",
+      "answerCount_one": "{{count}} answer",
+      "answerCount_other": "{{count}} answers",
+      "sectionCount_one": "{{count}} section",
+      "sectionCount_other": "{{count}} sections",
+      "notes_one": "{{count}} note",
+      "notes_other": "{{count}} notes",
+      "pastedText": "Pasted text",
+      "fromPastedText": "from pasted text",
+      "text": {
+        "awaitingBody": "The pasted text is saved. Start processing to build the review.",
+        "cancelBody": "Processing stops and the import is closed; it cannot be continued. The pasted text and companion files are kept under the retention policy.",
+        "cancelBodyDays": "Processing will stop and the import will be closed; it cannot be continued. The pasted text and companion files are kept for {{days}} more days, then removed.",
+        "closeBody": "The import is closed and cannot continue. The pasted text and companion files stay available under the retention policy.",
+        "closeBodyDays": "The import will be closed and cannot continue. The pasted text and companion files stay viewable for {{days}} more days, then are removed.",
+        "closeBodyReview": "The import is closed and no draft test can be created from this review any more. The review, pasted text and companion files stay viewable under the retention policy.",
+        "closeBodyReviewDays": "The import will be closed and you cannot create a draft test from this review. The review, pasted text and companion files stay viewable for {{days}} more days, then are removed.",
+        "cancelledBody": "The pasted text and companion files are kept under the retention policy.",
+        "cancelledBodyDays": "The pasted text and companion files are kept for {{days}} days after closing, then removed.",
+        "cancelledBodyReview": "The review, pasted text and companion files stay viewable under the retention policy.",
+        "cancelledBodyReviewDays": "The review, pasted text and companion files stay viewable for {{days}} days after closing, then are removed.",
+        "closedIdleBody": "This pasted-text import closed itself after {{days}} days without changes.",
+        "closedIdleBodyPlain": "This pasted-text import closed itself after a long time without changes."
+      }
     },
     "sources": {
-      "title": "Original files",
-      "meta": "{{role}} · {{size}} · uploaded {{at}}",
+      "title": "Original sources",
+      "meta": "{{role}} · {{size}} · added {{at}}",
       "download": "Download original",
       "downloadNamed": "Download original {{name}}",
       "downloadFailed": "Couldn't download the original."
@@ -2721,7 +2773,7 @@
     "retention": {
       "policy": "Original files and the review are kept for {{afterCommit}} days after the test is created and {{afterCancel}} days after cancelling. An import with no changes for {{idle}} days is closed automatically.",
       "removed": "The original files and the review were removed on {{date}} under the retention policy. The import's history is kept.",
-      "idleWarning": "An import with no changes for {{days}} days is closed and its files removed.",
+      "idleWarning": "An import with no changes for {{days}} days is closed and its original content removed.",
       "reviewRemoved": "This import's review was removed under the retention policy.",
       "viewImport": "View the import",
       "sourceRemoved": "The original file was removed under the retention policy, so its extracted text is no longer available."
@@ -2743,6 +2795,28 @@
       "needsAction": "{{count}} need action",
       "toConfirm": "{{count}} to confirm",
       "nothingOpen": "Nothing open"
+    },
+    "textFailureTitle": {
+      "SOURCE_INVALID": "An import source could not be read",
+      "SOURCE_TOO_LARGE": "An import source exceeds the limits"
+    },
+    "failureTitle": {
+      "SOURCE_INVALID": "The exam file could not be read",
+      "SOURCE_UNSUPPORTED": "This file format is not supported",
+      "SOURCE_TOO_LARGE": "The exam file is too large",
+      "LEGACY_CONVERSION_UNAVAILABLE": "Legacy Word conversion is unavailable",
+      "PDF_NO_TEXT": "This PDF has no text to read",
+      "PDF_PROTECTED": "This PDF is password protected",
+      "PDF_INVALID": "This PDF is invalid",
+      "PDF_TOO_LARGE": "This PDF exceeds the limits",
+      "CONVERSION_FAILED": "The document could not be converted",
+      "STORAGE_INTEGRITY_FAILED": "The stored original failed its integrity check",
+      "STOPPED": "Answer recognition could not continue",
+      "STORAGE_QUOTA_EXCEEDED": "Import storage is full",
+      "PIPELINE_RETIRED": "This processing pipeline has been retired",
+      "TEMPORARY": "Processing met a temporary problem",
+      "INTERNAL": "Processing could not finish",
+      "UNKNOWN": "Processing stopped"
     }
   },
   "controls": {

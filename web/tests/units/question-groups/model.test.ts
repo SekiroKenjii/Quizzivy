@@ -17,6 +17,8 @@ function group(): GroupBundle {
     {
       id,
       input: {
+        level: null,
+        skill: null,
         type: "single_choice",
         prompt: "Choose",
         points: 1,
@@ -129,6 +131,8 @@ test("independent recovery remaps both ends of rich blank links without mutating
   const question = bundle.questions[0]!;
   bundle.group.members[0]!.optionOrder = "shuffle";
   question.input = {
+    level: null,
+    skill: null,
     type: "fill_blank",
     points: 1,
     prompt: "[1]",

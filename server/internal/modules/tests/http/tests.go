@@ -270,10 +270,14 @@ func toAPITest(t domain.Test) (openapi.Test, error) {
 		TotalPoints:    points,
 		QuestionCount:  t.QuestionCount,
 		AudioCount:     t.AudioCount,
+		Skills:         make([]openapi.QuestionSkill, len(t.Skills)),
 		CreatedAt:      t.CreatedAt,
 		UpdatedAt:      t.UpdatedAt,
 		DeletedAt:      t.DeletedAt,
 		Sections:       make([]openapi.TestSection, len(t.Sections)),
+	}
+	for i, skill := range t.Skills {
+		out.Skills[i] = openapi.QuestionSkill(skill)
 	}
 	for i, sec := range t.Sections {
 		ids := make([]openapi.Uuid, len(sec.QuestionIDs))

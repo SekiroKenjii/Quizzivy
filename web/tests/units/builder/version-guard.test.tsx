@@ -25,6 +25,7 @@ let accepted = 0;
 
 function testBody() {
   return {
+    skills: [],
     id: TEST_ID,
     title: "Unit 5",
     description: null,
@@ -59,6 +60,8 @@ beforeEach(() => {
     ),
     http.get(`${BASE}/teacher/questions/:id`, () =>
       contractJson("/teacher/questions/{id}", "get", 200, {
+        level: null,
+        skill: null,
         id: QUESTION_ID,
         type: "short_answer" as const,
         prompt: "Câu hỏi",

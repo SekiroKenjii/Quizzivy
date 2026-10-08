@@ -130,6 +130,8 @@ test("editable groups carry complete member inputs and retryable media state", (
         {
           id,
           input: {
+            level: null,
+            skill: null,
             type: "single_choice",
             prompt: "Chọn từ",
             points: 1,

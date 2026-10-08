@@ -75,6 +75,7 @@ const TEMPLATED: Record<string, string[]> = {
   "imports.findings.objectReasons.": [...OBJECT_REASONS],
   "imports.findings.objectTitles.": [...TITLED_REASONS],
   "imports.runError.": [...RUN_ERROR_KEYS],
+  "imports.failureTitle.": [...RUN_ERROR_KEYS],
   "imports.reprocess.": ["failed", "cancelled"],
   "imports.processing.stage.": PROCESSING_STAGES.map((stage) => stage.key),
   "imports.processing.state.": ["done", "current", "waiting"],

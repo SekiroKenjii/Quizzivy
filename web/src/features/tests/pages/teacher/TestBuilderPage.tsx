@@ -1155,6 +1155,8 @@ function QuestionForm({
 function starterQuestion(t: TFunction): QuestionValues {
   return {
     type: "single_choice",
+    level: null,
+    skill: null,
     prompt: t("builder.starterPrompt"),
     mediaAssetId: null,
     audio: null,

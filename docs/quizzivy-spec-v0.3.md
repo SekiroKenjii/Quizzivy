@@ -1,7 +1,29 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.58 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.60 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.59**
+
+R4, question metadata and authoring compatibility (T-R4.15):
+
+- Teacher question reads and authoring carry nullable level and skill; draft test
+  lists expose distinct sorted skills. Published metadata stays frozen through
+  later bank edits and draft restoration.
+- New authoring accepts at most eight choice options. Stored reads, bodyless
+  copies, publication and restoration preserve legacy longer arrays. Migrations
+  00087/00088 add nullable metadata without backfill. Local PG18 up/down/up,
+  isolated app/migrate behavior and unchanged critical canaries pass. A separate read-only Neon data copy reports zero oversized
+  questions among 64 bank and 23 frozen rows; no cloud DDL was executed.
+
+**Changes since v0.58**
+
+R4, import processing presentation (T-R4.37):
+
+- The teacher processing page follows the deck for file and pasted-text sources,
+  preserving real run stages, revision guards, cancellation, retention and review
+  states. Text failure titles and recovery copy do not guess which source failed.
+  Paste intake editing remains T-R4.57; run-event history remains unavailable.
 
 **Changes since v0.57**
 
@@ -946,6 +968,9 @@ type QuestionType =
   | 'single_choice' | 'multiple_choice' | 'true_false'
   | 'fill_blank' | 'short_answer';
 
+type QuestionLevel = 'pre_a1' | 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2';
+type QuestionSkill = 'grammar' | 'vocabulary' | 'reading' | 'listening' | 'writing' | 'speaking';
+
 interface AudioPolicy {
   maxPlays: number | null;              // null = unlimited
   allowSeek: boolean;                   // default false for listening
@@ -954,6 +979,8 @@ interface AudioPolicy {
 
 interface Question {
   id; type: QuestionType;
+  level: QuestionLevel | null;
+  skill: QuestionSkill | null;
   prompt: string;                       // Markdown, rendered sanitized
   media?: MediaAsset;
   audio?: AudioPolicy;                  // present iff media.kind === 'audio'
@@ -1029,6 +1056,22 @@ true/false require exactly one correct option; true/false has exactly two option
 Points must be greater than zero, no greater than 999999.99 and have no more than
 two decimal places. Do not silently round source or teacher-entered points.
 Publication requires a nonempty exam and an exact total within numeric(8,2).
+
+Teacher question metadata is nullable: level is `pre_a1`, `a1`, `a2`, `b1`,
+`b2`, `c1` or `c2`; skill is grammar, vocabulary, reading, listening, writing
+or speaking. Bank and shared-group authoring requests cap choice arrays at eight;
+existing stored arrays remain readable, copyable, publishable and restorable.
+The stored editable contract is separate from the capped request contract.
+Import assessment also refuses an included question above the authoring cap;
+excluded questions do not prevent commit. Publishing freezes both metadata
+fields, including grouped questions, and restoring a version preserves them.
+Draft test-list skills are distinct, sorted and omit null values.
+
+Question-bank filtering is OR within level or skill and AND across dimensions.
+`tagMatch=any|all` preserves today's any default. Each metadata facet omits only
+its own dimension while retaining the other filters and normal owner scope;
+tag enumeration omits tag filtering. These reads do not promise a new atomic
+cross-query snapshot or measured performance.
 
 `ContentDocument` is an application-owned discriminated union: `legacy_markdown_v1`
 retains the exact historical Markdown string; `semantic_v1` contains typed
@@ -2146,7 +2189,7 @@ GET    /teacher/tests?status=&q=&cursor=
 POST   /teacher/tests | GET /:id | PATCH /:id
 POST   /teacher/tests/:id/publish       → new version
 POST   /teacher/tests/:id/duplicate
-GET    /teacher/questions?type=&tag=&q=&cursor=
+GET    /teacher/questions?type=&tag=&tagMatch=any|all&level=&skill=&q=&cursor=
 POST   /teacher/questions | PATCH /:id | DELETE /:id
 POST   /teacher/media?defaultMaxPlays=  multipart → MediaAsset (validates mime, size, duration, quota)
 GET    /teacher/media?kind=&unused=&q=&cursor=   rows, facets and usage against the quota
@@ -2325,6 +2368,19 @@ paste mode explicitly reports its availability and cannot start an import.
 File mode retains automatic recognition, actual limits and retention, the privacy
 notice and a sticky Cancel/Start footer. Leaving during upload quietly stops
 intake, as before. Neither page infers provider policy from capability data.
+
+The R4 processing page uses the deck's 720px frame and five presentation rows
+mapped to the actual run stage. It retains elapsed time, attempts and retry waiting,
+shows completed receipts only after their stages, and exposes no invented run-event
+history. The actual exam source's role and format select the pasted-text header,
+character receipt and plain-text/no-formatting receipt, independently of filename
+or title. Failed text imports keep the actual error code and stage; source-invalid
+and size titles and recovery instructions remain neutral about the pasted text or
+its companion file. Restart opens the paste-mode destination, whose editor remains
+T-R4.57. Cancellation and closed states use configured retention and finality; Ready
+uses the current review's real counts, severity and conflict rules. The active-stage
+spinner pauses on hover and keyboard focus and stays static under reduced motion;
+retry waiting has no active spinner. This page's source title is static.
 
 `POST /teacher/imports/{id}/sources/text` accepts a closed JSON body with
 `uploadId`, `expectedRevision` and plaintext `text`, under `content.tests.write`.

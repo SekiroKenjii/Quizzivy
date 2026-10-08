@@ -13,12 +13,29 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { Callout } from "@/components/shared/Callout";
+import { Badge } from "@/components/ui/badge";
+import {
+  ClipboardPaste,
+  FileText,
+  ArrowRight,
+  CircleCheck,
+  CircleAlert,
+  CircleHelp,
+  CircleX,
+  Info,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatRelative, formatDateTime } from "@/lib/i18n/datetime";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import {
   cancelWordImport,
   getWordImport,
+  getWordImportReview,
+  type ImportReview,
+  type ImportReviewSummary,
   processWordImport,
   type ImportRetention,
   type WordImport,
@@ -30,7 +47,6 @@ import {
   useImportRetention,
 } from "../../availability";
 import { FilesRemovedNotice } from "../../components/FilesRemovedNotice";
-import { ImportStatusBadge } from "../../components/ImportStatusBadge";
 import { ProcessingOffNotice } from "../../components/ProcessingOffNotice";
 import { ProcessingPanel } from "../../components/ProcessingPanel";
 import { ReprocessNotice } from "../../components/ReprocessNotice";
@@ -45,6 +61,7 @@ import {
   isRetryable,
   reprocessOutcome,
   runErrorKey,
+  PROCESSING_STAGES,
 } from "../../status";
 
 type Store = (next: WordImport) => Promise<void>;
@@ -53,7 +70,7 @@ export default function ImportDetailPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
   const client = useQueryClient();
-  const processing = useImportAvailability() !== "reviewOnly";
+  const processing = useImportAvailability() === "on";
   const query = useQuery({
     queryKey: ["word-import", id],
     queryFn: ({ signal }) => getWordImport(id, signal),
@@ -75,40 +92,47 @@ export default function ImportDetailPage() {
   if (query.data === undefined) {
     if (query.isPending)
       return (
-        <div role="status" aria-label={t("common.loading")} className="space-y-3">
+        <div
+          role="status"
+          aria-label={t("common.loading")}
+          data-scale="deck"
+          className="mx-auto flex w-full max-w-[720px] flex-col gap-3 focus-within:[&_[data-slot=skeleton]]:[animation-play-state:paused]! hover:[&_[data-slot=skeleton]]:[animation-play-state:paused]!"
+        >
           <Skeleton className="h-8 w-72" />
           <Skeleton className="h-40 w-full" />
         </div>
       );
     if (query.error instanceof ApiError && query.error.status === 404)
       return (
-        <EmptyState
-          action={
-            <Button asChild size="sm" variant="outline">
-              <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
-            </Button>
-          }
-        >
-          {t("imports.notFound")}
-        </EmptyState>
+        <div className="mx-auto w-full max-w-[720px] min-w-0" data-scale="deck">
+          <EmptyState
+            action={
+              <Button asChild size="sm" variant="outline">
+                <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
+              </Button>
+            }
+          >
+            {t("imports.notFound")}
+          </EmptyState>
+        </div>
       );
     return (
-      <LoadError error={query.error} onRetry={() => void query.refetch()}>
-        {t("imports.detailFailed")}
-      </LoadError>
+      <div className="mx-auto w-full max-w-[720px] min-w-0" data-scale="deck">
+        <LoadError error={query.error} onRetry={() => void query.refetch()}>
+          {t("imports.detailFailed")}
+        </LoadError>
+      </div>
     );
   }
   const value = query.data;
   const outcome = reprocessOutcome(value);
   return (
-    <>
-      <PageHeader
-        title={value.title}
-        meta={<ImportStatusBadge status={value.status} />}
-        backTo="/teacher/imports"
-        backLabel={t("imports.backToHistory")}
-      />
-      <div className="mx-auto max-w-3xl space-y-6">
+    <div
+      className="mx-auto flex w-full max-w-[720px] min-w-0 flex-col gap-4"
+      data-scale="deck"
+    >
+      <DetailHead value={value} />
+      <div className="flex min-w-0 flex-col gap-4">
         <p role="status" aria-live="polite" className="sr-only">
           {outcome === null
             ? t(`imports.status.${value.status}`)
@@ -133,29 +157,117 @@ export default function ImportDetailPage() {
           </section>
         )}
       </div>
-    </>
+    </div>
+  );
+}
+
+function DetailHead({ value }: Readonly<{ value: WordImport }>) {
+  const { t } = useTranslation();
+  const locale = useLocale();
+  const exam = value.sources.find((source) => source.role === "exam");
+  const key = value.sources.find((source) => source.role === "answer_key");
+  const started = value.run?.createdAt ?? value.createdAt;
+  const text = exam?.format === "text";
+  const name = text ? t("imports.detail.pastedText") : (exam?.filename ?? value.title);
+  return (
+    <header className="flex min-w-0 flex-col gap-3">
+      {value.status === "processing" ||
+      value.status === "needs_review" ||
+      value.status === "failed" ? null : (
+        <Link
+          to="/teacher/imports"
+          className="text-muted-fg hover:text-fg self-start text-sm"
+        >
+          {t("imports.backToHistory")}
+        </Link>
+      )}
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="bg-info-soft text-info-ink grid size-10 shrink-0 place-items-center rounded-[10px]">
+          {text ? (
+            <ClipboardPaste className="size-[19px]" aria-hidden="true" />
+          ) : (
+            <FileText className="size-[19px]" aria-hidden="true" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold tracking-tight">
+            <span className="block truncate" title={name}>
+              {name}
+            </span>
+          </h1>
+          <p
+            className="text-muted-fg text-sm break-words"
+            title={formatDateTime(started, locale)}
+          >
+            {t(
+              value.run === undefined
+                ? "imports.detail.created"
+                : "imports.detail.started",
+              { when: formatRelative(started, locale) },
+            )}
+            {text ? <> · {t("imports.detail.fromPastedText")}</> : null}
+            {key ? (
+              <> · {t("imports.history.withKey", { name: key.filename })}</>
+            ) : null}
+          </p>
+          {name === value.title ? null : (
+            <p className="text-muted-fg text-xs break-words">{value.title}</p>
+          )}
+        </div>
+      </div>
+    </header>
   );
 }
 
 function Panel({
   title,
   description,
+  status,
   children,
+  groupHeading,
 }: Readonly<{
   title: string;
   description?: string | undefined;
+  status?: ReactNode;
   children?: ReactNode;
+  groupHeading?: "ready" | "failed" | undefined;
 }>) {
+  const heading = (
+    <>
+      <CardTitle
+        className={cn("text-[17px] leading-snug", groupHeading && "leading-normal")}
+      >
+        {title}
+      </CardTitle>
+      {description === undefined ? null : (
+        <CardDescription
+          className={cn(
+            groupHeading && "text-ui leading-normal",
+            groupHeading === "failed" && "leading-[1.55]",
+          )}
+        >
+          {description}
+        </CardDescription>
+      )}
+    </>
+  );
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description === undefined ? null : (
-          <CardDescription>{description}</CardDescription>
+    <Card
+      role={groupHeading === "failed" ? "alert" : undefined}
+      className="gap-3.5 py-5"
+    >
+      <CardHeader className={cn("px-5", groupHeading && "gap-3.5")}>
+        {status}
+        {groupHeading ? (
+          <div className="flex flex-col gap-0.5">{heading}</div>
+        ) : (
+          heading
         )}
       </CardHeader>
       {children === undefined ? null : (
-        <CardContent className="flex flex-col gap-4 pt-1">{children}</CardContent>
+        <CardContent className="flex flex-col gap-3.5 px-5 pt-0">
+          {children}
+        </CardContent>
       )}
     </Card>
   );
@@ -221,11 +333,46 @@ function ReadyPanel({
 }: Readonly<{ value: WordImport; onChange: Store; processing: boolean }>) {
   const { t } = useTranslation();
   const reprocessFailed = reprocessOutcome(value) === "failed";
+  const processingOff = useProcessingOff();
+  const review = useQuery({
+    queryKey: [
+      "word-import-ready-summary",
+      value.id,
+      value.draftRevision ?? 0,
+      value.revision,
+    ],
+    queryFn: ({ signal }) => getWordImportReview(value.id, signal),
+  });
   return (
     <Panel
-      title={t("imports.detail.readyTitle")}
+      title={
+        review.data === undefined
+          ? t("imports.detail.readyTitle")
+          : readyTitle(review.data.summary, t)
+      }
       description={t("imports.detail.readyBody")}
+      groupHeading="ready"
+      status={
+        <Badge
+          variant="success"
+          className="h-6.5! w-fit self-start rounded-full! text-[12.5px]"
+        >
+          <CircleCheck className="size-[13px]" aria-hidden="true" />
+          {t("imports.status.needs_review")}
+        </Badge>
+      }
     >
+      {review.data === undefined ? (
+        <ReadySummaryState
+          pending={review.isPending}
+          onRetry={() => void review.refetch()}
+        />
+      ) : (
+        <ReadyPills review={review.data} />
+      )}
+      {review.data !== undefined && review.isError ? (
+        <StaleNotice onRetry={() => void review.refetch()} />
+      ) : null}
       <ReprocessNotice value={value} className="bg-muted/40 rounded-md p-3 text-sm" />
       {reprocessFailed ? (
         <RetryRun
@@ -235,21 +382,86 @@ function ReadyPanel({
           canRetry={processing}
         />
       ) : null}
-      {reprocessFailed && !processing ? (
+      {reprocessFailed && processingOff ? (
         <ProcessingOffNotice>
           {t("imports.availability.reprocessOff")}
         </ProcessingOffNotice>
       ) : null}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button asChild>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild size="md" className="h-10 px-4 text-[14px] font-semibold">
           <Link to={`/teacher/imports/${value.id}/review`}>
-            {t("imports.detail.continueReview")}
+            {t("imports.detail.startReview")}
+            <ArrowRight aria-hidden="true" />
           </Link>
+        </Button>
+        <Button asChild variant="outline" size="md" className="h-10">
+          <Link to="/teacher/imports">{t("imports.detail.later")}</Link>
         </Button>
         <CloseImport value={value} onChange={onChange} />
       </div>
       <IdleWarning />
     </Panel>
+  );
+}
+
+function ReadySummaryState({
+  pending,
+  onRetry,
+}: Readonly<{ pending: boolean; onRetry: () => void }>) {
+  const { t } = useTranslation();
+  if (pending)
+    return (
+      <p role="status" className="text-muted-fg text-sm">
+        {t("imports.detail.summaryLoading")}
+      </p>
+    );
+  return (
+    <div role="alert" className="flex flex-wrap items-center gap-2 text-sm">
+      <span>{t("imports.detail.summaryFailed")}</span>
+      <Button type="button" variant="outline" size="xs" onClick={onRetry}>
+        {t("common.retry")}
+      </Button>
+    </div>
+  );
+}
+
+function ReadyPills({ review }: Readonly<{ review: ImportReview }>) {
+  const { t } = useTranslation();
+  const notes = review.findings.filter(
+    (finding) => finding.severity === "informational",
+  ).length;
+  const summary = review.summary;
+  const complete =
+    summary.blocking === 0 &&
+    summary.answersMissing === 0 &&
+    summary.answersConflicting === 0;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {complete ? (
+        <Badge variant="success" className="h-6.5! rounded-full! text-[12.5px]">
+          <CircleCheck className="size-[13px]" aria-hidden="true" />
+          {t("imports.detail.everyAnswer")}
+        </Badge>
+      ) : null}
+      {summary.blocking > 0 ? (
+        <Badge variant="danger" className="h-6.5! rounded-full! text-[12.5px]">
+          <CircleAlert className="size-[13px]" aria-hidden="true" />
+          {t("imports.detail.needAction", { count: summary.blocking })}
+        </Badge>
+      ) : null}
+      {summary.needsDecision > 0 ? (
+        <Badge variant="warning" className="h-6.5! rounded-full! text-[12.5px]">
+          <CircleHelp className="size-[13px]" aria-hidden="true" />
+          {t("imports.detail.toConfirm", { count: summary.needsDecision })}
+        </Badge>
+      ) : null}
+      {notes > 0 ? (
+        <Badge variant="secondary" className="h-6.5! rounded-full! text-[12.5px]">
+          <Info className="size-[13px]" aria-hidden="true" />
+          {t("imports.detail.notes", { count: notes })}
+        </Badge>
+      ) : null}
+    </div>
   );
 }
 
@@ -259,18 +471,19 @@ function closedBody(
   retention: ImportRetention | undefined,
 ): string | undefined {
   if (value.filesRemovedAt !== undefined) return undefined;
+  const prefix = isTextImport(value) ? "imports.detail.text" : "imports.detail";
   if (value.closedIdle === true)
     return retention === undefined
-      ? t("imports.detail.closedIdleBodyPlain")
-      : t("imports.detail.closedIdleBody", { days: retention.idleDays });
+      ? t(`${prefix}.closedIdleBodyPlain`)
+      : t(`${prefix}.closedIdleBody`, { days: retention.idleDays });
   const days = retention?.afterCancelDays;
   if (hasDraft(value))
     return days === undefined
-      ? t("imports.detail.cancelledBodyReview")
-      : t("imports.detail.cancelledBodyReviewDays", { days });
+      ? t(`${prefix}.cancelledBodyReview`)
+      : t(`${prefix}.cancelledBodyReviewDays`, { days });
   return days === undefined
-    ? t("imports.detail.cancelledBody")
-    : t("imports.detail.cancelledBodyDays", { days });
+    ? t(`${prefix}.cancelledBody`)
+    : t(`${prefix}.cancelledBodyDays`, { days });
 }
 
 function closeBody(
@@ -278,20 +491,26 @@ function closeBody(
   value: WordImport,
   retention: ImportRetention | undefined,
 ): string {
+  const prefix = isTextImport(value) ? "imports.detail.text" : "imports.detail";
   const days = retention?.afterCancelDays;
   if (hasDraft(value))
     return days === undefined
-      ? t("imports.detail.closeBodyReview")
-      : t("imports.detail.closeBodyReviewDays", { days });
+      ? t(`${prefix}.closeBodyReview`)
+      : t(`${prefix}.closeBodyReviewDays`, { days });
   return days === undefined
-    ? t("imports.detail.closeBody")
-    : t("imports.detail.closeBodyDays", { days });
+    ? t(`${prefix}.closeBody`)
+    : t(`${prefix}.closeBodyDays`, { days });
 }
 
-function cancelBody(t: TFunction, retention: ImportRetention | undefined): string {
+function cancelBody(
+  t: TFunction,
+  value: WordImport,
+  retention: ImportRetention | undefined,
+): string {
+  const prefix = isTextImport(value) ? "imports.detail.text" : "imports.detail";
   return retention === undefined
-    ? t("imports.detail.cancelBody")
-    : t("imports.detail.cancelBodyDays", { days: retention.afterCancelDays });
+    ? t(`${prefix}.cancelBody`)
+    : t(`${prefix}.cancelBodyDays`, { days: retention.afterCancelDays });
 }
 
 function ClosedPanel({
@@ -300,6 +519,7 @@ function ClosedPanel({
 }: Readonly<{ value: WordImport; processing: boolean }>) {
   const { t } = useTranslation();
   const retention = useImportRetention();
+  const processingOff = useProcessingOff();
   const removed = value.filesRemovedAt !== undefined;
   const reviewLink =
     hasDraft(value) && !removed ? (
@@ -311,18 +531,34 @@ function ClosedPanel({
     ) : null;
   return (
     <Panel
+      status={
+        <Badge variant="secondary" className="w-fit self-start rounded-full!">
+          {t("imports.status.cancelled")}
+        </Badge>
+      }
       title={t("imports.detail.cancelledTitle")}
       description={closedBody(t, value, retention)}
     >
-      {processing ? null : (
+      {processingOff ? (
         <ProcessingOffNotice>
           {t("imports.availability.startOverOff")}
         </ProcessingOffNotice>
-      )}
-      <div className="flex flex-wrap items-center gap-3 empty:hidden">
+      ) : null}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button asChild variant="outline">
+          <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
+        </Button>
         {processing ? (
           <Button asChild variant="outline">
-            <Link to="/teacher/imports/new">{t("imports.detail.startOver")}</Link>
+            <Link
+              to={
+                isTextImport(value)
+                  ? "/teacher/imports/new?source=paste"
+                  : "/teacher/imports/new"
+              }
+            >
+              {t("imports.detail.startOver")}
+            </Link>
           </Button>
         ) : null}
         {reviewLink}
@@ -365,7 +601,15 @@ function CloseImport({
     <>
       <Button
         variant="ghost"
-        className="text-muted-foreground self-start"
+        size={
+          value.status === "needs_review" || value.status === "failed"
+            ? "md"
+            : "default"
+        }
+        className={cn(
+          "text-muted-foreground self-start",
+          (value.status === "needs_review" || value.status === "failed") && "h-10",
+        )}
         disabled={close.mutation.isPending}
         onClick={close.ask}
       >
@@ -406,15 +650,17 @@ function ProcessingState({
     ? t("imports.detail.reprocessBody")
     : t("imports.detail.processingBody");
   return (
-    <Panel
-      title={
-        reprocess
+    <div className="flex flex-col gap-4">
+      <h2 className="sr-only">
+        {reprocess
           ? t("imports.detail.reprocessTitle")
-          : t("imports.detail.processingTitle")
-      }
-      description={waitingForWorker ? undefined : body}
-    >
-      <ProcessingPanel run={value.run} />
+          : t("imports.detail.processingTitle")}
+      </h2>
+      <ProcessingPanel
+        run={value.run}
+        exam={value.sources.find((source) => source.role === "exam")}
+      />
+      <Callout>{waitingForWorker ? t("imports.detail.waitingLeave") : body}</Callout>
       {waitingForWorker ? (
         <ProcessingOffNotice>{t("imports.availability.queuedOff")}</ProcessingOffNotice>
       ) : null}
@@ -423,12 +669,12 @@ function ProcessingState({
           {cancel.error}
         </p>
       )}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button asChild variant="outline" size="sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="outline" size="md">
           <Link to="/teacher/imports">{t("imports.detail.leave")}</Link>
         </Button>
         {reprocess ? (
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="md">
             <Link to={`/teacher/imports/${value.id}/review`}>
               {t("imports.detail.viewReview")}
             </Link>
@@ -436,7 +682,8 @@ function ProcessingState({
         ) : null}
         <Button
           variant="ghost"
-          size="sm"
+          className="text-danger-ink hover:bg-danger-soft"
+          size="md"
           disabled={cancel.mutation.isPending}
           onClick={cancel.ask}
         >
@@ -452,7 +699,9 @@ function ProcessingState({
             : t("imports.detail.cancelTitle")
         }
         description={
-          reprocess ? t("imports.detail.stopReprocessBody") : cancelBody(t, retention)
+          reprocess
+            ? t("imports.detail.stopReprocessBody")
+            : cancelBody(t, value, retention)
         }
         confirmLabel={
           reprocess
@@ -464,7 +713,7 @@ function ProcessingState({
         pending={cancel.mutation.isPending}
         onConfirm={() => cancel.mutation.mutate()}
       />
-    </Panel>
+    </div>
   );
 }
 
@@ -515,7 +764,7 @@ function RetryRun({
   return (
     <>
       {errorCode === undefined ? null : (
-        <p className="text-muted-foreground text-xs">
+        <p className="text-muted-foreground font-mono text-xs">
           {t("imports.detail.errorCode", { code: errorCode })}
         </p>
       )}
@@ -546,52 +795,174 @@ function IntakePanel({
   processing,
 }: Readonly<{ value: WordImport; onChange: Store; processing: boolean }>) {
   const { t } = useTranslation();
-  const headingId = useId();
   const failed = value.status === "failed";
-  const awaitingBody = processing ? t("imports.detail.awaitingBody") : undefined;
+  const text = isTextImport(value);
+  const processingOff = useProcessingOff();
+  const awaitingKey = text
+    ? "imports.detail.text.awaitingBody"
+    : "imports.detail.awaitingBody";
+  const awaitingBody = processing ? t(awaitingKey) : undefined;
   return (
     <Panel
-      title={
-        failed ? t("imports.detail.failedTitle") : t("imports.detail.awaitingTitle")
-      }
-      description={
-        failed
-          ? t(`imports.runError.${runErrorKey(value.run?.errorCode)}`)
-          : awaitingBody
-      }
+      status={failed ? <FailureStage value={value} /> : undefined}
+      title={failed ? failureTitle(value, t) : t("imports.detail.awaitingTitle")}
+      description={failed ? failureDescription(value, t) : awaitingBody}
+      groupHeading={failed ? "failed" : undefined}
     >
-      {processing ? null : (
+      {processingOff ? (
         <ProcessingOffNotice>{t("imports.availability.intakeOff")}</ProcessingOffNotice>
-      )}
+      ) : null}
       {failed ? (
         <RetryRun value={value} onChange={onChange} canRetry={processing} />
       ) : null}
       {processing ? (
-        <section
-          aria-labelledby={failed ? headingId : undefined}
-          className={failed ? "space-y-3 border-t pt-4" : undefined}
-        >
-          {failed ? (
-            <div className="space-y-1">
-              <h2 id={headingId} className="text-sm font-medium">
-                {t("imports.detail.replaceTitle")}
-              </h2>
-              <p className="text-muted-foreground text-xs leading-relaxed">
-                {t("imports.detail.replaceHint")}
-              </p>
-            </div>
-          ) : null}
-          <SourceIntake
-            key={value.id}
-            existing={value}
-            replacing={failed}
-            onChanged={(next) => void onChange(next)}
-            onStarted={(next) => void onChange(next)}
-          />
-        </section>
+        <IntakeActions value={value} onChange={onChange} failed={failed} />
+      ) : null}
+      {!processing && failed ? (
+        <Button asChild variant="outline" size="md" className="h-10 self-start">
+          <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
+        </Button>
       ) : null}
       <CloseImport value={value} onChange={onChange} />
       <IdleWarning />
     </Panel>
+  );
+}
+
+function IntakeActions({
+  value,
+  onChange,
+  failed,
+}: Readonly<{ value: WordImport; onChange: Store; failed: boolean }>) {
+  const { t } = useTranslation();
+  if (isTextImport(value))
+    return failed ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild size="md" className="h-10 px-4 text-[14px] font-semibold">
+          <Link to="/teacher/imports/new?source=paste">
+            {t("imports.detail.startOver")}
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="md" className="h-10">
+          <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
+        </Button>
+      </div>
+    ) : (
+      <RetryRun
+        value={value}
+        onChange={onChange}
+        canRetry
+        label={t("imports.upload.start")}
+      />
+    );
+  return <FileIntake value={value} onChange={onChange} failed={failed} />;
+}
+
+function FileIntake({
+  value,
+  onChange,
+  failed,
+}: Readonly<{ value: WordImport; onChange: Store; failed: boolean }>) {
+  const { t } = useTranslation();
+  const headingId = useId();
+  return (
+    <>
+      {failed ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="md" className="h-10 px-4 text-[14px] font-semibold">
+            <a href={`#${headingId}`}>{t("imports.detail.replaceExam")}</a>
+          </Button>
+          <Button asChild variant="outline" size="md" className="h-10">
+            <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
+          </Button>
+        </div>
+      ) : null}
+      <section
+        id={headingId}
+        tabIndex={-1}
+        aria-labelledby={failed ? `${headingId}-title` : undefined}
+        className={failed ? "space-y-3 border-t pt-4" : undefined}
+      >
+        {failed ? (
+          <div className="space-y-1">
+            <h2 id={`${headingId}-title`} className="text-sm font-medium">
+              {t("imports.detail.replaceTitle")}
+            </h2>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {t("imports.detail.replaceHint")}
+            </p>
+          </div>
+        ) : null}
+        <SourceIntake
+          key={value.id}
+          existing={value}
+          replacing={failed}
+          onChanged={(next) => void onChange(next)}
+          onStarted={(next) => void onChange(next)}
+        />
+      </section>
+    </>
+  );
+}
+
+function FailureStage({ value }: Readonly<{ value: WordImport }>) {
+  const { t } = useTranslation();
+  const stage = value.run?.stage;
+  const labels = PROCESSING_STAGES.filter((candidate) =>
+    candidate.runStages.some((runStage) => runStage === stage),
+  ).map((candidate) =>
+    t(
+      isTextImport(value) && candidate.key === "validate"
+        ? "imports.processing.textCheck"
+        : `imports.processing.stage.${candidate.key}`,
+    ),
+  );
+  const label =
+    labels.length === 0 ? t("imports.processing.waitingToStart") : labels.join(" · ");
+  return (
+    <Badge
+      variant="danger"
+      className="h-6.5! w-fit self-start rounded-full! text-[12.5px] whitespace-normal"
+    >
+      <CircleX className="size-[13px]" aria-hidden="true" />
+      {t("imports.detail.stoppedAt", { stage: label })}
+    </Badge>
+  );
+}
+
+function useProcessingOff(): boolean {
+  const availability = useImportAvailability();
+  return availability === "reviewOnly" || availability === "off";
+}
+
+function readyTitle(summary: ImportReviewSummary, t: TFunction): string {
+  return t("imports.detail.found", {
+    questions: t("imports.detail.questionCount", { count: summary.questions }),
+    answers: t("imports.detail.answerCount", { count: summary.answersKnown }),
+    sections: t("imports.detail.sectionCount", { count: summary.sections }),
+  });
+}
+
+function isTextImport(value: WordImport): boolean {
+  return value.sources.some(
+    (source) => source.role === "exam" && source.format === "text",
+  );
+}
+
+function failureTitle(value: WordImport, t: TFunction): string {
+  const key = runErrorKey(value.run?.errorCode);
+  return t(
+    isTextImport(value)
+      ? [`imports.textFailureTitle.${key}`, `imports.failureTitle.${key}`]
+      : `imports.failureTitle.${key}`,
+  );
+}
+
+function failureDescription(value: WordImport, t: TFunction): string {
+  const key = runErrorKey(value.run?.errorCode);
+  return t(
+    isTextImport(value)
+      ? [`imports.textRunError.${key}`, `imports.runError.${key}`]
+      : `imports.runError.${key}`,
   );
 }

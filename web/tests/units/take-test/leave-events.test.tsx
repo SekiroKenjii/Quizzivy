@@ -149,6 +149,7 @@ describe("what the integrity monitor has buffered when the engine is left", () =
 
     await leaveByTheCross(user);
     await waitFor(() => expect(path(router)).toBe("/app"));
+    await screen.findByText("home", { exact: true });
 
     expect(saveAnswers).not.toHaveBeenCalled();
     const [beacon, ...others] = await beacons();

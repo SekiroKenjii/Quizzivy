@@ -214,7 +214,7 @@ describe("starting a Word import", () => {
       await screen.findByText("Chưa nhập được đề mới lúc này."),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Tệp đề thi")).toBeNull();
-    expect(screen.getByRole("link", { name: "Về lịch sử nhập đề" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Về mục Nhập đề" })).toHaveAttribute(
       "href",
       "/teacher/imports",
     );
