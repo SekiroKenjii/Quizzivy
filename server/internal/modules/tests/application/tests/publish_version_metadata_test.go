@@ -217,15 +217,17 @@ func TestATestCountsItsAssignmentsByDerivedStatus(t *testing.T) {
 	}
 
 	early := hoursFromNow(-1)
+	pending := hoursFromNow(1)
 	insertAssignment(t, pool, draft.ID, first.ID, owner, assignmentWindow{published: false, opens: hoursFromNow(-1), closes: hoursFromNow(1)})
 	insertAssignment(t, pool, draft.ID, first.ID, owner, assignmentWindow{published: true, opens: hoursFromNow(1), closes: hoursFromNow(2)})
 	insertAssignment(t, pool, draft.ID, first.ID, owner, assignmentWindow{published: true, opens: hoursFromNow(-1), closes: hoursFromNow(1)})
 	insertAssignment(t, pool, draft.ID, second.ID, colleague, assignmentWindow{published: true, opens: hoursFromNow(-2), closes: hoursFromNow(2)})
 	insertAssignment(t, pool, draft.ID, second.ID, owner, assignmentWindow{published: true, opens: hoursFromNow(-3), closes: hoursFromNow(-1)})
 	insertAssignment(t, pool, draft.ID, second.ID, owner, assignmentWindow{published: true, opens: hoursFromNow(-3), closes: hoursFromNow(1), closedAt: &early})
+	insertAssignment(t, pool, draft.ID, second.ID, owner, assignmentWindow{published: true, opens: hoursFromNow(-3), closes: hoursFromNow(2), closedAt: &pending})
 	insertAssignment(t, pool, other.ID, otherVersion.ID, owner, assignmentWindow{published: true, opens: hoursFromNow(-1), closes: hoursFromNow(1)})
 
-	want := domain.AssignmentCounts{Live: 2, Scheduled: 1, Closed: 2}
+	want := domain.AssignmentCounts{Live: 3, Scheduled: 1, Closed: 2}
 	ctx := context.Background()
 
 	got, err := b.tests.Queries.Get.Handle(ctx, query.Get{ID: draft.ID, Scope: everyone})
