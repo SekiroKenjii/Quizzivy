@@ -1,17 +1,11 @@
 package repositories
 
-const assignmentStatus = `CASE
-	WHEN a.published_at IS NULL THEN 'draft'
-	WHEN a.closed_at IS NOT NULL AND now() >= a.closed_at THEN 'closed'
-	WHEN now() < a.opens_at THEN 'scheduled'
-	WHEN now() < a.closes_at THEN 'open'
-	ELSE 'closed'
-END`
+import "quizzivy/internal/shared/schedule"
 
 const testAssignments = `SELECT count(*)
 	  FROM app.assignments a
 	  JOIN app.test_versions av ON av.id = a.test_version_id
-	 WHERE av.test_id = t.id AND ` + assignmentStatus
+	 WHERE av.test_id = t.id AND ` + schedule.DerivedStatus
 
 const testAssignmentColumns = `
 	       (` + testAssignments + ` = 'open'),
