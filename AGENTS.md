@@ -32,7 +32,8 @@ this file describe the code as it is and name the release that changes them.
 - **v0.9.1** (T-R3.1 to T-R3.3, no earlier than 2026-10-10) removes that alias,
   drops the legacy `users.role` column with its sync trigger, and validates the
   owner constraints and drops their fill triggers. Until then all of them are
-  in the code.
+  in the code. By default the three now ship inside R4 as T-R4.49, because R4
+  has already taken migrations 00080 to 00091 (`73-r3.md`, "Migration numbers").
 - **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
 - **The design team's fourth export (2026-10-04) is not the deck of record.**
   R4 builds from `docs/design/deck/` as it is, and D4 imports the export after
