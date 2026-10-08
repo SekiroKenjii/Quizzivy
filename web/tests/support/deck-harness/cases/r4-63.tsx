@@ -164,7 +164,9 @@ export const cases: Record<string, () => ReactElement> = {
       if (opened.current) return;
       opened.current = true;
       ref.current?.commands.setTextSelection({ from: 1, to: 5 });
-      const button = document.querySelector<HTMLButtonElement>('button[data-roving="link"]');
+      const button = document.querySelector<HTMLButtonElement>(
+        'button[data-roving="link"]',
+      );
       button?.scrollIntoView({ block: "nearest", inline: "nearest" });
       button?.click();
     }, [ref]);
