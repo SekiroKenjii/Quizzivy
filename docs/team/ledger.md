@@ -7,13 +7,13 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-07.
+- **As of:** 2026-10-08.
 - **Base:** `work/redesign-r4` at `bb4d4000`, CI green (run 716).
 - **Working branch:** `chore/agent-team`, which carries these team artifacts.
-- **Objective now:** establish the team and its artifacts. The user asked for no
-  implementation in this step.
-- **Next objective:** not chosen. The candidates and the decisions the user owes are
-  below.
+- **Objective now (the user, 2026-10-08):** clear the open items, merge this branch into
+  `work/redesign-r4`, cherry-pick the team onto `develop`, then take over the project.
+- **Next objective:** the team drives R4 to v0.10.0 by the waves below, starting with W0
+  and the two red drafts. Merging to `main` still waits for the user's go.
 
 ## Roster and models
 
@@ -21,18 +21,19 @@ Requested is what the user asked for. Configured is how this session launched th
 agent. Resolved is what the transcript metadata recorded on every turn (README,
 "Models").
 
-| Agent | Requested | Configured (2026-10-07) | Resolved | State |
+| Agent | Requested | Configured | Resolved | State |
 |---|---|---|---|---|
 | Tech Lead | Opus 5.5, high or more | primary session | `claude-opus-5-5`, xhigh (session metadata) | active |
-| `principal_swe` | Fable 5.1, high or more | general-purpose, `model: fable`, `effort: high` | `claude-fable-5-1`, high | onboarded |
-| `senior_swe_backend` | Sonnet 5.5, xhigh | general-purpose, `model: sonnet`, `effort: xhigh` | `claude-sonnet-5-5`, xhigh | onboarded |
-| `senior_swe_frontend` | Opus 5.5, high or more | general-purpose, `model: opus`, `effort: high` | `claude-opus-5-5`, high | onboarded |
-| `senior_swe_platform` | Sonnet 5.5, high or more | general-purpose, `model: sonnet`, `effort: high`; relaunched twice with a checkpoint after server-side API 500s | `claude-sonnet-5-5`, high | onboarded |
-| `senior_tester` | Sonnet 5.5, high or more | general-purpose, `model: sonnet`, `effort: high` | `claude-sonnet-5-5`, high | onboarded |
+| `principal_swe` | Fable 5.1, high or more | its definition (from 2026-10-08) | `claude-fable-5-1`, high | active |
+| `senior_swe_backend` | Sonnet 5.5, xhigh | its definition (from 2026-10-08) | `claude-sonnet-5-5`, xhigh (2026-10-07, by alias) | onboarded |
+| `senior_swe_frontend` | Opus 5.5, high or more | its definition (from 2026-10-08) | `claude-opus-5-5`, high (2026-10-07, by alias) | onboarded |
+| `senior_swe_platform` | Sonnet 5.5, high or more | its definition (from 2026-10-08) | `claude-sonnet-5-5`, high | active |
+| `senior_tester` | Sonnet 5.5, high or more | its definition (from 2026-10-08) | `claude-sonnet-5-5`, high | active |
 
-The definitions in `.claude/agents/` pin the full model ids. This session created that
-directory, so it could not launch from them and passed the family alias and effort on each
-launch instead. Every alias resolved to the requested version.
+The definitions in `.claude/agents/` pin the full model ids. On 2026-10-07, the session
+that created the directory launched by family alias and effort; from 2026-10-08 the agents
+launch from their definitions, and the resolved models match the pins. On 2026-10-07 the
+platform engineer was relaunched twice with a checkpoint after server-side API 500s.
 
 ## R4 status
 
@@ -103,59 +104,58 @@ and a null `unpublishedChanges` when the group graph is refused; 8 uses the stan
 library and `DecodeConfig` before decoding; `QuestionEditor` as the one component
 (DG-108), with its structure reviewed before 66 starts.
 
-## Candidate objectives
+## What the user settled (2026-10-08)
 
-Offered to the user on 2026-10-07. None is chosen.
+The user told the team to clear the open items, merge, and take over the whole project.
+That settles the decisions owed on 2026-10-07:
 
-- **A. Backend wave:** T-R4.16, 11, 12, 13, then 8, 9, 20. Unblocks most of the screens.
-- **B. Content editor chain:** T-R4.63 → 64 → 66. The longest serial chain.
-- **C. Ready screens:** T-R4.57, 35, 32, 27a.
-- **D. The two red drafts:** #416 and #414, if nobody else is driving them.
+1. **Objective:** all of R4, by the waves above; the Principal's W0 (T-R4.16 and T-R4.63)
+   goes first, with the two drafts.
+2. **v0.9.1 (F-3):** the plan's own provision applies by default: T-R3.1 to T-R3.3 run as
+   T-R4.49, numbered on `work/redesign-r4` (`73-r3.md`, "Migration numbers"). The user
+   can still ask for a separate v0.9.1, which first renumbers R4's merged migrations.
+3. **Defaults on ready tasks:** built as the plan states them (AGENTS.md: "build the
+   default and move on"): DG-115, DG-110, the note to students, the Admin's own-row lists.
+   The plan keeps each marked for the user's confirmation, and a later "no" is a change.
+4. **#414 and #416:** the team drives them.
+5. **Capacity:** the five specialists; `senior_swe_backend` takes frontend tasks once
+   the Go work runs out (W3).
+6. **Criteria the tester could not make testable:** the tester's proposals in
+   `verification.md` §9 are the working rule until the user says otherwise.
 
-The Principal recommends starting the heads of A and B together (W0).
-
-## Decisions the user owes
-
-1. **v0.9.1 and migration numbers (F-3).** Ship T-R3.1 to T-R3.3 as v0.9.1 from
-   `develop` and renumber R4's merged migrations after them, or carry them inside R4
-   as T-R4.49.
-2. **Unconfirmed defaults on ready tasks:** T-R4.63 leaves pasted images out and counts
-   them, changing spec §7.1 (DG-115); T-R4.64 removes `VITE_RICH_QUESTION_EDITOR` for every
-   teacher and adds up to four dependencies on the student path (DG-110); T-R4.11's note to
-   students; T-R4.54's own-row lists for the Admin (already built).
-3. **Who drives #414 and #416.**
-4. **Capacity:** a second frontend-capable implementer once the Go work runs out. The
-   frontend survey sizes T-R4.57 as L and 63, 35 and 27a as M+.
-5. **Criteria the tester could not make testable** (`verification.md` §9): the deck
-   tolerance, the effective close under `after_close` with overrides, the class-average
-   counting rule, the limits in T-R4.13, the Neon compute-hours threshold.
+Still the user's: the go for every merge to `main`, the production steps of the release
+checklist (Cloudflare, Fly, Neon, the smoke tests on real devices), and any reversal of
+the defaults above.
 
 ## Decisions
 
-- **T-1 (2026-10-07).** The team's artifacts are `.claude/agents/` and `docs/team/`. They
-  are on `chore/agent-team`, cut from `work/redesign-r4` and aimed at it, because the
-  team works on R4 now. They reach `develop` with R4's merge. CONTRIBUTING cuts a `chore/`
-  branch from `develop`; this is the one exception, made because of that timing.
+- **T-1 (2026-10-07, amended 2026-10-08).** The team's artifacts are `.claude/agents/` and
+  `docs/team/`. They are on `chore/agent-team`, cut from `work/redesign-r4` and merged into
+  it, because the team works on R4 now; at the user's request they are also cherry-picked
+  onto `develop`, so the next develop-into-R4 sync meets the same files on both sides.
 - **T-2 (2026-10-07).** Models are pinned by full id in the definitions and checked from
   transcript metadata, never from an agent's own account.
 - **T-3 (2026-10-07).** At most four sub-agents run at once (70 §3, "Machine").
 - **T-4 (2026-10-07).** The ledger changes only in the Tech Lead's pull requests.
 - **T-5 (2026-10-07).** A migration takes its number before its PR runs CI, because goose
   refuses `NNNNN_` (T-R4.10a, "As built"); it is renumbered if another PR merges first.
+- **T-6 (2026-10-08).** T-R3.1 to T-R3.3 ship inside R4 as T-R4.49 by default (F-3).
+- **T-7 (2026-10-08).** The team takes over #414 and #416. Their branches are brought up to
+  date by merging `work/redesign-r4` into them, never by rebase or force-push.
 
 ## Findings and open items
 
 | ID | Finding | Owner | State |
 |---|---|---|---|
-| F-1 | Plan drift: "Done when" boxes unticked on merged tasks (T-R4.1, 4, 10a, 22, 23, 36, 53, 54, 56 among others); the schema table still says `NNNNN_` for 7, 15 and 55 though 00085 to 00091 exist; T-R4.10b still routes the bell to Grading although T-R4.45a moved that rule to the web; `73-r3.md` says the newest migration is 00079; `AGENTS.md` still describes the teacher console as not yet rebuilt; T-R4.11 asks for a "new DG entry" that exists as DG-71; T-R4.20's first Done-when bullet has shipped; several "Touches" lists omit files (`r4-readiness.md` names them). | Tech Lead, with T-R4.50 or a docs PR | open |
-| F-2 | Underscores in a definition's `name` are not documented as valid (the docs show hyphens). The next session must confirm that `principal_swe` loads, or rename all five to hyphens. | Tech Lead | open |
-| F-3 | v0.9.1 cannot take 00080: `work/redesign-r4` already merged 00080 to 00091, and `develop` ends at 00079. If v0.9.1 takes 00092 and deploys first, production's `cmd/migrate` (`goose.Up`, missing versions not allowed) refuses R4's 00080 to 00091. | the user decides; platform executes | open |
-| F-4 | #414 is red because two new test files build a `Test` without `skills`, which #415 made required; the contract validator rejects the stub. Fixture-only fix. | owner of #414 | reported |
-| F-5 | #416's run 718 ended `failure` with every job green and no **CI result** job, apparently the gate never ran. "Re-run failed jobs" on run 718 is the next step. | owner of #416 | reported |
-| F-6 | `70` §6 names the teacher sidebar key `quizzivy.column.sidebar`; the code stores `quizzivy.sidebar` (`web/src/layouts/shell/sidebarState.ts`). | Tech Lead, docs | open |
-| F-7 | This container has Node 22 and pnpm 10.28; CI uses Node 24, pnpm 11.25.0 and Go 1.27. Only Chromium is available, so the Firefox and WebKit paste checks of T-R4.51 cannot run here. | senior_swe_platform | open |
-| F-8 | T-R4.5b's ticked "Done when" item (`74-r4.md:1331-1336`) says the `router-chunks` media pattern was narrowed to `features/media/(pages/\|components/(UploadPanel\|AssetLibraryDialog))`; the code still names all of `features/media/` (`router-chunks.test.ts:51`). So T-R4.35 needs no canary edit. | Tech Lead, docs | open |
-| F-9 | Setting up the container takes a session's first half hour by hand. The platform engineer proposes a SessionStart hook (dockerd, `.env`, the MinIO image, compose, goose, `pnpm install`, `goose up`, the toolchain pin); it would change every session, so it waits for the user. | the user decides | open |
+| F-1 | Plan drift: "Done when" boxes unticked on merged tasks (T-R4.1, 4, 10a, 22, 23, 36, 53, 54, 56 among others); the schema table still says `NNNNN_` for 7, 15 and 55 though 00085 to 00091 exist; T-R4.10b still routes the bell to Grading although T-R4.45a moved that rule to the web; `73-r3.md` says the newest migration is 00079; `AGENTS.md` still describes the teacher console as not yet rebuilt; T-R4.11 asks for a "new DG entry" that exists as DG-71; T-R4.20's first Done-when bullet has shipped; several "Touches" lists omit files (`r4-readiness.md` names them). | senior_tester (boxes); Tech Lead (text, `76a39e1c`) | text fixed; boxes being verified |
+| F-2 | Underscores in a definition's `name` are not documented as valid (the docs show hyphens). The next session must confirm that `principal_swe` loads, or rename all five to hyphens. | Tech Lead | closed 2026-10-08: the session loaded the five definitions and launched from them |
+| F-3 | v0.9.1 cannot take 00080: `work/redesign-r4` already merged 00080 to 00091, and `develop` ends at 00079. If v0.9.1 takes 00092 and deploys first, production's `cmd/migrate` (`goose.Up`, missing versions not allowed) refuses R4's 00080 to 00091. | Tech Lead | decided by default (T-6, `e4c2916e`) |
+| F-4 | #414 is red because two new test files build a `Test` without `skills`, which #415 made required; the contract validator rejects the stub. Fixture-only fix. | senior_swe_frontend | taken over (T-7) |
+| F-5 | #416's run 718 ended `failure` with every job green and no **CI result** job, apparently the gate never ran. "Re-run failed jobs" on run 718 is the next step. | senior_swe_frontend | taken over (T-7); GitHub refused a re-run of run 718, so the next push starts a fresh one |
+| F-6 | `70` §6 names the teacher sidebar key `quizzivy.column.sidebar`; the code stores `quizzivy.sidebar` (`web/src/layouts/shell/sidebarState.ts`). | Tech Lead | fixed (`76a39e1c`): 70 §6 names both keys and their layouts |
+| F-7 | This container has Node 22 and pnpm 10.28; CI uses Node 24, pnpm 11.25.0 and Go 1.27. Only Chromium is available, so the Firefox and WebKit paste checks of T-R4.51 cannot run here. | senior_swe_platform | accepted: `environment.md` lists the differences, and CI stays the authority for Node 24, pnpm 11 and other browsers |
+| F-8 | T-R4.5b's ticked "Done when" item (`74-r4.md:1331-1336`) says the `router-chunks` media pattern was narrowed to `features/media/(pages/\|components/(UploadPanel\|AssetLibraryDialog))`; the code still names all of `features/media/` (`router-chunks.test.ts:51`). So T-R4.35 needs no canary edit. | Tech Lead | fixed (`76a39e1c`) |
+| F-9 | Setting up the container takes a session's first half hour by hand. The platform engineer proposes a SessionStart hook (dockerd, `.env`, the MinIO image, compose, goose, `pnpm install`, `goose up`, the toolchain pin); it would change every session, so it waits for the user. | senior_swe_platform | decided: build it; in progress |
 
 ## Reviews
 
