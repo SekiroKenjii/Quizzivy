@@ -213,10 +213,6 @@ type lockedRow struct {
 	maxAttempts           int
 }
 
-// requireUnlocked refuses a change to the version, the duration or the number
-// of attempts while the stored assignment is open. Sending the stored value is
-// not a change, so a client that replaces the whole assignment still saves its
-// other fields. The status is read from the stored row, at the request's clock.
 func requireUnlocked(current lockedRow, in domain.WriteInput) error {
 	status := domain.Schedule.StatusAt(in.Now, current.publishedAt, current.opensAt, current.closesAt, current.closedAt)
 	if status != domain.Open {

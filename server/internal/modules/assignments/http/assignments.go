@@ -285,10 +285,6 @@ func assignmentValidationError(ctx context.Context, invalid *domain.ValidationEr
 	return resp
 }
 
-// toWriteInput reads the contract's input. The review options and the student
-// note are partial on an update, so it records which of them the body named;
-// a note that is not a string or null cannot pass the contract and is refused
-// here as well.
 func toWriteInput(ctx context.Context, body openapi.AssignmentInput) (domain.WriteInput, error) {
 	in := domain.WriteInput{
 		TestVersionID: body.TestVersionId.String(),
