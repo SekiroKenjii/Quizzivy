@@ -260,7 +260,12 @@ describe("resultView: a score the policy hides", () => {
     });
     const view = resultView(body);
     expect(view.ring).toEqual({ kind: "withheld" });
-    expect(view.summary).toEqual({ kind: "withheld", answered: 2, total: 6 });
+    expect(view.summary).toEqual({
+      kind: "withheld",
+      answered: 2,
+      total: 6,
+      until: null,
+    });
     expect(view.tiles).toEqual([]);
     expect(view.filters).toEqual(["all", "waiting"]);
     expect(view.lock).toBe("all");
@@ -519,5 +524,47 @@ describe("classNameOf", () => {
         ASSIGNMENT_ID,
       ),
     ).toBeNull();
+  });
+});
+
+describe("a result released after the close", () => {
+  const held = {
+    ...CLOSED,
+    release: "after_close" as const,
+    showClassAverage: true,
+  };
+
+  it("names the release in the lock and the summary, and keeps no number", () => {
+    const view = resultView(
+      paper({
+        review: held,
+        releasesAt: "2026-08-29T14:00:00Z",
+        questions: [choice(1, AB, [0])],
+      }),
+    );
+    expect(view.lock).toBe("afterClose");
+    expect(view.releasesAt).toBe("2026-08-29T14:00:00Z");
+    expect(view.ring).toEqual({ kind: "withheld" });
+    expect(view.summary).toEqual({
+      kind: "withheld",
+      answered: 1,
+      total: 1,
+      until: "2026-08-29T14:00:00Z",
+    });
+    expect(view.tiles).toEqual([]);
+  });
+
+  it("has no release time once it is released", () => {
+    const view = resultView(paper({ review: { ...OPEN, release: "after_close" } }));
+    expect(view.releasesAt).toBeNull();
+    expect(view.lock).toBeNull();
+  });
+
+  it("passes the class average through, and none when the server sent none", () => {
+    expect(resultView(paper({ review: OPEN, classAverage: 72.5 })).classAverage).toBe(
+      72.5,
+    );
+    expect(resultView(paper({ review: OPEN, classAverage: 0 })).classAverage).toBe(0);
+    expect(resultView(paper({ review: OPEN })).classAverage).toBeNull();
   });
 });

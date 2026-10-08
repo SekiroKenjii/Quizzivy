@@ -1581,3 +1581,116 @@ it("keeps the deck's 820px column and 112px ring", async () => {
   expect(card.parentElement).toHaveClass("max-w-205", "mx-auto");
   expect(ring()).toHaveClass("size-28");
 });
+
+describe("a result released after the close", () => {
+  const HELD: Review = { ...CLOSED, release: "after_close", showClassAverage: true };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function hold(releasesAt: string) {
+    const first = choice(1, AB, [0]);
+    return paper({ review: HELD, releasesAt, questions: [first] });
+  }
+
+  it("says when it is released, in place of the teacher's refusal", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
+    serve(hold("2026-08-29T14:00:00Z"));
+    renderResult();
+    expect(
+      await screen.findByText(
+        "Bạn đã trả lời 1/1 câu. Điểm được công bố khi bài đóng.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Kết quả được công bố khi bài đóng, lúc 21:00."),
+    ).toBeVisible();
+    expect(ring()).toHaveAttribute("data-ring", "withheld");
+    expect(screen.queryByText(/Giáo viên (chưa|không)/)).not.toBeInTheDocument();
+  });
+
+  it("names the day when the close is not today", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
+    serve(hold("2026-09-03T14:00:00Z"));
+    renderResult();
+    expect(
+      await screen.findByText("Kết quả được công bố khi bài đóng, lúc 21:00, 03/09."),
+    ).toBeVisible();
+  });
+
+  it("reads in English", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
+    await i18n.changeLanguage("en");
+    serve(hold("2026-08-29T14:00:00Z"));
+    renderResult();
+    expect(
+      await screen.findByText(
+        "You answered 1 of 1 questions. Your score is released when the test closes.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Results are released when the test closes, at 21:00."),
+    ).toBeVisible();
+  });
+
+  it("draws no class average while it is withheld", async () => {
+    serve(hold("2026-08-29T14:00:00Z"));
+    renderResult();
+    await screen.findByText(/Điểm được công bố khi bài đóng/);
+    expect(document.querySelector("[data-slot=class-average]")).toBeNull();
+  });
+});
+
+describe("the class average", () => {
+  const SHOWN: Review = { ...OPEN, showClassAverage: true };
+
+  function average(classAverage?: number) {
+    return scored([choice(1, AB, [0], { earned: 1 })], {
+      review: SHOWN,
+      ...(classAverage === undefined ? {} : { classAverage }),
+    });
+  }
+
+  it("is one muted line under the summary sentence, in Vietnamese", async () => {
+    serve(average(60));
+    renderResult();
+    const line = await screen.findByText("Điểm trung bình của lớp: 60%.");
+    const sentence = screen.getByText(/Bạn trả lời đúng/);
+    expect(line).toBeVisible();
+    expect(line.parentElement).toBe(sentence.parentElement);
+    expect(sentence.compareDocumentPosition(line)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(line).toHaveAttribute("data-slot", "class-average");
+  });
+
+  it("keeps one decimal, written the reader's way", async () => {
+    serve(average(44.44));
+    renderResult();
+    expect(await screen.findByText("Điểm trung bình của lớp: 44,4%.")).toBeVisible();
+  });
+
+  it("reads in English", async () => {
+    await i18n.changeLanguage("en");
+    serve(average(44.44));
+    renderResult();
+    expect(await screen.findByText("Class average: 44.4%.")).toBeVisible();
+  });
+
+  it("is a real zero when the class scored nothing", async () => {
+    serve(average(0));
+    renderResult();
+    expect(await screen.findByText("Điểm trung bình của lớp: 0%.")).toBeVisible();
+  });
+
+  it("is absent when the server sends none", async () => {
+    serve(average());
+    renderResult();
+    await screen.findByText(/Bạn trả lời đúng/);
+    expect(screen.queryByText(/Điểm trung bình của lớp/)).not.toBeInTheDocument();
+  });
+});

@@ -13,7 +13,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTick } from "@/hooks/useTick";
 import { ApiError } from "@/lib/api/errors";
 import type { Locale } from "@/lib/i18n";
-import { dayDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { clockTime, dayDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import { getAttemptResult, type AttemptResult } from "../api";
 import { ResultFailure, ResultSkeleton } from "../components/ResultStates";
@@ -60,10 +60,12 @@ function sentence(summary: Summary, t: TFunction): string {
           : "result.summary.pending",
       );
     case "withheld":
-      return t("result.summary.withheld", {
-        answered: summary.answered,
-        total: summary.total,
-      });
+      return t(
+        summary.until === null
+          ? "result.summary.withheld"
+          : "result.summary.withheldUntil",
+        { answered: summary.answered, total: summary.total },
+      );
   }
 }
 
@@ -165,7 +167,7 @@ function Loaded({
   wide,
   onRetry,
 }: Readonly<{ data: AttemptResult; wide: boolean; onRetry: () => void }>) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const heading = useId();
   const [chip, setChip] = useState<Filter>("all");
   const target = useRef<string | null>(null);
@@ -217,6 +219,15 @@ function Loaded({
           <p className="text-muted-fg text-base text-pretty">
             {sentence(view.summary, t)}
           </p>
+          {view.classAverage !== null && (
+            <p data-slot="class-average" className="text-muted-fg text-sm text-pretty">
+              {t("result.classAverage", {
+                percent: new Intl.NumberFormat(i18n.language as Locale, {
+                  maximumFractionDigits: 1,
+                }).format(view.classAverage),
+              })}
+            </p>
+          )}
         </div>
       </section>
 
@@ -247,7 +258,10 @@ function Loaded({
         {view.lock !== null && (
           <p className={NOTE}>
             <Lock aria-hidden="true" className="size-4 flex-none" />
-            {t(`result.lock.${view.lock}`)}
+            {t(
+              `result.lock.${view.lock}`,
+              view.releasesAt === null ? {} : { time: clockTime(view.releasesAt) },
+            )}
           </p>
         )}
         {shown.length === 0 && questions.length > 0 && (
