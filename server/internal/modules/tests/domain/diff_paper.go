@@ -184,9 +184,6 @@ func canonicalJSON(values ...any) string {
 	return string(encoded)
 }
 
-// canonicalContent returns a rich-content document in a form that does not
-// depend on the gap ids it carries, and the position of each of those ids in
-// reading order. A document that does not parse is returned as it is.
 func canonicalContent(raw json.RawMessage) (string, map[string]int) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
