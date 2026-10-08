@@ -1,5 +1,18 @@
 import "@/lib/i18n";
-import { render, screen } from "@testing-library/react";
+import type { ComponentProps } from "react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import type { Editor } from "@tiptap/react";
+import { ContentEditor } from "@/components/shared/content/editor/ContentEditor";
+import { toEditorJSON } from "@/components/shared/content/editor/adapter";
+import { plainOptionContent } from "@/components/shared/content/optionContent";
+import type { SemanticContent } from "@/components/shared/content/model";
 import { ContentView } from "@/components/shared/content/ContentView";
 import {
   validateContent,
@@ -180,4 +193,305 @@ test("permits shared JSON values while rejecting cyclic graphs", () => {
   const cyclic: Record<string, unknown> = {};
   cyclic.self = cyclic;
   expect(validateContent(cyclic).ok).toBe(false);
+});
+
+class StillResize {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+/** jsdom does no layout; ProseMirror measures a range when it scrolls the selection into view. */
+Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
+Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+
+function renderEditor(
+  props: Partial<ComponentProps<typeof ContentEditor>> = {},
+  document: SemanticContent = { format: "semantic_v1", blocks: [paragraph("")] },
+) {
+  let editor: Editor | undefined;
+  render(
+    <ContentEditor
+      initialContent={document}
+      label="Đề bài"
+      onChange={() => undefined}
+      tools={(current) => {
+        editor = current;
+        return null;
+      }}
+      {...props}
+    />,
+  );
+  return () => editor!;
+}
+
+function toolbarNames() {
+  return within(screen.getByRole("toolbar", { name: "Thanh định dạng: Đề bài" }))
+    .getAllByRole("button")
+    .map((button) => button.getAttribute("aria-label"));
+}
+
+function links(editor: Editor) {
+  return Array.from(editor.view.dom.querySelectorAll("a")).map((link) => [
+    link.getAttribute("href"),
+    link.textContent,
+  ]);
+}
+
+async function submitLink(value: string) {
+  const address = await screen.findByRole("textbox", { name: "Địa chỉ liên kết" });
+  fireEvent.change(address, { target: { value } });
+  fireEvent.submit(address.closest("form")!);
+}
+
+const MARKS = [
+  "In đậm",
+  "In nghiêng",
+  "Gạch chân",
+  "Gạch ngang",
+  "Chỉ số trên",
+  "Chỉ số dưới",
+];
+const BLOCKS = [
+  "Tiêu đề",
+  "Đoạn văn",
+  "Danh sách gạch đầu dòng",
+  "Danh sách đánh số",
+  "Liên kết",
+  "Thêm bảng",
+];
+const HISTORY = ["Hoàn tác", "Làm lại"];
+
+describe("the content editor's frame", () => {
+  beforeEach(() => vi.stubGlobal("ResizeObserver", StillResize));
+  afterEach(() => vi.unstubAllGlobals());
+
+  test.each([
+    ["prompt", [...MARKS, ...BLOCKS, "Thêm ô trống", ...HISTORY], true],
+    ["document", [...MARKS, ...BLOCKS, "Thêm ô trống", ...HISTORY], true],
+    ["question", [...MARKS, ...BLOCKS, ...HISTORY], true],
+    ["option", [...MARKS, ...HISTORY], false],
+  ] as const)("orders the %s toolbar as the deck does", (profile, names, footer) => {
+    renderEditor(
+      { profile },
+      profile === "option"
+        ? plainOptionContent("")
+        : { format: "semantic_v1", blocks: [paragraph("")] },
+    );
+    expect(toolbarNames()).toEqual(names);
+    expect(screen.queryByRole("button", { name: /Hình ảnh|Âm thanh/ })).toBeNull();
+    const bold = screen.getByRole("button", { name: "In đậm" });
+    expect(bold).toHaveAttribute("title", "In đậm (Ctrl+B)");
+    expect(bold).toHaveAttribute("aria-keyshortcuts", "Control+B");
+    expect(screen.getByRole("button", { name: "Làm lại" })).toHaveAttribute(
+      "title",
+      "Làm lại (Ctrl+Shift+Z)",
+    );
+    expect(screen.getByRole("button", { name: "Hoàn tác" })).toBeDisabled();
+    expect(screen.queryByText("0 từ") !== null).toBe(footer);
+  });
+
+  test("is one tab stop whose arrow keys skip disabled buttons, and reports pressed marks", async () => {
+    const editor = renderEditor(
+      {},
+      { format: "semantic_v1", blocks: [paragraph("Một")] },
+    );
+    const buttons = within(
+      screen.getByRole("toolbar", { name: "Thanh định dạng: Đề bài" }),
+    ).getAllByRole("button");
+    expect(buttons.filter((button) => button.tabIndex === 0)).toEqual([buttons[0]]);
+    act(() => buttons[0]!.focus());
+    fireEvent.keyDown(buttons[0]!, { key: "ArrowLeft" });
+    const gap = screen.getByRole("button", { name: "Thêm ô trống" });
+    expect(gap).toHaveFocus();
+    expect(gap.tabIndex).toBe(0);
+    fireEvent.keyDown(gap, { key: "Home" });
+    expect(buttons[0]).toHaveFocus();
+    fireEvent.keyDown(buttons[0]!, { key: "ArrowRight" });
+    expect(screen.getByRole("button", { name: "In nghiêng" })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: "End" });
+    expect(gap).toHaveFocus();
+    expect(screen.getByRole("button", { name: "In đậm" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    act(() => {
+      editor().commands.selectAll();
+      editor().commands.toggleBold();
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "In đậm" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      ),
+    );
+  });
+
+  test("toggles a level-3 heading and is pressed inside any heading", async () => {
+    const editor = renderEditor({}, formattingSample);
+    act(() => editor().commands.setTextSelection(2));
+    const heading = screen.getByRole("button", { name: "Tiêu đề" });
+    await waitFor(() => expect(heading).toHaveAttribute("aria-pressed", "true"));
+    fireEvent.click(heading);
+    expect(editor().getHTML()).toMatch(/^<p>Đọc kỹ/);
+    fireEvent.click(heading);
+    expect(editor().getHTML()).toMatch(/^<h3>Đọc kỹ/);
+  });
+
+  test("shows the table row while the caret is in a table and explains disabled merge and split", async () => {
+    const editor = renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Thêm bảng" }));
+    const row = await screen.findByRole("toolbar", { name: "Bảng" });
+    expect(
+      within(row)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual([
+      "Thêm hàng",
+      "Thêm cột",
+      "Xoá hàng",
+      "Xoá cột",
+      "Gộp ô",
+      "Tách ô",
+      "Xoá bảng",
+    ]);
+    for (const name of ["Gộp ô", "Tách ô"]) {
+      const button = within(row).getByRole("button", { name });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute(
+        "title",
+        "Chọn từ hai ô trở lên để gộp, hoặc chọn một ô đã gộp để tách",
+      );
+    }
+    expect(screen.getByRole("button", { name: "Đã ở trong bảng" })).toBeDisabled();
+    const table = editor().state.doc.firstChild!;
+    expect(table.type.name).toBe("table");
+    expect(table.childCount).toBe(2);
+    expect(table.firstChild!.childCount).toBe(2);
+    expect(table.firstChild!.firstChild!.type.name).toBe("tableHeader");
+    fireEvent.click(within(row).getByRole("button", { name: "Thêm hàng" }));
+    expect(editor().state.doc.firstChild!.childCount).toBe(3);
+    fireEvent.click(within(row).getByRole("button", { name: "Xoá bảng" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("toolbar", { name: "Bảng" })).toBeNull(),
+    );
+  });
+
+  test("links a selection, refuses an unsafe address, removes a link and links a bare address", async () => {
+    const editor = renderEditor(
+      {},
+      { format: "semantic_v1", blocks: [paragraph("Đọc thêm")] },
+    );
+    const button = screen.getByRole("button", { name: "Liên kết" });
+    act(() => editor().commands.setTextSelection({ from: 1, to: 4 }));
+    fireEvent.click(button);
+    expect(
+      await screen.findByRole("textbox", { name: "Địa chỉ liên kết" }),
+    ).toHaveValue("https://");
+    await submitLink("http://example.com");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Hãy dùng liên kết đầy đủ, bắt đầu bằng https://",
+    );
+    expect(editor().getHTML()).not.toContain("<a");
+    await submitLink("https://example.com/doc");
+    await waitFor(() =>
+      expect(screen.queryByRole("textbox", { name: "Địa chỉ liên kết" })).toBeNull(),
+    );
+    expect(links(editor())).toEqual([["https://example.com/doc", "Đọc"]]);
+
+    act(() => editor().commands.setTextSelection(2));
+    fireEvent.click(button);
+    expect(
+      await screen.findByRole("textbox", { name: "Địa chỉ liên kết" }),
+    ).toHaveValue("https://example.com/doc");
+    fireEvent.click(screen.getByRole("button", { name: "Gỡ liên kết" }));
+    await waitFor(() => expect(links(editor())).toEqual([]));
+
+    act(() => editor().commands.setTextSelection(editor().state.doc.content.size - 1));
+    fireEvent.click(button);
+    await submitLink("https://quizzivy.example/a");
+    await waitFor(() =>
+      expect(links(editor())).toEqual([
+        ["https://quizzivy.example/a", "quizzivy.example/a"],
+      ]),
+    );
+  });
+
+  test("closes the link popover on Escape and returns focus to its button", async () => {
+    renderEditor();
+    const button = screen.getByRole("button", { name: "Liên kết" });
+    fireEvent.click(button);
+    const address = await screen.findByRole("textbox", { name: "Địa chỉ liên kết" });
+    await waitFor(() => expect(address).toHaveFocus());
+    fireEvent.keyDown(address, { key: "Escape" });
+    await waitFor(() => expect(button).toHaveFocus());
+    expect(screen.queryByRole("textbox", { name: "Địa chỉ liên kết" })).toBeNull();
+  });
+
+  test("counts words on a deferred value and shows the placeholder only while blank", async () => {
+    const editor = renderEditor({ placeholder: "Viết câu hỏi" });
+    expect(screen.getByText("0 từ")).toBeVisible();
+    expect(screen.getByText("Viết câu hỏi")).toHaveAttribute("aria-hidden", "true");
+    expect(
+      screen.getByText(
+        "Định dạng từ Word hoặc Google Docs được giữ lại · Ctrl+Shift+V để dán văn bản thuần",
+      ),
+    ).toBeVisible();
+    act(() => {
+      editor().commands.insertContent("Bốn từ tiếng Việt");
+    });
+    expect(await screen.findByText("4 từ")).toBeVisible();
+    expect(screen.queryByText("Viết câu hỏi")).toBeNull();
+    act(() => {
+      editor().commands.setContent(toEditorJSON(tableSample));
+    });
+    await waitFor(() => expect(screen.queryByText("4 từ")).toBeNull());
+  });
+
+  test("takes the profile's frame unless the host overrides it", () => {
+    const { container, unmount } = render(
+      <ContentEditor
+        initialContent={{ format: "semantic_v1", blocks: [paragraph("")] }}
+        label="Đề bài"
+        profile="prompt"
+        onChange={() => undefined}
+      />,
+    );
+    const box = container.querySelector<HTMLElement>(".content-editor")!;
+    expect(box.style.getPropertyValue("--content-editor-min-height")).toBe("96px");
+    expect(box.style.getPropertyValue("--content-editor-font-size")).toBe("15px");
+    unmount();
+    const review = render(
+      <ContentEditor
+        initialContent={{ format: "semantic_v1", blocks: [paragraph("")] }}
+        label="Câu hỏi"
+        profile="question"
+        minHeight={64}
+        footer={false}
+        onChange={() => undefined}
+      />,
+    );
+    const reviewBox = review.container.querySelector<HTMLElement>(".content-editor")!;
+    expect(reviewBox.style.getPropertyValue("--content-editor-min-height")).toBe(
+      "64px",
+    );
+    expect(reviewBox.style.getPropertyValue("--content-editor-font-size")).toBe("14px");
+    expect(screen.queryByText("0 từ")).toBeNull();
+  });
+
+  test("renders the read view with no toolbar, no footer and nothing editable", () => {
+    renderEditor({ readOnly: true }, formattingSample);
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByText(/ từ$/)).toBeNull();
+    expect(screen.getByText("Đọc kỹ phần được gạch chân")).toBeVisible();
+  });
+
+  test("shows content its profile cannot hold in the notice band", () => {
+    renderEditor({ profile: "option" }, formattingSample);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Nội dung có cấu trúc chưa được hỗ trợ. Bản gốc không bị thay đổi.",
+    );
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
 });
