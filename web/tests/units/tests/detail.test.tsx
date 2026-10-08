@@ -17,6 +17,7 @@ const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 let draft: components["schemas"]["Test"] = {
   skills: [],
   assignments: { live: 0, scheduled: 0, closed: 0 },
+  unpublishedChanges: null,
   id: TEST_ID,
   title: "Unit 5",
   description: null,
@@ -48,6 +49,7 @@ beforeEach(() => {
   draft = {
     skills: [],
     assignments: { live: 0, scheduled: 0, closed: 0 },
+    unpublishedChanges: null,
     id: TEST_ID,
     title: "Unit 5",
     description: null,
