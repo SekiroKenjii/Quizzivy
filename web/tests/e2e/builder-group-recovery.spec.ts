@@ -34,6 +34,7 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
   };
   const draft: components["schemas"]["Test"] = {
     skills: [],
+    assignments: { live: 0, scheduled: 0, closed: 0 },
     id: testId,
     title: "Đề phục hồi",
     description: null,

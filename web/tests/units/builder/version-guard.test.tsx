@@ -26,6 +26,7 @@ let accepted = 0;
 function testBody() {
   return {
     skills: [],
+    assignments: { live: 0, scheduled: 0, closed: 0 },
     id: TEST_ID,
     title: "Unit 5",
     description: null,

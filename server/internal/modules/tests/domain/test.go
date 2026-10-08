@@ -18,10 +18,19 @@ type Test struct {
 	QuestionCount  int
 	AudioCount     int
 	Skills         []string
+	Assignments    AssignmentCounts
 	Sections       []Section
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	DeletedAt      *time.Time
+}
+
+// AssignmentCounts is how many non-draft assignments name any version of a
+// test, by derived status: Live counts the open ones.
+type AssignmentCounts struct {
+	Live      int
+	Scheduled int
+	Closed    int
 }
 
 // Section is one part of the draft outline, with its questions in order.
@@ -57,15 +66,21 @@ const (
 )
 
 // Version is one published snapshot, newest first in a history.
+// AssignmentCount is every assignment that names it, drafts included.
+// TestUpdatedAt is set only on the Version that Publish returns: the test's
+// update time after the publish moved it.
 type Version struct {
-	ID            string
-	Version       int
-	TotalPoints   string
-	QuestionCount int
-	AudioCount    int
-	ManualCount   int
-	PublishedAt   time.Time
-	PublishedBy   string
+	ID              string
+	Version         int
+	TotalPoints     string
+	QuestionCount   int
+	AudioCount      int
+	ManualCount     int
+	PublishedAt     time.Time
+	PublishedBy     string
+	AssignmentCount int
+	ChangeNote      *string
+	TestUpdatedAt   *time.Time
 }
 
 func (s Status) valid() bool {

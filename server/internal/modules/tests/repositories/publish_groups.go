@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
-	"quizzivy/internal/shared/access"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -61,7 +60,7 @@ func (s *Postgres) loadDraftUnits(ctx context.Context, tx pgx.Tx, section *domai
 			section.Questions = append(section.Questions, question)
 			continue
 		}
-		if err := appendDraftGroup(ctx, groups, section, unit.GroupID); err != nil {
+		if err := appendDraftGroup(ctx, tx, groups, section, unit.GroupID); err != nil {
 			return err
 		}
 	}
@@ -85,8 +84,8 @@ func draftGroupQuestion(q domain.GroupQuestion, ordinal int) domain.DraftQuestio
 	return out
 }
 
-func appendDraftGroup(ctx context.Context, groups *GroupsPostgres, section *domain.DraftSection, id string) error {
-	stored, err := groups.Get(ctx, access.Scope{All: true}, id)
+func appendDraftGroup(ctx context.Context, tx pgx.Tx, groups *GroupsPostgres, section *domain.DraftSection, id string) error {
+	stored, err := groups.readUnlocked(ctx, tx, id)
 	if err != nil {
 		return err
 	}
