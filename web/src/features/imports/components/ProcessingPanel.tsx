@@ -67,7 +67,7 @@ export function ProcessingPanel({
                 ) : null}
                 {state === "current" ? (
                   <LoaderCircle
-                    className="size-4 group-focus-within:[animation-play-state:paused] group-hover:[animation-play-state:paused] motion-safe:animate-spin"
+                    className="size-4 group-focus-within:[animation-play-state:paused] group-hover:[animation-play-state:paused] motion-safe:animate-spin motion-safe:[animation-duration:800ms]"
                     aria-hidden="true"
                   />
                 ) : null}

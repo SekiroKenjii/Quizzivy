@@ -158,7 +158,7 @@ describe("closing an import that is not running", () => {
   it("warns that a closed review can no longer become a draft test, and when its files go", async () => {
     current = wordImport({ status: "needs_review", draftRevision: 2 });
     const user = renderDetail();
-    await screen.findByText(/sẽ tự đóng và xoá tệp/);
+    await screen.findByText(/sẽ tự đóng và xoá nội dung gốc/);
     await user.click(await screen.findByRole("button", { name: "Huỷ lần nhập" }));
     expect(
       within(await screen.findByRole("dialog")).getByText(
@@ -451,7 +451,7 @@ describe("an import while processing is switched off", () => {
 
     await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu nên chưa tải tệp lên/);
     expect(
-      within(screen.getByRole("region", { name: "Tệp gốc" })).getByText(
+      within(screen.getByRole("region", { name: "Nguồn ban đầu" })).getByText(
         "de-thi-hk1.docx",
       ),
     ).toBeInTheDocument();
@@ -553,7 +553,7 @@ describe("an import whose files retention removed", () => {
       await screen.findByText(/^Tệp gốc và bản rà soát đã được xoá ngày 02\/10\/2026/),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole("region", { name: "Tệp gốc" })).getByText(
+      within(screen.getByRole("region", { name: "Nguồn ban đầu" })).getByText(
         "de-thi-hk1.docx",
       ),
     ).toBeInTheDocument();
@@ -575,7 +575,7 @@ describe("an import whose files retention removed", () => {
 
     expect(
       await screen.findByText(
-        "Lượt nhập không có thay đổi trong 60 ngày sẽ tự đóng và xoá tệp.",
+        "Lượt nhập không có thay đổi trong 60 ngày sẽ tự đóng và xoá nội dung gốc.",
       ),
     ).toBeInTheDocument();
   });

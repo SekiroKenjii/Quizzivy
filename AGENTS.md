@@ -19,8 +19,9 @@ this file describe the code as it is and name the release that changes them.
   heights, radii, badge and card shapes) applies only inside
   `data-scale="deck"`, which a rebuilt surface sets on its root. The student
   app and the take-test engine are such surfaces since R3 (v0.9.0) and follow
-  the theme. The teacher console keeps its layout and forces light
-  (`useForcedLightTheme`) until R4 rebuilds it. R5 makes the deck geometry the
+  the theme. In R4, a teacher screen rebuilt to the deck renders in `TeacherLayout`
+  and follows the theme; one not yet rebuilt still renders in `AdminLayout`, which
+  forces light (`useForcedLightTheme`), until its R4 task. R5 makes the deck geometry the
   default and removes `data-scale`
   (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
   since the CSP allows no inline script. Do not restyle an old console's screen
@@ -32,8 +33,10 @@ this file describe the code as it is and name the release that changes them.
 - **v0.9.1** (T-R3.1 to T-R3.3, no earlier than 2026-10-10) removes that alias,
   drops the legacy `users.role` column with its sync trigger, and validates the
   owner constraints and drops their fill triggers. Until then all of them are
-  in the code.
-- **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
+  in the code. By default the three now ship inside R4 as T-R4.49, because R4
+  has already taken migrations 00080 to 00091 (`73-r3.md`, "Migration numbers").
+- **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
+  an old `/admin/*` bookmark redirects.
 - **The design team's fourth export (2026-10-04) is not the deck of record.**
   R4 builds from `docs/design/deck/` as it is, and D4 imports the export after
   v0.10.0 (`docs/plan/74d-d4-deck-update.md`).
@@ -613,6 +616,13 @@ still reports the previous save. Publishing has to flush every autosave on the
 screen first, because a version snapshots what is SAVED. Both were real bugs
 that shipped past every unit test and were caught by E2E 1a; `builder/
 autosave-unmount.test.tsx` pins the first.
+
+## Agent team
+
+Multi-agent work runs as the team in `docs/team/README.md`: the primary session is the
+Tech Lead, and the five specialists are defined in `.claude/agents/`, each pinned to its
+model. `docs/team/ledger.md` is the team's checkpoint: read it after an interruption. The
+team adds no rule; this file still governs.
 
 ## When you are unsure
 

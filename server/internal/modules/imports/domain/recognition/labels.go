@@ -143,11 +143,11 @@ type option struct {
 	at, start, end int
 }
 
-func scanOptions(text []rune, from int, first rune) []option {
+func scanOptionsWith(text []rune, from int, first rune, lowerCase bool) []option {
 	var out []option
 	next := first
 	for i := from; i < len(text); i++ {
-		if !optionLabelAt(text, i, from, next) {
+		if !optionLabelAtWith(text, i, from, next, lowerCase) {
 			continue
 		}
 		if n := len(out); n > 0 {
@@ -165,7 +165,15 @@ func scanOptions(text []rune, from int, first rune) []option {
 }
 
 func optionLabelAt(text []rune, i, from int, letter rune) bool {
-	if text[i] != letter || i+1 >= len(text) || (text[i+1] != '.' && text[i+1] != ')') {
+	return optionLabelAtWith(text, i, from, letter, false)
+}
+
+func optionLabelAtWith(text []rune, i, from int, letter rune, lowerCase bool) bool {
+	actual := text[i]
+	if lowerCase {
+		actual = unicode.ToUpper(actual)
+	}
+	if actual != letter || i+1 >= len(text) || (text[i+1] != '.' && text[i+1] != ')') {
 		return false
 	}
 	if i > from && !unicode.IsSpace(text[i-1]) && text[i-1] != '(' {
@@ -205,6 +213,10 @@ type gap struct {
 }
 
 func scanGaps(text []rune, from, to int) []gap {
+	return scanGapsWith(text, from, to, false)
+}
+
+func scanGapsWith(text []rune, from, to int, textMode bool) []gap {
 	var out []gap
 	for i := from; i < to; {
 		if !gapRune(text[i]) {
@@ -212,11 +224,13 @@ func scanGaps(text []rune, from, to int) []gap {
 			continue
 		}
 		j, weight := i, 0
+		onlyUnderscores := true
 		for j < to && gapRune(text[j]) {
+			onlyUnderscores = onlyUnderscores && text[j] == '_'
 			weight += gapWeight(text[j])
 			j++
 		}
-		if weight >= 4 {
+		if weight >= 4 || textMode && onlyUnderscores && weight >= 3 {
 			g := gap{start: i, end: j, labelStart: i}
 			g.label, g.labelStart = labelBefore(text, from, i)
 			out = append(out, g)

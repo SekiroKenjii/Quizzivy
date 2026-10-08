@@ -15,9 +15,11 @@ const (
 type optionPart struct {
 	letter rune
 	seg    segment
+	star   []domain.SourceRef
 }
 
 type questionBuilder struct {
+	rules       examRules
 	id          string
 	label       label
 	openCloze   bool
@@ -97,6 +99,8 @@ type sectionBuilder struct {
 }
 
 type exam struct {
+	rules      examRules
+	keyEntries []keyEntry
 	source     string
 	title      string
 	titleRefs  []domain.SourceRef
@@ -114,14 +118,15 @@ type exam struct {
 	questions  int
 }
 
-func parseExam(source string, lines []*line) *exam {
-	e := &exam{source: source}
+func parseExam(source string, lines []*line, rules examRules) *exam {
+	e := &exam{source: source, rules: rules}
 	for _, l := range lines {
 		switch {
 		case e.extraPaper != nil:
 			e.extraPaper = append(e.extraPaper, l)
 		case e.keyLines != nil:
 			e.keyLines = append(e.keyLines, l)
+		case e.prefixedKeyLine(l):
 		case e.keySection(l):
 		case e.titleLine(l):
 		case e.anotherPaper(l):
@@ -169,13 +174,16 @@ func (e *exam) titleLine(l *line) bool {
 	if e.title != "" || e.started() || isInstruction(l.String()) {
 		return false
 	}
-	if _, ok := questionLabel(l.text); ok {
+	if _, ok := e.rules.label(l.text); ok {
 		return false
 	}
-	if _, _, ok := roman(l.text); ok {
+	if _, _, ok := e.rules.roman(l.text); ok {
 		return false
 	}
 	text := strings.TrimSpace(l.String())
+	if e.rules.text && namedSection.MatchString(text) {
+		return false
+	}
 	if utf8.RuneCountInString(text) > maxTitle {
 		return false
 	}
@@ -203,7 +211,7 @@ func (e *exam) anotherPaper(l *line) bool {
 }
 
 func (e *exam) sectionLine(l *line) bool {
-	if value, end, ok := roman(l.text); ok && e.headingRest(l, end) && e.romanInSequence(value, l.text[end:]) {
+	if value, end, ok := e.rules.roman(l.text); ok && (e.headingRest(l, end) || e.rules.text && !visible(l.text[end:])) && e.romanInSequence(value, l.text[end:]) {
 		e.openSection(l, value)
 		e.section.irregular = value != e.lastRoman+1
 		e.lastRoman = value
@@ -265,8 +273,8 @@ func (e *exam) ensureSection() *sectionBuilder {
 }
 
 func (e *exam) questionLine(l *line) bool {
-	lb, ok := questionLabel(l.text)
-	if !ok || !e.acceptLabel(lb) || gapReference(l.text, lb) {
+	lb, ok := e.rules.label(l.text)
+	if !ok || !e.acceptLabel(lb) || gapReference(l.text, lb, e.rules) {
 		return false
 	}
 	if lb.keyword != "" && e.keyword == "" {
@@ -275,11 +283,11 @@ func (e *exam) questionLine(l *line) bool {
 	if lb.sub > 0 {
 		e.adoptParent(lb)
 	}
-	q := &questionBuilder{id: identity(e.source, l.pieces[0].block.ID, "question", lb.text), label: lb, source: l.refs(lb.start, len(l.text))}
+	q := &questionBuilder{rules: e.rules, id: identity(e.source, l.pieces[0].block.ID, "question", lb.text), label: lb, source: l.refs(lb.start, len(l.text))}
 	q.irregular = lb.keyword == "" && lb.sub == 0 && e.lastNumber > 0 && lb.number != e.lastNumber+1 && lb.number != 1
 	l.consume(lb.start, lb.end)
 	end := e.inlineKey(l, q, lb.end)
-	options := scanOptions(l.text[:end], lb.end, 'A')
+	options := scanOptionsWith(l.text[:end], lb.end, 'A', e.rules.text)
 	switch {
 	case len(options) >= 2:
 		if visible(l.text[lb.end:options[0].at]) {
@@ -296,11 +304,11 @@ func (e *exam) questionLine(l *line) bool {
 	return true
 }
 
-func gapReference(text []rune, lb label) bool {
+func gapReference(text []rune, lb label, rules examRules) bool {
 	if lb.sub == 0 {
 		return false
 	}
-	gaps := scanGaps(text, lb.end, len(text))
+	gaps := rules.gaps(text, lb.end, len(text))
 	return len(gaps) > 0 && gaps[0].start == skipSpace(text, lb.end)
 }
 
@@ -380,14 +388,14 @@ func (e *exam) attach(q *questionBuilder) {
 func (e *exam) options(l *line, options []option) []optionPart {
 	parts := make([]optionPart, 0, len(options))
 	for _, o := range options {
-		parts = append(parts, optionPart{letter: o.letter, seg: segment{l, o.start, o.end}})
+		parts = append(parts, e.rules.option(l, o))
 	}
 	return parts
 }
 
 func (e *exam) inlineKey(l *line, q *questionBuilder, from int) int {
 	text := matchable(l.text[from:])
-	m := inlineKey.FindStringSubmatchIndex(text)
+	m := e.rules.inlineKey().FindStringSubmatchIndex(text)
 	if m == nil {
 		return len(l.text)
 	}
@@ -404,18 +412,18 @@ func (e *exam) optionLine(l *line) bool {
 	}
 	first := q.nextOption()
 	start := skipSpace(l.text, 0)
-	if start >= len(l.text) || !optionLabelAt(l.text, start, start, first) {
+	if start >= len(l.text) || !optionLabelAtWith(l.text, start, start, first, e.rules.text) {
 		return false
 	}
 	end := e.inlineKey(l, q, start)
-	q.options = append(q.options, e.options(l, scanOptions(l.text[:end], start, first))...)
+	q.options = append(q.options, e.options(l, scanOptionsWith(l.text[:end], start, first, e.rules.text))...)
 	q.source = append(q.source, l.refs(start, end)...)
 	l.consumeAll()
 	return true
 }
 
 func (e *exam) answerLine(l *line) bool {
-	if e.question == nil || !answerOnly.MatchString(l.String()) {
+	if e.question == nil || !e.rules.answerOnly().MatchString(l.String()) {
 		return false
 	}
 	e.inlineKey(l, e.question, 0)
@@ -455,7 +463,12 @@ func (e *exam) continuesStimulus(text string) bool {
 	return softWrapped(strings.TrimSpace(g.stimulus[len(g.stimulus)-1].text()), strings.TrimSpace(text))
 }
 
-func (e *exam) closeQuestion() { e.question = nil }
+func (e *exam) closeQuestion() {
+	if e.question != nil {
+		e.question.collectStars()
+	}
+	e.question = nil
+}
 
 func (e *exam) closeGroup() {
 	if e.group == nil {
@@ -475,13 +488,13 @@ func (e *exam) openCloze(g *groupBuilder) {
 	var found []*questionBuilder
 	seen := map[string]bool{}
 	for _, s := range g.stimulus {
-		for _, gp := range scanGaps(s.line.text, s.start, s.end) {
+		for _, gp := range e.rules.gaps(s.line.text, s.start, s.end) {
 			lb, ok := questionLabel([]rune(gp.label + "."))
 			if gp.label == "" || !ok || seen[lb.text] {
 				continue
 			}
 			seen[lb.text] = true
-			found = append(found, &questionBuilder{id: identity(g.id, "cloze", lb.text), label: lb, openCloze: true, source: s.line.refs(gp.labelStart, gp.end), section: e.section, group: g})
+			found = append(found, &questionBuilder{rules: e.rules, id: identity(g.id, "cloze", lb.text), label: lb, openCloze: true, source: s.line.refs(gp.labelStart, gp.end), section: e.section, group: g})
 		}
 	}
 	if len(found) < 2 {
