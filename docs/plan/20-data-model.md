@@ -1355,6 +1355,7 @@ listed here matches the spec.
 | D-29 | `media_assets` gains `display_name`, `default_max_plays`, `replaced_by`, `width` and `height`, and its size limit depends on the kind: audio 50 MiB, an image 10 MiB | §13.3's row is a stored file and nothing else, and §11.1 allowed 10 MB for either kind. The deck's Media page names a file, gives it a play limit, shows an image's size and replaces a file in place (DG-63, DG-09); a replaced row stays, because published versions still point at it (§6, T-R4.17a, T-R4.17b) |
 | D-30 | `users` gains nullable profile fields and bounded object `preferences` | The caller's private profile and account settings are required by T-R4.7; student-facing teacher names use the chosen display name without exposing private account fields |
 | D-31 | Questions and frozen version questions gain nullable level and skill; the choice cap applies to authoring only | DG-62/DG-63 and T-R4.15 preserve historical question content while adding teacher metadata and filters |
+| D-32 | `test_versions` gains a nullable `change_note`, 1 to 200 characters | The test detail's version history shows what the teacher said changed when publishing (DG-66, T-R4.16a). Nullable with no default and no backfill, so the previous release's insert keeps working and a version published before it reads NULL; the command stores NULL for a blank note, so the check never meets an empty string |
 
 ---
 
@@ -1456,6 +1457,7 @@ the file it adds.
 | `00089_add_word_import_draft_counts.sql` | Draft recognition counts for import-history reads | R4 (T-R4.21) |
 | `00090_allow_text_import_sources.sql` | Plaintext exam-source format | R4 (T-R4.55) |
 | `00091_add_word_import_sources_characters.sql` | Bounded character metadata exactly for text sources | R4 (T-R4.55) |
+| `00092_add_test_versions_change_note.sql` | `test_versions.change_note` and `test_versions_change_note_check` (1 to 200 characters), added `NOT VALID` and validated in the file | R4 (T-R4.16a), D-32 |
 
 Notes on migration mechanics (§13.7):
 
