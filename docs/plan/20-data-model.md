@@ -1457,7 +1457,7 @@ the file it adds.
 | `00089_add_word_import_draft_counts.sql` | Draft recognition counts for import-history reads | R4 (T-R4.21) |
 | `00090_allow_text_import_sources.sql` | Plaintext exam-source format | R4 (T-R4.55) |
 | `00091_add_word_import_sources_characters.sql` | Bounded character metadata exactly for text sources | R4 (T-R4.55) |
-| `00092_add_test_versions_change_note.sql` | `test_versions.change_note` and `test_versions_change_note_check` (1 to 200 characters), added `NOT VALID` and validated in the file | R4 (T-R4.16a), D-32 |
+| `00092_add_test_versions_change_note.sql` | `test_versions.change_note` and `test_versions_change_note_check` (1 to 200 characters), added with the column | R4 (T-R4.16a), D-32 |
 
 Notes on migration mechanics (§13.7):
 
