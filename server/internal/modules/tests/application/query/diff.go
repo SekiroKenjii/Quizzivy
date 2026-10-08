@@ -32,7 +32,11 @@ func (s DiffHandler) Handle(ctx context.Context, q Diff) (DiffResult, error) {
 	if err != nil {
 		return DiffResult{}, err
 	}
-	result := DiffResult{To: papers.To.Side, Changes: papers.Changes()}
+	changes, err := papers.Changes()
+	if err != nil {
+		return DiffResult{}, err
+	}
+	result := DiffResult{To: papers.To.Side, Changes: changes}
 	if papers.From != nil {
 		side := papers.From.Side
 		result.From = &side

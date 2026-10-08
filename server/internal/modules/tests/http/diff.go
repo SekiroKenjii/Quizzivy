@@ -29,6 +29,10 @@ func (h Tests) GetTestVersionDiff(ctx context.Context, request openapi.GetTestVe
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.GetTestVersionDiff404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy đề hoặc phiên bản.", "The test or the version was not found.")))}, nil
+	case errors.Is(err, domain.ErrVersionUnreadable):
+		return openapi.GetTestVersionDiff422JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			httpx.Text(ctx, "Không đọc lại được một nhóm câu hỏi của phiên bản đã xuất bản nên chưa thể so sánh.",
+				"A question group of a published version cannot be read back, so it cannot be compared."))), nil
 	case errors.Is(err, domain.ErrDraftUnreadable):
 		return openapi.GetTestVersionDiff422JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
 			httpx.Text(ctx, "Nội dung nhóm câu hỏi của bản nháp chưa hợp lệ nên chưa thể so sánh. Hãy kiểm tra các nhóm trong bản nháp.",

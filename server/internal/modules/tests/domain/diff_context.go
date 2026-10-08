@@ -23,13 +23,14 @@ func pairLabels(from, to paper, pairs pairing) (map[string]string, map[string]st
 }
 
 type contexts struct {
-	paper  paper
-	labels map[string]string
-	prints map[*GroupBundle]string
+	encoder *encoder
+	paper   paper
+	labels  map[string]string
+	prints  map[*GroupBundle]string
 }
 
-func newContexts(p paper, labels map[string]string) *contexts {
-	return &contexts{paper: p, labels: labels, prints: map[*GroupBundle]string{}}
+func newContexts(e *encoder, p paper, labels map[string]string) *contexts {
+	return &contexts{encoder: e, paper: p, labels: labels, prints: map[*GroupBundle]string{}}
 }
 
 func (c *contexts) of(q paperQuestion) string {
@@ -41,7 +42,7 @@ func (c *contexts) of(q paperQuestion) string {
 		body = c.print(*q.group)
 		c.prints[q.group] = body
 	}
-	return canonicalJSON(body, optionOrder(*q.group, q.id))
+	return c.encoder.json(body, optionOrder(*q.group, q.id))
 }
 
 func optionOrder(bundle GroupBundle, questionID string) string {
@@ -75,17 +76,17 @@ func (c *contexts) print(bundle GroupBundle) string {
 	}
 	for _, recording := range group.Recordings {
 		policy := recording.Policy
-		body.Recordings = append(body.Recordings, canonicalJSON(strings.ToLower(recording.AssetID), policy.MaxPlays, policy.AllowSeek, policy.ShowTranscriptAfterSubmit, recording.Transcript))
+		body.Recordings = append(body.Recordings, c.encoder.json(strings.ToLower(recording.AssetID), policy.MaxPlays, policy.AllowSeek, policy.ShowTranscriptAfterSubmit, recording.Transcript))
 	}
 	slices.Sort(body.Recordings)
-	return canonicalJSON(body)
+	return c.encoder.json(body)
 }
 
 func (c *contexts) stimulus(stimulus GroupStimulus) stimulusPrint {
 	text, gaps := canonicalContent(stimulus.Content)
 	body := stimulusPrint{Title: stimulus.Title, Content: text, Gaps: []string{}}
 	for _, binding := range stimulus.Gaps {
-		body.Gaps = append(body.Gaps, canonicalJSON(gapPosition(&binding.GapID, gaps), binding.Kind, c.label(binding.QuestionID), gapPosition(binding.BlankGapID, c.gapsOf(binding.QuestionID))))
+		body.Gaps = append(body.Gaps, c.encoder.json(gapPosition(&binding.GapID, gaps), binding.Kind, c.label(binding.QuestionID), gapPosition(binding.BlankGapID, c.gapsOf(binding.QuestionID))))
 	}
 	slices.Sort(body.Gaps)
 	return body

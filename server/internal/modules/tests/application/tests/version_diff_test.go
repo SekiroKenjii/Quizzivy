@@ -549,20 +549,33 @@ func removeTest(t *testing.T, repo *repositories.Postgres, testID, author string
 	}
 }
 
-func TestAGroupedVersionRestoredAsDraftHasNoChangeAndAnEditedPassageChangesItsMembers(t *testing.T) {
+type groupedWorld struct {
+	pool   *pgxpool.Pool
+	log    *sqlLog
+	repo   *repositories.Postgres
+	groups *repositories.GroupsPostgres
+	app    *application.Application
+	author string
+	scope  access.Scope
+	testID string
+	stored domain.StoredGroup
+}
+
+func publishedGroupedTest(t *testing.T) *groupedWorld {
+	t.Helper()
 	ctx := context.Background()
 	pool, log := loggedPool(t)
 	author := diffAuthor(t, pool)
 	media := mediarepo.NewPostgres(db.NewContext(pool))
 	repo := repositories.NewPostgres(db.NewContext(pool), adapters.GroupQuestions{}, media).WithGroupQuestions(adapters.GroupQuestions{})
-	groups := repositories.NewGroupsPostgres(db.NewContext(pool), adapters.GroupQuestions{}, media)
-	app := application.New(repo)
-	scope := access.Scope{UserID: author}
-
-	var testID string
+	w := &groupedWorld{
+		pool: pool, log: log, repo: repo, author: author, scope: access.Scope{UserID: author},
+		groups: repositories.NewGroupsPostgres(db.NewContext(pool), adapters.GroupQuestions{}, media),
+		app:    application.New(repo),
+	}
 	t.Cleanup(func() {
-		if testID != "" {
-			removeTest(t, repo, testID, author)
+		if w.testID != "" {
+			removeTest(t, repo, w.testID, author)
 		}
 	})
 	tx, err := pool.Begin(ctx)
@@ -574,15 +587,21 @@ func TestAGroupedVersionRestoredAsDraftHasNoChangeAndAnEditedPassageChangesItsMe
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	testID = id
+	w.testID = id
+	if w.stored, err = w.groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, ""), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: w.scope, Grants: bothKeys}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Publish(ctx, domain.PublishRequest{TestID: id, ActorID: author, Scope: w.scope}, time.Now(), domain.Publishing.Validate); err != nil {
+		t.Fatal(err)
+	}
+	return w
+}
 
-	stored, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, ""), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: scope, Grants: bothKeys})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author, Scope: scope}, time.Now(), domain.Publishing.Validate); err != nil {
-		t.Fatal(err)
-	}
+func TestAGroupedVersionRestoredAsDraftHasNoChangeAndAnEditedPassageChangesItsMembers(t *testing.T) {
+	ctx := context.Background()
+	w := publishedGroupedTest(t)
+	pool, log, repo, groups, app := w.pool, w.log, w.repo, w.groups, w.app
+	author, scope, testID, stored := w.author, w.scope, w.testID, w.stored
 	count := func() *int {
 		t.Helper()
 		test, err := app.Queries.Get.Handle(ctx, query.Get{ID: testID, Scope: scope})
@@ -619,8 +638,8 @@ func TestAGroupedVersionRestoredAsDraftHasNoChangeAndAnEditedPassageChangesItsMe
 		t.Fatal(err)
 	}
 	t.Logf("a diff of a paper with one group of 2 members and 1 standalone question runs %d statements", len(log.statements()))
-	if len(papers.Changes()) != 0 {
-		t.Fatalf("changes = %+v, want none", papers.Changes())
+	if changes, err := papers.Changes(); err != nil || len(changes) != 0 {
+		t.Fatalf("changes = %+v, %v, want none", changes, err)
 	}
 
 	group, err := groups.Get(ctx, everyone, copied)
@@ -675,5 +694,59 @@ func TestAGroupedVersionRestoredAsDraftHasNoChangeAndAnEditedPassageChangesItsMe
 		if _, err := pool.Exec(ctx, restore, copied); err != nil {
 			t.Fatalf("restoring the group's membership: %v", err)
 		}
+	}
+}
+
+func TestAVersionWhoseGroupNoLongerReadsLeavesTheCountNullAndTheDiffUnreadable(t *testing.T) {
+	ctx := context.Background()
+	w := publishedGroupedTest(t)
+	frozenGroup := `SELECT g.id::text FROM app.test_version_groups g
+		JOIN app.test_version_sections s ON s.id = g.test_version_section_id
+		JOIN app.test_versions v ON v.id = s.test_version_id WHERE v.test_id = $1 AND v.version = 1`
+	var frozen string
+	if err := w.pool.QueryRow(ctx, frozenGroup, w.testID).Scan(&frozen); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := w.app.Queries.Get.Handle(ctx, query.Get{ID: w.testID, Scope: w.scope}); err != nil || got.UnpublishedChanges == nil || *got.UnpublishedChanges != 0 {
+		t.Fatalf("before the damage getTest = %v, %v, want a count of 0", got.UnpublishedChanges, err)
+	}
+
+	for _, shift := range []string{
+		`UPDATE app.test_version_group_members SET ordinal = 2 WHERE group_id = $1 AND ordinal = 1`,
+		`UPDATE app.test_version_group_members SET ordinal = 1 WHERE group_id = $1 AND ordinal = 0`,
+	} {
+		if _, err := w.pool.Exec(ctx, shift, frozen); err != nil {
+			t.Fatalf("breaking the frozen group: %v", err)
+		}
+	}
+
+	got, err := w.app.Queries.Get.Handle(ctx, query.Get{ID: w.testID, Scope: w.scope})
+	if err != nil {
+		t.Fatalf("getTest failed for a version it cannot read: %v", err)
+	}
+	if got.UnpublishedChanges != nil {
+		t.Errorf("the count is %d, want null: the latest version does not read back", *got.UnpublishedChanges)
+	}
+	for name, against := range map[string]domain.Against{"the draft": againstDraft, "the previous version": againstPrevious} {
+		_, err := w.app.Queries.Diff.Handle(ctx, query.Diff{TestID: w.testID, Version: 1, Against: against, Scope: w.scope})
+		var refused *domain.GroupError
+		if !errors.Is(err, domain.ErrVersionUnreadable) || !errors.As(err, &refused) {
+			t.Errorf("diff of version 1 against %s = %v, want ErrVersionUnreadable wrapping the group error", name, err)
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("diff against %s answered not found for a version that exists", name)
+		}
+	}
+
+	for _, shift := range []string{
+		`UPDATE app.test_version_group_members SET ordinal = 0 WHERE group_id = $1 AND ordinal = 1`,
+		`UPDATE app.test_version_group_members SET ordinal = 1 WHERE group_id = $1 AND ordinal = 2`,
+	} {
+		if _, err := w.pool.Exec(ctx, shift, frozen); err != nil {
+			t.Fatalf("mending the frozen group: %v", err)
+		}
+	}
+	if got, err := w.app.Queries.Get.Handle(ctx, query.Get{ID: w.testID, Scope: w.scope}); err != nil || got.UnpublishedChanges == nil || *got.UnpublishedChanges != 0 {
+		t.Errorf("after mending, getTest = %v, %v, want a count of 0", got.UnpublishedChanges, err)
 	}
 }

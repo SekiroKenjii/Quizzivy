@@ -27,6 +27,10 @@ var (
 // because a group of it is refused. The error wrapping it names the cause.
 var ErrDraftUnreadable = errors.New("tests: the draft cannot be read as a paper")
 
+// ErrVersionUnreadable is a version whose stored group no longer reads back as
+// a valid graph. The error wrapping it names the cause.
+var ErrVersionUnreadable = errors.New("tests: the version cannot be read as a paper")
+
 // Against names the paper a version is compared with: the draft, the version
 // before it, or another version by number.
 type Against struct {
@@ -83,8 +87,8 @@ type DiffPapers struct {
 	To   DiffPaper
 }
 
-// Changes compares the two papers.
-func (p DiffPapers) Changes() []Change {
+// Changes compares the two papers; it fails as Compare does.
+func (p DiffPapers) Changes() ([]Change, error) {
 	if p.From == nil {
 		return Introduction(p.To.Content)
 	}

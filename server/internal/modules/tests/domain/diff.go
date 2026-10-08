@@ -67,22 +67,28 @@ type Change struct {
 // questions left over by identical content, because restoring a version as a
 // draft copies its questions into new bank rows. When several questions of one
 // paper share a key, they pair with those of the other in paper order. Moving
-// a question, so that the numbers shift, is not a change.
-func Compare(from, to DraftContent) []Change {
-	return compare(newPaper(from), newPaper(to), true)
+// a question, so that the numbers shift, is not a change. It fails when a
+// question holds points that are not a score, which stored data does not.
+func Compare(from, to DraftContent) ([]Change, error) {
+	e := &encoder{}
+	return compare(e, newPaper(e, from), newPaper(e, to), true)
 }
 
 // Introduction lists every question of a paper as added, with no points entry:
-// what a first version holds against nothing.
-func Introduction(to DraftContent) []Change {
-	return compare(paper{}, newPaper(to), false)
+// what a first version holds against nothing. It fails as Compare does.
+func Introduction(to DraftContent) ([]Change, error) {
+	e := &encoder{}
+	return compare(e, paper{}, newPaper(e, to), false)
 }
 
-func compare(from, to paper, withTotal bool) []Change {
+func compare(e *encoder, from, to paper, withTotal bool) ([]Change, error) {
+	if e.err != nil {
+		return nil, e.err
+	}
 	pairs := match(from, to)
 	fromLabels, toLabels := pairLabels(from, to, pairs)
-	fromContexts := newContexts(from, fromLabels)
-	toContexts := newContexts(to, toLabels)
+	fromContexts := newContexts(e, from, fromLabels)
+	toContexts := newContexts(e, to, toLabels)
 
 	var added, removed, changed, answers []Change
 	for j, q := range to.questions {
@@ -112,7 +118,10 @@ func compare(from, to paper, withTotal bool) []Change {
 	if withTotal && from.total != to.total {
 		out = append(out, Change{Kind: ChangePoints, PointsFrom: formatPoints(from.total), PointsTo: formatPoints(to.total)})
 	}
-	return out
+	if e.err != nil {
+		return nil, e.err
+	}
+	return out, nil
 }
 
 func changedFields(from, to paperQuestion, fromContext, toContext string) []ChangedField {

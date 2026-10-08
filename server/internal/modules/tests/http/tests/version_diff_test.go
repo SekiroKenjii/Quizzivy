@@ -139,7 +139,7 @@ func TestTheDiffRefusesTheVersionItselfAndAnythingElseAsATarget(t *testing.T) {
 	}
 }
 
-func TestTheDiffAnswersNotFoundAndAnUnreadableDraft(t *testing.T) {
+func TestTheDiffAnswersNotFoundAndAnUnreadablePaper(t *testing.T) {
 	cases := []struct {
 		name string
 		err  error
@@ -148,6 +148,7 @@ func TestTheDiffAnswersNotFoundAndAnUnreadableDraft(t *testing.T) {
 	}{
 		{"missing", domain.ErrNotFound, http.StatusNotFound, "NOT_FOUND"},
 		{"unreadable draft", domain.ErrDraftUnreadable, http.StatusUnprocessableEntity, "VALIDATION_FAILED"},
+		{"unreadable version", domain.ErrVersionUnreadable, http.StatusUnprocessableEntity, "VALIDATION_FAILED"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

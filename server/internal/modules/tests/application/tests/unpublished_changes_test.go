@@ -63,6 +63,7 @@ func TestGetLeavesTheCountNullWhereItCannotBeCounted(t *testing.T) {
 		{"a test never published", 0, nil, false},
 		{"no version found", 1, domain.ErrNotPublished, true},
 		{"a draft whose groups are refused", 1, fmt.Errorf("%w: %w", domain.ErrDraftUnreadable, &domain.GroupError{Rule: "group_membership"}), true},
+		{"a version whose groups no longer read back", 1, fmt.Errorf("%w: %w", domain.ErrVersionUnreadable, &domain.GroupError{Rule: "group_membership"}), true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -103,5 +104,18 @@ func TestADiffNamesTheTwoSidesAndCountsFromNothingForAFirstVersion(t *testing.T)
 	}
 	if len(result.Changes) != 2 || result.Changes[0].Kind != domain.ChangeAdded {
 		t.Errorf("changes = %+v, want two added questions and no total", result.Changes)
+	}
+}
+
+func TestGetFailsWhenAScoreInTheStoredPapersIsNotOne(t *testing.T) {
+	from, to := paperWith("Một"), paperWith("Một")
+	to.Content.Sections[0].Questions[0].Points = "many"
+	repo := &countingRepo{test: domain.Test{ID: "t1", CurrentVersion: 1}, papers: domain.DiffPapers{From: &from, To: to}}
+	got, err := application.New(repo).Queries.Get.Handle(context.Background(), query.Get{ID: "t1"})
+	if err == nil {
+		t.Fatalf("Get answered %v for a paper it could not compare, want the failure", got.UnpublishedChanges)
+	}
+	if _, err := application.New(repo).Queries.Diff.Handle(context.Background(), query.Diff{TestID: "t1", Version: 1, Against: domain.Against{Kind: domain.AgainstDraft}}); err == nil {
+		t.Error("the diff answered for a paper it could not compare")
 	}
 }

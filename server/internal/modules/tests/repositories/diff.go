@@ -25,7 +25,8 @@ type versionRow struct {
 // clause. A test outside the request's scope, and a version that does not
 // exist, are domain.ErrNotFound; a test with no version, when the request asks
 // for the latest, is domain.ErrNotPublished; and a draft whose groups are
-// refused is domain.ErrDraftUnreadable, wrapping the cause.
+// refused is domain.ErrDraftUnreadable, as a version whose stored group fails
+// its validation is domain.ErrVersionUnreadable, each wrapping the cause.
 //
 // It cannot run on a Postgres built over a transaction: Begin there is a
 // savepoint, and SET TRANSACTION is refused once a statement has run.
@@ -204,13 +205,21 @@ func (s *Postgres) loadVersion(ctx context.Context, tx pgx.Tx, versionID string)
 			}
 			group, err := readFrozenGroup(ctx, tx, unit.GroupID, versionUnlocked)
 			if err != nil {
-				return domain.DraftContent{}, fmt.Errorf("diff: read group of version: %w", err)
+				return domain.DraftContent{}, versionGroupError(err)
 			}
 			section.Groups = append(section.Groups, group)
 		}
 		content.Sections = append(content.Sections, section)
 	}
 	return content, nil
+}
+
+func versionGroupError(err error) error {
+	var invalid *domain.GroupError
+	if errors.As(err, &invalid) || errors.Is(err, domain.ErrNotFound) {
+		return fmt.Errorf("%w: %w", domain.ErrVersionUnreadable, err)
+	}
+	return fmt.Errorf("diff: read group of version: %w", err)
 }
 
 func loadVersionSections(ctx context.Context, tx pgx.Tx, versionID string) (map[string]domain.DraftSection, []string, error) {

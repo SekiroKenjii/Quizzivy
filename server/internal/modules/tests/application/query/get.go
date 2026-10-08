@@ -19,8 +19,9 @@ type GetHandler struct {
 
 // Handle returns the test with UnpublishedChanges counted against its latest
 // version. The count is a second, read-only transaction after the one that
-// read the test; it stays nil for a test never published and for a draft whose
-// groups are refused, and any other failure of it fails the read.
+// read the test; it stays nil for a test never published and for a draft or a
+// latest version whose groups are refused, and any other failure of it fails
+// the read.
 func (s GetHandler) Handle(ctx context.Context, q Get) (domain.Test, error) {
 	test, err := s.Repo.Get(ctx, q.Scope, q.ID)
 	if err != nil || test.CurrentVersion == 0 {
@@ -29,9 +30,13 @@ func (s GetHandler) Handle(ctx context.Context, q Get) (domain.Test, error) {
 	papers, err := s.Repo.DiffPapers(ctx, domain.DiffRequest{TestID: q.ID, Against: domain.Against{Kind: domain.AgainstDraft}, Scope: q.Scope})
 	switch {
 	case err == nil:
-		count := len(papers.Changes())
+		changes, err := papers.Changes()
+		if err != nil {
+			return domain.Test{}, err
+		}
+		count := len(changes)
 		test.UnpublishedChanges = &count
-	case errors.Is(err, domain.ErrNotPublished), errors.Is(err, domain.ErrDraftUnreadable):
+	case errors.Is(err, domain.ErrNotPublished), errors.Is(err, domain.ErrDraftUnreadable), errors.Is(err, domain.ErrVersionUnreadable):
 	default:
 		return domain.Test{}, err
 	}

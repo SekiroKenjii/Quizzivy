@@ -3,6 +3,7 @@ package domain
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"quizzivy/internal/shared/content"
 	"slices"
 	"strconv"
@@ -37,22 +38,23 @@ type questionParts struct {
 	answer      string
 	correct     []int
 	gaps        map[string]int
+	print       string
 }
 
-func newPaper(d DraftContent) paper {
+func newPaper(e *encoder, d DraftContent) paper {
 	p := paper{owners: map[string]int{}}
 	for _, section := range d.Sections {
-		sectionPrint := canonicalJSON(section.Title, section.Instructions)
+		sectionPrint := e.json(section.Title, section.Instructions)
 		groups := groupsByMember(section.Groups)
 		for _, q := range section.Questions {
 			id := strings.ToLower(questionKey(q))
+			parts := newParts(e, q)
 			p.owners[id] = len(p.questions)
 			p.questions = append(p.questions, paperQuestion{
 				question: q, id: questionKey(q), number: len(p.questions) + 1,
-				section: sectionPrint, group: groups[id], parts: newParts(q),
+				section: sectionPrint, group: groups[id], parts: parts,
 			})
-			units, _ := questionsdomain.PointUnits(q.Points)
-			p.total += units
+			p.total += parts.points
 		}
 	}
 	return p
@@ -75,27 +77,24 @@ func groupsByMember(groups []GroupBundle) map[string]*GroupBundle {
 	return out
 }
 
-func newParts(q DraftQuestion) questionParts {
+func newParts(e *encoder, q DraftQuestion) questionParts {
 	promptContent, gaps := canonicalContent(q.PromptContent)
 	explanationContent, _ := canonicalContent(q.ExplanationContent)
-	units, _ := questionsdomain.PointUnits(q.Points)
 	correct := correctPositions(q.Options)
-	return questionParts{
+	parts := questionParts{
 		kind:        q.Type,
-		prompt:      canonicalJSON(q.Prompt, promptContent),
-		explanation: canonicalJSON(q.Explanation, explanationContent),
-		media:       canonicalJSON(lowered(q.MediaAssetID), q.MaxPlays, q.AllowSeek, q.ShowTranscript, q.Transcript),
-		points:      units,
-		options:     canonicalJSON(optionPrints(q.Options)),
-		blanks:      canonicalJSON(blankPrints(q.Blanks, gaps)),
-		answer:      canonicalJSON(correct, acceptedAnswers(q.Blanks), q.SampleAnswer),
+		prompt:      e.json(q.Prompt, promptContent),
+		explanation: e.json(q.Explanation, explanationContent),
+		media:       e.json(lowered(q.MediaAssetID), q.MaxPlays, q.AllowSeek, q.ShowTranscript, q.Transcript),
+		points:      e.points(q),
+		options:     e.json(optionPrints(q.Options)),
+		blanks:      e.json(blankPrints(q.Blanks, gaps)),
+		answer:      e.json(correct, acceptedAnswers(q.Blanks), q.SampleAnswer),
 		correct:     correct,
 		gaps:        gaps,
 	}
-}
-
-func (p questionParts) fingerprint() string {
-	return canonicalJSON(p.kind, p.prompt, p.explanation, p.media, p.points, p.options, p.blanks, p.answer)
+	parts.print = e.json(parts.kind, parts.prompt, parts.explanation, parts.media, parts.points, parts.options, parts.blanks, parts.answer)
+	return parts
 }
 
 func lowered(id *string) *string {
@@ -176,12 +175,29 @@ func acceptedAnswers(blanks []DraftBlank) [][]string {
 	return accepted
 }
 
-func canonicalJSON(values ...any) string {
+type encoder struct{ err error }
+
+func (e *encoder) fail(err error) {
+	if e.err == nil {
+		e.err = err
+	}
+}
+
+func (e *encoder) json(values ...any) string {
 	encoded, err := json.Marshal(values)
 	if err != nil {
+		e.fail(fmt.Errorf("diff: encode a question part: %w", err))
 		return ""
 	}
 	return string(encoded)
+}
+
+func (e *encoder) points(q DraftQuestion) int64 {
+	units, valid := questionsdomain.PointUnits(q.Points)
+	if !valid {
+		e.fail(fmt.Errorf("diff: question %s has points %q, which are not a score", questionKey(q), q.Points))
+	}
+	return units
 }
 
 func canonicalContent(raw json.RawMessage) (string, map[string]int) {
@@ -256,7 +272,7 @@ func (p *pairing) byContent(from, to paper) {
 	queues := map[string][]int{}
 	for i, q := range from.questions {
 		if p.fromTo[i] < 0 {
-			key := q.parts.fingerprint()
+			key := q.parts.print
 			queues[key] = append(queues[key], i)
 		}
 	}
@@ -264,7 +280,7 @@ func (p *pairing) byContent(from, to paper) {
 		if p.toFrom[j] >= 0 {
 			continue
 		}
-		key := q.parts.fingerprint()
+		key := q.parts.print
 		if len(queues[key]) == 0 {
 			continue
 		}
