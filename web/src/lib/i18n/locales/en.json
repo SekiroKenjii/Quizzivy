@@ -228,6 +228,8 @@
       "startFailed": "Could not start. Please try again.",
       "questions": "Questions",
       "before": "Before you start",
+      "noteFrom": "Note from {{name}}",
+      "noteFromTeacher": "Note from your teacher",
       "startHint": "Your answers save automatically.",
       "resumeHint": "This attempt ends at {{time}}.",
       "opensToday": "Opens today at {{time}}",

@@ -331,6 +331,73 @@ describe("before you start, per policy", () => {
   });
 });
 
+describe("the teacher's note", () => {
+  const NOTE = "Mang theo máy tính cầm tay.\nKhông dùng điện thoại.";
+
+  async function noteBlock(name: string) {
+    const heading = await screen.findByRole("heading", { level: 2, name });
+    return heading.closest("section")!;
+  }
+
+  it("is drawn between 'Before you start' and the action, under the teacher's name", async () => {
+    show({ studentNote: NOTE, teacherName: "Hoàng Thương" });
+    const note = await noteBlock("Ghi chú từ Hoàng Thương");
+    const before = screen
+      .getByRole("heading", { level: 2, name: "Trước khi bắt đầu" })
+      .closest("section")!;
+    const action = await startButton();
+    expect(before.compareDocumentPosition(note)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(note.compareDocumentPosition(action)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(within(note).getByText("TH")).toBeInTheDocument();
+    expect(note.querySelector("p")!.textContent).toBe(NOTE);
+  });
+
+  it("is left out when the teacher wrote none", async () => {
+    show({ studentNote: null, teacherName: "Hoàng Thương" });
+    await startButton();
+    expect(screen.queryByText(/Ghi chú từ/)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="teacher-note"]')).toBeNull();
+  });
+
+  it("is left out when the server sends no note at all", async () => {
+    show({ teacherName: "Hoàng Thương" });
+    await startButton();
+    expect(document.querySelector('[data-slot="teacher-note"]')).toBeNull();
+  });
+
+  it("says 'your teacher' when the teacher is not known", async () => {
+    show({ studentNote: NOTE, teacherName: null });
+    const note = await noteBlock("Ghi chú từ giáo viên");
+    expect(note.querySelector("p")!.textContent).toBe(NOTE);
+  });
+
+  it("is plain text: markup in it is shown as typed and runs nothing", async () => {
+    const typed =
+      '<b>Đọc kỹ</b> <img src=x onerror="alert(1)"> **đề** [link](https://example.test)';
+    show({ studentNote: typed, teacherName: "Hoàng Thương" });
+    const note = await noteBlock("Ghi chú từ Hoàng Thương");
+    expect(note.querySelector("p")!.textContent).toBe(typed);
+    expect(note.querySelector("b, img, a, strong")).toBeNull();
+  });
+});
+
+describe("the score sentence of a result released after the close", () => {
+  it("says the score comes once the test closes", async () => {
+    show({
+      review: {
+        showScore: true,
+        showCorrectAnswers: true,
+        showExplanations: false,
+        release: "after_close",
+        showClassAverage: false,
+      },
+    });
+    const list = await rules();
+    expect(list.at(-1)).toBe("Bạn sẽ xem được điểm và đáp án đúng sau khi bài đóng.");
+    expect(list.join(" ")).not.toMatch(/sau khi nộp/);
+  });
+});
+
 describe("the header and the three facts", () => {
   it("names the time limit, the questions and the attempts used", async () => {
     show();
@@ -1411,6 +1478,28 @@ describe("a tab left open", () => {
 });
 
 describe("in English", () => {
+  it("reads the teacher's note and the after-close score sentence in English", async () => {
+    await i18n.changeLanguage("en");
+    show({
+      studentNote: "Bring a calculator.",
+      teacherName: "Hoàng Thương",
+      review: {
+        showScore: true,
+        showCorrectAnswers: false,
+        showExplanations: false,
+        release: "after_close",
+        showClassAverage: false,
+      },
+    });
+    const note = (
+      await screen.findByRole("heading", { level: 2, name: "Note from Hoàng Thương" })
+    ).closest("section")!;
+    expect(note).toHaveTextContent("Bring a calculator.");
+    expect(
+      screen.getByText("You will see your score after the test closes."),
+    ).toBeInTheDocument();
+  });
+
   it("reads the short window in English, singular and plural", async () => {
     await i18n.changeLanguage("en");
     const user = userEvent.setup();

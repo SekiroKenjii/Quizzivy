@@ -13,6 +13,7 @@ import {
   Headphones,
   LoaderCircle,
   Maximize,
+  MessageSquareText,
   Timer,
   type LucideIcon,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import {
   DeckDialogCancel,
 } from "@/components/shared/DeckDialog";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { enterFullscreen, fullscreenSupported } from "@/features/integrity/fullscreen";
@@ -268,8 +270,42 @@ export default function AssignmentIntroPage() {
           })}
         </ul>
       </section>
+      {a.studentNote != null && a.studentNote !== "" && (
+        <TeacherNote name={a.teacherName ?? null} note={a.studentNote} />
+      )}
       <Action key={a.id} assignment={a} now={now} wide={wide} />
     </div>
+  );
+}
+
+function TeacherNote({ name, note }: Readonly<{ name: string | null; note: string }>) {
+  const { t } = useTranslation();
+  const heading = useId();
+  return (
+    <section
+      aria-labelledby={heading}
+      data-slot="teacher-note"
+      className="bg-muted flex gap-3 rounded-xl px-4 py-3.5"
+    >
+      {name === null ? (
+        <span
+          aria-hidden="true"
+          className="bg-card grid size-7.5 flex-none place-items-center rounded-full"
+        >
+          <MessageSquareText className="size-[15px]" />
+        </span>
+      ) : (
+        <Avatar name={name} size="30" className="bg-card text-fg" />
+      )}
+      <div className="text-ui min-w-0 leading-[1.55]">
+        <h2 id={heading} className="mb-0.5 font-medium break-words">
+          {name === null
+            ? t("student.intro.noteFromTeacher")
+            : t("student.intro.noteFrom", { name })}
+        </h2>
+        <p className="break-words whitespace-pre-line">{note}</p>
+      </div>
+    </section>
   );
 }
 

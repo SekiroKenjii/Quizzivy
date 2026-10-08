@@ -228,6 +228,8 @@
       "startFailed": "Không bắt đầu được. Hãy thử lại.",
       "questions": "Số câu",
       "before": "Trước khi bắt đầu",
+      "noteFrom": "Ghi chú từ {{name}}",
+      "noteFromTeacher": "Ghi chú từ giáo viên",
       "startHint": "Câu trả lời được lưu tự động.",
       "resumeHint": "Lượt này kết thúc lúc {{time}}.",
       "opensToday": "Mở lúc {{time}} hôm nay",
