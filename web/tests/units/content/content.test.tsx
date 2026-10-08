@@ -288,6 +288,8 @@ describe("the content editor's frame", () => {
       "Làm lại (Ctrl+Shift+Z)",
     );
     expect(screen.getByRole("button", { name: "Hoàn tác" })).toBeDisabled();
+    expect(fireEvent.pointerDown(bold)).toBe(false);
+    expect(fireEvent.mouseDown(bold)).toBe(false);
     expect(screen.queryByText("0 từ") !== null).toBe(footer);
   });
 

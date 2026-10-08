@@ -35,6 +35,16 @@ test("preserves list starts, table cells, spans and nested lists without inferri
   expect(JSON.stringify(result)).not.toMatch(/isCorrect|acceptedAnswers|gap/);
 });
 
+test("keeps a pasted heading's level", () => {
+  expect(
+    clipboardHTML("<h1>Một</h1><h2>Hai</h2><h3>Ba</h3>")?.content?.blocks,
+  ).toMatchObject([
+    { type: "heading", level: 1 },
+    { type: "heading", level: 2 },
+    { type: "heading", level: 3 },
+  ]);
+});
+
 test("CSS overrides retain independent marks and reject ambiguous or hidden meaning", () => {
   expect(
     clipboardStyles("font-weight:normal;font-style:italic", ["bold", "underline"]),
