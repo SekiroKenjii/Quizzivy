@@ -8,6 +8,7 @@ import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { viewport } from "@tests/support/viewport";
+import type { components } from "@/lib/api/schema";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
@@ -19,7 +20,9 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 };
-const question = {
+const question: components["schemas"]["AdminQuestion"] = {
+  level: null,
+  skill: null,
   id: QUESTION_ID,
   type: "short_answer" as const,
   prompt: "Viết 2–3 câu tả thói quen buổi sáng.",
@@ -43,6 +46,7 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/teacher/tests/${TEST_ID}`, () =>
       contractJson("/teacher/tests/{id}", "get", 200, {
+        skills: [],
         id: TEST_ID,
         title: "Unit 5",
         description: null,
@@ -62,7 +66,7 @@ beforeEach(() => {
         ],
         createdAt: "2026-01-01T00:00:00Z",
         updatedAt: "2026-01-01T00:00:00Z",
-      }),
+      } satisfies components["schemas"]["Test"]),
     ),
     http.get(`${BASE}/teacher/questions/:id`, ({ params }) =>
       contractJson(

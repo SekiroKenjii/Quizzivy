@@ -7,13 +7,15 @@ import { http } from "msw";
 import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import type { components } from "@/lib/api/schema";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
 const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 const QUESTION_ID = "018f0000-0000-7000-8000-0000000000b1";
 
-const test = {
+const test: components["schemas"]["Test"] = {
+  skills: [],
   id: TEST_ID,
   title: "Unit 5",
   description: null,
@@ -35,7 +37,9 @@ const test = {
   updatedAt: "2026-01-02T00:00:00Z",
 };
 
-const question = {
+const question: components["schemas"]["AdminQuestion"] = {
+  level: null,
+  skill: null,
   id: QUESTION_ID,
   type: "single_choice" as const,
   prompt: "They ___ to the museum.",
