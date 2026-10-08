@@ -68,7 +68,12 @@ the "one package per feature" layout AGENTS.md described until then.
   closed) from its window, over a row of `app.assignments` aliased `a`.
   assignments (its list, facets and reopen) and tests (the per-test counts on
   `Test.assignments`) splice it, so the two cannot drift, and a change to the
-  window rule is made there once.
+  window rule is made there once. The same package holds the close rule:
+  `CloseOf` is the SQL for the moment an assignment stops taking attempts
+  (`least(closed_at, closes_at)`, or the later of that and a student's
+  override), and `Close` and `Window.WithOverride` are its Go twin. attempts
+  uses them to hold a result back until the close and to decide whether the
+  class average may show (T-R4.11); T-R4.12 passes the overrides.
 - **Access in the kernel.** `shared/access` is the authorization model every
   layer may use, and it imports only the standard library: the catalogue as
   `Key`s, with the pseudo-keys `self`, `workspace.teacher` and
