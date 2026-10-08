@@ -84,24 +84,6 @@ beforeEach(() => {
           : question,
       ),
     ),
-    http.get(`${BASE}/teacher/questions`, () =>
-      contractJson("/teacher/questions", "get", 200, {
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: 1,
-        tags: [],
-        facets: {
-          all: 0,
-          single_choice: 0,
-          multiple_choice: 0,
-          true_false: 0,
-          fill_blank: 0,
-          short_answer: 0,
-        },
-        bankTotal: 0,
-      }),
-    ),
     http.patch(`${BASE}/teacher/questions/:id`, async ({ params, request }) => {
       const body = (await request.json()) as { points: number; tags: string[] };
       patches.push({ id: String(params.id), body });
