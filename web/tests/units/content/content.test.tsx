@@ -8,6 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { Editor } from "@tiptap/react";
 import { ContentEditor } from "@/components/shared/content/editor/ContentEditor";
 import { toEditorJSON } from "@/components/shared/content/editor/adapter";
@@ -377,6 +378,25 @@ describe("the content editor's frame", () => {
     await waitFor(() =>
       expect(screen.queryByRole("toolbar", { name: "Bảng" })).toBeNull(),
     );
+  });
+
+  test("opens the address with the caret after https:// so a typed host follows it", async () => {
+    const user = userEvent.setup();
+    const editor = renderEditor(
+      {},
+      { format: "semantic_v1", blocks: [paragraph("Đọc thêm")] },
+    );
+    act(() => editor().commands.setTextSelection({ from: 1, to: 4 }));
+    await user.click(screen.getByRole("button", { name: "Liên kết" }));
+    const address = await screen.findByRole("textbox", { name: "Địa chỉ liên kết" });
+    await waitFor(() => expect(address).toHaveFocus());
+    expect(address).toHaveProperty("selectionStart", "https://".length);
+    expect(address).toHaveProperty("selectionEnd", "https://".length);
+    await user.keyboard("example.com");
+    expect(address).toHaveValue("https://example.com");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(links(editor())).toEqual([["https://example.com", "Đọc"]]));
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   test("links a selection, refuses an unsafe address, removes a link and links a bare address", async () => {

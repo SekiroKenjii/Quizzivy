@@ -25,7 +25,8 @@ function applyLink(editor: Editor, href: string, inLink: boolean) {
 
 /**
  * LinkPanel is the open link popover, anchored to the toolbar's "Link"
- * button. Enter applies the address, an address `safeContentURL` refuses is
+ * button. The address opens with the caret after its text, so a typed host
+ * follows "https://". Enter applies the address, an address `safeContentURL` refuses is
  * reported in an alert, and with no selection the address without its scheme
  * becomes the text. Esc returns focus to the button; applying or removing
  * returns it to the editor.
@@ -45,6 +46,7 @@ export function LinkPanel({
   const [draft, setDraft] = useState(existing ?? "https://");
   const [invalid, setInvalid] = useState(false);
   const done = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,6 +79,13 @@ export function LinkPanel({
         collisionPadding={8}
         aria-label={t("contentEditor.link")}
         className="w-68 max-w-[calc(100vw-24px)] rounded-[10px] p-1.5 data-[scale=deck]:rounded-[10px] data-[scale=deck]:p-1.5"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          const field = input.current;
+          if (!field) return;
+          field.focus();
+          field.setSelectionRange(field.value.length, field.value.length);
+        }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           if (done.current) editor.commands.focus(undefined, { scrollIntoView: false });
@@ -87,6 +96,7 @@ export function LinkPanel({
           <label className="flex flex-col gap-1.5 text-[12.5px] font-medium">
             {t("contentEditor.linkAddress")}
             <input
+              ref={input}
               type="text"
               inputMode="url"
               autoComplete="off"
