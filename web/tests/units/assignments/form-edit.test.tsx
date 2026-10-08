@@ -43,7 +43,14 @@ const saved: components["schemas"]["Assignment"] = {
   maxAttempts: 2,
   shuffleQuestions: false,
   shuffleOptions: true,
-  review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
+  review: {
+    showScore: true,
+    showCorrectAnswers: false,
+    showExplanations: false,
+    release: "on_submit",
+    showClassAverage: false,
+  },
+  studentNote: null,
   integrity: {
     requireFullscreen: false,
     blockCopyPaste: true,

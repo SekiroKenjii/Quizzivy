@@ -299,7 +299,13 @@ describe("resultView: the lock line", () => {
     "showScore=%s showCorrectAnswers=%s showExplanations=%s names %s",
     (showScore, showCorrectAnswers, showExplanations, lock) => {
       const body = paper({
-        review: { showScore, showCorrectAnswers, showExplanations },
+        review: {
+          showScore,
+          showCorrectAnswers,
+          showExplanations,
+          release: "on_submit",
+          showClassAverage: false,
+        },
         questions: [choice(1, AB, [0])],
       });
       expect(resultView(body).lock).toBe(lock);
@@ -415,6 +421,8 @@ describe("correctKey", () => {
       showScore: false,
       showCorrectAnswers: true,
       showExplanations: false,
+      release: "on_submit" as const,
+      showClassAverage: false,
     };
     const right = choice(1, AB, [1], { correctOptionIds: [uuid("b", 11)] });
     expect(correctKey(right, review)).toEqual({

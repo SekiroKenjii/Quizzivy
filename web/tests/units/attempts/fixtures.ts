@@ -39,7 +39,14 @@ export function assignment(
     maxAttempts: 2,
     shuffleQuestions: false,
     shuffleOptions: false,
-    review: { showScore: true, showCorrectAnswers: false, showExplanations: true },
+    review: {
+      showScore: true,
+      showCorrectAnswers: false,
+      showExplanations: true,
+      release: "on_submit",
+      showClassAverage: false,
+    },
+    studentNote: null,
     integrity: {
       requireFullscreen: false,
       blockCopyPaste: true,

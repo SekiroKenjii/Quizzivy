@@ -351,7 +351,18 @@ describe("the result page", () => {
   it.each(combos)(
     "showScore=%s showCorrectAnswers=%s showExplanations=%s renders exactly its blocks",
     async (showScore, showCorrectAnswers, showExplanations) => {
-      serve(passive({ showScore, showCorrectAnswers, showExplanations }, true));
+      serve(
+        passive(
+          {
+            showScore,
+            showCorrectAnswers,
+            showExplanations,
+            release: "on_submit",
+            showClassAverage: false,
+          },
+          true,
+        ),
+      );
       renderResult();
       const wrong = (await screen.findByText("The letter ____ yesterday.")).closest(
         "article",
@@ -791,7 +802,18 @@ describe("the deck's three variants", () => {
       "names what showScore=%s showCorrectAnswers=%s showExplanations=%s hides",
       async (showScore, showCorrectAnswers, showExplanations, line) => {
         await i18n.changeLanguage("en");
-        serve(passive({ showScore, showCorrectAnswers, showExplanations }, false));
+        serve(
+          passive(
+            {
+              showScore,
+              showCorrectAnswers,
+              showExplanations,
+              release: "on_submit",
+              showClassAverage: false,
+            },
+            false,
+          ),
+        );
         renderResult();
         expect(await screen.findByText(line)).toBeVisible();
       },

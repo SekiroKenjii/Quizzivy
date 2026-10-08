@@ -14,16 +14,22 @@ export const OPEN: Review = {
   showScore: true,
   showCorrectAnswers: true,
   showExplanations: true,
+  release: "on_submit",
+  showClassAverage: false,
 };
 export const SCORE_ONLY: Review = {
   showScore: true,
   showCorrectAnswers: false,
   showExplanations: false,
+  release: "on_submit",
+  showClassAverage: false,
 };
 export const CLOSED: Review = {
   showScore: false,
   showCorrectAnswers: false,
   showExplanations: false,
+  release: "on_submit",
+  showClassAverage: false,
 };
 
 export function uuid(kind: string, n: number): string {

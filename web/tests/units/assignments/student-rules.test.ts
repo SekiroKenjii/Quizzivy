@@ -12,6 +12,8 @@ const REVIEW: ReviewPolicy = {
   showScore: true,
   showCorrectAnswers: false,
   showExplanations: false,
+  release: "on_submit",
+  showClassAverage: false,
 };
 const INTEGRITY: IntegrityPolicy = {
   requireFullscreen: false,

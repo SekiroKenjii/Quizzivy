@@ -269,7 +269,13 @@ describe("before you start, per policy", () => {
 
   it("says nothing of what is seen after submitting when the review hides the score", async () => {
     show({
-      review: { showScore: false, showCorrectAnswers: true, showExplanations: true },
+      review: {
+        showScore: false,
+        showCorrectAnswers: true,
+        showExplanations: true,
+        release: "on_submit",
+        showClassAverage: false,
+      },
     });
     expect((await rules()).join(" ")).not.toMatch(/điểm|đáp án|giải thích/);
   });

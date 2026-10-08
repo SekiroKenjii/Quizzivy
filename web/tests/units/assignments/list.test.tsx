@@ -40,7 +40,13 @@ function assignment(over: Record<string, unknown> = {}) {
     maxAttempts: 1,
     shuffleQuestions: false,
     shuffleOptions: false,
-    review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
+    review: {
+      showScore: true,
+      showCorrectAnswers: false,
+      showExplanations: false,
+      release: "on_submit",
+      showClassAverage: false,
+    },
     integrity: {
       requireFullscreen: false,
       blockCopyPaste: true,
