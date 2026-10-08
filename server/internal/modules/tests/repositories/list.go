@@ -46,17 +46,16 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Test
 		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(titleSearch, len(args)))
 	}
-	from := `
-		  FROM app.tests t
+	filter := `
 		 WHERE ` + strings.Join(where, "\n		   AND ")
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
+	if err := s.QueryRow(ctx, `SELECT count(*) FROM app.tests t`+filter, args...).Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("tests: count: %w", err)
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.Query(ctx, `SELECT`+testColumns+from+fmt.Sprintf(`
+	rows, err := s.Query(ctx, `SELECT`+testColumns+testFrom+filter+fmt.Sprintf(`
 		 ORDER BY t.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
