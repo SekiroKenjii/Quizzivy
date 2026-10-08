@@ -3,6 +3,9 @@
 .agents/skills/
 .claude/skills/
 
+# The agent team's git worktrees (docs/team/README.md)
+.claude/worktrees/
+
 # Env
 .env
 .env.local

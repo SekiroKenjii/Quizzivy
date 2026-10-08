@@ -274,10 +274,11 @@ func isolationCases() map[string]isoCase {
 			},
 			link: map[string][]string{"body /sections/-/units/-/id": {"/sections/-/questionIds/-"}},
 		},
-		"publishTest":       {},
-		"duplicateTest":     {},
-		"listTestVersions":  {excuse: map[string]string{"path id": "a missing test lists no versions"}},
-		"deleteTestVersion": {params: map[string]string{"version": "1"}, fresh: freshPublishedTest},
+		"publishTest":        {},
+		"duplicateTest":      {},
+		"listTestVersions":   {excuse: map[string]string{"path id": "a missing test lists no versions"}},
+		"deleteTestVersion":  {params: map[string]string{"version": "1"}, fresh: freshPublishedTest},
+		"getTestVersionDiff": {params: map[string]string{"version": "1"}, query: map[string]string{"against": "draft"}, fresh: freshPublishedTest},
 		"setCurrentTestVersion": {params: map[string]string{"version": "1"}, fresh: freshPublishedTest, body: func(x *iso, own *party, _ string) any {
 			return map[string]any{"expectedUpdatedAt": x.testUpdatedAt(own)}
 		}},
