@@ -277,6 +277,7 @@ func toAPITest(t domain.Test) (openapi.Test, error) {
 		DeletedAt:      t.DeletedAt,
 		Sections:       make([]openapi.TestSection, len(t.Sections)),
 	}
+	out.UnpublishedChanges = t.UnpublishedChanges
 	for i, skill := range t.Skills {
 		out.Skills[i] = openapi.QuestionSkill(skill)
 	}

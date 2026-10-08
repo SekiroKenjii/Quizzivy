@@ -22,6 +22,7 @@ type Repository interface {
 	CreateDraftFromVersion(ctx context.Context, req VersionRequest, now time.Time) (Test, error)
 	ListVersions(ctx context.Context, scope access.Scope, testID string) ([]Version, error)
 	Preview(ctx context.Context, scope access.Scope, testID string, version int) (PreviewPaper, error)
+	DiffPapers(ctx context.Context, req DiffRequest) (DiffPapers, error)
 	GroupContexts(ctx context.Context, versionID string) ([]PreviewGroup, error)
 	Publish(ctx context.Context, req PublishRequest, now time.Time, validate func(DraftContent) error) (Version, error)
 }

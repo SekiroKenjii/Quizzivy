@@ -51,6 +51,7 @@ GET /teacher/tests workspace.teacher
 GET /teacher/tests/{id} workspace.teacher
 GET /teacher/tests/{id}/preview workspace.teacher
 GET /teacher/tests/{id}/versions workspace.teacher
+GET /teacher/tests/{id}/versions/{version}/diff workspace.teacher
 PATCH /app/attempts/{id}/answers learning.take_tests
 PATCH /auth/me self
 PATCH /me/preferences self
