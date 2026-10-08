@@ -67,8 +67,8 @@ func (s *GroupsPostgres) Get(ctx context.Context, scope access.Scope, id string)
 	return group, nil
 }
 
-func (s *GroupsPostgres) readWithLock(ctx context.Context, tx pgx.Tx, id, lock string) (domain.StoredGroup, error) {
-	group, err := readLockedGroup(ctx, tx, id, lock)
+func (s *GroupsPostgres) readUnlocked(ctx context.Context, tx pgx.Tx, id string) (domain.StoredGroup, error) {
+	group, err := readLockedGroup(ctx, tx, id, groupUnlocked)
 	if err != nil {
 		return domain.StoredGroup{}, err
 	}

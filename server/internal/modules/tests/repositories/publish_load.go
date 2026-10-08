@@ -26,7 +26,7 @@ func (s *Postgres) loadDraftSnapshot(ctx context.Context, tx pgx.Tx, testID stri
 	for _, id := range order {
 		section := sections[id]
 		section.Questions = byQuestion[id]
-		if err := s.loadDraftUnits(ctx, tx, &section, groupUnlocked); err != nil {
+		if err := s.loadDraftUnits(ctx, tx, &section); err != nil {
 			return domain.DraftContent{}, err
 		}
 		d.Sections = append(d.Sections, section)

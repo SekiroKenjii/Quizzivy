@@ -34,7 +34,7 @@ func lockDraftContent(ctx context.Context, tx pgx.Tx, testID string, forCopy boo
 	return err
 }
 
-func (s *Postgres) loadDraftUnits(ctx context.Context, tx pgx.Tx, section *domain.DraftSection, groupLock string) error {
+func (s *Postgres) loadDraftUnits(ctx context.Context, tx pgx.Tx, section *domain.DraftSection) error {
 	rows, err := tx.Query(ctx, `SELECT coalesce(question_id::text,''),coalesce(group_id::text,'') FROM app.test_section_units
 		WHERE test_section_id=$1 ORDER BY ordinal`, section.ID)
 	if err != nil {
@@ -60,7 +60,7 @@ func (s *Postgres) loadDraftUnits(ctx context.Context, tx pgx.Tx, section *domai
 			section.Questions = append(section.Questions, question)
 			continue
 		}
-		if err := appendDraftGroup(ctx, tx, groups, section, unit.GroupID, groupLock); err != nil {
+		if err := appendDraftGroup(ctx, tx, groups, section, unit.GroupID); err != nil {
 			return err
 		}
 	}
@@ -84,8 +84,8 @@ func draftGroupQuestion(q domain.GroupQuestion, ordinal int) domain.DraftQuestio
 	return out
 }
 
-func appendDraftGroup(ctx context.Context, tx pgx.Tx, groups *GroupsPostgres, section *domain.DraftSection, id, groupLock string) error {
-	stored, err := groups.readWithLock(ctx, tx, id, groupLock)
+func appendDraftGroup(ctx context.Context, tx pgx.Tx, groups *GroupsPostgres, section *domain.DraftSection, id string) error {
+	stored, err := groups.readUnlocked(ctx, tx, id)
 	if err != nil {
 		return err
 	}
