@@ -1123,6 +1123,16 @@ export interface paths {
          *     Re-pointing an untouched assignment at a corrected version is a
          *     legitimate workflow; doing it once students have started is not.
          *     Existing attempts always carry their own version regardless (§7).
+         *
+         *     While the assignment is `open`, a **change** to `testVersionId`,
+         *     `durationMinutes` or `maxAttempts` is refused with `ASSIGNMENT_LOCKED`
+         *     (DG-65: only "Test & timing" locks); sending the stored value passes,
+         *     and every other field stays editable. Outside `open` the version check
+         *     above is the only one.
+         *
+         *     `review.release`, `review.showClassAverage` and `studentNote` are
+         *     partial: omitted, they keep what is stored. `studentNote: null` clears
+         *     the note. Every other field is replaced as before.
          */
         patch: operations["updateAssignment"];
         trace?: never;
@@ -2487,7 +2497,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -3298,6 +3308,8 @@ export interface components {
             score?: components["schemas"]["AttemptScore"] | null;
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
+            /** @description The teacher's note for the students, plain text. Null or absent when there is none. */
+            studentNote?: string | null;
             /** @description Any question audio or shared recording on the assigned frozen version. */
             hasAudio: boolean;
             /** @description A shared recording has one allowance across its group's questions; absent means false for legacy readers. */
@@ -4183,6 +4195,21 @@ export interface components {
          * @enum {string}
          */
         AssignmentStatus: "draft" | "scheduled" | "open" | "closed";
+        /**
+         * @description When a student's result is released. `on_submit` is as soon as they
+         *     hand in. `after_close` is once the assignment has closed for them, at
+         *     its effective close: until then the result withholds the score, the
+         *     marks, the answer key and the explanations through the same path a
+         *     policy that hides them takes, and carries `releasesAt`.
+         * @enum {string}
+         */
+        ReviewRelease: "on_submit" | "after_close";
+        /**
+         * @description What the assignment lets a student see, as the server reads it. On the
+         *     student's result the three flags are the **effective** ones: all three
+         *     read false while an `after_close` release has not come, whatever the
+         *     teacher chose.
+         */
         ReviewPolicy: {
             /** @default true */
             showScore: boolean;
@@ -4190,6 +4217,27 @@ export interface components {
             showCorrectAnswers: boolean;
             /** @default false */
             showExplanations: boolean;
+            release: components["schemas"]["ReviewRelease"];
+            /**
+             * @description Whether the result may carry `classAverage`. It says what the
+             *     teacher chose; whether the average is there is `classAverage`.
+             */
+            showClassAverage: boolean;
+        };
+        /**
+         * @description The review policy a teacher writes. `release` and `showClassAverage`
+         *     are optional: a create without them gets `on_submit` and false, and a
+         *     PATCH without them keeps what is stored.
+         */
+        ReviewPolicyInput: {
+            /** @default true */
+            showScore: boolean;
+            /** @default false */
+            showCorrectAnswers: boolean;
+            /** @default false */
+            showExplanations: boolean;
+            release?: components["schemas"]["ReviewRelease"];
+            showClassAverage?: boolean;
         };
         /**
          * @description Defaults are §10.3's, conservative on purpose — the teacher opts into
@@ -4264,6 +4312,8 @@ export interface components {
             shuffleOptions: boolean;
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
+            /** @description The note for the students, as stored. Null when there is none. */
+            studentNote: string | null;
             status: components["schemas"]["AssignmentStatus"];
             /** @description Distinct enabled students with at least one handed-in non-voided attempt. */
             submittedCount?: number;
@@ -4877,8 +4927,16 @@ export interface components {
              * @default false
              */
             shuffleOptions: boolean;
-            review: components["schemas"]["ReviewPolicy"];
+            review: components["schemas"]["ReviewPolicyInput"];
             integrity: components["schemas"]["IntegrityPolicy"];
+            /**
+             * @description A note for the students, drawn on the Test intro. Plain text,
+             *     trimmed by the server; an empty one, or one that is blank once
+             *     trimmed, is the same as none. The 500 characters are counted before trimming. Omitted,
+             *     a create has none and a PATCH keeps the stored note; `null` clears
+             *     it.
+             */
+            studentNote?: string | null;
             /**
              * @description Save without giving it out — G-01's "Lưu nháp". Saving again with
              *     `false` publishes it, which is what the "Giao bài" button sends.
@@ -7664,7 +7722,12 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description `VERSION_LOCKED` — attempts exist, so the version cannot be changed. */
+            /**
+             * @description `ASSIGNMENT_LOCKED` — the assignment is open, so the version, the
+             *     duration and the attempts cannot be changed; `VERSION_LOCKED` —
+             *     attempts exist, so the version cannot be changed; or
+             *     `TEST_NOT_PUBLISHED`.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -9296,6 +9359,23 @@ export interface operations {
                     "application/json": {
                         attempt: components["schemas"]["Attempt"];
                         review: components["schemas"]["ReviewPolicy"];
+                        /**
+                         * @description Present only while an `after_close` release is withheld: when
+                         *     it ends for this student, their effective close. Absent
+                         *     otherwise.
+                         */
+                        releasesAt?: components["schemas"]["Timestamp"];
+                        /**
+                         * Format: double
+                         * @description The class average as a percent: the mean, over the students
+                         *     who qualify, of each one's best graded attempt as earned over
+                         *     total. Present only when `review.showClassAverage` is on, this
+                         *     result is released, the assignment has closed, and at least 3
+                         *     students qualify: a targeted active account with a graded
+                         *     attempt. Voided, ungraded and unstarted work counts for
+                         *     nothing. It is an aggregate: no student is named.
+                         */
+                        classAverage?: number;
                         testTitle: string;
                         /** @description For "Lượt 1/2" under the score (S-09). */
                         maxAttempts: number;
