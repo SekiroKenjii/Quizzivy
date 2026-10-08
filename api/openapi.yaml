@@ -558,6 +558,7 @@ components:
         - DEADLINE_NOT_REACHED
         - GRADING_INCOMPLETE
         - VERSION_LOCKED
+        - ASSIGNMENT_LOCKED
         # availability
         - MAINTENANCE
         - MAINTENANCE_SCHEDULED
@@ -1703,6 +1704,9 @@ components:
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        studentNote:
+          type: [string, 'null']
+          description: The teacher's note for the students, plain text. Null or absent when there is none.
         hasAudio:
           type: boolean
           description: Any question audio or shared recording on the assigned frozen version.
@@ -3042,14 +3046,50 @@ components:
         arriving, so nothing has to flip a row on a schedule. A draft is
         invisible to students and counts towards nothing.
 
+    ReviewRelease:
+      type: string
+      enum: [on_submit, after_close]
+      description: |
+        When a student's result is released. `on_submit` is as soon as they
+        hand in. `after_close` is once the assignment has closed for them, at
+        its effective close: until then the result withholds the score, the
+        marks, the answer key and the explanations through the same path a
+        policy that hides them takes, and carries `releasesAt`.
+
     ReviewPolicy:
       type: object
+      description: |
+        What the assignment lets a student see, as the server reads it. On the
+        student's result the three flags are the **effective** ones: all three
+        read false while an `after_close` release has not come, whatever the
+        teacher chose.
+      required: [showScore, showCorrectAnswers, showExplanations, release, showClassAverage]
+      additionalProperties: false
+      properties:
+        showScore: { type: boolean, default: true }
+        showCorrectAnswers: { type: boolean, default: false }
+        showExplanations: { type: boolean, default: false }
+        release: { $ref: '#/components/schemas/ReviewRelease' }
+        showClassAverage:
+          type: boolean
+          description: |
+            Whether the result may carry `classAverage`. It says what the
+            teacher chose; whether the average is there is `classAverage`.
+
+    ReviewPolicyInput:
+      type: object
+      description: |
+        The review policy a teacher writes. `release` and `showClassAverage`
+        are optional: a create without them gets `on_submit` and false, and a
+        PATCH without them keeps what is stored.
       required: [showScore, showCorrectAnswers, showExplanations]
       additionalProperties: false
       properties:
         showScore: { type: boolean, default: true }
         showCorrectAnswers: { type: boolean, default: false }
         showExplanations: { type: boolean, default: false }
+        release: { $ref: '#/components/schemas/ReviewRelease' }
+        showClassAverage: { type: boolean }
 
     IntegrityPolicy:
       type: object
@@ -3081,7 +3121,7 @@ components:
       required:
         [id, testId, testVersionId, testVersion, testTitle, targets, window,
          publishedAt, updatedAt, durationMinutes, maxAttempts, shuffleQuestions,
-         shuffleOptions, review, integrity, status]
+         shuffleOptions, review, integrity, studentNote, status]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -3141,6 +3181,9 @@ components:
         shuffleOptions: { type: boolean }
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        studentNote:
+          type: [string, 'null']
+          description: The note for the students, as stored. Null when there is none.
         status: { $ref: '#/components/schemas/AssignmentStatus' }
         submittedCount: { type: integer, minimum: 0, description: Distinct enabled students with at least one handed-in non-voided attempt. }
         targetCount: { type: integer, minimum: 0 }
@@ -3976,7 +4019,7 @@ components:
             opensAt: { $ref: '#/components/schemas/Timestamp' }
             closesAt: { $ref: '#/components/schemas/Timestamp' }
         durationMinutes: { type: integer, minimum: 1, maximum: 600 }
-        maxAttempts: { type: integer, minimum: 1, default: 1 }
+        maxAttempts: { type: integer, minimum: 1, maximum: 99, default: 1 }
         shuffleQuestions:
           type: boolean
           default: false
@@ -3985,8 +4028,19 @@ components:
           type: boolean
           default: false
           description: Rejected with VALIDATION_FAILED on shuffleOptions when the selected version contains a group member with fixed option-label dependencies.
-        review: { $ref: '#/components/schemas/ReviewPolicy' }
+        review: { $ref: '#/components/schemas/ReviewPolicyInput' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        studentNote:
+          type: [string, 'null']
+          maxLength: 500
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          description: |
+            A note for the students, drawn on the Test intro. Plain text,
+            trimmed by the server; an empty one, or one that is blank once
+            trimmed, is the same as none. The 500 characters are counted before trimming. Omitted,
+            a create has none and a PATCH keeps the stored note; `null` clears
+            it.
         draft:
           type: boolean
           default: false
@@ -6421,6 +6475,16 @@ paths:
         Re-pointing an untouched assignment at a corrected version is a
         legitimate workflow; doing it once students have started is not.
         Existing attempts always carry their own version regardless (§7).
+
+        While the assignment is `open`, a **change** to `testVersionId`,
+        `durationMinutes` or `maxAttempts` is refused with `ASSIGNMENT_LOCKED`
+        (DG-65: only "Test & timing" locks); sending the stored value passes,
+        and every other field stays editable. Outside `open` the version check
+        above is the only one.
+
+        `review.release`, `review.showClassAverage` and `studentNote` are
+        partial: omitted, they keep what is stored. `studentNote: null` clears
+        the note. Every other field is replaced as before.
       requestBody:
         required: true
         content:
@@ -6435,7 +6499,11 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`VERSION_LOCKED` — attempts exist, so the version cannot be changed.'
+          description: |
+            `ASSIGNMENT_LOCKED` — the assignment is open, so the version, the
+            duration and the attempts cannot be changed; `VERSION_LOCKED` —
+            attempts exist, so the version cannot be changed; or
+            `TEST_NOT_PUBLISHED`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -8128,6 +8196,25 @@ paths:
                 properties:
                   attempt: { $ref: '#/components/schemas/Attempt' }
                   review: { $ref: '#/components/schemas/ReviewPolicy' }
+                  releasesAt:
+                    $ref: '#/components/schemas/Timestamp'
+                    description: |
+                      Present only while an `after_close` release is withheld: when
+                      it ends for this student, their effective close. Absent
+                      otherwise.
+                  classAverage:
+                    type: number
+                    format: double
+                    minimum: 0
+                    maximum: 100
+                    description: |
+                      The class average as a percent: the mean, over the students
+                      who qualify, of each one's best graded attempt as earned over
+                      total. Present only when `review.showClassAverage` is on, this
+                      result is released, the assignment has closed, and at least 3
+                      students qualify: a targeted active account with a graded
+                      attempt. Voided, ungraded and unstarted work counts for
+                      nothing. It is an aggregate: no student is named.
                   testTitle: { type: string }
                   maxAttempts: { type: integer, minimum: 1, description: For "Lượt 1/2" under the score (S-09). }
                   sections:
