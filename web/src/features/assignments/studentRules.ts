@@ -15,7 +15,11 @@ import {
  * is left out for a closed assignment, about which no date would be true.
  */
 export interface RulesInput {
-  readonly review: ReviewPolicy;
+  readonly review: Pick<
+    ReviewPolicy,
+    "showScore" | "showCorrectAnswers" | "showExplanations"
+  > &
+    Partial<Pick<ReviewPolicy, "release">>;
   readonly integrity: IntegrityPolicy;
   readonly window?: {
     readonly opensAt: string | Date;
@@ -86,7 +90,7 @@ function leaving(integrity: IntegrityPolicy, t: TFunction): string {
     : t(`assignments.rules.leaving.limit.${action}`, { count: limit });
 }
 
-function score(review: ReviewPolicy, t: TFunction): string {
+function score(review: RulesInput["review"], t: TFunction): string {
   if (review.showCorrectAnswers && review.showExplanations)
     return t("assignments.rules.score.all");
   if (review.showCorrectAnswers) return t("assignments.rules.score.answers");
