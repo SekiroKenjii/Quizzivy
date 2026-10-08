@@ -411,6 +411,9 @@ export interface paths {
          *
          *     Republishing an unchanged test still creates a version — this is an
          *     append-only history, not a diff.
+         *
+         *     The body is optional. `changeNote` is kept with the version and is
+         *     trimmed first; a note that is empty after trimming is no note.
          */
         post: operations["publishTest"];
         delete?: never;
@@ -4089,6 +4092,16 @@ export interface components {
             /** @description Complete mixed order when the section has shared groups; absent on historical standalone outlines. */
             units?: components["schemas"]["DraftSectionUnit"][];
         };
+        /**
+         * @description The assignments that name any version of a test, by derived status
+         *     (`AssignmentStatus`), whoever created them. `live` counts the `open`
+         *     ones. Drafts are not counted. Backs the tests card's "2 live".
+         */
+        TestAssignmentCounts: {
+            live: number;
+            scheduled: number;
+            closed: number;
+        };
         Test: {
             id: components["schemas"]["Uuid"];
             title: string;
@@ -4102,6 +4115,7 @@ export interface components {
             audioCount: number;
             /** @description Sorted distinct non-null skills of the current draft, including grouped members. */
             skills: components["schemas"]["QuestionSkill"][];
+            assignments: components["schemas"]["TestAssignmentCounts"];
             /** @description The **draft** outline. Published content lives in versions. */
             sections: components["schemas"]["TestSection"][];
             createdAt: components["schemas"]["Timestamp"];
@@ -4126,6 +4140,21 @@ export interface components {
             publishedAt: components["schemas"]["Timestamp"];
             /** @description Display name. */
             publishedBy: string;
+            /**
+             * @description Every assignment that names this version, drafts included, whoever
+             *     created it. A version with one cannot be deleted, so this is what
+             *     "In use · {n} assignments" and the disabled Delete read.
+             */
+            assignmentCount: number;
+            /** @description The note the teacher left when publishing. Null for a version published without one. */
+            changeNote: string | null;
+            /**
+             * @description `publishTest` only: the test's `updatedAt` after the publish, which
+             *     the publish itself moves. A caller that goes on saving the draft
+             *     sends it as `expectedUpdatedAt`, or its next save answers
+             *     `STALE_WRITE`. Absent from every other answer.
+             */
+            testUpdatedAt?: components["schemas"]["Timestamp"];
         };
         /**
          * @description Publish returns **every** problem at once, each anchored to a question,
@@ -6020,9 +6049,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description What changed in this version, in the teacher's words. Shown in the version history. */
+                    changeNote?: string | null;
+                };
+            };
+        };
         responses: {
-            /** @description Published. */
+            /** @description Published. `testUpdatedAt` is present. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -6031,6 +6067,7 @@ export interface operations {
                     "application/json": components["schemas"]["TestVersion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description `PUBLISH_VALIDATION_FAILED`. **Every** problem is returned at once,
