@@ -1356,6 +1356,8 @@ listed here matches the spec.
 | D-30 | `users` gains nullable profile fields and bounded object `preferences` | The caller's private profile and account settings are required by T-R4.7; student-facing teacher names use the chosen display name without exposing private account fields |
 | D-31 | Questions and frozen version questions gain nullable level and skill; the choice cap applies to authoring only | DG-62/DG-63 and T-R4.15 preserve historical question content while adding teacher metadata and filters |
 | D-32 | `test_versions` gains a nullable `change_note`, 1 to 200 characters | The test detail's version history shows what the teacher said changed when publishing (DG-66, T-R4.16a). Nullable with no default and no backfill, so the previous release's insert keeps working and a version published before it reads NULL; the command stores NULL for a blank note, so the check never meets an empty string |
+| D-33 | `assignments` gains `review_release` (`on_submit` or `after_close`, default `on_submit`) and `review_show_class_average` (default false) | The deck's Review step releases results after submitting or after the window closes, and shows the class average only on request (DG-65, T-R4.11). Constant defaults, so the previous release's insert keeps its meaning (results at once, no average) and nothing is rewritten; no fill trigger |
+| D-34 | `assignments` gains a nullable `student_note`, 1 to 500 characters once trimmed | The Student deck's Test intro draws a note from the teacher and the Teacher deck had no field for it (DG-71, T-R4.11). Nullable with no default, so the previous release's insert keeps working; the command stores NULL for a note that is blank once trimmed, so the check never meets an empty string |
 
 ---
 
@@ -1458,6 +1460,8 @@ the file it adds.
 | `00090_allow_text_import_sources.sql` | Plaintext exam-source format | R4 (T-R4.55) |
 | `00091_add_word_import_sources_characters.sql` | Bounded character metadata exactly for text sources | R4 (T-R4.55) |
 | `00092_add_test_versions_change_note.sql` | `test_versions.change_note` and `test_versions_change_note_check` (1 to 200 characters), added with the column | R4 (T-R4.16a), D-32 |
+| `00093_add_assignment_review_options.sql` | `assignments.review_release`, `assignments_review_release_check` and `review_show_class_average`, constant defaults | R4 (T-R4.11), D-33 |
+| `00094_add_assignments_student_note.sql` | `assignments.student_note` and `assignments_student_note_check` (1 to 500 characters once trimmed), added with the column | R4 (T-R4.11), D-34 |
 
 Notes on migration mechanics (§13.7):
 
