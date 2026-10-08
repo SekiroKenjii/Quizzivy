@@ -6052,7 +6052,7 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
-                    /** @description What changed in this version, in the teacher's words. Shown in the version history. */
+                    /** @description What changed in this version, in the teacher's words. Shown in the version history. The 200-character limit applies to the text as sent, before it is trimmed. */
                     changeNote?: string | null;
                 };
             };
