@@ -281,7 +281,9 @@ The student's browser storage in v0.9.0, as `web/src` reads and writes it:
 Two keys are gone since R3: `quizzivy.column.studentNavigator` (local), and
 `quizzivy.material-collapsed.<groupId>` (session), which nothing writes now
 that the phone has no collapse button. The teacher console keeps
-`quizzivy.column.sidebar`, `rail`, `panel`, `outline` and `importSource`.
+`quizzivy.column.sidebar`, `rail`, `panel`, `outline` and `importSource`. Since T-R4.4
+`TeacherLayout` stores its sidebar's collapsed state in `quizzivy.sidebar`;
+`quizzivy.column.sidebar` is the old `AdminLayout`'s width and goes with it at T-R4.48.
 
 ## 7. R0 — Groundwork
 

@@ -19,8 +19,9 @@ this file describe the code as it is and name the release that changes them.
   heights, radii, badge and card shapes) applies only inside
   `data-scale="deck"`, which a rebuilt surface sets on its root. The student
   app and the take-test engine are such surfaces since R3 (v0.9.0) and follow
-  the theme. The teacher console keeps its layout and forces light
-  (`useForcedLightTheme`) until R4 rebuilds it. R5 makes the deck geometry the
+  the theme. In R4, a teacher screen rebuilt to the deck renders in `TeacherLayout`
+  and follows the theme; one not yet rebuilt still renders in `AdminLayout`, which
+  forces light (`useForcedLightTheme`), until its R4 task. R5 makes the deck geometry the
   default and removes `data-scale`
   (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
   since the CSP allows no inline script. Do not restyle an old console's screen
@@ -34,7 +35,8 @@ this file describe the code as it is and name the release that changes them.
   owner constraints and drops their fill triggers. Until then all of them are
   in the code. By default the three now ship inside R4 as T-R4.49, because R4
   has already taken migrations 00080 to 00091 (`73-r3.md`, "Migration numbers").
-- **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
+- **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
+  an old `/admin/*` bookmark redirects.
 - **The design team's fourth export (2026-10-04) is not the deck of record.**
   R4 builds from `docs/design/deck/` as it is, and D4 imports the export after
   v0.10.0 (`docs/plan/74d-d4-deck-update.md`).
