@@ -422,10 +422,15 @@ describe("the content editor's frame", () => {
     expect(links(editor())).toEqual([["https://example.com/doc", "Đọc"]]);
 
     act(() => editor().commands.setTextSelection(2));
+    await waitFor(() => expect(button).toHaveAttribute("data-active", "true"));
+    expect(button).not.toHaveAttribute("aria-pressed");
+    expect(button).toHaveAttribute("aria-haspopup", "dialog");
+    expect(button).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(button);
     expect(
       await screen.findByRole("textbox", { name: "Địa chỉ liên kết" }),
     ).toHaveValue("https://example.com/doc");
+    expect(button).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(screen.getByRole("button", { name: "Gỡ liên kết" }));
     await waitFor(() => expect(links(editor())).toEqual([]));
 

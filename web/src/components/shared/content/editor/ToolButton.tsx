@@ -36,7 +36,7 @@ export function ToolButton({
         onMouseDown?.(event);
       }}
       className={cn(
-        "text-fg hover:bg-hover aria-pressed:border-border aria-pressed:bg-muted data-[state=open]:bg-muted inline-flex h-8 min-w-8 flex-none items-center justify-center rounded-[7px] border border-transparent transition-colors disabled:opacity-40 disabled:hover:bg-transparent motion-reduce:transition-none",
+        "text-fg hover:bg-hover aria-pressed:border-border aria-pressed:bg-muted data-[active=true]:border-border data-[active=true]:bg-muted aria-expanded:bg-muted inline-flex h-8 min-w-8 flex-none items-center justify-center rounded-[7px] border border-transparent transition-colors disabled:opacity-40 disabled:hover:bg-transparent motion-reduce:transition-none",
         className,
       )}
       {...props}

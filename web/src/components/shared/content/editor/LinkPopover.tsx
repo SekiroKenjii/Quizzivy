@@ -8,7 +8,7 @@ const LinkPanel = lazy(() =>
   import("./LinkPanel").then((module) => ({ default: module.LinkPanel })),
 );
 
-/** LinkPopover is the toolbar's "Link" button; its popover loads on first use, so the editor's chunk does not carry it. */
+/** LinkPopover is the toolbar's "Link" button, a dialog opener that shows the caret inside a link through `data-active` rather than `aria-pressed`; its popover loads on first use, so the editor's chunk does not carry it. */
 export function LinkPopover({
   editor,
   active,
@@ -30,7 +30,7 @@ export function LinkPopover({
         icon={Link}
         label={label}
         title={label}
-        aria-pressed={active}
+        data-active={active}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
