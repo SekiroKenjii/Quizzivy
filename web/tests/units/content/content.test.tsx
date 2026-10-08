@@ -395,7 +395,9 @@ describe("the content editor's frame", () => {
     await user.keyboard("example.com");
     expect(address).toHaveValue("https://example.com");
     await user.keyboard("{Enter}");
-    await waitFor(() => expect(links(editor())).toEqual([["https://example.com", "Đọc"]]));
+    await waitFor(() =>
+      expect(links(editor())).toEqual([["https://example.com", "Đọc"]]),
+    );
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
