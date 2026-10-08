@@ -18,12 +18,12 @@ start at [README.md](README.md) "Resuming".
   | Task | PR | Owner | State |
   |---|---|---|---|
   | T-R4.16b diff and `unpublishedChanges` | #423 | backend | review round 1 fixed and confirmed by the Tech Lead; one nit (the 422 before the 404); tester next |
-  | T-R4.63 content editor frame | #424 (draft) | frontend | Principal's code review (REV-63) |
-  | T-R4.31a builder frame | #414 (draft) | frontend | synced with R4, green; tester's browser acceptance (VER-DRAFTS) |
-  | T-R4.28 Grading | #416 (draft) | frontend | synced with R4, green; VER-DRAFTS |
+  | T-R4.63 content editor frame | #424 (draft) | frontend | REV-63: approve after F1 (the link popover selects its "https://" prefix); fix round F1–F4 |
+  | T-R4.31a builder frame | #414 (draft) | frontend | VER-DRAFTS: not ready (QA-414-1, 2 major; 3–7 minor); fix round after 63's |
+  | T-R4.28 Grading | #416 (draft) | frontend | VER-DRAFTS: not ready (QA-416-1, 2, 3 major; 4–6 minor); fix round after 63's |
   | T-R4.35 media library | none yet | frontend | implementing |
   | T-R4.11 review options, note, live lock | none yet | backend | implementing, after the 16b nit |
-  | W0-64, the editor chain's next approach | none | principal | with REV-63 |
+  | VER-16b | #423 | tester | verifying head `4ff93029` |
 
 ## Roster and models
 
@@ -170,8 +170,16 @@ and any reversal of the defaults above.
   new tab; the file keeps its storage name until the backend signs a content disposition,
   which is a follow-up, not part of 35.
 - **T-10 (2026-10-08).** Ports: the tester keeps the defaults (8080, 5173, 4173, 5175,
-  4175), the frontend engineer 5185, 4185 and 4183, the backend engineer 8090, 5195 and
-  4195. An agent stops only servers it started.
+  4175); a frontend engineer 5185, 4185 and 4183, and a second frontend instance 5187,
+  4187 and 4188; the backend engineer 8090, 5195 and 4195. An agent stops only servers it
+  started. Two instances of one role run only in separate worktrees, within T-3's four.
+- **T-11 (2026-10-08).** Grading is last-write-wins in R4: the contract carries no
+  concurrency token for a grade, and the audit log keeps both writes (QA-416-5). T-R4.28's
+  "As built" records it.
+- **T-12 (2026-10-08).** In the builder, the product's section keeps the word "section" in
+  English, where the deck says "group", because the outline also shows the product's
+  question groups (QA-414-2). It is DG-135, written by #414; the rest of the builder's
+  English follows the deck.
 
 ## Findings and open items
 
@@ -226,7 +234,27 @@ and any reversal of the defaults above.
   reads back failed `getTest`, `diff_paper.go` discarded two errors, and `DiffSide` said
   more than the schema holds. Round 1 fixed all of them (`93f6f314` to `c2541355`). The
   Tech Lead confirmed the fixes and found one more: the 422 must be checked before the 404,
-  because the wrapped error matches both.
+  because the wrapped error matches both. Fixed in `4ff93029`.
+- **REV-63 (2026-10-08, `principal_swe`, #424 at `e8c1ef5a`).** Approve after F1, no split:
+  F1 (major) the link popover selects its "https://" prefix on open, so every bare address
+  typed is refused; F2 the word count reads the whole document on each transaction; F3 the
+  link button announces as a toggle and a dialog opener; F4 the paste notice hard-codes
+  Ctrl+Shift+V. The lazy link panel (156 KiB against the 160 KiB editor budget) and the
+  notice kinds are accepted. Lesson for 65 and 66: 63 ran 1,110 lines against 70 §3's ~800,
+  and the paste half was the seam.
+- **W0-64 (2026-10-08, `principal_swe`).** T-R4.64 registers only the GFM table and
+  strikethrough extensions in one `gfmSubset` plugin (not `remark-gfm`, whose autolinks
+  would turn a student prompt's URL into a link), states both bundle budgets before and
+  after, keeps the stored form as the mode, and removes `VITE_RICH_QUESTION_EDITOR` from
+  code, config and docs. `OptionField` is not 64's.
+- **VER-DRAFTS (2026-10-08, `senior_tester`, #414 at `1f270726`, #416 at `0f7eefd1`).**
+  Both stay drafts. #414: the title bar wraps where the deck keeps one row, and the English
+  copy is not the deck's (major); geometry, drag feedback, ARIA values, the latency of
+  "Add section" and focus return (minor). #416: the workspace does nothing under StrictMode,
+  "Save & next" skips the student's own next answer, and the shortcuts stop after the first
+  key (major); copy and geometry, the two-tab overwrite (T-11), and the test gaps that let
+  them through (minor). The autosave flushes, the drag paths, the split pane, Finish and
+  Retry, and reload recovery beyond 100 candidates all pass.
 
 ## Next action
 
