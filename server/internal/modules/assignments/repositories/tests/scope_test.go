@@ -57,6 +57,7 @@ func input(version string, classes, students []string) domain.WriteInput {
 	return domain.WriteInput{
 		TestVersionID: version, ClassIDs: classes, StudentIDs: students,
 		OpensAt: now.Add(-time.Hour), ClosesAt: now.Add(time.Hour), DurationMin: 45, MaxAttempts: 1,
+		Review:    domain.Review{Release: domain.ReleaseOnSubmit},
 		Integrity: domain.Integrity{OnLimitExceeded: "flag", MinAwayMs: 3000}, Now: now,
 	}
 }
@@ -366,13 +367,23 @@ func TestAWriteNamesOnlyWhatTheWriterReaches(t *testing.T) {
 	}
 	repoint := as(w.b, false)
 	repoint.ID = w.mineB
-	before := w.state(t, w.mineB)
 	for label, version := range map[string]string{"A's version": w.versionA, "a missing version": uuid.NewString()} {
-		if _, err := w.store.Update(ctx, repoint, input(version, []string{w.classB}, nil)); !errors.Is(err, domain.ErrTestNotPublished) {
-			t.Errorf("B re-pointing B's assignment to %s: %v, want the answer a missing version gets", label, err)
+		if _, err := w.store.Update(ctx, repoint, input(version, []string{w.classB}, nil)); !errors.Is(err, domain.ErrAssignmentLocked) {
+			t.Errorf("B re-pointing B's open assignment to %s: %v, want the lock, whichever version it names", label, err)
 		}
 	}
-	if after := w.state(t, w.mineB); after != before {
+	notYetOpen := input(w.versionB, []string{w.classB}, nil)
+	notYetOpen.OpensAt, notYetOpen.ClosesAt = notYetOpen.Now.Add(time.Hour), notYetOpen.Now.Add(2*time.Hour)
+	repoint.ID = w.create(t, as(w.b, false), notYetOpen)
+	before := w.state(t, repoint.ID)
+	for label, version := range map[string]string{"A's version": w.versionA, "a missing version": uuid.NewString()} {
+		again := notYetOpen
+		again.TestVersionID = version
+		if _, err := w.store.Update(ctx, repoint, again); !errors.Is(err, domain.ErrTestNotPublished) {
+			t.Errorf("B re-pointing B's scheduled assignment to %s: %v, want the answer a missing version gets", label, err)
+		}
+	}
+	if after := w.state(t, repoint.ID); after != before {
 		t.Errorf("B's refused re-pointing changed the assignment from %s to %s", before, after)
 	}
 	if _, err := w.store.Create(ctx, b, input(w.versionB, []string{w.classB}, []string{w.studentB})); err != nil {

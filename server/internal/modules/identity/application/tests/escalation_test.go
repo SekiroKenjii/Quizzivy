@@ -89,6 +89,7 @@ func (l *ladder) assign(ctx context.Context, req assignmentsdomain.Request, stud
 	now := time.Now()
 	_, err := l.assignments.Create(ctx, req, assignmentsdomain.WriteInput{TestVersionID: l.versionA, StudentIDs: []string{student},
 		OpensAt: now.Add(-time.Hour), ClosesAt: now.Add(time.Hour), DurationMin: 45, MaxAttempts: 1,
+		Review:    assignmentsdomain.Review{Release: assignmentsdomain.ReleaseOnSubmit},
 		Integrity: assignmentsdomain.Integrity{OnLimitExceeded: "flag", MinAwayMs: 3000}, Now: now})
 	return err
 }
