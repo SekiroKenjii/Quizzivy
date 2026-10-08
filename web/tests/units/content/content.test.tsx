@@ -470,6 +470,17 @@ describe("the content editor's frame", () => {
     await waitFor(() => expect(screen.queryByText("4 từ")).toBeNull());
   });
 
+  test("reads no document text when only the selection moves", () => {
+    const editor = renderEditor({}, formattingSample);
+    const read = vi.spyOn(Object.getPrototypeOf(editor().state.doc), "textBetween");
+    act(() => {
+      editor().commands.setTextSelection(2);
+      editor().commands.setTextSelection(4);
+    });
+    expect(read).not.toHaveBeenCalled();
+    read.mockRestore();
+  });
+
   test("takes the profile's frame unless the host overrides it", () => {
     const { container, unmount } = render(
       <ContentEditor

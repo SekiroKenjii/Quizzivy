@@ -25,15 +25,20 @@ function countWords(text: string): number {
   return trimmed ? trimmed.split(/\s+/u).length : 0;
 }
 
-/** EditorFooter is the box's last row: the paste hint, and the words count, which counts a deferred copy of the text outside the keystroke path. */
+function sameNode(a: ProseNode, b: ProseNode | null): boolean {
+  return a === b;
+}
+
+/** EditorFooter is the box's last row: the paste hint, and the words count, which reads a deferred document, so neither the text nor the count is built on the keystroke path. */
 export function EditorFooter({ editor }: Readonly<{ editor: Editor }>) {
   const { t } = useTranslation();
-  const text = useEditorState({
+  const doc = useEditorState({
     editor,
-    selector: ({ editor: current }) => documentText(current.state.doc),
+    selector: ({ editor: current }) => current.state.doc,
+    equalityFn: sameNode,
   });
-  const deferred = useDeferredValue(text);
-  const words = useMemo(() => countWords(deferred), [deferred]);
+  const deferred = useDeferredValue(doc);
+  const words = useMemo(() => countWords(documentText(deferred)), [deferred]);
   return (
     <div className="text-muted-fg flex flex-wrap justify-between gap-x-3 gap-y-1 border-t px-3 py-1.5 text-[11.5px] leading-normal">
       <span className="min-w-0">
