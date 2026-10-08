@@ -542,10 +542,11 @@ To be settled by the Tech Lead or Thuong before anyone builds against them.
     Confirm that is the criterion. Not testable before release; polling with
     idle-aware stop (T-R4.3) is the only pre-release proxy (count requests in an
     idle tab for 5 minutes).
-12. **Docs disagree with code:** `70` §6 says the teacher console keeps
-    `quizzivy.column.sidebar`; the code stores the sidebar under
-    `quizzivy.sidebar` (`web/src/layouts/shell/sidebarState.ts`). Fix the doc or
-    the key; the deck procedure above uses the code's key.
+12. **Two sidebar keys, no disagreement:** `70` §6 documents both.
+    `quizzivy.column.sidebar` is the old `AdminLayout`'s width and goes at
+    T-R4.48; `quizzivy.sidebar` is `TeacherLayout`'s collapsed state
+    (`web/src/layouts/shell/sidebarState.ts`). The deck procedure above uses
+    `quizzivy.sidebar`.
 13. **"Every CI step green in GitHub CI on every pull request"** can be met by
     skipped jobs (proof-based skipping). The release run (2.1 locally, in order)
     is what actually closes it.
