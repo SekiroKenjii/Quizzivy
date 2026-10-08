@@ -3,6 +3,7 @@ package http_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"quizzivy/gen/openapi"
@@ -149,6 +150,8 @@ func TestTheDiffAnswersNotFoundAndAnUnreadablePaper(t *testing.T) {
 		{"missing", domain.ErrNotFound, http.StatusNotFound, "NOT_FOUND"},
 		{"unreadable draft", domain.ErrDraftUnreadable, http.StatusUnprocessableEntity, "VALIDATION_FAILED"},
 		{"unreadable version", domain.ErrVersionUnreadable, http.StatusUnprocessableEntity, "VALIDATION_FAILED"},
+		{"unreadable version whose group is gone", fmt.Errorf("%w: %w", domain.ErrVersionUnreadable, domain.ErrNotFound), http.StatusUnprocessableEntity, "VALIDATION_FAILED"},
+		{"unreadable draft that also wraps not found", fmt.Errorf("%w: %w", domain.ErrDraftUnreadable, domain.ErrNotFound), http.StatusUnprocessableEntity, "VALIDATION_FAILED"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
