@@ -2910,9 +2910,22 @@ components:
           items: { $ref: '#/components/schemas/DraftSectionUnit' }
           description: Complete mixed order when the section has shared groups; absent on historical standalone outlines.
 
+    TestAssignmentCounts:
+      type: object
+      description: |
+        The assignments that name any version of a test, by derived status
+        (`AssignmentStatus`), whoever created them. `live` counts the `open`
+        ones. Drafts are not counted. Backs the tests card's "2 live".
+      required: [live, scheduled, closed]
+      additionalProperties: false
+      properties:
+        live: { type: integer, minimum: 0 }
+        scheduled: { type: integer, minimum: 0 }
+        closed: { type: integer, minimum: 0 }
+
     Test:
       type: object
-      required: [id, title, status, currentVersion, totalPoints, questionCount, audioCount, skills, sections, createdAt, updatedAt]
+      required: [id, title, status, currentVersion, totalPoints, questionCount, audioCount, skills, assignments, sections, createdAt, updatedAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -2933,6 +2946,7 @@ components:
           type: array
           items: { $ref: '#/components/schemas/QuestionSkill' }
           description: Sorted distinct non-null skills of the current draft, including grouped members.
+        assignments: { $ref: '#/components/schemas/TestAssignmentCounts' }
         sections:
           type: array
           items: { $ref: '#/components/schemas/TestSection' }
@@ -2947,7 +2961,7 @@ components:
       description: Immutable. Editing a published test creates a new one; in-flight attempts keep theirs (§7).
       required:
         [id, version, totalPoints, questionCount, audioCount, manualCount,
-         publishedAt, publishedBy]
+         publishedAt, publishedBy, assignmentCount, changeNote]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -2967,6 +2981,24 @@ components:
             commit to it.
         publishedAt: { $ref: '#/components/schemas/Timestamp' }
         publishedBy: { type: string, description: Display name. }
+        assignmentCount:
+          type: integer
+          minimum: 0
+          description: |
+            Every assignment that names this version, drafts included, whoever
+            created it. A version with one cannot be deleted, so this is what
+            "In use · {n} assignments" and the disabled Delete read.
+        changeNote:
+          type: [string, 'null']
+          maxLength: 200
+          description: The note the teacher left when publishing. Null for a version published without one.
+        testUpdatedAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: |
+            `publishTest` only: the test's `updatedAt` after the publish, which
+            the publish itself moves. A caller that goes on saving the draft
+            sends it as `expectedUpdatedAt`, or its next save answers
+            `STALE_WRITE`. Absent from every other answer.
 
     PublishValidationError:
       type: object
@@ -4968,12 +5000,28 @@ paths:
 
         Republishing an unchanged test still creates a version — this is an
         append-only history, not a diff.
+
+        The body is optional. `changeNote` is kept with the version and is
+        trimmed first; a note that is empty after trimming is no note.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                changeNote:
+                  type: [string, 'null']
+                  maxLength: 200
+                  description: What changed in this version, in the teacher's words. Shown in the version history.
       responses:
         '201':
-          description: Published.
+          description: Published. `testUpdatedAt` is present.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TestVersion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
