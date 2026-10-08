@@ -5,6 +5,7 @@
 package domain
 
 import (
+	"strings"
 	"time"
 )
 
@@ -27,6 +28,7 @@ type Assignment struct {
 	ShuffleO            bool
 	Review              Review
 	Integrity           Integrity
+	StudentNote         *string
 	SubmittedCount      int
 	TargetCount         int
 	FlaggedCount        int
@@ -43,8 +45,39 @@ const (
 	Closed    Status = "closed"
 )
 
+// Review is what an assignment lets a student see afterwards, and when.
 type Review struct {
 	ShowScore, ShowCorrectAnswers, ShowExplanations bool
+	Release                                         Release
+	ShowClassAverage                                bool
+}
+
+// Release is when a student's result is released: as soon as they hand in, or
+// once the assignment has closed for them.
+type Release string
+
+const (
+	ReleaseOnSubmit   Release = "on_submit"
+	ReleaseAfterClose Release = "after_close"
+)
+
+// Valid reports whether r is one of the two releases.
+func (r Release) Valid() bool { return r == ReleaseOnSubmit || r == ReleaseAfterClose }
+
+// MaxStudentNote is the longest note for students, in characters.
+const MaxStudentNote = 500
+
+// StudentNoteOf is the note as it is stored: trimmed, and none at all when
+// nothing is left.
+func StudentNoteOf(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	note := strings.TrimSpace(*raw)
+	if note == "" {
+		return nil
+	}
+	return &note
 }
 
 type Integrity struct {

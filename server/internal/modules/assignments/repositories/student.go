@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/shared/answered"
+	"quizzivy/internal/shared/schedule"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -41,7 +42,9 @@ var studentCardColumns = `
 	                                  AND m.user_id = $1::uuid
 	         WHERE ac.assignment_id = a.id),
 	       a.opens_at, a.closes_at, a.closed_at, a.published_at,
-	       a.duration_minutes, a.max_attempts, a.review_show_score,
+	       a.duration_minutes, a.max_attempts,
+	       (a.review_show_score
+	        AND (a.review_release = 'on_submit' OR now() >= ` + schedule.CloseOf("") + `)),
 	       (SELECT count(*) FROM app.test_version_questions q
 	          JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
 	         WHERE sec.test_version_id = a.test_version_id),
@@ -173,6 +176,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 	err := s.QueryRow(ctx, studentCardColumns+`,
 	       (SELECT coalesce(au.display_name, au.full_name) FROM app.users au WHERE au.id = a.created_by),
 	       a.review_show_correct_answers, a.review_show_explanations,
+	       a.review_show_score, a.review_release, a.review_show_class_average, a.student_note,
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 	       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
 	       a.integrity_min_away_ms,
@@ -188,6 +192,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending,
 		&d.TeacherName,
 		&d.Review.ShowCorrectAnswers, &d.Review.ShowExplanations,
+		&d.Review.ShowScore, &d.Review.Release, &d.Review.ShowClassAverage, &d.StudentNote,
 		&d.Integrity.RequireFullscreen, &d.Integrity.BlockCopyPaste,
 		&d.Integrity.MaxFocusLoss, &onLimit, &d.Integrity.MinAwayMs,
 		&d.HasAudio, &d.HasSharedAudio, &d.ShowsTranscript, &maxPlays)
@@ -197,7 +202,6 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 	if err != nil {
 		return domain.StudentDetail{}, fmt.Errorf("assignments: student detail: %w", err)
 	}
-	d.Review.ShowScore = showScore
 	d.Integrity.OnLimitExceeded = onLimit
 	l.apply(&d.StudentCard, showScore)
 	if d.HasAudio {

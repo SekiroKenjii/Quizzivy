@@ -31,9 +31,10 @@ func selectAssignment(all, viewer int) string {
 		       a.opens_at, a.closes_at, a.closed_at, a.published_at,
 		       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
 		       a.review_show_score, a.review_show_correct_answers, a.review_show_explanations,
+		       a.review_release, a.review_show_class_average,
 		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
-		       a.integrity_min_away_ms,
+		       a.integrity_min_away_ms, a.student_note,
 		       coalesce((SELECT jsonb_agg(jsonb_build_object('id', c.id::text, 'name', c.name,
 		                                  'studentCount', (SELECT count(*) FROM app.class_members m
 		                                                     JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
@@ -96,9 +97,10 @@ func scanAssignment(row pgx.Row) (domain.Assignment, error) {
 		&a.OpensAt, &a.ClosesAt, &a.ClosedAt, &a.PublishedAt,
 		&a.DurationMin, &a.MaxAttempts, &a.ShuffleQ, &a.ShuffleO,
 		&a.Review.ShowScore, &a.Review.ShowCorrectAnswers, &a.Review.ShowExplanations,
+		&a.Review.Release, &a.Review.ShowClassAverage,
 		&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
 		&a.Integrity.MaxFocusLoss, &a.Integrity.OnLimitExceeded, &a.Integrity.MinAwayMs,
-		&a.Classes, &a.Students, &a.UpdatedAt, &a.PendingGradingCount, &a.PendingManualCount,
+		&a.StudentNote, &a.Classes, &a.Students, &a.UpdatedAt, &a.PendingGradingCount, &a.PendingManualCount,
 		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount)
 	return a, err
 }
