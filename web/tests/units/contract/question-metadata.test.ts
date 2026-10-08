@@ -89,6 +89,7 @@ describe("question metadata wire boundaries", () => {
       questionCount: 0,
       audioCount: 0,
       skills: [],
+      assignments: { live: 0, scheduled: 0, closed: 0 },
       sections: [],
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",

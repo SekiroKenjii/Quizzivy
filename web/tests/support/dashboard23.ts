@@ -113,6 +113,7 @@ export function dashboard23Assignments(all = 1, populated = true) {
 export function dashboard23Draft(): components["schemas"]["Test"] {
   return {
     skills: [],
+    assignments: { live: 0, scheduled: 0, closed: 0 },
     id: "018f0000-0000-7000-8000-0000000000a1",
     title: "Đề thi chưa đặt tên",
     description: null,
