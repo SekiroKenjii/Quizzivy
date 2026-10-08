@@ -88,46 +88,66 @@ type diffSide struct {
 	version versionRow
 }
 
-func chooseSides(versions []versionRow, req domain.DiffRequest) (from *diffSide, to *diffSide, err error) {
-	if len(versions) == 0 {
-		if req.Version == 0 {
-			return nil, nil, domain.ErrNotPublished
-		}
-		return nil, nil, domain.ErrNotFound
-	}
-	base := versions[len(versions)-1]
-	if req.Version != 0 {
-		index := slices.IndexFunc(versions, func(v versionRow) bool { return v.Version == req.Version })
-		if index < 0 {
-			return nil, nil, domain.ErrNotFound
-		}
-		base = versions[index]
+func chooseSides(versions []versionRow, req domain.DiffRequest) (*diffSide, *diffSide, error) {
+	base, err := baseVersion(versions, req.Version)
+	if err != nil {
+		return nil, nil, err
 	}
 	switch req.Against.Kind {
 	case domain.AgainstDraft:
 		return &diffSide{version: base}, &diffSide{draft: true}, nil
 	case domain.AgainstPrevious:
-		for i := len(versions) - 1; i >= 0; i-- {
-			if versions[i].Version < base.Version {
-				return &diffSide{version: versions[i]}, &diffSide{version: base}, nil
-			}
-		}
-		return nil, &diffSide{version: base}, nil
+		from, to := previousSides(versions, base)
+		return from, to, nil
 	case domain.AgainstVersion:
-		index := slices.IndexFunc(versions, func(v versionRow) bool { return v.Version == req.Against.Version })
-		if index < 0 {
-			return nil, nil, domain.ErrNotFound
-		}
-		other := versions[index]
-		if other.Version == base.Version {
-			return nil, nil, domain.ErrSameVersion
-		}
-		if other.Version < base.Version {
-			return &diffSide{version: other}, &diffSide{version: base}, nil
-		}
-		return &diffSide{version: base}, &diffSide{version: other}, nil
+		return numberedSides(versions, base, req.Against.Version)
 	}
 	return nil, nil, domain.ErrBadAgainst
+}
+
+func baseVersion(versions []versionRow, number int) (versionRow, error) {
+	switch {
+	case len(versions) == 0 && number == 0:
+		return versionRow{}, domain.ErrNotPublished
+	case len(versions) == 0:
+		return versionRow{}, domain.ErrNotFound
+	case number == 0:
+		return versions[len(versions)-1], nil
+	}
+	if row, found := findVersion(versions, number); found {
+		return row, nil
+	}
+	return versionRow{}, domain.ErrNotFound
+}
+
+func findVersion(versions []versionRow, number int) (versionRow, bool) {
+	index := slices.IndexFunc(versions, func(v versionRow) bool { return v.Version == number })
+	if index < 0 {
+		return versionRow{}, false
+	}
+	return versions[index], true
+}
+
+func previousSides(versions []versionRow, base versionRow) (*diffSide, *diffSide) {
+	for i := len(versions) - 1; i >= 0; i-- {
+		if versions[i].Version < base.Version {
+			return &diffSide{version: versions[i]}, &diffSide{version: base}
+		}
+	}
+	return nil, &diffSide{version: base}
+}
+
+func numberedSides(versions []versionRow, base versionRow, number int) (*diffSide, *diffSide, error) {
+	other, found := findVersion(versions, number)
+	switch {
+	case !found:
+		return nil, nil, domain.ErrNotFound
+	case other.Version == base.Version:
+		return nil, nil, domain.ErrSameVersion
+	case other.Version < base.Version:
+		return &diffSide{version: other}, &diffSide{version: base}, nil
+	}
+	return &diffSide{version: base}, &diffSide{version: other}, nil
 }
 
 func (s *Postgres) readDiffPaper(ctx context.Context, tx pgx.Tx, testID string, side diffSide) (domain.DiffPaper, error) {
