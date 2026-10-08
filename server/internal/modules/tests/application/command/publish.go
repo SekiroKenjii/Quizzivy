@@ -15,5 +15,6 @@ type PublishHandler struct {
 }
 
 func (p PublishHandler) Handle(ctx context.Context, cmd Publish) (domain.Version, error) {
+	cmd.Request.ChangeNote = domain.Publishing.ChangeNote(cmd.Request.ChangeNote)
 	return p.Repo.Publish(ctx, cmd.Request, p.Now(), domain.Publishing.Validate)
 }

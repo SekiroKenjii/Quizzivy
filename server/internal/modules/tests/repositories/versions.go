@@ -34,13 +34,16 @@ const versionColumns = `v.id::text,
 		         WHERE vs.test_version_id = v.id
 		           AND vq.type = 'short_answer'),
 		       v.published_at,
-		       u.full_name
+		       u.full_name,
+		       ` + versionAssignmentCount + `,
+		       v.change_note
 		  FROM app.test_versions v
 		  JOIN app.users u ON u.id = v.published_by`
 
 func scanVersion(row pgx.Row) (domain.Version, error) {
 	var v domain.Version
-	err := row.Scan(&v.ID, &v.Version, &v.TotalPoints, &v.QuestionCount, &v.AudioCount, &v.ManualCount, &v.PublishedAt, &v.PublishedBy)
+	err := row.Scan(&v.ID, &v.Version, &v.TotalPoints, &v.QuestionCount, &v.AudioCount, &v.ManualCount,
+		&v.PublishedAt, &v.PublishedBy, &v.AssignmentCount, &v.ChangeNote)
 	return v, err
 }
 
