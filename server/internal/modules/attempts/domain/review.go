@@ -14,6 +14,12 @@ type Result struct {
 	Review        ReviewPolicy
 	TestTitle     string
 	MaxAttempts   int
+	// ReleasesAt is when the result is released, set only while an
+	// after-close release is withheld.
+	ReleasesAt *time.Time
+	// ClassAverage is the class's mean best score as a percent, set only when
+	// ReviewManager.ShowsAverage allows it.
+	ClassAverage *float64
 	// Sections are the paper's parts in test order, whatever the review
 	// policy: the attempt already showed them.
 	Sections  []Section
@@ -84,6 +90,8 @@ type ReviewPolicy struct {
 	ShowScore          bool
 	ShowCorrectAnswers bool
 	ShowExplanations   bool
+	Release            Release
+	ShowClassAverage   bool
 }
 
 // ResultQuestion is the post-submission view of one question. Every revealing
