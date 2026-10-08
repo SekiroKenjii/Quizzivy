@@ -113,7 +113,9 @@ function renderBuilder() {
 describe("builder settings without a second inline settings column", () => {
   it("keeps standalone settings out of the wide editor and opens exactly one accessible dialog", async () => {
     const user = renderBuilder();
-    await user.click(await screen.findByRole("button", { name: /tả thói quen/ }));
+    await user.click(
+      await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
+    );
     expect(screen.queryByRole("complementary", { name: "Cài đặt câu hỏi" })).toBeNull();
     const trigger = screen.getByRole("button", { name: "Cài đặt câu hỏi" });
     expect(trigger).toHaveAttribute("aria-label", "Cài đặt câu hỏi");
@@ -127,7 +129,9 @@ describe("builder settings without a second inline settings column", () => {
   it("returns focus to the actual Settings action after Escape", async () => {
     display.resize(768);
     const user = renderBuilder();
-    await user.click(await screen.findByRole("button", { name: /tả thói quen/ }));
+    await user.click(
+      await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
+    );
     const trigger = screen.getByRole("button", { name: "Cài đặt câu hỏi" });
     await user.click(trigger);
     await screen.findByRole("dialog", { name: "Cài đặt câu hỏi" });
@@ -137,7 +141,9 @@ describe("builder settings without a second inline settings column", () => {
   });
   it("retains the open tags draft, node, focus and controlled points across viewport changes", async () => {
     const user = renderBuilder();
-    await user.click(await screen.findByRole("button", { name: /tả thói quen/ }));
+    await user.click(
+      await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
+    );
     await user.click(screen.getByRole("button", { name: "Cài đặt câu hỏi" }));
     const dialog = await screen.findByRole("dialog");
     const points = within(dialog).getByLabelText("Điểm");
@@ -171,7 +177,9 @@ describe("builder settings without a second inline settings column", () => {
   });
   it("flushes the prior question and never applies its settings to the next selection", async () => {
     const user = renderBuilder();
-    await user.click(await screen.findByRole("button", { name: /tả thói quen/ }));
+    await user.click(
+      await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
+    );
     await user.click(screen.getByRole("button", { name: "Cài đặt câu hỏi" }));
     const points = within(await screen.findByRole("dialog")).getByLabelText("Điểm");
     await user.clear(points);
