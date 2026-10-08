@@ -17,11 +17,11 @@ func TestChangeNoteIsTrimmedAndABlankOneIsNone(t *testing.T) {
 		{"empty", text(""), nil},
 		{"spaces", text("   "), nil},
 		{"tabs and newlines", text("\t\n \r\n"), nil},
-		{"no-break space", text("  "), nil},
+		{"no-break space", text("\u00a0\u2003"), nil},
 		{"plain", text("Sửa câu 2"), text("Sửa câu 2")},
 		{"trimmed", text("  Sửa câu 2 \n"), text("Sửa câu 2")},
 		{"inner spacing is kept", text("Sửa  câu\n2"), text("Sửa  câu\n2")},
-		{"no-break space at the edge", text(" Thêm phần Nghe "), text("Thêm phần Nghe")},
+		{"no-break space at the edge", text("\u00a0Thêm phần Nghe\u00a0"), text("Thêm phần Nghe")},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
