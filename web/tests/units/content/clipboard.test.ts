@@ -1,6 +1,7 @@
 import { clipboardHTML } from "@/components/shared/content/editor/clipboardHTML";
 import { CLIPBOARD_HTML_LIMIT } from "@/components/shared/content/editor/clipboardLimits";
 import { clipboardStyles } from "@/components/shared/content/editor/clipboardStyles";
+import { clipboardHasText } from "@/components/shared/content/editor/clipboardText";
 import { contentPlainText } from "@/components/shared/content/plainText";
 
 test("preserves Vietnamese text, combined semantic marks, safe links and Word paragraphs", () => {
@@ -33,6 +34,20 @@ test("preserves list starts, table cells, spans and nested lists without inferri
   });
   expect(contentPlainText(result!)).toContain("Buổi học\nSáng\tThứ hai\nThứ ba");
   expect(JSON.stringify(result)).not.toMatch(/isCorrect|acceptedAnswers|gap/);
+});
+
+test.each([
+  ['<meta charset="utf-8"><img src="https://example.test/a.png">', false],
+  ["<!-- note --><p>&nbsp;</p>", false],
+  ['<style>p { color: red }</style><img src="x">', false],
+  ['<STYLE type="text/css">.a{}</STYLE ><img src="x">', false],
+  ["<script>alert(1)</script><title>Ảnh</title><img src=x>", false],
+  ["<p>Chữ</p>", true],
+  ["<style>p{}</style><p>Chữ</p>", true],
+  ["<p>a &lt; b</p>", true],
+  ["<styled>chữ</styled>", true],
+])("decides whether copied HTML shows text: %s", (html, shows) => {
+  expect(clipboardHasText(html)).toBe(shows);
 });
 
 test("keeps a pasted heading's level", () => {
