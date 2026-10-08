@@ -48,9 +48,11 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 		return domain.Version{}, err
 	}
 
-	if _, err := tx.Exec(ctx,
-		`UPDATE app.tests SET status = 'published', current_version = $2, last_published_version = $2 WHERE id = $1`,
-		req.TestID, current+1); err != nil {
+	var testUpdatedAt time.Time
+	if err := tx.QueryRow(ctx,
+		`UPDATE app.tests SET status = 'published', current_version = $2, last_published_version = $2 WHERE id = $1
+		 RETURNING updated_at`,
+		req.TestID, current+1).Scan(&testUpdatedAt); err != nil {
 		return domain.Version{}, fmt.Errorf("publish: bump current_version: %w", err)
 	}
 
@@ -70,6 +72,7 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 	if err != nil {
 		return domain.Version{}, err
 	}
+	published.TestUpdatedAt = &testUpdatedAt
 	if err := tx.Commit(ctx); err != nil {
 		return domain.Version{}, fmt.Errorf("publish: commit: %w", err)
 	}
@@ -93,9 +96,9 @@ func lockTest(ctx context.Context, tx pgx.Tx, testID string, scope access.Scope)
 func insertVersion(ctx context.Context, tx pgx.Tx, req domain.PublishRequest, version int, total string, now time.Time) (string, error) {
 	var id string
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO app.test_versions (test_id, version, total_points, published_at, published_by, delivery_version)
-		 VALUES ($1, $2, $3::numeric, $4, $5, $6) RETURNING id::text`,
-		req.TestID, version, total, now, req.ActorID, domain.DeliveryGroupV1).Scan(&id); err != nil {
+		`INSERT INTO app.test_versions (test_id, version, total_points, published_at, published_by, delivery_version, change_note)
+		 VALUES ($1, $2, $3::numeric, $4, $5, $6, $7) RETURNING id::text`,
+		req.TestID, version, total, now, req.ActorID, domain.DeliveryGroupV1, req.ChangeNote).Scan(&id); err != nil {
 		return "", fmt.Errorf("publish: insert version: %w", err)
 	}
 	return id, nil
