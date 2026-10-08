@@ -483,6 +483,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teacher/tests/{id}/versions/{version}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * What changed between a version and another paper
+         * @description Compares the version in the path with another paper of the same test
+         *     and lists what a teacher would call a change. The older paper is
+         *     `from` and the newer `to`; the draft is always the newer. Reads only:
+         *     nothing is written, and no row is locked.
+         *
+         *     Questions are matched by the bank question they were frozen from, and
+         *     the ones left over by identical content, because restoring a version as
+         *     a draft copies its questions. So a question that was restored and then
+         *     edited reads as `removed` and `added`, not as `changed`. Order alone is
+         *     never a change.
+         */
+        get: operations["getTestVersionDiff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/tests/{id}/versions/{version}/current": {
         parameters: {
             query?: never;
@@ -4116,6 +4148,19 @@ export interface components {
             /** @description Sorted distinct non-null skills of the current draft, including grouped members. */
             skills: components["schemas"]["QuestionSkill"][];
             assignments: components["schemas"]["TestAssignmentCounts"];
+            /**
+             * @description How many changes the draft holds against the test's latest version:
+             *     the length of `getTestVersionDiff`'s `changes` for that version
+             *     against `draft`, so 0 means the draft is the latest version. It is
+             *     what the unpublished-changes banner reads.
+             *
+             *     Only `getTest` computes it. It is null for a test with no version,
+             *     in every row of `listTests`, in the answer of a write, and when the
+             *     draft's groups cannot be read; the page then shows no banner. A
+             *     bank edit to a question the draft uses counts, though it never
+             *     moves `updatedAt`.
+             */
+            unpublishedChanges: number | null;
             /** @description The **draft** outline. Published content lives in versions. */
             sections: components["schemas"]["TestSection"][];
             createdAt: components["schemas"]["Timestamp"];
@@ -4155,6 +4200,88 @@ export interface components {
              *     `STALE_WRITE`. Absent from every other answer.
              */
             testUpdatedAt?: components["schemas"]["Timestamp"];
+        };
+        /** @description One of the two papers a diff compares. */
+        DiffSide: {
+            /** @enum {string} */
+            kind: "draft" | "version";
+            /** @description Present exactly when `kind` is `version`. */
+            version?: number;
+            /** @description Present exactly when `kind` is `version`. */
+            publishedAt?: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description What one change reports. A question is never reported twice under one
+         *     kind, so the number of changes is the number of things a teacher would
+         *     list.
+         *
+         *     | Kind | The question | `params` |
+         *     |---|---|---|
+         *     | `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |
+         *     | `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |
+         *     | `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |
+         *     | `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice question; none otherwise |
+         *     | `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |
+         *
+         *     A question that changed in its words and in its key is reported twice,
+         *     once as `changed` and once as `answer`. Moving a question to another
+         *     place in the paper is not a change.
+         * @enum {string}
+         */
+        DiffChangeKind: "added" | "removed" | "changed" | "answer" | "points";
+        /**
+         * @description The part of a question that differs, for a `changed` entry.
+         *     `prompt` and `explanation` cover the text and the rich content;
+         *     `options` the text and content of the choices in their order, `blanks`
+         *     the gaps and their case rule, and `media` the attachment with its audio
+         *     policy and transcript. `context` is the shared material of the group
+         *     the question belongs to, or its being in a group at all, and `section`
+         *     the part of the paper it sits in. The correct options and the accepted
+         *     answers are not here: they are `answer` entries.
+         * @enum {string}
+         */
+        DiffField: "type" | "prompt" | "options" | "blanks" | "media" | "points" | "explanation" | "context" | "section";
+        /**
+         * @description One closed set of fields for every kind; `DiffChangeKind` says which of
+         *     them a kind carries. Plain values only.
+         */
+        DiffChangeParams: {
+            /** @description The question's prompt as plain text, cut to 200 characters with `…` in place of the rest. */
+            prompt?: string;
+            fields?: components["schemas"]["DiffField"][];
+            /** @description The labels (`A`, `B`, …) of the correct options in `from`, in order. */
+            answerFrom?: string[];
+            /** @description The labels of the correct options in `to`, in order. */
+            answerTo?: string[];
+            pointsFrom?: components["schemas"]["Points"];
+            pointsTo?: components["schemas"]["Points"];
+        };
+        DiffChange: {
+            kind: components["schemas"]["DiffChangeKind"];
+            /** @description The question's number in its paper, counting across sections. */
+            questionNumber?: number;
+            /**
+             * @description The question's id in the paper `questionNumber` counts in: the
+             *     frozen question of a version, the bank question of the draft. It is
+             *     the id the preview of that version carries.
+             */
+            questionId?: components["schemas"]["Uuid"];
+            params: components["schemas"]["DiffChangeParams"];
+        };
+        /** @description What differs between two papers of one test. */
+        TestVersionDiff: {
+            /**
+             * @description The older paper. Null only for `against=previous` on the first
+             *     version, which has nothing before it: every question is then an
+             *     `added` one.
+             */
+            from: components["schemas"]["DiffSide"] | null;
+            to: components["schemas"]["DiffSide"];
+            /**
+             * @description Ordered by kind (`added`, `removed`, `changed`, `answer`, `points`)
+             *     and then by question number.
+             */
+            changes: components["schemas"]["DiffChange"][];
         };
         /**
          * @description Publish returns **every** problem at once, each anchored to a question,
@@ -6159,6 +6286,50 @@ export interface operations {
             404: components["responses"]["NotFound"];
             /** @description The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getTestVersionDiff: {
+        parameters: {
+            query: {
+                /**
+                 * @description `previous` is the highest version below the path version, so the
+                 *     path version is `to`; on the first version there is none, `from` is
+                 *     null and every question is `added`. `draft` is the test's draft, so
+                 *     the path version is `from`. A number is another version of the test:
+                 *     the lower of the two is `from`. The path version itself is refused
+                 *     with 400, and a version that does not exist is 404.
+                 */
+                against: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestVersionDiff"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description The draft's groups cannot be read (`against=draft` only), so there is no paper to compare. The builder reports the cause when the teacher publishes. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
