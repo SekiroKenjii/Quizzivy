@@ -148,7 +148,7 @@ and any reversal of the defaults above.
 
 | ID | Finding | Owner | State |
 |---|---|---|---|
-| F-1 | Plan drift: "Done when" boxes unticked on merged tasks (T-R4.1, 4, 10a, 22, 23, 36, 53, 54, 56 among others); the schema table still says `NNNNN_` for 7, 15 and 55 though 00085 to 00091 exist; T-R4.10b still routes the bell to Grading although T-R4.45a moved that rule to the web; `73-r3.md` says the newest migration is 00079; `AGENTS.md` still describes the teacher console as not yet rebuilt; T-R4.11 asks for a "new DG entry" that exists as DG-71; T-R4.20's first Done-when bullet has shipped; several "Touches" lists omit files (`r4-readiness.md` names them). | senior_tester (boxes); Tech Lead (text, `76a39e1c`) | text fixed; boxes being verified |
+| F-1 | Plan drift: "Done when" boxes unticked on merged tasks (T-R4.1, 4, 10a, 22, 23, 36, 53, 54, 56 among others); the schema table still says `NNNNN_` for 7, 15 and 55 though 00085 to 00091 exist; T-R4.10b still routes the bell to Grading although T-R4.45a moved that rule to the web; `73-r3.md` says the newest migration is 00079; `AGENTS.md` still describes the teacher console as not yet rebuilt; T-R4.11 asks for a "new DG entry" that exists as DG-71; T-R4.20's first Done-when bullet has shipped; several "Touches" lists omit files (`r4-readiness.md` names them). | senior_tester, Tech Lead | fixed: text in `76a39e1c`, 116 verified ticks after it; 9 boxes stay open on purpose (QA-F1) |
 | F-2 | Underscores in a definition's `name` are not documented as valid (the docs show hyphens). The next session must confirm that `principal_swe` loads, or rename all five to hyphens. | Tech Lead | closed 2026-10-08: the session loaded the five definitions and launched from them |
 | F-3 | v0.9.1 cannot take 00080: `work/redesign-r4` already merged 00080 to 00091, and `develop` ends at 00079. If v0.9.1 takes 00092 and deploys first, production's `cmd/migrate` (`goose.Up`, missing versions not allowed) refuses R4's 00080 to 00091. | Tech Lead | decided by default (T-6, `e4c2916e`) |
 | F-4 | #414 is red because two new test files build a `Test` without `skills`, which #415 made required; the contract validator rejects the stub. Fixture-only fix. | senior_swe_frontend | taken over (T-7) |
@@ -156,7 +156,14 @@ and any reversal of the defaults above.
 | F-6 | `70` §6 names the teacher sidebar key `quizzivy.column.sidebar`; the code stores `quizzivy.sidebar` (`web/src/layouts/shell/sidebarState.ts`). | Tech Lead | fixed (`76a39e1c`): 70 §6 names both keys and their layouts |
 | F-7 | This container has Node 22 and pnpm 10.28; CI uses Node 24, pnpm 11.25.0 and Go 1.27. Only Chromium is available, so the Firefox and WebKit paste checks of T-R4.51 cannot run here. | senior_swe_platform | accepted: `environment.md` lists the differences, and CI stays the authority for Node 24, pnpm 11 and other browsers |
 | F-8 | T-R4.5b's ticked "Done when" item (`74-r4.md:1331-1336`) says the `router-chunks` media pattern was narrowed to `features/media/(pages/\|components/(UploadPanel\|AssetLibraryDialog))`; the code still names all of `features/media/` (`router-chunks.test.ts:51`). So T-R4.35 needs no canary edit. | Tech Lead | fixed (`76a39e1c`) |
-| F-9 | Setting up the container takes a session's first half hour by hand. The platform engineer proposes a SessionStart hook (dockerd, `.env`, the MinIO image, compose, goose, `pnpm install`, `goose up`, the toolchain pin); it would change every session, so it waits for the user. | senior_swe_platform | decided: build it; in progress |
+| F-9 | Setting up the container takes a session's first half hour by hand. The platform engineer proposes a SessionStart hook (dockerd, `.env`, the MinIO image, compose, goose, `pnpm install`, `goose up`, the toolchain pin); it would change every session, so it waits for the user. | senior_swe_platform | fixed (`21a161c0`): `.claude/hooks/session-start.sh` |
+| QA-F1-1 | T-R4.36: the imports history row does not draw a pasted import (clipboard tile, "Pasted text", characters); PR #410 deferred it and no task owned it. Major for the R4 exit. | senior_swe_frontend, in T-R4.57 (a "Done when" line added) | open |
+| QA-F1-2 | T-R4.36: `ImportsListPage.tsx` still uses the legacy `Pager`, which T-R4.1b meant the deck `data/Pager` to replace there; ten rebuilt pages do, and T-R4.48 cannot delete it while they remain. | senior_swe_frontend, by T-R4.48 | open |
+| QA-F1-3 | T-R4.19: the seeded-volume `EXPLAIN` that shows the five named indexes is still owed; PR #397 made it a release gate. | senior_swe_platform, at T-R4.52 | open |
+| QA-F1-4 | T-R4.25: the header has no Extend button; the "As built" moved it to T-R4.26. | T-R4.26 | open |
+| QA-F1-5 | T-R4.25: the sheet's "Grade answers" opens the full review, not Grading filtered to the student, until T-R4.28. | T-R4.28 (#416) | open |
+| QA-F1-6 | T-R4.23 and T-R4.25: the keys exist in both locales (`parity.test.ts`), but the PRs do not list them as the box asks. | Tech Lead, at the release review | open |
+| QA-F1-7 | T-R4.17a: PR #386 records the canaries at its last commit only, not at the branch point. | Tech Lead, at the release review | open |
 
 ## Reviews
 
@@ -167,6 +174,16 @@ and any reversal of the defaults above.
   survey. All are fixed in the commit after it, except trimming `verification.md` where it
   restates the plan, which is left for its next edit.
 
+- **REV-PLAN (2026-10-08, `principal_swe`, at `76a39e1c`).** Six findings on the plan
+  corrections and the F-3 default. The v0.9.1 release checklist had no owner under the
+  default; the release train, R4's header and schema table, and R4's decision list did not
+  say it; the numbering wording was loose; T-R4.10a's "As built" still left a decided
+  question open. All six are fixed (`2fdf2c8d` and the commit after the ticks).
+- **F1-TICKS (2026-10-08, `senior_tester`).** 116 of 125 boxes verified and ticked;
+  seven findings, QA-F1-1 to 7, above. The tester also proposed that the PR template carry a
+  keys table and a canary-runs line, so these two duties stop slipping.
+
 ## Next action
 
-Ask the user to choose the next objective and settle "Decisions the user owes".
+Merge #420 into `work/redesign-r4`, cherry-pick the team onto `develop`, then start W0:
+T-R4.16 and T-R4.63, and the take-over of #414 and #416.
