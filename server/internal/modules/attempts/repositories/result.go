@@ -28,8 +28,9 @@ func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord, now t
 	if err != nil {
 		return domain.Result{}, err
 	}
-	closes := schedule.Close(rules.ClosesAt, rules.ClosedAt, nil)
-	withheld := domain.Reviews.Withheld(rules.Review.Release, now, closes)
+	readerClose := schedule.Close(rules.ClosesAt, rules.ClosedAt, nil)
+	assignmentClose := schedule.Close(rules.ClosesAt, rules.ClosedAt, nil)
+	withheld := domain.Reviews.Withheld(rules.Review.Release, now, readerClose)
 	stored := rules.Review
 	rules.Review = domain.Reviews.Effective(stored, withheld)
 	sections, paper, err := s.presentedPaper(ctx, a, rules)
@@ -46,9 +47,9 @@ func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord, now t
 		Sections: sections, Questions: questions, Score: score,
 	}
 	if withheld {
-		out.ReleasesAt = &closes
+		out.ReleasesAt = &readerClose
 	}
-	if out.ClassAverage, err = s.classAverageOf(ctx, a.AssignmentID, stored, withheld, !now.Before(closes)); err != nil {
+	if out.ClassAverage, err = s.classAverageOf(ctx, a.AssignmentID, stored, withheld, !now.Before(assignmentClose)); err != nil {
 		return domain.Result{}, err
 	}
 	return out, nil
