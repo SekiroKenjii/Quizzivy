@@ -38,6 +38,7 @@ type DraftQuestion struct {
 	Prompt             string
 	MediaAssetID       *string
 	MediaAssetKind     *string
+	MediaAlt           *string
 	MaxPlays           *int
 	AllowSeek          *bool
 	ShowTranscript     *bool
@@ -74,6 +75,7 @@ type PreviewQuestion struct {
 	Prompt        string
 	Points        string
 	MediaAssetID  *string
+	MediaAlt      *string
 	MaxPlays      *int
 	AllowSeek     *bool
 	ShowScript    *bool

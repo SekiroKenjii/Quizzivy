@@ -3792,6 +3792,8 @@ export interface components {
              */
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /** @description The alt text a teacher wrote for the question's image; absent or null when there is none, and always when `media` is not an image. */
+            mediaAlt?: string | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
             transcript?: string | null;
             options?: components["schemas"]["AdminQuestionOption"][];
@@ -3867,6 +3869,8 @@ export interface components {
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /** @description The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key. */
+            mediaAlt?: string | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
@@ -3923,6 +3927,8 @@ export interface components {
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /** @description The alt text frozen with the version for the question's image, as on `StudentQuestion`. Present under every review policy: the picture was already on the paper. */
+            mediaAlt?: string | null;
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
             points: components["schemas"]["Points"];
@@ -4888,7 +4894,7 @@ export interface components {
          *     schema cannot express — single_choice and true_false need exactly one correct
          *     option (true_false has exactly two options), multiple_choice needs at least one correct
          *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
          *     server and again at publish (§8). Failing them returns
          *     `VALIDATION_FAILED` with per-field `details`.
          */
@@ -4901,6 +4907,8 @@ export interface components {
             prompt: string;
             /** Format: uuid */
             mediaAssetId?: string | null;
+            /** @description Alt text for the question's image, for screen readers (1 to 1000 characters). Refused with a field error on `mediaAlt` unless `mediaAssetId` names an image; send null, or omit it, to clear it. A write replaces the stored value, as it does for `level` and `skill`, so an update that leaves it out clears it. */
+            mediaAlt?: string | null;
             /** @description Required if and only if the asset is audio (§7). */
             audio?: components["schemas"]["AudioPolicy"] | null;
             /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */
@@ -4939,7 +4947,7 @@ export interface components {
          *     schema cannot express — single_choice and true_false need exactly one correct
          *     option (true_false has exactly two options), multiple_choice needs at least one correct
          *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
          *     server and again at publish (§8). Failing them returns
          *     `VALIDATION_FAILED` with per-field `details`.
          */
@@ -4952,6 +4960,8 @@ export interface components {
             prompt: string;
             /** Format: uuid */
             mediaAssetId?: string | null;
+            /** @description Alt text for the question's image, as stored. Absent or null when there is none. */
+            mediaAlt?: string | null;
             /** @description Required if and only if the asset is audio (§7). */
             audio?: components["schemas"]["AudioPolicy"] | null;
             /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */

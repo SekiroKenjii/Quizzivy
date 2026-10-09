@@ -9,7 +9,12 @@ import (
 	"quizzivy/internal/shared/validation"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
+
+// MaxMediaAltLength is the most characters the alt text of a question's image
+// holds: the bound ContentImage.alt has and the check on both media_alt columns.
+const MaxMediaAltLength = 1000
 
 // Input is a create or update body, already parsed but not yet validated.
 type Input struct {
@@ -20,6 +25,7 @@ type Input struct {
 	Skill              *Skill
 	Prompt             string
 	MediaAssetID       *string
+	MediaAlt           *string
 	Audio              *AudioPolicy
 	Transcript         *string
 	Options            []OptionInput
@@ -125,6 +131,7 @@ func (in Input) Validate(assetKind *string) error {
 	validateOptions(in, add)
 	validateBlanks(in, add)
 	validateMedia(in, assetKind, add)
+	validateMediaAlt(in, assetKind, add)
 
 	if in.SampleAnswer != nil && *in.SampleAnswer != "" && in.Type != ShortAnswer {
 		add("sampleAnswer", "Đáp án mẫu chỉ dùng cho câu trả lời ngắn.")
@@ -277,6 +284,22 @@ func validateMedia(in Input, assetKind *string, add func(string, string)) {
 	}
 	if in.MediaAssetID == nil && in.Audio != nil {
 		add("audio", "Chưa chọn tệp âm thanh.")
+	}
+}
+
+func validateMediaAlt(in Input, assetKind *string, add func(string, string)) {
+	if in.MediaAlt == nil {
+		return
+	}
+	switch {
+	case assetKind == nil || *assetKind != "image":
+		add("mediaAlt", "Chỉ câu hỏi có hình ảnh mới có văn bản thay thế.")
+	case strings.TrimSpace(*in.MediaAlt) == "":
+		add("mediaAlt", "Văn bản thay thế không được để trống.")
+	case utf8.RuneCountInString(*in.MediaAlt) > MaxMediaAltLength:
+		add("mediaAlt", "Văn bản thay thế không được dài quá 1000 ký tự.")
+	case !utf8.ValidString(*in.MediaAlt) || strings.ContainsRune(*in.MediaAlt, 0):
+		add("mediaAlt", "Văn bản thay thế chứa ký tự không hợp lệ.")
 	}
 }
 

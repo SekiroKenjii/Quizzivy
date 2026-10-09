@@ -22,7 +22,7 @@ var anyOwner = access.Scope{All: true}
 
 const questionColumns = `
 	       q.id::text, q.type::text, q.prompt, q.prompt_content, q.explanation_content,
-	       q.media_asset_id::text, q.media_asset_kind::text,
+	       q.media_asset_id::text, q.media_asset_kind::text, q.media_alt,
 	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
 	       q.transcript, q.points::text, q.explanation, q.sample_answer,
 	       q.tags, q.level, q.skill,
@@ -39,7 +39,7 @@ func scanQuestion(row pgx.Row, extra ...any) (domain.Question, error) {
 	var maxPlays *int
 	var allowSeek, showTranscript *bool
 
-	fields := []any{&q.ID, &typ, &q.Prompt, &q.PromptContent, &q.ExplanationContent, &q.MediaAssetID, &q.MediaAssetKind,
+	fields := []any{&q.ID, &typ, &q.Prompt, &q.PromptContent, &q.ExplanationContent, &q.MediaAssetID, &q.MediaAssetKind, &q.MediaAlt,
 		&maxPlays, &allowSeek, &showTranscript, &q.Transcript, &q.Points,
 		&q.Explanation, &q.SampleAnswer, &q.Tags, &q.Level, &q.Skill, &q.UsedInTests, &q.CreatedAt, &q.UpdatedAt}
 	err := row.Scan(append(fields, extra...)...)
@@ -196,6 +196,7 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 	if in.Input.MediaAssetID != nil {
 		kind = in.MediaAssetKind
 	}
+	mediaAlt := imageAlt(kind, in.Input.MediaAlt)
 
 	id := in.ID
 	if update {
@@ -209,13 +210,13 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			       tags = $13, prompt_content = $14, explanation_content = $15,
 			       context_ordinal = coalesce($16, context_ordinal),
 			       context_option_order = coalesce($17, context_option_order),
-			       level = $18, skill = $19
+			       level = $18, skill = $19, media_alt = $20
 			 WHERE id = $1 AND deleted_at IS NULL
 			 RETURNING id::text`,
 			id, string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
-			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent), ordinal, optionOrder, in.Input.Level, in.Input.Skill).Scan(&id)
+			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent), ordinal, optionOrder, in.Input.Level, in.Input.Skill, mediaAlt).Scan(&id)
 	} else {
 		var createID *string
 		if ownership != nil {
@@ -226,17 +227,17 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			       (type, prompt, media_asset_id, media_asset_kind,
 			        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
 			        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
-			        id, context_group_id, context_ordinal, context_option_order, owner_id, level, skill)
+			        id, context_group_id, context_ordinal, context_option_order, owner_id, level, skill, media_alt)
 			VALUES ($1::app.question_type, $2, $3, $4::app.media_kind, $5, $6, $7,
 			        $8, $9::numeric, $10, $11, $12, $13, $14, $15,
 			        coalesce($16::uuid, uuidv7()), $17, $18, $19,
-			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $20::uuid, $13), $21, $22)
+			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $20::uuid, $13), $21, $22, $23)
 			RETURNING id::text`,
 			string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
 			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent),
-			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID), in.Input.Level, in.Input.Skill).Scan(&id)
+			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID), in.Input.Level, in.Input.Skill, mediaAlt).Scan(&id)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Question{}, domain.ErrNotFound
@@ -276,6 +277,13 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 		return domain.Question{}, fmt.Errorf("questions: commit: %w", err)
 	}
 	return written, nil
+}
+
+func imageAlt(kind, alt *string) *string {
+	if kind == nil || *kind != "image" {
+		return nil
+	}
+	return alt
 }
 
 func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in domain.Input) error {
