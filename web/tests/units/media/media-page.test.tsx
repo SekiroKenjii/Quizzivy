@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -538,7 +539,9 @@ describe("a file's menu", () => {
     Object.defineProperty(drop, "dataTransfer", {
       value: { types: ["Files"], files: [new File([new Uint8Array(4)], "moi.mp3")] },
     });
-    window.dispatchEvent(drop);
+    act(() => {
+      window.dispatchEvent(drop);
+    });
 
     expect(drop.defaultPrevented).toBe(true);
     expect(screen.queryByRole("dialog", { name: "Tải lên media" })).toBeNull();
