@@ -90,6 +90,32 @@ describe("the outline's deck states", () => {
     expect(name).toHaveFocus();
   });
 
+  it("keeps a renamed section's layout until the pointer that blurred it is released, so that click lands", async () => {
+    const { user, changed } = renderOutline();
+    await user.click(screen.getByRole("button", { name: "Thêm phần" }));
+    const name = screen.getByRole("textbox", { name: "Tên phần" });
+    await user.clear(name);
+    await user.type(name, "Nghe");
+    const bank = screen.getByRole("button", { name: "Từ ngân hàng câu hỏi" });
+
+    await user.pointer({ keys: "[MouseLeft>]", target: bank });
+    expect(name).not.toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "Tên phần" })).toBeInTheDocument();
+    await user.pointer({ keys: "[/MouseLeft]", target: bank });
+
+    expect(screen.queryByRole("textbox", { name: "Tên phần" })).toBeNull();
+    expect(changed.mock.lastCall![0].at(-1).title).toBe("Nghe");
+  });
+
+  it("commits a rename at once when the field loses focus to the keyboard", async () => {
+    const { user, changed } = renderOutline();
+    await user.click(screen.getByRole("button", { name: "Thêm phần" }));
+    await user.type(screen.getByRole("textbox", { name: "Tên phần" }), " B");
+    await user.tab();
+    expect(screen.queryByRole("textbox", { name: "Tên phần" })).toBeNull();
+    expect(changed.mock.lastCall![0].at(-1).title).toBe("Phần 2 B");
+  });
+
   it("returns focus to the instructions line when Escape closes its dialog", async () => {
     const { user } = renderOutline();
     const line = screen.getByRole("button", { name: "Read the passage first" });

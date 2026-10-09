@@ -758,16 +758,42 @@ function SectionTitleInput({
   const [value, setValue] = useState(title);
   const field = useRef<HTMLInputElement>(null);
   const settled = useRef(false);
+  const pressing = useRef(false);
+  const deferred = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     field.current?.focus();
     field.current?.select();
+    const press = () => {
+      pressing.current = true;
+    };
+    const release = () => {
+      pressing.current = false;
+      const commit = deferred.current;
+      deferred.current = null;
+      commit?.();
+    };
+    document.addEventListener("pointerdown", press, true);
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    return () => {
+      document.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+      release();
+    };
   }, []);
 
   function finish(next: string | null) {
     if (settled.current) return;
     settled.current = true;
     onDone(next);
+  }
+
+  function blur() {
+    const next = value.trim() === "" ? null : value.trim();
+    if (pressing.current) deferred.current = () => finish(next);
+    else finish(next);
   }
 
   return (
@@ -778,7 +804,7 @@ function SectionTitleInput({
         aria-label={t("builder.sectionNameLabel")}
         className="h-7 px-2 text-xs font-semibold"
         onChange={(event) => setValue(event.target.value)}
-        onBlur={() => finish(value.trim() === "" ? null : value.trim())}
+        onBlur={blur}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
