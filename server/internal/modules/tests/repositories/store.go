@@ -58,13 +58,20 @@ func (s *Postgres) WithGroupQuestions(questions GroupQuestionStore) *Postgres {
 
 const testColumns = `
 	       t.id::text, t.title, t.description, t.status::text, t.current_version,
-	       coalesce((SELECT sum(q.points) FROM (` + draftQuestionRows + `) q), 0)::text,
-	       (SELECT count(*) FROM (` + draftQuestionRows + `) q),
-	       (SELECT count(*) FROM (` + draftQuestionRows + `) q
-	         WHERE q.media_asset_kind = 'audio' OR EXISTS (
-	           SELECT 1 FROM app.group_recordings r WHERE r.group_id=q.context_group_id)),
-	       coalesce((SELECT array_agg(DISTINCT q.skill ORDER BY q.skill) FILTER (WHERE q.skill IS NOT NULL) FROM (` + draftQuestionRows + `) q), '{}'::text[]),` + testAssignmentColumns + `
+	       outline.points::text, outline.questions, outline.audio, outline.skills,
+	       uses.live, uses.scheduled, uses.closed,
 	       t.created_at, t.updated_at, t.deleted_at`
+
+const testFrom = `
+	  FROM app.tests t
+	  CROSS JOIN LATERAL (
+	    SELECT coalesce(sum(q.points), 0) AS points,
+	           count(*) AS questions,
+	           count(*) FILTER (WHERE q.media_asset_kind = 'audio' OR EXISTS (
+	             SELECT 1 FROM app.group_recordings r WHERE r.group_id=q.context_group_id)) AS audio,
+	           coalesce(array_agg(DISTINCT q.skill ORDER BY q.skill) FILTER (WHERE q.skill IS NOT NULL), '{}'::text[]) AS skills
+	      FROM (` + draftQuestionRows + `) q
+	  ) outline` + testUsage
 
 func scanTest(row pgx.Row) (domain.Test, error) {
 	var t domain.Test
@@ -112,7 +119,7 @@ func (s *Postgres) Get(ctx context.Context, scope access.Scope, id string) (doma
 
 func (s *Postgres) get(ctx context.Context, q db.Querier, id string) (domain.Test, error) {
 	t, err := scanTest(q.QueryRow(ctx,
-		`SELECT`+testColumns+` FROM app.tests t WHERE t.id = $1 AND t.deleted_at IS NULL`, id))
+		`SELECT`+testColumns+testFrom+` WHERE t.id = $1 AND t.deleted_at IS NULL`, id))
 	if err != nil {
 		return domain.Test{}, err
 	}

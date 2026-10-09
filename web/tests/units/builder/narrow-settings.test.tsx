@@ -52,6 +52,7 @@ beforeEach(() => {
       contractJson("/teacher/tests/{id}", "get", 200, {
         skills: [],
         assignments: { live: 0, scheduled: 0, closed: 0 },
+        unpublishedChanges: null,
         id: TEST_ID,
         title: "Unit 5",
         description: null,

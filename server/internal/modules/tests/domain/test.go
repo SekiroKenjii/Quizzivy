@@ -19,10 +19,13 @@ type Test struct {
 	AudioCount     int
 	Skills         []string
 	Assignments    AssignmentCounts
-	Sections       []Section
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      *time.Time
+	// UnpublishedChanges is how many changes the draft holds against the
+	// latest version; nil where it was not computed or cannot be.
+	UnpublishedChanges *int
+	Sections           []Section
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	DeletedAt          *time.Time
 }
 
 // AssignmentCounts is how many non-draft assignments name any version of a

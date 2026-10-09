@@ -9,6 +9,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const (
+	versionShared   = "FOR SHARE OF v"
+	versionUnlocked = ""
+)
+
 // Frozen reads a complete immutable group, including teacher-only keys and transcripts, while protecting its parent version from deletion.
 func (s *GroupsPostgres) Frozen(ctx context.Context, id string) (domain.GroupBundle, error) {
 	tx, err := s.Begin(ctx)
@@ -16,7 +21,7 @@ func (s *GroupsPostgres) Frozen(ctx context.Context, id string) (domain.GroupBun
 		return domain.GroupBundle{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	bundle, err := readFrozenGroup(ctx, tx, id)
+	bundle, err := readFrozenGroup(ctx, tx, id, versionShared)
 	if err != nil {
 		return domain.GroupBundle{}, err
 	}
@@ -26,11 +31,11 @@ func (s *GroupsPostgres) Frozen(ctx context.Context, id string) (domain.GroupBun
 	return bundle, nil
 }
 
-func readFrozenGroup(ctx context.Context, tx pgx.Tx, id string) (domain.GroupBundle, error) {
+func readFrozenGroup(ctx context.Context, tx pgx.Tx, id, lock string) (domain.GroupBundle, error) {
 	var bundle domain.GroupBundle
 	err := tx.QueryRow(ctx, `SELECT g.id::text,g.title,g.instructions FROM app.test_version_groups g
 		JOIN app.test_version_sections s ON s.id=g.test_version_section_id
-		JOIN app.test_versions v ON v.id=s.test_version_id WHERE g.id=$1 FOR SHARE OF v`, id).
+		JOIN app.test_versions v ON v.id=s.test_version_id WHERE g.id=$1 `+lock, id).
 		Scan(&bundle.Group.ID, &bundle.Group.Title, &bundle.Group.Instructions)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.GroupBundle{}, domain.ErrNotFound

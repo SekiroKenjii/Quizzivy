@@ -2,12 +2,14 @@ package repositories
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
 
 	"github.com/jackc/pgx/v5"
 )
+
+var errGroupOtherSection = errors.New("publish: group belongs to another section")
 
 func lockDraftContent(ctx context.Context, tx pgx.Tx, testID string, forCopy bool) error {
 	rows, err := tx.Query(ctx, `SELECT g.id FROM app.question_groups g JOIN app.test_sections s ON s.id=g.owner_section_id
@@ -90,7 +92,7 @@ func appendDraftGroup(ctx context.Context, tx pgx.Tx, groups *GroupsPostgres, se
 		return err
 	}
 	if stored.OwnerSectionID == nil || *stored.OwnerSectionID != section.ID {
-		return fmt.Errorf("publish: group belongs to another section")
+		return errGroupOtherSection
 	}
 	section.Groups = append(section.Groups, stored.Bundle)
 	for _, question := range stored.Bundle.Questions {

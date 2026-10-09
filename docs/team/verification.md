@@ -398,10 +398,11 @@ runs are in section 10. After they are green:
 
 - **#414 builder frame and outline:** `autosave-unmount.test.tsx` and the other
   autosave suites; `router-chunks`; keyboard drag and drop (dnd-kit keyboard
-  sensor) with arrow keys, plus pointer and touch; `quizzivy.column.outline`
+  sensor) with arrow keys, plus pointer and touch; `quizzivy.builder.outline`
   persistence and the clamp (content minus 374); title input commit/escape/IME;
-  sidebar forced collapsed for the visit and stored choice kept; marquee
-  geometry; deck check at five widths. The red was a fixture, not behaviour:
+  marquee geometry; deck check at five widths. The builder does not force the
+  sidebar collapsed: `handle.sidebar: "collapsed"` is T-R4.38's (import review)
+  only. The red was a fixture, not behaviour:
   confirm the fix made the fixture valid and did not loosen
   `contractResponse` validation.
 - **#416 grading:** the PR states browser acceptance and deck comparison are
