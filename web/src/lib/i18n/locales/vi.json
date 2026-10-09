@@ -751,7 +751,7 @@
     "proseConversionBlocked": "Nội dung này có cấu trúc Markdown chưa được trình soạn mới hỗ trợ (ví dụ mã, hình ảnh, trích dẫn hoặc liên kết không phải HTTPS). Bản gốc được giữ nguyên; hãy tiếp tục sửa bằng Markdown.",
     "proseConversionPreview": "Kiểm tra bản chuyển đổi bên dưới trước khi áp dụng. Nội dung gốc chưa thay đổi.",
     "keepMarkdown": "Giữ Markdown",
-    "applyProseConversion": "Dùng nội dung này",
+    "applyProseConversion": "Áp dụng chuyển đổi",
     "removeProseWarning": "Chuyển về Markdown sẽ bỏ định dạng, cấu trúc bảng và liên kết. Văn bản vẫn được giữ. Thay đổi sẽ dùng cơ chế lưu hiện tại của câu hỏi.",
     "confirmRemoveProse": "Bỏ định dạng và chuyển đổi",
     "returnToMarkdown": "Chuyển về Markdown",
@@ -2982,5 +2982,13 @@
     "preview": "Xem trước",
     "previewEmpty": "Chưa có nội dung để xem trước.",
     "footerHint": "Markdown · **đậm**, *nghiêng*, ### tiêu đề, - danh sách, [liên kết](https://…)"
+  },
+  "proseMode": {
+    "label": "Chế độ soạn: {{label}}",
+    "rich": "Văn bản định dạng",
+    "markdown": "Markdown",
+    "switchWarning": "Markdown giữ văn bản, chữ đậm, chữ nghiêng, tiêu đề, danh sách, bảng và liên kết. Gạch chân, chỉ số trên và chỉ số dưới không có dạng Markdown nên sẽ bị bỏ.",
+    "switchToMarkdown": "Chuyển sang Markdown",
+    "gapsBlockMarkdown": "Hãy bỏ hết chỗ trống khỏi nội dung để chuyển sang Markdown: các chỗ trống đang giữ đáp án được chấp nhận."
   }
 }

@@ -751,7 +751,7 @@
     "proseConversionBlocked": "This content contains Markdown structures the new editor does not support yet (such as code, images, quotations or non-HTTPS links). The original is unchanged; continue editing in Markdown.",
     "proseConversionPreview": "Review the conversion below before applying it. The original has not changed.",
     "keepMarkdown": "Keep Markdown",
-    "applyProseConversion": "Use this content",
+    "applyProseConversion": "Apply conversion",
     "removeProseWarning": "Converting to Markdown removes formatting, table structure and links. The text is retained. The change uses the question’s current save workflow.",
     "confirmRemoveProse": "Remove formatting and convert",
     "returnToMarkdown": "Convert to Markdown",
@@ -2982,5 +2982,13 @@
     "preview": "Preview",
     "previewEmpty": "Nothing to preview yet.",
     "footerHint": "Markdown · **bold**, *italic*, ### heading, - list, [link](https://…)"
+  },
+  "proseMode": {
+    "label": "{{label}} editing mode",
+    "rich": "Rich text",
+    "markdown": "Markdown",
+    "switchWarning": "Markdown keeps text, bold, italic, headings, lists, tables and links. Underline, superscript and subscript have no Markdown form and are removed.",
+    "switchToMarkdown": "Switch to Markdown",
+    "gapsBlockMarkdown": "Remove the gaps to switch to Markdown: the gaps hold the accepted answers."
   }
 }

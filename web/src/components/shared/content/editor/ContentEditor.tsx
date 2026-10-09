@@ -30,6 +30,7 @@ export type ContentEditorProps = {
   initialContent: SemanticContent;
   onChange: (content: SemanticContent) => void;
   label: string;
+  describedBy?: string | undefined;
   gapLabel?: (() => string) | undefined;
   id?: string;
   profile?: EditorProfile;
@@ -46,6 +47,7 @@ function ActiveEditor({
   initialContent,
   onChange,
   label,
+  describedBy,
   id,
   profile,
   gapLabel,
@@ -86,6 +88,7 @@ function ActiveEditor({
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": label,
+        ...(describedBy ? { "aria-describedby": describedBy } : {}),
       },
     },
     onUpdate: ({ editor }) => {

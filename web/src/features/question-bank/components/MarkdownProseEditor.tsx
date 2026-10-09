@@ -71,6 +71,7 @@ function ViewTabs({
 export type MarkdownProseEditorProps = {
   id: string;
   label: string;
+  describedBy?: string | undefined;
   value: string;
   onChange: (value: string) => void;
   minHeight: number;
@@ -91,6 +92,7 @@ export type MarkdownProseEditorProps = {
 export function MarkdownProseEditor({
   id,
   label,
+  describedBy,
   value,
   onChange,
   minHeight,
@@ -146,6 +148,7 @@ export function MarkdownProseEditor({
             <textarea
               ref={field}
               id={id}
+              aria-describedby={describedBy}
               value={displayed}
               spellCheck={false}
               onFocus={() => {
