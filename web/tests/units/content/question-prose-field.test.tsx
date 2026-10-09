@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BlankPromptField } from "@/features/question-bank/components/BlankPromptField";
 import { QuestionProseField } from "@/features/question-bank/components/QuestionProseField";
+import { ProseModeHeader } from "@/features/question-bank/components/ProseMode";
 import {
   emptyQuestion,
   type QuestionValues,
@@ -104,6 +105,32 @@ describe("a prompt's field opens in the form it is stored in", () => {
   });
 });
 
+test("the reason Markdown is blocked describes the button only while it is disabled", () => {
+  const { rerender } = render(
+    <ProseModeHeader
+      id="question-prompt"
+      label="Nội dung câu hỏi"
+      mode="rich"
+      onMode={() => undefined}
+      markdownBlocked="Hãy bỏ hết ô trống."
+    />,
+  );
+  const markdown = modes().getByRole("button", { name: "Markdown" });
+  expect(markdown).toBeDisabled();
+  expect(markdown).toHaveAccessibleDescription("Hãy bỏ hết ô trống.");
+  rerender(
+    <ProseModeHeader
+      id="question-prompt"
+      label="Nội dung câu hỏi"
+      mode="markdown"
+      onMode={() => undefined}
+      markdownBlocked="Hãy bỏ hết ô trống."
+    />,
+  );
+  expect(markdown).toBeEnabled();
+  expect(markdown).not.toHaveAttribute("aria-describedby");
+});
+
 describe("the two conversions", () => {
   test("Rich text to Markdown asks in place, and Cancel changes nothing", async () => {
     const user = userEvent.setup();
@@ -122,6 +149,11 @@ describe("the two conversions", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(markdown).toHaveFocus();
     await user.click(markdown);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await user.click(markdown);
+    screen.getByRole("alertdialog").focus();
+    expect(screen.getByRole("alertdialog")).toHaveFocus();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(changes).toEqual([]);

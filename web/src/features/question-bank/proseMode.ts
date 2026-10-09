@@ -9,7 +9,9 @@ export type ProseStep = "edit" | "leaving" | "converting";
 /**
  * useProseMode holds a field's mode and the confirmation it is in. `ask`
  * opens the confirmation for the other mode and never changes the mode;
- * `finish` records the mode a confirmed switch stored.
+ * `finish` records the mode a confirmed switch stored. The mode is read from
+ * `initial` once, at mount, so a host must key the field per question (the
+ * builder keys its pane by question id) or a new question keeps the old mode.
  */
 export function useProseMode(initial: () => ProseMode) {
   const [mode, setMode] = useState(initial);
