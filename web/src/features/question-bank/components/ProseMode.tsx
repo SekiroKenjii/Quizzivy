@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileCode, Info, Type } from "lucide-react";
 import { Segmented } from "@/components/ui/segmented";
@@ -35,6 +28,7 @@ export function ProseModeHeader({
 }>) {
   const { t } = useTranslation();
   const reason = `${id}-markdown-blocked`;
+  const blocked = markdownBlocked !== undefined && mode === "rich";
   return (
     <div className="mb-1.5 flex flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
@@ -58,13 +52,13 @@ export function ProseModeHeader({
               value: "markdown",
               label: t("proseMode.markdown"),
               icon: FileCode,
-              disabled: markdownBlocked !== undefined && mode === "rich",
-              describedBy: markdownBlocked === undefined ? undefined : reason,
+              disabled: blocked,
+              describedBy: blocked ? reason : undefined,
             },
           ]}
         />
       </div>
-      {markdownBlocked !== undefined && mode === "rich" && (
+      {blocked && (
         <p id={reason} className="text-muted-fg text-xs">
           {markdownBlocked}
         </p>
@@ -79,8 +73,8 @@ const PRIMARY = `${ACTION} bg-primary text-primary-fg font-semibold hover:opacit
 
 /**
  * SwitchToMarkdown asks, in place under the toolbar, before a rich field is
- * written as Markdown. Escape and "Cancel" call `onCancel`; it takes focus
- * when it opens.
+ * written as Markdown. "Cancel", and Escape anywhere inside it, call
+ * `onCancel`; it takes focus when it opens.
  */
 export function SwitchToMarkdown({
   onCancel,
@@ -88,15 +82,28 @@ export function SwitchToMarkdown({
 }: Readonly<{ onCancel: () => void; onConfirm: () => void }>) {
   const { t } = useTranslation();
   const message = useId();
+  const dialog = useRef<HTMLDivElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
-  useEffect(() => cancel.current?.focus(), []);
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== "Escape") return;
-    event.stopPropagation();
-    onCancel();
-  };
+  const latestCancel = useRef(onCancel);
+  useEffect(() => {
+    latestCancel.current = onCancel;
+  });
+  useEffect(() => {
+    cancel.current?.focus();
+    const element = dialog.current;
+    if (!element) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      latestCancel.current();
+    };
+    element.addEventListener("keydown", onKeyDown);
+    return () => element.removeEventListener("keydown", onKeyDown);
+  }, []);
   return (
     <div
+      ref={dialog}
+      tabIndex={-1}
       role="alertdialog"
       aria-labelledby={message}
       aria-modal="false"
@@ -106,21 +113,10 @@ export function SwitchToMarkdown({
         {t("proseMode.switchWarning")}
       </span>
       <div className="flex flex-wrap justify-end gap-2">
-        <button
-          ref={cancel}
-          type="button"
-          className={SECONDARY}
-          onClick={onCancel}
-          onKeyDown={onKeyDown}
-        >
+        <button ref={cancel} type="button" className={SECONDARY} onClick={onCancel}>
           {t("common.cancel")}
         </button>
-        <button
-          type="button"
-          className={PRIMARY}
-          onClick={onConfirm}
-          onKeyDown={onKeyDown}
-        >
+        <button type="button" className={PRIMARY} onClick={onConfirm}>
           {t("proseMode.switchToMarkdown")}
         </button>
       </div>
