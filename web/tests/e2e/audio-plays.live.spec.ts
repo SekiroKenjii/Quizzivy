@@ -29,7 +29,9 @@ async function publishListeningTest(page: Page, title: string) {
   await expect(page.getByText("Phần 1")).toBeVisible();
 
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
-  await page.getByLabel("Nội dung câu hỏi").fill("Người phụ nữ đề nghị làm gì?");
+  await page
+    .getByLabel("Nội dung câu hỏi", { exact: true })
+    .fill("Người phụ nữ đề nghị làm gì?");
 
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
   // The upload is a real round trip through the API and object storage, and a
