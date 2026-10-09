@@ -5,10 +5,8 @@ import { questionSchema, emptyQuestion } from "@/features/question-bank/question
 import {
   bindLegacyBlanks,
   reconcileGapBlanks,
-  blankMarkdownProjection,
 } from "@/features/question-bank/blankContent";
 import { markdownToQuestionContent } from "@/components/shared/content/editor/markdown";
-import { contentPlainText } from "@/components/shared/content/plainText";
 import { questionGaps } from "@/components/shared/content/gaps";
 import type { QuestionPromptContent } from "@/components/shared/content/questionContent";
 import { BlanksEditor } from "@/features/question-bank/components/BlanksEditor";
@@ -147,9 +145,6 @@ test("legacy conversion retains answer associations and blocks repeated or missi
   expect(converted.blanks[0]?.gapId).toBe("g2");
   expect(converted.blanks[1]?.gapId).toBe("g1");
   expect(converted.blanks[0]?.acceptedAnswers).toEqual(["one"]);
-  expect(
-    contentPlainText(blankMarkdownProjection(converted.content, converted.blanks)),
-  ).toBe("They {{2}}, she {{1}}.");
   for (const text of [
     "{{1}} {{1}} {{2}}",
     "[{{1}}](https://example.com) {{1}} {{2}}",

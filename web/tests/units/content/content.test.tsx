@@ -477,6 +477,35 @@ describe("the content editor's frame", () => {
     await waitFor(() => expect(screen.queryByText("4 từ")).toBeNull());
   });
 
+  test("counts words across runs of spaces, line breaks, no-break spaces and paragraphs", async () => {
+    const editor = renderEditor(
+      {},
+      {
+        format: "semantic_v1",
+        blocks: [
+          {
+            type: "paragraph",
+            content: [
+              { type: "text", text: "a  b   c", marks: [] },
+              { type: "break" },
+              { type: "text", text: "d", marks: [] },
+            ],
+          },
+          paragraph("e f"),
+          paragraph("   "),
+          paragraph("g"),
+        ],
+      },
+    );
+    expect(await screen.findByText("7 từ")).toBeVisible();
+    act(() => {
+      editor().commands.setContent(
+        toEditorJSON({ format: "semantic_v1", blocks: [paragraph("   ")] }),
+      );
+    });
+    expect(await screen.findByText("0 từ")).toBeVisible();
+  });
+
   test("reads no document text when only the selection moves", () => {
     const editor = renderEditor({}, formattingSample);
     const read = vi.spyOn(Object.getPrototypeOf(editor().state.doc), "textBetween");

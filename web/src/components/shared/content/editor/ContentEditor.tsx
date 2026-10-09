@@ -13,6 +13,7 @@ import { PastePreview } from "./PastePreview";
 import { NoticeBand } from "./NoticeBand";
 import { EditorFooter, EditorPlaceholder } from "./EditorFooter";
 import { editorShortcut } from "./shortcuts";
+import { EDITOR_BOX as BOX, frameStyle } from "./frame";
 import "../content.css";
 
 type Frame = { minHeight?: number; fontSize?: number; footer: boolean };
@@ -29,6 +30,7 @@ export type ContentEditorProps = {
   initialContent: SemanticContent;
   onChange: (content: SemanticContent) => void;
   label: string;
+  describedBy?: string | undefined;
   gapLabel?: (() => string) | undefined;
   id?: string;
   profile?: EditorProfile;
@@ -41,20 +43,11 @@ export type ContentEditorProps = {
   readOnly?: boolean | undefined;
 };
 
-function frameStyle(minHeight?: number, fontSize?: number): CSSProperties {
-  return {
-    ...(minHeight ? { "--content-editor-min-height": `${minHeight}px` } : {}),
-    ...(fontSize ? { "--content-editor-font-size": `${fontSize}px` } : {}),
-  } as CSSProperties;
-}
-
-const BOX =
-  "content-editor bg-card shadow-card relative min-w-0 rounded-[10px] border transition-[border-color,box-shadow] duration-150 motion-reduce:transition-none";
-
 function ActiveEditor({
   initialContent,
   onChange,
   label,
+  describedBy,
   id,
   profile,
   gapLabel,
@@ -95,6 +88,7 @@ function ActiveEditor({
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": label,
+        ...(describedBy ? { "aria-describedby": describedBy } : {}),
       },
     },
     onUpdate: ({ editor }) => {

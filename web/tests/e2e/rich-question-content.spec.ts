@@ -23,6 +23,17 @@ function sample(): Question {
   };
 }
 
+function modes(page: Page, label = "Nội dung câu hỏi") {
+  return page.getByRole("group", { name: `Chế độ soạn: ${label}`, exact: true });
+}
+
+async function toRich(page: Page, label = "Nội dung câu hỏi") {
+  await modes(page, label)
+    .getByRole("button", { name: "Văn bản định dạng", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Áp dụng chuyển đổi", exact: true }).click();
+}
+
 async function setup(page: Page, initial = sample(), delayed = false) {
   let question = initial;
   let writes = 0;
@@ -114,15 +125,20 @@ async function setup(page: Page, initial = sample(), delayed = false) {
   };
 }
 
+/** promptTools is the formatting toolbar of "Nội dung câu hỏi", which another editor on the page does not share. */
+function promptTools(page: Page) {
+  return page.getByRole("toolbar", {
+    name: "Thanh định dạng: Nội dung câu hỏi",
+    exact: true,
+  });
+}
+
 test("bank saves a confirmed structured paste and retains formatting after reload", async ({
   page,
 }) => {
   const state = await setup(page);
   await page.goto(`/teacher/question-bank/${ID}`);
-  await page
-    .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Dùng nội dung này", exact: true }).click();
+  await toRich(page);
   const editor = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
   await editor.click();
   await page.keyboard.press("Control+a");
@@ -146,7 +162,6 @@ test("bank saves a confirmed structured paste and retains formatting after reloa
     .click();
   await expect(editor.locator("u")).toHaveText("Nội dung dán");
   expect(state.writes()).toBe(0);
-  await page.getByRole("button", { name: "Xong", exact: true }).click();
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
   await expect.poll(state.writes).toBe(1);
   expect(state.getQuestion().prompt).toBe("Nội dung dán\n\nCột A\tCột B\nmột\thai");
@@ -165,10 +180,7 @@ test("bank leaves pasted images out unloaded, says so, and refuses a file alone"
   });
   await setup(page);
   await page.goto(`/teacher/question-bank/${ID}`);
-  await page
-    .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Dùng nội dung này", exact: true }).click();
+  await toRich(page);
   const editor = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
   await editor.click();
   await page.keyboard.press("Control+End");
@@ -218,8 +230,11 @@ test("bank previews Markdown conversion, preserves tables and explanations after
   const state = await setup(page);
   await page.setViewportSize({ width: 768, height: 900 });
   await page.goto(`/teacher/question-bank/${ID}`);
-  await page
-    .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
+  await expect(
+    modes(page).getByRole("button", { name: "Markdown", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await modes(page)
+    .getByRole("button", { name: "Văn bản định dạng", exact: true })
     .click();
   await expect(
     page.getByText("Kiểm tra bản chuyển đổi bên dưới trước khi áp dụng.", {
@@ -227,34 +242,33 @@ test("bank previews Markdown conversion, preserves tables and explanations after
     }),
   ).toBeVisible();
   expect(state.writes()).toBe(0);
-  await page.getByRole("button", { name: "Dùng nội dung này", exact: true }).click();
+  await page.getByRole("button", { name: "Áp dụng chuyển đổi", exact: true }).click();
   const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
   await expect(prompt.locator("strong")).toHaveText("Đọc kỹ");
   await expect(
-    page.getByRole("button", { name: "Thêm ô trống", exact: true }),
+    promptTools(page).getByRole("button", { name: "Thêm ô trống", exact: true }),
   ).toHaveCount(0);
   await prompt.click();
   await page.keyboard.press("Control+End");
   await page.keyboard.press("Enter");
-  await page.getByRole("button", { name: "Thêm bảng", exact: true }).click();
+  await promptTools(page)
+    .getByRole("button", { name: "Thêm bảng", exact: true })
+    .click();
   await expect(prompt.locator("table")).toHaveCount(1);
   await prompt.locator("th").first().click();
   await page.keyboard.insertText("Mục");
-  await page.getByRole("button", { name: "Hoàn tác", exact: true }).click();
-  await expect(prompt).not.toContainText("Mục");
-  await page.getByRole("button", { name: "Làm lại", exact: true }).click();
-  await expect(prompt.locator("th").first()).toContainText("Mục");
-  await page.getByRole("button", { name: "Xong", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Định dạng: Giải thích", exact: true })
+  await promptTools(page)
+    .getByRole("button", { name: "Hoàn tác", exact: true })
     .click();
-  await page.getByRole("button", { name: "Dùng nội dung này", exact: true }).click();
+  await expect(prompt).not.toContainText("Mục");
+  await promptTools(page).getByRole("button", { name: "Làm lại", exact: true }).click();
+  await expect(prompt.locator("th").first()).toContainText("Mục");
+  await toRich(page, "Giải thích");
   const explanation = page.getByRole("textbox", { name: "Giải thích", exact: true });
   await expect(explanation.locator("em")).toHaveText("Giải thích");
   await explanation.click();
   await page.keyboard.press("Control+End");
   await page.keyboard.insertText(" Đã kiểm tra.");
-  await page.getByRole("button", { name: "Xong", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true);
@@ -263,9 +277,9 @@ test("bank previews Markdown conversion, preserves tables and explanations after
   expect(state.getQuestion().promptContent?.format).toBe("semantic_v1");
   expect(state.getQuestion().explanation).toContain("Đã kiểm tra.");
   await page.reload();
-  await page
-    .getByRole("button", { name: "Chỉnh sửa: Nội dung câu hỏi", exact: true })
-    .click();
+  await expect(
+    modes(page).getByRole("button", { name: "Văn bản định dạng", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await expect(prompt.locator("table")).toHaveCount(1);
   await expect(prompt.locator("th").first()).toContainText("Mục");
   await page.screenshot({
@@ -280,17 +294,26 @@ test("bank previews Markdown conversion, preserves tables and explanations after
     path: test.info().outputPath("question-prose-1024.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "Chuyển về Markdown", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Văn bản vẫn được giữ");
+  const toMarkdown = modes(page).getByRole("button", { name: "Markdown", exact: true });
+  await toMarkdown.click();
+  await expect(page.getByRole("alertdialog")).toContainText(
+    "Gạch chân, chỉ số trên và chỉ số dưới không có dạng Markdown",
+  );
   await page.getByRole("button", { name: "Huỷ", exact: true }).click();
+  await expect(toMarkdown).toBeFocused();
   await expect(prompt.locator("table")).toHaveCount(1);
   expect(state.writes()).toBe(1);
-  await page.getByRole("button", { name: "Chuyển về Markdown", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Bỏ định dạng và chuyển đổi", exact: true })
-    .click();
-  const markdown = prompt.and(page.locator("textarea"));
-  await expect(markdown).toHaveValue(/Đọc kỹ/);
+  await toMarkdown.click();
+  await page.getByRole("button", { name: "Chuyển sang Markdown", exact: true }).click();
+  const markdown = page.getByRole("textbox", {
+    name: "Nội dung câu hỏi",
+    exact: true,
+  });
+  await expect(markdown).toHaveValue(/\*\*Đọc kỹ\*\*/);
+  await expect(markdown).toHaveValue(/\| Mục \|/);
+  await page.getByRole("tab", { name: "Xem trước", exact: true }).click();
+  await expect(page.getByRole("tabpanel").locator("th").first()).toContainText("Mục");
+  await page.getByRole("tab", { name: "Soạn", exact: true }).click();
   expect(state.writes()).toBe(1);
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
   await expect.poll(state.writes).toBe(2);
@@ -306,8 +329,8 @@ test("unsupported Markdown conversion leaves the original editable and never wri
   const original = "Keep `code` and ![picture](https://example.com/p.png)";
   const state = await setup(page, { ...sample(), prompt: original });
   await page.goto(`/teacher/question-bank/${ID}`);
-  await page
-    .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
+  await modes(page)
+    .getByRole("button", { name: "Văn bản định dạng", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("Bản gốc được giữ nguyên");
   await page.getByRole("button", { name: "Giữ Markdown", exact: true }).click();
@@ -335,9 +358,6 @@ test("builder flushes rich prose before switching and preview retains the saved 
     true,
   );
   await page.goto(`/teacher/tests/${TEST}/edit`);
-  await page
-    .getByRole("button", { name: "Chỉnh sửa: Nội dung câu hỏi", exact: true })
-    .click();
   const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
   await prompt.click();
   await page.keyboard.press("Control+End");
@@ -352,9 +372,6 @@ test("builder flushes rich prose before switching and preview retains the saved 
       .and(page.locator("textarea")),
   ).toHaveValue("Câu thứ hai");
   await page.getByRole("button", { name: /Câu thứ nhất đã sửa/ }).click();
-  await page
-    .getByRole("button", { name: "Chỉnh sửa: Nội dung câu hỏi", exact: true })
-    .click();
   await expect(prompt).toContainText("đã sửa");
   await page.getByRole("button", { name: "Xem như học viên", exact: true }).click();
   await expect(page.getByRole("dialog").locator("u")).toContainText("Câu thứ nhất");
