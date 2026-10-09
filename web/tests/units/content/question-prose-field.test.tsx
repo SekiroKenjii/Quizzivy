@@ -338,7 +338,7 @@ describe("a fill-in-the-blank prompt", () => {
     const markdown = modes().getByRole("button", { name: "Markdown" });
     expect(markdown).toBeDisabled();
     expect(markdown).toHaveAccessibleDescription(
-      "Hãy bỏ hết ô trống khỏi nội dung để chuyển sang Markdown: ô trống đang giữ đáp án được chấp nhận.",
+      "Hãy bỏ hết chỗ trống khỏi nội dung để chuyển sang Markdown: các chỗ trống đang giữ đáp án được chấp nhận.",
     );
   });
 
