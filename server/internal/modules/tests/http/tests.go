@@ -271,11 +271,13 @@ func toAPITest(t domain.Test) (openapi.Test, error) {
 		QuestionCount:  t.QuestionCount,
 		AudioCount:     t.AudioCount,
 		Skills:         make([]openapi.QuestionSkill, len(t.Skills)),
+		Assignments:    openapi.TestAssignmentCounts{Live: t.Assignments.Live, Scheduled: t.Assignments.Scheduled, Closed: t.Assignments.Closed},
 		CreatedAt:      t.CreatedAt,
 		UpdatedAt:      t.UpdatedAt,
 		DeletedAt:      t.DeletedAt,
 		Sections:       make([]openapi.TestSection, len(t.Sections)),
 	}
+	out.UnpublishedChanges = t.UnpublishedChanges
 	for i, skill := range t.Skills {
 		out.Skills[i] = openapi.QuestionSkill(skill)
 	}
@@ -326,14 +328,17 @@ func testVersion(v domain.Version) (openapi.TestVersion, error) {
 		return openapi.TestVersion{}, err
 	}
 	return openapi.TestVersion{
-		Id:            httpapi.ParseUUID(v.ID),
-		Version:       v.Version,
-		TotalPoints:   points,
-		QuestionCount: v.QuestionCount,
-		AudioCount:    v.AudioCount,
-		ManualCount:   v.ManualCount,
-		PublishedAt:   v.PublishedAt,
-		PublishedBy:   v.PublishedBy,
+		Id:              httpapi.ParseUUID(v.ID),
+		Version:         v.Version,
+		TotalPoints:     points,
+		QuestionCount:   v.QuestionCount,
+		AudioCount:      v.AudioCount,
+		ManualCount:     v.ManualCount,
+		PublishedAt:     v.PublishedAt,
+		PublishedBy:     v.PublishedBy,
+		AssignmentCount: v.AssignmentCount,
+		ChangeNote:      v.ChangeNote,
+		TestUpdatedAt:   v.TestUpdatedAt,
 	}, nil
 }
 

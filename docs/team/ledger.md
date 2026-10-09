@@ -7,13 +7,23 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-08.
-- **Base:** `work/redesign-r4` at `bb4d4000`, CI green (run 716).
-- **Working branch:** `chore/agent-team`, which carries these team artifacts.
-- **Objective now (the user, 2026-10-08):** clear the open items, merge this branch into
-  `work/redesign-r4`, cherry-pick the team onto `develop`, then take over the project.
-- **Next objective:** the team drives R4 to v0.10.0 by the waves below, starting with W0
-  and the two red drafts. Merging to `main` still waits for the user's go.
+- **As of:** 2026-10-08, afternoon.
+- **Base:** `work/redesign-r4` at `d6c5f8cc` (T-R4.16a merged, #422).
+- **Done today:** the team merged into `work/redesign-r4` (#420) and cherry-picked onto
+  `develop` (#421); the open items F-1 to F-9 are closed or owned; W0 started.
+- **Objective (the user, 2026-10-08):** the team takes over the project and drives R4 to
+  v0.10.0 by the waves below. Merging to `main` still waits for the user's go.
+- **In flight:**
+
+  | Task | PR | Owner | State |
+  |---|---|---|---|
+  | T-R4.16b diff and `unpublishedChanges` | #423 | backend | review round 1 fixed and confirmed by the Tech Lead; one nit (the 422 before the 404); tester next |
+  | T-R4.63 content editor frame | #424 (draft) | frontend | REV-63: approve after F1 (the link popover selects its "https://" prefix); fix round F1–F4 |
+  | T-R4.31a builder frame | #414 (draft) | frontend | VER-DRAFTS: not ready (QA-414-1, 2 major; 3–7 minor); fix round after 63's |
+  | T-R4.28 Grading | #416 (draft) | frontend | VER-DRAFTS: not ready (QA-416-1, 2, 3 major; 4–6 minor); fix round after 63's |
+  | T-R4.35 media library | none yet | frontend | implementing |
+  | T-R4.11 review options, note, live lock | none yet | backend | implementing, after the 16b nit |
+  | VER-16b | #423 | tester | verifying head `4ff93029` |
 
 ## Roster and models
 
@@ -25,8 +35,8 @@ agent. Resolved is what the transcript metadata recorded on every turn (README,
 |---|---|---|---|---|
 | Tech Lead | Opus 5.5, high or more | primary session | `claude-opus-5-5`, xhigh (session metadata) | active |
 | `principal_swe` | Fable 5.1, high or more | its definition (from 2026-10-08) | `claude-fable-5-1`, high | active |
-| `senior_swe_backend` | Sonnet 5.5, xhigh | its definition (from 2026-10-08) | `claude-sonnet-5-5`, xhigh (2026-10-07, by alias) | onboarded |
-| `senior_swe_frontend` | Opus 5.5, high or more | its definition (from 2026-10-08) | `claude-opus-5-5`, high (2026-10-07, by alias) | onboarded |
+| `senior_swe_backend` | Sonnet 5.5, xhigh | its definition (from 2026-10-08) | `claude-sonnet-5-5`, xhigh | active |
+| `senior_swe_frontend` | Opus 5.5, high or more | its definition (from 2026-10-08) | `claude-opus-5-5`, high | active |
 | `senior_swe_platform` | Sonnet 5.5, high or more | its definition (from 2026-10-08) | `claude-sonnet-5-5`, high | active |
 | `senior_tester` | Sonnet 5.5, high or more | its definition (from 2026-10-08) | `claude-sonnet-5-5`, high | active |
 
@@ -39,15 +49,17 @@ platform engineer was relaunched twice with a checkpoint after server-side API 5
 
 Taken from merged pull requests on 2026-10-07. The plan's "Done when" boxes lag this (F-1).
 
-- **Merged:** T-R4.1a–c, 2a–c, 3a–c, 4, 5a–b, 7, 10a, 14, 15, 17a, 17b, 19, 21, 22, 23, 25,
-  36, 37, 45a, 51a, 51b, 53, 54, 55, 56, plus the plan corrections (#351, titled T-R4.0,
-  not a plan task) and the develop syncs (#344, #352, #364, #379, #396, #402).
-- **Open drafts, red on their latest run:** #416 T-R4.28 Grading, #414 T-R4.31a builder
-  frame and outline. Both are treated as in-flight work that is not this team's (F-4, F-5).
-- **Ready (every dependency merged):** backend T-R4.8, 9, 11, 12, 13, 16, 20; frontend
-  T-R4.27a, 32, 35, 46, 57, 63. T-R3.1 to T-R3.3 (v0.9.1) become eligible on 2026-10-10.
+- **Merged:** T-R4.1a–c, 2a–c, 3a–c, 4, 5a–b, 7, 10a, 14, 15, 16a, 17a, 17b, 19, 21, 22,
+  23, 25, 36, 37, 45a, 51a, 51b, 53, 54, 55, 56, plus the plan corrections (#351, titled
+  T-R4.0, not a plan task), the develop syncs (#344, #352, #364, #379, #396, #402) and the
+  team (#420, #421).
+- **In flight:** see the checkpoint.
+- **Ready (every dependency merged):** backend T-R4.8, 9, 12 (after 11), 13, 20; frontend
+  T-R4.27a, 32, 46, 57. T-R3.1 to T-R3.3 (v0.9.1) become eligible on 2026-10-10.
 - **Blocked:** the rest. Close-out (T-R4.48 to 52) comes last.
-- **Next migration number:** 00092. Per-task readiness, sizes and open questions are in
+- **Migration numbers:** 00092 is taken (16a). Reserved by W1-APPROACH: 00093 and 00094
+  for 11, 00095 for 9, 00096 for 12; each is renumbered if another PR merges first (T-5).
+  Per-task readiness, sizes and open questions are in
   [r4-readiness.md](r4-readiness.md). 16 is nearer L. 12 is nearer XL and is proposed as
   two PRs: 12a the overrides table, extend and the override operations; 12b the attempt
   deadline recompute, the monitor and the maintenance windows. The split is decided when
@@ -99,9 +111,10 @@ frontend tasks left; the backend runs out of Go work after about two waves.
 | W3+ | review, then a second frontend stream | 31b, 33, 38, 39 | close-out support | route matrix (T-R4.51) |
 
 Approach points to agree before each bundle starts: one `EffectiveClose` in
-`assignments/domain/schedule.go` shared by 11, 12 and 10b; 16's question-identity rule
-and a null `unpublishedChanges` when the group graph is refused; 8 uses the standard
-library and `DecodeConfig` before decoding; `QuestionEditor` as the one component
+`assignments/domain/schedule.go` shared by 11, 12 and 10b (settled by W1-APPROACH as
+`shared/schedule.CloseOf` and `Close`); 16's question-identity rule and a null
+`unpublishedChanges` when the group graph is refused (settled by W0-APPROACH); 8 uses the
+standard library and `DecodeConfig` before decoding; `QuestionEditor` as the one component
 (DG-108), with its structure reviewed before 66 starts.
 
 ## What the user settled (2026-10-08)
@@ -143,6 +156,30 @@ and any reversal of the defaults above.
 - **T-6 (2026-10-08).** T-R3.1 to T-R3.3 ship inside R4 as T-R4.49 by default (F-3).
 - **T-7 (2026-10-08).** The team takes over #414 and #416. Their branches are brought up to
   date by merging `work/redesign-r4` into them, never by rebase or force-push.
+- **T-8 (2026-10-08).** The Principal's approach notes bind the tasks they name:
+  W0-APPROACH (T-R4.16a/b, T-R4.63) and W1-APPROACH (T-R4.11, 12, 9, 20). Each task records
+  what it took from them in its "As built", so the plan, not a scratch note, keeps them.
+  In short: 16 matches questions by source id, then by a fingerprint with gap ids rewritten
+  to ordinals, and counts one change per question; 63 places its props on the host by
+  profile, keeps images out of a paste and counts them (DG-115); 11 makes PATCH partial
+  for the new fields, withholds through the result's existing path and adds `releasesAt`;
+  12 ships as 12a and 12b and recomputes in-progress deadlines under the assignment's lock;
+  9 builds the location label only behind `CF-Connecting-IP`; 20 resets each student in
+  its own transaction.
+- **T-9 (2026-10-08).** Download in the media library (T-R4.35) opens the signed URL in a
+  new tab; the file keeps its storage name until the backend signs a content disposition,
+  which is a follow-up, not part of 35.
+- **T-10 (2026-10-08).** Ports: the tester keeps the defaults (8080, 5173, 4173, 5175,
+  4175); a frontend engineer 5185, 4185 and 4183, and a second frontend instance 5187,
+  4187 and 4188; the backend engineer 8090, 5195 and 4195. An agent stops only servers it
+  started. Two instances of one role run only in separate worktrees, within T-3's four.
+- **T-11 (2026-10-08).** Grading is last-write-wins in R4: the contract carries no
+  concurrency token for a grade, and the audit log keeps both writes (QA-416-5). T-R4.28's
+  "As built" records it.
+- **T-12 (2026-10-08).** In the builder, the product's section keeps the word "section" in
+  English, where the deck says "group", because the outline also shows the product's
+  question groups (QA-414-2). It is DG-135, written by #414; the rest of the builder's
+  English follows the deck.
 
 ## Findings and open items
 
@@ -164,6 +201,9 @@ and any reversal of the defaults above.
 | QA-F1-5 | T-R4.25: the sheet's "Grade answers" opens the full review, not Grading filtered to the student, until T-R4.28. | T-R4.28 (#416) | open |
 | QA-F1-6 | T-R4.23 and T-R4.25: the keys exist in both locales (`parity.test.ts`), but the PRs do not list them as the box asks. | Tech Lead, at the release review | open |
 | QA-F1-7 | T-R4.17a: PR #386 records the canaries at its last commit only, not at the branch point. | Tech Lead, at the release review | open |
+| QA-16a-1 | T-R4.16a: `Test.assignments`' three correlated counts lift `listTests` at `limit=100` past `jit_above_cost`, so the first five runs per connection take 82–131 ms instead of about 15 ms. | backend, in T-R4.16b (one `LATERAL` aggregate) | fixed on #423; the tester re-measures in VER-16b |
+| F-10 | `/opt/pw-browsers` holds Chromium 1194; Playwright 1.62.1 looks for headless shell 1234 and fails to launch. | senior_swe_platform | worked around (`environment.md`, differences table): `executablePath` in an untracked wrapper; a helper script is open |
+| F-11 | Agent worktrees under `.claude/worktrees/` showed as untracked in the main checkout. | Tech Lead | fixed: `.gitignore` |
 
 ## Reviews
 
@@ -182,8 +222,47 @@ and any reversal of the defaults above.
 - **F1-TICKS (2026-10-08, `senior_tester`).** 116 of 125 boxes verified and ticked;
   seven findings, QA-F1-1 to 7, above. The tester also proposed that the PR template carry a
   keys table and a canary-runs line, so these two duties stop slipping.
+- **W0-APPROACH and W1-APPROACH (2026-10-08, `principal_swe`).** Binding approach notes
+  (T-8). Three product defaults in W1 are built unless the user reverses them: the class
+  average is a percent shown once at least three students are graded; `after_close` also
+  hides the grader's comment until release; the devices list shows the location of the
+  latest refresh, not of the first sign-in.
+- **T-R4.16a (#422, merged 2026-10-08).** Reviewed by the Principal (architecture) and in
+  a full code review; the tester verified it and raised QA-16a-1, carried into 16b.
+- **T-R4.16b (#423).** The Principal's architecture review (keep one entry per question;
+  the context wording) and a code review with three findings: a version that no longer
+  reads back failed `getTest`, `diff_paper.go` discarded two errors, and `DiffSide` said
+  more than the schema holds. Round 1 fixed all of them (`93f6f314` to `c2541355`). The
+  Tech Lead confirmed the fixes and found one more: the 422 must be checked before the 404,
+  because the wrapped error matches both. Fixed in `4ff93029`.
+- **REV-63 (2026-10-08, `principal_swe`, #424 at `e8c1ef5a`).** Approve after F1, no split:
+  F1 (major) the link popover selects its "https://" prefix on open, so every bare address
+  typed is refused; F2 the word count reads the whole document on each transaction; F3 the
+  link button announces as a toggle and a dialog opener; F4 the paste notice hard-codes
+  Ctrl+Shift+V. The lazy link panel (156 KiB against the 160 KiB editor budget) and the
+  notice kinds are accepted. Lesson for 65 and 66: 63 ran 1,110 lines against 70 §3's ~800,
+  and the paste half was the seam.
+- **W0-64 (2026-10-08, `principal_swe`).** T-R4.64 registers only the GFM table and
+  strikethrough extensions in one `gfmSubset` plugin (not `remark-gfm`, whose autolinks
+  would turn a student prompt's URL into a link), states both bundle budgets before and
+  after, keeps the stored form as the mode, and removes `VITE_RICH_QUESTION_EDITOR` from
+  code, config and docs. `OptionField` is not 64's.
+- **VER-DRAFTS (2026-10-08, `senior_tester`, #414 at `1f270726`, #416 at `0f7eefd1`).**
+  Both stay drafts. #414: the title bar wraps where the deck keeps one row, and the English
+  copy is not the deck's (major); geometry, drag feedback, ARIA values, the latency of
+  "Add section" and focus return (minor). #416: the workspace does nothing under StrictMode,
+  "Save & next" skips the student's own next answer, and the shortcuts stop after the first
+  key (major); copy and geometry, the two-tab overwrite (T-11), and the test gaps that let
+  them through (minor). The autosave flushes, the drag paths, the split pane, Finish and
+  Retry, and reload recovery beyond 100 candidates all pass.
 
 ## Next action
 
-Merge #420 into `work/redesign-r4`, cherry-pick the team onto `develop`, then start W0:
-T-R4.16 and T-R4.63, and the take-over of #414 and #416.
+As each hand-off arrives:
+- **VER-DRAFTS** → the frontend engineer finishes #414 and #416 (Done-when boxes, "As
+  built", fixes), then they merge.
+- **REV-63** → its fix round, then the tester's VER-63, then #424 merges.
+- **W0-64** → T-R4.64 after 63 merges.
+- **The 16b nit** → the tester's VER-16b, then #423 merges.
+- **T-R4.11** → its review and verification, then 12a, 12b and 13; 9 and 20 run beside
+  them when a slot is free.

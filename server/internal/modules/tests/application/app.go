@@ -39,6 +39,7 @@ type Queries struct {
 	Group         cqrs.QueryHandler[query.Group, domain.StoredGroup]
 	Groups        cqrs.QueryHandler[query.Groups, query.GroupsResult]
 	GroupContexts cqrs.QueryHandler[query.GroupContexts, []domain.PreviewGroup]
+	Diff          cqrs.QueryHandler[query.Diff, query.DiffResult]
 	Facets        cqrs.QueryHandler[query.Facets, domain.StatusFacets]
 	Get           cqrs.QueryHandler[query.Get, domain.Test]
 	List          cqrs.QueryHandler[query.List, query.ListResult]
@@ -71,6 +72,7 @@ func New(repo domain.Repository) *Application {
 			Group:         query.GroupHandler{Groups: groups},
 			Groups:        query.GroupsHandler{Groups: groups},
 			GroupContexts: query.GroupContextsHandler{Service: service},
+			Diff:          query.DiffHandler{Service: service},
 			Facets:        query.FacetsHandler{Service: service},
 			Get:           query.GetHandler{Service: service},
 			List:          query.ListHandler{Service: service},

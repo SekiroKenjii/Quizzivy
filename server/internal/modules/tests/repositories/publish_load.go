@@ -9,17 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// loadDraft resolves the outline against the bank: every section in order, with
-// each question's full content as the bank holds it right now.
-//
-// Read inside the publish transaction, after the test row is locked, so what is
-// validated is exactly what is frozen.
-func (s *Postgres) loadDraft(ctx context.Context, tx pgx.Tx, testID string, forCopy bool) (domain.DraftContent, error) {
+func (s *Postgres) loadDraftSnapshot(ctx context.Context, tx pgx.Tx, testID string) (domain.DraftContent, error) {
 	d := domain.DraftContent{TestID: testID}
-	if err := lockDraftContent(ctx, tx, testID, forCopy); err != nil {
-		return domain.DraftContent{}, err
-	}
-
 	sections, order, err := loadSections(ctx, tx, testID)
 	if err != nil {
 		return domain.DraftContent{}, err

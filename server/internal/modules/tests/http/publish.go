@@ -20,13 +20,18 @@ func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestReque
 		return nil, httpx.ErrNotImplemented
 	}
 
+	var changeNote *string
+	if request.Body != nil {
+		changeNote = request.Body.ChangeNote
+	}
 	meta := httpx.RequestMetaFromContext(ctx)
 	version, err := h.app.Commands.Publish.Handle(ctx, command.Publish{Request: domain.PublishRequest{
-		TestID:    request.Id.String(),
-		ActorID:   principal.UserID,
-		IP:        meta.IP,
-		UserAgent: meta.UserAgent,
-		Scope:     httpapi.ScopeFromContext(ctx),
+		TestID:     request.Id.String(),
+		ActorID:    principal.UserID,
+		ChangeNote: changeNote,
+		IP:         meta.IP,
+		UserAgent:  meta.UserAgent,
+		Scope:      httpapi.ScopeFromContext(ctx),
 	}})
 	switch {
 	case err == nil:

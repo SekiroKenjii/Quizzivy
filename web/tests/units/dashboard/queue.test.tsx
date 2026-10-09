@@ -52,6 +52,8 @@ beforeEach(() => {
       creations += 1;
       return contractJson("/teacher/tests", "post", 201, {
         skills: [],
+        assignments: { live: 0, scheduled: 0, closed: 0 },
+        unpublishedChanges: null,
         id: "018f0000-0000-7000-8000-0000000000a1",
         title: "Đề thi chưa đặt tên",
         description: null,

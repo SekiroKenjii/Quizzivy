@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/schedule"
 	"quizzivy/internal/shared/visibility"
 	"strings"
 	"time"
@@ -42,7 +43,7 @@ func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time
 		WITH updated AS (
 		  UPDATE app.assignments a
 		     SET closes_at = $2, closed_at = NULL
-		   WHERE a.id = $1::uuid AND `+derivedStatus+` = 'closed'
+		   WHERE a.id = $1::uuid AND `+schedule.DerivedStatus+` = 'closed'
 		     AND ($8::boolean OR a.id IN `+visibility.AssignmentIDs(9)+`)
 		  RETURNING a.id, old.closes_at AS prev_closes_at, old.closed_at AS prev_closed_at
 		), logged AS (
