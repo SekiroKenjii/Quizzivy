@@ -22,6 +22,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-w -s" -o /out/import-worker ./cmd/import-worker && \
     CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-w -s" -o /out/migrate ./cmd/migrate
 
+# The API and the worker refuse an IMPORT_WORK_DIR that is not mode 0700, and a
+# fresh Docker volume copies its owner and mode from the image path it mounts
+# over. Shipping the directory keeps a VPS volume usable as the nonroot user.
+RUN mkdir -p /out/imports && chmod 0700 /out/imports
+
 # ---------------------------------------------------------------- runtime
 # Distroless: no shell, no package manager, nothing to pivot to. The API is
 # reachable from the public internet and takes a bearer secret (§6.5), so the
@@ -32,6 +37,7 @@ WORKDIR /app
 COPY --from=build /out/api /app/api
 COPY --from=build /out/import-worker /app/import-worker
 COPY --from=build /out/migrate /app/migrate
+COPY --from=build --chown=65532:65532 /out/imports /home/nonroot/imports
 COPY migrations /app/migrations
 
 USER nonroot:nonroot
