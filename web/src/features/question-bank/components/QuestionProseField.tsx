@@ -52,6 +52,7 @@ export function QuestionProseField({
     content != null || !text.trim() ? "rich" : "markdown",
   );
   const size = prompt ? PROMPT : EXPLANATION;
+  const describedBy = hint ? `${id}-hint` : undefined;
   const cancel = () => {
     field.cancel();
     focusOpener(header.current);
@@ -85,6 +86,7 @@ export function QuestionProseField({
             content={content ?? null}
             id={id}
             label={label}
+            describedBy={describedBy}
             {...size}
             leaving={field.step === "leaving"}
             focusOnMount={moved}
@@ -102,6 +104,7 @@ export function QuestionProseField({
           key="markdown"
           id={id}
           label={label}
+          describedBy={describedBy}
           value={text}
           onChange={(value) => onChange(value, null)}
           {...size}

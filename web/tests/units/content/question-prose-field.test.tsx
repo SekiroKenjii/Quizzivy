@@ -128,6 +128,29 @@ test("the reason Markdown is blocked describes the button only while it is disab
   expect(markdown).not.toHaveAttribute("aria-describedby");
 });
 
+test.each([
+  ["Markdown", "Đọc kỹ", null],
+  ["rich text", "Đọc kỹ và gạch", RICH],
+] as const)(
+  "in %s, the field is named by its label and described by its hint",
+  async (_, text, content) => {
+    render(
+      <QuestionProseField
+        id="question-explanation"
+        label="Giải thích"
+        hint="— học viên xem sau khi nộp"
+        text={text}
+        content={content}
+        onChange={() => undefined}
+      />,
+    );
+    const field = await screen.findByRole("textbox", { name: "Giải thích" });
+    expect(field).toHaveAccessibleName("Giải thích");
+    expect(field).toHaveAccessibleDescription("— học viên xem sau khi nộp");
+    expect(field.tagName).toBe(content === null ? "TEXTAREA" : "DIV");
+  },
+);
+
 describe("the two conversions", () => {
   test("Rich text to Markdown asks in place, and Cancel changes nothing", async () => {
     const user = userEvent.setup();

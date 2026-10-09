@@ -8,7 +8,8 @@ import type { ProseMode } from "../proseMode";
 
 /**
  * ProseModeHeader is the field's header: its label, an optional hint, and
- * "Rich text | Markdown" on the right. `markdownBlocked` disables "Markdown"
+ * "Rich text | Markdown" on the right. The label names the field; the hint,
+ * outside it as `{id}-hint`, is for the field to name in `aria-describedby`. `markdownBlocked` disables "Markdown"
  * and says why under the header.
  */
 export function ProseModeHeader({
@@ -32,15 +33,17 @@ export function ProseModeHeader({
   return (
     <div className="mb-1.5 flex flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <label className="text-[12.5px] font-medium" htmlFor={id}>
-          {label}
+        <span className="text-[12.5px] font-medium">
+          <label htmlFor={id}>{label}</label>
           {hint && (
             <>
               {" "}
-              <span className="text-muted-fg font-normal">{hint}</span>
+              <span id={`${id}-hint`} className="text-muted-fg font-normal">
+                {hint}
+              </span>
             </>
           )}
-        </label>
+        </span>
         <Segmented
           size="xs"
           label={t("proseMode.label", { label })}
