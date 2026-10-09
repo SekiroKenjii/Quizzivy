@@ -5191,10 +5191,8 @@ type StudentAssignmentDetail struct {
 	OpensAt       Timestamp `json:"opensAt"`
 	QuestionCount int       `json:"questionCount"`
 
-	// Review What the assignment lets a student see, as the server reads it. On the
-	// student's result the three flags are the **effective** ones: all three
-	// read false while an `after_close` release has not come, whatever the
-	// teacher chose.
+	// Review On the intro's detail these are the stored flags, and `release` says
+	// when they apply; they become effective only on the student's result.
 	Review ReviewPolicy  `json:"review"`
 	Score  *AttemptScore `json:"score,omitempty"`
 

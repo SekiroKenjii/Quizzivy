@@ -3338,6 +3338,10 @@ export interface components {
             /** Format: date-time */
             lastSubmittedAt?: string | null;
             score?: components["schemas"]["AttemptScore"] | null;
+            /**
+             * @description On the intro's detail these are the stored flags, and `release` says
+             *     when they apply; they become effective only on the student's result.
+             */
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
             /** @description The teacher's note for the students, plain text. Null or absent when there is none. */
