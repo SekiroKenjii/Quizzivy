@@ -156,8 +156,10 @@ of the app:
 | proxied (orange) | `CF-Connecting-IP` |
 | DNS only (grey) | `Fly-Client-IP` |
 
-`fly.toml` currently sets `CF-Connecting-IP`, matching the proxied setup above.
-Change it if you leave the record grey.
+The record was left grey, and `fly.toml` sets `Fly-Client-IP` (since
+2026-10-09). Until then it set `CF-Connecting-IP`, which on a grey record any
+client can send, so every rate limit was bypassable. Change both together if
+the record is ever made proxied.
 
 **Never set this to `X-Forwarded-For.`** Proxies *append* to that header, so a
 client can send its own value and have the real address appended after it —
