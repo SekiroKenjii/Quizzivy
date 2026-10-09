@@ -131,5 +131,23 @@ describe("the media card's play button", () => {
 
     expect(document.querySelector("audio")?.getAttribute("preload")).toBe("none");
     expect(play).not.toHaveBeenCalled();
+    expect(pause).not.toHaveBeenCalled();
+  });
+
+  it("does not pause an idle card, which would start loading its file", () => {
+    const { rerender } = renderCard({ active: true });
+    rerender(
+      <MediaCard
+        asset={ASSET}
+        active={false}
+        onPlay={vi.fn()}
+        onExpired={vi.fn()}
+        onRename={vi.fn()}
+        onReplace={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(pause).not.toHaveBeenCalled();
   });
 });

@@ -164,7 +164,8 @@ function AudioPreview({
   }, [durationMs]);
 
   useEffect(() => {
-    if (!active) audio.current?.pause();
+    const element = audio.current;
+    if (!active && element && !element.paused) element.pause();
   }, [active]);
 
   function toggle() {

@@ -77,12 +77,15 @@ async function prepare(page: Page, theme: "light" | "dark", width: number) {
       },
     },
   });
-  await page.route(SOURCE, (route) =>
-    route.fulfill({ path: RECORDING, contentType: "audio/mpeg" }),
-  );
+  const fetched = { audio: 0 };
+  await page.route(SOURCE, (route) => {
+    fetched.audio += 1;
+    return route.fulfill({ path: RECORDING, contentType: "audio/mpeg" });
+  });
   await page.route("https://assets.example/map.png", (route) =>
     route.fulfill({ status: 404, body: "" }),
   );
+  return fetched;
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -113,8 +116,11 @@ for (const theme of ["light", "dark"] as const) {
 test("a card's play button starts the recording in a real browser, one card at a time", async ({
   page,
 }) => {
-  await prepare(page, "light", 1280);
+  const fetched = await prepare(page, "light", 1280);
   await page.goto("/teacher/media");
+  await expect(page.getByText("Dùng trong 4 câu hỏi").first()).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(fetched.audio, "no recording is requested before a click").toBe(0);
 
   await page
     .getByRole("button", { name: "Phát Cambridge 15 · Test 2 · Part 1.mp3" })
