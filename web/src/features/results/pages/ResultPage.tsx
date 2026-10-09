@@ -260,7 +260,15 @@ function Loaded({
             <Lock aria-hidden="true" className="size-4 flex-none" />
             {t(
               `result.lock.${view.lock}`,
-              view.releasesAt === null ? {} : { time: clockTime(view.releasesAt) },
+              view.releasesAt === null
+                ? {}
+                : {
+                    time: clockTime(
+                      view.releasesAt,
+                      new Date(),
+                      i18n.language as Locale,
+                    ),
+                  },
             )}
           </p>
         )}

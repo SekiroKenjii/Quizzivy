@@ -1637,6 +1637,19 @@ describe("a result released after the close", () => {
     ).toBeVisible();
   });
 
+  it("names the month in English when the close is not today", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
+    await i18n.changeLanguage("en");
+    serve(hold("2026-09-03T14:00:00Z"));
+    renderResult();
+    expect(
+      await screen.findByText(
+        "Results are released when the test closes, at 21:00, 3 Sep.",
+      ),
+    ).toBeVisible();
+  });
+
   it("draws no class average while it is withheld", async () => {
     serve(hold("2026-08-29T14:00:00Z"));
     renderResult();

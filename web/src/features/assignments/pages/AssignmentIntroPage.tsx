@@ -88,11 +88,11 @@ function opensLabel(a: Detail, now: Date, locale: Locale, t: TFunction): string 
   });
 }
 
-function startBody(a: Detail, now: Date, t: TFunction): string {
+function startBody(a: Detail, now: Date, locale: Locale, t: TFunction): string {
   const left = Math.floor((Date.parse(a.closesAt) - now.getTime()) / 60_000);
   return left < a.durationMinutes
     ? t("student.intro.startBodyShort", {
-        time: clockTime(a.closesAt, now),
+        time: clockTime(a.closesAt, now, locale),
         count: Math.max(1, left),
       })
     : t("student.intro.startBody", { minutes: a.durationMinutes });
@@ -410,7 +410,9 @@ function Action({
         <span className={HINT}>
           {a.liveDeadlineAt == null
             ? t("student.intro.startHint")
-            : t("student.intro.resumeHint", { time: clockTime(a.liveDeadlineAt, now) })}
+            : t("student.intro.resumeHint", {
+                time: clockTime(a.liveDeadlineAt, now, locale),
+              })}
         </span>
       </div>
     );
@@ -472,7 +474,7 @@ function Action({
           if (!next && !busy) setOpen(false);
         }}
         title={t("student.intro.startTitle")}
-        description={asked === null ? "" : startBody(a, from, t)}
+        description={asked === null ? "" : startBody(a, from, locale, t)}
       >
         <DeckDialogActions>
           <DeckDialogCancel
