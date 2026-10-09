@@ -156,6 +156,62 @@ test("bank saves a confirmed structured paste and retains formatting after reloa
   await expect(page.getByRole("cell", { name: "hai", exact: true })).toBeVisible();
 });
 
+test("bank leaves pasted images out unloaded, says so, and refuses a file alone", async ({
+  page,
+}) => {
+  const remote: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("example.invalid")) remote.push(request.url());
+  });
+  await setup(page);
+  await page.goto(`/teacher/question-bank/${ID}`);
+  await page
+    .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Dùng nội dung này", exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  const paste = (html: string, file: boolean) =>
+    editor.evaluate(
+      (element, { html, file }) => {
+        const data = new DataTransfer();
+        if (html) data.setData("text/html", html);
+        if (file) data.items.add(new File(["x"], "anh.png", { type: "image/png" }));
+        element.dispatchEvent(
+          new ClipboardEvent("paste", {
+            clipboardData: data,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      },
+      { html, file },
+    );
+  await paste(
+    '<p>Có hình<img src="https://example.invalid/a.png" onerror="window.__loaded=1"><picture><img src="https://example.invalid/b.png"></picture> ở đây</p>',
+    false,
+  );
+  const preview = page.getByRole("dialog", { name: "Xem trước nội dung sau khi dán" });
+  await expect(
+    preview.getByText("Đã bỏ 2 hình ảnh trong nội dung sao chép.", { exact: true }),
+  ).toBeVisible();
+  await expect(preview.locator("img")).toHaveCount(0);
+  await preview.getByRole("button", { name: "Áp dụng nội dung dán" }).click();
+  await expect(editor).toContainText("Có hình ở đây");
+  await expect(editor.locator("img")).toHaveCount(0);
+  await paste("", true);
+  const notice = page
+    .getByRole("alert")
+    .filter({ hasText: "Không thể thêm tệp vào phần văn bản." });
+  await expect(notice).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Đóng thông báo", exact: true }).click();
+  await expect(notice).toHaveCount(0);
+  expect(await page.evaluate(() => "__loaded" in window)).toBe(false);
+  expect(remote).toEqual([]);
+});
+
 test("bank previews Markdown conversion, preserves tables and explanations after saving and reload", async ({
   page,
 }) => {

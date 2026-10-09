@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.60 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.61 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.60**
+
+R4, content editor frame (T-R4.63, DG-115):
+
+- §7.1: a formatted paste leaves the images inside copied content out, unloaded,
+  and counts them in its preview, instead of refusing the whole paste. Every
+  other refusal stays; a paste holding only images, and a pasted or dropped
+  file, are refused with a notice. Default, not yet confirmed by Thuong.
 
 **Changes since v0.59**
 
@@ -1127,7 +1136,10 @@ allowlisted semantic vocabulary, preview the complete resulting field, and apply
 only after confirmation. Preserve supported marks, list starts, table spans and
 safe links; adapt fonts, colors and spacing to the application's design. Reject
 files, active/hidden content, unbound gaps, unsupported styles or incomplete
-structure as one paste. No fallback to text without the teacher explicitly using
+structure as one paste. The one exception is an image inside copied content
+(`img`, `picture`, `svg`, `video`, `canvas`): it is left out without being
+loaded, and the preview says how many were left out; a paste holding nothing
+else is refused like a file. No fallback to text without the teacher explicitly using
 plain-text paste. The converter cannot infer answer keys from visual formatting.
 Cancel/stale preview leaves current edits unchanged; one undo reverses insertion.
 Field profiles and aggregate budgets apply to the whole resulting document.

@@ -91,21 +91,104 @@
   outline-offset: 3px;
 }
 
-.content-editor .semantic-content h1 {
-  font-size: 1.25rem;
+.content-editor:has(.ProseMirror-focused) {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--hover);
+}
+.content-editor-body {
+  min-height: var(--content-editor-min-height, 0);
+  padding: 12px 16px;
+  font-size: var(--content-editor-font-size, inherit);
+  line-height: 1.6;
+  color: var(--fg);
+}
+.content-editor .semantic-content {
+  line-height: 1.6;
+}
+.content-editor .semantic-content > * + *,
+.content-editor .semantic-content li > * + *,
+.content-editor .semantic-content li + li {
+  margin-top: 0;
+}
+.content-editor .semantic-content p {
+  margin: 0 0 8px;
+}
+.content-editor .semantic-content :is(ul, ol) {
+  margin: 0 0 8px;
+  padding-inline-start: 22px;
+}
+.content-editor .semantic-content li > p {
+  margin: 0;
+}
+.content-editor .ProseMirror :is(h1, h2, h3),
+.content-editor .semantic-content:not(.ProseMirror) :is(h2, h3, h4) {
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.35;
+  margin: 12px 0 6px;
 }
-.content-editor .semantic-content h2 {
-  font-size: 1.125rem;
+.content-editor .ProseMirror h1,
+.content-editor .semantic-content:not(.ProseMirror) h2 {
+  font-size: 19px;
 }
-.content-editor .semantic-content h3 {
-  font-size: 1rem;
+.content-editor .ProseMirror h2,
+.content-editor .semantic-content:not(.ProseMirror) h3 {
+  font-size: 17px;
+}
+.content-editor .ProseMirror h3,
+.content-editor .semantic-content:not(.ProseMirror) h4 {
+  font-size: 15.5px;
+}
+.content-editor .semantic-content table {
+  width: auto;
+  min-width: 50%;
+  max-width: 100%;
+  table-layout: auto;
+  margin: 8px 0 12px;
+  font-size: 14px;
+}
+.content-editor .ProseMirror table {
+  min-width: 50% !important;
+}
+.content-editor .semantic-content :is(th, td) {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  min-width: 72px;
+  text-align: start;
+  vertical-align: top;
+}
+.content-editor .semantic-content th {
+  background: var(--muted);
+  font-weight: 600;
+}
+.content-editor .semantic-content :is(th, td) p {
+  margin: 0;
+}
+.content-editor .semantic-content a {
+  color: var(--info-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.content-editor .content-gap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 24px;
+  padding: 0 8px;
+  margin: 0 2px;
+  border: 1.5px dashed var(--ring);
+  border-radius: 6px;
+  background: var(--muted);
+  color: var(--muted-fg);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: middle;
 }
 .content-editor .selectedCell {
   background: var(--accent);
 }
 .content-editor .ProseMirror-selectednode {
-  outline: 2px solid var(--ring);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
