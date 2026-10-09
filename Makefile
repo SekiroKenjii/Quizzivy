@@ -18,7 +18,7 @@ export
 SPECTRAL_VERSION ?= 6.16.3
 OPENAPI_TS_VERSION ?= 7.13.0
 # Same pin as .github/workflows/ci.yml's golangci-lint step.
-GOLANGCI_VERSION ?= v2.13.2
+GOLANGCI_VERSION ?= v2.14.0
 
 MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),migrate)@localhost:5432/quizzivy?sslmode=disable
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
