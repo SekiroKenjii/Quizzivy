@@ -1,15 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.61 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.63 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.60**
+**Changes since v0.62**
 
 R4, assignment review options, the note to students and the live lock (T-R4.11):
 
 - §13 `assignments` gains `review_release` (`on_submit` or `after_close`, default
   `on_submit`), `review_show_class_average` (default false) and a nullable
-  `student_note` (1 to 500 characters once trimmed). Migrations 00093 and 00094; every
+  `student_note` (1 to 500 characters once trimmed). Migrations 00099 and 00100; every
   default is a constant, so nothing is rewritten.
 - §14 `Assignment.review` carries `release` and `showClassAverage`, and `Assignment`
   carries `studentNote`. On a write the three are partial: omitted, they keep what is
@@ -21,6 +21,31 @@ R4, assignment review options, the note to students and the live lock (T-R4.11):
   `releasesAt`. With the teacher's switch on, a released result of a closed assignment
   carries `classAverage` once at least 3 students qualify. The Test intro draws the
   teacher's note and says in its score sentence when the score comes.
+
+**Changes since v0.61**
+
+R4, alt text for a question's image (T-R4.62a):
+
+- A bank question whose media is an image carries optional alt text of 1 to 1000
+  characters, returned to teachers as `mediaAlt` and frozen into the published
+  version with the rest of the question, so a later bank edit never reaches a
+  version. Students receive it beside `media` in the paper and in the result; it
+  is a description for a screen reader, not part of the answer key.
+- A value for a question whose media is not an image is refused with a field
+  error on `mediaAlt` (400 `VALIDATION_FAILED`). A write replaces the stored
+  value, so an update that leaves it out clears it. Restore as draft and a
+  duplicated group carry it, and the version diff counts a changed alt text as a
+  change to the question's media. Migrations 00097/00098 add nullable columns
+  without backfill (`docs/plan/20-data-model.md` D-33, §37).
+
+**Changes since v0.60**
+
+R4, content editor frame (T-R4.63, DG-115):
+
+- §7.1: a formatted paste leaves the images inside copied content out, unloaded,
+  and counts them in its preview, instead of refusing the whole paste. Every
+  other refusal stays; a paste holding only images, and a pasted or dropped
+  file, are refused with a notice. Default, not yet confirmed by Thuong.
 
 **Changes since v0.59**
 
@@ -1002,6 +1027,7 @@ interface Question {
   skill: QuestionSkill | null;
   prompt: string;                       // Markdown, rendered sanitized
   media?: MediaAsset;
+  mediaAlt?: string;                    // image only; frozen at publish; read to students by a screen reader
   audio?: AudioPolicy;                  // present iff media.kind === 'audio'
   transcript?: string;                  // admin-authored; student sees it only per policy
   options?: { id; text; isCorrect: boolean }[];
@@ -1151,7 +1177,10 @@ allowlisted semantic vocabulary, preview the complete resulting field, and apply
 only after confirmation. Preserve supported marks, list starts, table spans and
 safe links; adapt fonts, colors and spacing to the application's design. Reject
 files, active/hidden content, unbound gaps, unsupported styles or incomplete
-structure as one paste. No fallback to text without the teacher explicitly using
+structure as one paste. The one exception is an image inside copied content
+(`img`, `picture`, `svg`, `video`, `canvas`): it is left out without being
+loaded, and the preview says how many were left out; a paste holding nothing
+else is refused like a file. No fallback to text without the teacher explicitly using
 plain-text paste. The converter cannot infer answer keys from visual formatting.
 Cancel/stale preview leaves current edits unchanged; one undo reverses insertion.
 Field profiles and aggregate budgets apply to the whole resulting document.
@@ -1983,6 +2012,7 @@ CREATE TABLE app.questions (
   type            app.question_type NOT NULL,
   prompt          text NOT NULL,
   media_asset_id  uuid REFERENCES app.media_assets(id) ON DELETE RESTRICT,
+  media_alt       text CHECK (char_length(media_alt) BETWEEN 1 AND 1000),  -- image only; D-33
   audio_max_plays integer CHECK (audio_max_plays IS NULL OR audio_max_plays > 0),
   audio_allow_seek boolean NOT NULL DEFAULT false,
   audio_show_transcript_after boolean NOT NULL DEFAULT true,
@@ -2020,7 +2050,7 @@ tests(id, title, description, status, current_version, last_published_version, o
 test_versions(id, test_id, version, published_at, total_points, UNIQUE(test_id, version))
 test_version_sections(id, test_version_id, ordinal, title, instructions)
 test_version_questions(id, test_version_section_id, ordinal, source_question_id,
-                       type, prompt, media_asset_id, audio_max_plays, audio_allow_seek,
+                       type, prompt, media_asset_id, media_alt, audio_max_plays, audio_allow_seek,
                        audio_show_transcript_after, transcript, points, explanation, sample_answer)
 test_version_options(id, test_version_question_id, ordinal, text, is_correct)
 test_version_blanks / test_version_blank_answers

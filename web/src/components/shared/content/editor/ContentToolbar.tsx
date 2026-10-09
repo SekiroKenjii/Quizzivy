@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import {
@@ -17,45 +18,62 @@ import {
   Pilcrow,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import type { EditorProfile } from "./profile";
+import { editorShortcut, type Shortcut } from "./shortcuts";
+import { useRovingToolbar } from "./roving";
+import { ToolButton } from "./ToolButton";
+import { LinkPopover } from "./LinkPopover";
+import { TableToolbar } from "./TableToolbar";
 
-type Tool = {
+type ButtonTool = {
   key: string;
   icon: LucideIcon;
+  label?: string | undefined;
+  shortcut?: Shortcut;
   active?: boolean;
   disabled?: boolean;
   run: () => void;
 };
 
-function ToolButton({ tool }: Readonly<{ tool: Tool }>) {
-  const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      aria-label={t(`contentEditor.${tool.key}`)}
-      title={t(`contentEditor.${tool.key}`)}
-      aria-pressed={tool.active}
-      disabled={tool.disabled}
-      onClick={tool.run}
-      className={cn(
-        "hover:bg-muted inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-transparent transition-colors disabled:opacity-40 motion-reduce:transition-none",
-        tool.active && "border-border bg-muted",
-      )}
-    >
-      <tool.icon size={16} aria-hidden="true" />
-    </button>
-  );
+type Tool = ButtonTool | { key: "link"; link: true };
+
+type ToolGroup = { key: string; tools: Tool[] };
+
+const OPTION_GROUPS = new Set(["marks", "history"]);
+
+function insertGap(editor: Editor, gapLabel: (() => string) | undefined) {
+  const labels = new Set<string>();
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === "gap") labels.add(String(node.attrs.label));
+  });
+  let label = 1;
+  while (labels.has(String(label))) label++;
+  editor
+    .chain()
+    .focus()
+    .insertContent({
+      type: "gap",
+      attrs: { id: crypto.randomUUID(), label: gapLabel?.() ?? String(label) },
+    })
+    .run();
 }
 
-/** ContentToolbar subscribes only to the selection state displayed by its controls. */
+/**
+ * ContentToolbar is the editor's formatting toolbar, in the deck's order, and
+ * the table row while the caret is in a table. It subscribes only to the
+ * selection state its controls display. "Insert gap" shows only in a profile
+ * that holds gaps, and the option profile keeps the marks and the history.
+ */
 export function ContentToolbar({
   editor,
+  label,
   profile = "document",
   gapLabel,
 }: Readonly<{
   gapLabel?: (() => string) | undefined;
   editor: Editor;
-  profile?: "document" | "option" | "question" | "prompt";
+  label: string;
+  profile?: EditorProfile;
 }>) {
   const { t } = useTranslation();
   const state = useEditorState({
@@ -70,189 +88,208 @@ export function ContentToolbar({
       bullet: e.isActive("bulletList"),
       ordered: e.isActive("orderedList"),
       heading: e.isActive("heading"),
+      link: e.isActive("link"),
       table: e.isActive("table"),
       undo: e.can().undo(),
       redo: e.can().redo(),
-      split: e.can().splitCell(),
-      merge: e.can().mergeCells(),
     }),
   });
-  const tools: Tool[] = [
+  const gaps = profile === "prompt" || profile === "document";
+  const allGroups: ToolGroup[] = [
     {
-      key: "bold",
-      icon: Bold,
-      active: state.bold,
-      run: () => editor.chain().focus().toggleBold().run(),
+      key: "marks",
+      tools: [
+        {
+          key: "bold",
+          icon: Bold,
+          shortcut: editorShortcut("B"),
+          active: state.bold,
+          run: () => editor.chain().focus().toggleBold().run(),
+        },
+        {
+          key: "italic",
+          icon: Italic,
+          shortcut: editorShortcut("I"),
+          active: state.italic,
+          run: () => editor.chain().focus().toggleItalic().run(),
+        },
+        {
+          key: "underline",
+          icon: Underline,
+          shortcut: editorShortcut("U"),
+          active: state.underline,
+          run: () => editor.chain().focus().toggleUnderline().run(),
+        },
+        {
+          key: "strike",
+          icon: Strikethrough,
+          active: state.strike,
+          run: () => editor.chain().focus().toggleStrike().run(),
+        },
+        {
+          key: "superscript",
+          icon: Superscript,
+          active: state.superscript,
+          run: () => editor.chain().focus().unsetSubscript().toggleSuperscript().run(),
+        },
+        {
+          key: "subscript",
+          icon: Subscript,
+          active: state.subscript,
+          run: () => editor.chain().focus().unsetSuperscript().toggleSubscript().run(),
+        },
+      ],
     },
     {
-      key: "italic",
-      icon: Italic,
-      active: state.italic,
-      run: () => editor.chain().focus().toggleItalic().run(),
+      key: "blocks",
+      tools: [
+        {
+          key: "heading",
+          icon: Heading2,
+          active: state.heading,
+          run: () =>
+            state.heading
+              ? editor.chain().focus().setParagraph().run()
+              : editor.chain().focus().setHeading({ level: 3 }).run(),
+        },
+        {
+          key: "paragraph",
+          icon: Pilcrow,
+          run: () => editor.chain().focus().setParagraph().run(),
+        },
+      ],
     },
     {
-      key: "underline",
-      icon: Underline,
-      active: state.underline,
-      run: () => editor.chain().focus().toggleUnderline().run(),
+      key: "lists",
+      tools: [
+        {
+          key: "bulletList",
+          icon: List,
+          active: state.bullet,
+          run: () => editor.chain().focus().toggleBulletList().run(),
+        },
+        {
+          key: "orderedList",
+          icon: ListOrdered,
+          active: state.ordered,
+          run: () => editor.chain().focus().toggleOrderedList().run(),
+        },
+      ],
     },
     {
-      key: "strike",
-      icon: Strikethrough,
-      active: state.strike,
-      run: () => editor.chain().focus().toggleStrike().run(),
+      key: "insert",
+      tools: [
+        { key: "link", link: true },
+        {
+          key: "insertTable",
+          icon: Table2,
+          label: state.table ? t("contentEditor.inTable") : undefined,
+          disabled: state.table,
+          run: () =>
+            editor
+              .chain()
+              .focus()
+              .insertTable({ rows: 2, cols: 2, withHeaderRow: true })
+              .run(),
+        },
+        ...(gaps
+          ? [
+              {
+                key: "insertGap",
+                icon: TextCursorInput,
+                run: () => insertGap(editor, gapLabel),
+              },
+            ]
+          : []),
+      ],
     },
     {
-      key: "superscript",
-      icon: Superscript,
-      active: state.superscript,
-      run: () => editor.chain().focus().unsetSubscript().toggleSuperscript().run(),
-    },
-    {
-      key: "subscript",
-      icon: Subscript,
-      active: state.subscript,
-      run: () => editor.chain().focus().unsetSuperscript().toggleSubscript().run(),
-    },
-    {
-      key: "heading",
-      icon: Heading2,
-      active: state.heading,
-      run: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
-    },
-    {
-      key: "paragraph",
-      icon: Pilcrow,
-      run: () => editor.chain().focus().setParagraph().run(),
-    },
-    {
-      key: "bulletList",
-      icon: List,
-      active: state.bullet,
-      run: () => editor.chain().focus().toggleBulletList().run(),
-    },
-    {
-      key: "orderedList",
-      icon: ListOrdered,
-      active: state.ordered,
-      run: () => editor.chain().focus().toggleOrderedList().run(),
-    },
-    {
-      key: "insertTable",
-      icon: Table2,
-      disabled: state.table,
-      run: () =>
-        editor
-          .chain()
-          .focus()
-          .insertTable({ rows: 2, cols: 2, withHeaderRow: true })
-          .run(),
-    },
-    {
-      key: "insertGap",
-      icon: TextCursorInput,
-      run: () => {
-        const labels = new Set<string>();
-        editor.state.doc.descendants((node) => {
-          if (node.type.name === "gap") labels.add(String(node.attrs.label));
-        });
-        let label = 1;
-        while (labels.has(String(label))) label++;
-        editor
-          .chain()
-          .focus()
-          .insertContent({
-            type: "gap",
-            attrs: { id: crypto.randomUUID(), label: gapLabel?.() ?? String(label) },
-          })
-          .run();
-      },
-    },
-    {
-      key: "undo",
-      icon: Undo2,
-      disabled: !state.undo,
-      run: () => editor.chain().focus().undo().run(),
-    },
-    {
-      key: "redo",
-      icon: Redo2,
-      disabled: !state.redo,
-      run: () => editor.chain().focus().redo().run(),
+      key: "history",
+      tools: [
+        {
+          key: "undo",
+          icon: Undo2,
+          shortcut: editorShortcut("Z"),
+          disabled: !state.undo,
+          run: () => editor.chain().focus().undo().run(),
+        },
+        {
+          key: "redo",
+          icon: Redo2,
+          shortcut: editorShortcut("Z", true),
+          disabled: !state.redo,
+          run: () => editor.chain().focus().redo().run(),
+        },
+      ],
     },
   ];
+  const groups = allGroups.filter(
+    (group) => profile !== "option" || OPTION_GROUPS.has(group.key),
+  );
+  const roving = useRovingToolbar(
+    groups.flatMap((group) =>
+      group.tools
+        .filter((tool) => "link" in tool || !tool.disabled)
+        .map((tool) => tool.key),
+    ),
+  );
   return (
-    <div className="bg-muted/20 border-b p-2">
+    <>
       <div
-        role="group"
-        aria-label={t("contentEditor.formatting")}
-        className="flex flex-wrap gap-0.5"
+        role="toolbar"
+        aria-label={t("contentEditor.toolbar", { label })}
+        onKeyDown={roving.onKeyDown}
+        className="bg-sidebar flex [scrollbar-width:thin] flex-nowrap items-center gap-0.5 overflow-x-auto rounded-t-[10px] border-b px-1.5 py-[5px]"
       >
-        {tools
-          .filter(
-            (tool) =>
-              profile === "document" ||
-              profile === "prompt" ||
-              (profile === "question" && tool.key !== "insertGap") ||
-              [
-                "bold",
-                "italic",
-                "underline",
-                "strike",
-                "superscript",
-                "subscript",
-                "undo",
-                "redo",
-              ].includes(tool.key),
-          )
-          .map((tool) => (
-            <ToolButton key={tool.key} tool={tool} />
-          ))}
+        {groups.map((group, index) => (
+          <Fragment key={group.key}>
+            {index > 0 && (
+              <span
+                aria-hidden="true"
+                className="bg-border mx-1 h-[18px] w-px flex-none"
+              />
+            )}
+            {group.tools.map((tool) => {
+              const common = {
+                "data-roving": tool.key,
+                tabIndex: roving.tabIndexFor(tool.key),
+                onFocus: () => roving.remember(tool.key),
+              };
+              if ("link" in tool)
+                return (
+                  <LinkPopover
+                    key={tool.key}
+                    editor={editor}
+                    active={state.link}
+                    {...common}
+                  />
+                );
+              const name = tool.label ?? t(`contentEditor.${tool.key}`);
+              return (
+                <ToolButton
+                  key={tool.key}
+                  icon={tool.icon}
+                  label={name}
+                  title={
+                    tool.shortcut
+                      ? t("contentEditor.withShortcut", {
+                          label: name,
+                          shortcut: tool.shortcut.label,
+                        })
+                      : name
+                  }
+                  aria-keyshortcuts={tool.shortcut?.aria}
+                  aria-pressed={tool.active}
+                  disabled={tool.disabled}
+                  onClick={tool.run}
+                  {...common}
+                />
+              );
+            })}
+          </Fragment>
+        ))}
       </div>
-      {state.table && (
-        <div
-          role="group"
-          aria-label={t("contentEditor.table")}
-          className="mt-2 flex flex-wrap gap-1 border-t pt-2"
-        >
-          {[
-            { key: "addRow", run: () => editor.chain().focus().addRowAfter().run() },
-            {
-              key: "addColumn",
-              run: () => editor.chain().focus().addColumnAfter().run(),
-            },
-            { key: "deleteRow", run: () => editor.chain().focus().deleteRow().run() },
-            {
-              key: "deleteColumn",
-              run: () => editor.chain().focus().deleteColumn().run(),
-            },
-            {
-              key: "mergeCells",
-              disabled: !state.merge,
-              run: () => editor.chain().focus().mergeCells().run(),
-            },
-            {
-              key: "splitCell",
-              disabled: !state.split,
-              run: () => editor.chain().focus().splitCell().run(),
-            },
-            {
-              key: "deleteTable",
-              run: () => editor.chain().focus().deleteTable().run(),
-            },
-          ].map((tool) => (
-            <button
-              key={tool.key}
-              type="button"
-              onClick={tool.run}
-              disabled={tool.disabled}
-              className="hover:bg-muted rounded-md px-2 py-1.5 text-xs disabled:opacity-40"
-            >
-              {t(`contentEditor.${tool.key}`)}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      {state.table && profile !== "option" && <TableToolbar editor={editor} />}
+    </>
   );
 }

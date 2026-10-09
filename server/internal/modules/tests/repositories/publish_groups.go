@@ -73,7 +73,7 @@ func draftGroupQuestion(q domain.GroupQuestion, ordinal int) domain.DraftQuestio
 	in := q.Input
 	out := domain.DraftQuestion{SourceID: q.ID, Ordinal: ordinal, Type: string(in.Type), Level: in.Level, Skill: in.Skill, Prompt: in.Prompt,
 		PromptContent: in.PromptContent, ExplanationContent: in.ExplanationContent, Points: in.Points,
-		MediaAssetID: in.MediaAssetID, MediaAssetKind: q.MediaAssetKind, Transcript: in.Transcript, Explanation: in.Explanation, SampleAnswer: in.SampleAnswer}
+		MediaAssetID: in.MediaAssetID, MediaAssetKind: q.MediaAssetKind, MediaAlt: in.MediaAlt, Transcript: in.Transcript, Explanation: in.Explanation, SampleAnswer: in.SampleAnswer}
 	if in.Audio != nil {
 		out.MaxPlays, out.AllowSeek, out.ShowTranscript = in.Audio.MaxPlays, &in.Audio.AllowSeek, &in.Audio.ShowTranscriptAfterSubmit
 	}

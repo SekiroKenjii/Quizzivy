@@ -12,6 +12,7 @@ func InputOf(q domain.Question) domain.Input {
 		Prompt:             q.Prompt,
 		PromptContent:      q.PromptContent,
 		MediaAssetID:       q.MediaAssetID,
+		MediaAlt:           q.MediaAlt,
 		Audio:              q.Audio,
 		Transcript:         q.Transcript,
 		Points:             q.Points,
