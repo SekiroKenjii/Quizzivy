@@ -47,6 +47,7 @@ function assignment(over: Record<string, unknown> = {}) {
       release: "on_submit",
       showClassAverage: false,
     },
+    studentNote: null,
     integrity: {
       requireFullscreen: false,
       blockCopyPaste: true,
