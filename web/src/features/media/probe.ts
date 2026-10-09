@@ -1,9 +1,12 @@
+import type { components } from "@/lib/api/schema";
 import {
-  MAX_AUDIO_BYTES,
   MAX_DURATION_MS,
   hasAcceptedExtension,
+  maxBytes,
   type Rejection,
 } from "./limits";
+
+type MediaKind = components["schemas"]["MediaKind"];
 
 /**
  * Reads a file's duration in the browser, by loading its metadata into a
@@ -33,16 +36,30 @@ export function readDuration(file: File): Promise<number | null> {
 }
 
 /**
- * The §11.1 pre-check: type, then size, then duration, in that order so an
- * oversized file is refused before its metadata is read.
+ * quickCheck is the part of the pre-check that reads nothing of the file: the
+ * extensions the kind takes, then the kind's size limit (DG-63).
  */
-export async function precheck(file: File): Promise<Rejection | null> {
-  const about = { name: file.name, bytes: file.size };
-  if (!hasAcceptedExtension(file.name)) return { ...about, reason: "type" };
-  if (file.size > MAX_AUDIO_BYTES) return { ...about, reason: "size" };
+export function quickCheck(file: File, kind: MediaKind = "audio"): Rejection | null {
+  const about = { name: file.name, bytes: file.size, kind };
+  if (!hasAcceptedExtension(file.name, kind)) return { ...about, reason: "type" };
+  if (file.size > maxBytes(kind)) return { ...about, reason: "size" };
+  return null;
+}
+
+/**
+ * The §11.1 pre-check: type, then size, then, for audio, duration, in that
+ * order so an oversized file is refused before its metadata is read.
+ */
+export async function precheck(
+  file: File,
+  kind: MediaKind = "audio",
+): Promise<Rejection | null> {
+  const quick = quickCheck(file, kind);
+  if (quick !== null || kind === "image") return quick;
 
   const durationMs = await readDuration(file);
   if (durationMs === null) return null;
-  if (durationMs > MAX_DURATION_MS) return { ...about, reason: "duration", durationMs };
+  if (durationMs > MAX_DURATION_MS)
+    return { name: file.name, bytes: file.size, kind, reason: "duration", durationMs };
   return null;
 }
