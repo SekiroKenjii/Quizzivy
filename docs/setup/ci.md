@@ -57,7 +57,7 @@ Three cases never use earlier proof:
   job until it passes again.
 
 What the hash cannot see is anything outside the tree: the runner image, the
-`postgres:18` image, the Debian packages the Word converter image installs,
+`postgres:18` image (which `mirror.gcr.io` serves), the Debian packages the Word converter image installs,
 tools fetched at run time. The 30-day expiry and the full run on `main` are
 what bring a job back in front of those.
 
@@ -172,6 +172,33 @@ package is public, as the repository is; its labels name the licence and where
 the source commits are listed. `.github/actions/minio` pulls that tag and
 falls back to building from source when it is not published, which is what a
 pull request that changes `docker/minio` does on its first run.
+
+## Where CI pulls images from
+
+Docker Hub limits anonymous pulls per address, and a hosted runner shares its
+address with others, so a pull fails intermittently with `toomanyrequests` and
+no test runs. CI therefore pulls every Docker Hub image from Google's mirror,
+`mirror.gcr.io/library/<name>`, which takes no login and has no such limit:
+
+- The `postgres:18` service of **Server tests** and **E2E (live API)** names
+  `mirror.gcr.io/library/postgres:18`. It is the same official image, still
+  PostgreSQL 18, and the tag still follows the 18.x minor release. It is not
+  pinned by digest: a digest the mirror has not cached would fall through to
+  Docker Hub, and the floating tag is what CI ran before. To pin one, append
+  `@sha256:<digest>` to the image in both jobs and bump it deliberately.
+- `scripts/ci/mirror-images.sh` pulls a base from the mirror and tags it under
+  its Docker Hub name, so the build that follows finds it in the local store.
+  **Server tests** runs it for `debian:trixie-slim` before building the Word
+  converter; `.github/actions/minio` and `minio-image.yml` run it for
+  `golang:1.27-alpine` and `alpine:3.22` before building MinIO. A base the
+  mirror cannot serve prints a warning and is pulled from Docker Hub as before.
+  A new `FROM` on a Docker Hub image adds its name to the call beside the build.
+- MinIO itself comes from `ghcr.io`, and nothing else in the workflows pulls from
+  Docker Hub.
+
+If the mirror ever fails too, the alternative is a Docker Hub login from a
+repository secret, which raises the limit for the account; it needs Thuong to
+create a read-only access token and add it as a secret, and is not built.
 
 ## Branch rules
 

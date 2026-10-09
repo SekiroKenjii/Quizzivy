@@ -1,7 +1,22 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.62 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.63 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.62**
+
+R4, the content editor's Rich text and Markdown modes (T-R4.64, DG-110):
+
+- §7.1: rich prose is how a prompt and an explanation are written, no longer
+  an opt-in behind `VITE_RICH_QUESTION_EDITOR`, which is removed. A field opens
+  in the form it is stored in, and a field with no text opens as rich text;
+  the builder's and the group composer's starter prompt is stored as Markdown
+  and opens as Markdown until T-R4.31b and T-R4.34 create it as rich text.
+  "Switch to Markdown" and "Apply conversion" are the only ways the stored form
+  changes, each behind its confirmation; Markdown is refused while a
+  fill-in-the-blank prompt holds a gap. Markdown gains GitHub's tables and
+  `~~strikethrough~~`, for the teacher and for the student, and no other GFM
+  syntax. Default, not yet confirmed by Thuong.
 
 **Changes since v0.61**
 
@@ -1143,10 +1158,22 @@ Snapshots, restoration, bank duplication and all relevant readers preserve these
 fields. Active attempts and learner previews never contain explanations; results
 release both explanation fields only when `review.showExplanations` permits it.
 Legacy writes omitting a rich field must leave its companion string unchanged;
-otherwise the update fails atomically. Explicit null clears a document. New
-rich authoring is opt-in via `VITE_RICH_QUESTION_EDITOR`; existing documents stay
-editable. Conversion from Markdown is explicit, validates the supported subset
-and refuses unsupported structures without changing the original.
+otherwise the update fails atomically. Explicit null clears a document. A
+field is written in the form it is stored in: a document in the rich editor, a
+Markdown string in the Markdown editor; a field with no text is rich text,
+except that the builder's and the group composer's starter prompt is stored as
+Markdown and opens as Markdown until T-R4.31b and T-R4.34 create it as rich
+text. The
+form changes only through "Switch to Markdown" (which keeps text, bold, italic,
+strikethrough, headings, lists, tables and links, and drops underline,
+superscript and subscript) and "Apply conversion", each after its confirmation.
+"Markdown" is unavailable while a fill-in-the-blank prompt holds a gap, because
+the gaps bind the accepted answers. Markdown, for the teacher and the student,
+reads GitHub's tables and `~~strikethrough~~` and no other GFM syntax.
+Conversion from Markdown is explicit, validates the supported subset
+and refuses unsupported structures (for example a table's column alignment,
+raw HTML, code, images, quotations and links that are not HTTPS) without
+changing the original.
 
 Formatted clipboard content follows the same principle: parse locally into the
 allowlisted semantic vocabulary, preview the complete resulting field, and apply

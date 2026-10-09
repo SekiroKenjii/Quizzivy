@@ -115,9 +115,10 @@ export function QuestionProseField({
               <ConversionPanel
                 convert={() => {
                   const document = markdownToQuestionContent(text);
-                  return document && { content: document };
+                  return document
+                    ? { content: document }
+                    : t("questionEditor.proseConversionBlocked");
                 }}
-                blocked={t("questionEditor.proseConversionBlocked")}
                 onKeep={cancel}
                 onApply={({ content: document }) => {
                   onChange(contentPlainText(document), document);

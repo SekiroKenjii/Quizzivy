@@ -187,7 +187,9 @@ jobs:
       postgres:
         # Pinned to 18: uuidv7() and virtual generated columns do not exist
         # before it, and internal/db/pg18_test.go asserts the major version.
-        image: postgres:18
+        # From Google's mirror of Docker Hub's official image: Docker Hub
+        # refuses anonymous pulls from a busy runner address (docs/setup/ci.md).
+        image: mirror.gcr.io/library/postgres:18
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_USER: postgres
@@ -342,6 +344,7 @@ jobs:
       - name: Build the Word converter image
         id: converter
         run: |
+          scripts/ci/mirror-images.sh debian:trixie-slim
           docker build --tag quizzivy-word-converter:ci docker/word-converter
           image="$(docker image inspect --format '{{.Id}}' quizzivy-word-converter:ci)"
           echo "image=$image" >> "$GITHUB_OUTPUT"
@@ -561,7 +564,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18
+        image: mirror.gcr.io/library/postgres:18  # see server-test
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_USER: postgres
