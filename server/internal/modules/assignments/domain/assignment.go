@@ -67,13 +67,16 @@ func (r Release) Valid() bool { return r == ReleaseOnSubmit || r == ReleaseAfter
 // MaxStudentNote is the longest note for students, in characters.
 const MaxStudentNote = 500
 
-// StudentNoteOf is the note as it is stored: trimmed, and none at all when
-// nothing is left.
+const noteWhitespace = "\u0009\u000A\u000B\u000C\u000D\u0020\u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF"
+
+// StudentNoteOf is the note as it is stored: trimmed of the whitespace
+// JavaScript's trim() removes, which is the set the answered rule and the
+// assignments_student_note_check use, and none at all when nothing is left.
 func StudentNoteOf(raw *string) *string {
 	if raw == nil {
 		return nil
 	}
-	note := strings.TrimSpace(*raw)
+	note := strings.Trim(*raw, noteWhitespace)
 	if note == "" {
 		return nil
 	}
