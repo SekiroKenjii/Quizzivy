@@ -1,6 +1,6 @@
 import { Avatar } from "@/components/ui/avatar";
 import { givenName } from "@/features/assignments/studentTime";
-import { useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,9 @@ import type { GradingQueueItem } from "../../api";
 import type { GradingDraft } from "./useGradingQueue";
 import { scoreOptions } from "./gradingRecovery";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
 
-/** GradingAnswerCard preserves the frozen answer and local comment while each chosen score saves immediately. */
+/** GradingAnswerCard preserves the frozen answer and local comment while each chosen score saves immediately; when a save settles with focus lost to the page, it puts focus back on the card's score. */
 export function GradingAnswerCard({
   item,
   draft,
@@ -46,6 +46,23 @@ export function GradingAnswerCard({
   const [number, setNumber] = useState(String(draft?.points ?? item.score ?? ""));
   const numeric = useRef<HTMLInputElement>(null);
   const [numericNext, setNumericNext] = useState(false);
+  const card = useRef<HTMLElement>(null);
+  const wasBusy = useRef(busy);
+  useEffect(() => {
+    const settled = wasBusy.current && !busy;
+    wasBusy.current = busy;
+    if (
+      !settled ||
+      (document.activeElement && document.activeElement !== document.body)
+    )
+      return;
+    const root = card.current;
+    const target =
+      root?.querySelector<HTMLElement>('[data-score][aria-pressed="true"]') ??
+      root?.querySelector<HTMLElement>("[data-score]") ??
+      root;
+    target?.focus();
+  }, [busy]);
   const validNumber =
     number.trim() !== "" &&
     Number.isFinite(Number(number)) &&
@@ -60,7 +77,9 @@ export function GradingAnswerCard({
   const snippets = item.points === 1 ? "short" : "essay";
   return (
     <section
-      className="bg-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-sm"
+      ref={card}
+      tabIndex={-1}
+      className="bg-card shadow-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border outline-none"
       aria-label={t("grading.answerCard")}
     >
       <div className="space-y-4.5 px-5 py-4.5">
@@ -75,7 +94,7 @@ export function GradingAnswerCard({
             </div>
           </div>
           <span className="text-muted-foreground text-[12.5px]">
-            <span className="mr-2 rounded-full border px-2.25 py-0.25">
+            <span className="mr-2 inline-block rounded-full border px-2.25 py-0.25">
               {t(`questionEditor.type.${item.type}`, { defaultValue: item.type })}
             </span>
             {t("grading.questionPoints", { n: item.questionNumber, max: item.points })}
@@ -145,8 +164,9 @@ export function GradingAnswerCard({
                   type="button"
                   variant={points === value ? "default" : "outline"}
                   aria-pressed={points === value}
-                  aria-label={t("grading.score", { points: value })}
-                  className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums"
+                  aria-label={t("grading.score", { count: value })}
+                  data-score={value}
+                  className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums in-data-[scale=deck]:text-[15px]"
                   onClick={() => onScore(value)}
                 >
                   {value}
@@ -240,13 +260,15 @@ export function GradingAnswerCard({
           </span>
         </span>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="ghost">
+          <Button asChild variant="ghost" size="icon">
             <Link
               to={`/teacher/attempts/${item.attemptId}`}
               aria-disabled={busy}
+              aria-label={t("grading.openReview")}
+              title={t("grading.openReview")}
               onClick={onReview}
             >
-              {t("grading.openReview")}
+              <FileText aria-hidden="true" />
             </Link>
           </Button>
           <Button
@@ -260,6 +282,7 @@ export function GradingAnswerCard({
           </Button>
           <Button
             size="md"
+            className="px-4"
             disabled={busy && !numericNext}
             onPointerDown={(event) => {
               if (

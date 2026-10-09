@@ -3,6 +3,7 @@ import { http } from "msw";
 import {
   scanGradingCandidates,
   gradingGroupKey,
+  mergeQueueOrder,
   scoreOptions,
 } from "@/features/attempts/pages/teacher/gradingRecovery";
 import type { AttemptListRow, GradingQueueItem } from "@/features/attempts/api";
@@ -137,4 +138,22 @@ it("groups by immutable IDs and keeps score zero with a numeric fallback above n
   expect(scoreOptions(1)).toEqual([0, 0.5, 1]);
   expect(scoreOptions(4)).toHaveLength(9);
   expect(scoreOptions(5)).toEqual([]);
+});
+
+it("offers nine keyed scores up to four points and a number field from four and a half", () => {
+  expect(scoreOptions(4)).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4]);
+  expect(scoreOptions(4.5)).toEqual([]);
+  expect(scoreOptions(0)).toEqual([0]);
+});
+
+it("keeps each answer where the queue first showed it as the server's list changes", () => {
+  expect(mergeQueueOrder([], ["a", "b", "c"])).toEqual(["a", "b", "c"]);
+  expect(mergeQueueOrder(["a", "b", "c"], ["b", "c"])).toEqual(["a", "b", "c"]);
+  expect(mergeQueueOrder(["a", "b", "c"], ["a", "x", "c"])).toEqual([
+    "a",
+    "x",
+    "b",
+    "c",
+  ]);
+  expect(mergeQueueOrder(["a", "b"], ["y", "b", "z"])).toEqual(["y", "a", "b", "z"]);
 });

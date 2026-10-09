@@ -60,6 +60,30 @@ export function gradingGroupKey(item: GradingQueueItem, mode: "student" | "quest
     : `${item.assignmentId}:${item.questionId}`;
 }
 
+/**
+ * mergeQueueOrder keeps every item where the queue first showed it and places
+ * each newly returned key right after the key the server returned before it,
+ * so a graded answer that leaves the server's pending list keeps its place.
+ */
+export function mergeQueueOrder(
+  order: readonly string[],
+  incoming: readonly string[],
+): string[] {
+  const result = [...order];
+  const placed = new Set(result);
+  let anchor = -1;
+  for (const key of incoming) {
+    if (placed.has(key)) {
+      anchor = result.indexOf(key);
+      continue;
+    }
+    result.splice(anchor + 1, 0, key);
+    placed.add(key);
+    anchor += 1;
+  }
+  return result;
+}
+
 /** scoreOptions returns half-point choices only when all choices fit the nine keyboard slots. */
 export function scoreOptions(max: number) {
   if (max > 4 || max < 0) return [];

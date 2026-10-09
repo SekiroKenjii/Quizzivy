@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, type MouseEvent } from "react";
+import { useEffect, useEffectEvent, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { GradingQueueAside } from "./GradingQueueAside";
 import { GradingAnswerCard } from "./GradingAnswerCard";
 import "@/features/attempts/gradingMessages";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 
 /** GradingPage presents pending work and explicit Finish recovery without changing independent regrading. */
 export default function GradingPage() {
@@ -91,10 +92,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       void navigate(to);
     });
   };
-  const root = useRef<HTMLElement>(null);
   const shortcuts = useEffectEvent((event: KeyboardEvent) => {
-    if (!(event.target instanceof Node) || !root.current?.contains(event.target))
-      return;
     if (
       model.busy ||
       model.candidate ||
@@ -109,7 +107,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
     if (
       event.target instanceof Element &&
       event.target.closest(
-        "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=textbox]",
+        "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=textbox], [role=dialog], [role=menu], [role=listbox]",
       )
     )
       return;
@@ -133,22 +131,23 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
   }, []);
   return (
     <section
-      ref={root}
       data-scale="deck"
       aria-label={t("grading.title")}
       className="flex min-w-0 flex-col gap-4"
     >
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl leading-[1.5] font-semibold tracking-tight">
             {t("grading.title")}
           </h1>
-          {model.queue.data && (
-            <p className="text-muted-foreground mt-0.5 text-sm">
-              {t("grading.remaining", {
-                answers: model.queue.data.answersRemaining,
-                students: model.queue.data.studentsWaiting,
-              })}
+          {(model.queue.data || params.assignmentId || params.studentId) && (
+            <p className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px]">
+              {model.queue.data &&
+                t("grading.remaining", {
+                  answers: model.queue.data.answersRemaining,
+                  students: model.queue.data.studentsWaiting,
+                })}
+              <FilterChips model={model} params={params} onChange={change} />
             </p>
           )}
         </div>
@@ -177,7 +176,6 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
           ))}
         </div>
       </header>
-      <Filters model={model} params={params} onChange={change} />
       {model.error && (
         <Alert variant="danger">
           <AlertDescription>{model.error}</AlertDescription>
@@ -289,7 +287,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
   );
 }
 
-function Filters({
+function FilterChips({
   model,
   params,
   onChange,
@@ -299,55 +297,38 @@ function Filters({
   onChange: (key: string, value: string) => void;
 }>) {
   const { t } = useTranslation();
-  const assignments = new Map(
-    model.items.map((item) => [item.assignmentId, item.assignmentTitle]),
-  );
-  const students = new Map(
-    model.items.map((item) => [item.studentId, item.studentName]),
-  );
-  for (const row of model.recovery.data ?? []) {
-    assignments.set(row.assignmentId, row.testTitle);
-    students.set(row.studentId, row.studentName);
-  }
-  if (params.assignmentId && !assignments.has(params.assignmentId))
-    assignments.set(params.assignmentId, t("grading.appliedAssignment"));
-  if (params.studentId && !students.has(params.studentId))
-    students.set(params.studentId, t("grading.appliedStudent"));
-  return (
-    <div className="flex flex-wrap gap-3">
-      {[
-        {
-          key: "assignment",
-          value: params.assignmentId ?? "",
-          options: assignments,
-          label: "grading.assignment",
-        },
-        {
-          key: "student",
-          value: params.studentId ?? "",
-          options: students,
-          label: "grading.student",
-        },
-      ].map((filter) => (
-        <label key={filter.key} className="flex flex-col gap-1 text-xs">
-          <span>{t(filter.label)}</span>
-          <select
-            className="bg-card h-9 max-w-full rounded-lg border px-2 text-sm"
-            disabled={model.busy}
-            value={filter.value}
-            onChange={(event) => onChange(filter.key, event.target.value)}
-          >
-            <option value="">{t("grading.all")}</option>
-            {[...filter.options].map(([id, label]) => (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-      ))}
-    </div>
-  );
+  const assignmentName = () =>
+    model.items.find((item) => item.assignmentId === params.assignmentId)
+      ?.assignmentTitle ??
+    model.recovery.data?.find((row) => row.assignmentId === params.assignmentId)
+      ?.testTitle ??
+    t("grading.appliedAssignment");
+  const studentName = () =>
+    model.items.find((item) => item.studentId === params.studentId)?.studentName ??
+    model.recovery.data?.find((row) => row.studentId === params.studentId)
+      ?.studentName ??
+    t("grading.appliedStudent");
+  const chips = [
+    ...(params.assignmentId ? [{ key: "assignment", name: assignmentName() }] : []),
+    ...(params.studentId ? [{ key: "student", name: studentName() }] : []),
+  ];
+  return chips.map((chip) => (
+    <span
+      key={chip.key}
+      className="bg-muted text-fg inline-flex h-6 max-w-full items-center gap-1 rounded-full pr-0.5 pl-2.5 text-xs font-medium"
+    >
+      <span className="truncate">{chip.name}</span>
+      <button
+        type="button"
+        disabled={model.busy}
+        aria-label={t("grading.removeFilter", { name: chip.name })}
+        className="text-muted-fg hover:bg-hover hover:text-fg grid size-5 shrink-0 place-items-center rounded-full disabled:opacity-50"
+        onClick={() => onChange(chip.key, "")}
+      >
+        <X aria-hidden="true" className="size-3" />
+      </button>
+    </span>
+  ));
 }
 
 function Recovery({

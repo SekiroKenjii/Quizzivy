@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { beforeEach, expect, it } from "vitest";
 import {
   act,
@@ -62,10 +62,12 @@ function mount(entry = "/teacher/grading", sibling?: ReactNode) {
     { initialEntries: [entry] },
   );
   render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-      {sibling}
-    </QueryClientProvider>,
+    <StrictMode>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+        {sibling}
+      </QueryClientProvider>
+    </StrictMode>,
   );
   return { user: userEvent.setup(), router, client };
 }
@@ -671,9 +673,7 @@ it("repeated student names remain distinct while one student's assignments stay 
   ).toBeInTheDocument();
   await user.click(secondGroup);
   expect(await screen.findByText("Same name different student")).toBeInTheDocument();
-  expect(
-    screen.getByText("Câu trả lời 1/1 của Minh trong cửa sổ này"),
-  ).toBeInTheDocument();
+  expect(screen.getByText("Câu trả lời 1/1 của Minh")).toBeInTheDocument();
 });
 
 function Summary() {
@@ -893,6 +893,7 @@ it("current zero presents explicit Finish intent before the Finish request", asy
 
 it("material Retry renews the current queue URL without losing an ungraded comment or issuing Grade", async () => {
   let reads = 0;
+  let renewed = false;
   const asset = previewGroup.assets[0]!;
   server.use(
     http.get(`${BASE}/teacher/grading/queue`, () => {
@@ -925,10 +926,9 @@ it("material Retry renews the current queue URL without losing an ungraded comme
                       ...asset,
                       kind: "image",
                       mimeType: "image/png",
-                      url:
-                        reads === 1
-                          ? "https://assets.example/expired.png"
-                          : "https://assets.example/renewed.png",
+                      url: renewed
+                        ? "https://assets.example/renewed.png"
+                        : "https://assets.example/expired.png",
                     },
                   ],
                 },
@@ -955,8 +955,10 @@ it("material Retry renews the current queue URL without losing an ungraded comme
   expect(image).toHaveAttribute("src", "https://assets.example/expired.png");
   await user.type(screen.getByLabelText(/^Nhận xét/), "Keep ungraded comment");
   fireEvent.error(image);
+  const before = reads;
+  renewed = true;
   await user.click(screen.getByRole("button", { name: "Thử lại" }));
-  await waitFor(() => expect(reads).toBe(2));
+  await waitFor(() => expect(reads).toBe(before + 1));
   await waitFor(() =>
     expect(screen.getByRole("img", { name: "Frozen material" })).toHaveAttribute(
       "src",

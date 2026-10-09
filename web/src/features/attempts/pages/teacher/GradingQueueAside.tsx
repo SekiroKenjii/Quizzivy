@@ -4,7 +4,7 @@ import type { GradingQueue, GradingQueueItem } from "../../api";
 import { gradingGroupKey, gradingItemKey } from "./gradingRecovery";
 import { cn } from "@/lib/utils";
 
-/** GradingQueueAside uses canonical groups and complete remaining counts with session-only saved rows. */
+/** GradingQueueAside lists the groups in the order the queue first showed their answers, with the server's complete remaining counts and "Done" for a group graded in this session. */
 export function GradingQueueAside({
   queue,
   items,
@@ -21,20 +21,24 @@ export function GradingQueueAside({
   onSelect: (item: GradingQueueItem) => void;
 }>) {
   const { t } = useTranslation();
-  const groups = new Map((queue?.groups ?? []).map((group) => [group.key, group]));
+  const known = new Map((queue?.groups ?? []).map((group) => [group.key, group]));
+  const groups = new Map<string, NonNullable<typeof queue>["groups"][number]>();
   for (const item of items) {
     const key = gradingGroupKey(item, mode);
     if (!groups.has(key))
-      groups.set(key, {
+      groups.set(
         key,
-        kind: mode,
-        label: mode === "student" ? item.studentName : String(item.questionNumber),
-        sub: item.assignmentTitle,
-        remaining: 0,
-      });
+        known.get(key) ?? {
+          key,
+          kind: mode,
+          label: mode === "student" ? item.studentName : String(item.questionNumber),
+          sub: item.assignmentTitle,
+          remaining: 0,
+        },
+      );
   }
   return (
-    <aside className="bg-card w-full min-w-0 overflow-hidden rounded-xl border shadow-sm min-[768px]:max-w-75 min-[768px]:flex-[1_1_260px]">
+    <aside className="bg-card shadow-card w-full min-w-0 overflow-hidden rounded-xl border min-[768px]:max-w-75 min-[768px]:flex-[1_1_260px]">
       <h2 className="text-muted-foreground border-b px-3.5 py-3 text-[12.5px] leading-[1.5] font-medium">
         {t(mode === "student" ? "grading.studentsWaiting" : "grading.questionsWaiting")}
       </h2>
@@ -67,7 +71,7 @@ export function GradingQueueAside({
                 remaining:
                   group.remaining > 0
                     ? t("grading.left", { count: group.remaining })
-                    : t("grading.savedSession"),
+                    : t("grading.done"),
               })}
               aria-current={active ? "true" : undefined}
               className={cn(
@@ -80,7 +84,7 @@ export function GradingQueueAside({
               ) : (
                 <span
                   aria-hidden="true"
-                  className="bg-muted grid size-7.5 shrink-0 place-items-center rounded-lg text-[11px] font-semibold"
+                  className="bg-muted grid size-7.5 shrink-0 place-items-center rounded-[8px] text-[11px] font-semibold"
                 >
                   {t("grading.questionTile", { n: group.label })}
                 </span>
@@ -101,7 +105,7 @@ export function GradingQueueAside({
               >
                 {group.remaining > 0
                   ? t("grading.left", { count: group.remaining })
-                  : t("grading.savedSession")}
+                  : t("grading.done")}
               </span>
             </button>
           );

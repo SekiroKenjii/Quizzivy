@@ -17,8 +17,8 @@ import {
 } from "../../api";
 import { gradingKey, monitorKey, reviewKey } from "../../keys";
 import {
-  gradingGroupKey,
   gradingItemKey,
+  mergeQueueOrder,
   scanGradingCandidates,
   scoreOptions,
 } from "./gradingRecovery";
@@ -42,7 +42,7 @@ export function useGradingQueue(params: GradingQueueParams) {
   const { t } = useTranslation();
   const client = useQueryClient();
   const [actor] = useState(authStore.captureActor);
-  const [controller] = useState(() => new AbortController());
+  const controller = useRef<AbortController | null>(null);
   const lock = useRef(false);
   const scoreSave = useRef<{
     key: string;
@@ -60,21 +60,37 @@ export function useGradingQueue(params: GradingQueueParams) {
   const mode = params.mode ?? "student";
   const assignment = params.assignmentId ?? "";
   const student = params.studentId ?? "";
+  const signal = () => controller.current?.signal ?? AbortSignal.abort();
   const current = () => {
     const user = useAuthStore.getState().user;
     return (
-      !controller.signal.aborted &&
+      controller.current !== null &&
+      !controller.current.signal.aborted &&
       authStore.isCurrent(actor) &&
       can(user, "teaching.grading") &&
       hasWorkspace(user, "teacher")
     );
   };
-  useEffect(() => () => controller.abort(), [controller]);
+  useEffect(() => {
+    const live = new AbortController();
+    controller.current = live;
+    return () => live.abort();
+  }, []);
   const queue = useQuery({
     queryKey: gradingKey(actor.generation, mode, assignment, student),
     queryFn: ({ signal }) => listGradingQueue(params, signal),
     retry: false,
+    refetchOnWindowFocus: true,
   });
+  const [order, setOrder] = useState<{
+    data: typeof queue.data;
+    keys: readonly string[];
+  }>({ data: undefined, keys: [] });
+  if (queue.data !== order.data)
+    setOrder({
+      data: queue.data,
+      keys: mergeQueueOrder(order.keys, (queue.data?.items ?? []).map(gradingItemKey)),
+    });
   const recovery = useQuery({
     queryKey: ["teacher-grading-recovery", actor.generation, assignment, student],
     queryFn: ({ signal }) => scanGradingCandidates(signal, assignment, student),
@@ -87,23 +103,19 @@ export function useGradingQueue(params: GradingQueueParams) {
     retry: false,
   });
   const items = useMemo(() => {
-    const seen = new Map<string, GradingQueueItem>();
-    for (const item of queue.data?.items ?? []) {
-      if (!completed.has(item.attemptId)) seen.set(gradingItemKey(item), item);
-    }
+    const shown = new Map<string, GradingQueueItem>();
+    for (const item of queue.data?.items ?? [])
+      if (!completed.has(item.attemptId)) shown.set(gradingItemKey(item), item);
     for (const draft of Object.values(drafts)) {
-      if (!completed.has(draft.item.attemptId) && !seen.has(gradingItemKey(draft.item)))
-        seen.set(gradingItemKey(draft.item), draft.item);
+      const key = gradingItemKey(draft.item);
+      if (!completed.has(draft.item.attemptId) && !shown.has(key))
+        shown.set(key, draft.item);
     }
-    const groups = new Map(
-      (queue.data?.groups ?? []).map((group, index) => [group.key, index]),
-    );
-    return [...seen.values()].sort(
-      (a, b) =>
-        (groups.get(gradingGroupKey(a, mode)) ?? Number.MAX_SAFE_INTEGER) -
-        (groups.get(gradingGroupKey(b, mode)) ?? Number.MAX_SAFE_INTEGER),
-    );
-  }, [queue.data, drafts, completed, mode]);
+    return order.keys.flatMap((key) => {
+      const item = shown.get(key);
+      return item ? [item] : [];
+    });
+  }, [queue.data, drafts, completed, order.keys]);
   const selected = items.find((item) => gradingItemKey(item) === picked) ?? items[0];
   const draft = selected ? drafts[gradingItemKey(selected)] : undefined;
   const notify = (cause: unknown) => failureMessage(cause, t("grading.saveFailed"));
@@ -152,7 +164,7 @@ export function useGradingQueue(params: GradingQueueParams) {
           comment: next.comment.trim() || null,
         },
       ],
-      controller.signal,
+      signal(),
     );
     if (!current()) return null;
     setDrafts((previous) => ({
@@ -246,7 +258,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     if (next) void select(next);
   };
   const finish = async (item: FinishState["item"]) => {
-    await finishGrading(item.attemptId, controller.signal);
+    await finishGrading(item.attemptId, signal());
     if (!current()) return;
     setCompleted((previous) => new Set([...previous, item.attemptId]));
     setFinishes((previous) => {
@@ -269,7 +281,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     pending: number | undefined,
   ) => {
     if (pending !== undefined) return pending;
-    const review = await getAttemptForReview(item.attemptId, controller.signal);
+    const review = await getAttemptForReview(item.attemptId, signal());
     if (
       !current() ||
       review.attempt.id !== item.attemptId ||
@@ -392,7 +404,7 @@ export function useGradingQueue(params: GradingQueueParams) {
       studentId: candidate.studentId,
     };
     try {
-      const fresh = await getAttemptForReview(item.attemptId, controller.signal);
+      const fresh = await getAttemptForReview(item.attemptId, signal());
       if (!current()) return;
       if (
         fresh.attempt.id !== item.attemptId ||
