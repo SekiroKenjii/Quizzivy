@@ -23,6 +23,7 @@ export function RichProseEditor({
   content,
   id,
   label,
+  describedBy,
   minHeight,
   fontSize,
   leaving,
@@ -34,6 +35,7 @@ export function RichProseEditor({
   content: QuestionPromptContent | null;
   id: string;
   label: string;
+  describedBy?: string | undefined;
   minHeight: number;
   fontSize: number;
   leaving: boolean;
@@ -51,6 +53,7 @@ export function RichProseEditor({
       initialContent={initial}
       id={id}
       label={label}
+      describedBy={describedBy}
       profile="question"
       minHeight={minHeight}
       fontSize={fontSize}
