@@ -25,10 +25,12 @@ primary_region = "sin"
 [env]
   APP_ENV = "production"
   API_PORT = "8080"
-  # Cloudflare proxies api.quizzivy.com, and CF-Connecting-IP is the one header
-  # it OVERWRITES. Never X-Forwarded-For: proxies append to it, so a client
-  # could prepend a value and pick its own rate-limit bucket (§6.5).
-  CLIENT_IP_HEADER = "CF-Connecting-IP"
+  # api.quizzivy.com is DNS only (grey), so Fly's edge is what sits in front of
+  # the app, and Fly-Client-IP is the header it OVERWRITES. CF-Connecting-IP
+  # would be whatever the client sent. Never X-Forwarded-For: proxies append to
+  # it, so a client could prepend a value and pick its own rate-limit bucket
+  # (§6.5). docs/setup/dns.md has the table.
+  CLIENT_IP_HEADER = "Fly-Client-IP"
   CORS_ALLOWED_ORIGINS = "https://app.quizzivy.com"
 
   # Where Google returns the browser (§5.3). Matched EXACTLY at exchange time;
