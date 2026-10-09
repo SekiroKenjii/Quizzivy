@@ -7,6 +7,7 @@ import type {
 } from "../model";
 import { validateContent, safeContentURL } from "../validation";
 import { contentStringLength } from "../unicode";
+import { contentPlainText } from "../plainText";
 import { clipboardStyles } from "./clipboardStyles";
 import { CLIPBOARD_HTML_LIMIT } from "./clipboardLimits";
 
@@ -79,9 +80,16 @@ const MARKS: Partial<Record<string, ContentMark>> = {
   sup: "superscript",
 };
 const EMPTY: ContentBlock = { type: "paragraph", content: [] };
+const MEDIA = new Set(["img", "picture", "svg", "video", "canvas"]);
 
-/** clipboardHTML converts inert, bounded HTML into supported prose; null means no partial result may be inserted. */
-export function clipboardHTML(html: string): SemanticContent | null {
+/** ClipboardConversion is a converted paste and the number of images left out of it; a null content holds nothing but images. */
+export type ClipboardConversion = {
+  content: SemanticContent | null;
+  imagesLeftOut: number;
+};
+
+/** clipboardHTML converts inert, bounded HTML into supported prose, leaving images out unloaded and counted; null means no partial result may be inserted. */
+export function clipboardHTML(html: string): ClipboardConversion | null {
   if (
     html.length > CLIPBOARD_HTML_LIMIT ||
     contentStringLength(html) > CLIPBOARD_HTML_LIMIT ||
@@ -95,16 +103,20 @@ export function clipboardHTML(html: string): SemanticContent | null {
         if (error.code !== "missing-doctype") throw new Error("html");
       },
     });
-    inspect(document, html);
+    const imagesLeftOut = inspect(document, html);
     const root = document.childNodes.find(isElement);
     const body = root?.childNodes.find(
       (node) => isElement(node) && node.tagName === "body",
     );
     if (!root || !body || !isElement(body)) return null;
     const blocks = readBlocks(body.childNodes, marksFor(body, marksFor(root, [])));
-    if (!blocks.length) return null;
+    if (!blocks.length) return imagesLeftOut ? { content: null, imagesLeftOut } : null;
     const result = validateContent({ format: "semantic_v1", blocks });
-    return result.ok && result.value.format === "semantic_v1" ? result.value : null;
+    if (!result.ok || result.value.format !== "semantic_v1") return null;
+    const empty =
+      !contentPlainText(result.value).trim() &&
+      result.value.blocks.every((block) => block.type !== "table");
+    return { content: imagesLeftOut && empty ? null : result.value, imagesLeftOut };
   } catch {
     return null;
   }
@@ -114,26 +126,45 @@ function isElement(node: Tree.Node): node is Tree.Element {
   return "tagName" in node;
 }
 
-function inspect(document: Tree.Document, html: string) {
+function inspect(document: Tree.Document, html: string): number {
   const coverage = new Uint8Array(html.length);
   const pending = [{ node: document as Tree.Node, depth: 0 }];
   let nodes = 0;
+  let images = 0;
   while (pending.length) {
     const { node, depth } = pending.pop()!;
     if (++nodes > 6144 || depth > 48) throw new Error("budget");
-    if (
-      node.nodeName === "#comment" &&
-      "data" in node &&
-      /\[if|\[endif/i.test(node.data)
-    )
-      throw new Error("conditional");
+    refuseConditional(node);
+    if (isElement(node) && MEDIA.has(node.tagName)) {
+      leaveOut(node, coverage);
+      images++;
+      continue;
+    }
     coverNode(node, coverage);
     if ("childNodes" in node)
       for (const child of node.childNodes)
         pending.push({ node: child, depth: depth + 1 });
   }
+  refuseUncovered(coverage, html);
+  return images;
+}
+
+function refuseConditional(node: Tree.Node) {
+  if (node.nodeName === "#comment" && "data" in node && /\[if|\[endif/i.test(node.data))
+    throw new Error("conditional");
+}
+
+function refuseUncovered(coverage: Uint8Array, html: string) {
   for (let i = 0; i < html.length; i++)
     if (!coverage[i] && !/\s/.test(html[i]!)) throw new Error("discarded");
+}
+
+function leaveOut(node: Tree.Element, coverage: Uint8Array) {
+  const location = node.sourceCodeLocation;
+  if (location) coverage.fill(1, location.startOffset, location.endOffset);
+  const siblings = node.parentNode?.childNodes;
+  const index = siblings?.indexOf(node) ?? -1;
+  if (index >= 0) siblings!.splice(index, 1);
 }
 
 function coverNode(node: Tree.Node, coverage: Uint8Array) {
