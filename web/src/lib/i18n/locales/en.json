@@ -2962,5 +2962,25 @@
       "discardLeave": "Discard and continue",
       "stay": "Stay"
     }
+  },
+  "markdownEditor": {
+    "bold": "Bold · **text**",
+    "italic": "Italic · *text*",
+    "strike": "Strikethrough · ~~text~~",
+    "heading": "Heading · ### ",
+    "bulletList": "Bulleted list · - ",
+    "orderedList": "Numbered list · 1. ",
+    "link": "Link · [text](https://…)",
+    "insertTable": "Insert table",
+    "boldText": "bold text",
+    "italicText": "italic text",
+    "strikeText": "text",
+    "linkText": "link text",
+    "column": "Column {{n}}",
+    "views": "{{label}} Markdown view",
+    "write": "Write",
+    "preview": "Preview",
+    "previewEmpty": "Nothing to preview yet.",
+    "footerHint": "Markdown · **bold**, *italic*, ### heading, - list, [link](https://…)"
   }
 }

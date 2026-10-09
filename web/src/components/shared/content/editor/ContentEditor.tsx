@@ -13,6 +13,7 @@ import { PastePreview } from "./PastePreview";
 import { NoticeBand } from "./NoticeBand";
 import { EditorFooter, EditorPlaceholder } from "./EditorFooter";
 import { editorShortcut } from "./shortcuts";
+import { EDITOR_BOX as BOX, frameStyle } from "./frame";
 import "../content.css";
 
 type Frame = { minHeight?: number; fontSize?: number; footer: boolean };
@@ -40,16 +41,6 @@ export type ContentEditorProps = {
   fileNotice?: string | undefined;
   readOnly?: boolean | undefined;
 };
-
-function frameStyle(minHeight?: number, fontSize?: number): CSSProperties {
-  return {
-    ...(minHeight ? { "--content-editor-min-height": `${minHeight}px` } : {}),
-    ...(fontSize ? { "--content-editor-font-size": `${fontSize}px` } : {}),
-  } as CSSProperties;
-}
-
-const BOX =
-  "content-editor bg-card shadow-card relative min-w-0 rounded-[10px] border transition-[border-color,box-shadow] duration-150 motion-reduce:transition-none";
 
 function ActiveEditor({
   initialContent,

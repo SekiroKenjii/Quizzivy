@@ -91,7 +91,8 @@
   outline-offset: 3px;
 }
 
-.content-editor:has(.ProseMirror-focused) {
+.content-editor:has(.ProseMirror-focused),
+.content-editor:has(.content-markdown:focus) {
   border-color: var(--ring);
   box-shadow: 0 0 0 3px var(--hover);
 }
