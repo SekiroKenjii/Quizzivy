@@ -1702,7 +1702,11 @@ components:
         lastAttemptId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
         lastSubmittedAt: { type: [string, 'null'], format: date-time }
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
-        review: { $ref: '#/components/schemas/ReviewPolicy' }
+        review:
+          $ref: '#/components/schemas/ReviewPolicy'
+          description: |
+            On the intro's detail these are the stored flags, and `release` says
+            when they apply; they become effective only on the student's result.
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
         studentNote:
           type: [string, 'null']
