@@ -19,7 +19,9 @@ import (
 
 // Rotate revokes the active code of a class the actor teaches and issues a
 // replacement in one transaction, so a class is never left with two active
-// codes or none. Another teacher's class answers ErrClassNotFound.
+// codes or none. Another teacher's class answers ErrClassNotFound. The class
+// row is locked for no key update, so a redemption that holds the code row
+// finishes while Rotate waits for that row, and the two never deadlock.
 func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.IssuedCode, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -28,7 +30,7 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 	defer func() { _ = tx.Rollback(ctx) }()
 	var exists bool
 	err = tx.QueryRow(ctx,
-		`SELECT true FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR UPDATE`,
+		`SELECT true FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR NO KEY UPDATE`,
 		in.ClassID, in.All, opt.String(in.ActorUserID)).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.IssuedCode{}, domain.ErrClassNotFound
@@ -97,7 +99,7 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 
 // Revoke ends the active code of a class the actor teaches without issuing a
 // replacement, and turns off self-join (§6.4). Another teacher's class answers
-// ErrClassNotFound.
+// ErrClassNotFound. The class row is locked for no key update, as Rotate's is.
 func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -107,7 +109,7 @@ func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
 
 	var exists bool
 	err = tx.QueryRow(ctx,
-		`SELECT true FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR UPDATE`,
+		`SELECT true FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR NO KEY UPDATE`,
 		in.ClassID, in.All, opt.String(in.ActorUserID)).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrClassNotFound
@@ -205,13 +207,16 @@ func (s *Postgres) LegacyCodeClasses(ctx context.Context, now time.Time) ([]doma
 
 // RotateLegacyCode replaces a class's legacy join code with the sealed one in
 // a single transaction, audited as the System, and reports whether it did. The
-// transaction takes advisory lock 41, then the class row, as Rotate does, and
-// only then reads the class's active code again, for update: a code that is
-// revoked, sealed or expired at in.Now by then is left alone, nothing is
-// written and the answer is false. The new code keeps the old one's expiry,
-// use cap and creator and starts unused; the class's self-join switch is not
-// written. A transaction aborted as a deadlock or serialization victim answers
-// domain.ErrRotationContended.
+// transaction takes advisory lock 41, then the class row, and only then reads
+// the class's active code again, for update: a code that is revoked, sealed or
+// expired at in.Now by then is left alone, nothing is written and the answer
+// is false. The class row is locked for no key update, so it excludes Rotate,
+// Revoke and every write to the class but not the key-share lock a member
+// insert takes: a redemption that holds the code row finishes while the
+// rotation waits for that row, and the two never wait for each other. The new
+// code keeps the old one's expiry, use cap and creator and starts unused; the
+// class's self-join switch is not written. A transaction aborted as a deadlock
+// or serialization victim answers domain.ErrRotationContended.
 func (s *Postgres) RotateLegacyCode(ctx context.Context, in domain.LegacyRotationInput) (bool, error) {
 	wrote := false
 	err := s.InTx(ctx, "rotate legacy join code", func(tx pgx.Tx) error {
@@ -246,7 +251,7 @@ func lockLegacyCode(ctx context.Context, tx pgx.Tx, in domain.LegacyRotationInpu
 		return nil, fmt.Errorf("lock the legacy rotation: %w", err)
 	}
 	var exists bool
-	err := tx.QueryRow(ctx, `SELECT true FROM app.classes WHERE id = $1 FOR UPDATE`, in.ClassID).Scan(&exists)
+	err := tx.QueryRow(ctx, `SELECT true FROM app.classes WHERE id = $1 FOR NO KEY UPDATE`, in.ClassID).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
