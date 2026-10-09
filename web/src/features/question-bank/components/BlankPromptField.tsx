@@ -107,13 +107,16 @@ export function BlankPromptField({
               <ConversionPanel
                 convert={() => {
                   const document = markdownToQuestionContent(value.prompt);
-                  return document && bindLegacyBlanks(document, value.blanks);
+                  const bound = document && bindLegacyBlanks(document, value.blanks);
+                  return (
+                    bound ??
+                    t(
+                      document
+                        ? "questionEditor.blankConversionBlocked"
+                        : "questionEditor.proseConversionBlocked",
+                    )
+                  );
                 }}
-                blocked={t(
-                  markdownToQuestionContent(value.prompt)
-                    ? "questionEditor.blankConversionBlocked"
-                    : "questionEditor.proseConversionBlocked",
-                )}
                 onKeep={cancel}
                 onApply={(conversion) => {
                   onChange({

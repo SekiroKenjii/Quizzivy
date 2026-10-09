@@ -351,6 +351,54 @@ describe("a fill-in-the-blank prompt", () => {
     });
   });
 
+  test("editing in either mode never changes whether content is stored, nor the answers' bindings", async () => {
+    const user = userEvent.setup();
+    const answer = {
+      id: null,
+      gapId: null,
+      ordinal: 1,
+      acceptedAnswers: ["a"],
+      caseSensitive: false,
+    };
+    const changes: QuestionValues[] = [];
+    const { unmount } = render(
+      <Blank
+        initial={blankQuestion({
+          prompt: "Điền {{1}}",
+          promptContent: null,
+          blanks: [answer],
+        })}
+        changes={changes}
+      />,
+    );
+    await user.type(screen.getByRole("textbox", { name: "Nội dung câu hỏi" }), " vào");
+    await user.click(screen.getByRole("button", { name: "In đậm" }));
+    expect(changes.length).toBeGreaterThan(1);
+    for (const change of changes) {
+      expect(change.promptContent).toBeNull();
+      expect(change.blanks).toEqual([answer]);
+    }
+    unmount();
+    changes.length = 0;
+    render(
+      <Blank
+        initial={blankQuestion({
+          prompt: "Điền ",
+          promptContent: GAPPED,
+          blanks: [{ ...answer, gapId: "gap-1" }],
+        })}
+        changes={changes}
+      />,
+    );
+    await screen.findByRole("textbox", { name: "Nội dung câu hỏi" });
+    await user.click(screen.getByRole("button", { name: "Thêm bảng" }));
+    expect(changes.length).toBeGreaterThan(0);
+    for (const change of changes) {
+      expect(change.promptContent).not.toBeNull();
+      expect(change.blanks).toEqual([{ ...answer, gapId: "gap-1" }]);
+    }
+  });
+
   test("keeps its {{n}} placeholders, previews them as slots and binds them on conversion", async () => {
     const user = userEvent.setup();
     const changes: QuestionValues[] = [];

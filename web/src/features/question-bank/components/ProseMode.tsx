@@ -129,22 +129,22 @@ export type Conversion = { content: QuestionPromptContent };
 
 /**
  * ConversionPanel shows a Markdown field converted to rich content in place
- * of its body, with "Keep Markdown" and "Apply conversion". A text the
- * converter refuses shows `blocked` and offers "Keep Markdown" only.
+ * of its body, with "Keep Markdown" and "Apply conversion". `convert` runs
+ * once, when the panel opens, and returns the conversion or the sentence that
+ * says why the converter refused it; a refusal offers "Keep Markdown" only.
  */
 export function ConversionPanel<T extends Conversion>({
   convert,
-  blocked,
   onKeep,
   onApply,
 }: Readonly<{
-  convert: () => T | null;
-  blocked: string;
+  convert: () => T | string;
   onKeep: () => void;
   onApply: (conversion: T) => void;
 }>) {
   const { t } = useTranslation();
-  const [conversion] = useState(convert);
+  const [result] = useState(convert);
+  const conversion = typeof result === "string" ? null : result;
   const keep = useRef<HTMLButtonElement>(null);
   useEffect(() => keep.current?.focus(), []);
   let body: ReactNode = (
@@ -152,7 +152,7 @@ export function ConversionPanel<T extends Conversion>({
       role="alert"
       className="bg-warning-soft text-fg rounded-[8px] px-3 py-2.5 text-[13px] leading-normal"
     >
-      {blocked}
+      {result as string}
     </div>
   );
   if (conversion)
