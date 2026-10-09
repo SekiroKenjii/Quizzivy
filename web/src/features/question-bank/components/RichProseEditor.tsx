@@ -1,131 +1,67 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { ContentView } from "@/components/shared/content/ContentView";
+import { useEffect, useState } from "react";
 import { ContentEditor } from "@/components/shared/content/editor/ContentEditor";
-import {
-  markdownToQuestionContent,
-  plainTextMarkdown,
-} from "@/components/shared/content/editor/markdown";
 import { contentPlainText } from "@/components/shared/content/plainText";
 import {
   isQuestionContent,
-  type QuestionPromptContent,
   type QuestionContent,
+  type QuestionPromptContent,
 } from "@/components/shared/content/questionContent";
+import { SwitchToMarkdown } from "./ProseMode";
 
-/** RichProseEditor previews a bounded Markdown conversion before applying it to the existing save coordinator. */
+const EMPTY: QuestionContent = {
+  format: "semantic_v1",
+  blocks: [{ type: "paragraph", content: [] }],
+};
+
+/**
+ * RichProseEditor is a prompt's or an explanation's rich body, always live.
+ * It starts from the stored content, or from an empty paragraph when the
+ * field has none, and reports each valid document with its plain text.
+ * While `leaving` it asks "Switch to Markdown" under its toolbar.
+ */
 export function RichProseEditor({
-  text,
   content,
   id,
   label,
+  minHeight,
+  fontSize,
+  leaving,
+  focusOnMount = false,
+  onCancelLeave,
+  onConfirmLeave,
   onChange,
-  onClose,
 }: Readonly<{
-  text: string;
   content: QuestionPromptContent | null;
   id: string;
   label: string;
-  onChange: (text: string, content: QuestionContent | null) => void;
-  onClose: () => void;
+  minHeight: number;
+  fontSize: number;
+  leaving: boolean;
+  focusOnMount?: boolean;
+  onCancelLeave: () => void;
+  onConfirmLeave: () => void;
+  onChange: (text: string, content: QuestionContent) => void;
 }>) {
-  const { t } = useTranslation();
-  const [initial] = useState(() => {
-    if (content == null) return markdownToQuestionContent(text);
-    return isQuestionContent(content) ? content : null;
-  });
-  const [previewing, setPreviewing] = useState(content == null);
-  const [removing, setRemoving] = useState(false);
-  if (!initial)
-    return (
-      <div className="flex flex-col gap-3">
-        <Alert>
-          <AlertDescription>
-            {t("questionEditor.proseConversionBlocked")}
-          </AlertDescription>
-        </Alert>
-        <Button type="button" variant="outline" onClick={onClose}>
-          {t("questionEditor.keepMarkdown")}
-        </Button>
-      </div>
-    );
-  if (previewing)
-    return (
-      <div className="flex flex-col gap-3">
-        <Alert>
-          <AlertDescription>
-            {t("questionEditor.proseConversionPreview")}
-          </AlertDescription>
-        </Alert>
-        <ContentView document={initial} className="rounded-md border p-4" />
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            {t("questionEditor.keepMarkdown")}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              onChange(contentPlainText(initial), initial);
-              setPreviewing(false);
-            }}
-          >
-            {t("questionEditor.applyProseConversion")}
-          </Button>
-        </div>
-      </div>
-    );
+  const [initial] = useState(() => content ?? EMPTY);
+  useEffect(() => {
+    if (focusOnMount) document.getElementById(id)?.focus();
+  }, [focusOnMount, id]);
   return (
-    <div className="flex flex-col gap-3">
-      <ContentEditor
-        initialContent={initial}
-        id={id}
-        label={label}
-        profile="question"
-        onChange={(document) => {
-          if (isQuestionContent(document))
-            onChange(contentPlainText(document), document);
-        }}
-      />
-      {removing && (
-        <Alert>
-          <AlertDescription className="flex flex-col gap-3">
-            <p>{t("questionEditor.removeProseWarning")}</p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setRemoving(false)}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  onChange(plainTextMarkdown(text), null);
-                  onClose();
-                }}
-              >
-                {t("questionEditor.confirmRemoveProse")}
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setRemoving(true)}
-        >
-          {t("questionEditor.returnToMarkdown")}
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={onClose}>
-          {t("questionEditor.doneFormatting")}
-        </Button>
-      </div>
-    </div>
+    <ContentEditor
+      initialContent={initial}
+      id={id}
+      label={label}
+      profile="question"
+      minHeight={minHeight}
+      fontSize={fontSize}
+      tools={() =>
+        leaving && (
+          <SwitchToMarkdown onCancel={onCancelLeave} onConfirm={onConfirmLeave} />
+        )
+      }
+      onChange={(document) => {
+        if (isQuestionContent(document)) onChange(contentPlainText(document), document);
+      }}
+    />
   );
 }

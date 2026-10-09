@@ -51,7 +51,7 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
     .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
     .click();
   expect(writes).toBe(0);
-  await page.getByRole("button", { name: "Dùng nội dung này", exact: true }).click();
+  await page.getByRole("button", { name: "Áp dụng chuyển đổi", exact: true }).click();
   const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
   await expect(prompt.locator(".content-gap")).toHaveText(["2", "1"]);
   await prompt.locator("p").first().click();
