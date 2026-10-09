@@ -2938,5 +2938,25 @@
       "discardLeave": "Bỏ thay đổi và tiếp tục",
       "stay": "Ở lại"
     }
+  },
+  "markdownEditor": {
+    "bold": "In đậm · **chữ**",
+    "italic": "In nghiêng · *chữ*",
+    "strike": "Gạch ngang · ~~chữ~~",
+    "heading": "Tiêu đề · ### ",
+    "bulletList": "Danh sách gạch đầu dòng · - ",
+    "orderedList": "Danh sách đánh số · 1. ",
+    "link": "Liên kết · [chữ](https://…)",
+    "insertTable": "Thêm bảng",
+    "boldText": "chữ đậm",
+    "italicText": "chữ nghiêng",
+    "strikeText": "chữ",
+    "linkText": "nội dung liên kết",
+    "column": "Cột {{n}}",
+    "views": "Cách xem Markdown: {{label}}",
+    "write": "Soạn",
+    "preview": "Xem trước",
+    "previewEmpty": "Chưa có nội dung để xem trước.",
+    "footerHint": "Markdown · **đậm**, *nghiêng*, ### tiêu đề, - danh sách, [liên kết](https://…)"
   }
 }
