@@ -411,6 +411,7 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		Type:          openapi.QuestionType(q.Type),
 		Prompt:        q.Prompt,
 		PromptContent: q.PromptContent,
+		MediaAlt:      q.MediaAlt,
 		Points:        points,
 	}
 	if len(q.Options) > 0 {

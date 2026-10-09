@@ -2411,6 +2411,10 @@ components:
             `{{1}}`, `{{2}}`, 1-indexed, matching `blanks[].ordinal`.
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        mediaAlt:
+          type: [string, 'null']
+          description: |
+            The alt text a teacher wrote for the question's image; absent or null when there is none, and always when `media` is not an image.
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
         transcript: { type: [string, 'null'] }
@@ -2521,6 +2525,10 @@ components:
         prompt: { type: string }
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        mediaAlt:
+          type: [string, 'null']
+          description: |
+            The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key.
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
         options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
@@ -2602,6 +2610,10 @@ components:
         prompt: { type: string }
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        mediaAlt:
+          type: [string, 'null']
+          description: |
+            The alt text frozen with the version for the question's image, as on `StudentQuestion`. Present under every review policy: the picture was already on the paper.
         options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
         blanks: { type: array, items: { $ref: '#/components/schemas/StudentBlank' } }
         points: { $ref: '#/components/schemas/Points' }
@@ -3933,7 +3945,7 @@ components:
         schema cannot express — single_choice and true_false need exactly one correct
         option (true_false has exactly two options), multiple_choice needs at least one correct
         option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
         server and again at publish (§8). Failing them returns
         `VALIDATION_FAILED` with per-field `details`.
       required: [type, prompt, points]
@@ -3953,6 +3965,12 @@ components:
           minLength: 1
           description: Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown.
         mediaAssetId: { type: [string, 'null'], format: uuid }
+        mediaAlt:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 1000
+          description: |
+            Alt text for the question's image, for screen readers (1 to 1000 characters). Refused with a field error on `mediaAlt` unless `mediaAssetId` names an image; send null, or omit it, to clear it. A write replaces the stored value, as it does for `level` and `skill`, so an update that leaves it out clears it.
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
           description: Required if and only if the asset is audio (§7).
@@ -4013,7 +4031,7 @@ components:
         schema cannot express — single_choice and true_false need exactly one correct
         option (true_false has exactly two options), multiple_choice needs at least one correct
         option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
         server and again at publish (§8). Failing them returns
         `VALIDATION_FAILED` with per-field `details`.
       required: [type, prompt, points, level, skill]
@@ -4033,6 +4051,12 @@ components:
           minLength: 1
           description: Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown.
         mediaAssetId: { type: [string, 'null'], format: uuid }
+        mediaAlt:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 1000
+          description: |
+            Alt text for the question's image, as stored. Absent or null when there is none.
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
           description: Required if and only if the asset is audio (§7).

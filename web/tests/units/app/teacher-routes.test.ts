@@ -37,7 +37,7 @@ const TEACHER_TREE = [
     "/teacher/question-bank/:id",
     "features/question-bank/pages/teacher/QuestionEditorPage",
   ],
-  ["/teacher/media", "features/media/pages/teacher/MediaLibraryPage"],
+  ["/teacher/media", "features/media/pages/teacher/MediaPage"],
   ["/teacher/assignments", "features/assignments/pages/teacher/AssignmentsListPage"],
   ["/teacher/assignments/new", "features/assignments/pages/teacher/AssignmentFormPage"],
   [

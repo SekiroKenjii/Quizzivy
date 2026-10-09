@@ -45,6 +45,7 @@ test("keeps editor modules out of the reader and pins prototype transfer budgets
     ),
     logLevel: "silent",
     define: { "process.env.NODE_ENV": JSON.stringify("production") },
+    resolve: { conditions: ["module", "browser", "production"] },
     build: { write: false },
   })) as unknown as Output;
   const chunks = result.output.filter((item): item is Chunk => item.type === "chunk");

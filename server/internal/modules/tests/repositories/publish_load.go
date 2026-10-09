@@ -69,7 +69,7 @@ func loadQuestions(ctx context.Context, tx pgx.Tx, testID string) (map[string][]
 		 JOIN app.test_sections s ON s.id=u.test_section_id WHERE s.test_id=$1 AND u.question_id IS NOT NULL
 		)
 		SELECT sq.test_section_id::text, sq.ordinal, q.id::text, q.type::text, q.prompt,
-		       q.media_asset_id::text, q.media_asset_kind::text,
+		       q.media_asset_id::text, q.media_asset_kind::text, q.media_alt,
 		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
 		       q.transcript, q.points::text, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content, q.level, q.skill
 		  FROM members sq
@@ -88,7 +88,7 @@ func loadQuestions(ctx context.Context, tx pgx.Tx, testID string) (map[string][]
 		var sectionID string
 		var q domain.DraftQuestion
 		if err := rows.Scan(&sectionID, &q.Ordinal, &q.SourceID, &q.Type, &q.Prompt,
-			&q.MediaAssetID, &q.MediaAssetKind, &q.MaxPlays, &q.AllowSeek, &q.ShowTranscript,
+			&q.MediaAssetID, &q.MediaAssetKind, &q.MediaAlt, &q.MaxPlays, &q.AllowSeek, &q.ShowTranscript,
 			&q.Transcript, &q.Points, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent, &q.Level, &q.Skill); err != nil {
 			return nil, fmt.Errorf("publish: scan question: %w", err)
 		}

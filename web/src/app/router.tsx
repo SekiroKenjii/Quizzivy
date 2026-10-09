@@ -145,7 +145,8 @@ const teacherTree: RouteObject = {
         },
         {
           path: "media",
-          lazy: page(() => import("@/features/media/pages/teacher/MediaLibraryPage")),
+          handle: { crumb: [{ key: "media.title" }], width: 1320 },
+          lazy: page(() => import("@/features/media/pages/teacher/MediaPage")),
         },
         {
           path: "assignments",

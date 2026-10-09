@@ -20,6 +20,7 @@ type Question struct {
 	Prompt             string
 	MediaAssetID       *string
 	MediaAssetKind     *string
+	MediaAlt           *string
 	Audio              *AudioPolicy
 	Transcript         *string
 	Options            []Option

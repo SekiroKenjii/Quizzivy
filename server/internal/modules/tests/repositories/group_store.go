@@ -153,7 +153,7 @@ func groupQuestionInput(q questions.Question) questions.Input {
 	in := questions.Input{
 		Type: q.Type, Level: q.Level, Skill: q.Skill, Prompt: q.Prompt, PromptContent: q.PromptContent, Points: q.Points,
 		Explanation: q.Explanation, ExplanationContent: q.ExplanationContent, SampleAnswer: q.SampleAnswer,
-		MediaAssetID: q.MediaAssetID, Audio: q.Audio, Transcript: q.Transcript, Tags: q.Tags,
+		MediaAssetID: q.MediaAssetID, MediaAlt: q.MediaAlt, Audio: q.Audio, Transcript: q.Transcript, Tags: q.Tags,
 	}
 	for _, option := range q.Options {
 		in.Options = append(in.Options, questions.OptionInput{ID: &option.ID, Content: option.Content, Text: option.Text, IsCorrect: option.IsCorrect})
