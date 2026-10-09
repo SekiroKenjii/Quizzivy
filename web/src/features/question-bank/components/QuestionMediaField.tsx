@@ -3,10 +3,9 @@ import { useTranslation } from "react-i18next";
 import { AudioLines, FileAudio, Library, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AssetLibraryDialog } from "@/features/media/components/AssetLibraryDialog";
-import {
-  UploadPanel,
-  type UploadHandle,
-} from "@/features/media/components/UploadPanel";
+import { UploadStatus } from "@/features/media/components/UploadStatus";
+import { useMediaUpload } from "@/features/media/useMediaUpload";
+import { ACCEPT_ATTRIBUTE } from "@/features/media/limits";
 import { useFileDrop } from "@/hooks/useFileDrop";
 import type { MediaAsset } from "@/features/media/api";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
@@ -31,9 +30,11 @@ export function QuestionMediaField({
   onRefresh,
 }: Readonly<QuestionMediaFieldProps>) {
   const { t } = useTranslation();
-  const uploader = useRef<UploadHandle>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [picking, setPicking] = useState(false);
-  const dragging = useFileDrop((files) => uploader.current?.dropped(files));
+  const upload = useMediaUpload({ onUploaded: onChange });
+  const dragging = useFileDrop(upload.dropped);
+  const choose = () => fileInput.current?.click();
 
   const retryProps = onRefresh ? { onRetry: onRefresh } : {};
   return (
@@ -52,12 +53,7 @@ export function QuestionMediaField({
           <p className="text-muted-foreground mt-1 text-xs">
             {t("questionEditor.mediaHint")}
           </p>
-          <Button
-            variant="outline"
-            size="xs"
-            className="mt-3"
-            onClick={() => uploader.current?.choose()}
-          >
+          <Button variant="outline" size="xs" className="mt-3" onClick={choose}>
             {t("questionEditor.mediaChoose")}
           </Button>
         </div>
@@ -93,7 +89,19 @@ export function QuestionMediaField({
         </div>
       )}
 
-      <UploadPanel ref={uploader} onUploaded={onChange} />
+      <input
+        ref={fileInput}
+        type="file"
+        accept={ACCEPT_ATTRIBUTE}
+        className="sr-only"
+        aria-label={t("media.chooseFile")}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void upload.start(file);
+        }}
+      />
+      <UploadStatus state={upload.state} onCancel={upload.cancel} onRetry={choose} />
 
       <Button
         variant="ghost"

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import MediaLibraryPage from "@/features/media/pages/teacher/MediaLibraryPage";
+import MediaPage from "@/features/media/pages/teacher/MediaPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -67,7 +67,7 @@ beforeEach(() => {
 function renderLibrary() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/teacher/media", element: <MediaLibraryPage /> }],
+    [{ path: "/teacher/media", element: <MediaPage /> }],
     {
       initialEntries: ["/teacher/media"],
     },
@@ -85,12 +85,19 @@ describe("deleting a file a published test uses", () => {
     const user = renderLibrary();
 
     await user.click(
-      await screen.findByRole("button", { name: "Xoá unit5-listening-2.mp3" }),
+      await screen.findByRole("button", {
+        name: "Thao tác với tệp unit5-listening-2.mp3",
+      }),
     );
+    await user.click(await screen.findByRole("menuitem", { name: "Xoá" }));
 
-    expect(screen.getByText("1 tệp · 2.3 MB")).toBeInTheDocument();
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Không xoá được tệp này")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Tệp đang được một phiên bản đã xuất bản sử dụng nên không xoá được",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Xoá" })).toBeNull();
     const link = within(dialog).getByRole("link", {
       name: "Unit 5 — Present perfect & listening",
     });

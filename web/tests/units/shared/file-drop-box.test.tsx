@@ -58,12 +58,12 @@ it("takes only the first dropped file without validation and clears drag state",
   expect(screen.getByRole("button", { name: "Bỏ tệp first.any" })).toBeVisible();
   expect(screen.getByRole("button")).not.toHaveClass("border-primary");
 });
-it("disabled stops picker, callbacks and window prevention", () => {
+it("disabled stops picker and callbacks, and still keeps the window from opening a dropped file", () => {
   const change = vi.fn();
   render(<Box onChange={change} disabled />);
   expect(screen.getByRole("button")).toBeDisabled();
   expect(document.querySelector('input[type="file"]')).toBeDisabled();
-  expect(drop("drop", [new File(["x"], "file.mp3")]).defaultPrevented).toBe(false);
+  expect(drop("drop", [new File(["x"], "file.mp3")]).defaultPrevented).toBe(true);
   fireEvent.click(screen.getByRole("button"));
   expect(change).not.toHaveBeenCalled();
 });
