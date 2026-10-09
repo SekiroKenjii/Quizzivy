@@ -124,8 +124,11 @@ beforeEach(() => {
   );
 });
 
+let lastClient: QueryClient;
+
 function renderPage(path = "/teacher/media", applyAccept = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  lastClient = client;
   const router = createMemoryRouter(
     [
       { path: "/teacher/media", element: <MediaPage /> },
@@ -264,7 +267,11 @@ describe("the Media page", () => {
     await waitFor(() => expect(lists).toHaveLength(1));
 
     fireEvent.error(map.querySelector("img")!);
-    expect(lists, "a fresh URL that fails is not an expiry").toHaveLength(1);
+    expect(
+      lastClient.isFetching({ queryKey: ["admin-media"] }),
+      "a fresh URL that fails is not an expiry",
+    ).toBe(0);
+    expect(lists).toHaveLength(1);
 
     const now = Date.now();
     const later = vi.spyOn(Date, "now").mockReturnValue(now + 11 * 60_000);
@@ -275,6 +282,7 @@ describe("the Media page", () => {
       const again = (await screen.findByText("Directions map.png")).closest("article")!;
       later.mockReturnValue(now + 22 * 60_000);
       fireEvent.error(again.querySelector("img")!);
+      expect(lastClient.isFetching({ queryKey: ["admin-media"] })).toBe(1);
       await waitFor(() => expect(lists).toHaveLength(2));
     } finally {
       later.mockRestore();

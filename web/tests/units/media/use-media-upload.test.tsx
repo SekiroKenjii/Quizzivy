@@ -343,6 +343,45 @@ describe("the upload itself", () => {
     expect(sent).not.toHaveBeenCalled();
   });
 
+  it("aborts the first upload when a second one starts, and hands on only the second", async () => {
+    stubDuration(30);
+    const signals: AbortSignal[] = [];
+    const sent = vi.fn<UploadSender<MediaAsset>>(
+      (file, options) =>
+        new Promise<MediaAsset>((resolve) => {
+          signals.push(options.signal!);
+          if (file.name === "thu-hai.mp3")
+            resolve({
+              id: "018f0000-0000-7000-8000-0000000000e4",
+              kind: "audio",
+              url: "https://example.test/thu-hai.mp3",
+              mimeType: "audio/mpeg",
+              bytes: 1024,
+              durationMs: 30_000,
+              originalFilename: "thu-hai.mp3",
+              createdAt: "2026-10-08T00:00:00Z",
+            });
+        }),
+    );
+    const onUploaded = vi.fn();
+    const user = userEvent.setup();
+    render(<Host onUploaded={onUploaded} send={sent} />);
+    const input = screen.getByLabelText("Chọn tệp từ máy");
+
+    await user.upload(input, audioFile("thu-nhat.mp3", 1024));
+    await screen.findByRole("progressbar");
+    await user.upload(input, audioFile("thu-hai.mp3", 1024));
+
+    await waitFor(() => expect(onUploaded).toHaveBeenCalledTimes(1));
+    expect(signals).toHaveLength(2);
+    expect(signals[0]?.aborted, "the first upload is aborted").toBe(true);
+    expect(signals[1]?.aborted).toBe(false);
+    expect(onUploaded.mock.calls[0]?.[0]).toMatchObject({
+      originalFilename: "thu-hai.mp3",
+    });
+    expect(screen.queryByText("Đã huỷ tải lên.")).toBeNull();
+  });
+
   it("aborts the upload in flight when its host unmounts", async () => {
     stubDuration(30);
     let signal: AbortSignal | undefined;
