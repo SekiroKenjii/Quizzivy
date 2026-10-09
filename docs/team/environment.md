@@ -235,8 +235,8 @@ Credentials are the compose defaults: Postgres superuser `postgres`/`postgres`,
 | pnpm | 10.28.0 | 11.25.0 |
 | Go | 1.24.7 host, 1.27.0 by `GOTOOLCHAIN` | 1.27 |
 | `psql` client | 16.15 (server is 18.6) | 18 |
-| Postgres | `postgres:18` in compose, shared by every run | a service container per job |
-| MinIO image | built on the host from the pinned commits (step 3) | pulled from `ghcr.io`, or built by compose |
+| Postgres | `postgres:18` in compose, shared by every run | a service container per job, `mirror.gcr.io/library/postgres:18` (Docker Hub's anonymous pull limit; `docs/setup/ci.md`) |
+| MinIO image | built on the host from the pinned commits (step 3) | pulled from `ghcr.io`, or built by compose from bases tagged out of `mirror.gcr.io` |
 | Browsers | Chromium 1194 only, in `/opt/pw-browsers` (`PLAYWRIGHT_BROWSERS_PATH`); Playwright 1.62.1 looks for headless shell 1234, so a run launches with `launchOptions.executablePath: '/opt/pw-browsers/chromium'` from an untracked wrapper config. Never `playwright install`, never commit the wrapper | what the Playwright config installs |
 | Parallelism | 4 cores, one shared Postgres | one job per runner |
 | Word converter tests | not run | run |
