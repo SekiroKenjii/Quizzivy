@@ -408,7 +408,7 @@ describe("a file's menu", () => {
 });
 
 describe("the upload dialog", () => {
-  it("uploads audio with the default play limit and adds it to the library", async () => {
+  it("uploads audio with two plays by default (T-14) and adds it to the library", async () => {
     let sent: URLSearchParams | null = null;
     server.use(
       http.post(`${BASE}/teacher/media`, ({ request }) => {
@@ -433,7 +433,9 @@ describe("the upload dialog", () => {
     expect(
       within(dialog).getByRole("button", { name: "Âm thanh", pressed: true }),
     ).toBeVisible();
-    expect(dialog).toHaveTextContent("Giới hạn lượt nghe");
+    expect(
+      within(dialog).getByRole("combobox", { name: "Giới hạn lượt nghe" }),
+    ).toHaveTextContent("2 lượt nghe");
     const before = lists.length;
     await user.upload(
       dialog.querySelector<HTMLInputElement>("input[type=file]")!,
@@ -442,7 +444,7 @@ describe("the upload dialog", () => {
     await user.click(within(dialog).getByRole("button", { name: "Tải lên" }));
 
     expect(await screen.findByText("Đã tải lên unit-5.mp3")).toBeVisible();
-    expect(sent!.get("defaultMaxPlays")).toBe("0");
+    expect(sent!.get("defaultMaxPlays")).toBe("2");
     await waitFor(() => expect(lists.length).toBeGreaterThan(before));
   });
 

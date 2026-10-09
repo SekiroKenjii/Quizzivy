@@ -93,7 +93,7 @@ export function UploadDialog({
         kind:
           initialFile === null ? "audio" : (kindOfName(initialFile.name) ?? "audio"),
         file: initialFile,
-        plays: "0",
+        plays: "2",
       }}
       fields={fields}
       validate={(values) => {
