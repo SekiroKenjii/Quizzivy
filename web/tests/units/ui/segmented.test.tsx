@@ -490,3 +490,30 @@ it("adds a wrapping equal-width form row without changing the default", () => {
   for (const button of screen.getAllByRole("button"))
     expect(button).toHaveClass("flex-1", "h-7.5", "text-meta", "px-2.5");
 });
+
+it("disables an option, says why, and leaves the others as they were", async () => {
+  const onChange = vi.fn();
+  render(
+    <>
+      <Segmented
+        label="Chế độ"
+        value="rich"
+        onChange={onChange}
+        options={[
+          { value: "rich", label: "Văn bản định dạng" },
+          { value: "markdown", label: "Markdown", disabled: true, describedBy: "why" },
+        ]}
+      />
+      <p id="why">Hãy bỏ các ô trống trước.</p>
+    </>,
+  );
+  const markdown = screen.getByRole("button", { name: "Markdown" });
+  expect(markdown).toBeDisabled();
+  expect(markdown).toHaveAccessibleDescription("Hãy bỏ các ô trống trước.");
+  expect(markdown).toHaveClass("opacity-45");
+  expect(screen.getByRole("button", { name: "Văn bản định dạng" })).not.toHaveClass(
+    "opacity-45",
+  );
+  await userEvent.setup().click(markdown);
+  expect(onChange).not.toHaveBeenCalled();
+});

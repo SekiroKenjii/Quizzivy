@@ -1,25 +1,37 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
-import { QuestionProse } from "@/components/shared/content/QuestionProse";
-import type {
-  QuestionPromptContent,
-  QuestionContent,
+import { markdownToQuestionContent } from "@/components/shared/content/editor/markdown";
+import { questionContentToMarkdown } from "@/components/shared/content/editor/markdownSerializer";
+import { contentPlainText } from "@/components/shared/content/plainText";
+import {
+  isQuestionContent,
+  type QuestionContent,
+  type QuestionPromptContent,
 } from "@/components/shared/content/questionContent";
-import { PromptField } from "./PromptField";
+import { MarkdownProseEditor } from "./MarkdownProseEditor";
+import { ConversionPanel, ProseModeHeader } from "./ProseMode";
+import { focusOpener, useProseMode, type ProseMode } from "../proseMode";
 
 const RichProseEditor = lazy(() =>
   import("./RichProseEditor").then((module) => ({ default: module.RichProseEditor })),
 );
 
-/** QuestionProseField keeps historical Markdown editable and loads rich authoring only on request. */
+const PROMPT = { minHeight: 96, fontSize: 15 };
+const EXPLANATION = { minHeight: 84, fontSize: 14 };
+
+/**
+ * QuestionProseField is a prompt's or an explanation's field in the form it
+ * is stored in: rich content in the rich editor, a Markdown string in the
+ * Markdown editor; a field with no text opens as rich text. Only "Switch to
+ * Markdown" and "Apply conversion" change the stored form.
+ */
 export function QuestionProseField({
   text,
   content,
   id,
   label,
+  hint,
   prompt = false,
   clearOnFocus = false,
   onChange,
@@ -28,70 +40,94 @@ export function QuestionProseField({
   content?: QuestionPromptContent | null | undefined;
   id: string;
   label: string;
+  hint?: string | undefined;
   prompt?: boolean;
   clearOnFocus?: boolean;
   onChange: (text: string, content: QuestionContent | null) => void;
 }>) {
   const { t } = useTranslation();
-  const [editing, setEditing] = useState(false);
-  if (editing)
-    return (
-      <Suspense
-        fallback={
-          <Skeleton className="h-64 w-full" aria-label={t("contentEditor.loading")} />
-        }
-      >
-        <RichProseEditor
-          text={
-            prompt && clearOnFocus && text === t("builder.starterPrompt") ? "" : text
-          }
-          content={content ?? null}
+  const header = useRef<HTMLDivElement>(null);
+  const [moved, setMoved] = useState(false);
+  const field = useProseMode((): ProseMode =>
+    content != null || !text.trim() ? "rich" : "markdown",
+  );
+  const size = prompt ? PROMPT : EXPLANATION;
+  const describedBy = hint ? `${id}-hint` : undefined;
+  const cancel = () => {
+    field.cancel();
+    focusOpener(header.current);
+  };
+  const switchTo = (mode: ProseMode) => {
+    setMoved(true);
+    field.finish(mode);
+  };
+  return (
+    <div>
+      <div ref={header}>
+        <ProseModeHeader
           id={id}
           label={label}
-          onChange={onChange}
-          onClose={() => setEditing(false)}
+          hint={hint}
+          mode={field.mode}
+          onMode={field.ask}
         />
-      </Suspense>
-    );
-  const legacyField = prompt ? (
-    <PromptField
-      id={id}
-      value={text}
-      clearOnFocus={clearOnFocus}
-      onChange={(value) => onChange(value, null)}
-    />
-  ) : (
-    <Textarea
-      id={id}
-      value={text}
-      className="min-h-14"
-      onChange={(event) => onChange(event.target.value, null)}
-    />
-  );
-  return (
-    <div className="flex flex-col gap-2">
-      {content == null ? (
-        legacyField
-      ) : (
-        <QuestionProse
-          text={text}
-          content={content}
-          className="rounded-md border p-4"
-        />
-      )}
-      {(content != null || import.meta.env.VITE_RICH_QUESTION_EDITOR === "true") && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="self-start"
-          onClick={() => setEditing(true)}
+      </div>
+      {field.mode === "rich" ? (
+        <Suspense
+          fallback={
+            <Skeleton
+              className="h-40 w-full rounded-[10px]"
+              aria-label={t("contentEditor.loading")}
+            />
+          }
         >
-          {t(
-            content == null ? "questionEditor.formatProse" : "questionEditor.editProse",
-            { field: label },
-          )}
-        </Button>
+          <RichProseEditor
+            key="rich"
+            content={content ?? null}
+            id={id}
+            label={label}
+            describedBy={describedBy}
+            {...size}
+            leaving={field.step === "leaving"}
+            focusOnMount={moved}
+            onCancelLeave={cancel}
+            onConfirmLeave={() => {
+              if (content != null && isQuestionContent(content))
+                onChange(questionContentToMarkdown(content), null);
+              switchTo("markdown");
+            }}
+            onChange={onChange}
+          />
+        </Suspense>
+      ) : (
+        <MarkdownProseEditor
+          key="markdown"
+          id={id}
+          label={label}
+          describedBy={describedBy}
+          value={text}
+          onChange={(value) => onChange(value, null)}
+          {...size}
+          clearOnFocus={prompt && clearOnFocus}
+          focusOnMount={moved}
+          replacement={
+            field.step === "converting" ? (
+              <ConversionPanel
+                convert={() => {
+                  const document = markdownToQuestionContent(text);
+                  return document
+                    ? { content: document }
+                    : t("questionEditor.proseConversionBlocked");
+                }}
+                onKeep={cancel}
+                onApply={({ content: document }) => {
+                  onChange(contentPlainText(document), document);
+                  switchTo("rich");
+                }}
+              />
+            ) : undefined
+          }
+        />
       )}
     </div>
   );

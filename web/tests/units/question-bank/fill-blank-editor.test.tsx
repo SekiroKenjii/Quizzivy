@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -72,6 +72,14 @@ describe("the question editor page, on a fill_blank mismatch", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("tab", { name: "Điền từ" }));
+    await user.click(
+      within(
+        screen.getByRole("group", { name: "Chế độ soạn: Nội dung câu hỏi" }),
+      ).getByRole("button", { name: "Markdown" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Chuyển sang Markdown" }),
+    );
     await user.click(screen.getByLabelText("Nội dung câu hỏi"));
     await user.paste("She {{1}} and {{3}}.");
     await user.click(screen.getByRole("button", { name: "Thêm chỗ trống" }));

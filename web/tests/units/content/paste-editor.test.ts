@@ -188,6 +188,31 @@ describe("what the editor does with a paste or a drop beside a file", () => {
     return { editor, notify, preview };
   }
 
+  test.each(["question", "option"] as const)(
+    "Ctrl+Shift+V makes the %s paste ignore the HTML, and only that paste",
+    (profile) => {
+      const notify = vi.fn();
+      const preview = vi.fn();
+      const editor = new Editor({
+        element: document.createElement("div"),
+        extensions: contentExtensions(notify, profile, preview),
+        content: toEditorJSON(prose("ABC")),
+      });
+      editors.push(editor);
+      editor.commands.setTextSelection(4);
+      const data = { "text/html": "<p><u>đậm</u></p>", "text/plain": " thuần" };
+      fireEvent.keyDown(editor.view.dom, { key: "V", ctrlKey: true, shiftKey: true });
+      fireEvent.paste(editor.view.dom, clipboard(data));
+      expect(preview).not.toHaveBeenCalled();
+      expect(editor.getText()).toBe("ABC thuần");
+      expect(editor.getHTML()).not.toContain("<u>");
+      fireEvent.keyUp(editor.view.dom, { key: "V" });
+      fireEvent.paste(editor.view.dom, clipboard(data));
+      expect(preview).toHaveBeenCalledTimes(1);
+      expect(notify).not.toHaveBeenCalled();
+    },
+  );
+
   test("a file alone gets the file notice and changes nothing", () => {
     const { editor, notify, preview } = pasteInto("question", {}, [IMAGE]);
     expect(notify).toHaveBeenCalledWith("file");
