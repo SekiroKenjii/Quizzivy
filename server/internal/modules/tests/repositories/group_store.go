@@ -15,6 +15,12 @@ import (
 
 const groupMembershipRule = "group_membership"
 
+const (
+	groupShared    = "FOR SHARE OF g"
+	groupExclusive = "FOR UPDATE OF g"
+	groupUnlocked  = ""
+)
+
 // GroupQuestionStore persists owned interactions inside the aggregate transaction, without exposing them as standalone bank rows.
 type GroupQuestionStore interface {
 	QuestionLocks
@@ -61,8 +67,19 @@ func (s *GroupsPostgres) Get(ctx context.Context, scope access.Scope, id string)
 	return group, nil
 }
 
+func (s *GroupsPostgres) readUnlocked(ctx context.Context, tx pgx.Tx, id string) (domain.StoredGroup, error) {
+	group, err := readLockedGroup(ctx, tx, id, groupUnlocked)
+	if err != nil {
+		return domain.StoredGroup{}, err
+	}
+	if err := s.readGraph(ctx, tx, &group); err != nil {
+		return domain.StoredGroup{}, err
+	}
+	return group, nil
+}
+
 func readGroup(ctx context.Context, tx pgx.Tx, id string) (domain.StoredGroup, error) {
-	return readLockedGroup(ctx, tx, id, "FOR SHARE")
+	return readLockedGroup(ctx, tx, id, groupShared)
 }
 
 func readLockedGroup(ctx context.Context, tx pgx.Tx, id, lock string) (domain.StoredGroup, error) {
@@ -71,7 +88,7 @@ func readLockedGroup(ctx context.Context, tx pgx.Tx, id, lock string) (domain.St
 		CASE WHEN g.owner_section_id IS NULL THEN g.owner_id ELSE t.owner_id END::text,
 		g.revision, g.archived_at, g.created_at, g.updated_at, t.updated_at
 		FROM app.question_groups g LEFT JOIN app.test_sections s ON s.id=g.owner_section_id
-		LEFT JOIN app.tests t ON t.id=s.test_id WHERE g.id=$1 `+lock+` OF g`, id).
+		LEFT JOIN app.tests t ON t.id=s.test_id WHERE g.id=$1 `+lock, id).
 		Scan(&stored.Bundle.Group.ID, &stored.Bundle.Group.Title, &stored.Bundle.Group.Instructions,
 			&stored.OwnerSectionID, &stored.OwnerID, &stored.Revision, &stored.ArchivedAt, &stored.CreatedAt, &stored.UpdatedAt, &stored.TestUpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -136,7 +153,7 @@ func groupQuestionInput(q questions.Question) questions.Input {
 	in := questions.Input{
 		Type: q.Type, Level: q.Level, Skill: q.Skill, Prompt: q.Prompt, PromptContent: q.PromptContent, Points: q.Points,
 		Explanation: q.Explanation, ExplanationContent: q.ExplanationContent, SampleAnswer: q.SampleAnswer,
-		MediaAssetID: q.MediaAssetID, Audio: q.Audio, Transcript: q.Transcript, Tags: q.Tags,
+		MediaAssetID: q.MediaAssetID, MediaAlt: q.MediaAlt, Audio: q.Audio, Transcript: q.Transcript, Tags: q.Tags,
 	}
 	for _, option := range q.Options {
 		in.Options = append(in.Options, questions.OptionInput{ID: &option.ID, Content: option.Content, Text: option.Text, IsCorrect: option.IsCorrect})

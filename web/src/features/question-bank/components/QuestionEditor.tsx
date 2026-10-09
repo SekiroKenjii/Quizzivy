@@ -123,12 +123,14 @@ export function QuestionEditor({
           </p>
         )}
         <div>
-          <label
-            className="mb-1.5 block text-[0.8125rem] font-medium"
-            htmlFor="question-prompt"
-          >
-            {t("questionEditor.prompt")}
-          </label>
+          {value.type === "fill_blank" && (
+            <label
+              className="mb-1.5 block text-[0.8125rem] font-medium"
+              htmlFor="question-prompt"
+            >
+              {t("questionEditor.prompt")}
+            </label>
+          )}
           {value.type === "fill_blank" ? (
             <BlankPromptField value={value} onChange={onChange} />
           ) : (
@@ -188,20 +190,12 @@ export function QuestionEditor({
         ) : null}
 
         <div>
-          <label
-            className="mb-1.5 block text-[0.8125rem] font-medium"
-            htmlFor="question-explanation"
-          >
-            {t("questionEditor.explanation")}{" "}
-            <span className="text-muted-foreground font-normal">
-              {t("questionEditor.explanationHint")}
-            </span>
-          </label>
           <QuestionProseField
             id="question-explanation"
             text={value.explanation ?? ""}
             content={value.explanationContent}
             label={t("questionEditor.explanation")}
+            hint={t("questionEditor.explanationHint")}
             onChange={(explanation, explanationContent) =>
               onChange({ ...value, explanation, explanationContent })
             }

@@ -411,6 +411,9 @@ export interface paths {
          *
          *     Republishing an unchanged test still creates a version — this is an
          *     append-only history, not a diff.
+         *
+         *     The body is optional. `changeNote` is kept with the version and is
+         *     trimmed first; a note that is empty after trimming is no note.
          */
         post: operations["publishTest"];
         delete?: never;
@@ -475,6 +478,38 @@ export interface paths {
         post?: never;
         /** @description Deletes an unused, non-current version. Existing assignments and attempts prevent deletion. */
         delete: operations["deleteTestVersion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/tests/{id}/versions/{version}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * What changed between a version and another paper
+         * @description Compares the version in the path with another paper of the same test
+         *     and lists what a teacher would call a change. The older paper is
+         *     `from` and the newer `to`; the draft is always the newer. Reads only:
+         *     nothing is written, and no row is locked.
+         *
+         *     Questions are matched by the bank question they were frozen from, and
+         *     the ones left over by identical content, because restoring a version as
+         *     a draft copies its questions. So a question that was restored and then
+         *     edited reads as `removed` and `added`, not as `changed`. Order alone is
+         *     never a change.
+         */
+        get: operations["getTestVersionDiff"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3757,6 +3792,8 @@ export interface components {
              */
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /** @description The alt text a teacher wrote for the question's image; absent or null when there is none, and always when `media` is not an image. */
+            mediaAlt?: string | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
             transcript?: string | null;
             options?: components["schemas"]["AdminQuestionOption"][];
@@ -3832,6 +3869,8 @@ export interface components {
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /** @description The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key. */
+            mediaAlt?: string | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
@@ -3888,6 +3927,8 @@ export interface components {
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /** @description The alt text frozen with the version for the question's image, as on `StudentQuestion`. Present under every review policy: the picture was already on the paper. */
+            mediaAlt?: string | null;
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
             points: components["schemas"]["Points"];
@@ -4089,6 +4130,16 @@ export interface components {
             /** @description Complete mixed order when the section has shared groups; absent on historical standalone outlines. */
             units?: components["schemas"]["DraftSectionUnit"][];
         };
+        /**
+         * @description The assignments that name any version of a test, by derived status
+         *     (`AssignmentStatus`), whoever created them. `live` counts the `open`
+         *     ones. Drafts are not counted. Backs the tests card's "2 live".
+         */
+        TestAssignmentCounts: {
+            live: number;
+            scheduled: number;
+            closed: number;
+        };
         Test: {
             id: components["schemas"]["Uuid"];
             title: string;
@@ -4102,6 +4153,21 @@ export interface components {
             audioCount: number;
             /** @description Sorted distinct non-null skills of the current draft, including grouped members. */
             skills: components["schemas"]["QuestionSkill"][];
+            assignments: components["schemas"]["TestAssignmentCounts"];
+            /**
+             * @description How many changes the draft holds against the test's latest version:
+             *     the length of `getTestVersionDiff`'s `changes` for that version
+             *     against `draft`, so 0 means the draft is the latest version. It is
+             *     what the unpublished-changes banner reads.
+             *
+             *     Only `getTest` computes it. It is null for a test with no version,
+             *     in every row of `listTests`, in the answer of a write, and when a
+             *     group of the draft or of the latest version cannot be read; the
+             *     page then shows no banner. A
+             *     bank edit to a question the draft uses counts, though it never
+             *     moves `updatedAt`.
+             */
+            unpublishedChanges: number | null;
             /** @description The **draft** outline. Published content lives in versions. */
             sections: components["schemas"]["TestSection"][];
             createdAt: components["schemas"]["Timestamp"];
@@ -4126,6 +4192,105 @@ export interface components {
             publishedAt: components["schemas"]["Timestamp"];
             /** @description Display name. */
             publishedBy: string;
+            /**
+             * @description Every assignment that names this version, drafts included, whoever
+             *     created it. A version with one cannot be deleted, so this is what
+             *     "In use · {n} assignments" and the disabled Delete read.
+             */
+            assignmentCount: number;
+            /** @description The note the teacher left when publishing. Null for a version published without one. */
+            changeNote: string | null;
+            /**
+             * @description `publishTest` only: the test's `updatedAt` after the publish, which
+             *     the publish itself moves. A caller that goes on saving the draft
+             *     sends it as `expectedUpdatedAt`, or its next save answers
+             *     `STALE_WRITE`. Absent from every other answer.
+             */
+            testUpdatedAt?: components["schemas"]["Timestamp"];
+        };
+        /** @description One of the two papers a diff compares. */
+        DiffSide: {
+            /** @enum {string} */
+            kind: "draft" | "version";
+            /** @description The server sends it exactly when `kind` is `version`. The schema does not tie the two together. */
+            version?: number;
+            /** @description The server sends it exactly when `kind` is `version`. The schema does not tie the two together. */
+            publishedAt?: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description What one change reports. A question is never reported twice under one
+         *     kind. An edit to the shared material of a group, or to a section,
+         *     reaches each of its questions as one `changed` entry (field `context`
+         *     or `section`), so `Test.unpublishedChanges` counts it once per
+         *     question.
+         *
+         *     | Kind | The question | `params` |
+         *     |---|---|---|
+         *     | `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |
+         *     | `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |
+         *     | `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |
+         *     | `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice question; none otherwise |
+         *     | `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |
+         *
+         *     A question that changed in its words and in its key is reported twice,
+         *     once as `changed` and once as `answer`. Moving a question to another
+         *     place in the paper is not a change.
+         * @enum {string}
+         */
+        DiffChangeKind: "added" | "removed" | "changed" | "answer" | "points";
+        /**
+         * @description The part of a question that differs, for a `changed` entry.
+         *     `prompt` and `explanation` cover the text and the rich content;
+         *     `options` the text and content of the choices in their order, `blanks`
+         *     the gaps and their case rule, and `media` the attachment with its audio
+         *     policy and transcript. `context` is the shared material of the group
+         *     the question belongs to, or its being in a group at all, and `section`
+         *     the part of the paper it sits in. The correct options and the accepted
+         *     answers are not here: they are `answer` entries.
+         * @enum {string}
+         */
+        DiffField: "type" | "prompt" | "options" | "blanks" | "media" | "points" | "explanation" | "context" | "section";
+        /**
+         * @description One closed set of fields for every kind; `DiffChangeKind` says which of
+         *     them a kind carries. Plain values only.
+         */
+        DiffChangeParams: {
+            /** @description The question's prompt as plain text, cut to 200 characters with `…` in place of the rest. */
+            prompt?: string;
+            fields?: components["schemas"]["DiffField"][];
+            /** @description The labels (`A`, `B`, …) of the correct options in `from`, in order. */
+            answerFrom?: string[];
+            /** @description The labels of the correct options in `to`, in order. */
+            answerTo?: string[];
+            pointsFrom?: components["schemas"]["Points"];
+            pointsTo?: components["schemas"]["Points"];
+        };
+        DiffChange: {
+            kind: components["schemas"]["DiffChangeKind"];
+            /** @description The question's number in its paper, counting across sections. */
+            questionNumber?: number;
+            /**
+             * @description The question's id in the paper `questionNumber` counts in: the
+             *     frozen question of a version, the bank question of the draft. It is
+             *     the id the preview of that version carries.
+             */
+            questionId?: components["schemas"]["Uuid"];
+            params: components["schemas"]["DiffChangeParams"];
+        };
+        /** @description What differs between two papers of one test. */
+        TestVersionDiff: {
+            /**
+             * @description The older paper. Null only for `against=previous` on the first
+             *     version, which has nothing before it: every question is then an
+             *     `added` one.
+             */
+            from: components["schemas"]["DiffSide"] | null;
+            to: components["schemas"]["DiffSide"];
+            /**
+             * @description Ordered by kind (`added`, `removed`, `changed`, `answer`, `points`)
+             *     and then by question number.
+             */
+            changes: components["schemas"]["DiffChange"][];
         };
         /**
          * @description Publish returns **every** problem at once, each anchored to a question,
@@ -4729,7 +4894,7 @@ export interface components {
          *     schema cannot express — single_choice and true_false need exactly one correct
          *     option (true_false has exactly two options), multiple_choice needs at least one correct
          *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
          *     server and again at publish (§8). Failing them returns
          *     `VALIDATION_FAILED` with per-field `details`.
          */
@@ -4742,6 +4907,8 @@ export interface components {
             prompt: string;
             /** Format: uuid */
             mediaAssetId?: string | null;
+            /** @description Alt text for the question's image, for screen readers (1 to 1000 characters). Refused with a field error on `mediaAlt` unless `mediaAssetId` names an image; send null, or omit it, to clear it. A write replaces the stored value, as it does for `level` and `skill`, so an update that leaves it out clears it. */
+            mediaAlt?: string | null;
             /** @description Required if and only if the asset is audio (§7). */
             audio?: components["schemas"]["AudioPolicy"] | null;
             /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */
@@ -4780,7 +4947,7 @@ export interface components {
          *     schema cannot express — single_choice and true_false need exactly one correct
          *     option (true_false has exactly two options), multiple_choice needs at least one correct
          *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
          *     server and again at publish (§8). Failing them returns
          *     `VALIDATION_FAILED` with per-field `details`.
          */
@@ -4793,6 +4960,8 @@ export interface components {
             prompt: string;
             /** Format: uuid */
             mediaAssetId?: string | null;
+            /** @description Alt text for the question's image, as stored. Absent or null when there is none. */
+            mediaAlt?: string | null;
             /** @description Required if and only if the asset is audio (§7). */
             audio?: components["schemas"]["AudioPolicy"] | null;
             /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */
@@ -6020,9 +6189,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description What changed in this version, in the teacher's words. Shown in the version history. The 200-character limit applies to the text as sent, before it is trimmed. */
+                    changeNote?: string | null;
+                };
+            };
+        };
         responses: {
-            /** @description Published. */
+            /** @description Published. `testUpdatedAt` is present. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -6031,6 +6207,7 @@ export interface operations {
                     "application/json": components["schemas"]["TestVersion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description `PUBLISH_VALIDATION_FAILED`. **Every** problem is returned at once,
@@ -6122,6 +6299,50 @@ export interface operations {
             404: components["responses"]["NotFound"];
             /** @description The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getTestVersionDiff: {
+        parameters: {
+            query: {
+                /**
+                 * @description `previous` is the highest version below the path version, so the
+                 *     path version is `to`; on the first version there is none, `from` is
+                 *     null and every question is `added`. `draft` is the test's draft, so
+                 *     the path version is `from`. A number is another version of the test:
+                 *     the lower of the two is `from`. The path version itself is refused
+                 *     with 400, and a version that does not exist is 404.
+                 */
+                against: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestVersionDiff"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description A group of one of the two papers cannot be read, so there is no paper to compare. For the draft (`against=draft`) the builder reports the cause when the teacher publishes; for a version it is stored data that no longer reads back. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -80,6 +80,8 @@ function serve(a: Assignment) {
             questionCount: 24,
             audioCount: 4,
             manualCount: 2,
+            assignmentCount: 0,
+            changeNote: null,
             publishedAt: "2026-08-20T00:00:00Z",
             publishedBy: "Thuong",
           },

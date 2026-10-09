@@ -33,7 +33,9 @@ async function publishListeningTest(page: Page, title: string) {
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
-  await page.getByLabel("Nội dung câu hỏi").fill("Người phụ nữ đề nghị làm gì?");
+  await page
+    .getByLabel("Nội dung câu hỏi", { exact: true })
+    .fill("Người phụ nữ đề nghị làm gì?");
 
   await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
   const settings = page.getByRole("dialog", { name: "Cài đặt câu hỏi", exact: true });

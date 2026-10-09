@@ -24,11 +24,13 @@ type DraftSection struct {
 }
 
 // DraftQuestion is one bank question resolved for the snapshot, in the position the
-// outline gives it.
+// outline gives it. SourceID is the bank question; FrozenID is set only on a
+// question read back from a version, and is the id of its frozen row.
 type DraftQuestion struct {
 	PromptContent      json.RawMessage
 	ExplanationContent json.RawMessage
 	SourceID           string
+	FrozenID           string
 	Ordinal            int
 	Type               string
 	Level              *questions.Level
@@ -36,6 +38,7 @@ type DraftQuestion struct {
 	Prompt             string
 	MediaAssetID       *string
 	MediaAssetKind     *string
+	MediaAlt           *string
 	MaxPlays           *int
 	AllowSeek          *bool
 	ShowTranscript     *bool
@@ -72,6 +75,7 @@ type PreviewQuestion struct {
 	Prompt        string
 	Points        string
 	MediaAssetID  *string
+	MediaAlt      *string
 	MaxPlays      *int
 	AllowSeek     *bool
 	ShowScript    *bool

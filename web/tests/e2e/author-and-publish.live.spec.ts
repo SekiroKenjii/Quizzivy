@@ -37,7 +37,7 @@ async function setOptions(page: Page, texts: string[]) {
 /** Adds one question of `type` to the open builder and fills in its answer. */
 async function addQuestion(page: Page, type: string, prompt: string) {
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
-  await expect(page.getByLabel("Nội dung câu hỏi")).toHaveValue(
+  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
     "Câu hỏi mới — nhập nội dung ở đây",
   );
   await page.getByRole("tab", { name: type }).click();
@@ -46,8 +46,8 @@ async function addQuestion(page: Page, type: string, prompt: string) {
     "true",
   );
 
-  await page.getByLabel("Nội dung câu hỏi").click();
-  await page.getByLabel("Nội dung câu hỏi").fill(prompt);
+  await page.getByLabel("Nội dung câu hỏi", { exact: true }).click();
+  await page.getByLabel("Nội dung câu hỏi", { exact: true }).fill(prompt);
 }
 
 test("E2E 1: an admin authors a test with all five question types, publishes and assigns it", async ({

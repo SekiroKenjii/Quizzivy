@@ -2,13 +2,14 @@ package repositories
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
-	"quizzivy/internal/shared/access"
 
 	"github.com/jackc/pgx/v5"
 )
+
+var errGroupOtherSection = errors.New("publish: group belongs to another section")
 
 func lockDraftContent(ctx context.Context, tx pgx.Tx, testID string, forCopy bool) error {
 	rows, err := tx.Query(ctx, `SELECT g.id FROM app.question_groups g JOIN app.test_sections s ON s.id=g.owner_section_id
@@ -61,7 +62,7 @@ func (s *Postgres) loadDraftUnits(ctx context.Context, tx pgx.Tx, section *domai
 			section.Questions = append(section.Questions, question)
 			continue
 		}
-		if err := appendDraftGroup(ctx, groups, section, unit.GroupID); err != nil {
+		if err := appendDraftGroup(ctx, tx, groups, section, unit.GroupID); err != nil {
 			return err
 		}
 	}
@@ -72,7 +73,7 @@ func draftGroupQuestion(q domain.GroupQuestion, ordinal int) domain.DraftQuestio
 	in := q.Input
 	out := domain.DraftQuestion{SourceID: q.ID, Ordinal: ordinal, Type: string(in.Type), Level: in.Level, Skill: in.Skill, Prompt: in.Prompt,
 		PromptContent: in.PromptContent, ExplanationContent: in.ExplanationContent, Points: in.Points,
-		MediaAssetID: in.MediaAssetID, MediaAssetKind: q.MediaAssetKind, Transcript: in.Transcript, Explanation: in.Explanation, SampleAnswer: in.SampleAnswer}
+		MediaAssetID: in.MediaAssetID, MediaAssetKind: q.MediaAssetKind, MediaAlt: in.MediaAlt, Transcript: in.Transcript, Explanation: in.Explanation, SampleAnswer: in.SampleAnswer}
 	if in.Audio != nil {
 		out.MaxPlays, out.AllowSeek, out.ShowTranscript = in.Audio.MaxPlays, &in.Audio.AllowSeek, &in.Audio.ShowTranscriptAfterSubmit
 	}
@@ -85,13 +86,13 @@ func draftGroupQuestion(q domain.GroupQuestion, ordinal int) domain.DraftQuestio
 	return out
 }
 
-func appendDraftGroup(ctx context.Context, groups *GroupsPostgres, section *domain.DraftSection, id string) error {
-	stored, err := groups.Get(ctx, access.Scope{All: true}, id)
+func appendDraftGroup(ctx context.Context, tx pgx.Tx, groups *GroupsPostgres, section *domain.DraftSection, id string) error {
+	stored, err := groups.readUnlocked(ctx, tx, id)
 	if err != nil {
 		return err
 	}
 	if stored.OwnerSectionID == nil || *stored.OwnerSectionID != section.ID {
-		return fmt.Errorf("publish: group belongs to another section")
+		return errGroupOtherSection
 	}
 	section.Groups = append(section.Groups, stored.Bundle)
 	for _, question := range stored.Bundle.Questions {

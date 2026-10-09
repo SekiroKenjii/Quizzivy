@@ -63,6 +63,12 @@ the "one package per feature" layout AGENTS.md described until then.
   one SQL definition of a saved answer that says something. assignments (the
   student's card) and attempts (the teacher's monitor) splice it, so the two
   counts cannot drift.
+- **The status rule in the kernel.** `shared/schedule.DerivedStatus` is the
+  one SQL definition of an assignment's status (draft, scheduled, open or
+  closed) from its window, over a row of `app.assignments` aliased `a`.
+  assignments (its list, facets and reopen) and tests (the per-test counts on
+  `Test.assignments`) splice it, so the two cannot drift, and a change to the
+  window rule is made there once.
 - **Access in the kernel.** `shared/access` is the authorization model every
   layer may use, and it imports only the standard library: the catalogue as
   `Key`s, with the pseudo-keys `self`, `workspace.teacher` and

@@ -32,7 +32,7 @@ func lockGroupMutation(ctx context.Context, tx pgx.Tx, in domain.GroupMutation) 
 			return domain.StoredGroup{}, "", &domain.GroupError{Rule: "group_owner_archived"}
 		}
 	}
-	stored, err := readLockedGroup(ctx, tx, in.ID, "FOR UPDATE")
+	stored, err := readLockedGroup(ctx, tx, in.ID, groupExclusive)
 	if err != nil {
 		return domain.StoredGroup{}, "", err
 	}

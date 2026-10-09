@@ -16,6 +16,8 @@ const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 /** The DRAFT holds the teacher's latest edit. */
 let draft: components["schemas"]["Test"] = {
   skills: [],
+  assignments: { live: 0, scheduled: 0, closed: 0 },
+  unpublishedChanges: null,
   id: TEST_ID,
   title: "Unit 5",
   description: null,
@@ -46,6 +48,8 @@ beforeEach(() => {
   previewCalls = 0;
   draft = {
     skills: [],
+    assignments: { live: 0, scheduled: 0, closed: 0 },
+    unpublishedChanges: null,
     id: TEST_ID,
     title: "Unit 5",
     description: null,
@@ -77,6 +81,8 @@ beforeEach(() => {
             questionCount: 1,
             audioCount: 0,
             manualCount: 0,
+            assignmentCount: 0,
+            changeNote: null,
             publishedAt: "2026-01-02T03:00:00Z",
             publishedBy: "Cô Thương",
           },

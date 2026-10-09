@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
+	"quizzivy/internal/shared/schedule"
 	"quizzivy/internal/shared/visibility"
 
 	"github.com/jackc/pgx/v5"
@@ -125,15 +126,6 @@ func (s *Postgres) get(ctx context.Context, q db.Querier, scope access.Scope, id
 	return a, nil
 }
 
-const derivedStatus = `
-			CASE
-			  WHEN a.published_at IS NULL THEN 'draft'
-			  WHEN a.closed_at IS NOT NULL AND now() >= a.closed_at THEN 'closed'
-			  WHEN now() < a.opens_at THEN 'scheduled'
-			  WHEN now() < a.closes_at THEN 'open'
-			  ELSE 'closed'
-			END`
-
 // Facets counts every status within the same narrowing List applies, minus
 // the status itself, so the tabs never disagree with the rows.
 func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Facets, error) {
@@ -141,10 +133,10 @@ func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Face
 	var f domain.Facets
 	err := s.QueryRow(ctx, `
 		SELECT count(*),
-		       count(*) FILTER (WHERE `+derivedStatus+` = 'draft'),
-		       count(*) FILTER (WHERE `+derivedStatus+` = 'scheduled'),
-		       count(*) FILTER (WHERE `+derivedStatus+` = 'open'),
-		       count(*) FILTER (WHERE `+derivedStatus+` = 'closed')
+		       count(*) FILTER (WHERE `+schedule.DerivedStatus+` = 'draft'),
+		       count(*) FILTER (WHERE `+schedule.DerivedStatus+` = 'scheduled'),
+		       count(*) FILTER (WHERE `+schedule.DerivedStatus+` = 'open'),
+		       count(*) FILTER (WHERE `+schedule.DerivedStatus+` = 'closed')
 		  FROM app.assignments a
 		 WHERE `+join(where), args...).Scan(&f.All, &f.Draft, &f.Scheduled, &f.Open, &f.Closed)
 	if err != nil {
@@ -166,7 +158,7 @@ func narrow(in domain.ListInput) ([]string, []any) {
 	}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
-		where = append(where, fmt.Sprintf(derivedStatus+` = $%d`, len(args)))
+		where = append(where, fmt.Sprintf(schedule.DerivedStatus+` = $%d`, len(args)))
 	}
 	if in.ClassID != nil {
 		args = append(args, *in.ClassID)
