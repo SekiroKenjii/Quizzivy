@@ -1356,6 +1356,7 @@ listed here matches the spec.
 | D-30 | `users` gains nullable profile fields and bounded object `preferences` | The caller's private profile and account settings are required by T-R4.7; student-facing teacher names use the chosen display name without exposing private account fields |
 | D-31 | Questions and frozen version questions gain nullable level and skill; the choice cap applies to authoring only | DG-62/DG-63 and T-R4.15 preserve historical question content while adding teacher metadata and filters |
 | D-32 | `test_versions` gains a nullable `change_note`, 1 to 200 characters | The test detail's version history shows what the teacher said changed when publishing (DG-66, T-R4.16a). Nullable with no default and no backfill, so the previous release's insert keeps working and a version published before it reads NULL; the command stores NULL for a blank note, so the check never meets an empty string |
+| D-33 | `questions` and `test_version_questions` gain a nullable `media_alt`, 1 to 1000 characters | The deck's builder draws "Alt text: describe the image for screen readers" under a question's image and the model had no field for it (DG-111, T-R4.62a). The bound is `ContentImage.alt`'s. It lives on the question and is frozen at publish like every other part of the question, so a later edit of the bank question never reaches a version. Nullable with no default and no backfill, so the previous release's insert keeps working and a row written before it reads NULL. No check ties it to an image: the write path refuses it for any other media (a field error on `mediaAlt`) and the bank store keeps it only beside an image, and a database check would make an R3 write that swaps an image for audio fail during the rolling deploy |
 
 ---
 
@@ -1458,6 +1459,8 @@ the file it adds.
 | `00090_allow_text_import_sources.sql` | Plaintext exam-source format | R4 (T-R4.55) |
 | `00091_add_word_import_sources_characters.sql` | Bounded character metadata exactly for text sources | R4 (T-R4.55) |
 | `00092_add_test_versions_change_note.sql` | `test_versions.change_note` and `test_versions_change_note_check` (1 to 200 characters), added with the column | R4 (T-R4.16a), D-32 |
+| `00097_add_questions_media_alt.sql` | `questions.media_alt` and `questions_media_alt_check` (1 to 1000 characters), added with the column | R4 (T-R4.62a), D-33 |
+| `00098_add_test_version_questions_media_alt.sql` | `test_version_questions.media_alt` and `test_version_questions_media_alt_check` (1 to 1000 characters), added with the column | R4 (T-R4.62a), D-33 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2518,3 +2521,31 @@ Its purpose-database app/migrate tests, the isolated 87/88 down/up rehearsal and
 the separate historical oversized-choice Neon inventory remain acceptance gates.
 A synthetic nine-option fixture is compatibility evidence, not a count of real
 historical rows.
+
+## 37. Alt text for a question's image (T-R4.62a)
+
+Migrations `00097_add_questions_media_alt.sql` and
+`00098_add_test_version_questions_media_alt.sql` add one nullable `text` column,
+`media_alt`, to the bank and frozen question tables. Each carries a named CHECK,
+`questions_media_alt_check` and `test_version_questions_media_alt_check`, of
+`char_length(media_alt) BETWEEN 1 AND 1000`, added with the column. There is no
+default, backfill, index, trigger or new privilege, and each Down drops its
+constraint and column. 00093 to 00096 are reserved for other R4 tasks; goose
+applies 00097 and 00098 across the gap.
+
+Only an image has alt text. `Input.Validate` refuses a value unless the
+resolved media kind is `image`, with a field error on `mediaAlt` (400
+`VALIDATION_FAILED`, `details.mediaAlt`), and also refuses a blank one and one
+over 1000 characters; publish validates again. The bank store writes the value
+only beside an image, so clearing the media, or changing it to audio, leaves
+NULL. A write replaces the stored value, as it does for `level` and `skill`, so
+an update that leaves `mediaAlt` out clears it. A file replacement keeps the
+question's alt text, because it never changes the kind.
+
+Publish copies the bank value into `test_version_questions.media_alt` in the
+statement that freezes the question; the draft read, the lock order and the
+`media.LockForVersionUse` and `questions.LockForDraftUse` calls are unchanged.
+Restore as draft copies it back from the version, a duplicated group copies the
+draft's, and the version preview, the student's paper and the result read the
+frozen value. The version diff puts it in the `media` part of a question, so a
+changed alt text is one `changed` entry and raises `unpublishedChanges`.
