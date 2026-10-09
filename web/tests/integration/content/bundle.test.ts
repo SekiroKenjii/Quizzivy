@@ -37,6 +37,12 @@ function closure(
   return result;
 }
 
+/**
+ * The budgets are what a student downloads. Inside vitest NODE_ENV is "test",
+ * so Vite would resolve the `development` export conditions and count builds
+ * no student receives (micromark's, with their assertions); the build names
+ * the production conditions instead (T-16), and the limits stay as written.
+ */
 test("keeps editor modules out of the reader and pins prototype transfer budgets", async () => {
   const result = (await build({
     configFile: resolve(
