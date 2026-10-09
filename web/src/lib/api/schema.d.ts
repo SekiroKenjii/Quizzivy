@@ -3792,7 +3792,7 @@ export interface components {
              */
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
-            /** @description The alt text a teacher wrote for the question's image; absent or null when there is none, and always when `media` is not an image. The question bank's reads and writes fill it. The attempt review shows the frozen question and does not carry it. */
+            /** @description The alt text a teacher wrote for the question's image; absent or null when there is none, and always when `media` is not an image. */
             mediaAlt?: string | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
             transcript?: string | null;
