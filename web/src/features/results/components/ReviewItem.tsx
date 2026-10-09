@@ -100,22 +100,25 @@ function Prompt({ question }: Readonly<{ question: ResultQuestion }>) {
   );
 }
 
-function Options({ options }: Readonly<{ options: Key & { kind: "options" } }>) {
+function Options({
+  options,
+  type,
+}: Readonly<{ options: Key & { kind: "options" }; type: string }>) {
   return options.options.map((option, index) => (
     <Fragment key={option.id}>
       {index > 0 && BETWEEN_OPTIONS}
-      <OptionText text={option.text} content={option.content} />
+      <OptionText text={option.text} content={option.content} type={type} />
     </Fragment>
   ));
 }
 
-function GivenText({ answer }: Readonly<{ answer: Given }>) {
+function GivenText({ answer, type }: Readonly<{ answer: Given; type: string }>) {
   const { t } = useTranslation();
   switch (answer.kind) {
     case "none":
       return <>{t("result.noAnswer")}</>;
     case "options":
-      return <Options options={answer} />;
+      return <Options options={answer} type={type} />;
     case "text":
       return <span className="whitespace-pre-wrap">{answer.text}</span>;
     case "boolean":
@@ -205,7 +208,7 @@ export function ReviewItem({
             data-slot="given"
             className={cn("font-medium", struck && "text-danger-ink line-through")}
           >
-            <GivenText answer={answer} />
+            <GivenText answer={answer} type={question.type} />
           </span>
         </p>
         {key !== null && (
@@ -213,7 +216,7 @@ export function ReviewItem({
             <span className="text-muted-fg">{t("result.correctAnswer")} </span>
             <span className="text-success-ink font-medium">
               {key.kind === "options" ? (
-                <Options options={key} />
+                <Options options={key} type={question.type} />
               ) : (
                 key.values.join(BETWEEN_BLANKS)
               )}
