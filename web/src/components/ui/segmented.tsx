@@ -7,13 +7,16 @@ import { cn } from "@/lib/utils";
 /**
  * SegmentedOption is one choice of a Segmented: its value, its label, an
  * optional icon before the label and an optional count after it. A count is
- * drawn whenever it is a number, zero included.
+ * drawn whenever it is a number, zero included. A disabled option cannot be
+ * chosen; `describedBy` names the element that says why.
  */
 export type SegmentedOption = {
   value: string;
   label: string;
   icon?: LucideIcon | undefined;
   count?: number | undefined;
+  disabled?: boolean | undefined;
+  describedBy?: string | undefined;
 };
 
 type SegmentedSize = "default" | "lg" | "sm" | "xs";
@@ -92,12 +95,15 @@ export function Segmented({
             key={option.value}
             type="button"
             aria-pressed={on}
+            disabled={option.disabled}
+            aria-describedby={option.describedBy}
             onClick={() => onChange(option.value)}
             className={cn(
               "inline-flex h-7 items-center gap-1.5 rounded-md border-0 bg-transparent px-3 text-[0.8125rem] font-medium transition-colors",
               "in-data-[scale=deck]:rounded-seg in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:whitespace-nowrap",
               scroll && "shrink-0 leading-4 whitespace-nowrap outline-offset-1!",
               SIZES[size],
+              option.disabled && "cursor-not-allowed opacity-45",
               fill &&
                 "text-meta h-7.5 flex-1 px-2.5 leading-normal in-data-[scale=deck]:h-7.5",
               Icon !== undefined && size === "lg" && "gap-1.75",
