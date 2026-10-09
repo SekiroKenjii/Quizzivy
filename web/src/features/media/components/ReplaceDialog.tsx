@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Replace } from "lucide-react";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
@@ -22,14 +23,16 @@ const INITIAL: ReplaceValues = { file: null };
  * theirs. The file is checked against the kind's limits before it is sent.
  * A replacement is not idempotent, so a failure is never retried: `onSettled`
  * runs after every answer, failures included, for the caller to re-read what
- * may have changed.
+ * may have changed. Focus goes to `returnFocus` when the dialog closes.
  */
 export function ReplaceDialog({
+  returnFocus,
   asset,
   onOpenChange,
   onSettled,
 }: Readonly<{
   asset: LibraryAsset | null;
+  returnFocus: RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
   onSettled: (replacement: MediaReplacement | null) => void;
 }>) {
@@ -55,6 +58,7 @@ export function ReplaceDialog({
 
   return (
     <FormDialog<ReplaceValues>
+      returnFocus={returnFocus}
       open={asset !== null}
       onOpenChange={(next) => {
         upload.reset();

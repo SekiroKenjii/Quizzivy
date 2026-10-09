@@ -21,6 +21,7 @@ import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
 const QUOTA = 5 * 1024 * 1024 * 1024;
+const REPLACED = "018f0000-0000-7000-8000-0000000000b1";
 
 function asset(overrides: Partial<LibraryAsset> & { id: string }): LibraryAsset {
   return {
@@ -325,8 +326,11 @@ describe("a file's menu", () => {
       http.post(`${BASE}/teacher/media/:id/replace`, ({ params }) => {
         replaced += 1;
         expect(params["id"]).toBe(AIRPORT.id);
+        items = items.map((row) =>
+          row.id === AIRPORT.id ? { ...row, id: REPLACED } : row,
+        );
         return contractJson("/teacher/media/{id}/replace", "post", 201, {
-          asset: { ...AIRPORT, id: "018f0000-0000-7000-8000-0000000000b1" },
+          asset: { ...AIRPORT, id: REPLACED },
           repointed: { questions: 3, groups: 0 },
           left: { questions: 0, groups: 0 },
         });
@@ -350,6 +354,11 @@ describe("a file's menu", () => {
     expect(await screen.findByText("Đã thay tệp")).toBeVisible();
     expect(replaced).toBe(1);
     await waitFor(() => expect(lists.length).toBeGreaterThan(before));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        document.querySelector(`[data-media-menu="${REPLACED}"]`),
+      ),
+    );
   });
 
   it("refuses, before sending, a replacement image over 10 MB", async () => {
@@ -424,6 +433,108 @@ describe("a file's menu", () => {
 
     expect(await screen.findByText("Đã xoá tệp")).toBeVisible();
     expect(deleted).toBe(PODCAST.id);
+    expect(document.activeElement, "focus moves to the next card's menu").toBe(
+      screen.getByRole("button", { name: "Thao tác với tệp Directions map.png" }),
+    );
+  });
+
+  for (const [item, dialog] of [
+    ["Đổi tên", "Đổi tên tệp"],
+    ["Thay tệp", "Thay tệp"],
+    ["Xoá", "Xoá Podcast · city parks.mp3?"],
+  ] as const) {
+    it(`gives focus back to the card's menu when "${dialog}" is dismissed with Esc`, async () => {
+      const user = renderPage();
+      await openMenu(user, "Podcast · city parks.mp3");
+      await user.click(await screen.findByRole("menuitem", { name: item }));
+      await screen.findByRole("dialog", { name: dialog });
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", {
+          name: "Thao tác với tệp Podcast · city parks.mp3",
+        }),
+      );
+    });
+  }
+
+  it("gives focus back to the card's menu when the blocked-delete notice closes", async () => {
+    items = [
+      {
+        ...AIRPORT,
+        usageCount: 1,
+        usedIn: [{ id: AIRPORT.id, title: "Đề 1", version: 2 }],
+      },
+    ];
+    const user = renderPage();
+    await openMenu(user, "Unit 4 · Airport announcements.mp3");
+    await user.click(await screen.findByRole("menuitem", { name: "Xoá" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.click(within(dialog).getByRole("button", { name: "Đã hiểu" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", {
+        name: "Thao tác với tệp Unit 4 · Airport announcements.mp3",
+      }),
+    );
+  });
+
+  it("shows the versions a 409 names when the delete is refused", async () => {
+    server.use(
+      http.delete(`${BASE}/teacher/media/:id`, () =>
+        contractJson("/teacher/media/{id}", "delete", 409, {
+          error: {
+            code: "MEDIA_REFERENCED",
+            message: "Tệp đang được dùng.",
+            requestId: "018f0000-0000-7000-8000-0000000000f2",
+            details: {
+              tests: [
+                {
+                  id: "018f0000-0000-7000-8000-0000000000d9",
+                  title: "Đề nghe 7",
+                  version: 4,
+                },
+              ],
+            },
+          },
+        }),
+      ),
+    );
+    const user = renderPage();
+    await openMenu(user, "Podcast · city parks.mp3");
+    await user.click(await screen.findByRole("menuitem", { name: "Xoá" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Xoá" }));
+
+    const notice = await screen.findByRole("dialog", {
+      name: "Tệp đang được một phiên bản đã xuất bản sử dụng nên không xoá được",
+    });
+    expect(within(notice).getByRole("link", { name: "Đề nghe 7" })).toHaveAttribute(
+      "href",
+      "/teacher/tests/018f0000-0000-7000-8000-0000000000d9",
+    );
+    expect(within(notice).getByText("v4")).toBeVisible();
+  });
+
+  it("keeps a drop under an open dialog from opening the upload", async () => {
+    const user = renderPage();
+    await openMenu(user, "Podcast · city parks.mp3");
+    await user.click(await screen.findByRole("menuitem", { name: "Đổi tên" }));
+    await screen.findByRole("dialog", { name: "Đổi tên tệp" });
+
+    const drop = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, "dataTransfer", {
+      value: { types: ["Files"], files: [new File([new Uint8Array(4)], "moi.mp3")] },
+    });
+    window.dispatchEvent(drop);
+
+    expect(drop.defaultPrevented).toBe(true);
+    expect(screen.queryByRole("dialog", { name: "Tải lên media" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Đổi tên tệp" })).toBeVisible();
   });
 
   it("warns that the questions using a file will show it missing", async () => {

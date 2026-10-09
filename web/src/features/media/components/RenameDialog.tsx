@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Pencil } from "lucide-react";
@@ -12,14 +13,17 @@ const NAME_MAX = 200;
 /**
  * RenameDialog sets the name the library shows for a file. The stored file
  * and its original filename never change, and neither does a question that
- * uses it. `onRenamed` runs once the server has the new name.
+ * uses it. `onRenamed` runs once the server has the new name; focus goes to
+ * `returnFocus` when the dialog closes.
  */
 export function RenameDialog({
+  returnFocus,
   asset,
   onOpenChange,
   onRenamed,
 }: Readonly<{
   asset: LibraryAsset | null;
+  returnFocus: RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
   onRenamed: () => void;
 }>) {
@@ -44,6 +48,7 @@ export function RenameDialog({
 
   return (
     <FormDialog<RenameValues>
+      returnFocus={returnFocus}
       open={asset !== null}
       onOpenChange={(next) => {
         rename.reset();

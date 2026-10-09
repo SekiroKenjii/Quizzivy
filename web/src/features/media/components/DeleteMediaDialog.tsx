@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -13,14 +14,17 @@ import {
  * DeleteMediaDialog asks before a library file is deleted, or, when a
  * published version uses it, says it cannot be and names those versions
  * (DG-09). A refusal from the server that names versions turns the dialog
- * into that notice. `onDeleted` runs once the file is gone.
+ * into that notice. `onDeleted` runs once the file is gone, before the dialog
+ * closes, so it can point `returnFocus` at what survives the file.
  */
 export function DeleteMediaDialog({
+  returnFocus,
   asset,
   onOpenChange,
   onDeleted,
 }: Readonly<{
   asset: LibraryAsset | null;
+  returnFocus: RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
   onDeleted: () => void;
 }>) {
@@ -28,8 +32,8 @@ export function DeleteMediaDialog({
   const remove = useMutation({
     mutationFn: (id: string) => deleteMedia(id),
     onSuccess: () => {
-      onOpenChange(false);
       onDeleted();
+      onOpenChange(false);
     },
   });
   const close = (open: boolean) => {
@@ -44,6 +48,7 @@ export function DeleteMediaDialog({
   if (blocked)
     return (
       <ConfirmDialog
+        returnFocus={returnFocus}
         open={asset !== null}
         onOpenChange={close}
         title={t("media.deleteBlockedTitle")}
@@ -56,6 +61,7 @@ export function DeleteMediaDialog({
 
   return (
     <ConfirmDialog
+      returnFocus={returnFocus}
       open={asset !== null}
       onOpenChange={close}
       title={t("media.deleteTitle", { name })}

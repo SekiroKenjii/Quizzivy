@@ -28,7 +28,11 @@ import { formatBytes, playLimitLabel } from "@/features/media/format";
 import { audioLength } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 
-/** MediaCardActions are the card menu's actions, each handed the card's file. */
+/**
+ * MediaCardActions are the card menu's actions, each handed the card's file.
+ * The menu's trigger carries `data-media-menu` with the file's id, so a dialog
+ * opened from the menu can give focus back to it.
+ */
 export type MediaCardActions = Readonly<{
   onRename: (asset: LibraryAsset) => void;
   onReplace: (asset: LibraryAsset) => void;
@@ -255,6 +259,7 @@ function CardMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
+          data-media-menu={asset.id}
           aria-label={t("media.actionsNamed", { name: asset.displayName })}
           className="text-muted-fg hover:bg-hover hover:text-fg data-[state=open]:bg-hover grid size-6.5 flex-none cursor-pointer place-items-center rounded-sm"
         >

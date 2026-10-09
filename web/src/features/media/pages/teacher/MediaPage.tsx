@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Upload } from "lucide-react";
@@ -45,6 +45,10 @@ const EDITED_BY_REPLACE = [
 
 function toTab(value: string | null): Tab {
   return TABS.find((tab) => tab === value) ?? "all";
+}
+
+function menuTrigger(id: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`[data-media-menu="${id}"]`);
 }
 
 /**
@@ -97,6 +101,30 @@ export default function MediaPage() {
     if (Date.now() - library.dataUpdatedAt < FRESH_URL_MS) return;
     void library.refetch({ cancelRefetch: false });
   };
+  const returnTo = useRef<HTMLElement | null>(null);
+  const uploadButton = useRef<HTMLButtonElement>(null);
+  const focusAfterRefresh = useRef<string | null>(null);
+  const fromMenu = (open: (asset: LibraryAsset) => void) => (asset: LibraryAsset) => {
+    returnTo.current = menuTrigger(asset.id);
+    open(asset);
+  };
+  const focusBesideDeleted = (deleted: LibraryAsset) => {
+    const items = library.data?.items ?? [];
+    const index = items.findIndex((item) => item.id === deleted.id);
+    const neighbour = items[index + 1] ?? items[index - 1];
+    returnTo.current =
+      (neighbour === undefined ? null : menuTrigger(neighbour.id)) ??
+      uploadButton.current;
+  };
+  const dataUpdatedAt = library.dataUpdatedAt;
+  useEffect(() => {
+    const id = focusAfterRefresh.current;
+    if (id === null) return;
+    const trigger = menuTrigger(id);
+    if (trigger === null) return;
+    focusAfterRefresh.current = null;
+    trigger.focus();
+  }, [dataUpdatedAt]);
   const facets = library.data?.facets;
   const filtered = search !== "" || tab !== "all";
 
@@ -116,9 +144,9 @@ export default function MediaPage() {
                 active={playing === asset.id}
                 onPlay={setPlaying}
                 onExpired={refreshExpired}
-                onRename={setRenaming}
-                onReplace={setReplacing}
-                onDelete={setDeleting}
+                onRename={fromMenu(setRenaming)}
+                onReplace={fromMenu(setReplacing)}
+                onDelete={fromMenu(setDeleting)}
               />
             )}
           </CardGrid>
@@ -176,7 +204,7 @@ export default function MediaPage() {
         title={t("media.title")}
         description={t("media.description")}
         actions={
-          <Button onClick={upload}>
+          <Button ref={uploadButton} onClick={upload}>
             <Upload aria-hidden="true" />
             {t("media.upload")}
           </Button>
@@ -237,19 +265,26 @@ export default function MediaPage() {
         onUploaded={refresh}
       />
       <RenameDialog
+        returnFocus={returnTo}
         asset={renaming}
         onOpenChange={(open) => !open && setRenaming(null)}
         onRenamed={refresh}
       />
       <ReplaceDialog
+        returnFocus={returnTo}
         asset={replacing}
         onOpenChange={(open) => !open && setReplacing(null)}
-        onSettled={refreshEdited}
+        onSettled={(replacement) => {
+          if (replacement !== null) focusAfterRefresh.current = replacement.asset.id;
+          refreshEdited();
+        }}
       />
       <DeleteMediaDialog
+        returnFocus={returnTo}
         asset={deleting}
         onOpenChange={(open) => !open && setDeleting(null)}
         onDeleted={() => {
+          if (deleting !== null) focusBesideDeleted(deleting);
           toast(t("media.deleted"));
           refresh();
         }}
