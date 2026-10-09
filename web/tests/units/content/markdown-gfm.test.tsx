@@ -198,3 +198,43 @@ test("a fill-in-the-blank prompt's {{n}} placeholders survive the converter", ()
     blocks: [para(text("Điền {{1}} và {{2}}."))],
   });
 });
+
+test("a heading that ends in a hash and a space keeps the hash", () => {
+  const document: QuestionContent = {
+    format: "semantic_v1",
+    blocks: [{ type: "heading", level: 2, content: [text("Mục #  ")] }],
+  };
+  const markdown = questionContentToMarkdown(document);
+  expect(markdown).toBe("## Mục \\#");
+  expect(markdownToQuestionContent(markdown)).toEqual({
+    format: "semantic_v1",
+    blocks: [{ type: "heading", level: 2, content: [text("Mục #")] }],
+  });
+});
+
+test("a table cell cannot smuggle markup or a script link to the student", () => {
+  const { container } = render(
+    <Markdown>
+      {
+        '| A | B |\n| --- | --- |\n| <table onclick="x">a</table> | [b](javascript:alert(1)) |'
+      }
+    </Markdown>,
+  );
+  expect(container.querySelectorAll("table")).toHaveLength(1);
+  expect(container.querySelector("table table")).toBeNull();
+  expect(container.querySelector("[onclick]")).toBeNull();
+  const link = container.querySelector("td a");
+  expect(link).toHaveTextContent("b");
+  expect(link).not.toHaveAttribute("href");
+});
+
+test("a body row wider than its header keeps the header's columns", () => {
+  const wide = Array.from({ length: 400 }, (_, index) => String(index)).join(" | ");
+  const { container } = render(
+    <Markdown>{`| a | b |\n| --- | --- |\n| ${wide} |`}</Markdown>,
+  );
+  const rows = container.querySelectorAll("tr");
+  expect(rows).toHaveLength(2);
+  expect(rows[0]!.querySelectorAll("th")).toHaveLength(2);
+  expect(rows[1]!.querySelectorAll("td")).toHaveLength(2);
+});

@@ -214,7 +214,7 @@ function blockMarkdown(block: Exclude<Block, { type: "list" }>): string {
     case "paragraph":
       return paragraph(block.content);
     case "heading":
-      return `${"#".repeat(block.level)} ${inlineMarkdown(block.content, " ").replace(/#$/, "\\#")}`;
+      return `${"#".repeat(block.level)} ${inlineMarkdown(block.content, " ").trim().replace(/#$/, "\\#")}`;
     case "table":
       return table(block.rows);
   }
@@ -225,7 +225,8 @@ function blockMarkdown(block: Exclude<Block, { type: "list" }>): string {
  * student reader renders: text, bold, italic, strikethrough, headings, lists,
  * tables and links are kept; underline, superscript and subscript are dropped;
  * a table's merged cells are written out across the cells they covered, its
- * first row becomes its header, and a cell keeps its text on one line.
+ * first row becomes its header, and a cell keeps the text of its paragraphs
+ * and headings on one line, dropping a list or a table nested in it.
  */
 export function questionContentToMarkdown(content: QuestionContent): string {
   return blocks(content.blocks);
