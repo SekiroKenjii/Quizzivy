@@ -81,13 +81,7 @@ describe("the section menu", () => {
       within(menu)
         .getAllByRole("menuitem")
         .map((item) => (item.textContent ?? "").trim()),
-    ).toEqual([
-      "Đổi tên",
-      "Hướng dẫn phần",
-      "Di chuyển lên",
-      "Di chuyển xuống",
-      "Xoá phần",
-    ]);
+    ).toEqual(["Đổi tên", "Hướng dẫn", "Di chuyển lên", "Di chuyển xuống", "Gỡ phần"]);
   });
 
   it("renames a section in place, committing on Enter", async () => {
@@ -179,7 +173,7 @@ describe("the section menu", () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 2);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual([
@@ -193,14 +187,14 @@ describe("the section menu", () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 0);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/Ngữ pháp/)).toBeInTheDocument();
     expect(within(dialog).getByText(/2 câu/)).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
 
-    await user.click(within(dialog).getByRole("button", { name: "Xoá phần" }));
+    await user.click(within(dialog).getByRole("button", { name: "Gỡ phần" }));
 
     expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual([
       "Nghe",
@@ -213,7 +207,7 @@ describe("the section menu", () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 0);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
@@ -226,10 +220,10 @@ describe("the section menu", () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 1);
-    await user.click(await screen.findByRole("menuitem", { name: "Hướng dẫn phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Hướng dẫn" }));
 
     const dialog = await screen.findByRole("dialog");
-    const field = within(dialog).getByLabelText("Hướng dẫn phần");
+    const field = within(dialog).getByLabelText("Hướng dẫn");
     expect(field).toHaveValue("Nghe kỹ trước khi chọn.");
 
     await user.clear(field);
@@ -244,10 +238,10 @@ describe("the section menu", () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 1);
-    await user.click(await screen.findByRole("menuitem", { name: "Hướng dẫn phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Hướng dẫn" }));
 
     const dialog = await screen.findByRole("dialog");
-    await user.clear(within(dialog).getByLabelText("Hướng dẫn phần"));
+    await user.clear(within(dialog).getByLabelText("Hướng dẫn"));
     await user.click(within(dialog).getByRole("button", { name: "Lưu" }));
 
     const next = onChange.mock.calls[0]![0] as OutlineSection[];
@@ -337,12 +331,12 @@ describe("removing a section from a builder that owns groups", () => {
     const { user, onChange } = renderTree(withGroup(), onRemoveSection);
 
     await openMenu(user, 0);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/Ngữ pháp/)).toBeInTheDocument();
     expect(within(dialog).getByText(/2 câu/)).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Xoá phần" }));
+    await user.click(within(dialog).getByRole("button", { name: "Gỡ phần" }));
 
     expect(onRemoveSection).not.toHaveBeenCalled();
     expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual([
@@ -357,7 +351,7 @@ describe("removing a section from a builder that owns groups", () => {
     const { user, onChange } = renderTree(withGroup(), onRemoveSection);
 
     await openMenu(user, 2);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(onRemoveSection).not.toHaveBeenCalled();
@@ -369,7 +363,7 @@ describe("removing a section from a builder that owns groups", () => {
     const { user, onChange } = renderTree(withGroup(), onRemoveSection);
 
     await openMenu(user, 3);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     expect(onRemoveSection).toHaveBeenCalledWith(3);
     expect(screen.queryByRole("dialog")).toBeNull();

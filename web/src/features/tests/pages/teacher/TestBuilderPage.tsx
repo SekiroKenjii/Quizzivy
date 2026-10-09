@@ -150,6 +150,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   );
   const [violations, setViolations] = useState<PublishViolation[] | null>(null);
   const [picking, setPicking] = useState(false);
+  const pickerOpener = useRef<HTMLElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [creating, setCreating] = useState(false);
@@ -687,57 +688,69 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       data-scale="deck"
       className="flex min-w-0 flex-col gap-3.5"
     >
-      <div className="flex shrink-0 flex-wrap items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon-lg"
-          aria-label={t("common.back")}
-          onClick={() => void navigate("/teacher/tests")}
-        >
-          <ArrowLeft aria-hidden="true" />
-        </Button>
-        <BuilderTitle title={title} onChange={updateTitle} />
-        <StatusBadge kind="test" status={test.status} />
-        <AutosaveStatusLabel
-          status={saveStatus}
-          deck
-          onRetry={() => {
-            outline.retry();
-            retryQuestion.current?.();
-          }}
-        />
-        {selectedId === null || selectedGroupId ? null : (
-          <Button
-            variant="outline"
-            size="sm"
-            ref={settingsTriggerRef}
-            aria-label={t("questionEditor.settings")}
-            onClick={() => setSettingsOpen(true)}
-          >
-            <SlidersHorizontal aria-hidden="true" />
-            <span className="hidden sm:inline">{t("questionEditor.settings")}</span>
-          </Button>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-[1_1_320px] items-center gap-2.5">
           <Button
             variant="ghost"
-            size="md"
-            className="text-muted-foreground h-9"
+            size="icon"
+            aria-label={t("common.back")}
+            title={t("common.back")}
+            onClick={() => void navigate("/teacher/tests")}
+          >
+            <ArrowLeft aria-hidden="true" />
+          </Button>
+          <BuilderTitle title={title} onChange={updateTitle} />
+          <StatusBadge
+            kind="test"
+            status={test.status}
+            className={
+              test.status === "draft"
+                ? "border-border text-muted-fg h-5.5 shrink-0 rounded-full bg-transparent px-2 text-xs leading-[18px] font-medium in-data-[scale=deck]:px-2"
+                : "shrink-0"
+            }
+          />
+          <AutosaveStatusLabel
+            status={saveStatus}
+            deck
+            onRetry={() => {
+              outline.retry();
+              retryQuestion.current?.();
+            }}
+          />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {selectedId === null || selectedGroupId ? null : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              ref={settingsTriggerRef}
+              aria-label={t("questionEditor.settings")}
+              title={t("questionEditor.settings")}
+              onClick={() => setSettingsOpen(true)}
+            >
+              <SlidersHorizontal aria-hidden="true" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
             aria-label={t("builder.versions")}
+            title={t("builder.versions")}
             onClick={() => void navigate(`/teacher/tests/${test.id}#versions`)}
           >
             <History aria-hidden="true" />
-            <span className="hidden lg:inline">{t("builder.versions")}</span>
           </Button>
           <Button
             variant="outline"
             size="md"
-            aria-label={t("builder.previewAsStudent")}
+            className="shadow-card h-9"
             onClick={() => void openPreview()}
           >
             <Eye aria-hidden="true" />
-            <span className="hidden lg:inline">{t("builder.previewAsStudent")}</span>
+            {t("builder.preview")}
           </Button>
           <Button
             size="md"
@@ -802,7 +815,10 @@ function Builder({ test }: Readonly<{ test: Test }>) {
                 onSelect={(questionId) => void selectQuestion(questionId)}
                 onChange={updateOutline}
                 onCreateQuestion={() => void onCreateQuestion()}
-                onPickFromBank={() => setPicking(true)}
+                onPickFromBank={(opener) => {
+                  pickerOpener.current = opener;
+                  setPicking(true);
+                }}
                 onAddSection={onAddSection}
               />
             </Suspense>
@@ -826,6 +842,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       <QuestionPickerDialog
         open={picking}
         excluded={new Set(questionIds)}
+        returnFocus={pickerOpener}
         onOpenChange={setPicking}
         onPick={appendQuestion}
         onPickGroup={() => {
@@ -978,13 +995,13 @@ function BuilderTitle({
     }
   }, [editing]);
   return (
-    <div className="min-w-0 flex-[1_1_320px]">
+    <div className="min-w-16 flex-[0_1_auto]">
       {editing ? (
         <Input
           ref={input}
           value={title}
           aria-label={t("builder.titleLabel")}
-          className="text-stat h-auto w-full px-2 py-1 font-semibold"
+          className="text-stat h-9 w-full px-2 py-0 leading-[34px] font-semibold tracking-[-0.02em]"
           onChange={(event) => onChange(event.target.value)}
           onBlur={() => {
             const next = title.trim() || t("tests.untitled");
@@ -1004,7 +1021,7 @@ function BuilderTitle({
           ref={trigger}
           type="button"
           aria-label={t("builder.titleLabel")}
-          className="group/builder-title hover:bg-hover text-stat hover:border-border relative -ml-2 block w-[calc(100%+8px)] min-w-0 rounded-lg border border-transparent px-2 py-1 text-left font-semibold transition-[background-color,border-color] duration-150 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none"
+          className="group/builder-title hover:bg-hover text-stat hover:border-border relative -ml-2 block w-[calc(100%+8px)] min-w-0 rounded-[8px] border border-transparent px-2 py-0 text-left leading-[34px] font-semibold tracking-[-0.02em] transition-[background-color,border-color] duration-150 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none"
           onClick={() => setEditing(true)}
         >
           <MarqueeText

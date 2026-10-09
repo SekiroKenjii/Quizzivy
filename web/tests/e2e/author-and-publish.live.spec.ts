@@ -130,7 +130,9 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await setOptions(page, ["Gọi lại sau", "Đổi lịch hẹn"]);
 
   // --------------------------------------------------------------- publish
-  await expect(page.getByText(/Đã lưu \d\d:\d\d/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
+    timeout: 15_000,
+  });
   await page.getByRole("button", { name: "Phát hành" }).click();
 
   // Publishing lands on the detail page, previewing the version just written.

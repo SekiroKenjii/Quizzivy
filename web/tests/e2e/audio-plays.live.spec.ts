@@ -65,7 +65,9 @@ async function publishListeningTest(page: Page, title: string) {
   }
   await page.getByLabel("Lựa chọn 1", { exact: true }).check();
 
-  await expect(page.getByText(/Đã lưu \d\d:\d\d/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
+    timeout: 15_000,
+  });
   await page.getByRole("button", { name: "Phát hành" }).click();
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
 }

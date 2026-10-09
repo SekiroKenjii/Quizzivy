@@ -162,7 +162,7 @@ test("builder flushes rich edits before switching questions and previews the sav
   await page.getByRole("button", { name: "Sửa định dạng phương án 1" }).click();
   await expect(editor.locator("u")).toHaveText("think");
   await page.getByRole("button", { name: "Xong", exact: true }).click();
-  await page.getByRole("button", { name: "Xem như học viên", exact: true }).click();
+  await page.getByRole("button", { name: "Xem trước", exact: true }).click();
   await expect(page.getByRole("dialog").locator("u").first()).toHaveText("think");
 });
 

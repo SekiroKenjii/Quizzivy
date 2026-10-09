@@ -88,7 +88,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await page.getByLabel("Tên phần").fill("Grammar");
   await page.getByLabel("Tên phần").press("Enter");
   await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
-  const target = page.getByText("Kéo câu hỏi vào đây hoặc thêm câu hỏi mới.", {
+  const target = page.getByText("Kéo câu hỏi vào đây", {
     exact: true,
   });
   const handle = page.getByRole("button", {
@@ -105,7 +105,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 20 });
   await page.mouse.up();
   await expect(target).toBeHidden();
-  await expect(page.getByText(/Đã lưu \d\d:\d\d/)).toBeVisible();
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible();
   await page.reload();
   const secondSection = page
     .locator("[data-outline-section]")

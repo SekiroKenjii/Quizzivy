@@ -2,9 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { signInAsAdmin } from "./support/live";
 
 async function saved(page: Page) {
-  await expect(
-    page.getByRole("status").filter({ hasText: /^Đã lưu \d/ }),
-  ).toBeVisible();
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 }
 
@@ -68,7 +66,7 @@ test("mixed builder saves new sections, moves complete groups, copies context an
   await expect(
     sections.last().locator(`[data-outline-group="${originalId}"]`),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Xem như học viên", exact: true }).click();
+  await page.getByRole("button", { name: "Xem trước", exact: true }).click();
   const preview = page.getByRole("dialog");
   await expect(
     preview.getByText("Câu lạc bộ mở cửa vào thứ Bảy.", { exact: true }),
@@ -85,7 +83,7 @@ test("mixed builder saves new sections, moves complete groups, copies context an
       .getByRole("status")
       .filter({ hasText: "Đã lưu bản sao độc lập vào ngân hàng." }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Lấy từ ngân hàng", exact: true }).click();
+  await page.getByRole("button", { name: "Từ ngân hàng câu hỏi", exact: true }).click();
   await page.getByRole("button", { name: "Chọn cả nhóm câu hỏi", exact: true }).click();
   const picker = page.getByRole("dialog");
   await picker.getByRole("textbox").fill(title);
@@ -127,7 +125,7 @@ test("mixed builder saves new sections, moves complete groups, copies context an
   await expect(page.locator("[data-outline-group]")).toHaveCount(1);
   await page.reload();
   await expect(page.locator("[data-outline-group]")).toHaveCount(1);
-  await page.getByRole("button", { name: "Xem như học viên", exact: true }).click();
+  await page.getByRole("button", { name: "Xem trước", exact: true }).click();
   await expect(
     page
       .getByRole("dialog")
@@ -139,7 +137,7 @@ test("mixed builder saves new sections, moves complete groups, copies context an
     .last()
     .getByRole("button", { name: "Thao tác với phần", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Xoá phần", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Gỡ phần", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
   await expect(sections).toHaveCount(beforeRemoval - 1);
   await saved(page);

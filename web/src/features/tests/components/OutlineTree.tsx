@@ -1,5 +1,14 @@
 import { Tooltip } from "@/components/shared/Tooltip";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { toast } from "@/components/ui/sonner";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   DndContext,
@@ -90,7 +99,7 @@ interface OutlineTreeProps {
   onSelect: (questionId: string) => void;
   onChange: (sections: OutlineSection[]) => void;
   onCreateQuestion: () => void;
-  onPickFromBank: () => void;
+  onPickFromBank: (opener: HTMLElement) => void;
   onAddSection: () => void;
   groups?: Map<string, GroupBundle>;
   selectedGroupId?: string | null;
@@ -133,6 +142,11 @@ export function OutlineTree({
     section.clientId ?? section.id ?? clientKeys[index] ?? `new-${index}`;
   const [renaming, setRenaming] = useState<number | null>(null);
   const [instructing, setInstructing] = useState<number | null>(null);
+  const instructionsOpener = useRef<HTMLElement | null>(null);
+  const openInstructions = (sectionIndex: number, opener: HTMLElement | null) => {
+    instructionsOpener.current = opener;
+    setInstructing(sectionIndex);
+  };
   const [removing, setRemoving] = useState<number | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(
@@ -223,6 +237,7 @@ export function OutlineTree({
 
   function drop(questionId: string) {
     onChange(removeUnit(sections, questionId));
+    toast(t("builder.removedFromTest"));
   }
 
   function step(questionId: string, direction: -1 | 1) {
@@ -274,8 +289,8 @@ export function OutlineTree({
   return (
     <div className="bg-card shadow-card flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border">
       <div className="flex shrink-0 items-center gap-2 border-b px-3.5 py-3">
-        <p className="text-sm font-semibold">{t("builder.outline")}</p>
-        <p className="text-muted-foreground text-caption ml-auto shrink-0 tabular-nums">
+        <p className="text-[13px] font-semibold">{t("builder.outline")}</p>
+        <p className="text-muted-foreground ml-auto shrink-0 text-xs leading-[18px] tabular-nums">
           {settled
             ? t("builder.outlineSummary", {
                 questions: numbering.size,
@@ -315,7 +330,7 @@ export function OutlineTree({
         }}
         onDragEnd={onDragEnd}
       >
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+        <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-1.5">
           <SortableContext
             items={sections.map(
               (section, index) => `section:${keyFor(section, index)}`,
@@ -329,7 +344,10 @@ export function OutlineTree({
                 <div
                   key={key}
                   data-outline-section={section.id ?? undefined}
-                  className={dragging === `section:${key}` ? "opacity-45" : undefined}
+                  className={cn(
+                    "pb-0.5",
+                    dragging === `section:${key}` && "opacity-45",
+                  )}
                 >
                   <SectionHeader
                     id={`section:${key}`}
@@ -337,9 +355,10 @@ export function OutlineTree({
                     dragging={dragging !== null}
                     drop={
                       dropTarget?.id === `head:section:${key}`
-                        ? "before"
+                        ? undefined
                         : dropPosition(dropTarget, `section:${key}`)
                     }
+                    dropInto={dropTarget?.id === `head:section:${key}`}
                     title={section.title}
                     summary={
                       settled
@@ -356,7 +375,7 @@ export function OutlineTree({
                     onToggle={() => setCollapsed((current) => toggle(current, key))}
                     onStartRename={() => setRenaming(sectionIndex)}
                     onRenamed={(next) => rename(sectionIndex, next)}
-                    onInstructions={() => setInstructing(sectionIndex)}
+                    onInstructions={(opener) => openInstructions(sectionIndex, opener)}
                     onMove={(direction) => move(sectionIndex, direction)}
                     onRemove={() => {
                       const units = unitsOf(section);
@@ -372,10 +391,15 @@ export function OutlineTree({
                     {open && section.instructions ? (
                       <button
                         type="button"
-                        className="text-muted-foreground hover:text-foreground mb-1 block w-full truncate px-9 text-left text-xs"
-                        onClick={() => setInstructing(sectionIndex)}
+                        className="text-muted-fg hover:bg-muted mb-1 ml-6.5 flex w-[calc(100%-1.625rem)] items-center gap-1.5 rounded-[6px] px-1.5 py-1 text-left text-xs leading-[1.45]"
+                        onClick={(event) =>
+                          openInstructions(sectionIndex, event.currentTarget)
+                        }
                       >
-                        {section.instructions}
+                        <ScrollText aria-hidden="true" className="size-3.25 shrink-0" />
+                        <span className="min-w-0 truncate leading-[18px]">
+                          {section.instructions}
+                        </span>
                       </button>
                     ) : null}
                     {open ? (
@@ -383,7 +407,7 @@ export function OutlineTree({
                         items={unitsOf(section).map(unitKey)}
                         strategy={verticalListSortingStrategy}
                       >
-                        <div className="ml-3.5 space-y-px border-l py-1 pl-1">
+                        <div className="ml-3.5 space-y-px border-l pl-1">
                           {unitsOf(section).map((unit) =>
                             unit.kind === "group" ? (
                               <OutlineGroupRow
@@ -445,37 +469,33 @@ export function OutlineTree({
         </div>
       </DndContext>
 
-      <div className="shrink-0 space-y-1 border-t p-2">
+      <div className="flex shrink-0 flex-col gap-0.5 border-t p-2">
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start in-data-[scale=deck]:h-8"
+          className="shadow-card w-full justify-start gap-2 px-2.5 in-data-[scale=deck]:h-8 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5"
           disabled={creating || sections.length === 0}
           onClick={onCreateQuestion}
         >
           <Plus aria-hidden="true" />
-          <span className="min-w-0 flex-1 text-left">
-            <span className="block">
-              {t(
-                selectedGroupId
-                  ? "builder.addStandaloneQuestion"
-                  : "builder.addQuestion",
-              )}
-            </span>
-            {sections.length === 0 ? null : (
-              <span className="text-muted-foreground text-caption block truncate font-normal">
-                {t("builder.addQuestionTo", {
-                  title: abbreviatedTarget(sections, selectedGroupId, selectedId),
-                })}
-              </span>
+          <span className="flex-1 text-left whitespace-nowrap">
+            {t(
+              selectedGroupId ? "builder.addStandaloneQuestion" : "builder.addQuestion",
             )}
-          </span>
+          </span>{" "}
+          {sections.length === 0 ? null : (
+            <span className="text-muted-foreground min-w-0 truncate text-[11.5px] font-normal">
+              {t("builder.addQuestionTo", {
+                title: abbreviatedTarget(sections, selectedGroupId, selectedId),
+              })}
+            </span>
+          )}
         </Button>
         {onCreateGroup ? (
           <Button
             variant="outline"
             size="sm"
-            className="w-full justify-start in-data-[scale=deck]:h-8"
+            className="shadow-card w-full justify-start gap-2 px-2.5 in-data-[scale=deck]:h-8 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5"
             disabled={creating || sections.length === 0}
             onClick={onCreateGroup}
           >
@@ -486,18 +506,21 @@ export function OutlineTree({
         <Button
           variant="ghost"
           size="sm"
-          className="text-muted-foreground w-full justify-start"
+          className="text-muted-foreground w-full justify-start gap-2 px-2.5 in-data-[scale=deck]:h-8 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5"
           disabled={sections.length === 0}
-          onClick={onPickFromBank}
+          onClick={(event) => onPickFromBank(event.currentTarget)}
         >
           <Library aria-hidden="true" />
-          {t("builder.fromBank")}
+          {t("builder.fromQuestionBank")}
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          className="text-muted-foreground w-full justify-start"
-          onClick={onAddSection}
+          className="text-muted-foreground w-full justify-start gap-2 px-2.5 in-data-[scale=deck]:h-8 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5"
+          onClick={() => {
+            onAddSection();
+            setRenaming(sections.length);
+          }}
         >
           <Plus aria-hidden="true" />
           {t("builder.addSection")}
@@ -509,6 +532,7 @@ export function OutlineTree({
           key={editing.id ?? instructing}
           sectionTitle={editing.title}
           instructions={editing.instructions ?? ""}
+          returnFocus={instructionsOpener}
           onCancel={() => setInstructing(null)}
           onSave={(value) => saveInstructions(instructing, value)}
         />
@@ -537,6 +561,7 @@ function SectionHeader({
   sectionIndex,
   dragging,
   drop,
+  dropInto,
   title,
   summary,
   open,
@@ -555,6 +580,7 @@ function SectionHeader({
   sectionIndex: number;
   dragging: boolean;
   drop: DropPosition;
+  dropInto: boolean;
   title: string;
   summary: string;
   open: boolean;
@@ -564,7 +590,7 @@ function SectionHeader({
   onToggle: () => void;
   onStartRename: () => void;
   onRenamed: (title: string | null) => void;
-  onInstructions: () => void;
+  onInstructions: (opener: HTMLElement | null) => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
 }>) {
@@ -575,7 +601,7 @@ function SectionHeader({
     disabled: renaming,
     transition: null,
   });
-  const { setNodeRef: setHeaderNodeRef, isOver: headerIsOver } = useDroppable({
+  const { setNodeRef: setHeaderNodeRef } = useDroppable({
     id: `head:${id}`,
     data: { sectionIndex },
   });
@@ -613,9 +639,12 @@ function SectionHeader({
       ) : (
         <div
           ref={setHeaderNodeRef}
+          data-outline-drop-into={dropInto ? "" : undefined}
           className={cn(
-            "group/section hover:bg-hover has-data-[state=open]:bg-hover relative flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors duration-120 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none",
-            headerIsOver && "bg-accent-soft",
+            "group/section relative flex items-center gap-0.5 rounded-[7px] py-0.5 pr-1 pl-0.5 transition-colors duration-120 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none",
+            dropInto
+              ? "bg-accent-soft"
+              : "hover:bg-hover has-data-[state=open]:bg-hover",
           )}
         >
           <button
@@ -629,7 +658,7 @@ function SectionHeader({
           </button>
           <button
             type="button"
-            className="group/section-title flex min-w-0 flex-1 items-center gap-1.5 text-left"
+            className="group/section-title flex min-w-0 flex-1 items-center gap-[5px] px-0.5 py-1 text-left leading-4"
             aria-expanded={open}
             onClick={onToggle}
             onDoubleClick={onStartRename}
@@ -644,11 +673,11 @@ function SectionHeader({
               gapPx={28}
               maskPx={10}
               className={cn(
-                "text-meta min-w-0 flex-1 font-semibold group-focus-within/section:[&_.qz-marquee-track]:[animation-play-state:paused]! group-hover/section:[&_.qz-marquee-track]:[animation-play-state:paused]!",
+                "text-meta min-w-0 flex-1 leading-4 font-semibold group-focus-within/section:[&_.qz-marquee-track]:[animation-play-state:paused]! group-hover/section:[&_.qz-marquee-track]:[animation-play-state:paused]!",
                 dragging && "[&_.qz-marquee-track]:[animation:none]!",
               )}
             />{" "}
-            <span className="text-muted-foreground text-caption ml-auto shrink-0 tabular-nums">
+            <span className="text-muted-foreground ml-auto shrink-0 pl-1.5 text-xs leading-[15px] font-medium tabular-nums">
               {summary}
             </span>
           </button>
@@ -673,7 +702,7 @@ function SectionHeader({
                 <Pencil aria-hidden="true" />
                 {t("builder.renameSection")}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onInstructions}>
+              <DropdownMenuItem onSelect={() => onInstructions(trigger.current)}>
                 <ScrollText aria-hidden="true" />
                 {t("builder.sectionInstructions")}
               </DropdownMenuItem>
@@ -709,8 +738,8 @@ function EmptySectionDrop({
     <div
       ref={setNodeRef}
       className={cn(
-        "text-muted-foreground min-h-12 rounded-md border border-dashed px-2 py-3 text-xs",
-        isOver && "bg-accent border-foreground",
+        "text-muted-foreground mx-1 mt-0.5 mb-1 flex min-h-11 items-center rounded-[7px] border border-dashed px-2.5 text-xs",
+        isOver && "bg-accent-soft border-foreground",
       )}
     >
       {t("builder.sectionDropHint")}
@@ -772,11 +801,13 @@ function SectionTitleInput({
 function SectionInstructionsDialog({
   sectionTitle,
   instructions,
+  returnFocus,
   onCancel,
   onSave,
 }: Readonly<{
   sectionTitle: string;
   instructions: string;
+  returnFocus: RefObject<HTMLElement | null>;
   onCancel: () => void;
   onSave: (instructions: string) => void;
 }>) {
@@ -787,6 +818,7 @@ function SectionInstructionsDialog({
     <ConfirmDialog
       open
       onOpenChange={(open) => !open && onCancel()}
+      returnFocus={returnFocus}
       title={t("builder.sectionInstructionsTitle", { title: sectionTitle })}
       description={t("builder.sectionInstructionsHint")}
       confirmLabel={t("common.save")}
@@ -828,6 +860,7 @@ function OutlineRow({
   onDrop: () => void;
 }>) {
   const { t } = useTranslation();
+  const problemId = useId();
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: `question:${questionId}`,
     transition: null,
@@ -850,9 +883,8 @@ function OutlineRow({
       ref={setNodeRef}
       data-outline-row=""
       className={cn(
-        "group/row hover:bg-hover text-meta relative flex min-h-8 items-center gap-1.5 rounded-md px-1.5 py-1",
-        selected ? "bg-secondary text-foreground font-medium" : "text-muted-foreground",
-        question?.problem ? "text-destructive-ink" : "",
+        "group/row hover:bg-hover text-fg relative flex min-h-8 items-center gap-1 rounded-[7px] py-0.75 pr-1 pl-0.5 text-[13px]",
+        selected && "bg-secondary font-medium",
         isDragging ? "opacity-40" : "",
       )}
     >
@@ -876,32 +908,53 @@ function OutlineRow({
         <GripVertical className="size-3.5 opacity-40" aria-hidden="true" />
       </button>
 
-      <span className="w-4 shrink-0 tabular-nums">{number}</span>
+      <span className="text-muted-foreground w-4.5 shrink-0 text-xs tabular-nums">
+        {number}
+      </span>
       {loading ? null : (
         <Icon className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
       )}
-      {question?.problem ? (
-        <CircleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-      ) : null}
 
       <button
         type="button"
-        className="flex-1 truncate text-left"
+        className="min-w-0 flex-1 truncate px-1 py-0.75 text-left leading-4"
         disabled={loading}
+        aria-describedby={question?.problem ? problemId : undefined}
         onClick={onSelect}
       >
         {loading ? (
           <span className="bg-muted inline-block h-3 w-full animate-pulse rounded" />
         ) : (
-          (question.problem ?? titleOf(label, t))
+          titleOf(label, t)
         )}
       </button>
+      {question?.problem ? (
+        <>
+          <CircleAlert className="text-warning size-3.5 shrink-0" aria-hidden="true">
+            <title>{question.problem}</title>
+          </CircleAlert>
+          <span id={problemId} className="sr-only">
+            {question.problem}
+          </span>
+        </>
+      ) : null}
 
-      <span className="text-muted-foreground text-caption shrink-0 tabular-nums group-focus-within/row:hidden group-hover/row:hidden">
-        {loading ? "" : t("builder.points", { points: question.points })}
+      <span
+        className={cn(
+          "text-muted-foreground shrink-0 pr-1 text-xs whitespace-nowrap tabular-nums min-[768px]:group-hover/row:hidden min-[768px]:group-has-[:focus-visible]/row:hidden",
+          selected && "max-[767px]:hidden",
+        )}
+      >
+        {loading ? "" : t("builder.points", { count: question.points })}
       </span>
 
-      <span className="pointer-events-none flex w-0 shrink-0 overflow-hidden opacity-0 group-focus-within/row:pointer-events-auto group-focus-within/row:w-auto group-focus-within/row:overflow-visible group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:w-auto group-hover/row:overflow-visible group-hover/row:opacity-100 max-[767px]:pointer-events-auto max-[767px]:w-auto max-[767px]:overflow-visible max-[767px]:opacity-100">
+      <span
+        className={cn(
+          "pointer-events-none flex w-0 shrink-0 overflow-hidden opacity-0 min-[768px]:group-hover/row:pointer-events-auto min-[768px]:group-hover/row:w-auto min-[768px]:group-hover/row:overflow-visible min-[768px]:group-hover/row:opacity-100 min-[768px]:group-has-[:focus-visible]/row:pointer-events-auto min-[768px]:group-has-[:focus-visible]/row:w-auto min-[768px]:group-has-[:focus-visible]/row:overflow-visible min-[768px]:group-has-[:focus-visible]/row:opacity-100",
+          selected &&
+            "max-[767px]:pointer-events-auto max-[767px]:w-auto max-[767px]:overflow-visible max-[767px]:opacity-100 max-[767px]:[&_button]:size-11",
+        )}
+      >
         <Button
           variant="ghost"
           size="icon-xs"

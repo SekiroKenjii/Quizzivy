@@ -1,11 +1,44 @@
 import { useTranslation } from "react-i18next";
-import { Check, CircleAlert } from "lucide-react";
+import { Check, CircleAlert, CloudCheck, LoaderCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { AutosaveStatus } from "@/features/tests/useAutosave";
 import { formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 
-/** AutosaveStatusLabel reports pending, acknowledged, stale and failed saves in words. */
+const DECK_STATES = {
+  idle: { label: "builder.savedPlain", Icon: CloudCheck },
+  saved: { label: "builder.savedPlain", Icon: CloudCheck },
+  saving: { label: "builder.saving", Icon: LoaderCircle },
+  dirty: { label: "builder.dirty", Icon: null },
+} as const;
+type DeckState = keyof typeof DECK_STATES;
+
+function isDeckState(kind: AutosaveStatus["kind"]): kind is DeckState {
+  return kind in DECK_STATES;
+}
+
+function DeckStatusLabel({ kind }: Readonly<{ kind: DeckState }>) {
+  const { t } = useTranslation();
+  const { label, Icon } = DECK_STATES[kind];
+  return (
+    <span
+      role="status"
+      aria-live="polite"
+      data-state={kind}
+      className="text-muted-fg flex shrink-0 items-center gap-1.25 text-[12.5px] whitespace-nowrap"
+    >
+      {Icon ? <Icon aria-hidden="true" className="size-3.5" /> : null}
+      {t(label)}
+    </span>
+  );
+}
+
+/**
+ * AutosaveStatusLabel reports pending, acknowledged, stale and failed saves in
+ * words. In its `deck` form, the builder's, it says "Saved" from load and
+ * after each save without a time, "Saving…" while a write is out, and
+ * "Not saved" while an edit waits; `data-state` carries the status kind.
+ */
 export function AutosaveStatusLabel({
   status,
   onRetry,
@@ -19,6 +52,8 @@ export function AutosaveStatusLabel({
 }>) {
   useDisplayTimeZone();
   const { t } = useTranslation();
+
+  if (deck && isDeckState(status.kind)) return <DeckStatusLabel kind={status.kind} />;
 
   if (status.kind === "idle") return null;
 

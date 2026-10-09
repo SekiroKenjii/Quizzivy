@@ -121,7 +121,7 @@ describe("the builder's bar", () => {
     const { user } = await renderBuilder();
     await screen.findByText("They ___ to the museum.");
 
-    await user.click(screen.getByRole("button", { name: "Xem như học viên" }));
+    await user.click(screen.getByRole("button", { name: "Xem trước" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("They ___ to the museum.")).toBeInTheDocument();

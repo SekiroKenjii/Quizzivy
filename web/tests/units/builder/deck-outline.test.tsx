@@ -98,7 +98,7 @@ describe("the deck outline", () => {
     expect(
       screen.getByRole("button", { name: "Kéo để đổi vị trí phần Reading" }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Reading.*1 · 2đ/ }));
+    await user.click(screen.getByRole("button", { name: /Reading.*1 · 2 điểm/ }));
     await user.click(screen.getAllByRole("button", { name: "Thao tác với phần" })[0]!);
     await user.click(screen.getByRole("menuitem", { name: "Di chuyển xuống" }));
     expect(changed).toHaveBeenCalledWith([initial[1], initial[0], initial[2]]);
@@ -278,7 +278,7 @@ describe("an unresolved shared-context unit", () => {
   });
 });
 
-it("marks the collapsed header before a whole-group drop and writes its ordered unit only on drop", async () => {
+it("tints the collapsed header under a whole-group drop and writes its ordered unit only on drop", async () => {
   const { emptyGroup, newGroupQuestion } =
     await import("@/features/question-groups/model");
   const i18n = (await import("@/lib/i18n")).default;
@@ -363,14 +363,12 @@ it("marks the collapsed header before a whole-group drop and writes its ordered 
     '[data-outline-section="s2"]',
   )!;
   await waitFor(() =>
-    expect(
-      targetSection.querySelector('[data-outline-drop="before"]'),
-    ).toBeInTheDocument(),
+    expect(targetSection.querySelector("[data-outline-drop-into]")).toBeInTheDocument(),
   );
-  expect(targetSection.querySelector('[data-outline-drop="before"]')).toHaveClass(
-    "h-0.5",
-    "top-0",
+  expect(targetSection.querySelector("[data-outline-drop-into]")).toHaveClass(
+    "bg-accent-soft",
   );
+  expect(targetSection.querySelector("[data-outline-drop]")).toBeNull();
   expect(changed).not.toHaveBeenCalled();
   await user.keyboard(" ");
   await waitFor(() => expect(changed).toHaveBeenCalledOnce());
