@@ -11,6 +11,7 @@ describe("the sentences that name an upload's size name the limit in force", () 
       for (const sentence of [
         locale.media.dropHint,
         locale.media.rejectSize,
+        locale.media.limitsAudio,
         locale.questionEditor.mediaHint,
       ]) {
         expect(sentence).toContain(megabytes(MAX_AUDIO_BYTES));
@@ -19,7 +20,14 @@ describe("the sentences that name an upload's size name the limit in force", () 
     });
 
     it(`${language}: an image is ${megabytes(MAX_IMAGE_BYTES)}`, () => {
-      expect(locale.groups.imageLimit).toContain(megabytes(MAX_IMAGE_BYTES));
+      for (const sentence of [
+        locale.groups.imageLimit,
+        locale.media.limitsImage,
+        locale.media.rejectImageSize,
+      ]) {
+        expect(sentence).toContain(megabytes(MAX_IMAGE_BYTES));
+        expect(sentence).not.toContain(megabytes(MAX_AUDIO_BYTES));
+      }
     });
   }
 });

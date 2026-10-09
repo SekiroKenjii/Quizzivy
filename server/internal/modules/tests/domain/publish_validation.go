@@ -25,7 +25,7 @@ func questionInput(q DraftQuestion) questionsdomain.Input {
 	in := questionsdomain.Input{
 		Type: questionsdomain.Type(q.Type), Prompt: q.Prompt, Points: q.Points,
 		PromptContent: q.PromptContent, ExplanationContent: q.ExplanationContent,
-		MediaAssetID: q.MediaAssetID, Transcript: q.Transcript,
+		MediaAssetID: q.MediaAssetID, MediaAlt: q.MediaAlt, Transcript: q.Transcript,
 		Explanation: q.Explanation, SampleAnswer: q.SampleAnswer,
 	}
 	if q.AllowSeek != nil || q.ShowTranscript != nil || q.MaxPlays != nil {
