@@ -23,6 +23,12 @@ class StillResize {
 Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
 Range.prototype.getBoundingClientRect ??= () => new DOMRect();
 
+beforeAll(() =>
+  Promise.all([
+    import("@/features/question-bank/components/RichProseEditor"),
+    import("@/features/question-bank/components/RichBlankEditor"),
+  ]),
+);
 beforeEach(() => vi.stubGlobal("ResizeObserver", StillResize));
 afterEach(() => vi.unstubAllGlobals());
 
