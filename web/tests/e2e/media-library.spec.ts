@@ -119,7 +119,7 @@ test("a card's play button starts the recording in a real browser, one card at a
   const fetched = await prepare(page, "light", 1280);
   await page.goto("/teacher/media");
   await expect(page.getByText("Dùng trong 4 câu hỏi").first()).toBeVisible();
-  await page.waitForTimeout(500);
+  await page.waitForLoadState("networkidle");
   expect(fetched.audio, "no recording is requested before a click").toBe(0);
 
   await page

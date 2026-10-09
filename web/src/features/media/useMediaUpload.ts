@@ -86,27 +86,15 @@ export function useMediaUpload<T = MediaAsset>({
 
       const abort = new AbortController();
       controller.current = abort;
-      const cancelled = () =>
-        setState({ status: "error", message: t("media.cancelled") });
       setState({ status: "checking", name: file.name });
-      const rejection = await Promise.race([
-        precheck(file, checkedAs),
-        whenAborted(abort.signal),
-      ]);
-      if (!current()) return;
-      if (abort.signal.aborted) {
-        if (controller.current === abort) controller.current = null;
-        cancelled();
-        return;
-      }
-      if (rejection) {
-        if (controller.current === abort) controller.current = null;
-        setState({ status: "error", message: rejectionMessage(t, rejection) });
-        return;
-      }
-
-      setState({ status: "uploading", name: file.name, fraction: 0 });
       try {
+        const refusal = await checkFile(t, file, checkedAs, abort.signal);
+        if (!current()) return;
+        if (refusal !== null) {
+          setState({ status: "error", message: refusal });
+          return;
+        }
+        setState({ status: "uploading", name: file.name, fraction: 0 });
         const result = await sender(file, {
           signal: abort.signal,
           onProgress: (fraction) => {
@@ -117,15 +105,7 @@ export function useMediaUpload<T = MediaAsset>({
         setState({ status: "idle" });
         latest.current.onUploaded(result);
       } catch (cause) {
-        if (!current()) return;
-        if (cause instanceof DOMException && cause.name === "AbortError") {
-          cancelled();
-          return;
-        }
-        setState({
-          status: "error",
-          message: cause instanceof ApiError ? cause.message : t("media.uploadFailed"),
-        });
+        if (current()) setState({ status: "error", message: uploadFailure(t, cause) });
       } finally {
         if (controller.current === abort) controller.current = null;
       }
@@ -158,6 +138,23 @@ export function useMediaUpload<T = MediaAsset>({
 
   const busy = state.status === "checking" || state.status === "uploading";
   return { state, busy, start, dropped, cancel, reset };
+}
+
+async function checkFile(
+  t: TFunction,
+  file: File,
+  kind: MediaKind,
+  signal: AbortSignal,
+): Promise<string | null> {
+  const rejection = await Promise.race([precheck(file, kind), whenAborted(signal)]);
+  if (signal.aborted) return t("media.cancelled");
+  return rejection === null ? null : rejectionMessage(t, rejection);
+}
+
+function uploadFailure(t: TFunction, cause: unknown): string {
+  if (cause instanceof DOMException && cause.name === "AbortError")
+    return t("media.cancelled");
+  return cause instanceof ApiError ? cause.message : t("media.uploadFailed");
 }
 
 function whenAborted(signal: AbortSignal): Promise<null> {

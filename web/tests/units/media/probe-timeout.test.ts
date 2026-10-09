@@ -11,7 +11,9 @@ beforeEach(() => {
   vi.useFakeTimers();
   revoked = [];
   URL.createObjectURL = vi.fn(() => "blob:probe");
-  URL.revokeObjectURL = vi.fn((url: string) => void revoked.push(url));
+  URL.revokeObjectURL = vi.fn((url: string) => {
+    revoked.push(url);
+  });
   Object.defineProperty(HTMLMediaElement.prototype, "src", {
     configurable: true,
     set() {},
