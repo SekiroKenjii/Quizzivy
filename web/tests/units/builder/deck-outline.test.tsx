@@ -98,7 +98,7 @@ describe("the deck outline", () => {
     expect(
       screen.getByRole("button", { name: "Kéo để đổi vị trí phần Reading" }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Reading.*1 · 2 điểm/ }));
+    await user.click(screen.getByRole("button", { name: /Reading.*1 · 2đ/ }));
     await user.click(screen.getAllByRole("button", { name: "Thao tác với phần" })[0]!);
     await user.click(screen.getByRole("menuitem", { name: "Di chuyển xuống" }));
     expect(changed).toHaveBeenCalledWith([initial[1], initial[0], initial[2]]);

@@ -768,7 +768,7 @@
     "addQuestionTo": "vào {{title}}",
     "outline": "Dàn bài",
     "outlineSummary": "{{questions}} câu · {{points}} điểm",
-    "sectionSummary": "{{questions}} · {{points}} điểm",
+    "sectionSummary": "{{questions}} · {{points}}đ",
     "sectionEmpty": "Phần này chưa có câu hỏi.",
     "points_one": "{{count}}đ",
     "points_other": "{{count}}đ",
