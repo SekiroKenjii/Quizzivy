@@ -29,6 +29,7 @@ beforeEach(() => {
           {
             skills: [],
             assignments: { live: 0, scheduled: 0, closed: 0 },
+            unpublishedChanges: null,
             id: TEST_ID,
             title: "Unit 5 — Present perfect",
             description: null,

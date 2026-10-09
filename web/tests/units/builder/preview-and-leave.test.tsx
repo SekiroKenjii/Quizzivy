@@ -16,6 +16,7 @@ const QUESTION_ID = "018f0000-0000-7000-8000-0000000000b1";
 const test = {
   skills: [],
   assignments: { live: 0, scheduled: 0, closed: 0 },
+  unpublishedChanges: null,
   id: TEST_ID,
   title: "Unit 5",
   description: null,
