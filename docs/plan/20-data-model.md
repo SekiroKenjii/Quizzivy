@@ -1356,7 +1356,7 @@ listed here matches the spec.
 | D-30 | `users` gains nullable profile fields and bounded object `preferences` | The caller's private profile and account settings are required by T-R4.7; student-facing teacher names use the chosen display name without exposing private account fields |
 | D-31 | Questions and frozen version questions gain nullable level and skill; the choice cap applies to authoring only | DG-62/DG-63 and T-R4.15 preserve historical question content while adding teacher metadata and filters |
 | D-32 | `test_versions` gains a nullable `change_note`, 1 to 200 characters | The test detail's version history shows what the teacher said changed when publishing (DG-66, T-R4.16a). Nullable with no default and no backfill, so the previous release's insert keeps working and a version published before it reads NULL; the command stores NULL for a blank note, so the check never meets an empty string |
-| D-33 | `questions` and `test_version_questions` gain a nullable `media_alt`, 1 to 1000 characters | The deck's builder draws "Alt text: describe the image for screen readers" under a question's image and the model had no field for it (DG-111, T-R4.62a). The bound is `ContentImage.alt`'s. It lives on the question and is frozen at publish like every other part of the question, so a later edit of the bank question never reaches a version. Nullable with no default and no backfill, so the previous release's insert keeps working and a row written before it reads NULL. No check ties it to an image: the write path refuses it for any other media (a field error on `mediaAlt`) and the bank store keeps it only beside an image, and a database check would make an R3 write that swaps an image for audio fail during the rolling deploy |
+| D-33 | `questions` and `test_version_questions` gain a nullable `media_alt`, 1 to 1000 characters | The deck's builder draws "Alt text: describe the image for screen readers" under a question's image and the model had no field for it (DG-111, T-R4.62a). The bound is `ContentImage.alt`'s. It lives on the question and is frozen at publish like every other part of the question, so a later edit of the bank question never reaches a version. Nullable with no default and no backfill, so the previous release's insert keeps working and a row written before it reads NULL. No check ties it to an image in R4: the write path refuses it for any other media (a field error on `mediaAlt`) and the bank store keeps it only beside an image, and a database check would make an R3 write that swaps an image for audio fail during the rolling deploy. The rule becomes a database invariant one release later, as a contract step (§37) |
 
 ---
 
@@ -2549,3 +2549,39 @@ Restore as draft copies it back from the version, a duplicated group copies the
 draft's, and the version preview, the student's paper and the result read the
 frozen value. The version diff puts it in the `media` part of a question, so a
 changed alt text is one `changed` entry and raises `unpublishedChanges`.
+
+### Contract step for the image rule (R5, after v0.10.0)
+
+R4 enforces "alt text only beside an image" in the write path and nowhere in the
+schema, because an R3 binary can still change an image to audio without touching
+`media_alt`, and a check would turn that write into an error during the rolling
+deploy. Once v0.10.0 is the only binary, the rule moves into the schema, in three
+files that follow expand then contract:
+
+1. **Clear what the rule would refuse, on `questions` only.**
+   `UPDATE app.questions SET media_alt = NULL WHERE media_alt IS NOT NULL AND
+   media_asset_kind IS DISTINCT FROM 'image'::app.media_kind`. A bank row is
+   editable, and the only rows it can touch are ones an R3 binary left behind. On
+   `test_version_questions` there is no UPDATE: a published version does not change,
+   and none can hold the pair, because publish validation refuses alt text beside
+   other media and an R3 publish writes NULL. The step runs `SELECT count(*) FROM
+   app.test_version_questions WHERE media_alt IS NOT NULL AND media_asset_kind IS
+   DISTINCT FROM 'image'::app.media_kind` first and stops for a decision on any
+   other answer than 0, instead of rewriting a version.
+2. **Add the checks without validating them.**
+   `ALTER TABLE app.questions ADD CONSTRAINT questions_media_alt_image_check CHECK
+   (media_alt IS NULL OR media_asset_kind IS NOT DISTINCT FROM 'image'::app.media_kind)
+   NOT VALID`, and the same on `app.test_version_questions` as
+   `test_version_questions_media_alt_image_check`. New and changed rows are checked
+   from here on.
+3. **Validate.** `ALTER TABLE ... VALIDATE CONSTRAINT` for each, which scans the table
+   under a `SHARE UPDATE EXCLUSIVE` lock and blocks no write.
+
+The kind needs no trigger and no join: both tables already hold it as
+`media_asset_kind`, tied to the asset by the composite foreign key
+`(media_asset_id, media_asset_kind)` to `media_assets(id, kind)` and to
+`media_asset_id` by `questions_media_pair_complete` and `tvq_media_pair_complete`.
+The predicate must say `IS NOT DISTINCT FROM`, as `00011` does for audio: with a plain
+`= 'image'` a NULL kind makes the whole check NULL, and a CHECK passes on NULL, so alt
+text with no media at all would be accepted. Each Down drops its constraint, and the
+three files are numbered when R5 plans them.
