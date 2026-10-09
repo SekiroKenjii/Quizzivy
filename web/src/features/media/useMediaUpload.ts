@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
+import i18n, { type TFunction } from "i18next";
 import type { UploadOptions } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { audioLength } from "@/lib/i18n/datetime";
 import { uploadMedia, type MediaAsset, type MediaKind } from "./api";
-import { formatBytes } from "./format";
-import { MAX_DURATION_MS, type Rejection } from "./limits";
+import { formatOverLimit } from "./format";
+import { MAX_DURATION_MS, maxBytes, type Rejection } from "./limits";
 import { precheck } from "./probe";
 
 /**
@@ -184,7 +184,11 @@ export function rejectionMessage(t: TFunction, rejection: Rejection): string {
     case "size":
       return t(image ? "media.rejectImageSize" : "media.rejectSize", {
         name: rejection.name,
-        size: formatBytes(rejection.bytes),
+        size: formatOverLimit(
+          rejection.bytes,
+          maxBytes(rejection.kind ?? "audio"),
+          i18n.language,
+        ),
       });
     case "duration":
       return t("media.rejectDuration", {

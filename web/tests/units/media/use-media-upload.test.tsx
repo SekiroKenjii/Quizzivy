@@ -138,6 +138,16 @@ describe("the upload panel's client-side pre-check", () => {
     expect(uploadCalls).toBe(0);
   });
 
+  it("names a size just over the limit precisely enough to read as over it", async () => {
+    stubDuration(10);
+    await choose(audioFileReporting("sat-nut.mp3", 52_428_900));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("sat-nut.mp3 nặng 52.428.900 B, vượt quá 50 MB.");
+    expect(alert).not.toHaveTextContent("50.0 MB");
+    expect(uploadCalls).toBe(0);
+  });
+
   it("uploads a file of exactly 50 MB", async () => {
     stubDuration(10);
     await choose(audioFileReporting("vua-du.mp3", MAX_AUDIO_BYTES));
