@@ -6,9 +6,10 @@ import type { UploadState } from "@/features/media/useMediaUpload";
 
 /**
  * UploadStatus draws useMediaUpload's state: the file being checked and the
- * upload's progress, each with a cancel, and a refusal or failure as an
- * alert. Idle draws nothing. `onRetry` adds "Choose another file" to the
- * alert.
+ * upload's progress, each with a cancel; a refusal or failure as an alert;
+ * and a cancellation as a plain status line, which is not a refusal. Idle
+ * draws nothing. `onRetry` adds "Choose another file" to the alert and to the
+ * cancellation.
  */
 export function UploadStatus({
   state,
@@ -95,6 +96,20 @@ export function UploadStatus({
             </Button>
           )}
         </div>
+      </div>
+    );
+
+  if (state.status === "cancelled")
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p className="text-muted-fg text-sm" role="status" aria-live="polite">
+          {t("media.cancelled")}
+        </p>
+        {onRetry === undefined ? null : (
+          <Button type="button" variant="outline" size="xs" onClick={onRetry}>
+            {t("media.rejectRetry")}
+          </Button>
+        )}
       </div>
     );
 

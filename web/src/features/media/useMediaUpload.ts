@@ -9,12 +9,17 @@ import { formatBytes } from "./format";
 import { MAX_DURATION_MS, type Rejection } from "./limits";
 import { precheck } from "./probe";
 
-/** UploadState is where one upload stands: checked, sent with its progress, or refused. */
+/**
+ * UploadState is where one upload stands: checked, sent with its progress,
+ * refused or failed (error), or stopped by the user (cancelled), which is not
+ * a refusal.
+ */
 export type UploadState =
   | { status: "idle" }
   | { status: "checking"; name: string }
   | { status: "uploading"; name: string; fraction: number }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string }
+  | { status: "cancelled" };
 
 /** UploadSender sends one checked file and resolves with what the server answered. */
 export type UploadSender<T> = (file: File, options: UploadOptions) => Promise<T>;
@@ -38,7 +43,7 @@ export interface MediaUpload<T> {
 /**
  * useMediaUpload runs §11.1's upload: the client pre-check from `limits.ts`
  * (type, size, then an audio file's duration), the upload with its progress,
- * and a failure or a cancellation as a message. It draws nothing; its host
+ * a refusal or failure as a message, and a cancellation. It draws nothing; its host
  * shows the state. `send` defaults to uploadMedia, which is the only sender
  * whose answer is a MediaAsset; a host that names another type passes its own.
  * A new start supersedes the one in flight, and unmounting aborts it.
@@ -91,7 +96,7 @@ export function useMediaUpload<T = MediaAsset>({
         const refusal = await checkFile(t, file, checkedAs, abort.signal);
         if (!current()) return;
         if (refusal !== null) {
-          setState({ status: "error", message: refusal });
+          setState(refusal);
           return;
         }
         setState({ status: "uploading", name: file.name, fraction: 0 });
@@ -105,7 +110,7 @@ export function useMediaUpload<T = MediaAsset>({
         setState({ status: "idle" });
         latest.current.onUploaded(result);
       } catch (cause) {
-        if (current()) setState({ status: "error", message: uploadFailure(t, cause) });
+        if (current()) setState(uploadFailure(t, cause));
       } finally {
         if (controller.current === abort) controller.current = null;
       }
@@ -145,16 +150,20 @@ async function checkFile(
   file: File,
   kind: MediaKind,
   signal: AbortSignal,
-): Promise<string | null> {
+): Promise<UploadState | null> {
   const rejection = await Promise.race([precheck(file, kind), whenAborted(signal)]);
-  if (signal.aborted) return t("media.cancelled");
-  return rejection === null ? null : rejectionMessage(t, rejection);
+  if (signal.aborted) return { status: "cancelled" };
+  if (rejection === null) return null;
+  return { status: "error", message: rejectionMessage(t, rejection) };
 }
 
-function uploadFailure(t: TFunction, cause: unknown): string {
+function uploadFailure(t: TFunction, cause: unknown): UploadState {
   if (cause instanceof DOMException && cause.name === "AbortError")
-    return t("media.cancelled");
-  return cause instanceof ApiError ? cause.message : t("media.uploadFailed");
+    return { status: "cancelled" };
+  return {
+    status: "error",
+    message: cause instanceof ApiError ? cause.message : t("media.uploadFailed"),
+  };
 }
 
 function whenAborted(signal: AbortSignal): Promise<null> {

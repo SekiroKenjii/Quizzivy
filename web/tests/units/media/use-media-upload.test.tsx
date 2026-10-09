@@ -306,7 +306,9 @@ describe("the upload itself", () => {
     expect(screen.getByText(/Đang tải lên · 40/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Huỷ tải lên" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Đã huỷ tải lên.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Đã huỷ tải lên.");
+    expect(screen.queryByRole("alert"), "a cancel is not a refusal").toBeNull();
+    expect(screen.queryByText("Không dùng được tệp này")).toBeNull();
     expect(onUploaded).not.toHaveBeenCalled();
   });
 
@@ -326,7 +328,8 @@ describe("the upload itself", () => {
 
     await user.click(screen.getByRole("button", { name: "Huỷ tải lên" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Đã huỷ tải lên.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Đã huỷ tải lên.");
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(sent).not.toHaveBeenCalled();
   });
 
