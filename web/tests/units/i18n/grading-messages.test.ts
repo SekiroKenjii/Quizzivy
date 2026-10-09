@@ -232,3 +232,14 @@ it("updates mounted grading labels on a live language switch without replacing t
   await act(async () => setLocale("vi"));
   expect(screen.getByRole("button", { name: expected.vi.retryFinish })).toBe(button);
 });
+
+it("names a score button in the singular for one point and the plural otherwise", () => {
+  const english = i18n.getFixedT("en");
+  const vietnamese = i18n.getFixedT("vi");
+  expect(english("grading.score", { count: 1 })).toBe("Give 1 point");
+  expect(english("grading.score", { count: 0 })).toBe("Give 0 points");
+  expect(english("grading.score", { count: 0.5 })).toBe("Give 0.5 points");
+  expect(english("grading.score", { count: 3 })).toBe("Give 3 points");
+  expect(vietnamese("grading.score", { count: 1 })).toBe("Chấm 1 điểm");
+  expect(vietnamese("grading.score", { count: 2.5 })).toBe("Chấm 2.5 điểm");
+});
