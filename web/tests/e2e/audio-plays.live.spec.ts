@@ -28,6 +28,9 @@ async function publishListeningTest(page: Page, title: string) {
   await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).fill(title);
   await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần" }).click();
+  const sectionName = page.getByRole("textbox", { name: "Tên phần", exact: true });
+  await expect(sectionName).toBeFocused();
+  await sectionName.press("Enter");
   await expect(
     page.getByRole("button", { name: /^Phần 1 \d+ · [\d.,]+đ$/ }),
   ).toBeVisible();
