@@ -1,18 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-/** useFileDrop accepts window file drops while enabled and clears drag state when disabled. */
+/**
+ * useFileDrop accepts window file drops while enabled. Its listeners stay
+ * bound for the hook's lifetime and always cancel a drop that carries files,
+ * enabled or not, so a file dropped under a dialog never navigates the tab to
+ * it; `enabled` gates only the drag state and the callback, and turning it off
+ * clears the drag state.
+ */
 export function useFileDrop(onFiles: (files: File[]) => void, enabled = true): boolean {
   const [state, setState] = useState({ enabled, dragging: false });
   if (state.enabled !== enabled) setState({ enabled, dragging: false });
-  const latest = useRef(onFiles);
+  const latest = useRef({ onFiles, enabled });
+
+  useLayoutEffect(() => {
+    latest.current = { onFiles, enabled };
+  }, [onFiles, enabled]);
 
   useEffect(() => {
-    latest.current = onFiles;
-  }, [onFiles]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    const setDragging = (dragging: boolean) => setState({ enabled, dragging });
+    const setDragging = (dragging: boolean) => {
+      if (latest.current.enabled) setState({ enabled: true, dragging });
+    };
     const over = (event: DragEvent) => {
       if (!event.dataTransfer?.types.includes("Files")) return;
       event.preventDefault();
@@ -24,8 +31,9 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled = true): b
     const drop = (event: DragEvent) => {
       if (!event.dataTransfer?.types.includes("Files")) return;
       event.preventDefault();
+      if (!latest.current.enabled) return;
       setDragging(false);
-      latest.current([...event.dataTransfer.files]);
+      latest.current.onFiles([...event.dataTransfer.files]);
     };
 
     window.addEventListener("dragover", over);
@@ -36,7 +44,7 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled = true): b
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("drop", drop);
     };
-  }, [enabled]);
+  }, []);
 
   return enabled && state.enabled && state.dragging;
 }

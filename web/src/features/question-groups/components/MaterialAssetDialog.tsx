@@ -12,17 +12,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  UploadPanel,
-  type UploadHandle,
-} from "@/features/media/components/UploadPanel";
+import { UploadStatus } from "@/features/media/components/UploadStatus";
+import { useMediaUpload } from "@/features/media/useMediaUpload";
 import {
   listMedia,
   uploadMedia,
   type MediaAsset,
   type MediaKind,
 } from "@/features/media/api";
-import { MAX_IMAGE_BYTES } from "@/features/media/limits";
+import { ACCEPT_ATTRIBUTE, MAX_IMAGE_BYTES } from "@/features/media/limits";
 import { ApiError } from "@/lib/api/errors";
 import { useLazyList } from "@/hooks/useLazyList";
 import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
@@ -50,7 +48,8 @@ export function MaterialAssetDialog({
   const [uploading, setUploading] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const imageInput = useRef<HTMLInputElement>(null);
-  const audioUpload = useRef<UploadHandle>(null);
+  const audioInput = useRef<HTMLInputElement>(null);
+  const audioUpload = useMediaUpload({ onUploaded: setChosen });
   const library = useLazyList({
     queryKey: ["admin-media", "group-picker", kind],
     fetchPage: (page, signal) => listMedia({ kind, page, limit: 20 }, signal),
@@ -152,14 +151,32 @@ export function MaterialAssetDialog({
               disabled={uploading}
               onClick={() =>
                 kind === "audio"
-                  ? audioUpload.current?.choose()
+                  ? audioInput.current?.click()
                   : imageInput.current?.click()
               }
             >
               {uploading ? t("common.saving") : t("groups.uploadAsset")}
             </Button>
             {kind === "audio" ? (
-              <UploadPanel ref={audioUpload} onUploaded={setChosen} />
+              <>
+                <input
+                  ref={audioInput}
+                  type="file"
+                  accept={ACCEPT_ATTRIBUTE}
+                  className="sr-only"
+                  aria-label={t("media.chooseFile")}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) void audioUpload.start(file);
+                  }}
+                />
+                <UploadStatus
+                  state={audioUpload.state}
+                  onCancel={audioUpload.cancel}
+                  onRetry={() => audioInput.current?.click()}
+                />
+              </>
             ) : (
               <>
                 <input

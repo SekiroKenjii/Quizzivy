@@ -85,7 +85,7 @@ func newParts(e *encoder, q DraftQuestion) questionParts {
 		kind:        q.Type,
 		prompt:      e.json(q.Prompt, promptContent),
 		explanation: e.json(q.Explanation, explanationContent),
-		media:       e.json(lowered(q.MediaAssetID), q.MaxPlays, q.AllowSeek, q.ShowTranscript, q.Transcript),
+		media:       e.json(lowered(q.MediaAssetID), q.MediaAlt, q.MaxPlays, q.AllowSeek, q.ShowTranscript, q.Transcript),
 		points:      e.points(q),
 		options:     e.json(optionPrints(q.Options)),
 		blanks:      e.json(blankPrints(q.Blanks, gaps)),
