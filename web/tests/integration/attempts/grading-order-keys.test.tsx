@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { beforeEach, expect, it } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -50,6 +50,7 @@ function answer(
 let pending: GradingQueueItem[];
 let grades: { attemptId: string; questionId: string; points: number }[];
 let elsewhere: Record<string, number>;
+let comments: (string | null)[];
 let queueReads: number;
 
 function byStudent() {
@@ -94,11 +95,18 @@ function groupsOf(mode: string) {
 }
 
 function mount(entry: string) {
+  return mountRouted(entry).user;
+}
+
+function mountRouted(entry: string) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   });
   const router = createMemoryRouter(
-    [{ path: "/teacher/grading", element: <GradingPage /> }],
+    [
+      { path: "/teacher/grading", element: <GradingPage /> },
+      { path: "/teacher/classes", element: <p>Trang lớp học</p> },
+    ],
     { initialEntries: [entry] },
   );
   render(
@@ -108,7 +116,7 @@ function mount(entry: string) {
       </QueryClientProvider>
     </StrictMode>,
   );
-  return userEvent.setup();
+  return { user: userEvent.setup(), router };
 }
 
 function serve(items: GradingQueueItem[]) {
@@ -153,9 +161,10 @@ function serve(items: GradingQueueItem[]) {
     http.post(`${BASE}/teacher/attempts/:id/grade`, async ({ params, request }) => {
       const attemptId = String(params.id);
       const body = (await request.json()) as {
-        items: { questionId: string; points: number }[];
+        items: { questionId: string; points: number; comment: string | null }[];
       };
       for (const mark of body.items) {
+        comments.push(mark.comment);
         grades.push({ attemptId, questionId: mark.questionId, points: mark.points });
         pending = pending.filter(
           (item) =>
@@ -191,6 +200,7 @@ beforeEach(() => {
   useAuthStore.getState().setSession("token", teacherUser);
   grades = [];
   elsewhere = {};
+  comments = [];
   queueReads = 0;
 });
 
@@ -380,4 +390,57 @@ it("shows another tab's grade on the open answer after a refetch, and keeps it o
   );
   expect(screen.getByText("Nam câu 1")).toBeVisible();
   expect(screen.getByLabelText(/^Nhận xét/)).toHaveValue("Chấm ở tab khác");
+});
+
+it("blocks leaving the page with an unsaved comment, and Save and leave posts it once, then leaves", async () => {
+  serve(byStudent());
+  const { user, router } = mountRouted("/teacher/grading");
+  expect(await screen.findByText("Nam câu 1")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Chấm 1 điểm" }));
+  await waitFor(() => expect(grades).toHaveLength(1));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Chấm 1 điểm" })).toBeEnabled(),
+  );
+  await user.type(screen.getByLabelText(/^Nhận xét/), "Đúng ý");
+
+  const unload = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(unload);
+  expect(unload.defaultPrevented).toBe(true);
+
+  await act(() => router.navigate("/teacher/classes"));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Rời trang khi nhận xét chưa lưu?",
+  });
+  expect(screen.queryByText("Trang lớp học")).toBeNull();
+  expect(grades).toHaveLength(1);
+
+  await user.click(within(dialog).getByRole("button", { name: "Lưu và rời đi" }));
+  expect(await screen.findByText("Trang lớp học")).toBeVisible();
+  expect(grades).toHaveLength(2);
+  expect(comments).toEqual([null, "Đúng ý"]);
+});
+
+it("lets the page go without asking when nothing is unsaved", async () => {
+  serve(byStudent());
+  const { router } = mountRouted("/teacher/grading");
+  expect(await screen.findByText("Nam câu 1")).toBeVisible();
+  const unload = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(unload);
+  expect(unload.defaultPrevented).toBe(false);
+  await act(() => router.navigate("/teacher/classes"));
+  expect(await screen.findByText("Trang lớp học")).toBeVisible();
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("moves with J and K under Caps Lock as with j and k", async () => {
+  serve(byStudent());
+  const user = mount("/teacher/grading");
+  expect(await screen.findByText("Nam câu 1")).toBeVisible();
+  await user.keyboard("J");
+  expect(await screen.findByText("Nam câu 2")).toBeVisible();
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Chấm 0 điểm" })).toBeEnabled(),
+  );
+  await user.keyboard("K");
+  expect(await screen.findByText("Nam câu 1")).toBeVisible();
 });

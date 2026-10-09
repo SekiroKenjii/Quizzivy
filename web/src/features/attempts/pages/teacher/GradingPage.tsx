@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useBlocker, useLocation, useNavigate } from "react-router";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ListSkeleton, LoadError, EmptyState } from "@/components/shared/ListState";
@@ -73,12 +74,28 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
   useEffect(() => {
     if (focusHeading) heading.current?.focus();
   }, [focusHeading]);
+  const departing = useRef(false);
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !departing.current &&
+      model.unsettled &&
+      (currentLocation.pathname !== nextLocation.pathname ||
+        currentLocation.search !== nextLocation.search),
+  );
+  const unsettled = model.unsettled;
+  useEffect(() => {
+    if (!unsettled) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsettled]);
   const change = (key: string, value: string, focus?: typeof HEADING_FOCUS) => {
     if (model.busy) return;
     const next = new URLSearchParams(location.search);
     if (value) next.set(key, value);
     else next.delete(key);
     void model.leave(() => {
+      departing.current = true;
       void navigate(
         {
           pathname: location.pathname,
@@ -100,6 +117,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       return;
     event.preventDefault();
     void model.leave(() => {
+      departing.current = true;
       void navigate(to);
     });
   };
@@ -122,9 +140,10 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       )
     )
       return;
-    if (event.key === "j" || event.key === "k") {
+    const letter = event.key.toLowerCase();
+    if (letter === "j" || letter === "k") {
       event.preventDefault();
-      model.move(event.key === "j" ? 1 : -1);
+      model.move(letter === "j" ? 1 : -1);
       return;
     }
     const choices = scoreOptions(selected.points);
@@ -298,6 +317,24 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
         </>
       )}
       <Recovery model={model} onReview={openReview} />
+      <ConfirmDialog
+        open={blocker.state === "blocked"}
+        onOpenChange={(open) => {
+          if (!open && blocker.state === "blocked") blocker.reset();
+        }}
+        title={t("grading.leaveTitle")}
+        description={t("grading.leaveBody")}
+        confirmLabel={t("grading.saveAndLeave")}
+        cancelLabel={t("grading.stay")}
+        pending={model.busy}
+        error={blocker.state === "blocked" ? model.error : null}
+        onConfirm={() =>
+          void model.leave(() => {
+            departing.current = true;
+            if (blocker.state === "blocked") blocker.proceed();
+          })
+        }
+      />
     </section>
   );
 }

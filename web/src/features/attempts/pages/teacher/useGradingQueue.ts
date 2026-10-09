@@ -93,7 +93,26 @@ function useOpenAnswerSync(
   });
 }
 
-/** useGradingQueue serializes explicit marks and Finish actions under the mounted actor and filter owner. */
+function commentUnsettled(item: GradingQueueItem, draft: GradingDraft | undefined) {
+  if (!draft) return false;
+  const comment = draft.comment.trim();
+  const saved = draft.acknowledged
+    ? draft.acknowledged.comment
+    : (item.comment ?? "").trim();
+  return comment !== saved || (draft.points === null && comment !== "");
+}
+
+/**
+ * useGradingQueue serializes explicit marks and Finish actions under the
+ * mounted actor and filter owner, and reports through `unsettled` a comment
+ * on the selected answer that no Grade has saved. It sets state during render
+ * in three places, and each converges because its own write turns off the
+ * condition it tests: new queue data is recorded in `order` (and a vanished
+ * open answer added to `held`, which `vanishedOpen` then skips); `open`
+ * stores the selected item it is compared with; and the open-answer sync
+ * writes an acknowledged draft, after which `ungradedHere` is false. A change
+ * to `ungradedHere` or `vanishedOpen` must keep that, or the render loops.
+ */
 export function useGradingQueue(params: GradingQueueParams) {
   const { t } = useTranslation();
   const client = useQueryClient();
@@ -190,6 +209,7 @@ export function useGradingQueue(params: GradingQueueParams) {
       : null;
   useOpenAnswerSync(actor.generation, heldOpen, queue.dataUpdatedAt, drafts, setDrafts);
   const draft = selected ? drafts[gradingItemKey(selected)] : undefined;
+  const unsettled = selected ? commentUnsettled(selected, draft) : false;
   const notify = (cause: unknown) => failureMessage(cause, t("grading.saveFailed"));
   const ungraded = (item: GradingQueueItem) =>
     item.score === null && drafts[gradingItemKey(item)]?.acknowledged == null;
@@ -521,6 +541,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     items,
     selected,
     draft,
+    unsettled,
     savedCount,
     busy,
     error,
