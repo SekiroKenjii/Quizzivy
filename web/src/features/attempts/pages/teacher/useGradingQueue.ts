@@ -19,6 +19,7 @@ import { gradingKey, monitorKey, reviewKey } from "../../keys";
 import {
   gradingItemKey,
   mergeQueueOrder,
+  nextOpenItem,
   scanGradingCandidates,
   scoreOptions,
 } from "./gradingRecovery";
@@ -35,6 +36,61 @@ export interface GradingDraft {
 export interface FinishState {
   item: Pick<GradingQueueItem, "attemptId" | "assignmentId" | "studentId">;
   error: string;
+}
+
+function ungradedHere(draft: GradingDraft | undefined, item: GradingQueueItem) {
+  return (
+    !draft ||
+    (draft.acknowledged === null &&
+      draft.points === null &&
+      draft.comment.trim() === (item.comment ?? "").trim())
+  );
+}
+
+function vanishedOpen(
+  open: GradingQueueItem | null,
+  fresh: readonly GradingQueueItem[] | undefined,
+  held: ReadonlyMap<string, GradingQueueItem>,
+  drafts: Record<string, GradingDraft>,
+) {
+  if (!open || !fresh) return null;
+  const key = gradingItemKey(open);
+  if (held.has(key) || fresh.some((item) => gradingItemKey(item) === key)) return null;
+  return ungradedHere(drafts[key], open) ? open : null;
+}
+
+function useOpenAnswerSync(
+  generation: number,
+  heldOpen: GradingQueueItem | null,
+  fetchedAt: number,
+  drafts: Record<string, GradingDraft>,
+  setDrafts: (next: Record<string, GradingDraft>) => void,
+) {
+  const sync = useQuery({
+    queryKey: [
+      "teacher-grading-open",
+      generation,
+      heldOpen?.attemptId,
+      heldOpen?.questionId,
+      fetchedAt,
+    ],
+    queryFn: ({ signal }) => getAttemptForReview(heldOpen!.attemptId, signal),
+    enabled: heldOpen !== null,
+    retry: false,
+  });
+  if (!heldOpen || sync.data?.attempt.id !== heldOpen.attemptId) return;
+  const points = sync.data.answers[heldOpen.questionId]?.manualScore;
+  if (points == null) return;
+  const remark = (sync.data.answers[heldOpen.questionId]?.graderComment ?? "").trim();
+  setDrafts({
+    ...drafts,
+    [gradingItemKey(heldOpen)]: {
+      item: heldOpen,
+      points,
+      comment: remark,
+      acknowledged: { points, comment: remark },
+    },
+  });
 }
 
 /** useGradingQueue serializes explicit marks and Finish actions under the mounted actor and filter owner. */
@@ -57,6 +113,8 @@ export function useGradingQueue(params: GradingQueueParams) {
   const [completed, setCompleted] = useState<ReadonlySet<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<AttemptListRow | null>(null);
+  const [open, setOpen] = useState<GradingQueueItem | null>(null);
+  const [held, setHeld] = useState<ReadonlyMap<string, GradingQueueItem>>(new Map());
   const mode = params.mode ?? "student";
   const assignment = params.assignmentId ?? "";
   const student = params.studentId ?? "";
@@ -80,17 +138,20 @@ export function useGradingQueue(params: GradingQueueParams) {
     queryKey: gradingKey(actor.generation, mode, assignment, student),
     queryFn: ({ signal }) => listGradingQueue(params, signal),
     retry: false,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: "always",
   });
   const [order, setOrder] = useState<{
     data: typeof queue.data;
     keys: readonly string[];
   }>({ data: undefined, keys: [] });
-  if (queue.data !== order.data)
+  if (queue.data !== order.data) {
     setOrder({
       data: queue.data,
       keys: mergeQueueOrder(order.keys, (queue.data?.items ?? []).map(gradingItemKey)),
     });
+    const vanished = vanishedOpen(open, queue.data?.items, held, drafts);
+    if (vanished) setHeld(new Map(held).set(gradingItemKey(vanished), vanished));
+  }
   const recovery = useQuery({
     queryKey: ["teacher-grading-recovery", actor.generation, assignment, student],
     queryFn: ({ signal }) => scanGradingCandidates(signal, assignment, student),
@@ -111,14 +172,29 @@ export function useGradingQueue(params: GradingQueueParams) {
       if (!completed.has(draft.item.attemptId) && !shown.has(key))
         shown.set(key, draft.item);
     }
+    for (const [key, item] of held)
+      if (!completed.has(item.attemptId) && !shown.has(key)) shown.set(key, item);
     return order.keys.flatMap((key) => {
       const item = shown.get(key);
       return item ? [item] : [];
     });
-  }, [queue.data, drafts, completed, order.keys]);
+  }, [queue.data, drafts, held, completed, order.keys]);
   const selected = items.find((item) => gradingItemKey(item) === picked) ?? items[0];
+  const selectedKey = selected ? gradingItemKey(selected) : null;
+  if (selectedKey !== (open ? gradingItemKey(open) : null)) setOpen(selected ?? null);
+  const heldOpen =
+    selected &&
+    held.has(gradingItemKey(selected)) &&
+    ungradedHere(drafts[gradingItemKey(selected)], selected)
+      ? selected
+      : null;
+  useOpenAnswerSync(actor.generation, heldOpen, queue.dataUpdatedAt, drafts, setDrafts);
   const draft = selected ? drafts[gradingItemKey(selected)] : undefined;
   const notify = (cause: unknown) => failureMessage(cause, t("grading.saveFailed"));
+  const ungraded = (item: GradingQueueItem) =>
+    item.score === null && drafts[gradingItemKey(item)]?.acknowledged == null;
+  const indexOf = (item: Pick<GradingQueueItem, "attemptId" | "questionId">) =>
+    items.findIndex((row) => gradingItemKey(row) === gradingItemKey(item));
   const invalidate = (item: FinishState["item"], recovery = true) => {
     if (recovery)
       void client.invalidateQueries({ queryKey: ["teacher-grading-recovery"] });
@@ -309,10 +385,13 @@ export function useGradingQueue(params: GradingQueueParams) {
     const item = selected;
     const savedDraft = await waitForScore(item, numericIntent);
     if (savedDraft === false || !acquire()) return;
-    const index = items.findIndex(
-      (row) => gradingItemKey(row) === gradingItemKey(item),
-    );
+    const index = indexOf(item);
     const following =
+      nextOpenItem(
+        items,
+        index,
+        (row) => gradingItemKey(row) !== gradingItemKey(item) && ungraded(row),
+      ) ??
       items[index + 1] ??
       items.find(
         (row) =>
@@ -353,6 +432,11 @@ export function useGradingQueue(params: GradingQueueParams) {
   const confirmFinish = async () => {
     if (!finishReady || !acquire()) return;
     const item = finishReady;
+    const after = nextOpenItem(
+      items,
+      selected ? indexOf(selected) : -1,
+      (row) => row.attemptId !== item.attemptId && ungraded(row),
+    );
     try {
       const pending = await pendingAfterSave(item, undefined);
       if (!current()) return;
@@ -363,6 +447,7 @@ export function useGradingQueue(params: GradingQueueParams) {
       }
       try {
         await finish(item);
+        if (current() && after) setPicked(gradingItemKey(after));
       } catch (cause) {
         rememberFinish(item, cause);
       }

@@ -84,6 +84,22 @@ export function mergeQueueOrder(
   return result;
 }
 
+/**
+ * nextOpenItem returns the first item after index `from` in the shown order,
+ * wrapping round to the start, for which `open` holds, or null when none does.
+ */
+export function nextOpenItem<T>(
+  items: readonly T[],
+  from: number,
+  open: (item: T) => boolean,
+): T | null {
+  for (let offset = 1; offset <= items.length; offset += 1) {
+    const item = items[(from + offset) % items.length]!;
+    if (open(item)) return item;
+  }
+  return null;
+}
+
 /** scoreOptions returns half-point choices only when all choices fit the nine keyboard slots. */
 export function scoreOptions(max: number) {
   if (max > 4 || max < 0) return [];

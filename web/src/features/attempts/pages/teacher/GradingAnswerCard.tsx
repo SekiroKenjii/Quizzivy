@@ -43,7 +43,13 @@ export function GradingAnswerCard({
   onReview: (event: MouseEvent<HTMLAnchorElement>) => void;
 }>) {
   const { t } = useTranslation();
-  const [number, setNumber] = useState(String(draft?.points ?? item.score ?? ""));
+  const points = draft?.points ?? item.score;
+  const [number, setNumber] = useState(String(points ?? ""));
+  const [shownPoints, setShownPoints] = useState(points);
+  if (points !== shownPoints) {
+    setShownPoints(points);
+    setNumber(String(points ?? ""));
+  }
   const numeric = useRef<HTMLInputElement>(null);
   const [numericNext, setNumericNext] = useState(false);
   const card = useRef<HTMLElement>(null);
@@ -68,7 +74,6 @@ export function GradingAnswerCard({
     Number.isFinite(Number(number)) &&
     Number(number) >= 0 &&
     Number(number) <= item.points;
-  const points = draft?.points ?? item.score;
   const comment = draft?.comment ?? item.comment ?? "";
   const choices = scoreOptions(item.points);
   const group = item.sharedContext?.groups.find((entry) =>
@@ -87,7 +92,9 @@ export function GradingAnswerCard({
           <div className="flex min-w-0 items-center gap-2.5">
             <Avatar name={item.studentName} className="size-8.5" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold">{item.studentName}</p>
+              <p className="text-[14px] leading-[21px] font-semibold">
+                {item.studentName}
+              </p>
               <p className="text-muted-foreground text-[12.5px]">
                 {item.assignmentTitle}
               </p>
@@ -112,7 +119,7 @@ export function GradingAnswerCard({
           />
         )}
         <div>
-          <p className="text-muted-foreground mb-1.5 text-xs font-medium">
+          <p className="text-muted-foreground mb-1.5 text-xs leading-[18px] font-medium">
             {t("grading.prompt")}
           </p>
           <div
@@ -153,7 +160,7 @@ export function GradingAnswerCard({
           </div>
         )}
         <fieldset disabled={busy} className="space-y-2">
-          <legend className="text-muted-foreground mb-2 text-xs font-medium">
+          <legend className="text-muted-foreground mb-2 text-xs leading-[18px] font-medium">
             {t("grading.scoreLabel")}
           </legend>
           {choices.length > 0 ? (
@@ -166,7 +173,7 @@ export function GradingAnswerCard({
                   aria-pressed={points === value}
                   aria-label={t("grading.score", { count: value })}
                   data-score={value}
-                  className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums in-data-[scale=deck]:text-[15px]"
+                  className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums in-data-[scale=deck]:gap-2 in-data-[scale=deck]:text-[15px]"
                   onClick={() => onScore(value)}
                 >
                   {value}
@@ -211,7 +218,7 @@ export function GradingAnswerCard({
         <fieldset disabled={busy} className="space-y-2">
           <label
             htmlFor="grading-comment"
-            className="text-muted-foreground text-xs font-medium"
+            className="text-muted-foreground block w-full text-xs leading-[18px] font-medium"
           >
             {t("grading.comment")}
           </label>

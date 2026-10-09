@@ -4,6 +4,7 @@ import {
   scanGradingCandidates,
   gradingGroupKey,
   mergeQueueOrder,
+  nextOpenItem,
   scoreOptions,
 } from "@/features/attempts/pages/teacher/gradingRecovery";
 import type { AttemptListRow, GradingQueueItem } from "@/features/attempts/api";
@@ -156,4 +157,14 @@ it("keeps each answer where the queue first showed it as the server's list chang
     "c",
   ]);
   expect(mergeQueueOrder(["a", "b"], ["y", "b", "z"])).toEqual(["y", "a", "b", "z"]);
+});
+
+it("nextOpenItem looks after the current item first, wraps round, and answers null when nothing is open", () => {
+  const open = new Set(["a", "d"]);
+  const items = ["a", "b", "c", "d"];
+  expect(nextOpenItem(items, 1, (item) => open.has(item))).toBe("d");
+  expect(nextOpenItem(items, 3, (item) => open.has(item))).toBe("a");
+  expect(nextOpenItem(items, -1, (item) => open.has(item))).toBe("a");
+  expect(nextOpenItem(items, 0, () => false)).toBeNull();
+  expect(nextOpenItem([], -1, () => true)).toBeNull();
 });

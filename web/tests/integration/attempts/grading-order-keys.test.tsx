@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { beforeEach, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
 import GradingPage from "@/features/attempts/pages/teacher/GradingPage";
@@ -49,6 +49,8 @@ function answer(
 
 let pending: GradingQueueItem[];
 let grades: { attemptId: string; questionId: string; points: number }[];
+let elsewhere: Record<string, number>;
+let queueReads: number;
 
 function byStudent() {
   return [
@@ -92,7 +94,9 @@ function groupsOf(mode: string) {
 }
 
 function mount(entry: string) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  });
   const router = createMemoryRouter(
     [{ path: "/teacher/grading", element: <GradingPage /> }],
     { initialEntries: [entry] },
@@ -111,6 +115,7 @@ function serve(items: GradingQueueItem[]) {
   pending = items;
   server.use(
     http.get(`${BASE}/teacher/grading/queue`, ({ request }) => {
+      queueReads += 1;
       const mode = new URL(request.url).searchParams.get("mode") ?? "student";
       return contractJson("/teacher/grading/queue", "get", 200, {
         items: pending,
@@ -133,6 +138,16 @@ function serve(items: GradingQueueItem[]) {
       response.attempt.id = attemptId;
       response.attempt.studentId = attemptId === NAM_PAPER ? NAM : LAN;
       response.attempt.score!.pendingManual = left(attemptId);
+      for (const [key, points] of Object.entries(elsewhere)) {
+        const [paper, questionId] = key.split(":");
+        if (paper === attemptId)
+          response.answers[questionId!] = {
+            answer: { type: "text", value: "elsewhere" },
+            requiresManual: true,
+            manualScore: points,
+            graderComment: "Chấm ở tab khác",
+          };
+      }
       return contractJson("/teacher/attempts/{id}", "get", 200, response);
     }),
     http.post(`${BASE}/teacher/attempts/:id/grade`, async ({ params, request }) => {
@@ -154,6 +169,15 @@ function serve(items: GradingQueueItem[]) {
         pendingManual: left(attemptId),
       });
     }),
+    http.post(`${BASE}/teacher/attempts/:id/finish-grading`, ({ params }) => {
+      const finished: AttemptReview = review();
+      finished.attempt.id = String(params.id);
+      finished.attempt.studentId = params.id === NAM_PAPER ? NAM : LAN;
+      return contractJson("/teacher/attempts/{id}/finish-grading", "post", 200, {
+        ...finished.attempt,
+        status: "graded",
+      });
+    }),
   );
 }
 
@@ -166,7 +190,16 @@ async function saveAndNext(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => {
   useAuthStore.getState().setSession("token", teacherUser);
   grades = [];
+  elsewhere = {};
+  queueReads = 0;
 });
+
+function refocus() {
+  act(() => {
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+  });
+}
 
 it("under StrictMode, a score click sends the Grade and Save & next goes to the student's own next answer", async () => {
   serve(byStudent());
@@ -273,4 +306,78 @@ it("offers nine keyed buttons for a four-point answer and a number field above f
     "9",
   ]);
   expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+});
+
+it("by question, Finish on a student's last answer goes on to the next ungraded answer, not a graded one", async () => {
+  serve([...byQuestion(), answer(LAN_PAPER, LAN, "Lê Thị Lan", Q2, 2, 4)]);
+  const user = mount("/teacher/grading?mode=question");
+  expect(await screen.findByText("Bài của Trần Văn Nam")).toBeVisible();
+  await user.type(screen.getByRole("spinbutton"), "9");
+  await user.tab();
+  await waitFor(() => expect(grades).toHaveLength(1));
+  await saveAndNext(user);
+  expect(await screen.findByText("Câu trả lời 2/2 của Lan")).toBeVisible();
+  await user.type(screen.getByRole("spinbutton"), "9");
+  await user.tab();
+  await waitFor(() => expect(grades).toHaveLength(2));
+  await saveAndNext(user);
+  expect(await screen.findByText("Nam câu 2")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Chấm 4 điểm" }));
+  await waitFor(() => expect(grades).toHaveLength(3));
+  await saveAndNext(user);
+  const finish = await screen.findByRole("button", { name: /^Hoàn tất chấm/ });
+  await waitFor(() => expect(finish).toBeEnabled());
+  await user.click(finish);
+  expect(await screen.findByText("Lan câu 2")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Chấm 0 điểm" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+});
+
+it("puts focus on the heading after a filter chip is removed", async () => {
+  serve(byStudent());
+  const user = mount(`/teacher/grading?student=${NAM}`);
+  const remove = await screen.findByRole("button", { name: "Bỏ lọc: Trần Văn Nam" });
+  await waitFor(() => expect(remove).toBeEnabled());
+  await user.click(remove);
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { level: 1, name: "Chấm bài" })).toHaveFocus(),
+  );
+  expect(screen.queryByRole("button", { name: /^Bỏ lọc/ })).not.toBeInTheDocument();
+});
+
+it("refetches the queue every time the window regains focus, even inside the stale time", async () => {
+  serve(byStudent());
+  mount("/teacher/grading");
+  expect(await screen.findByText("Nam câu 1")).toBeVisible();
+  const before = queueReads;
+  refocus();
+  await waitFor(() => expect(queueReads).toBe(before + 1));
+  refocus();
+  await waitFor(() => expect(queueReads).toBe(before + 2));
+});
+
+it("shows another tab's grade on the open answer after a refetch, and keeps it open", async () => {
+  serve(byStudent());
+  mount("/teacher/grading");
+  expect(await screen.findByText("Nam câu 1")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Chấm 1 điểm" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  pending = pending.filter(
+    (item) =>
+      gradingItemKey(item) !== gradingItemKey({ attemptId: NAM_PAPER, questionId: Q1 }),
+  );
+  elsewhere[`${NAM_PAPER}:${Q1}`] = 1;
+  refocus();
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Chấm 1 điểm" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    ),
+  );
+  expect(screen.getByText("Nam câu 1")).toBeVisible();
+  expect(screen.getByLabelText(/^Nhận xét/)).toHaveValue("Chấm ở tab khác");
 });

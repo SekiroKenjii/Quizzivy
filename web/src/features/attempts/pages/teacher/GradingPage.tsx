@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, type MouseEvent } from "react";
+import { useEffect, useEffectEvent, useRef, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import { GradingAnswerCard } from "./GradingAnswerCard";
 import "@/features/attempts/gradingMessages";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
+
+const HEADING_FOCUS = "grading-heading";
 
 /** GradingPage presents pending work and explicit Finish recovery without changing independent regrading. */
 export default function GradingPage() {
@@ -65,17 +67,26 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       ) + 1
     : 0;
   const acknowledged = model.savedCount;
-  const change = (key: string, value: string) => {
+  const heading = useRef<HTMLHeadingElement>(null);
+  const focusHeading =
+    (location.state as { focus?: string } | null)?.focus === HEADING_FOCUS;
+  useEffect(() => {
+    if (focusHeading) heading.current?.focus();
+  }, [focusHeading]);
+  const change = (key: string, value: string, focus?: typeof HEADING_FOCUS) => {
     if (model.busy) return;
     const next = new URLSearchParams(location.search);
     if (value) next.set(key, value);
     else next.delete(key);
     void model.leave(() => {
-      void navigate({
-        pathname: location.pathname,
-        search: next.toString(),
-        hash: location.hash,
-      });
+      void navigate(
+        {
+          pathname: location.pathname,
+          search: next.toString(),
+          hash: location.hash,
+        },
+        focus ? { state: { focus } } : undefined,
+      );
     });
   };
   const openReview = (event: MouseEvent<HTMLAnchorElement>, to: string) => {
@@ -137,7 +148,11 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
     >
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl leading-[1.5] font-semibold tracking-tight">
+          <h1
+            ref={heading}
+            tabIndex={-1}
+            className="text-2xl leading-[1.5] font-semibold tracking-[-0.02em] outline-none"
+          >
             {t("grading.title")}
           </h1>
           {(model.queue.data || params.assignmentId || params.studentId) && (
@@ -294,7 +309,7 @@ function FilterChips({
 }: Readonly<{
   model: ReturnType<typeof useGradingQueue>;
   params: GradingQueueParams;
-  onChange: (key: string, value: string) => void;
+  onChange: (key: string, value: string, focus?: typeof HEADING_FOCUS) => void;
 }>) {
   const { t } = useTranslation();
   const assignmentName = () =>
@@ -323,7 +338,7 @@ function FilterChips({
         disabled={model.busy}
         aria-label={t("grading.removeFilter", { name: chip.name })}
         className="text-muted-fg hover:bg-hover hover:text-fg grid size-5 shrink-0 place-items-center rounded-full disabled:opacity-50"
-        onClick={() => onChange(chip.key, "")}
+        onClick={() => onChange(chip.key, "", HEADING_FOCUS)}
       >
         <X aria-hidden="true" className="size-3" />
       </button>
