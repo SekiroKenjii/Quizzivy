@@ -42,6 +42,8 @@ export interface MediaUpload<T> {
  * shows the state. `send` defaults to uploadMedia, which is the only sender
  * whose answer is a MediaAsset; a host that names another type passes its own.
  * A new start supersedes the one in flight, and unmounting aborts it.
+ * `cancel` ends the check as well as the upload, without waiting for the
+ * duration read to settle.
  */
 export function useMediaUpload<T = MediaAsset>({
   onUploaded,
@@ -82,16 +84,27 @@ export function useMediaUpload<T = MediaAsset>({
         latest.current.send ??
         (uploadMedia as unknown as UploadSender<T>);
 
+      const abort = new AbortController();
+      controller.current = abort;
+      const cancelled = () =>
+        setState({ status: "error", message: t("media.cancelled") });
       setState({ status: "checking", name: file.name });
-      const rejection = await precheck(file, checkedAs);
+      const rejection = await Promise.race([
+        precheck(file, checkedAs),
+        whenAborted(abort.signal),
+      ]);
       if (!current()) return;
+      if (abort.signal.aborted) {
+        if (controller.current === abort) controller.current = null;
+        cancelled();
+        return;
+      }
       if (rejection) {
+        if (controller.current === abort) controller.current = null;
         setState({ status: "error", message: rejectionMessage(t, rejection) });
         return;
       }
 
-      const abort = new AbortController();
-      controller.current = abort;
       setState({ status: "uploading", name: file.name, fraction: 0 });
       try {
         const result = await sender(file, {
@@ -106,7 +119,7 @@ export function useMediaUpload<T = MediaAsset>({
       } catch (cause) {
         if (!current()) return;
         if (cause instanceof DOMException && cause.name === "AbortError") {
-          setState({ status: "error", message: t("media.cancelled") });
+          cancelled();
           return;
         }
         setState({
@@ -145,6 +158,13 @@ export function useMediaUpload<T = MediaAsset>({
 
   const busy = state.status === "checking" || state.status === "uploading";
   return { state, busy, start, dropped, cancel, reset };
+}
+
+function whenAborted(signal: AbortSignal): Promise<null> {
+  return new Promise((resolve) => {
+    if (signal.aborted) resolve(null);
+    else signal.addEventListener("abort", () => resolve(null), { once: true });
+  });
 }
 
 /** rejectionMessage words a pre-check refusal: the file's name and the rule of its kind it broke. */

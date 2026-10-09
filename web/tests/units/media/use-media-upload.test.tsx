@@ -310,6 +310,26 @@ describe("the upload itself", () => {
     expect(onUploaded).not.toHaveBeenCalled();
   });
 
+  it("cancels while the duration is still being read, which may never end", async () => {
+    Object.defineProperty(HTMLMediaElement.prototype, "src", {
+      configurable: true,
+      set() {},
+    });
+    const sent = vi.fn<UploadSender<MediaAsset>>();
+    const user = userEvent.setup();
+    render(<Host send={sent} />);
+    await user.upload(
+      screen.getByLabelText("Chọn tệp từ máy"),
+      audioFile("treo.mp3", 1024),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent("treo.mp3");
+
+    await user.click(screen.getByRole("button", { name: "Huỷ tải lên" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Đã huỷ tải lên.");
+    expect(sent).not.toHaveBeenCalled();
+  });
+
   it("aborts the upload in flight when its host unmounts", async () => {
     stubDuration(30);
     let signal: AbortSignal | undefined;

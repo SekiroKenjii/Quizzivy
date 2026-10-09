@@ -5,9 +5,10 @@ import type { MediaKind } from "@/features/media/api";
 import type { UploadState } from "@/features/media/useMediaUpload";
 
 /**
- * UploadStatus draws useMediaUpload's state: the file being checked, the
- * upload's progress with a cancel, and a refusal or failure as an alert.
- * Idle draws nothing. `onRetry` adds "Choose another file" to the alert.
+ * UploadStatus draws useMediaUpload's state: the file being checked and the
+ * upload's progress, each with a cancel, and a refusal or failure as an
+ * alert. Idle draws nothing. `onRetry` adds "Choose another file" to the
+ * alert.
  */
 export function UploadStatus({
   state,
@@ -22,22 +23,37 @@ export function UploadStatus({
 }>) {
   const { t, i18n } = useTranslation();
   const FileIcon = kind === "image" ? FileImage : FileAudio;
+  const cancel = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      aria-label={t("media.cancel")}
+      onClick={onCancel}
+    >
+      <X aria-hidden="true" />
+    </Button>
+  );
 
   if (state.status === "checking")
     return (
-      <p className="text-muted-foreground text-sm" role="status" aria-live="polite">
-        {state.name}
-      </p>
+      <div className="flex items-center gap-3">
+        <p
+          className="text-muted-fg min-w-0 flex-1 truncate text-sm"
+          role="status"
+          aria-live="polite"
+        >
+          {state.name}
+        </p>
+        {cancel}
+      </div>
     );
 
   if (state.status === "uploading")
     return (
       <div className="space-y-2 rounded-lg border p-3">
         <p className="flex items-center gap-2 text-sm font-medium">
-          <FileIcon
-            className="text-muted-foreground size-4 shrink-0"
-            aria-hidden="true"
-          />
+          <FileIcon className="text-muted-fg size-4 shrink-0" aria-hidden="true" />
           <span className="truncate">{state.name}</span>
         </p>
         <div className="flex items-center gap-3">
@@ -47,18 +63,10 @@ export function UploadStatus({
             max={1}
             aria-label={t("media.uploading")}
           />
-          <span className="text-muted-foreground text-xs tabular-nums">
+          <span className="text-muted-fg text-xs tabular-nums">
             {t("media.uploading")} · {formatPercent(i18n.language, state.fraction)}
           </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={t("media.cancel")}
-            onClick={onCancel}
-          >
-            <X aria-hidden="true" />
-          </Button>
+          {cancel}
         </div>
       </div>
     );
@@ -67,12 +75,12 @@ export function UploadStatus({
     return (
       <div
         role="alert"
-        className="border-destructive/25 bg-destructive/5 flex items-start gap-3 rounded-lg border p-3.5"
+        className="border-danger/25 bg-danger-soft flex items-start gap-3 rounded-lg border p-3.5"
       >
-        <CircleAlert className="text-destructive size-5 shrink-0" aria-hidden="true" />
+        <CircleAlert className="text-danger-ink size-5 shrink-0" aria-hidden="true" />
         <div className="min-w-0">
           <p className="text-sm font-medium">{t("media.rejectTitle")}</p>
-          <p className="text-muted-foreground mt-1 text-xs leading-relaxed break-words">
+          <p className="text-muted-fg mt-1 text-xs leading-relaxed break-words">
             {state.message}
           </p>
           {onRetry === undefined ? null : (

@@ -8,23 +8,36 @@ import {
 
 type MediaKind = components["schemas"]["MediaKind"];
 
+/** PROBE_TIMEOUT_MS is how long readDuration waits for a file's metadata before giving up. */
+export const PROBE_TIMEOUT_MS = 10_000;
+
 /**
  * Reads a file's duration in the browser, by loading its metadata into a
  * detached `<audio>` element.
  *
  * `preload="metadata"` is what keeps this cheap: the browser reads the header
- * rather than the whole file.
+ * rather than the whole file. A file whose metadata has not arrived after
+ * `timeoutMs` reads as unknown (null). The object URL is revoked whichever
+ * way the read ends, and only the first ending counts.
  */
-export function readDuration(file: File): Promise<number | null> {
+export function readDuration(
+  file: File,
+  timeoutMs = PROBE_TIMEOUT_MS,
+): Promise<number | null> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const audio = document.createElement("audio");
     audio.preload = "metadata";
+    let settled = false;
 
     const done = (durationMs: number | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       URL.revokeObjectURL(url);
       resolve(durationMs);
     };
+    const timer = setTimeout(() => done(null), timeoutMs);
 
     audio.onloadedmetadata = () => {
       const seconds = audio.duration;
