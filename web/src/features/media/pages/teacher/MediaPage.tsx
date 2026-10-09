@@ -24,6 +24,7 @@ import { UploadDialog } from "@/features/media/components/UploadDialog";
 import { formatStorage } from "@/features/media/format";
 
 const PAGE_SIZE = 24;
+const FRESH_URL_MS = 60_000;
 const TABS = ["all", "audio", "image", "unused"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS = {
@@ -92,6 +93,10 @@ export default function MediaPage() {
       void client.invalidateQueries({ queryKey: [key] });
   };
   const upload = () => setUploading({ file: null });
+  const refreshExpired = () => {
+    if (Date.now() - library.dataUpdatedAt < FRESH_URL_MS) return;
+    void library.refetch({ cancelRefetch: false });
+  };
   const facets = library.data?.facets;
   const filtered = search !== "" || tab !== "all";
 
@@ -110,7 +115,7 @@ export default function MediaPage() {
                 asset={asset}
                 active={playing === asset.id}
                 onPlay={setPlaying}
-                onExpired={() => void library.refetch()}
+                onExpired={refreshExpired}
                 onRename={setRenaming}
                 onReplace={setReplacing}
                 onDelete={setDeleting}

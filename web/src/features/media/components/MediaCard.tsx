@@ -41,8 +41,8 @@ export type MediaCardActions = Readonly<{
  * the length or size, how many questions use it and the audio's default play
  * limit. Playback follows AudioPlayer's rule: `.play()` runs in the click's
  * own tick, and `onPlay` is told after it. A card whose `active` turns false
- * pauses, so one file plays at a time. `onExpired` re-reads the library when
- * the signed URL no longer loads.
+ * pauses, so one file plays at a time. `onExpired` is told, once per URL,
+ * when the audio or the thumbnail fails to load from its signed URL.
  */
 export function MediaCard({
   asset,
@@ -71,7 +71,7 @@ export function MediaCard({
             onExpired={onExpired}
           />
         ) : (
-          <ImagePreview asset={asset} />
+          <ImagePreview asset={asset} onExpired={onExpired} />
         )}
       </div>
       <div className="flex flex-1 flex-col gap-1.5 px-3.5 py-3">
@@ -213,7 +213,10 @@ function AudioPreview({
   );
 }
 
-function ImagePreview({ asset }: Readonly<{ asset: LibraryAsset }>) {
+function ImagePreview({
+  asset,
+  onExpired,
+}: Readonly<{ asset: LibraryAsset; onExpired: () => void }>) {
   const { t } = useTranslation();
   const [brokenFor, setBrokenFor] = useState<string | null>(null);
   if (brokenFor !== asset.url)
@@ -224,7 +227,10 @@ function ImagePreview({ asset }: Readonly<{ asset: LibraryAsset }>) {
         loading="lazy"
         decoding="async"
         className="absolute inset-0 size-full object-cover"
-        onError={() => setBrokenFor(asset.url)}
+        onError={() => {
+          setBrokenFor(asset.url);
+          onExpired();
+        }}
       />
     );
   return (

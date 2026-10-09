@@ -151,3 +151,51 @@ describe("the media card's play button", () => {
     expect(pause).not.toHaveBeenCalled();
   });
 });
+
+const IMAGE: LibraryAsset = {
+  ...ASSET,
+  id: "018f0000-0000-7000-8000-0000000000e2",
+  kind: "image",
+  url: "https://example.test/map.png?sig=1",
+  mimeType: "image/png",
+  durationMs: null,
+  displayName: "Directions map.png",
+  defaultMaxPlays: null,
+  width: 1200,
+  height: 800,
+};
+
+function imageCard(asset: LibraryAsset, onExpired: () => void) {
+  return (
+    <MediaCard
+      asset={asset}
+      active={false}
+      onPlay={vi.fn()}
+      onExpired={onExpired}
+      onRename={vi.fn()}
+      onReplace={vi.fn()}
+      onDelete={vi.fn()}
+    />
+  );
+}
+
+describe("the media card's thumbnail", () => {
+  it("asks for a fresh URL once when its signed URL fails, then once per new URL", () => {
+    const onExpired = vi.fn();
+    const { rerender } = render(imageCard(IMAGE, onExpired));
+
+    fireEvent.error(document.querySelector("img")!);
+    expect(onExpired).toHaveBeenCalledTimes(1);
+    expect(document.querySelector("img")).toBeNull();
+    expect(screen.getByText("1200 × 800")).toBeVisible();
+
+    rerender(imageCard(IMAGE, onExpired));
+    expect(onExpired).toHaveBeenCalledTimes(1);
+
+    rerender(
+      imageCard({ ...IMAGE, url: "https://example.test/map.png?sig=2" }, onExpired),
+    );
+    fireEvent.error(document.querySelector("img")!);
+    expect(onExpired).toHaveBeenCalledTimes(2);
+  });
+});
