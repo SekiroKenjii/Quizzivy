@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -369,23 +370,32 @@ func queuedForAdvisoryKey(t *testing.T, pool *pgxpool.Pool, key int) (release fu
 	if err := tx.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&pid); err != nil {
 		t.Fatalf("read the queued holder's backend: %v", err)
 	}
-	taken := make(chan struct{})
+	requested := make(chan error, 1)
 	go func() {
-		defer close(taken)
-		_, _ = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(73819, $1)`, key)
+		_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(73819, $1)`, key)
+		requested <- err
 	}()
+	var once sync.Once
 	release = func() {
-		select {
-		case <-taken:
-		default:
-			if _, err := pool.Exec(ctx, `SELECT pg_cancel_backend($1)`, pid); err != nil {
-				t.Errorf("cancel the queued holder: %v", err)
+		once.Do(func() {
+			var err error
+			select {
+			case err = <-requested:
+			default:
+				if _, cancelErr := pool.Exec(ctx, `SELECT pg_cancel_backend($1)`, pid); cancelErr != nil {
+					t.Errorf("cancel the queued holder: %v", cancelErr)
+				}
+				err = <-requested
 			}
-			<-taken
-		}
-		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
-			t.Errorf("release the queued holder: %v", err)
-		}
+			var pg *pgconn.PgError
+			canceled := errors.As(err, &pg) && pg.Code == pgerrcode.QueryCanceled
+			if err != nil && !canceled {
+				t.Errorf("the queued holder's request for the advisory key: %v", err)
+			}
+			if err := tx.Rollback(ctx); err != nil {
+				t.Errorf("release the queued holder: %v", err)
+			}
+		})
 	}
 	t.Cleanup(release)
 	return release, pid
@@ -1230,7 +1240,8 @@ func TestAStudentRedeemingTheOldCodeAndTheRotationNeverLeaveALegacyCode(t *testi
 
 		job := startRotation(rotationOver(jobPool, nil, classID))
 		waitUntilBlocked(t, pool, jobPid, writer.pid, "the rotation, holding the class row, on the code row")
-		waitUntilWaitedFor(t, pool, jobPid, deadlockTimeout(t, pool)/2, "the rotation, on the code row")
+		settle := min(50*time.Millisecond, deadlockTimeout(t, pool)/2)
+		waitUntilWaitedFor(t, pool, jobPid, settle, "the rotation, on the code row")
 		releaseKey, keeperPid := queuedForAdvisoryKey(t, pool, 41)
 		waitUntilBlocked(t, pool, keeperPid, jobPid, "a holder queued for advisory key 41 behind the rotation")
 		written := writeClassThenCommit(writer, classID)
