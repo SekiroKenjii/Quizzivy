@@ -7,11 +7,15 @@ import {
   type ContentMark,
 } from "../model";
 import { isQuestionContent, type QuestionContent } from "../questionContent";
+import { gfmSubset } from "../markdownGfm";
 
-const parser = unified().use(remarkParse);
+const parser = unified().use(remarkParse).use(gfmSubset);
 type Root = ReturnType<typeof parser.parse>;
 type BlockNode = Root["children"][number];
 type InlineNode = Extract<BlockNode, { type: "paragraph" }>["children"][number];
+
+const MARK_OF = { strong: "bold", emphasis: "italic", delete: "strike" } as const;
+const MARK_ORDER: readonly ContentMark[] = ["bold", "italic", "strike"];
 
 function unsupported(): never {
   throw new Error("unsupported Markdown structure");
@@ -31,14 +35,12 @@ function inlines(
         return [{ type: "break" }];
       case "strong":
       case "emphasis":
+      case "delete":
         return inlines(
           node.children,
-          [
-            ...new Set<ContentMark>([
-              ...marks,
-              node.type === "strong" ? "bold" : "italic",
-            ]),
-          ],
+          MARK_ORDER.filter(
+            (mark) => mark === MARK_OF[node.type] || marks.includes(mark),
+          ),
           depth + 1,
         );
       case "link": {
@@ -73,6 +75,19 @@ function blocks(nodes: BlockNode[], depth = 0): ContentBlock[] {
           start: node.start ?? 1,
           items: node.children.map((item) => blocks(item.children, depth + 1)),
         };
+      case "table":
+        if (node.align?.some((align) => align !== null)) return unsupported();
+        return {
+          type: "table",
+          rows: node.children.map((row, index) =>
+            row.children.map((cell) => ({
+              header: index === 0,
+              rowSpan: 1,
+              colSpan: 1,
+              content: [{ type: "paragraph", content: inlines(cell.children) }],
+            })),
+          ),
+        };
       default:
         return unsupported();
     }
@@ -99,6 +114,8 @@ export function markdownToQuestionContent(markdown: string): QuestionContent | n
     return null;
   }
 }
+
+export { questionContentToMarkdown } from "./markdownSerializer";
 
 /** plainTextMarkdown escapes semantic projections before the user explicitly discards rich structure. */
 export function plainTextMarkdown(text: string): string {
