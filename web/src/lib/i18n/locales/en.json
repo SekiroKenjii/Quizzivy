@@ -774,7 +774,7 @@
     "dragCancelled": "Drag cancelled.",
     "staysInBank": "It stays in the bank.",
     "outlineWidth": "Outline width",
-    "reorderSection": "Reorder group {{title}}",
+    "reorderSection": "Drag to reorder section {{title}}",
     "addQuestionTo": "to {{title}}",
     "outline": "Outline",
     "outlineSummary": "{{questions}} questions · {{points}} pts",

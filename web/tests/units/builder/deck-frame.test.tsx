@@ -165,20 +165,20 @@ describe("the deck builder frame", () => {
     await user.type(input, " retained draft");
     expect(input).toHaveValue(`${question.prompt} retained draft`);
     expect(
-      screen.getByRole("separator", { name: "Độ rộng cấu trúc" }),
+      screen.getByRole("separator", { name: "Độ rộng dàn bài" }),
     ).toBeInTheDocument();
     act(() => view.resize(767));
-    expect(screen.queryByRole("separator", { name: "Độ rộng cấu trúc" })).toBeNull();
+    expect(screen.queryByRole("separator", { name: "Độ rộng dàn bài" })).toBeNull();
     expect(screen.getByLabelText("Nội dung câu hỏi")).toBe(input);
     act(() => view.resize(1024));
     const small = document.createElement("main");
     Object.defineProperty(small, "offsetWidth", { value: 593 });
     act(() => registerContentElement(small));
-    expect(screen.queryByRole("separator", { name: "Độ rộng cấu trúc" })).toBeNull();
+    expect(screen.queryByRole("separator", { name: "Độ rộng dàn bài" })).toBeNull();
     expect(screen.getByLabelText("Nội dung câu hỏi")).toBe(input);
     act(() => registerContentElement(area));
     expect(
-      screen.getByRole("separator", { name: "Độ rộng cấu trúc" }),
+      screen.getByRole("separator", { name: "Độ rộng dàn bài" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Nội dung câu hỏi")).toBe(input);
     expect(input).toHaveValue(`${question.prompt} retained draft`);
@@ -188,7 +188,7 @@ describe("the deck builder frame", () => {
     localStorage.setItem("quizzivy.builder.outline", "900");
     renderBuilder();
     await screen.findByRole("button", { name: "Tên đề thi" });
-    const grip = screen.getByRole("separator", { name: "Độ rộng cấu trúc" });
+    const grip = screen.getByRole("separator", { name: "Độ rộng dàn bài" });
     vi.spyOn(grip.parentElement!, "getBoundingClientRect").mockReturnValue({
       width: 720,
       left: 0,
