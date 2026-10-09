@@ -120,14 +120,6 @@ export function QuestionEditor({
           </p>
         )}
         <div>
-          {value.type === "fill_blank" && (
-            <label
-              className="mb-1.5 block text-[0.8125rem] font-medium"
-              htmlFor="question-prompt"
-            >
-              {t("questionEditor.prompt")}
-            </label>
-          )}
           {value.type === "fill_blank" ? (
             <BlankPromptField value={value} onChange={onChange} />
           ) : (

@@ -4,8 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { BlankPromptField } from "@/features/question-bank/components/BlankPromptField";
 import { QuestionProseField } from "@/features/question-bank/components/QuestionProseField";
 import { ProseModeHeader } from "@/features/question-bank/components/ProseMode";
-import { emptyQuestion } from "@/features/question-bank/questionSchema";
-import type { QuestionContent } from "@/components/shared/content/questionContent";
+import {
+  emptyQuestion,
+  type QuestionValues,
+} from "@/features/question-bank/questionSchema";
+import type {
+  QuestionContent,
+  QuestionPromptContent,
+} from "@/components/shared/content/questionContent";
 import "@/lib/i18n";
 
 class StillResize {
@@ -18,10 +24,7 @@ Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
 Range.prototype.getBoundingClientRect ??= () => new DOMRect();
 
 beforeEach(() => vi.stubGlobal("ResizeObserver", StillResize));
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.unstubAllEnvs();
-});
+afterEach(() => vi.unstubAllGlobals());
 
 const RICH: QuestionContent = {
   format: "semantic_v1",
@@ -279,21 +282,176 @@ describe("the two conversions", () => {
   });
 });
 
-test("rich blank conversion follows the pilot flag while legacy text remains editable", () => {
-  vi.stubEnv("VITE_RICH_QUESTION_EDITOR", "false");
-  const value = {
-    ...emptyQuestion(),
-    type: "fill_blank" as const,
-    options: [],
-    prompt: "Điền {{1}}",
-  };
-  const { rerender } = render(<BlankPromptField value={value} onChange={vi.fn()} />);
-  expect(
-    screen.queryByRole("button", { name: "Định dạng: Nội dung câu hỏi" }),
-  ).toBeNull();
-  vi.stubEnv("VITE_RICH_QUESTION_EDITOR", "true");
-  rerender(<BlankPromptField value={value} onChange={vi.fn()} />);
-  expect(
-    screen.getByRole("button", { name: "Định dạng: Nội dung câu hỏi" }),
-  ).toBeEnabled();
+const GAPPED: QuestionPromptContent = {
+  format: "semantic_v1",
+  blocks: [
+    {
+      type: "paragraph",
+      content: [
+        { type: "text", text: "Điền ", marks: [] },
+        { type: "gap", id: "gap-1", label: "1" },
+      ],
+    },
+  ],
+};
+
+function Blank({
+  initial,
+  changes,
+}: Readonly<{ initial: QuestionValues; changes: QuestionValues[] }>) {
+  const [value, setValue] = useState(initial);
+  return (
+    <BlankPromptField
+      value={value}
+      onChange={(next) => {
+        changes.push(next);
+        setValue(next);
+      }}
+    />
+  );
+}
+
+function blankQuestion(overrides: Partial<QuestionValues>): QuestionValues {
+  return { ...emptyQuestion(), type: "fill_blank", options: [], ...overrides };
+}
+
+describe("a fill-in-the-blank prompt", () => {
+  test("disables Markdown while the prompt holds a gap, and says why", async () => {
+    render(
+      <Blank
+        initial={blankQuestion({
+          prompt: "Điền ",
+          promptContent: GAPPED,
+          blanks: [
+            {
+              id: null,
+              gapId: "gap-1",
+              ordinal: 1,
+              acceptedAnswers: ["a"],
+              caseSensitive: false,
+            },
+          ],
+        })}
+        changes={[]}
+      />,
+    );
+    const markdown = modes().getByRole("button", { name: "Markdown" });
+    expect(markdown).toBeDisabled();
+    expect(markdown).toHaveAccessibleDescription(
+      "Hãy bỏ hết chỗ trống khỏi nội dung để chuyển sang Markdown: các chỗ trống đang giữ đáp án được chấp nhận.",
+    );
+  });
+
+  test("with no gap left, Switch to Markdown unbinds the answers it kept", async () => {
+    const user = userEvent.setup();
+    const changes: QuestionValues[] = [];
+    render(
+      <Blank
+        initial={blankQuestion({
+          prompt: "Đọc kỹ và gạch",
+          promptContent: RICH,
+          blanks: [
+            {
+              id: null,
+              gapId: "gap-1",
+              ordinal: 1,
+              acceptedAnswers: ["a"],
+              caseSensitive: false,
+            },
+          ],
+        })}
+        changes={changes}
+      />,
+    );
+    await screen.findByRole("textbox", { name: "Nội dung câu hỏi" });
+    await user.click(modes().getByRole("button", { name: "Markdown" }));
+    await user.click(screen.getByRole("button", { name: "Chuyển sang Markdown" }));
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({
+      prompt: "Đọc **kỹ** và gạch",
+      promptContent: null,
+      blanks: [{ gapId: null, ordinal: 1, acceptedAnswers: ["a"] }],
+    });
+  });
+
+  test("editing in either mode never changes whether content is stored, nor the answers' bindings", async () => {
+    const user = userEvent.setup();
+    const answer = {
+      id: null,
+      gapId: null,
+      ordinal: 1,
+      acceptedAnswers: ["a"],
+      caseSensitive: false,
+    };
+    const changes: QuestionValues[] = [];
+    const { unmount } = render(
+      <Blank
+        initial={blankQuestion({
+          prompt: "Điền {{1}}",
+          promptContent: null,
+          blanks: [answer],
+        })}
+        changes={changes}
+      />,
+    );
+    await user.type(screen.getByRole("textbox", { name: "Nội dung câu hỏi" }), " vào");
+    await user.click(screen.getByRole("button", { name: "In đậm" }));
+    expect(changes.length).toBeGreaterThan(1);
+    for (const change of changes) {
+      expect(change.promptContent).toBeNull();
+      expect(change.blanks).toEqual([answer]);
+    }
+    unmount();
+    changes.length = 0;
+    render(
+      <Blank
+        initial={blankQuestion({
+          prompt: "Điền ",
+          promptContent: GAPPED,
+          blanks: [{ ...answer, gapId: "gap-1" }],
+        })}
+        changes={changes}
+      />,
+    );
+    await screen.findByRole("textbox", { name: "Nội dung câu hỏi" });
+    await user.click(screen.getByRole("button", { name: "Thêm bảng" }));
+    expect(changes.length).toBeGreaterThan(0);
+    for (const change of changes) {
+      expect(change.promptContent).not.toBeNull();
+      expect(change.blanks).toEqual([{ ...answer, gapId: "gap-1" }]);
+    }
+  });
+
+  test("keeps its {{n}} placeholders, previews them as slots and binds them on conversion", async () => {
+    const user = userEvent.setup();
+    const changes: QuestionValues[] = [];
+    render(
+      <Blank
+        initial={blankQuestion({
+          prompt: "Điền {{1}} vào ~~đây~~",
+          blanks: [
+            {
+              id: null,
+              gapId: null,
+              ordinal: 1,
+              acceptedAnswers: ["a"],
+              caseSensitive: false,
+            },
+          ],
+        })}
+        changes={changes}
+      />,
+    );
+    await user.click(screen.getByRole("tab", { name: "Xem trước" }));
+    expect(screen.getByRole("tabpanel").querySelectorAll("[data-blank]")).toHaveLength(
+      1,
+    );
+    await user.click(modes().getByRole("button", { name: "Văn bản định dạng" }));
+    await user.click(screen.getByRole("button", { name: "Áp dụng chuyển đổi" }));
+    expect(changes).toHaveLength(1);
+    const [converted] = changes;
+    expect(converted!.promptContent).not.toBeNull();
+    expect(converted!.blanks[0]!.gapId).toEqual(expect.any(String));
+    expect(converted!.prompt).toBe("Điền [1] vào đây");
+  });
 });

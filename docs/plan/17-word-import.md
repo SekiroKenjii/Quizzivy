@@ -153,8 +153,9 @@ lists and tables with marks, breaks and safe links. Migration 00033 preserves
 these documents through bank duplication, publication, restoration, previews,
 attempts, results and teacher review. Existing Markdown stays unchanged. Prose
 cannot bind assets or gaps; fill-blank prompts retain their historical path.
-The new editor affordance is opt-in with `VITE_RICH_QUESTION_EDITOR`; existing
-rich content remains editable when the flag is off.
+Since T-R4.64 the rich editor is how every teacher writes a prompt or an
+explanation; a field stored as Markdown stays Markdown until its teacher
+converts it.
 
 Explicit Markdown conversion previews the supported subset and refuses unknown
 structures without modifying the original. Removing rich structure is an explicit
