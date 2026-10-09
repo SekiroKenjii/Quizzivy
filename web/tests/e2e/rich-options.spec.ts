@@ -1,8 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import type { components } from "../../src/lib/api/schema";
 
 const QUESTION_ID = "018f0000-0000-7000-8000-0000000000b1";
+
+/** optionTools is the formatting toolbar of "Nội dung lựa chọn 1", which another editor on the page does not share. */
+function optionTools(page: Page) {
+  return page.getByRole("toolbar", {
+    name: "Thanh định dạng: Nội dung lựa chọn 1",
+    exact: true,
+  });
+}
 
 test("builder flushes rich edits before switching questions and previews the saved marks", async ({
   page,
@@ -137,7 +145,9 @@ test("builder flushes rich edits before switching questions and previews the sav
   });
   await editor.click();
   await page.keyboard.press("Control+a");
-  await page.getByRole("button", { name: "Gạch chân", exact: true }).click();
+  await optionTools(page)
+    .getByRole("button", { name: "Gạch chân", exact: true })
+    .click();
   await expect(editor.locator("u")).toHaveText("think");
   await page.getByRole("button", { name: "Second question", exact: true }).click();
   await expect.poll(() => received).toBe(true);
@@ -264,13 +274,15 @@ test("bank formatting survives save and reload without changing the answer key",
   await editor.click();
   await page.keyboard.press("Control+End");
   await expect(
-    page.getByRole("button", { name: "Gạch chân", exact: true }),
+    optionTools(page).getByRole("button", { name: "Gạch chân", exact: true }),
   ).toHaveAttribute("aria-pressed", "false");
   await page.keyboard.insertText(" mới");
   await expect(editor).toHaveText("think mới");
-  await page.getByRole("button", { name: "Hoàn tác", exact: true }).click();
+  await optionTools(page)
+    .getByRole("button", { name: "Hoàn tác", exact: true })
+    .click();
   await expect(editor).toHaveText("think");
-  await page.getByRole("button", { name: "Làm lại", exact: true }).click();
+  await optionTools(page).getByRole("button", { name: "Làm lại", exact: true }).click();
   await expect(editor).toHaveText("think mới");
   await expect(
     page.getByRole("button", { name: "Chèn bảng", exact: true }),

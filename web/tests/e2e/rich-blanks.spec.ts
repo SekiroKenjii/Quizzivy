@@ -1,8 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import type { components } from "../../src/lib/api/schema";
 
 const ID = "018f0000-0000-7000-8000-0000000000b1";
+
+/** promptTools is the formatting toolbar of "Nội dung câu hỏi", which another editor on the page does not share. */
+function promptTools(page: Page) {
+  return page.getByRole("toolbar", {
+    name: "Thanh định dạng: Nội dung câu hỏi",
+    exact: true,
+  });
+}
 
 test("rich blanks retain answers through conversion, table editing, undo, save and reload on a tablet", async ({
   page,
@@ -60,9 +68,13 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   await expect(prompt.locator(":scope > p")).toHaveCount(2);
   await expect(prompt.locator(":scope > p").first()).toContainText("They");
   await expect(prompt.locator(":scope > p").last()).toHaveText("");
-  await page.getByRole("button", { name: "Thêm bảng", exact: true }).click();
+  await promptTools(page)
+    .getByRole("button", { name: "Thêm bảng", exact: true })
+    .click();
   await prompt.locator("th").first().click();
-  await page.getByRole("button", { name: "Thêm ô trống", exact: true }).click();
+  await promptTools(page)
+    .getByRole("button", { name: "Thêm ô trống", exact: true })
+    .click();
   await expect(prompt.locator("table .content-gap")).toHaveText("3");
   await expect(prompt.locator(".content-gap")).toHaveText(["2", "1", "3"]);
   await page
@@ -78,7 +90,9 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   await expect(
     page.getByText("Ô này đã được bỏ khỏi nội dung.", { exact: false }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Hoàn tác", exact: true }).click();
+  await promptTools(page)
+    .getByRole("button", { name: "Hoàn tác", exact: true })
+    .click();
   await expect(prompt.locator("table .content-gap")).toHaveText("3");
   await expect(
     page.getByRole("textbox", {

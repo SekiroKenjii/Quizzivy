@@ -125,6 +125,14 @@ async function setup(page: Page, initial = sample(), delayed = false) {
   };
 }
 
+/** promptTools is the formatting toolbar of "Nội dung câu hỏi", which another editor on the page does not share. */
+function promptTools(page: Page) {
+  return page.getByRole("toolbar", {
+    name: "Thanh định dạng: Nội dung câu hỏi",
+    exact: true,
+  });
+}
+
 test("bank saves a confirmed structured paste and retains formatting after reload", async ({
   page,
 }) => {
@@ -238,18 +246,22 @@ test("bank previews Markdown conversion, preserves tables and explanations after
   const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
   await expect(prompt.locator("strong")).toHaveText("Đọc kỹ");
   await expect(
-    page.getByRole("button", { name: "Thêm ô trống", exact: true }),
+    promptTools(page).getByRole("button", { name: "Thêm ô trống", exact: true }),
   ).toHaveCount(0);
   await prompt.click();
   await page.keyboard.press("Control+End");
   await page.keyboard.press("Enter");
-  await page.getByRole("button", { name: "Thêm bảng", exact: true }).click();
+  await promptTools(page)
+    .getByRole("button", { name: "Thêm bảng", exact: true })
+    .click();
   await expect(prompt.locator("table")).toHaveCount(1);
   await prompt.locator("th").first().click();
   await page.keyboard.insertText("Mục");
-  await page.getByRole("button", { name: "Hoàn tác", exact: true }).click();
+  await promptTools(page)
+    .getByRole("button", { name: "Hoàn tác", exact: true })
+    .click();
   await expect(prompt).not.toContainText("Mục");
-  await page.getByRole("button", { name: "Làm lại", exact: true }).click();
+  await promptTools(page).getByRole("button", { name: "Làm lại", exact: true }).click();
   await expect(prompt.locator("th").first()).toContainText("Mục");
   await toRich(page, "Giải thích");
   const explanation = page.getByRole("textbox", { name: "Giải thích", exact: true });
@@ -355,7 +367,9 @@ test("builder flushes rich prose before switching and preview retains the saved 
   await expect(prompt).toContainText("đã sửa");
   state.release();
   await expect(
-    page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true }),
+    page
+      .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+      .and(page.locator("textarea")),
   ).toHaveValue("Câu thứ hai");
   await page.getByRole("button", { name: /Câu thứ nhất đã sửa/ }).click();
   await expect(prompt).toContainText("đã sửa");
