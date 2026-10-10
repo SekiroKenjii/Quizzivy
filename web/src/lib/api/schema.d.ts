@@ -4428,7 +4428,8 @@ export interface components {
             /** @description 0 while never published. A `published` test always has ≥ 1. */
             currentVersion: number;
             /**
-             * @description The number the next publish of this test will take: one more than
+             * @description Read-only: the server computes it and a client never sends it. The
+             *     number the next publish of this test will take: one more than
              *     the highest version ever published, whether or not that version
              *     still exists, so it is 1 for a test never published. Deleting the
              *     newest version does not lower it, and the publish and this field
@@ -4436,7 +4437,7 @@ export interface components {
              *     highest listed version + 1, and a client that names the version
              *     about to be published reads it from here.
              */
-            readonly nextVersion: number;
+            nextVersion: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
             /** @description Draft questions with their own audio or a shared group recording, counted once per question. Backs A-03's headphone badge. */
