@@ -76,6 +76,16 @@ func (s *meStore) SavePreferences(_ context.Context, userID string, prefs []noti
 	return prefs, nil
 }
 
+func (s *meStore) Due(_ context.Context, userID string, _ time.Time) ([]notificationsdomain.Notice, error) {
+	s.record("Due", userID)
+	return nil, nil
+}
+
+func (s *meStore) InsertAbsent(_ context.Context, userID string, _ []notificationsdomain.Notice) (int, error) {
+	s.record("InsertAbsent", userID)
+	return 0, nil
+}
+
 func (s *meStore) DeleteBefore(context.Context, time.Time) (int64, error) {
 	s.record("DeleteBefore", "")
 	return 0, nil
@@ -214,8 +224,16 @@ func TestTheMeTreeServesEverySignedInRoleItsOwnRows(t *testing.T) {
 			if got := rec.Header().Get("Cache-Control"); got != "no-store" {
 				t.Errorf("%s as %s is cacheable: Cache-Control %q", name, user, got)
 			}
-			if !slices.Equal(store.calls, []string{c.call}) || !slices.Equal(store.users, []string{user}) {
-				t.Errorf("%s as %s reached %v for %v, want %s for the caller alone", name, user, store.calls, store.users, c.call)
+			wantCalls := []string{c.call}
+			if c.call == "List" || c.call == "Unread" {
+				wantCalls = []string{"Due", c.call}
+			}
+			wantUsers := make([]string, len(wantCalls))
+			for i := range wantUsers {
+				wantUsers[i] = user
+			}
+			if !slices.Equal(store.calls, wantCalls) || !slices.Equal(store.users, wantUsers) {
+				t.Errorf("%s as %s reached %v for %v, want %v for the caller alone", name, user, store.calls, store.users, wantCalls)
 			}
 			switch name {
 			case "the first page":

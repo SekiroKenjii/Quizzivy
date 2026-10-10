@@ -85,7 +85,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Assignments:   assignments(dbx),
 			Attempts:      attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 			Availability:  availabilityTransport,
-			Notifications: notificationsTransport(notificationsApp),
+			Notifications: notificationsTransport(notificationsApp, logger),
 		},
 		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},
