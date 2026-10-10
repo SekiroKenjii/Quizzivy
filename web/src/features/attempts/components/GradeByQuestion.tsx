@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { commandKeyLabel } from "@/features/search/useCommandPalette";
 import { ApiError } from "@/lib/api/errors";
+import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
 import { gradeAttempt, listAnswersForQuestion, type QuestionAnswerRow } from "../api";
 import { answersKey, monitorKey, reviewKey } from "../keys";
@@ -329,7 +330,9 @@ function AnswerRow({
         {blank ? (
           <p className="text-muted-foreground text-sm">{t("byQuestion.blank")}</p>
         ) : (
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{text ?? ""}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {nfc(text ?? "")}
+          </p>
         )}
         {!blank && (
           <div className="flex items-center gap-2">
