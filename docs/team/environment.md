@@ -206,6 +206,42 @@ Credentials are the compose defaults: Postgres superuser `postgres`/`postgres`,
 `quizzivy_migrate`/`migrate`, `quizzivy_app`/`app`; MinIO
 `quizzivy`/`quizzivy-dev-secret`. Use `localhost` for both web and API.
 
+## Heavy runs, caches and a private live stack
+
+Written 2026-10-10 (`chore/gates-local-speed`); the policy is in the README, "The heavy lock"
+and "Local gates (G-2)".
+
+- **Heavy runs** go through `scripts/dev/heavy.sh <command>`: two slots, `/tmp/quizzivy-heavy.1.lock`
+  and `.2.lock`, plus the old `/tmp/quizzivy-heavy.lock` held shared so the `flock -o` form still
+  excludes it. `scripts/dev/heavy.sh --status` shows each slot's holder. `HEAVY_SLOTS=1` makes it a
+  single slot again.
+- **Caches.** `pnpm lint` writes `web/node_modules/.cache/eslint/.eslintcache` and
+  `pnpm format:check` `web/node_modules/.cache/prettier/`, both keyed on file content, so a
+  fresh worktree starts cold and a worktree's second run takes seconds. `pnpm lint:ci` and
+  `pnpm format:ci` are what CI runs: no cache. A worktree has its own `node_modules`
+  (`pnpm install --frozen-lockfile --offline` takes 4 s from the store), so caches are not shared.
+- **Changed scope.** `pnpm lint:changed`, `pnpm format:changed` and `pnpm test:changed` act on what
+  changed against `origin/work/redesign-r4` since the merge base; `BASE=origin/<branch>` overrides it.
+  `pnpm test:integration` still runs whole when a page, route or shared component changes.
+- **A private live stack.** With Postgres and MinIO up (steps 4 and 5), from the worktree under test:
+
+  ```
+  export PATH=/root/.local/bin:$PATH GOTOOLCHAIN=go1.27.0
+  scripts/dev/live-stack.sh up <name>
+  scripts/dev/live-stack.sh status <name>
+  scripts/dev/live-stack.sh down <name>
+  ```
+
+  `up` creates `qa_<name>` as `quizzivy_migrate`, runs goose and `seed/*.sql`, builds the API to
+  `/tmp/quizzivy-live/<name>/api` and the web app with `VITE_API_BASE_URL` set to the stack's API,
+  then starts both in their own process groups. Ports are 20000 to 20499 (API) and 20500 to 20999
+  (web), derived from the name and moved on when taken; pids, logs, the generated JWT and join-code
+  keys and the build live in `/tmp/quizzivy-live/<name>/`. It uses the compose MinIO and its
+  `quizzivy-media` bucket and leaves Word import off. `down` stops both, drops the database and
+  removes the directory; objects the API stored in MinIO stay. It never takes the heavy lock, and the
+  build it runs is as heavy as `pnpm build`, so start stacks one at a time. Cookies are shared across
+  ports on `localhost`: use one browser context per stack.
+
 ## What did not work
 
 - **`docker compose build minio`** fails: BuildKit cannot reach the Alpine
