@@ -140,13 +140,15 @@ describe("Word import strings", () => {
           "imports.upload.choose",
           `imports.upload.${role}Choose`,
         ]),
-        ["imports.review.useCandidate", "imports.review.useCandidateNamed"],
       ];
       const missing = pairs.filter(([visible, named]) => {
         const label = String(lookup(tree, visible!)).toLowerCase();
         return !String(lookup(tree, named!)).toLowerCase().includes(label);
       });
       expect(missing).toEqual([]);
+      expect(String(lookup(tree, "imports.review.useCandidateNamed"))).toContain(
+        "{{value}}",
+      );
     },
   );
 
