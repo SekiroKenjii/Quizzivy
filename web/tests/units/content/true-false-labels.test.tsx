@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
+import {
+  isPlainOptionContent,
+  plainOptionContent,
+} from "@/components/shared/content/optionContent";
 import { OptionText } from "@/components/shared/content/OptionText";
 import { QuestionBody } from "@/features/take-test/components/QuestionBody";
 import { AnswerReview } from "@/features/attempts/components/AnswerReview";
@@ -24,7 +28,7 @@ const SHUFFLED: StudentQuestion = {
 };
 
 describe("trueFalseLabelKey", () => {
-  it("translates only the canonical plain texts of a true/false option", () => {
+  it("translates only the canonical texts of a true/false option", () => {
     expect(trueFalseLabelKey("true_false", "True", null)).toBe("trueFalse.true");
     expect(trueFalseLabelKey("true_false", "False", undefined)).toBe("trueFalse.false");
     expect(trueFalseLabelKey("true_false", "true", null)).toBeNull();
@@ -38,7 +42,42 @@ describe("trueFalseLabelKey", () => {
           { type: "paragraph", content: [{ type: "text", text: "True", marks: [] }] },
         ],
       }),
+    ).toBe("trueFalse.true");
+    expect(
+      trueFalseLabelKey("true_false", "True", {
+        format: "semantic_v1",
+        blocks: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "True", marks: ["bold"] }],
+          },
+        ],
+      }),
     ).toBeNull();
+    expect(
+      trueFalseLabelKey("true_false", "False", plainOptionContent("Falsely")),
+    ).toBeNull();
+  });
+
+  it("isPlainOptionContent accepts the shape plainOptionContent writes, and nothing marked", () => {
+    expect(isPlainOptionContent(plainOptionContent("True"), "True")).toBe(true);
+    expect(isPlainOptionContent(plainOptionContent("a\nb"), "a\nb")).toBe(true);
+    expect(isPlainOptionContent(plainOptionContent("True"), "False")).toBe(false);
+    expect(isPlainOptionContent(null, "True")).toBe(false);
+    expect(
+      isPlainOptionContent(
+        {
+          format: "semantic_v1",
+          blocks: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "True", marks: ["italic"] }],
+            },
+          ],
+        },
+        "True",
+      ),
+    ).toBe(false);
   });
 
   it("leaves a choice option's text alone when it happens to read True", () => {
@@ -57,6 +96,28 @@ describe("the engine's true/false options", () => {
       "ASai",
       "BĐúng",
     ]);
+    await userEvent.click(screen.getByRole("radio", { name: "Đúng" }));
+    expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["t"] });
+  });
+
+  it("labels Word-imported options that carry plain content, also when shuffled", async () => {
+    const onAnswer = vi.fn();
+    render(
+      <QuestionBody
+        question={{
+          ...SHUFFLED,
+          options: [
+            { id: "f", text: "False", content: plainOptionContent("False") },
+            { id: "t", text: "True", content: plainOptionContent("True") },
+          ],
+        }}
+        answer={undefined}
+        onAnswer={onAnswer}
+      />,
+    );
+    expect(
+      screen.getAllByRole("radio").map((radio) => radio.closest("label")?.textContent),
+    ).toEqual(["ASai", "BĐúng"]);
     await userEvent.click(screen.getByRole("radio", { name: "Đúng" }));
     expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["t"] });
   });
