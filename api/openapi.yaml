@@ -1346,7 +1346,7 @@ components:
             The caller's profile photo as a presigned `GET`, valid 24 hours and
             minted again on every response that carries it. Absent when the
             caller has no photo. Set and cleared by `setAvatar` and
-            `deleteAvatar`; the stored key never leaves the server.
+            `deleteAvatar`.
         phone: { type: string, pattern: '^[0-9+ ]{6,20}$' }
         locale: { type: string, enum: [vi, en] }
         timeZone: { type: string, minLength: 1, maxLength: 64 }
