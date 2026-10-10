@@ -126,7 +126,8 @@ describe("builder settings without a second inline settings column", () => {
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
     expect(within(dialog).getByLabelText("Điểm")).toHaveValue(5);
     expect(within(dialog).getByLabelText("Thẻ")).toBeInTheDocument();
-    expect(within(dialog).getByText("Media")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Media của câu hỏi")).toBeNull();
+    expect(screen.getByText("Media của câu hỏi")).toBeInTheDocument();
   });
   it("returns focus to the actual Settings action after Escape", async () => {
     display.resize(768);
