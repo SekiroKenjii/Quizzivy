@@ -51,6 +51,7 @@ WITH me AS (
     JOIN app.assignments a ON a.id = targeted.assignment_id AND a.published_at IS NOT NULL
     JOIN app.tests t ON t.id = a.test_id
     ` + schedule.OverrideJoin("me.id") + `
+   WHERE ` + schedule.CloseOf("o") + ` > $3::timestamptz
 )
 SELECT '` + dueOpened + `', m.assignment_id::text, NULL::text, m.title, m.closes_at, NULL::text, 0
   FROM mine m
