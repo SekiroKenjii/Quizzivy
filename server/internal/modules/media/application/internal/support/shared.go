@@ -5,6 +5,7 @@ import (
 	"io"
 	"path"
 	"quizzivy/internal/modules/media/domain"
+	"quizzivy/internal/shared/content"
 	"strings"
 	"time"
 
@@ -71,7 +72,7 @@ func ExtensionFor(mime string) string {
 }
 
 func SanitiseFilename(name string) string {
-	name = path.Base(strings.ReplaceAll(strings.TrimSpace(name), "\\", "/"))
+	name = path.Base(strings.ReplaceAll(strings.TrimSpace(content.NFC(name)), "\\", "/"))
 	name = strings.TrimSpace(name)
 	if name == "" || name == "." || name == "/" {
 		return "tệp-không-tên"

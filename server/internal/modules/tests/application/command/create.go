@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/tests/application/internal/support"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/content"
 )
 
 // Create makes a new empty draft owned by OwnerID when set, else by the
@@ -20,9 +21,15 @@ type CreateHandler struct {
 }
 
 func (s CreateHandler) Handle(ctx context.Context, cmd Create) (domain.Test, error) {
+	var c content.Composer
+	title := c.Text("title", cmd.Title, domain.MaxTestTitle)
+	description := c.Optional("description", cmd.Description, 0)
+	if err := c.Err(); err != nil {
+		return domain.Test{}, err
+	}
 	return s.Repo.Create(ctx, domain.CreateInput{
-		Title:       cmd.Title,
-		Description: cmd.Description,
+		Title:       title,
+		Description: description,
 		ActorID:     cmd.Request.ActorID,
 		OwnerID:     cmd.OwnerID,
 		Now:         s.Now(),

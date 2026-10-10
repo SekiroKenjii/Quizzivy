@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/assignments/application/internal/support"
 	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/shared/content"
 )
 
 type Update struct {
@@ -16,5 +17,6 @@ type UpdateHandler struct {
 }
 
 func (s UpdateHandler) Handle(ctx context.Context, cmd Update) (domain.Assignment, error) {
+	cmd.Input.StudentNote = content.NFCPtr(cmd.Input.StudentNote)
 	return s.Repo.Update(ctx, cmd.Request, cmd.Input)
 }

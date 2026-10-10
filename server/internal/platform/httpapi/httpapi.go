@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/stats"
+	"quizzivy/internal/shared/validation"
 )
 
 // Actor is who is calling and from where, as every audited write records it.
@@ -70,6 +71,17 @@ func ErrorWithDetails(ctx context.Context, code openapi.ErrorCode, message strin
 
 func FieldError(ctx context.Context, field, message string) openapi.ErrorResponse {
 	return ErrorWithDetails(ctx, openapi.VALIDATIONFAILED, message, map[string]interface{}{field: message})
+}
+
+// Invalid is VALIDATION_FAILED carrying the first message of each field invalid refused, keyed by field.
+func Invalid(ctx context.Context, message string, invalid *validation.Error) openapi.ErrorResponse {
+	details := make(map[string]interface{}, len(invalid.Fields))
+	for _, field := range invalid.Fields {
+		if _, seen := details[field.Field]; !seen {
+			details[field.Field] = field.Message
+		}
+	}
+	return ErrorWithDetails(ctx, openapi.VALIDATIONFAILED, message, details)
 }
 
 func NotFound(ctx context.Context, message string) openapi.ErrorResponse {

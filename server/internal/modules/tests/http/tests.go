@@ -106,6 +106,11 @@ func (h Tests) CreateTest(ctx context.Context, request openapi.CreateTestRequest
 	}
 
 	t, err := h.app.Commands.Create.Handle(ctx, command.Create{Request: req, Title: request.Body.Title, Description: request.Body.Description})
+	var invalid *domain.ValidationError
+	if errors.As(err, &invalid) {
+		return openapi.CreateTest400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			testValidationError(ctx, invalid))}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
