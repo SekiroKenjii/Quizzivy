@@ -1282,8 +1282,14 @@ export interface paths {
          *     `notify` says the teacher wants the students told. It is recorded with
          *     the audit entry; the notification itself is sent once the notification
          *     producers exist (T-R4.10b), so until then it has no other effect.
-         *     An attempt already in progress keeps its own deadline until T-R4.12b
-         *     recomputes it; a student who starts afterwards gets the new close.
+         *
+         *     An attempt already in progress moves with it, in the same transaction:
+         *     its deadline becomes the earlier of its start plus the student's time
+         *     limit and the student's own close, when that is later than the deadline
+         *     it has. A deadline never moves earlier, and a student whose own
+         *     override already closes later keeps it. Each attempt moved is audited
+         *     as `attempt.extended`. A student who starts afterwards gets the new
+         *     close, even if the start and the extension run at the same moment.
          */
         post: operations["extendAssignment"];
         delete?: never;
@@ -1321,7 +1327,7 @@ export interface paths {
          *     `deleteStudentOverride`, not by sending zeros: a request that would
          *     leave a row changing nothing is a `VALIDATION_FAILED`.
          *
-         *     `closesAt` must be ahead. `extendBy` adds minutes to the student's
+         *     `closesAt` must be ahead of the database's clock. `extendBy` adds minutes to the student's
          *     current close (their override's, when it is later, else the
          *     assignment's) and is refused with `ASSIGNMENT_CLOSED` for a student
          *     whose close has passed: a closed assignment is reopened for a student
@@ -1338,6 +1344,11 @@ export interface paths {
          *
          *     Audited per student with the old and new values, in the statement that
          *     writes them. `notify` is recorded with them, as on `extendAssignment`.
+         *
+         *     Each named student's attempt in progress moves with the override, as it
+         *     does on `extendAssignment`: its deadline becomes the earlier of its
+         *     start plus the student's time limit and the student's own close, when
+         *     that is later than the deadline it has.
          */
         put: operations["setStudentOverrides"];
         post?: never;
@@ -1364,7 +1375,8 @@ export interface paths {
          * @description Takes the override off one student: they have the assignment's own
          *     window from then on. An override that does not exist is a 404, as one
          *     on an assignment or a student the caller does not reach is. Audited
-         *     with the values removed. An attempt in progress keeps its deadline.
+         *     with the values removed. An attempt in progress keeps its deadline: a
+         *     deadline never moves earlier.
          */
         delete: operations["deleteStudentOverride"];
         options?: never;
@@ -4805,6 +4817,11 @@ export interface components {
             flagged?: boolean;
             /** @description Reported */
             audioOverLimit?: boolean;
+            /**
+             * Format: date-time
+             * @description This student's own close, when an override of theirs reaches past the assignment's own: "Extended to …". Absent or null when they have none, or theirs is no later. While it is ahead of `serverTime` the student can still start or carry on, even if the assignment has closed early or its window has ended.
+             */
+            extendedTo?: string | null;
         };
         AttemptListRow: {
             id: components["schemas"]["Uuid"];
