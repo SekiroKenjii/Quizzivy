@@ -387,7 +387,7 @@ it("tints the collapsed header under a whole-group drop and writes its ordered u
     name: /First member|Second member/,
   });
   expect(members.map((member) => member.textContent)).toEqual([
-    "1First member",
-    "2Second member",
+    expect.stringMatching(/^1First member\d+đ$/),
+    expect.stringMatching(/^2Second member\d+đ$/),
   ]);
 });

@@ -68,6 +68,13 @@ const teacherTree: RouteObject = {
         },
         {
           path: "tests/:id",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+              { key: "tests.detail.crumb" },
+            ],
+            width: 1320,
+          },
           lazy: page(() => import("@/features/tests/pages/teacher/TestDetailPage")),
         },
 
