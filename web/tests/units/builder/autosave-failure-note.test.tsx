@@ -42,9 +42,9 @@ describe("a failed save in the builder", () => {
   });
 
   it("offers no Retry for a value refused before sending, which a retry would refuse again", () => {
-    renderBar({ kind: "failed", message: "Còn lựa chọn để trống.", refused: true });
+    renderBar({ kind: "failed", message: "Hãy điền mọi lựa chọn.", refused: true });
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Còn lựa chọn để trống.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Hãy điền mọi lựa chọn.");
     expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
   });
 

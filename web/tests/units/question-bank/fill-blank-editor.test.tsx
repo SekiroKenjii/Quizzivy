@@ -87,7 +87,7 @@ describe("the question editor page, on a fill_blank mismatch", () => {
     );
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("tab", { name: "Điền từ" }));
+    await user.click(screen.getByRole("button", { name: "Điền từ" }));
     await screen.findByRole("textbox", { name: "Nội dung câu hỏi" });
     await user.click(
       within(
@@ -279,7 +279,7 @@ describe("the question editor page, on a new fill_blank question", () => {
     );
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("tab", { name: "Điền từ" }));
+    await user.click(screen.getByRole("button", { name: "Điền từ" }));
     const prompt = await screen.findByRole("textbox", { name: "Nội dung câu hỏi" });
     await user.click(prompt);
     await user.keyboard("She ");
