@@ -11,6 +11,7 @@ import {
   type OptionContent,
 } from "@/components/shared/content/optionContent";
 import { contentPlainText } from "@/components/shared/content/plainText";
+import { optionLetter } from "../questionType";
 
 const ContentEditor = lazy(() =>
   import("@/components/shared/content/editor/ContentEditor").then((module) => ({
@@ -20,27 +21,27 @@ const ContentEditor = lazy(() =>
 
 /**
  * OptionField preserves plain options and opens a compact, lazily loaded
- * formatting editor on demand. `label` overrides the field's name, and `bare`
- * draws the plain input without its own frame, for a row that draws one.
+ * formatting editor on demand. Its controls are named by the option's letter,
+ * and `bare` draws the plain input without its own frame, for a row that draws
+ * one.
  */
 export function OptionField({
   text,
   content,
   index,
-  label: name,
   bare = false,
   onChange,
 }: Readonly<{
   text: string;
   content?: OptionContent | null;
   index: number;
-  label?: string;
   bare?: boolean;
   onChange: (text: string, content: OptionContent | null) => void;
 }>) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  const label = name ?? t("questionEditor.optionTextLabel", { n: index + 1 });
+  const letter = optionLetter(index);
+  const label = t("questionEditor.optionLetter", { letter });
   const canFormat =
     content != null || import.meta.env.VITE_RICH_OPTION_EDITOR === "true";
   return (
@@ -92,9 +93,7 @@ export function OptionField({
           {content == null ? (
             <Input
               value={text}
-              placeholder={
-                name ?? t("questionEditor.optionPlaceholder", { n: index + 1 })
-              }
+              placeholder={label}
               aria-label={label}
               className={
                 bare
@@ -108,7 +107,7 @@ export function OptionField({
               type="button"
               variant="outline"
               className="h-auto min-h-9 min-w-0 flex-1 justify-start text-left font-normal whitespace-normal"
-              aria-label={t("questionEditor.editFormattedOption", { n: index + 1 })}
+              aria-label={t("questionEditor.editFormattedOption", { letter })}
               onClick={() => setEditing(true)}
             >
               <OptionText text={text} content={content} />
@@ -119,8 +118,8 @@ export function OptionField({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={t("questionEditor.formatOption", { n: index + 1 })}
-              title={t("questionEditor.formatOption", { n: index + 1 })}
+              aria-label={t("questionEditor.formatOption", { letter })}
+              title={t("questionEditor.formatOption", { letter })}
               onClick={() => {
                 onChange(text, plainOptionContent(text));
                 setEditing(true);

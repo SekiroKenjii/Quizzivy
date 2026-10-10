@@ -111,7 +111,6 @@ export function OptionsEditor({
                 text={option.text}
                 content={option.content ?? null}
                 index={index}
-                label={t("questionEditor.optionLetter", { letter })}
                 bare
                 onChange={(text, content) =>
                   onChange(
