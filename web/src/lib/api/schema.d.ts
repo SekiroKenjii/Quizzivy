@@ -1170,8 +1170,9 @@ export interface paths {
          *     transaction: its deadline becomes the earlier of its start plus the
          *     student's time limit and the student's own close, when that is later
          *     than the deadline it has. A deadline never moves earlier, so a shorter
-         *     close, or `closeNow`, leaves every attempt in progress where it is.
-         *     Each attempt moved is audited as `attempt.extended`.
+         *     close, or `closeNow`, leaves every attempt in progress where it is, and
+         *     an attempt whose deadline has already passed is over and is not
+         *     revived. Each attempt moved is audited as `attempt.extended`.
          */
         patch: operations["updateAssignment"];
         trace?: never;
@@ -1264,7 +1265,8 @@ export interface paths {
          *     An attempt still in progress moves with it, in the same transaction,
          *     as it does on `extendAssignment`: its deadline becomes the earlier of
          *     its start plus the student's time limit and the student's own close,
-         *     when that is later than the deadline it has.
+         *     when that is later than the deadline it has. An attempt whose deadline
+         *     has already passed is over and is not revived.
          */
         post: operations["reopenAssignment"];
         delete?: never;
@@ -1298,9 +1300,10 @@ export interface paths {
          *     An attempt already in progress moves with it, in the same transaction:
          *     its deadline becomes the earlier of its start plus the student's time
          *     limit and the student's own close, when that is later than the deadline
-         *     it has. A deadline never moves earlier, and a student whose own
-         *     override already closes later keeps it. Each attempt moved is audited
-         *     as `attempt.extended`. A student who starts afterwards gets the new
+         *     it has. A deadline never moves earlier, a student whose own
+         *     override already closes later keeps it, and an attempt whose deadline
+         *     has already passed is over and is not revived. Each attempt moved is
+         *     audited as `attempt.extended`. A student who starts afterwards gets the new
          *     close, even if the start and the extension run at the same moment.
          */
         post: operations["extendAssignment"];
@@ -1360,7 +1363,8 @@ export interface paths {
          *     Each named student's attempt in progress moves with the override, as it
          *     does on `extendAssignment`: its deadline becomes the earlier of its
          *     start plus the student's time limit and the student's own close, when
-         *     that is later than the deadline it has.
+         *     that is later than the deadline it has. An attempt whose deadline has
+         *     already passed is over and is not revived.
          */
         put: operations["setStudentOverrides"];
         post?: never;
