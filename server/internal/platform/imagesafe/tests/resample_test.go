@@ -117,14 +117,14 @@ func TestASmallImageIsScaledUpToTheSameSize(t *testing.T) {
 
 func TestColourUnderTransparencyDoesNotBleedIntoTheEdge(t *testing.T) {
 	source := image.NewNRGBA(image.Rect(0, 0, 300, 300))
-	fill(source, image.Rect(0, 0, 100, 300), white)
+	fill(source, image.Rect(0, 0, 100, 300), color.NRGBA{A: 255})
 	fill(source, image.Rect(100, 0, 300, 300), color.NRGBA{R: 255, A: 0})
 
 	out := mustSquare(t, encodePNG(t, source))
 
 	edge := at(out, 85, 100)
-	if edge.A == 0 || edge.A == 255 || edge.R < 250 || edge.G < 250 || edge.B < 250 {
-		t.Errorf("the edge pixel is %v, want half-transparent white and no red", edge)
+	if edge.A < 60 || edge.A > 110 || edge.R > 3 || edge.G > 3 || edge.B > 3 {
+		t.Errorf("the edge pixel is %v, want a third opaque black and no red from under the transparent area", edge)
 	}
 	if hidden := at(out, 200, 100); hidden != (color.NRGBA{}) {
 		t.Errorf("the transparent area is %v, want nothing behind it", hidden)

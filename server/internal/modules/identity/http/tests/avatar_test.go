@@ -12,6 +12,7 @@ import (
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/identity/application"
 	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/model"
 	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/modules/identity/domain"
 	identityhttp "quizzivy/internal/modules/identity/http"
@@ -106,7 +107,7 @@ func envelope(t *testing.T, rec *httptest.ResponseRecorder) (string, string) {
 	return body.Error.Code, body.Error.Message
 }
 
-func TestSettingAPhotoAnswersTheWholeCallerWithASignedUrlAndNeverTheKey(t *testing.T) {
+func TestSettingAPhotoAnswersTheWholeCallerWithASignedUrlAndNoKeyField(t *testing.T) {
 	calls := &avatarCalls{}
 	h := identityhttp.NewIdentity(avatarApp(calls, nil, "https://objects.example/signed?X-Amz-Expires=86400", nil), time.Hour, false, nil)
 
@@ -130,8 +131,8 @@ func TestSettingAPhotoAnswersTheWholeCallerWithASignedUrlAndNeverTheKey(t *testi
 		t.Errorf("the body is %v, want the whole caller with the signed url", body)
 	}
 	for _, key := range []string{"avatarKey", "avatar_key", "passwordHash"} {
-		if _, present := body[key]; present || strings.Contains(rec.Body.String(), "avatars/") {
-			t.Errorf("the body leaks the storage key (%s): %s", key, rec.Body)
+		if _, present := body[key]; present {
+			t.Errorf("the body carries %s: %s", key, rec.Body)
 		}
 	}
 	if len(calls.set) != 1 || calls.set[0].UserID != avatarUserID || calls.read != "the-image" {
@@ -275,5 +276,68 @@ func TestAUserWithAPhotoSeesItsSignedUrlOnGetAndALostSigningLeavesItOutInsteadOf
 	}
 	if rec.Code != 200 || strings.Contains(rec.Body.String(), "avatarUrl") {
 		t.Errorf("with the signer down, get answered %d: %s", rec.Code, rec.Body)
+	}
+}
+
+func TestEverySuccessfulCurrentUserWirePathCarriesTheSignedUrlOfAUserWithAPhoto(t *testing.T) {
+	key := "avatars/" + avatarUserID + "/now.png"
+	user := avatarUser(&key)
+	permissions := access.NewSet(access.LearningTakeTests)
+	session := model.Session{User: user, Permissions: permissions, AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 900}
+	app := avatarApp(&avatarCalls{}, nil, "https://objects.example/photo", nil)
+	app.Commands.Login = cqrs.HandlerFunc[command.Login, model.Session](func(context.Context, command.Login) (model.Session, error) { return session, nil })
+	app.Commands.GoogleSignIn = cqrs.HandlerFunc[command.GoogleSignIn, model.GoogleSignInResult](func(context.Context, command.GoogleSignIn) (model.GoogleSignInResult, error) {
+		return model.GoogleSignInResult{Session: session}, nil
+	})
+	app.Commands.LinkGoogle = cqrs.HandlerFunc[command.LinkGoogle, domain.User](func(context.Context, command.LinkGoogle) (domain.User, error) { return user, nil })
+	app.Commands.UpdateProfile = cqrs.HandlerFunc[command.UpdateProfile, domain.User](func(context.Context, command.UpdateProfile) (domain.User, error) { return user, nil })
+	h := identityhttp.NewIdentity(app, time.Hour, false, nil)
+	ctx := contextAs(t, access.Principal{UserID: user.ID, Permissions: permissions})
+	name := "Có ảnh"
+	paths := map[string]func(http.ResponseWriter) error{
+		"login": func(w http.ResponseWriter) error {
+			r, e := h.Login(ctx, openapi.LoginRequestObject{Body: &openapi.LoginJSONRequestBody{Email: "photo@example.com", Password: "password"}})
+			if e != nil {
+				return e
+			}
+			return r.VisitLoginResponse(w)
+		},
+		"google": func(w http.ResponseWriter) error {
+			r, e := h.GoogleAuth(ctx, openapi.GoogleAuthRequestObject{Body: &openapi.GoogleAuthJSONRequestBody{Code: "code", CodeVerifier: "verifier", RedirectUri: "https://example.com"}})
+			if e != nil {
+				return e
+			}
+			return r.VisitGoogleAuthResponse(w)
+		},
+		"get": func(w http.ResponseWriter) error {
+			r, e := h.GetCurrentUser(ctx, openapi.GetCurrentUserRequestObject{})
+			if e != nil {
+				return e
+			}
+			return r.VisitGetCurrentUserResponse(w)
+		},
+		"patch": func(w http.ResponseWriter) error {
+			r, e := h.UpdateCurrentUser(ctx, openapi.UpdateCurrentUserRequestObject{Body: &openapi.UpdateCurrentUserJSONRequestBody{FullName: &name}})
+			if e != nil {
+				return e
+			}
+			return r.VisitUpdateCurrentUserResponse(w)
+		},
+		"link": func(w http.ResponseWriter) error {
+			r, e := h.LinkGoogle(ctx, openapi.LinkGoogleRequestObject{Body: &openapi.LinkGoogleJSONRequestBody{Code: "code", CodeVerifier: "verifier", RedirectUri: "https://example.com"}})
+			if e != nil {
+				return e
+			}
+			return r.VisitLinkGoogleResponse(w)
+		},
+	}
+	for path, write := range paths {
+		rec := httptest.NewRecorder()
+		if err := write(rec); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"avatarUrl":"https://objects.example/photo"`) {
+			t.Errorf("%s answered %d without the signed url: %s", path, rec.Code, rec.Body)
+		}
 	}
 }

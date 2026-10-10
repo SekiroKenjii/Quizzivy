@@ -165,3 +165,29 @@ func TestAPngWhoseDataFailsItsChecksumIsUnreadable(t *testing.T) {
 		t.Errorf("answered %v, want ErrUnreadable", err)
 	}
 }
+
+func TestAFileOfExactlyTheLimitIsAcceptedAndOneByteMoreIsNot(t *testing.T) {
+	picture := encodePNG(t, solid(300, 300, red))
+	exact := append(append([]byte(nil), picture...), bytes.Repeat([]byte{0}, int(avatarLimits.MaxFileBytes)-len(picture))...)
+
+	if _, err := square(t, exact); err != nil {
+		t.Errorf("a file of %d bytes answered %v, want success", len(exact), err)
+	}
+	if _, err := square(t, append(exact, 0)); !errors.Is(err, imagesafe.ErrTooLarge) {
+		t.Errorf("a file of %d bytes answered %v, want ErrTooLarge", len(exact)+1, err)
+	}
+}
+
+func TestTheMemoryBoundIsInclusive(t *testing.T) {
+	const side = 400
+	upload := encodePNG(t, solid(side, side, red))
+	exact := int64(side * side * 4)
+	for bound, want := range map[int64]error{exact: nil, exact - 1: imagesafe.ErrDimensions} {
+		lim := avatarLimits
+		lim.MaxDecodedBytes = bound
+		_, err := imagesafe.New(imagesafe.NewGate(1)).Square(context.Background(), bytes.NewReader(upload), lim)
+		if !errors.Is(err, want) {
+			t.Errorf("with a bound of %d bytes for an image of %d, answered %v, want %v", bound, exact, err, want)
+		}
+	}
+}

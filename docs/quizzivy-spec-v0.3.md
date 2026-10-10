@@ -2365,6 +2365,11 @@ PATCH  /auth/me                         {fullName?,displayName?|null,phone?|null
 PATCH  /me/preferences                 top-level UserPreferences merge → UserPreferences;
                                           nested assignmentDefaults replaces its key, {} no-op;
                                           raw/stored UTF8 cap8192 bytes,400 on excess
+PUT    /me/avatar                      multipart file (PNG or JPEG, at most 2 MiB, each side 200–2048 px)
+                                          → CurrentUser; stored as a 256×256 PNG, EXIF orientation applied
+                                          then dropped; 413 MEDIA_TOO_LARGE, 415 MEDIA_TYPE_UNSUPPORTED |
+                                          MEDIA_UNREADABLE | IMAGE_DIMENSIONS; 10 an hour per user
+DELETE /me/avatar                      → CurrentUser without avatarUrl
 POST   /auth/change-password            400 VALIDATION_FAILED on the rules (§5.4), 400 PASSWORD_UNCHANGED
 POST   /auth/google/link                link Google to current account → CurrentUser
 DELETE /auth/google/link                rejected if it would leave no login method
@@ -2462,7 +2467,7 @@ GET    /app/media/:assetId/url          → short-lived signed URL
 **`User`** adds only optional `displayName` and `avatarUrl`; it never carries
 phone, locale, timeZone or preferences. Student class/intro/join-preview teacher
 names use the chosen display name, falling back to full name, without a new
-private field. Avatar operations remain T-R4.8.
+private field. `CurrentUser.avatarUrl` is the caller's photo as a presigned GET valid 24 hours, set by `PUT /me/avatar` and cleared by `DELETE /me/avatar` (T-R4.8); `User` leaves it unset until a list that shows other people's photos has its own task.
 
 **`CurrentUser`** adds optional private `phone`, `locale`, `timeZone` and
 `preferences` to `User`'s fields, plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.

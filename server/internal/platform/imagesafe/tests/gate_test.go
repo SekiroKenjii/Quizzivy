@@ -69,8 +69,13 @@ func TestACallerWhoseRequestHasEndedDoesNotTakeASlot(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if _, err := gate.Acquire(ctx); !errors.Is(err, context.Canceled) {
-		t.Fatalf("answered %v, want the context's error although a slot is free", err)
+	for range 50 {
+		if release, err := gate.Acquire(ctx); !errors.Is(err, context.Canceled) {
+			if err == nil {
+				release()
+			}
+			t.Fatalf("answered %v, want the context's error although a slot is free", err)
+		}
 	}
 	release, err := gate.Acquire(context.Background())
 	if err != nil {
@@ -103,5 +108,20 @@ func TestADecodeWaitsForASlotOnlyAfterTheWholeFileIsRead(t *testing.T) {
 	release()
 	if _, err := processor.Square(context.Background(), bytes.NewReader(upload), avatarLimits); err != nil {
 		t.Errorf("after the slot was given back, answered %v", err)
+	}
+}
+
+func TestASlotIsGivenBackWhateverTheOutcome(t *testing.T) {
+	good := encodePNG(t, solid(300, 300, red))
+	damaged := append([]byte(nil), good...)
+	damaged[len(damaged)-20] ^= 0xff
+	processor := imagesafe.New(imagesafe.NewGate(1))
+	for i, upload := range [][]byte{good, damaged, good, damaged, damaged, good} {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, err := processor.Square(ctx, bytes.NewReader(upload), avatarLimits)
+		cancel()
+		if errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("upload %d waited for a slot an earlier one kept", i)
+		}
 	}
 }
