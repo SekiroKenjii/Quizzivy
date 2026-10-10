@@ -15,8 +15,10 @@ R4, extensions and per-student overrides, second half (T-R4.12b):
   close, in the transaction that changed the window, and only where that is later than
   the deadline it has. A deadline never moves earlier: removing an override (`DELETE`),
   setting a shorter time limit or a shorter close, and closing early leave a running
-  attempt where it is. Each attempt moved is audited as `attempt.extended` with the old
-  and new deadline and the cause. An override moves only the attempts of the students it
+  attempt where it is, and so does an attempt whose deadline has already passed (judged on
+  the database's clock), which is over whether or not it has been swept and is not revived.
+  Each attempt moved is audited as `attempt.extended` with the old and new deadline and the
+  cause. An override moves only the attempts of the students it
   names.
 - §13 An attempt starts under the window as it stands when it commits. A start that is
   racing an extension stores the extended deadline, or is itself lengthened by the

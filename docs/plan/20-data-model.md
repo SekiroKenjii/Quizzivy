@@ -2675,7 +2675,9 @@ sooner: the close is `greatest(least(closed_at, closes_at), o.closes_at)`.
 transaction that changed the window; `deleteStudentOverride` takes the same two locks and
 recomputes nothing, because removing an override can only shorten a student's window and a
 deadline never moves earlier. An update or a reopening recomputes the whole assignment
-unconditionally, and a shorter close or a Close now moves nothing for the same reason. The recompute sets `deadline_at` of each `in_progress` attempt to `least(started_at +
+unconditionally, and a shorter close or a Close now moves nothing for the same reason. An
+attempt whose `deadline_at` is not after the database's `now()` is over, swept or not, and is
+skipped, so no writer revives it. The recompute sets `deadline_at` of each `in_progress` attempt to `least(started_at +
 coalesce(o.duration_minutes, a.duration_minutes), CloseOf("o"))` where that is later than the
 deadline the attempt has, and writes one `attempt.extended` audit entry per attempt moved
 (`deadline_at` old and new, the cause, the assignment) through a data-modifying CTE. A deadline
