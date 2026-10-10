@@ -1,8 +1,12 @@
+import i18n from "@/lib/i18n";
+import { contentPlainText } from "@/components/shared/content/plainText";
+import { isQuestionPromptContent } from "@/components/shared/content/questionContent";
 import {
   groupIssue,
   emptyGroup,
   emptyMaterial,
   memberValues,
+  newGroupQuestion,
 } from "@/features/question-groups/model";
 import {
   independentBundle,
@@ -199,4 +203,14 @@ test("oversized and cyclic local payloads are rejected before recovery rendering
   expect(
     readGroupRecovery({ version: 1, revision: 1, bundle }, bundle.group.id),
   ).toBeNull();
+});
+
+it("starts a group's new question with its prompt stored as rich text", () => {
+  const { input } = newGroupQuestion(i18n.t);
+  expect(input.prompt).toBe(i18n.t("builder.starterPrompt"));
+  expect(isQuestionPromptContent(input.promptContent)).toBe(true);
+  expect(
+    contentPlainText(input.promptContent!),
+    "the document projects to its text",
+  ).toBe(input.prompt);
 });
