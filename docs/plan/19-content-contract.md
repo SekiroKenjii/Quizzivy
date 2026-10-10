@@ -245,9 +245,8 @@ and capable readers; destructive Down is only for disposable/pre-rollout data.
 
 Since T-R4.64 every prompt and explanation is written in the form it is
 stored in: rich content in the rich editor, a Markdown string in the Markdown
-editor, and a new field is rich text; the builder's and the group composer's
-starter prompt is stored as Markdown and opens as Markdown until T-R4.31b and
-T-R4.34 create it as rich text. Markdown conversion is explicit and refuses
+editor, and a new field is rich text, the builder's and the group composer's
+starter prompt included (T-R4.31b, T-R4.34). Markdown conversion is explicit and refuses
 unsupported nodes rather than dropping them (for example a table's column
 alignment, raw HTML, code, images, quotations and links that are not HTTPS). Media,
 gap bindings, structured clipboard import, IME/teacher acceptance and full
