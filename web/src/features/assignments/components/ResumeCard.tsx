@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { useTick } from "@/hooks/useTick";
 import { ApiError } from "@/lib/api/errors";
+import type { Locale } from "@/lib/i18n";
 import { notify } from "@/lib/toast";
 import {
   clockTime,
@@ -30,7 +31,7 @@ import { HOME_PILL } from "./homeStyles";
  */
 export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   useDisplayTimeZone();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -46,7 +47,9 @@ export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) 
     t("student.home.answered", { answered, total: card.questionCount }),
     sameAppDay(closes, now)
       ? t("student.home.closesToday", { time: formatTime(closes) })
-      : t("student.home.closesOn", { when: clockTime(closes, now) }),
+      : t("student.home.closesOn", {
+          when: clockTime(closes, now, i18n.language as Locale),
+        }),
   ]
     .filter((part) => part != null && part !== "")
     .join(" · ");

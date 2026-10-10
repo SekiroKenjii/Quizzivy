@@ -36,6 +36,8 @@ export const REVIEW = {
   showScore: true,
   showCorrectAnswers: false,
   showExplanations: true,
+  release: "on_submit",
+  showClassAverage: false,
 };
 
 /** A contract-valid card, open right now, with room to override. */

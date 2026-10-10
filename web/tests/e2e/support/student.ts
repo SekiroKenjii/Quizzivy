@@ -75,7 +75,13 @@ export async function fits(page: Page) {
 export const gradedResult: AttemptResult = {
   testTitle: "Bài kiểm tra có tiêu đề dài cần hiển thị đầy đủ trên điện thoại",
   maxAttempts: 2,
-  review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
+  review: {
+    showScore: true,
+    showCorrectAnswers: false,
+    showExplanations: false,
+    release: "on_submit",
+    showClassAverage: false,
+  },
   attempt: {
     id: "result",
     assignmentId: "assignment",

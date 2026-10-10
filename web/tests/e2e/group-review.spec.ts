@@ -33,7 +33,13 @@ function result(): AttemptResult {
     attempt,
     testTitle: "Đọc hiểu và nghe theo nhóm",
     maxAttempts: 1,
-    review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
+    review: {
+      showScore: true,
+      showCorrectAnswers: false,
+      showExplanations: false,
+      release: "on_submit",
+      showClassAverage: false,
+    },
     sharedContext,
     sections: [...new Set(questions.map((question) => question.sectionId))].map(
       (id, index) => ({ id, title: `Phần ${index + 1}`, instructions: null }),

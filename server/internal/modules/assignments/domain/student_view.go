@@ -46,7 +46,10 @@ type StudentCard struct {
 type StudentDetail struct {
 	StudentCard
 	// TeacherName is the assignment's author.
-	TeacherName    *string
+	TeacherName *string
+	// StudentNote is the teacher's note for the students, trimmed; nil when
+	// there is none.
+	StudentNote    *string
 	Review         Review
 	Integrity      Integrity
 	HasAudio       bool

@@ -86,7 +86,12 @@ export type Summary =
     }
   | { readonly kind: "partly"; readonly marked: number; readonly waiting: number }
   | { readonly kind: "pending" }
-  | { readonly kind: "withheld"; readonly answered: number; readonly total: number };
+  | {
+      readonly kind: "withheld";
+      readonly answered: number;
+      readonly total: number;
+      readonly until: string | null;
+    };
 
 /**
  * Tile is one box under the summary. While answers wait: the points marked
@@ -118,10 +123,12 @@ export type Filter = "all" | "wrong" | "waiting";
 
 /**
  * Lock names what the review policy hides, for the line above the answers:
- * the score, the correct answers, the explanations, or a combination. It is
- * null when the policy hides nothing.
+ * the score, the correct answers, the explanations, or a combination; or
+ * `afterClose`, a result the assignment releases once it has closed, which
+ * says when. It is null when nothing is hidden.
  */
 export type Lock =
+  | "afterClose"
   | "score"
   | "answers"
   | "explanations"
@@ -138,6 +145,8 @@ export interface ResultView {
   readonly tiles: readonly Tile[];
   readonly filters: readonly Filter[];
   readonly lock: Lock;
+  readonly releasesAt: string | null;
+  readonly classAverage: number | null;
 }
 
 function sum(values: readonly number[]): number {
@@ -196,6 +205,9 @@ function lock(review: Review): Lock {
 
 /**
  * resultView turns a result into what the page draws above the answers. A
+ * result the assignment releases after its close is withheld until then: the
+ * server sends it without a score, and says when it is released. The class
+ * average is drawn only when the server sends it. A
  * score the policy hides gives no number and no tiles. While answers wait for
  * the teacher, the ring holds the points decided so far and the tiles say
  * what was marked automatically, how many answers wait and how long the
@@ -214,7 +226,13 @@ export function resultView(data: AttemptResult): ResultView {
     ...(review.showScore ? (["wrong"] as const) : []),
     ...(waiting.length > 0 ? (["waiting"] as const) : []),
   ];
-  const base = { filters, lock: lock(review) };
+  const releasesAt = data.releasesAt ?? null;
+  const base = {
+    filters,
+    lock: releasesAt === null ? lock(review) : ("afterClose" as const),
+    releasesAt,
+    classAverage: data.classAverage ?? null,
+  };
 
   if (score === null) {
     return {
@@ -226,6 +244,7 @@ export function resultView(data: AttemptResult): ResultView {
           answered(question, question.answer ?? undefined),
         ).length,
         total: questions.length,
+        until: releasesAt,
       },
       tiles: [],
     };

@@ -3,6 +3,7 @@ import {
   appDaysUntil,
   appHour,
   audioLength,
+  clockTime,
   countdown,
   dayDate,
   dayMonth,
@@ -78,5 +79,32 @@ describe("a day in the app's zone, where the UTC day differs", () => {
     expect(dayDate("2026-08-26T09:30:00Z")).toBe("Thứ 4, 26/08");
     expect(dayDate(midnight)).toBe("CN, 30/08");
     expect(dayDate("2026-08-26T09:30:00Z", "en")).toBe("Wed 26 Aug");
+  });
+});
+
+describe("the time of a moment, with its day when the day is not today", () => {
+  const now = "2026-10-12T01:00:00Z";
+  const today = "2026-10-12T05:00:00Z";
+  const later = "2026-10-13T19:34:00Z";
+
+  it("is the bare time on the day of `now`, in both languages", () => {
+    expect(clockTime(today, now)).toBe("12:00");
+    expect(clockTime(today, now, "vi")).toBe("12:00");
+    expect(clockTime(today, now, "en")).toBe("12:00");
+  });
+
+  it("names the day with a number and a slash in Vietnamese", () => {
+    expect(clockTime(later, now)).toBe("02:34, 14/10");
+    expect(clockTime(later, now, "vi")).toBe("02:34, 14/10");
+  });
+
+  it("names the month in English, where 14/10 and 10/14 are both read", () => {
+    expect(clockTime(later, now, "en")).toBe("02:34, 14 Oct");
+    expect(clockTime("2026-10-02T19:34:00Z", now, "en")).toBe("02:34, 3 Oct");
+    expect(clockTime("2026-10-02T19:34:00Z", now, "vi")).toBe("02:34, 03/10");
+  });
+
+  it("reads the day in the app's zone, not in UTC", () => {
+    expect(clockTime("2026-10-12T17:30:00Z", now, "en")).toBe("00:30, 13 Oct");
   });
 });

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import type { IntegrityPolicy, ReviewPolicy } from "@/features/assignments/api";
-import { studentRules } from "@/features/assignments/studentRules";
+import type { IntegrityPolicy } from "@/features/assignments/api";
+import { studentRules, type RulesInput } from "@/features/assignments/studentRules";
 import type { Locale } from "@/lib/i18n";
 import { APP_TIME_ZONE, fromDateTimeInput } from "@/lib/i18n/datetime";
 
@@ -14,7 +14,7 @@ export function StudentRulesPreview({
   draft,
 }: Readonly<{
   draft: Readonly<{
-    review: ReviewPolicy;
+    review: RulesInput["review"];
     integrity: IntegrityPolicy;
     opensAt: string;
     closesAt: string;

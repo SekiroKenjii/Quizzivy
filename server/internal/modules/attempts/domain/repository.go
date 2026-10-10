@@ -35,7 +35,7 @@ type Repository interface {
 	Submit(ctx context.Context, attemptID, studentID string, reason Reason, now time.Time) (AttemptRecord, error)
 	ExpireIfDue(ctx context.Context, attemptID string, now time.Time) error
 	DueAttempts(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) ([]string, error)
-	LoadResult(ctx context.Context, a AttemptRecord) (Result, error)
+	LoadResult(ctx context.Context, a AttemptRecord, now time.Time) (Result, error)
 	Monitor(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) (Monitor, error)
 	Extend(ctx context.Context, req Request, attemptID string, minutes int, reason string, now time.Time) (Attempt, error)
 	Void(ctx context.Context, req Request, attemptID, reason string, now time.Time) (Attempt, error)

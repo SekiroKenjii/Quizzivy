@@ -12,6 +12,8 @@ const REVIEW: ReviewPolicy = {
   showScore: true,
   showCorrectAnswers: false,
   showExplanations: false,
+  release: "on_submit",
+  showClassAverage: false,
 };
 const INTEGRITY: IntegrityPolicy = {
   requireFullscreen: false,
@@ -289,6 +291,72 @@ describe("every combination of the policies", () => {
         );
       }
     }
+  });
+});
+
+const AFTER_CLOSE: readonly [boolean, boolean, string, string][] = [
+  [
+    false,
+    false,
+    "Bạn sẽ xem được điểm sau khi bài đóng.",
+    "You will see your score after the test closes.",
+  ],
+  [
+    true,
+    false,
+    "Bạn sẽ xem được điểm và đáp án đúng sau khi bài đóng.",
+    "You will see your score and the correct answers after the test closes.",
+  ],
+  [
+    false,
+    true,
+    "Bạn sẽ xem được điểm và giải thích sau khi bài đóng.",
+    "You will see your score and explanations after the test closes.",
+  ],
+  [
+    true,
+    true,
+    "Bạn sẽ xem được điểm, đáp án đúng và giải thích sau khi bài đóng.",
+    "You will see your score, the correct answers and explanations after the test closes.",
+  ],
+];
+
+describe("a result released after the close", () => {
+  it("says the score is seen once the test closes, never after submitting", () => {
+    for (const [showCorrectAnswers, showExplanations, vi, en] of AFTER_CLOSE) {
+      const review = {
+        ...REVIEW,
+        showCorrectAnswers,
+        showExplanations,
+        release: "after_close" as const,
+      };
+      expect(only("score", { review }, "vi")).toEqual([vi]);
+      expect(only("score", { review }, "en")).toEqual([en]);
+      for (const language of LANGUAGES) {
+        expect(only("score", { review }, language).join(" ")).not.toMatch(
+          /sau khi nộp|after submitting/,
+        );
+      }
+    }
+  });
+
+  it("says nothing about the score when the score is hidden", () => {
+    const review = { ...REVIEW, showScore: false, release: "after_close" as const };
+    expect(only("score", { review })).toEqual([]);
+  });
+
+  it("reads the submit wording when the release is on submit or absent", () => {
+    const bare = {
+      showScore: true,
+      showCorrectAnswers: false,
+      showExplanations: false,
+    };
+    expect(only("score", { review: bare })).toEqual([
+      "Bạn sẽ xem được điểm sau khi nộp bài.",
+    ]);
+    expect(only("score", { review: { ...REVIEW, release: "on_submit" } })).toEqual([
+      "Bạn sẽ xem được điểm sau khi nộp bài.",
+    ]);
   });
 });
 

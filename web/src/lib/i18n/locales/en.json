@@ -228,6 +228,8 @@
       "startFailed": "Could not start. Please try again.",
       "questions": "Questions",
       "before": "Before you start",
+      "noteFrom": "Note from {{name}}",
+      "noteFromTeacher": "Note from your teacher",
       "startHint": "Your answers save automatically.",
       "resumeHint": "This attempt ends at {{time}}.",
       "opensToday": "Opens today at {{time}}",
@@ -1249,6 +1251,12 @@
         "explanations": "You will see your score and explanations after submitting.",
         "all": "You will see your score, the correct answers and explanations after submitting."
       },
+      "scoreAfterClose": {
+        "only": "You will see your score after the test closes.",
+        "answers": "You will see your score and the correct answers after the test closes.",
+        "explanations": "You will see your score and explanations after the test closes.",
+        "all": "You will see your score, the correct answers and explanations after the test closes."
+      },
       "audioLimited_one": "Each recording has its own limit, starting at {{count}} play. Additional plays are recorded.",
       "audioLimited_other": "Each recording has its own limit, starting at {{count}} plays. Additional plays are recorded.",
       "audioShared": "Questions sharing a recording share its allowance. Changing questions or reloading does not reset it.",
@@ -1905,7 +1913,8 @@
       "teacher_other": "Your teacher will grade the {{count}} written answers.",
       "pending": "Your teacher is grading your written answers. Your score appears here when grading is finished.",
       "pendingNotify": "Your teacher is grading your written answers. You will get a notification when your score is ready.",
-      "withheld": "You answered {{answered}} of {{total}} questions. Your teacher has not released the score."
+      "withheld": "You answered {{answered}} of {{total}} questions. Your teacher has not released the score.",
+      "withheldUntil": "You answered {{answered}} of {{total}} questions. Your score is released when the test closes."
     },
     "tiles": {
       "auto": "Marked automatically",
@@ -1917,6 +1926,7 @@
       "minutes_one": "{{count}} min",
       "minutes_other": "{{count}} min"
     },
+    "classAverage": "Class average: {{percent}}%.",
     "yourAnswers": "Your answers",
     "filter": "Filter questions",
     "filters": {
@@ -1925,6 +1935,7 @@
       "waiting": "Waiting"
     },
     "lock": {
+      "afterClose": "Results are released when the test closes, at {{time}}.",
       "score": "Your teacher has not released the score for this test.",
       "answers": "Your teacher is not showing correct answers for this test.",
       "explanations": "Your teacher is not showing explanations for this test.",

@@ -228,6 +228,8 @@
       "startFailed": "Không bắt đầu được. Hãy thử lại.",
       "questions": "Số câu",
       "before": "Trước khi bắt đầu",
+      "noteFrom": "Ghi chú từ {{name}}",
+      "noteFromTeacher": "Ghi chú từ giáo viên",
       "startHint": "Câu trả lời được lưu tự động.",
       "resumeHint": "Lượt này kết thúc lúc {{time}}.",
       "opensToday": "Mở lúc {{time}} hôm nay",
@@ -1249,6 +1251,12 @@
         "explanations": "Bạn sẽ xem được điểm và giải thích sau khi nộp bài.",
         "all": "Bạn sẽ xem được điểm, đáp án đúng và giải thích sau khi nộp bài."
       },
+      "scoreAfterClose": {
+        "only": "Bạn sẽ xem được điểm sau khi bài đóng.",
+        "answers": "Bạn sẽ xem được điểm và đáp án đúng sau khi bài đóng.",
+        "explanations": "Bạn sẽ xem được điểm và giải thích sau khi bài đóng.",
+        "all": "Bạn sẽ xem được điểm, đáp án đúng và giải thích sau khi bài đóng."
+      },
       "audioLimited_one": "Mỗi bài nghe có giới hạn riêng, từ {{count}} lượt. Lượt nghe thêm được ghi lại.",
       "audioLimited_other": "Mỗi bài nghe có giới hạn riêng, từ {{count}} lượt. Lượt nghe thêm được ghi lại.",
       "audioShared": "Các câu dùng chung bài nghe cũng dùng chung lượt nghe. Đổi câu hoặc tải lại trang không đặt lại lượt nghe.",
@@ -1905,7 +1913,8 @@
       "teacher_other": "Giáo viên sẽ chấm {{count}} câu tự luận.",
       "pending": "Giáo viên đang chấm các câu tự luận của bạn. Điểm sẽ hiện ở đây khi chấm xong.",
       "pendingNotify": "Giáo viên đang chấm các câu tự luận của bạn. Bạn sẽ nhận được thông báo khi có điểm.",
-      "withheld": "Bạn đã trả lời {{answered}}/{{total}} câu. Giáo viên chưa công bố điểm."
+      "withheld": "Bạn đã trả lời {{answered}}/{{total}} câu. Giáo viên chưa công bố điểm.",
+      "withheldUntil": "Bạn đã trả lời {{answered}}/{{total}} câu. Điểm được công bố khi bài đóng."
     },
     "tiles": {
       "auto": "Chấm tự động",
@@ -1917,6 +1926,7 @@
       "minutes_one": "{{count}} phút",
       "minutes_other": "{{count}} phút"
     },
+    "classAverage": "Điểm trung bình của lớp: {{percent}}%.",
     "yourAnswers": "Câu trả lời của bạn",
     "filter": "Lọc câu hỏi",
     "filters": {
@@ -1925,6 +1935,7 @@
       "waiting": "Chờ chấm"
     },
     "lock": {
+      "afterClose": "Kết quả được công bố khi bài đóng, lúc {{time}}.",
       "score": "Giáo viên chưa công bố điểm cho bài này.",
       "answers": "Giáo viên không hiển thị đáp án đúng cho bài này.",
       "explanations": "Giáo viên không hiển thị giải thích cho bài này.",
