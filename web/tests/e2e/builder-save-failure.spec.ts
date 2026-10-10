@@ -86,7 +86,7 @@ async function openBuilder(page: Page, width: number) {
   return run;
 }
 
-for (const width of [1280, 390]) {
+for (const width of [1440, 1280, 768, 390, 360]) {
   test(`a question save the server refuses says so and leaves the editor up at ${width}px`, async ({
     page,
   }) => {
@@ -98,7 +98,23 @@ for (const width of [1280, 390]) {
     await expect.poll(() => run.patches, { timeout: 5_000 }).toBe(1);
 
     await expect(page.getByText("Chưa lưu được", { exact: true })).toBeVisible();
-    await expect(page.getByText("Dữ liệu câu hỏi không hợp lệ.")).toBeVisible();
+    const note = page.getByRole("alert");
+    await expect(note).toHaveCount(1);
+    const reason = note.getByText("Dữ liệu câu hỏi không hợp lệ.");
+    await expect(reason).toBeVisible();
+    expect((await reason.boundingBox())!.width).toBeGreaterThanOrEqual(200);
+    const retry = (await note.getByRole("button", { name: "Thử lại" }).boundingBox())!;
+    expect(retry.x).toBeGreaterThanOrEqual(0);
+    expect(retry.x + retry.width).toBeLessThanOrEqual(width);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    if (width >= 768) {
+      const title = await page
+        .getByRole("button", { name: "Tên đề thi" })
+        .boundingBox();
+      expect(title!.width).toBeGreaterThanOrEqual(200);
+    }
     await expect(
       page.getByRole("textbox", { name: "Lựa chọn B", exact: true }),
     ).toHaveValue("have been");
@@ -115,6 +131,7 @@ test("a blank option is not sent, and the label says what to fix", async ({ page
     timeout: 5_000,
   });
   await expect(page.getByText("Chưa lưu được", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Thử lại" })).toHaveCount(0);
   await expect(
     page.getByRole("textbox", { name: "Lựa chọn C", exact: true }),
   ).toBeVisible();

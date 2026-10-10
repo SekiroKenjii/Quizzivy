@@ -46,7 +46,10 @@ import {
 } from "@/features/tests/api";
 import { DraftPreviewDialog } from "@/features/tests/components/DraftPreviewDialog";
 import { PublishDialog } from "@/features/tests/components/PublishDialog";
-import { AutosaveStatusLabel } from "@/features/tests/components/AutosaveStatusLabel";
+import {
+  AutosaveFailureNote,
+  AutosaveStatusLabel,
+} from "@/features/tests/components/AutosaveStatusLabel";
 import { QuestionPickerDialog } from "@/features/tests/components/QuestionPickerDialog";
 import {
   mergeAutosave,
@@ -713,14 +716,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
                 : "shrink-0"
             }
           />
-          <AutosaveStatusLabel
-            status={saveStatus}
-            deck
-            onRetry={() => {
-              outline.retry();
-              retryQuestion.current?.();
-            }}
-          />
+          <AutosaveStatusLabel status={saveStatus} deck />
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -766,6 +762,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           </Button>
         </div>
       </div>
+
+      <AutosaveFailureNote
+        status={saveStatus}
+        onRetry={() => {
+          outline.retry();
+          retryQuestion.current?.();
+        }}
+      />
 
       {stale ? (
         <div

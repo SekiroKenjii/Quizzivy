@@ -9,7 +9,8 @@ export type AutosaveStatus =
   | { kind: "dirty" }
   | { kind: "saving" }
   | { kind: "saved"; at: Date }
-  | { kind: "failed"; message: string }
+  /** Not saved. `refused` marks a value `refuse` turned down, which a retry would only refuse again. */
+  | { kind: "failed"; message: string; refused?: boolean }
   /** The save was superseded. No further saves are attempted. */
   | { kind: "stale" };
 
@@ -92,7 +93,7 @@ export function useAutosave<T>({
     const reason = latestRefuse.current?.(value) ?? null;
     if (reason !== null) {
       failure.current = new AutosaveRefused(reason);
-      setStatus({ kind: "failed", message: reason });
+      setStatus({ kind: "failed", message: reason, refused: true });
       return;
     }
     failure.current = null;

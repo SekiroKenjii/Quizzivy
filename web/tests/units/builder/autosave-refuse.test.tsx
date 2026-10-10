@@ -71,6 +71,7 @@ describe("a value the caller refuses", () => {
     expect(current().status).toEqual({
       kind: "failed",
       message: "Lựa chọn không được để trống.",
+      refused: true,
     });
 
     act(() => current().schedule("have gone"));
