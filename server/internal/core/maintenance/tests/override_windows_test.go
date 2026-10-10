@@ -69,10 +69,10 @@ func TestAnOverrideClosingInsideTheWindowIsExtendedWithIt(t *testing.T) {
 		assignment, student string
 		want                time.Time
 	}{
-		"an override closing inside the window":                  {assignment, inside, start.Add(80 * time.Minute)},
-		"an override closing after the window":                   {assignment, after, end.Add(time.Minute)},
-		"an override closing as the window ends":                 {assignment, atTheEnd, end},
-		"an override on a draft no one can take":                 {draft, onADraft, start.Add(20 * time.Minute)},
+		"an override closing inside the window":                   {assignment, inside, start.Add(80 * time.Minute)},
+		"an override closing after the window":                    {assignment, after, end.Add(time.Minute)},
+		"an override closing as the window ends":                  {assignment, atTheEnd, end},
+		"an override on a draft no one can take":                  {draft, onADraft, start.Add(20 * time.Minute)},
 		"an override that keeps a student in an early-closed one": {closedEarly, keptIn, start.Add(100 * time.Minute)},
 	} {
 		if got := w.overrideClose(t, c.assignment, c.student); !got.Equal(c.want) {

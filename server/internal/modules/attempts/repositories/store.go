@@ -159,46 +159,59 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.At
 		rules domain.Rules
 	)
 	err := s.InTx(ctx, "attempts: create", func(tx pgx.Tx) error {
-		if err := s.guardStart(ctx, tx, in.StartedAt, in.ExpectedDeadlineAt); err != nil {
-			return err
-		}
+		var deadline time.Time
 		var err error
-		if rules, err = readRules(ctx, tx, in.AssignmentID, in.StudentID, " FOR SHARE OF a"); err != nil {
+		if rules, deadline, err = s.committedRules(ctx, tx, in); err != nil {
 			return err
 		}
-		if !rules.Targeted {
-			return domain.ErrForbidden
-		}
-		if err := rules.CanStartAt(in.StartedAt); err != nil {
-			return err
-		}
-		deadline := rules.Deadline(in.StartedAt)
-		if deadline.After(in.ExpectedDeadlineAt) {
-			if err := s.guardStart(ctx, tx, in.StartedAt, deadline); err != nil {
-				return err
-			}
-		}
-		q := `
-			INSERT INTO app.attempts
-			  (assignment_id, test_version_id, student_id, attempt_no, session_id,
-			   shuffle_seed, beacon_token_hash, started_at, deadline_at)
-			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8, $9)
-			RETURNING ` + attemptColumns
-		out, err = scanAttempt(tx.QueryRow(ctx, q,
-			in.AssignmentID, rules.TestVersionID, in.StudentID, in.AttemptNo, in.SessionID,
-			in.Seed, in.BeaconHash, in.StartedAt, deadline))
-		if db.IsUniqueViolation(err, "") {
-			return domain.ErrRaceLost
-		}
-		if err != nil {
-			return fmt.Errorf("attempts: create: %w", err)
-		}
-		return nil
+		out, err = insertAttempt(ctx, tx, in, rules.TestVersionID, deadline)
+		return err
 	})
 	if err != nil {
 		return domain.AttemptRecord{}, domain.Rules{}, err
 	}
 	return out, rules, nil
+}
+
+func (s *Postgres) committedRules(ctx context.Context, tx pgx.Tx, in domain.CreateInput) (domain.Rules, time.Time, error) {
+	if err := s.guardStart(ctx, tx, in.StartedAt, in.ExpectedDeadlineAt); err != nil {
+		return domain.Rules{}, time.Time{}, err
+	}
+	rules, err := readRules(ctx, tx, in.AssignmentID, in.StudentID, " FOR SHARE OF a")
+	if err != nil {
+		return domain.Rules{}, time.Time{}, err
+	}
+	if !rules.Targeted {
+		return domain.Rules{}, time.Time{}, domain.ErrForbidden
+	}
+	if err := rules.CanStartAt(in.StartedAt); err != nil {
+		return domain.Rules{}, time.Time{}, err
+	}
+	deadline := rules.Deadline(in.StartedAt)
+	if deadline.After(in.ExpectedDeadlineAt) {
+		if err := s.guardStart(ctx, tx, in.StartedAt, deadline); err != nil {
+			return domain.Rules{}, time.Time{}, err
+		}
+	}
+	return rules, deadline, nil
+}
+
+func insertAttempt(ctx context.Context, tx pgx.Tx, in domain.CreateInput, versionID string, deadline time.Time) (domain.AttemptRecord, error) {
+	out, err := scanAttempt(tx.QueryRow(ctx, `
+		INSERT INTO app.attempts
+		  (assignment_id, test_version_id, student_id, attempt_no, session_id,
+		   shuffle_seed, beacon_token_hash, started_at, deadline_at)
+		VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8, $9)
+		RETURNING `+attemptColumns,
+		in.AssignmentID, versionID, in.StudentID, in.AttemptNo, in.SessionID,
+		in.Seed, in.BeaconHash, in.StartedAt, deadline))
+	if db.IsUniqueViolation(err, "") {
+		return domain.AttemptRecord{}, domain.ErrRaceLost
+	}
+	if err != nil {
+		return domain.AttemptRecord{}, fmt.Errorf("attempts: create: %w", err)
+	}
+	return out, nil
 }
 
 func (s *Postgres) guardStart(ctx context.Context, tx pgx.Tx, now, deadline time.Time) error {

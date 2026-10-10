@@ -105,7 +105,7 @@ func TestExtendingMovesTheDeadlinesTheCloseHeldDown(t *testing.T) {
 		"an attempt whose time limit, not the close, set its deadline": {roomyAttempt, roomyBefore},
 		"an attempt already handed in":                                 {deliveredAttempt, closes},
 		"a voided attempt":                                             {voidedAttempt, closes},
-		"a deadline a maintenance window had pushed past the rule":    {beyondAttempt, pushedPast},
+		"a deadline a maintenance window had pushed past the rule":     {beyondAttempt, pushedPast},
 		"an attempt on another assignment":                             {elsewhereAttempt, elsewhereBefore},
 	} {
 		if got := w.deadlineOf(t, c.attempt); !got.Equal(c.want) {

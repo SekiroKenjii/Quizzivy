@@ -95,14 +95,7 @@ func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Tim
 		return out, err
 	}
 	if !apply {
-		if err := tx.QueryRow(ctx, movingAttempts, startsAt).Scan(&out.Attempts); err != nil {
-			return out, err
-		}
-		if err := tx.QueryRow(ctx, movingAssignments, startsAt, endsAt).Scan(&out.Assignments); err != nil {
-			return out, err
-		}
-		err := tx.QueryRow(ctx, movingOverrides, startsAt, endsAt).Scan(&out.Overrides)
-		return out, err
+		return countMoves(ctx, tx, out)
 	}
 	err = tx.QueryRow(ctx, `
 		WITH scheduled AS (
@@ -164,6 +157,17 @@ func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Tim
 	}
 	out.Applied = true
 	return out, nil
+}
+
+func countMoves(ctx context.Context, tx pgx.Tx, out ScheduleReport) (ScheduleReport, error) {
+	if err := tx.QueryRow(ctx, movingAttempts, out.StartsAt).Scan(&out.Attempts); err != nil {
+		return out, err
+	}
+	if err := tx.QueryRow(ctx, movingAssignments, out.StartsAt, out.EndsAt).Scan(&out.Assignments); err != nil {
+		return out, err
+	}
+	err := tx.QueryRow(ctx, movingOverrides, out.StartsAt, out.EndsAt).Scan(&out.Overrides)
+	return out, err
 }
 
 // ListWindows returns every window that has not ended and was not cancelled,
