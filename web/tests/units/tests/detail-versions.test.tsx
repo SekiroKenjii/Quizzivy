@@ -370,7 +370,7 @@ describe("publishing the draft from the detail", () => {
     expect(detail.publishBodies).toEqual([{ changeNote: "Sửa đáp án câu 1" }]);
   });
 
-  it("publishes without a body when the note is left empty", async () => {
+  it("sends a null change note when the note is blank", async () => {
     detail.test = testFixture({ unpublishedChanges: 1 });
     const { user } = renderDetail();
 
@@ -383,9 +383,13 @@ describe("publishing the draft from the detail", () => {
         "Phiên bản mới sẽ là mặc định cho bài giao mới. Các bài giao hiện có vẫn giữ phiên bản của mình.",
       ),
     ).toBeVisible();
+    await user.type(
+      within(dialog).getByRole("textbox", { name: /Ghi chú thay đổi/ }),
+      "   ",
+    );
     await user.click(within(dialog).getByRole("button", { name: "Phát hành" }));
 
-    await waitFor(() => expect(detail.publishBodies).toEqual([null]));
+    await waitFor(() => expect(detail.publishBodies).toEqual([{ changeNote: null }]));
   });
 
   it("says how many problems block publishing and keeps the dialog open", async () => {

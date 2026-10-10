@@ -170,6 +170,7 @@ function TestRow({ test }: Readonly<{ test: Test }>) {
 
 function versionMeta(version: TestVersion, t: TFunction): string {
   return [
+    version.skills.map((skill) => t(`tests.skill.${skill}`)).join(", "),
     t("assignments.wizard.questions", { count: version.questionCount }),
     version.manualCount > 0
       ? t("assignments.wizard.manual", { count: version.manualCount })
