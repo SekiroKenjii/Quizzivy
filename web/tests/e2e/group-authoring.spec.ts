@@ -193,7 +193,10 @@ test("offline edits recover after reload and flush before leaving without resett
   await material.click();
   await page.keyboard.press("Control+a");
   await page.keyboard.insertText("Nội dung mới có dấu tiếng Việt.");
-  await page.getByRole("button", { name: "Quay lại", exact: true }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Nhóm câu hỏi", exact: true })
+    .click();
   await page.getByRole("button", { name: "Lưu và rời trang", exact: true }).click();
   await expect(page).toHaveURL(/question-bank\/groups$/);
   expect(state.stored.bundle.group.title).toBe("Bản nháp riêng");

@@ -1,42 +1,33 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { Archive, Copy, Plus, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { SearchInput } from "@/components/shared/SearchInput";
-import { Pager } from "@/components/shared/Pager";
-import { RowMenu } from "@/components/shared/RowMenu";
+import { Segmented } from "@/components/ui/segmented";
 import { BulkActions } from "@/components/shared/BulkActions";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { DataTable, type DataColumn } from "@/components/shared/data/DataTable";
+import { Pager } from "@/components/shared/data/Pager";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { useListFilters } from "@/hooks/useListFilters";
-import { usePage } from "@/hooks/usePage";
-import { useDebounced } from "@/lib/useDebounced";
-import { useLocale } from "@/lib/i18n/useLocale";
-import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { usePage, usePageSize } from "@/hooks/usePage";
+import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
+import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
+import { useDebounced } from "@/lib/useDebounced";
 import {
   archiveGroup,
   copyGroup,
@@ -48,7 +39,73 @@ import {
 import { emptyGroup } from "../../model";
 import { BankNavigation } from "../../components/BankNavigation";
 
+const QUERY_KEY = ["admin-groups"] as const;
+
+const SEARCH =
+  "w-auto min-w-0 flex-[1_1_240px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
+
 type Action = { kind: "archive" | "restore" | "delete"; group: GroupSummary };
+
+const ACTION_LABELS = {
+  delete: { title: "common.deletePermanently", description: "groups.deleteBody" },
+  restore: { title: "common.restore", description: "groups.restoreBody" },
+  archive: { title: "common.archive", description: "groups.archiveBody" },
+};
+
+function groupColumns(
+  t: TFunction,
+  locale: Locale,
+  recent: ReadonlySet<string>,
+): DataColumn<GroupSummary>[] {
+  return [
+    {
+      id: "title",
+      header: t("groups.titleLabel"),
+      track: "minmax(200px,1fr)",
+      cell: (group) => (
+        <span className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
+            {group.title}
+          </span>
+          {recent.has(group.id) && (
+            <Badge variant="outline">{t("common.justDuplicated")}</Badge>
+          )}
+        </span>
+      ),
+    },
+    {
+      id: "questions",
+      header: t("groups.questionCount"),
+      track: "110px",
+      align: "end",
+      cell: (group) => <span className="tabular-nums">{group.questionCount}</span>,
+    },
+    {
+      id: "points",
+      header: t("bank.points"),
+      track: "90px",
+      align: "end",
+      showFrom: 560,
+      cell: (group) => <span className="tabular-nums">{group.totalPoints}</span>,
+    },
+    {
+      id: "updated",
+      header: t("common.updatedAt"),
+      track: "150px",
+      showFrom: 680,
+      cell: (group) => (
+        <span className="text-muted-fg">{formatRelative(group.updatedAt, locale)}</span>
+      ),
+    },
+  ];
+}
+
+/**
+ * GroupsListPage is the bank's question groups (DG-68): a search, Active or
+ * Archived, a table whose row opens the group's editor, duplicate, archive,
+ * restore and permanent delete from each row's menu, and the same actions
+ * in bulk. The search, the status and the page live in the URL.
+ */
 export default function GroupsListPage() {
   useDisplayTimeZone();
   const { t } = useTranslation();
@@ -59,16 +116,20 @@ export default function GroupsListPage() {
   const query = params.get("q") ?? "";
   const search = useDebounced(query.trim(), 300);
   const status = params.get("status") === "archived" ? "archived" : "active";
-  const [page, setPage] = usePage(JSON.stringify({ search, status }));
+  const [size] = usePageSize();
+  const [page, setPage] = usePage(JSON.stringify({ search, status, size }));
   const bulk = useBulkSelection<GroupSummary>();
   const [recent, setRecent] = useState<ReadonlySet<string>>(new Set());
   const [action, setAction] = useState<Action | null>(null);
   const [error, setError] = useState<string | null>(null);
   const list = useQuery({
-    queryKey: ["admin-groups", search, status, page],
-    queryFn: ({ signal }) => listGroups({ q: search, status, page, limit: 20 }, signal),
+    queryKey: [...QUERY_KEY, search, status, page, size],
+    queryFn: ({ signal }) =>
+      listGroups({ q: search, status, page, limit: size }, signal),
+    placeholderData: keepPreviousData,
   });
-  const refresh = () => client.invalidateQueries({ queryKey: ["admin-groups"] });
+  const columns = useMemo(() => groupColumns(t, locale, recent), [t, locale, recent]);
+  const refresh = () => client.invalidateQueries({ queryKey: QUERY_KEY });
   const fail = (cause: unknown) =>
     setError(cause instanceof ApiError ? cause.message : t("common.actionFailed"));
   const create = useMutation({
@@ -102,7 +163,6 @@ export default function GroupsListPage() {
     },
     onError: fail,
   });
-  const items = list.data?.items ?? [];
   const selection = [...bulk.selected.values()];
   const selectedArchived = selection.every((item) => item.archivedAt !== null);
   const selectedActive = selection.every((item) => item.archivedAt === null);
@@ -110,15 +170,15 @@ export default function GroupsListPage() {
     setError(null);
     setAction(next);
   };
+  const data = list.data;
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <PageHeader
-        variant="title"
+      <PageHead
         title={t("groups.bankTitle")}
-        subtitle={t("groups.bankHint")}
+        description={t("groups.bankHint")}
         actions={
           <Button
-            size="sm"
             disabled={create.isPending}
             onClick={() => {
               setError(null);
@@ -131,32 +191,25 @@ export default function GroupsListPage() {
         }
       />
       <BankNavigation />
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <SearchInput
+          className={SEARCH}
           value={query}
           onChange={(value) => setFilter("q", value)}
           placeholder={t("groups.search")}
-          className="min-w-48 flex-1"
         />
-        <Select
+        <Segmented
+          label={t("common.status")}
           value={status}
-          onValueChange={(value) =>
-            setFilter("status", value === "active" ? null : value)
-          }
-        >
-          <SelectTrigger className="w-auto min-w-40" aria-label={t("common.status")}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="active">{t("groups.active")}</SelectItem>
-              <SelectItem value="archived">{t("common.archived")}</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+          options={[
+            { value: "active", label: t("groups.active") },
+            { value: "archived", label: t("common.archived") },
+          ]}
+          onChange={(value) => setFilter("status", value === "active" ? null : value)}
+        />
       </div>
       {error && !action ? (
-        <p role="alert" className="text-sm">
+        <p role="alert" className="text-danger text-sm">
           {error}
         </p>
       ) : null}
@@ -172,6 +225,7 @@ export default function GroupsListPage() {
                 {
                   label: t("common.archive"),
                   description: t("groups.archiveBody"),
+                  icon: Archive,
                   run: (group: GroupSummary) => archiveGroup(group, true),
                 },
               ]
@@ -181,155 +235,84 @@ export default function GroupsListPage() {
                 {
                   label: t("common.restore"),
                   description: t("groups.restoreBody"),
+                  icon: Undo2,
                   run: (group: GroupSummary) => archiveGroup(group, false),
                 },
                 {
                   label: t("common.deletePermanently"),
                   description: t("groups.deleteBody"),
+                  icon: Trash2,
                   run: (group: GroupSummary) => deleteGroup(group.id, group.revision),
                 },
               ]
             : []),
         ]}
       />
-      <QueryStates
-        query={list}
-        skeleton={<ListSkeleton />}
-        failed={t("groups.loadFailed")}
-      >
-        {(data) =>
-          data.items.length === 0 ? (
-            <EmptyState hint={t("groups.bankHint")}>{t("groups.empty")}</EmptyState>
-          ) : (
+      {list.isError && (
+        <LoadError error={list.error} onRetry={() => void list.refetch()}>
+          {t("groups.loadFailed")}
+        </LoadError>
+      )}
+      {data === undefined ? (
+        list.isPending && <ListSkeleton rows={6} />
+      ) : (
+        <DataTable
+          label={t("groups.bankTitle")}
+          columns={columns}
+          rows={data.items}
+          rowSize={{ padY: 12 }}
+          rowHref={(group) => `/teacher/question-bank/groups/${group.id}`}
+          selection={bulk}
+          rowName={(group) => group.title}
+          empty={data.items.length === 0 ? t("groups.empty") : null}
+          menu={(group) => (
             <>
-              <div className="rounded-lg border shadow-sm">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10">
-                        <Checkbox
-                          aria-label={t("common.selectPage")}
-                          checked={
-                            items.length > 0 &&
-                            items.every((item) => bulk.selected.has(item.id))
-                          }
-                          onChange={(event) =>
-                            bulk.selectPage(items, event.target.checked)
-                          }
-                        />
-                      </TableHead>
-                      <TableHead>{t("groups.titleLabel")}</TableHead>
-                      <TableHead>{t("groups.questionCount")}</TableHead>
-                      <TableHead>{t("bank.points")}</TableHead>
-                      <TableHead>{t("common.updatedAt")}</TableHead>
-                      <TableHead>
-                        <span className="sr-only">{t("common.actions")}</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.items.map((group) => (
-                      <TableRow key={group.id}>
-                        <TableCell>
-                          <Checkbox
-                            aria-label={t("groups.select", { title: group.title })}
-                            checked={bulk.selected.has(group.id)}
-                            onChange={() => bulk.toggle(group)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Link
-                              className="font-medium hover:underline"
-                              to={`/teacher/question-bank/groups/${group.id}`}
-                            >
-                              {group.title}
-                            </Link>
-                            {recent.has(group.id) ? (
-                              <Badge variant="outline">
-                                {t("common.justDuplicated")}
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {group.questionCount}
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {group.totalPoints}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatRelative(group.updatedAt, locale)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              aria-label={t("common.duplicateNamed", {
-                                name: group.title,
-                              })}
-                              disabled={
-                                duplicate.isPending || group.archivedAt !== null
-                              }
-                              onClick={() => duplicate.mutate(group)}
-                            >
-                              <Copy aria-hidden="true" />
-                            </Button>
-                            <RowMenu>
-                              <DropdownMenuItem
-                                disabled={
-                                  duplicate.isPending || group.archivedAt !== null
-                                }
-                                onSelect={() => duplicate.mutate(group)}
-                              >
-                                <Copy aria-hidden="true" />
-                                {t("bank.duplicate")}
-                              </DropdownMenuItem>
-                              {group.archivedAt ? (
-                                <>
-                                  <DropdownMenuItem
-                                    onSelect={() => ask({ kind: "restore", group })}
-                                  >
-                                    <Undo2 aria-hidden="true" />
-                                    {t("common.restore")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    onSelect={() => ask({ kind: "delete", group })}
-                                  >
-                                    <Trash2 aria-hidden="true" />
-                                    {t("common.deletePermanently")}
-                                  </DropdownMenuItem>
-                                </>
-                              ) : (
-                                <DropdownMenuItem
-                                  onSelect={() => ask({ kind: "archive", group })}
-                                >
-                                  <Archive aria-hidden="true" />
-                                  {t("common.archive")}
-                                </DropdownMenuItem>
-                              )}
-                            </RowMenu>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+              <DropdownMenuItem
+                disabled={duplicate.isPending || group.archivedAt !== null}
+                onSelect={() => duplicate.mutate(group)}
+              >
+                <Copy aria-hidden="true" />
+                {t("bank.duplicate")}
+              </DropdownMenuItem>
+              {group.archivedAt ? (
+                <>
+                  <DropdownMenuItem onSelect={() => ask({ kind: "restore", group })}>
+                    <Undo2 aria-hidden="true" />
+                    {t("common.restore")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => ask({ kind: "delete", group })}
+                  >
+                    <Trash2 aria-hidden="true" />
+                    {t("common.deletePermanently")}
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem onSelect={() => ask({ kind: "archive", group })}>
+                  <Archive aria-hidden="true" />
+                  {t("common.archive")}
+                </DropdownMenuItem>
+              )}
             </>
-          )
-        }
-      </QueryStates>
+          )}
+          footer={
+            <Pager
+              page={data.page}
+              pageSize={data.pageSize}
+              total={data.total}
+              noun={(count) => t("groups.noun", { count })}
+            />
+          }
+        />
+      )}
       <ConfirmDialog
         open={action !== null}
         onOpenChange={(open) => {
           if (!open && !mutate.isPending) setAction(null);
         }}
-        title={t(actionLabels[action?.kind ?? "archive"].title)}
-        description={t(actionLabels[action?.kind ?? "archive"].description)}
+        title={t(ACTION_LABELS[action?.kind ?? "archive"].title)}
+        description={t(ACTION_LABELS[action?.kind ?? "archive"].description)}
         confirmLabel={t("common.confirm")}
         destructive={action?.kind === "delete"}
         pending={mutate.isPending}
@@ -341,9 +324,3 @@ export default function GroupsListPage() {
     </div>
   );
 }
-
-const actionLabels = {
-  delete: { title: "common.deletePermanently", description: "groups.deleteBody" },
-  restore: { title: "common.restore", description: "groups.restoreBody" },
-  archive: { title: "common.archive", description: "groups.archiveBody" },
-};
