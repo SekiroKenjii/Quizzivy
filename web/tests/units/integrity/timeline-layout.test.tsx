@@ -11,12 +11,12 @@ import "@/lib/i18n";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const FIXED_COLUMNS = /^(grid-cols-[3-9]|col-span-[2-9])$/;
 
-it("keeps the full timeline inside a phone's width, the table scrolling in a named region", async () => {
-  viewport("phone");
+function serveOneEvent() {
   server.use(
     http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}/events`, () =>
       contractJson("/teacher/attempts/{id}/events", "get", 200, {
@@ -36,7 +36,10 @@ it("keeps the full timeline inside a phone's width, the table scrolling in a nam
       }),
     ),
   );
-  const { container } = render(
+}
+
+function renderTimeline() {
+  return render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
@@ -49,6 +52,18 @@ it("keeps the full timeline inside a phone's width, the table scrolling in a nam
       />
     </QueryClientProvider>,
   );
+}
+
+function measure(scrollWidth: number, clientWidth: number) {
+  vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(scrollWidth);
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(clientWidth);
+}
+
+it("keeps the full timeline inside a phone's width, the table scrolling in a named region", async () => {
+  viewport("phone");
+  measure(544, 328);
+  serveOneEvent();
+  const { container } = renderTimeline();
   const scroller = await screen.findByRole("region", { name: "Diễn biến" });
   expect(scroller).toHaveAttribute("tabindex", "0");
   expect(scroller).toHaveClass("overflow-x-auto");
@@ -57,4 +72,12 @@ it("keeps the full timeline inside a phone's width, the table scrolling in a nam
     .flatMap((node) => [...node.classList])
     .filter((token) => FIXED_COLUMNS.test(token));
   expect(unbounded).toEqual([]);
+});
+
+it("takes no Tab stop when the table fits, as at 1440 (VER-47 obs 4)", async () => {
+  measure(900, 900);
+  serveOneEvent();
+  renderTimeline();
+  const scroller = await screen.findByRole("region", { name: "Diễn biến" });
+  expect(scroller).not.toHaveAttribute("tabindex");
 });

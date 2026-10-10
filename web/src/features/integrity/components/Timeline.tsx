@@ -22,6 +22,7 @@ import {
 import { POLL_MS, eventsKey } from "@/features/attempts/keys";
 import { TeacherNoteCard } from "@/features/attempts/components/TeacherNoteCard";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
+import { useOverflowsX } from "@/hooks/useOverflowsX";
 import { formatInTimeZone } from "date-fns-tz";
 import { getDisplayTimeZone, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ export function Timeline({
   useDisplayTimeZone();
   const { t } = useTranslation();
   const [filter, setFilter] = useState<TimelineFilter>("all");
+  const [scroller, scrolls] = useOverflowsX<HTMLDivElement>();
   const refetchInterval = useIdlePolling(POLL_MS, live);
   const events = useQuery({
     queryKey: eventsKey(attemptId),
@@ -219,10 +221,11 @@ export function Timeline({
             ) : (
               <>
                 <div
+                  ref={scroller}
                   role="region"
                   aria-label={t("timeline.title")}
-                  // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Scroll regions need keyboard access independently of their content.
-                  tabIndex={0}
+                  // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- A scroll region needs keyboard access while it scrolls.
+                  tabIndex={scrolls ? 0 : undefined}
                   className={TABLE_SCROLLER}
                 >
                   <Table className="min-w-[34rem]">
