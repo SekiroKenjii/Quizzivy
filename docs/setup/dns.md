@@ -159,6 +159,15 @@ of the app:
 `fly.toml` currently sets `CF-Connecting-IP`, matching the proxied setup above.
 Change it if you leave the record grey.
 
+The same setting decides whether the Signed-in devices list shows a location
+(T-R4.9). Only with `CF-Connecting-IP`, and only on a request that carries it,
+the API also reads `CF-IPCity` and `CF-IPCountry` to label where a device last
+signed in or refreshed, as "City, CC". Cloudflare sends the country by default
+and the city only while the "Add visitor location headers" Managed Transform is
+on (Rules → Settings → Managed Transforms; check the name in the dashboard).
+Without it the label is the country alone. With the record grey, the API
+records no location.
+
 **Never set this to `X-Forwarded-For.`** Proxies *append* to that header, so a
 client can send its own value and have the real address appended after it —
 letting it pick a fresh rate-limit bucket per request and defeat §6.5 entirely.

@@ -40,6 +40,7 @@ function testBody() {
     description: null,
     status: publishes.length > 0 ? ("published" as const) : ("draft" as const),
     currentVersion: publishes.length,
+    nextVersion: publishes.length + 1,
     totalPoints: 1,
     questionCount: 1,
     audioCount: 0,

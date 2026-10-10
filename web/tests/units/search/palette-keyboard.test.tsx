@@ -35,6 +35,7 @@ beforeEach(() => {
             description: null,
             status: "published" as const,
             currentVersion: 1,
+            nextVersion: 2,
             totalPoints: 2,
             questionCount: 1,
             audioCount: 0,
