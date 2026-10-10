@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/notifications/application"
@@ -16,11 +18,29 @@ import (
 )
 
 type Notifications struct {
-	app *application.Application
+	app    *application.Application
+	logger *slog.Logger
+	now    func() time.Time
 }
 
 func NewNotifications(app *application.Application) Notifications {
-	return Notifications{app: app}
+	return Notifications{app: app, logger: slog.New(slog.DiscardHandler), now: time.Now}
+}
+
+// WithLogger returns the transport logging to logger what it does not answer
+// the caller with: a due notification it could not write.
+func (h Notifications) WithLogger(logger *slog.Logger) Notifications {
+	h.logger = logger
+	return h
+}
+
+func (h Notifications) materialise(ctx context.Context, userID string) {
+	if h.app.Commands.MaterialiseDue == nil {
+		return
+	}
+	if _, err := h.app.Commands.MaterialiseDue.Handle(ctx, command.MaterialiseDue{UserID: userID, Now: h.now()}); err != nil {
+		h.logger.WarnContext(ctx, "due notifications not materialised", "error", err)
+	}
 }
 
 func (h Notifications) caller(ctx context.Context) (string, bool) {
@@ -37,6 +57,7 @@ func (h Notifications) ListNotifications(ctx context.Context, request openapi.Li
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
+	h.materialise(ctx, userID)
 	q := query.List{UserID: userID}
 	if request.Params.Before != nil {
 		q.Before = request.Params.Before.String()
@@ -124,6 +145,7 @@ func (h Notifications) GetMySummary(ctx context.Context, _ openapi.GetMySummaryR
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
+	h.materialise(ctx, userID)
 	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{UserID: userID})
 	if err != nil {
 		return nil, err

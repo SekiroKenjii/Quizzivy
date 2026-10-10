@@ -235,6 +235,7 @@
       "opensToday": "Mở lúc {{time}} hôm nay",
       "opensOn": "Mở {{when}}",
       "opensHint": "Bạn bắt đầu được khi bài mở.",
+      "opensNotify": "Chúng tôi sẽ báo cho bạn khi bài mở.",
       "notOpen": "Bài này hiện không mở.",
       "notFound": "Không tìm thấy bài này, hoặc bài không được giao cho bạn.",
       "startTitle": "Bắt đầu ngay?",

@@ -12,7 +12,7 @@ import (
 
 type fakeStore struct {
 	t       *testing.T
-	allowed string
+	allowed []string
 	calls   int
 
 	notice  domain.Notice
@@ -25,17 +25,23 @@ type fakeStore struct {
 	page    domain.Page
 	unread  int
 	deleted int64
+
+	due       []domain.Notice
+	dueAt     time.Time
+	dueErr    error
+	inserted  []domain.Notice
+	insertErr error
 }
 
-func only(t *testing.T, method string) *fakeStore {
+func only(t *testing.T, methods ...string) *fakeStore {
 	t.Helper()
-	return &fakeStore{t: t, allowed: method}
+	return &fakeStore{t: t, allowed: methods}
 }
 
 func (f *fakeStore) call(method string) {
 	f.t.Helper()
 	f.calls++
-	if method != f.allowed {
+	if !slices.Contains(f.allowed, method) {
 		f.t.Errorf("the handler called %s; it may only call %q", method, f.allowed)
 	}
 }
@@ -88,6 +94,18 @@ func (f *fakeStore) DeleteBefore(_ context.Context, cutoff time.Time) (int64, er
 	f.call("DeleteBefore")
 	f.cutoff = cutoff
 	return f.deleted, nil
+}
+
+func (f *fakeStore) Due(_ context.Context, userID string, now time.Time) ([]domain.Notice, error) {
+	f.call("Due")
+	f.userID, f.dueAt = userID, now
+	return f.due, f.dueErr
+}
+
+func (f *fakeStore) InsertAbsent(_ context.Context, userID string, notices []domain.Notice) (int, error) {
+	f.call("InsertAbsent")
+	f.userID, f.inserted = userID, notices
+	return len(notices), f.insertErr
 }
 
 func over(store *fakeStore) *application.Application {

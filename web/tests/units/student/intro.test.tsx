@@ -540,6 +540,102 @@ describe("the cover under the action", () => {
   );
 });
 
+describe("what a paper that has not opened promises", () => {
+  const PREFERENCES = `${BASE}/me/notification-preferences`;
+  const EVENTS = [
+    "attempt.submitted",
+    "attempt.flagged",
+    "assignment.closing",
+    "assignment.due_soon",
+    "result.ready",
+  ] as const;
+
+  function switches(dueSoon: boolean) {
+    return EVENTS.map((event) => ({
+      event,
+      inApp: event === "assignment.due_soon" ? dueSoon : true,
+      email: false,
+    }));
+  }
+
+  function counting(dueSoon = true) {
+    const count = { read: 0 };
+    server.use(
+      http.get(PREFERENCES, () => {
+        count.read += 1;
+        return contractJson(
+          "/me/notification-preferences",
+          "get",
+          200,
+          switches(dueSoon),
+        );
+      }),
+    );
+    return count;
+  }
+
+  function waiting() {
+    show({
+      status: "scheduled",
+      opensAt: "2026-09-01T01:00:00Z",
+      closesAt: "2026-09-20T14:00:00Z",
+    });
+    return screen.findByRole("heading", { level: 1 });
+  }
+
+  it("says it will notify a student whose 'Test due soon' switch is on", async () => {
+    await waiting();
+    expect(
+      await screen.findByText("Chúng tôi sẽ báo cho bạn khi bài mở."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Bạn bắt đầu được khi bài mở.")).toBeNull();
+  });
+
+  it("keeps the plain line for a student who switched 'Test due soon' off", async () => {
+    const count = counting(false);
+    await waiting();
+    await waitFor(() => expect(count.read).toBe(1));
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.getByText("Bạn bắt đầu được khi bài mở.")).toBeInTheDocument();
+    expect(screen.queryByText("Chúng tôi sẽ báo cho bạn khi bài mở.")).toBeNull();
+  });
+
+  it("keeps the plain line while the switches are unread, then promises", async () => {
+    server.use(
+      http.get(PREFERENCES, async () => {
+        await delay(500);
+        return contractJson("/me/notification-preferences", "get", 200, switches(true));
+      }),
+    );
+    await waiting();
+    expect(screen.getByText("Bạn bắt đầu được khi bài mở.")).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(600));
+    expect(
+      await screen.findByText("Chúng tôi sẽ báo cho bạn khi bài mở."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the plain line when the switches cannot be read", async () => {
+    server.use(http.get(PREFERENCES, () => HttpResponse.json({}, { status: 500 })));
+    await waiting();
+    expect(await screen.findByText("Bạn bắt đầu được khi bài mở.")).toBeInTheDocument();
+  });
+
+  it("does not read the switches for a test that is open", async () => {
+    const count = counting();
+    show();
+    await screen.findByRole("button", { name: "Bắt đầu làm bài" });
+    expect(count.read).toBe(0);
+  });
+
+  it("does not read the switches for a student with no attempt left", async () => {
+    const count = counting();
+    show({ attemptsUsed: 2, maxAttempts: 2 });
+    await screen.findByText("Bạn đã dùng hết số lượt làm bài.");
+    expect(count.read).toBe(0);
+  });
+});
+
 describe("a paper that has not opened", () => {
   async function waiting(opensAt: string) {
     show({ status: "scheduled", opensAt, closesAt: "2026-09-20T14:00:00Z" });
@@ -576,7 +672,9 @@ describe("a paper that has not opened", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(calls).toEqual([]);
     expect(request).not.toHaveBeenCalled();
-    expect(screen.getByText("Bạn bắt đầu được khi bài mở.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Chúng tôi sẽ báo cho bạn khi bài mở."),
+    ).toBeInTheDocument();
   });
 
   it("takes 'not open yet' from the server, not from this device's clock", async () => {
@@ -1538,7 +1636,9 @@ describe("in English", () => {
       closesAt: "2026-09-20T14:00:00Z",
     });
     expect(await screen.findByRole("button")).toHaveAccessibleName("Opens Monday");
-    expect(screen.getByText("You can start once it opens.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("We will notify you when it opens."),
+    ).toBeInTheDocument();
   });
 
   it("reads today's opening in English", async () => {

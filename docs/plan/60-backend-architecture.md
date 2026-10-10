@@ -53,12 +53,33 @@ the "one package per feature" layout AGENTS.md described until then.
   - `AuthoredAssignmentIDs`: the assignments a teacher created;
   - `StudentIDs`: the students a teacher reaches;
   - `AssignmentIDs`: the assignments a teacher reaches;
-  - `Papers`: which attempts a list of papers shows.
+  - `Papers`: which attempts a list of papers shows;
+  - `PaperReaders`: `Papers` read the other way, the teachers who reach one
+    paper (the assignment's creator and the teachers of a target class the
+    student belongs to), which notifications use to tell exactly them; a test
+    holds it equal to `Papers` over a world with every route to a student;
+  - `Roster`: the accounts an assignment is addressed to.
 
   identity, classes, assignments, attempts and dashboard splice them into
   their own statements, and callers lift them under `scope.all`. Like
   `shared/audit`, it is SQL in the kernel, because a port cannot splice a
   predicate into another module's list or aggregate.
+- **Telling after commit.** A module that causes a notification declares a
+  `Notifier` port typed as the notifications `Notify` handler (attempts,
+  assignments and classes each do; wiring hands them
+  `notificationsApp.Commands.Notify`), and tells through `shared/cqrs.Announce`
+  once its own transaction has committed. `Announce` runs a `build` function that
+  reads what the notice says and returns the commands, then hands each to the
+  handler under a ten-second budget and a context that keeps the request's values
+  and not its end, so a client that went away after the commit still gets its
+  teacher told. A failure of either is logged once with how many commands went
+  undelivered and is never returned; a nil handler reads nothing. A repository
+  that cannot know a notice's audience returns `domain.Milestones` (attempts:
+  the paper was handed in, flagged by the policy, or graded) and the command
+  asks `Briefing` for the rest in a read of its own, so nothing about a
+  notification runs inside the write. attempts' `Announcer` and assignments'
+  `TellMoved` and `TellGranted` build the commands; the dedupe key formats
+  are `notifications/domain/dedupe.go`'s, in one place.
 - **The answered rule in the kernel.** `shared/answered.SaysSomething` is the
   one SQL definition of a saved answer that says something. assignments (the
   student's card) and attempts (the teacher's monitor) splice it, so the two
