@@ -7,8 +7,8 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-10, 08:40 UTC.
-- **Base:** `work/redesign-r4` at `5d31013e` (T-R4.62b merged, #450).
+- **As of:** 2026-10-10, 16:40 UTC.
+- **Base:** `work/redesign-r4` at `5b4e7355` (T-R4.30 merged, #469).
 - **Objective:** R4 to v0.10.0, then D4 (v0.11.0), which absorbs the design team's v2 export
   and builds the AI assistant (T-24). Done pull requests into the integration branch merge
   without asking the user (T-22); a release to `main`, a hotfix or a critical PR waits for
@@ -17,14 +17,13 @@ start at [README.md](README.md) "Resuming".
 
   | Task | PR | Owner | State |
   |---|---|---|---|
-  | T-R4.29 tests list | #448 | frontend, lane 2 | VER-29 PASS WITH FINDINGS; QA-29-1 fixed by the Tech Lead (`579dffbf`); r4 merged (`1272b6d4`); merge on green CI |
-  | QA-66a-1 builder autosave crash | #452 | frontend, lane 1 | the tester's retest, then merge |
-  | T-R4.12b deadline recompute | #451 | backend | the Tech Lead's review found R12b-1 (`Update` and `Reopen` must recompute too); fix round, then VER-12 (12a and 12b) |
-  | FONT-1 text in fallback fonts | none yet (`fix/font-fallback`) | frontend, lane 3 | DG-141, r4 merge and the spec §12 rules, then the PR |
-  | T-R4.66b | none yet | frontend, lane 1 | implementing, with QA-66a-2 and 3; merges r4 after #450 and #452 |
-  | T-R4.57 | none yet | frontend, lane 2 | implementing; then F-36, then T-R4.30 |
-  | T-R4.13 | none yet | backend | after R12b-1; then 10b |
-  | T-R4.32 | none yet | frontend, lane 3 | after FONT-1 |
+  | T-R4.34 question groups | #471 | frontend, lane 3 | VER-34 PASS WITH FINDINGS; round 2 (QA-34-1, QA-34-3, copy, and observation 6, a possible content loss); QA-34-2 is closed by #474 |
+  | T-R4.33 question editor | #474 | frontend, lane 1 | CI green; VER-33 running |
+  | T-R4.8 profile photo | #472 | backend 1 | security review: SR-472-1 (major) to SR-472-4 in a fix round; then the user (T-22) |
+  | T-R4.9 signed-in devices | #473 | backend 2 | security review approved; waits on the user (T-22) |
+  | T-R4.38 import review | none yet | frontend, lane 2 | implementing (DG-147 to 149) |
+  | T-R4.46 teacher integrity | none yet | frontend, lane 3 | parked while #471's round 2 runs (DG-150 to 152) |
+  | F-46 next version on `Test` | none yet | backend 2 | implementing |
 
 ## Roster and models
 
@@ -54,37 +53,31 @@ Taken from merged pull requests on 2026-10-10. The plan's "Done when" boxes lag 
   (#422), 16b (#423), 17a, 17b, 19, 21, 22, 23, 25, 28 (#416), 31a (#414), 35 (#428), 36, 37,
   45a, 51a, 51b, 53, 54, 55, 56, 62a (#426), 62b (#450), 63 (#424), 64a–d (#430, #433, #435,
   #436), 66a (#446); the fixes #427 (`x/tools`), #437 (F-27), #438 (F-23), #439 (F-30), #440
-  (T-19), #441 (F-31), #442 (FLAKE-1), #443 (F-34) and #449 (F-35, by the user); the D4
+  (T-19), #441 (F-31), #442 (FLAKE-1), #443 (F-34) and #449 (F-35, by the user); on
+  2026-10-10, 10b (#462), 12b (#451), 13 (#456), 27a (#458), 27b (#468), 29 (#448), 30
+  (#469), 31b (#467), 31b-2 (#470), 32 (#455), 57 (#459), 65 (#461) and 66b (#457), with the
+  fixes #452 (QA-66a-1), #454 (FONT-1), #460 and #463 (F-20), #464 (F-36), #465 (F-43) and
+  #466 (the gates), and the docs #453; the D4
   plan (#444, #445); and, from before the team, the plan corrections (#351, titled T-R4.0,
   not a plan task), the develop syncs (#344, #352, #364, #379, #396, #402) and the team
   (#420, #421).
 - **In flight:** see the checkpoint.
-- **Order:** W3-PLAN (T-23). Frontend lane 1: 66b → 65 → 31b → 33. Lane 2: 29 → 30 → 57 →
-  38 → 39 → 43 → 44 → 45b → 6. Lane 3: 32 → 27a → 27b → 34 → 46 → 47 → 26a → 24 → 26b →
-  40 → 41 → 42. Backend stream A: 12b → 13 → 10b; stream B (8 → 9 → 20 → 18) starts when a
-  slot frees. Close-out (T-R4.48 to 52) comes last.
+- **Order:** W3-PLAN (T-23). Lane 1: 33, then a task from lane 3's tail (24 or 40) when it
+  frees. Lane 2: 38 → 39 → 43 → 44 → 45b → 6. Lane 3: 34 → 46 → 47 → 26a → 24 → 26b → 40 →
+  41 → 42. Backend: stream A is done (12b, 13, 10b, F-43); stream B is 8 (#472) and 9 (#473),
+  then F-46, 20 and 18 (18 waits for 8). Close-out (T-R4.48 to 52) comes last.
 - **Migration numbers:** 00092 (16a), 00097 and 00098 (62a), 00099 and 00100 (11), 00101
-  (12a). The next free number is 00102; the W1-APPROACH reservations are void, and T-5
-  governs.
+  (12a), 00102 (9, #473). The next free number is 00103; T-5 governs.
 
 Still waiting on an unmerged dependency:
 
 | Task | Waits for |
 |---|---|
-| T-R4.6 command palette | 13 |
-| T-R4.10b notification producers | 12b |
-| T-R4.18 class schedule and room | 8 |
-| T-R4.24 assignments list | 12b, 13 |
-| T-R4.26 assignment Questions and Settings | 12b, 13 |
-| T-R4.27b wizard schedule and rules | 27a |
-| T-R4.30 test detail | 29 |
-| T-R4.65 | 66b |
-| T-R4.31b builder editor pane, T-R4.33 question editor | 65, 66b (and 30 for 31b) |
-| T-R4.39 import preview | 30 |
+| T-R4.18 class schedule and room | 8 (#472) |
 | T-R4.40 students | 20 |
 | T-R4.41, 42 classes | 18 |
-| T-R4.43, 44 settings | 8, 9 |
-| T-R4.45b bell and student settings | 10b, 8 |
+| T-R4.43, 44 settings | 8 (#472), 9 (#473) |
+| T-R4.45b bell and student settings | 8 (#472) |
 | T-R4.47 attempt review | 46 |
 
 ## Environment baseline
@@ -243,6 +236,31 @@ and any reversal of the defaults above.
   branch for a conflict, before a reviewer's or the tester's run, or before the merge
   when the base has moved since the last green run.
 
+- **T-28 (2026-10-10).** After INC-1, every commit is checked before it is made:
+  `git status` and `git diff --cached --stat` list only the files meant, paths are added
+  explicitly (no `add -A`, `add .` or `commit -a`), commits someone else pushed are taken
+  with `fetch` and `merge --ff-only` after committing one's own work (never `reset --soft`,
+  `update-ref` or `branch -f` under an older working tree), and before a push the diff
+  against the integration branch lists only the task's files. The Tech Lead's worktrees
+  are detached and push with `HEAD:<branch>`, so no branch is checked out twice.
+- **T-29 (2026-10-10).** A security-sensitive PR (authentication, sessions, decoding of an
+  upload, credentials) gets the Principal's read-only security review before it goes to the
+  user (T-22). Its verdict and findings are posted on the PR, and a major finding is fixed
+  in the PR, not followed up.
+- **T-30 (2026-10-10).** When several lanes add rows at once, the Tech Lead reserves
+  design-gap numbers per lane (DG-146 for T-R4.33, 147 to 149 for lane 2, 150 to 152 for
+  lane 3). Spec versions are settled at merge: the second of two PRs to merge renumbers.
+- **T-31 (2026-10-10).** Teacher wall-clock inputs stay in Asia/Ho_Chi_Minh until T-R4.43
+  moves them all to the account's zone at once (spec v0.57). T-R4.27b's wizard follows this,
+  and T-R4.43 carries the Done-when line.
+- **T-32 (2026-10-10).** A tester on a live stack logs in once per role and reuses the
+  Playwright `storageState`, so the sign-in limiter never stops a verification. An agent
+  refused a permission stops and reports it; the Tech Lead does not perform that action for
+  it and tells the user (VER-30).
+- **T-33 (2026-10-10).** A PR that changes no behaviour and whose live spec CI runs
+  (T-R4.31b-2) may merge on the Tech Lead's review without a VER round; T-R4.51 measures
+  every route against the deck again.
+
 ## Findings and open items
 
 | ID | Finding | Owner | State |
@@ -272,7 +290,7 @@ and any reversal of the defaults above.
 | F-16 | `copy-field.test.tsx` "copies the value and says so for two seconds" failed once on CI (fake timers with `shouldAdvanceTime`). | senior_swe_frontend | open |
 | F-17 | T-R4.47 must also carry `mediaAlt` on the server side of the attempt review (`review_review.go`, `toAPIReviewQuestion`); its plan section names only web files. | T-R4.47 | open |
 | F-19 | The tester's API inherited the heavy lock from a locked start and held it for 45 minutes. | Tech Lead | fixed: T-13's `-o` |
-| F-20 | The reader's bundle imports `@/lib/i18n`, which bundles both locale dictionaries, so every string added anywhere grows the student's budget. Proposal: load the inactive locale lazily. | senior_swe_frontend, principal_swe | open: after the critical path, or R5 |
+| F-20 | The reader's bundle imports `@/lib/i18n`, which bundles both locale dictionaries, so every string added anywhere grows the student's budget. Proposal: load the inactive locale lazily. | senior_swe_frontend, principal_swe | fixed (#460, #463) |
 | F-21 | Dialogs opened from a menu item without `returnFocus`: the rebuilt AssignmentDetailPage (Close early, Reopen) and the pages not yet rebuilt. | each rebuild task; a small fix for AssignmentDetailPage | open |
 | F-22 | A new accessible name containing an existing field label shadows a bare `getByLabel` in `*.live.spec.ts`, which `pnpm e2e` does not run. | every brief | closed: grep the live specs when a label changes; prefer `getByRole` with `exact` |
 | F-23 | The join-code rotation and a redemption took the class and code rows in opposite orders and deadlocked; the retry could deadlock again. | senior_swe_backend | fixed (#438): the writers take the class row `FOR NO KEY UPDATE` |
@@ -288,10 +306,26 @@ and any reversal of the defaults above.
 | F-33 | Spec §7's answer type still lists `{type:'true_false'; value: boolean}`; the engine writes `choice` and the server grades both. | Tech Lead | open: a sentence that the boolean form is legacy input, in the next spec change of the Tech Lead's |
 | F-34 | `assignment-sheet-presence.test.tsx`'s cold first test missed `findBy`'s one second under load. | senior_tester | fixed (#443) |
 | F-35 | `builder-group-recovery.spec.ts` failed when Back came within ~60 ms of the URL change. | the user | fixed (#449); an app-side guard for the six `useBlocker` callers is optional |
-| F-36 | The tests list: select-all, the "not shown" count, and a stubbed e2e for a failed Duplicate and a failed bulk delete (T-25). | senior_swe_frontend, lane 2 | open: after T-R4.57 |
-| F-37 | Decomposed (NFD) text from the server still falls back in plain fields such as a test title. Proposal: `content.Normalize` and `norm.NFC` in the command handlers (never passwords, tokens, emails or join codes), and a one-off backfill that skips published snapshots. | senior_swe_backend | open: when a slot frees |
-| QA-66a-1 | A failed builder autosave crashed the page (React #185). The cause was `MarqueeText` flipping as the "Not saved" label shrank the title. | senior_swe_frontend, lane 1 | fix in #452; QA-452-1 (the label unusable below 1280) in its fix round |
-| R12b-1 | `updateAssignment` and `reopenAssignment` change an assignment's window without recomputing in-progress deadlines or taking the windows lock. | senior_swe_backend | fix round on #451 |
+| F-36 | The tests list: select-all, the "not shown" count, and a stubbed e2e for a failed Duplicate and a failed bulk delete (T-25). | senior_swe_frontend, lane 2 | fixed (#464) |
+| F-37 | Decomposed (NFD) text from the server still falls back in plain fields such as a test title. Proposal: `content.Normalize` and `norm.NFC` in the command handlers (never passwords, tokens, emails or join codes), and a one-off backfill that skips published snapshots. | senior_swe_backend | open: waits on the user's go, because the backfill rewrites populated tables (T-22) |
+| QA-66a-1 | A failed builder autosave crashed the page (React #185). The cause was `MarqueeText` flipping as the "Not saved" label shrank the title. | senior_swe_frontend, lane 1 | fixed (#452) |
+| R12b-1 | `updateAssignment` and `reopenAssignment` change an assignment's window without recomputing in-progress deadlines or taking the windows lock. | senior_swe_backend | fixed (#451) |
+| F-38 | The tag search box's radius is 10px where the deck draws 8. | the next task touching `TagCombobox` | open |
+| F-39 | The long relative time ("Updated …") wraps in table cells; a short form for cells is a decision across screens. | Tech Lead | open |
+| F-40 | Builder and integration tests time out under parallel load (`editor-pane`, `grading-finish-recovery`, `assignment-note-recovery-focus`, `intervention-return-focus`); each passes alone. | senior_tester | open: raise a timeout in its own commit, never loosen an assertion |
+| F-41 | Teacher-only namespaces sit in the student's dictionary (about half of it). | R5 | open |
+| F-42 | The export limiter is a token bucket; the contract's wording could say so. | senior_swe_backend | open |
+| F-44 | Media copy: raw bytes in a size refusal, "This file cannot be used" for a server failure, and `media.empty` naming listening files in the image library. | senior_swe_frontend | open |
+| F-45 | A phone photo (4032 x 3024) is over the avatar's 2048 side; the client downscales on a canvas before uploading. | T-R4.43 | open |
+| F-46 | "Publish version {n}" counts from the versions listed, not from `last_published_version + 1`, so it is wrong after the newest version is deleted (measured in VER-30). | senior_swe_backend | in progress: `Test.nextVersion` |
+| F-47 | `Segmented` is 30px under `data-scale="deck"`, where the deck draws 32 (QA-27b-2). | senior_swe_frontend | open |
+| F-48 | `DateTimePicker` edits through a browser-local `Date` (a DST hour is unreachable in New York), a save drops seconds, and `NumberStepper` does not select on Enter. | senior_swe_frontend | open |
+| F-49 | Two tabs of one device refresh separately, so an epoch bump can trip reuse detection (R-06 residual, about 0.5% per revoke per extra visible tab). | senior_swe_frontend with the Principal | open: a cross-tab refresh lock in `client.ts`, a canary area |
+| F-50 | `FormDialog` puts initial focus on Close, not on the first field. | senior_swe_frontend | open |
+| F-51 | `listTestVersions` answers 200 with no items and `previewTest` 409 for a missing or another teacher's test; consistent with a missing id, but not a 404. | senior_swe_backend | open |
+| INC-1 | `909115d4` on #469 reverted 49 files: it was committed from a working tree older than the Tech Lead's merge of the integration branch. The gates passed, because the old tree is self-consistent. | Tech Lead | fixed (`31c37362`) before the merge; T-28 |
+| SR-472-1 to 4 | The Principal's security review of #472: a progressive JPEG of near-empty scans holds a decode slot for minutes (major); the PNG estimate misses Adam7 and `tRNS`; a decoder panic leaves no trace; a 2 MiB file cannot be uploaded. | senior_swe_backend | fix round on #472 |
+| QA-34-6 | In the material editor, an image inserted at an audio block's cursor seemed to replace the audio block (VER-34, observation 6). | senior_swe_frontend, lane 3 | investigating in #471's round 2 |
 
 ## Reviews
 
@@ -360,16 +394,21 @@ and any reversal of the defaults above.
   took over (#414, #416) never had a recorded code review before that; they got REV-414 and
   REV-416 before merging.
 
+- **2026-10-10, afternoon.** VER-27b, VER-31b, VER-30 and VER-34 each passed with findings,
+  and no finding was major; each minor one was fixed before its merge or filed (F-46 to
+  F-48, F-50, F-51). VER-30 stopped early when the tester's restart of its own API was
+  refused (T-32); CI's live job and T-R4.51 cover what it did not measure. The Principal's
+  security review (T-29): #472 approve with changes (SR-472-1, major), #473 approve, with
+  SR-473-1 and SR-473-2 recorded in T-R4.9's "As built".
+
 ## Next action
 
 As each hand-off arrives:
-- **#448** merges on green CI; lane 2 then does T-R4.57, F-36 and T-R4.30.
-- **#452's fix round (QA-452-1)** goes to the tester's targeted re-check, then merges;
-  lane 1 resumes 66b, which merges r4 after #452.
-- **#451's fix round (R12b-1)** goes to VER-12 (12a and 12b), then merges; the backend
-  takes T-R4.13, then 10b.
-- **FONT-1** opens as a PR after its r4 merge, DG-141 and the spec §12 rules, then merges;
-  lane 3 starts T-R4.32.
-- **The next free slot** goes to the second backend stream (8 → 9 → 20 → 18), then to the
-  platform's gates PR (caches, a two-slot lock, a reusable live API; measure before and
-  after) and F-24.
+- **#471** merges after round 2 and green CI; lane 3 then resumes T-R4.46.
+- **#474** merges after VER-33; lane 1 takes the next task (24 or 40).
+- **#472** goes to the user once SR-472-1 to 4 are fixed and CI is green; **#473** waits on
+  the user. Whichever of the two merges second resolves the pinned counts, the golden, the
+  per-actor table and the generated code.
+- **F-46** opens as a PR; backend 2 then takes T-R4.20.
+- **Lane 2** finishes T-R4.38, then 39.
+- **F-37** waits on the user's go.
