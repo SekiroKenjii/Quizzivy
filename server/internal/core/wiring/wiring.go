@@ -50,7 +50,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	previousKeyID, rotating := keys.PreviousID()
 	logger.Info("join code keys", "current_key_id", keys.CurrentID(), "previous_key_id", previousKeyID, "rotating", rotating)
-	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify)
+	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify, logger)
 	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember)
 	if err != nil {
 		return Assembly{}, err

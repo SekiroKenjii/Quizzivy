@@ -23,11 +23,16 @@ func (s EnrolNewMemberHandler) Handle(ctx context.Context, cmd EnrolNewMember) (
 	if !ok {
 		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
 	}
-	return s.Repo.Enrol(ctx, domain.EnrolInput{
+	result, err := s.Repo.Enrol(ctx, domain.EnrolInput{
 		Code:      code,
 		NewMember: &cmd.Member,
 		Now:       s.Now(),
 		IP:        opt.String(cmd.Meta.IP),
 		UserAgent: opt.String(cmd.Meta.UserAgent),
 	})
+	if err != nil {
+		return result, err
+	}
+	s.Joined(ctx, result)
+	return result, nil
 }
