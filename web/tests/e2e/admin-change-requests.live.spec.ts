@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   chooseOption,
   goAway,
+  publishInBuilder,
   signInAsAdmin,
   signInAsStudent,
   startAttempt,
@@ -13,15 +14,14 @@ async function addQuestion(page: Page, prompt: string) {
   await page
     .getByRole("button", { name: "Thêm câu hỏi vào Phần 1", exact: true })
     .click();
-  const input = page.getByLabel("Nội dung câu hỏi", { exact: true });
-  await expect(input).toHaveValue("Câu hỏi mới — nhập nội dung ở đây");
+  const input = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  await expect(input).toHaveText("");
   await input.click();
-  await expect(input).toHaveValue("");
   await input.fill(prompt);
 }
 
 async function publish(page: Page, version: number) {
-  await page.getByRole("button", { name: "Phát hành", exact: true }).click();
+  await publishInBuilder(page);
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/);
   await expect(page.getByText(`Bản đang phát hành · v${version}`)).toBeVisible();
 }
@@ -49,38 +49,31 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
   await addQuestion(page, "First saved prompt");
-  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
-  const settings = page.getByRole("dialog", { name: "Cài đặt câu hỏi", exact: true });
-  await expect(settings).toBeVisible();
+  await page.getByText("Tuỳ chọn khác", { exact: true }).click();
   await page.getByLabel("Thẻ", { exact: true }).fill("Ngữ pháp CR");
   await page.getByLabel("Thẻ", { exact: true }).press("Enter");
-  await page.keyboard.press("Escape");
-  await expect(settings).toBeHidden();
   await addQuestion(page, "Second prompt");
-  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
-  await expect(settings).toBeVisible();
+  await page.getByText("Tuỳ chọn khác", { exact: true }).click();
   await page.getByLabel("Thẻ", { exact: true }).fill("ngu phap cr");
   await expect(
     page.getByRole("button", { name: "Ngữ pháp CR", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Ngữ pháp CR", exact: true }).click();
-  await page.keyboard.press("Escape");
-  await expect(settings).toBeHidden();
   await page.getByRole("button", { name: "First saved prompt", exact: true }).click();
-  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveText(
     "First saved prompt",
   );
   await page
     .getByLabel("Nội dung câu hỏi", { exact: true })
     .fill("First updated promptly");
   await page.getByRole("button", { name: "Second prompt", exact: true }).click();
-  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveText(
     "Second prompt",
   );
   await page
     .getByRole("button", { name: "First updated promptly", exact: true })
     .click();
-  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveText(
     "First updated promptly",
   );
 
@@ -192,7 +185,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await page
     .getByRole("button", { name: "First updated promptly", exact: true })
     .click();
-  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveText(
     "First updated promptly",
   );
   await publish(page, 3);

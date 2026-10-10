@@ -143,3 +143,18 @@ export async function assignToClass(page: Page, title: string) {
   await page.getByRole("button", { name: "Giao bài", exact: true }).click();
   await expect(page).toHaveURL(/\/teacher\/assignments$/, { timeout: 30_000 });
 }
+
+/**
+ * publishInBuilder publishes the open builder's draft through "Publish test?",
+ * waits for the builder to say so, and opens the test's own page.
+ */
+export async function publishInBuilder(page: Page) {
+  const id = new URL(page.url()).pathname.split("/").at(-2);
+  await page.getByRole("button", { name: "Phát hành", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Phát hành đề thi?", exact: true });
+  await dialog.getByRole("button", { name: "Phát hành", exact: true }).click();
+  await expect(page.getByText("Đã phát hành. Giờ bạn có thể giao bài.")).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.goto(`/teacher/tests/${id}`);
+}

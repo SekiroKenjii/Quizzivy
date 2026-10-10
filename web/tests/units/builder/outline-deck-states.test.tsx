@@ -1,13 +1,6 @@
 import { useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
@@ -250,6 +243,7 @@ describe("the bank picker", () => {
           <QuestionPickerDialog
             open={open}
             excluded={new Set()}
+            destination={null}
             returnFocus={opener}
             onOpenChange={setOpen}
             onPick={vi.fn()}
@@ -262,7 +256,7 @@ describe("the bank picker", () => {
     const button = screen.getByRole("button", { name: "Từ ngân hàng câu hỏi" });
 
     fireEvent.click(button);
-    within(await screen.findByRole("dialog")).getByRole("textbox");
+    await screen.findByRole("dialog", { name: "Thêm từ ngân hàng câu hỏi" });
     await user.keyboard("{Escape}");
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
