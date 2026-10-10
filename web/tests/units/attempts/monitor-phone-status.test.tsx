@@ -79,3 +79,57 @@ describe("phone roster flag and focus information", () => {
     },
   );
 });
+
+describe("the flag marker where the Focus lost column is hidden", () => {
+  it("names a flagged row from 560 to 700 and leaves an unflagged one unmarked", () => {
+    contentWidth(650);
+    useAuthStore.getState().setSession("token", teacherUser);
+    const [first, second] = defaultRows();
+    const flagged = { ...first!, flagged: true, focusLossCount: 4 };
+    const calm = { ...second!, flagged: false, focusLossCount: 1 };
+    const router = createMemoryRouter([
+      {
+        path: "/",
+        element: (
+          <div data-scale="deck">
+            <Monitor
+              assignment={assignment()}
+              data={monitor([flagged, calm])}
+              selectedAttempt={null}
+              onOpen={vi.fn()}
+              onRefresh={async () => {}}
+            />
+          </div>
+        ),
+      },
+    ]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    const table = screen.getByRole("table");
+    expect(
+      within(table).getByRole("columnheader", { name: i18n.t("monitor.state") }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).queryByRole("columnheader", {
+        name: i18n.t("assignmentDetail.focusLost"),
+      }),
+    ).toBeNull();
+    const label = `${i18n.t("status.attention.flagged")} · ${i18n.t("assignmentDetail.focusCount", { count: 4 })}`;
+    const marker = within(
+      screen.getByRole("row", { name: new RegExp(flagged.fullName) }),
+    ).getByRole("img", { name: label });
+    expect(marker).toHaveTextContent(/^4×$/);
+    const flaggedRow = screen.getByRole("row", { name: new RegExp(flagged.fullName) });
+    expect(flaggedRow).toHaveClass("bg-danger-soft", "hover:bg-danger-soft");
+    expect(flaggedRow).not.toHaveClass("hover:bg-muted");
+    expect(
+      within(screen.getByRole("row", { name: new RegExp(calm.fullName) })).queryByRole(
+        "img",
+        { name: new RegExp(i18n.t("status.attention.flagged")) },
+      ),
+    ).toBeNull();
+  });
+});

@@ -115,11 +115,12 @@ export function Monitor({
             <Avatar name={row.fullName} className="text-2xs size-7.5" />
             <span className="min-w-0">
               <span className="block truncate font-medium">{row.fullName}</span>
-              {!visible.has("status") && (
+              {(!visible.has("status") || (!visible.has("focus") && row.flagged)) && (
                 <span className="flex min-w-0 items-center gap-1 text-xs leading-4">
-                  <RowStatus row={row} compact />
-                  {row.flagged && (
+                  {!visible.has("status") && <RowStatus row={row} compact />}
+                  {row.flagged && !visible.has("focus") && (
                     <span
+                      role="img"
                       className="inline-flex shrink-0 whitespace-nowrap"
                       aria-label={`${t("status.attention.flagged")} · ${row.focusLossCount == null ? "—" : t("assignmentDetail.focusCount", { count: row.focusLossCount })}`}
                     >
