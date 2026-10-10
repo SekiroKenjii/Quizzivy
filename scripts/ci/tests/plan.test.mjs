@@ -130,6 +130,18 @@ test('a hash moves only when a file of the set changes', () => {
   );
 });
 
+test('the local scripts under scripts/dev move no hash, and no job reads them', () => {
+  for (const [name, set] of Object.entries(SETS)) {
+    assert.equal(inSet(set, 'scripts/dev/heavy.sh'), false, name);
+  }
+  const text = readFileSync(new URL('../../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  assert.ok(!text.includes('scripts/dev'), 'ci.yml reads scripts/dev');
+  for (const action of ['db-tools', 'minio', 'record', 'web']) {
+    const body = readFileSync(new URL(`../../../.github/actions/${action}/action.yml`, import.meta.url), 'utf8');
+    assert.ok(!body.includes('scripts/dev'), `${action} reads scripts/dev`);
+  }
+});
+
 test('a renamed file changes the hash although its content does not', () => {
   assert.notEqual(hashOf(SETS.server, [entry('server/a.go')]), hashOf(SETS.server, [entry('server/b.go')]));
 });

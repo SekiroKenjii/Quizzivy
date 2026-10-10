@@ -8,6 +8,7 @@ const MACHINERY = ['.github/workflows/ci.yml', '.github/actions/', 'scripts/ci/'
 const NOT_CODE = [
   'docs/',
   '.claude/',
+  'scripts/dev/',
   'AGENTS.md',
   'CONTRIBUTING.md',
   'README.md',
