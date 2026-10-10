@@ -43,8 +43,8 @@ func (f fakeStudents) handler() attemptshttp.Students {
 }
 
 type reviewedSitter struct {
-	FullName string `json:"fullName"`
-	Role     string `json:"role"`
+	FullName string  `json:"fullName"`
+	Role     *string `json:"role"`
 }
 
 func reviewWith(t *testing.T, account identitydomain.Account) (reviewedSitter, string) {
@@ -99,7 +99,17 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 		ID: "01935000-0000-7000-8000-0000000000a2", Email: "an@example.com", FullName: "Nguyễn Văn An",
 		HasPassword: true, CreatedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
 	})
-	if sitter.FullName != "Nguyễn Văn An" || title != "Unit 5" {
+	if sitter.FullName != "Nguyễn Văn An" || sitter.Role != nil || title != "Unit 5" {
+		t.Errorf("sitter = %+v, title = %q", sitter, title)
+	}
+}
+
+func TestAReviewOpensAStaffSittersPaper(t *testing.T) {
+	sitter, title := reviewWith(t, identitydomain.Account{
+		ID: "01935000-0000-7000-8000-0000000000a3", Email: "admin@example.com", FullName: "Quản trị",
+		HasPassword: true, CreatedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+	})
+	if sitter.FullName != "Quản trị" || sitter.Role != nil || title != "Unit 5" {
 		t.Errorf("sitter = %+v, title = %q", sitter, title)
 	}
 }
