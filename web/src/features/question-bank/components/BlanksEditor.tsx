@@ -55,7 +55,7 @@ export function BlanksEditor({
           {t("questionEditor.blanks")}
         </span>
         <span className="text-muted-foreground text-xs">
-          {t("questionEditor.blanksHint")}
+          {t("questionEditor.blanksHint", { first: "{{1}}", second: "{{2}}" })}
         </span>
       </div>
 

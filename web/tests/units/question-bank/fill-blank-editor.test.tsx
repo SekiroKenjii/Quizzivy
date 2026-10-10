@@ -52,6 +52,14 @@ describe("the fill_blank editor's placeholder check", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("shows the markers to type, not the translation's quoting", () => {
+    renderBlanks("She {{1}} here.", [blank(1)]);
+
+    expect(
+      screen.getByText("Đánh dấu chỗ trống trong đề bài bằng {{1}}, {{2}}"),
+    ).toBeInTheDocument();
+  });
+
   it("renumbers the remaining blanks so none is left unaddressable", async () => {
     const user = renderBlanks("She {{1}} here.", [blank(1), blank(2)]);
 

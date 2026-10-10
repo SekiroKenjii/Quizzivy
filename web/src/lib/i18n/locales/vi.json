@@ -670,7 +670,7 @@
     "audioShowTranscript": "Hiện lời thoại sau khi nộp",
     "blankOrdinal": "Chỗ trống {{n}}",
     "blanks": "Chỗ trống",
-    "blanksHint": "Đánh dấu chỗ trống trong đề bài bằng {{'{{1}}'}}, {{'{{2}}'}}",
+    "blanksHint": "Đánh dấu chỗ trống trong đề bài bằng {{first}}, {{second}}",
     "caseSensitive": "Phân biệt hoa thường",
     "explanation": "Giải thích",
     "explanationHint": "— học viên xem sau khi nộp, nếu bài giao cho phép",

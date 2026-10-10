@@ -670,7 +670,7 @@
     "audioShowTranscript": "Show transcript after submit",
     "blankOrdinal": "Blank {{n}}",
     "blanks": "Blanks",
-    "blanksHint": "Mark blanks in the question text with {{'{{1}}'}}, {{'{{2}}'}}",
+    "blanksHint": "Mark blanks in the question text with {{first}}, {{second}}",
     "caseSensitive": "Case sensitive",
     "explanation": "Explanation",
     "explanationHint": "— shown after submit, if the assignment allows it",
