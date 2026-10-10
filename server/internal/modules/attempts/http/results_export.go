@@ -54,9 +54,9 @@ func (h Attempts) ExportResultsCsv(ctx context.Context, request openapi.ExportRe
 }
 
 func tooLargeExport(ctx context.Context) openapi.ErrorResponse {
-	message := httpx.Text(ctx,
-		fmt.Sprintf("Các bài giao này có hơn %d dòng. Hãy chọn ít bài giao hơn.", domain.MaxExportRows),
-		fmt.Sprintf("These assignments hold more than %d rows. Pick fewer.", domain.MaxExportRows))
+	message := fmt.Sprintf(httpx.Text(ctx,
+		"Các bài giao này có hơn %d dòng. Hãy chọn ít bài giao hơn.",
+		"These assignments hold more than %d rows. Pick fewer."), domain.MaxExportRows)
 	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, message)
 	details := map[string]interface{}{"ids": message}
 	resp.Error.Details = &details
