@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/shared/paging"
 	"quizzivy/internal/shared/schedule"
 	"quizzivy/internal/shared/visibility"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -84,7 +85,10 @@ func selectAssignment(all, viewer int) string {
 		            SELECT ast.user_id FROM app.assignment_students ast
 		             WHERE ast.assignment_id = a.id AND ` + reached + `
 		        ) roster
-		        JOIN app.users u ON u.id = roster.user_id AND u.disabled_at IS NULL)
+		        JOIN app.users u ON u.id = roster.user_id AND u.disabled_at IS NULL),
+		       (SELECT count(*) FROM app.test_version_sections vs
+		          JOIN app.test_version_questions vq ON vq.test_version_section_id = vs.id
+		         WHERE vs.test_version_id = a.test_version_id)
 		  FROM app.assignments a
 		  JOIN app.tests t ON t.id = a.test_id
 		  JOIN app.test_versions v ON v.id = a.test_version_id
@@ -101,7 +105,7 @@ func scanAssignment(row pgx.Row) (domain.Assignment, error) {
 		&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
 		&a.Integrity.MaxFocusLoss, &a.Integrity.OnLimitExceeded, &a.Integrity.MinAwayMs,
 		&a.StudentNote, &a.Classes, &a.Students, &a.UpdatedAt, &a.PendingGradingCount, &a.PendingManualCount,
-		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount)
+		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount, &a.QuestionCount)
 	return a, err
 }
 
@@ -131,7 +135,7 @@ func (s *Postgres) get(ctx context.Context, q db.Querier, scope access.Scope, id
 // Facets counts every status within the same narrowing List applies, minus
 // the status itself, so the tabs never disagree with the rows.
 func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Facets, error) {
-	where, args := narrow(domain.ListInput{ClassID: in.ClassID, Scope: in.Scope, EveryTarget: in.EveryTarget})
+	where, args := narrow(domain.ListInput{ClassIDs: in.ClassIDs, Query: in.Query, Scope: in.Scope, EveryTarget: in.EveryTarget})
 	var f domain.Facets
 	err := s.QueryRow(ctx, `
 		SELECT count(*),
@@ -162,12 +166,25 @@ func narrow(in domain.ListInput) ([]string, []any) {
 		args = append(args, string(*in.Status))
 		where = append(where, fmt.Sprintf(schedule.DerivedStatus+` = $%d`, len(args)))
 	}
-	if in.ClassID != nil {
-		args = append(args, *in.ClassID)
+	if len(in.ClassIDs) > 0 {
+		args = append(args, in.ClassIDs)
 		where = append(where, fmt.Sprintf(`EXISTS (SELECT 1 FROM app.assignment_classes ac
-		                   WHERE ac.assignment_id = a.id AND ac.class_id = $%d::uuid`, len(args))+classTaught+`)`)
+		                   WHERE ac.assignment_id = a.id AND ac.class_id = ANY($%d::uuid[])`, len(args))+classTaught+`)`)
+	}
+	if q := strings.TrimSpace(in.Query); q != "" {
+		args = append(args, db.EscapeLike(q))
+		where = append(where, searched(len(args), classTaught))
 	}
 	return where, args
+}
+
+func searched(n int, classTaught string) string {
+	like := func(column string) string {
+		return fmt.Sprintf(`app.immutable_unaccent(lower(%s)) LIKE '%%' || app.immutable_unaccent(lower($%d)) || '%%' ESCAPE '\'`, column, n)
+	}
+	return `(EXISTS (SELECT 1 FROM app.tests t WHERE t.id = a.test_id AND ` + like("t.title") + `)
+		    OR EXISTS (SELECT 1 FROM app.assignment_classes ac JOIN app.classes c ON c.id = ac.class_id
+		                WHERE ac.assignment_id = a.id AND ` + like("c.name") + classTaught + `))`
 }
 
 // List returns one page of the assignments the input's scope reaches, newest

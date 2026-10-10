@@ -9,18 +9,21 @@ import (
 
 // ListInput selects a page of the assignments Scope reaches
 // (visibility.AssignmentIDs), or every one under scope.all; a zero Scope
-// matches nothing, and so does a ClassID of a class the scope does not teach
+// matches nothing, and so does a class of ClassIDs the scope does not teach
 // unless EveryTarget is set.
 type ListInput struct {
 	Status *Status
-	// ClassID narrows the list to assignments that target the class (G-12).
-	ClassID *string
-	Page    int
-	Limit   int
-	Scope   access.Scope
+	// ClassIDs narrows the list to assignments that target any of the classes (G-12).
+	ClassIDs []string
+	// Query keeps the assignments whose test title, or the name of a target
+	// class the scope reaches, contains it, ignoring case and accents.
+	Query string
+	Page  int
+	Limit int
+	Scope access.Scope
 	// EveryTarget lifts the reach from the targets and leaves it on the rows,
 	// for a caller who holds scope.all and lists their own: a row names and
-	// counts all its classes and students, and ClassID matches any class.
+	// counts all its classes and students, and ClassIDs match any class.
 	EveryTarget bool
 }
 
