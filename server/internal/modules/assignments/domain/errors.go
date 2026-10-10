@@ -18,8 +18,8 @@ var (
 	ErrNotClosed    = errors.New("assignments: not closed")
 	ErrBlankReason  = errors.New("assignments: reason is blank")
 	ErrClosesInPast = errors.New("assignments: closes_at is not ahead")
-	// ErrClosed is an extension of a window that has already closed: the
-	// assignment, or the student whose close is extended, is reopened instead.
+	// ErrClosed means the window an extension would move has already closed.
+	// The assignment, or the student whose close it is, is reopened instead.
 	ErrClosed = errors.New("assignments: closed, so it is reopened and not extended")
 )
 
