@@ -34,6 +34,8 @@ import {
 import { TIMELINE_DOT, timelineMark, type TimelineMark } from "../tones";
 
 const FILTERS: TimelineFilter[] = ["all", "away", "audio", "network"];
+const TABLE_SCROLLER =
+  "-mx-1 overflow-x-auto rounded-md px-1 [&>[data-slot=table-container]]:w-max [&>[data-slot=table-container]]:min-w-full [&>[data-slot=table-container]]:overflow-visible";
 
 /**
  * Timeline presents an attempt's paired events: the full review by default,
@@ -149,7 +151,7 @@ export function Timeline({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-3 lg:grid-cols-6 lg:gap-4">
         <Strip
           label={t("timeline.strip.totalAway")}
           hint={open ? t("timeline.strip.openNotSummed") : null}
@@ -178,13 +180,13 @@ export function Timeline({
         </Strip>
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
-        <Card className="col-span-2 gap-0">
-          <CardHeader className="flex items-center justify-between">
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Card className="min-w-0 gap-0 lg:col-span-2">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle>{t("timeline.title")}</CardTitle>
             {!empty && (
               <div
-                className="flex items-center gap-1.5"
+                className="flex flex-wrap items-center gap-1.5"
                 role="group"
                 aria-label={t("timeline.filter")}
               >
@@ -216,70 +218,78 @@ export function Timeline({
               </EmptyState>
             ) : (
               <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[90px]">
-                        {t("timeline.columns.at")}
-                      </TableHead>
-                      <TableHead className="w-[90px]">
-                        {t("timeline.columns.offset")}
-                      </TableHead>
-                      <TableHead>{t("timeline.columns.event")}</TableHead>
-                      <TableHead className="text-right">
-                        {t("timeline.columns.duration")}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t("timeline.columns.question")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="text-muted-foreground tabular-nums">
-                        {clockTime(data.startedAt)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground tabular-nums">
-                        {clockSpan(0)}
-                      </TableCell>
-                      <TableCell>{t("timeline.kind.started")}</TableCell>
-                      <TableCell className="text-muted-foreground text-right">
-                        —
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-right">
-                        {1}
-                      </TableCell>
-                    </TableRow>
-                    {rows.map(({ event, ongoing, playNo }) => (
-                      <TableRow key={event.id}>
+                <div
+                  role="region"
+                  aria-label={t("timeline.title")}
+                  // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Scroll regions need keyboard access independently of their content.
+                  tabIndex={0}
+                  className={TABLE_SCROLLER}
+                >
+                  <Table className="min-w-[34rem]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[90px]">
+                          {t("timeline.columns.at")}
+                        </TableHead>
+                        <TableHead className="w-[90px]">
+                          {t("timeline.columns.offset")}
+                        </TableHead>
+                        <TableHead>{t("timeline.columns.event")}</TableHead>
+                        <TableHead className="text-right">
+                          {t("timeline.columns.duration")}
+                        </TableHead>
+                        <TableHead className="text-right">
+                          {t("timeline.columns.question")}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
                         <TableCell className="text-muted-foreground tabular-nums">
-                          {clockTime(event.occurredAt)}
+                          {clockTime(data.startedAt)}
                         </TableCell>
                         <TableCell className="text-muted-foreground tabular-nums">
-                          {clockSpan(event.offsetMs)}
+                          {clockSpan(0)}
                         </TableCell>
-                        <TableCell>
-                          <EventLabel
-                            event={event}
-                            playNo={playNo}
-                            ongoing={ongoing}
-                            questions={questions}
-                          />
+                        <TableCell>{t("timeline.kind.started")}</TableCell>
+                        <TableCell className="text-muted-foreground text-right">
+                          —
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          <DurationCell event={event} ongoing={ongoing} />
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {event.questionId && numberOf.has(event.questionId) ? (
-                            numberOf.get(event.questionId)
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                        <TableCell className="text-muted-foreground text-right">
+                          {1}
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                      {rows.map(({ event, ongoing, playNo }) => (
+                        <TableRow key={event.id}>
+                          <TableCell className="text-muted-foreground tabular-nums">
+                            {clockTime(event.occurredAt)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground tabular-nums">
+                            {clockSpan(event.offsetMs)}
+                          </TableCell>
+                          <TableCell>
+                            <EventLabel
+                              event={event}
+                              playNo={playNo}
+                              ongoing={ongoing}
+                              questions={questions}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <DurationCell event={event} ongoing={ongoing} />
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {event.questionId && numberOf.has(event.questionId) ? (
+                              numberOf.get(event.questionId)
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
                 {live && (
                   <p className="text-muted-foreground mt-3 text-xs">
                     {t("timeline.updatedAt", {
@@ -293,7 +303,7 @@ export function Timeline({
           </CardContent>
         </Card>
 
-        <div className="space-y-5 self-start">
+        <div className="min-w-0 space-y-5 self-start">
           <Card className="gap-0">
             <CardHeader>
               <CardTitle>{t("timeline.help.title")}</CardTitle>
@@ -426,7 +436,7 @@ function TimelineSkeleton() {
       aria-label={t("common.loading")}
       className="space-y-5"
     >
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-3 lg:grid-cols-6 lg:gap-4">
         {Array.from({ length: 6 }, (_, i) => (
           <Card key={i}>
             <CardContent>
