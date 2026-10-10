@@ -65,6 +65,7 @@ test("builder flushes rich edits before switching questions and previews the sav
         title: "Rich builder",
         status: "draft",
         currentVersion: 0,
+        nextVersion: 1,
         totalPoints: 2,
         questionCount: 2,
         audioCount: 0,

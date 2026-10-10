@@ -59,6 +59,7 @@ beforeEach(() => {
         description: null,
         status: "draft",
         currentVersion: 0,
+        nextVersion: 1,
         totalPoints: 1,
         questionCount: 0,
         audioCount: 0,
