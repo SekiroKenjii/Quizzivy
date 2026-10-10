@@ -105,9 +105,13 @@ async function renderBuilder() {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(await screen.findByRole("button", { name: "Tên đề thi" }));
+  const title = screen.getByRole<HTMLInputElement>("textbox", { name: "Tên đề thi" });
+  title.setSelectionRange(title.value.length, title.value.length);
   return {
-    user: userEvent.setup({ advanceTimers: vi.advanceTimersByTime }),
-    title: await screen.findByLabelText("Tên đề thi"),
+    user,
+    title,
     router,
   };
 }
@@ -117,7 +121,7 @@ describe("the builder's bar", () => {
     const { user } = await renderBuilder();
     await screen.findByText("They ___ to the museum.");
 
-    await user.click(screen.getByRole("button", { name: "Xem như học viên" }));
+    await user.click(screen.getByRole("button", { name: "Xem trước" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("They ___ to the museum.")).toBeInTheDocument();

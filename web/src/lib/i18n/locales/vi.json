@@ -759,11 +759,21 @@
     "removeOrphanConfirm": "Xoá đáp án"
   },
   "builder": {
-    "outline": "Cấu trúc",
+    "dragInstructions": "Bấm phím cách để nhấc mục, dùng phím mũi tên để chuyển, rồi bấm phím cách để thả hoặc Esc để huỷ.",
+    "dragStarted": "Đã nhấc mục.",
+    "dragOver": "Đã đến vị trí thả.",
+    "dragDropped": "Đã thả mục.",
+    "dragCancelled": "Đã huỷ thao tác kéo.",
+    "staysInBank": "Câu vẫn còn trong ngân hàng.",
+    "outlineWidth": "Độ rộng dàn bài",
+    "reorderSection": "Kéo để đổi vị trí phần {{title}}",
+    "addQuestionTo": "vào {{title}}",
+    "outline": "Dàn bài",
     "outlineSummary": "{{questions}} câu · {{points}} điểm",
     "sectionSummary": "{{questions}} · {{points}}đ",
     "sectionEmpty": "Phần này chưa có câu hỏi.",
-    "points": "{{points}}đ",
+    "points_one": "{{count}}đ",
+    "points_other": "{{count}}đ",
     "untitledQuestion": "Câu hỏi chưa có nội dung",
     "reorder": "Kéo để đổi vị trí câu {{number}}",
     "moveUp": "Chuyển câu {{number}} lên trên",
@@ -813,16 +823,16 @@
     "position": "Câu {{number}} · {{section}}",
     "sectionActions": "Thao tác với phần",
     "renameSection": "Đổi tên",
-    "sectionInstructions": "Hướng dẫn phần",
+    "sectionInstructions": "Hướng dẫn",
     "moveSectionUp": "Di chuyển lên",
     "moveSectionDown": "Di chuyển xuống",
-    "removeSection": "Xoá phần",
+    "removeSection": "Gỡ phần",
     "sectionNameLabel": "Tên phần",
     "renameCommit": "lưu",
     "renameDiscard": "huỷ",
-    "removeSectionTitle": "Xoá phần “{{title}}”?",
-    "removeSectionBody_one": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
-    "removeSectionBody_other": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
+    "removeSectionTitle": "Gỡ “{{title}}”?",
+    "removeSectionBody_one": "Câu hỏi của phần này bị gỡ khỏi đề và vẫn còn trong ngân hàng câu hỏi.",
+    "removeSectionBody_other": "{{count}} câu hỏi của phần này bị gỡ khỏi đề và vẫn còn trong ngân hàng câu hỏi.",
     "sectionInstructionsTitle": "Hướng dẫn cho {{title}}",
     "removeSectionWithGroupsBody_one": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Nhóm câu và ngữ liệu trong bản nháp của phần này sẽ được xoá cùng; câu lấy từ ngân hàng, các bản đã phát hành và bản sao trong ngân hàng vẫn được giữ nguyên.",
     "removeSectionWithGroupsBody_other": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Nhóm câu và ngữ liệu trong bản nháp của phần này sẽ được xoá cùng; câu lấy từ ngân hàng, các bản đã phát hành và bản sao trong ngân hàng vẫn được giữ nguyên.",
@@ -836,7 +846,7 @@
     "blankMismatch": "Chỗ trống chưa khớp với đề bài.",
     "audioRequired": "Câu nghe chưa có tệp âm thanh.",
     "saveBeforeSwitchFailed": "Chưa lưu được câu hỏi. Thử lưu lại trước khi chuyển câu.",
-    "sectionDropHint": "Kéo câu hỏi vào đây hoặc thêm câu hỏi mới.",
+    "sectionDropHint": "Kéo câu hỏi vào đây",
     "addSharedGroup": "Thêm nhóm câu dùng chung",
     "reorderGroup": "Kéo nhóm {{title}}",
     "moveGroupUp": "Đưa nhóm {{title}} lên",
@@ -850,7 +860,11 @@
     "destinationSection": "Chèn vào phần",
     "removeGroupTitle": "Xoá nội dung khỏi bản nháp?",
     "removeGroupBody": "Nhóm câu và ngữ liệu trong bản nháp sẽ được xoá cùng nhau. Các bản đã phát hành và bản sao trong ngân hàng vẫn được giữ nguyên.",
-    "addStandaloneQuestion": "Thêm câu hỏi riêng lẻ"
+    "addStandaloneQuestion": "Thêm câu hỏi riêng lẻ",
+    "fromQuestionBank": "Từ ngân hàng câu hỏi",
+    "preview": "Xem trước",
+    "removedFromTest": "Đã gỡ câu hỏi khỏi đề. Câu vẫn còn trong ngân hàng.",
+    "savedPlain": "Đã lưu"
   },
   "bank": {
     "filters": "Bộ lọc",
@@ -2991,5 +3005,9 @@
     "switchWarning": "Markdown giữ văn bản, chữ đậm, chữ nghiêng, tiêu đề, danh sách, bảng và liên kết. Gạch chân, chỉ số trên và chỉ số dưới không có dạng Markdown nên sẽ bị bỏ.",
     "switchToMarkdown": "Chuyển sang Markdown",
     "gapsBlockMarkdown": "Hãy bỏ hết chỗ trống khỏi nội dung để chuyển sang Markdown: các chỗ trống đang giữ đáp án được chấp nhận."
+  },
+  "trueFalse": {
+    "true": "Đúng",
+    "false": "Sai"
   }
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -58,6 +58,8 @@ describe("the fill_blank editor's placeholder check", () => {
 });
 
 describe("the question editor page, on a fill_blank mismatch", () => {
+  beforeAll(() => import("@/features/question-bank/components/RichBlankEditor"));
+
   it("refuses to save while a {{3}} has no blank", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createMemoryRouter(
@@ -72,6 +74,7 @@ describe("the question editor page, on a fill_blank mismatch", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("tab", { name: "Điền từ" }));
+    await screen.findByRole("textbox", { name: "Nội dung câu hỏi" });
     await user.click(
       within(
         screen.getByRole("group", { name: "Chế độ soạn: Nội dung câu hỏi" }),

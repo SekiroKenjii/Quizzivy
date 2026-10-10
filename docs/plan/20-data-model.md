@@ -2369,6 +2369,32 @@ redeem one. Three columns join `app.class_join_codes`:
   `created_by` and `uses_count` 0, in one transaction per class under
   advisory key 41 (§28), audited with a NULL actor; a revoked or expired
   scheme-1 row is left as it is.
+- **Lock order for a class and its join codes (F-23).** The transactions that
+  lock a class row and one of its code rows take them in these modes and orders:
+  - The start-up rotation takes advisory `(73819, 41)` (§28), then the class row
+    `FOR NO KEY UPDATE`, then the class's active scheme-1 code row `FOR UPDATE`.
+    `Rotate` and `Revoke` take the class row `FOR NO KEY UPDATE`, then update the
+    code row, and take no advisory key.
+  - A redemption (`EnrolNewMember`, `EnrolExisting`) takes the code row `FOR UPDATE`
+    first, found by its lookup hash, and its member insert then takes `KEY SHARE`
+    on the class row through the foreign key.
+  - `NO KEY UPDATE` conflicts with itself, with `SHARE` and with `UPDATE`, and not
+    with `KEY SHARE`. A redemption and the three writers above therefore never wait
+    for each other in a cycle: the writer waits for the code row and goes on when the
+    redemption commits. `Update` and `Archive` (a plain `UPDATE` of the class) and
+    `AddMember` (`FOR SHARE`) still wait for those writers, and the writers for them.
+  - `Delete` takes the class row `FOR UPDATE`, as every `DELETE` does, and removes the
+    code rows by the cascade: the inverse of a redemption's order. It meets one only
+    when the class was archived and deleted between the redemption's claim and its
+    member insert, because a redemption of an archived class is refused before it
+    takes a class lock. That window exists because the claim reads `archived_at` and
+    `self_join_enabled` from the class row without a lock (`repositories/enrol.go`,
+    `claimCode`), so an `Archive` can commit between a claim and its insert; this
+    predates F-23 and is unchanged. `Delete` stays as it is: taking the code rows first
+    would invert it against `Rotate` and `Revoke`.
+  - A contender outside this list can still abort the rotation as a deadlock or
+    serialization victim; the repository answers `domain.ErrRotationContended` and
+    the command tries that class once more (T-R4.22).
 
 ## 34. Notifications (T-R4.10a)
 
