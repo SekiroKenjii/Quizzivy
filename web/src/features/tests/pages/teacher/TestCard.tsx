@@ -54,9 +54,9 @@ const ICON_BUTTON =
  * and when it was last edited, the title, the skills its questions practise,
  * and a footer with its questions, points and assignments. The whole card
  * opens the test's detail. Above that link sit the selection checkbox, the
- * Duplicate button and the "…" menu (Duplicate and Archive, with Assign to a
- * class first for a published test; Restore, Duplicate and Delete for an
- * archived one). `duplicated` marks a test just
+ * Duplicate button and the "…" menu (Duplicate and Archive; Restore,
+ * Duplicate and Delete for an archived one). Assigning starts from the
+ * test's detail. `duplicated` marks a test just
  * duplicated or just made by duplicating; `duplicating` disables Duplicate.
  */
 export function TestCard({
@@ -194,14 +194,6 @@ function CardMenu({
           <DropdownMenuItem onSelect={() => onRestore(test)}>
             <RotateCw aria-hidden="true" />
             {t("tests.restore")}
-          </DropdownMenuItem>
-        ) : null}
-        {test.status === "published" ? (
-          <DropdownMenuItem asChild>
-            <Link to={`/teacher/assignments/new?test=${test.id}`}>
-              <Send aria-hidden="true" />
-              {t("tests.assignToClass")}
-            </Link>
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem onSelect={() => onDuplicate(test)}>
