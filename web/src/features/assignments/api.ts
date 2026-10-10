@@ -137,10 +137,14 @@ export function resultsFileName(
   return `${base || "results"}-${formatInTimeZone(now, zone, "yyyyMMdd")}.csv`;
 }
 
+const REVOKE_AFTER_MS = 40_000;
+
 /**
  * exportResults downloads the results of up to 50 assignments as one CSV
  * file, under the name the server gives it or else `resultsFileName`, and
- * hands it to the browser to save through an object URL it then revokes.
+ * hands it to the browser to save through an object URL. The URL is revoked
+ * 40 seconds later, not at once, because Firefox and some Safari versions
+ * start the download after the click returns.
  */
 export async function exportResults(
   assignments: readonly Pick<Assignment, "id" | "testTitle">[],
@@ -160,7 +164,7 @@ export async function exportResults(
   document.body.append(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(href);
+  setTimeout(() => URL.revokeObjectURL(href), REVOKE_AFTER_MS);
 }
 
 export function deleteAssignment(id: string) {

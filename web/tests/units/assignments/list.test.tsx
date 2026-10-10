@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http, HttpResponse } from "msw";
 import { Toaster, toast } from "@/components/ui/sonner";
-import { resultsFileName } from "@/features/assignments/api";
+import { exportResults, resultsFileName } from "@/features/assignments/api";
 import AssignmentsListPage from "@/features/assignments/pages/teacher/AssignmentsListPage";
 import type { PermissionKey } from "@/features/auth/permissions";
 import { useAuthStore } from "@/stores/auth";
@@ -548,6 +548,31 @@ describe("the assignments list on a phone", () => {
     expect(within(list).getByText(/IELTS Foundation · /)).toBeVisible();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByRole("button", { name: "Thao tác" })).toBeNull();
+  });
+});
+
+describe("exportResults", () => {
+  it("removes the link at once but revokes the file's URL only later", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], now: NOW });
+    const revoked = vi.fn();
+    Object.assign(URL, {
+      createObjectURL: vi.fn(() => "blob:results"),
+      revokeObjectURL: revoked,
+    });
+    const clicked = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    await exportResults([{ id: A1, testTitle: "Unit 5" }]);
+
+    expect(clicked).toHaveBeenCalledTimes(1);
+    expect(document.querySelector("a[download]")).toBeNull();
+    expect(revoked).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1000);
+    expect(revoked).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(60_000);
+    expect(revoked).toHaveBeenCalledExactlyOnceWith("blob:results");
+    clicked.mockRestore();
   });
 });
 
