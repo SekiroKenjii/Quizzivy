@@ -541,14 +541,11 @@
     },
     "account": "Tài khoản",
     "role": "Vai trò",
-    "roleStudent": "Học viên",
     "signInWith": "Đăng nhập",
     "signInPassword": "Mật khẩu",
     "signInGoogle": "Google",
-    "since": "Tài khoản từ",
     "classCount": "Lớp",
     "googleBothExplainer": "Bạn có thể đăng nhập bằng Google hoặc bằng mật khẩu. Bỏ liên kết thì chỉ còn mật khẩu.",
-    "languageExplainer": "Đổi ngôn ngữ giao diện. Đề thi vẫn hiện đúng như giáo viên soạn.",
     "apiDocs": {
       "title": "Tài liệu API",
       "body": "Xem tài liệu tham chiếu của API Quizzivy. Trang mở trong tab mới và chỉ dùng được trong 15 phút; sau đó hãy mở lại từ đây.",
@@ -557,21 +554,16 @@
       "failed": "Không mở được tài liệu API. Vui lòng thử lại."
     },
     "profileSaved": "Đã lưu họ và tên.",
-    "emailFromGoogle": "Email lấy từ tài khoản Google, không đổi được.",
-    "emailFromTeacher": "Email do giáo viên cấp, không đổi được.",
     "errors": {
       "nameRequired": "Họ và tên không được để trống.",
       "nameTooLong": "Họ và tên tối đa 200 ký tự.",
       "displayNameTooLong": "Tên học viên thấy tối đa 80 ký tự.",
       "phoneInvalid": "Số điện thoại gồm 6–20 ký tự: chữ số, dấu + và khoảng trắng."
     },
-    "description": "Quản lý hồ sơ, bảo mật và tuỳ chọn tài khoản của bạn.",
     "navigation": "Mục cài đặt",
-    "roleTeacher": "Giáo viên",
     "sections": {
       "profile": "Hồ sơ",
       "security": "Đăng nhập & bảo mật",
-      "preferences": "Tuỳ chọn",
       "appearance": "Giao diện",
       "api": "Tài liệu API"
     },
