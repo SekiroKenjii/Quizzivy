@@ -7,23 +7,24 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-08, afternoon.
-- **Base:** `work/redesign-r4` at `d6c5f8cc` (T-R4.16a merged, #422).
-- **Done today:** the team merged into `work/redesign-r4` (#420) and cherry-picked onto
-  `develop` (#421); the open items F-1 to F-9 are closed or owned; W0 started.
-- **Objective (the user, 2026-10-08):** the team takes over the project and drives R4 to
-  v0.10.0 by the waves below. Merging to `main` still waits for the user's go.
-- **In flight:**
+- **As of:** 2026-10-10, 08:40 UTC.
+- **Base:** `work/redesign-r4` at `5d31013e` (T-R4.62b merged, #450).
+- **Objective:** R4 to v0.10.0, then D4 (v0.11.0), which absorbs the design team's v2 export
+  and builds the AI assistant (T-24). Done pull requests into the integration branch merge
+  without asking the user (T-22); a release to `main`, a hotfix or a critical PR waits for
+  the user's go.
+- **In flight** (five agents, T-3):
 
   | Task | PR | Owner | State |
   |---|---|---|---|
-  | T-R4.16b diff and `unpublishedChanges` | #423 | backend | review round 1 fixed and confirmed by the Tech Lead; one nit (the 422 before the 404); tester next |
-  | T-R4.63 content editor frame | #424 (draft) | frontend | REV-63: approve after F1 (the link popover selects its "https://" prefix); fix round F1–F4 |
-  | T-R4.31a builder frame | #414 (draft) | frontend | VER-DRAFTS: not ready (QA-414-1, 2 major; 3–7 minor); fix round after 63's |
-  | T-R4.28 Grading | #416 (draft) | frontend | VER-DRAFTS: not ready (QA-416-1, 2, 3 major; 4–6 minor); fix round after 63's |
-  | T-R4.35 media library | none yet | frontend | implementing |
-  | T-R4.11 review options, note, live lock | none yet | backend | implementing, after the 16b nit |
-  | VER-16b | #423 | tester | verifying head `4ff93029` |
+  | T-R4.29 tests list | #448 | frontend, lane 2 | VER-29 PASS WITH FINDINGS; QA-29-1 fixed by the Tech Lead (`579dffbf`); r4 merged (`1272b6d4`); merge on green CI |
+  | QA-66a-1 builder autosave crash | #452 | frontend, lane 1 | the tester's retest, then merge |
+  | T-R4.12b deadline recompute | #451 | backend | the Tech Lead's review found R12b-1 (`Update` and `Reopen` must recompute too); fix round, then VER-12 (12a and 12b) |
+  | FONT-1 text in fallback fonts | none yet (`fix/font-fallback`) | frontend, lane 3 | DG-141, r4 merge and the spec §12 rules, then the PR |
+  | T-R4.66b | none yet | frontend, lane 1 | implementing, with QA-66a-2 and 3; merges r4 after #450 and #452 |
+  | T-R4.57 | none yet | frontend, lane 2 | implementing; then F-36, then T-R4.30 |
+  | T-R4.13 | none yet | backend | after R12b-1; then 10b |
+  | T-R4.32 | none yet | frontend, lane 3 | after FONT-1 |
 
 ## Roster and models
 
@@ -47,43 +48,44 @@ platform engineer was relaunched twice with a checkpoint after server-side API 5
 
 ## R4 status
 
-Taken from merged pull requests on 2026-10-07. The plan's "Done when" boxes lag this (F-1).
+Taken from merged pull requests on 2026-10-10. The plan's "Done when" boxes lag this (F-1).
 
-- **Merged:** T-R4.1a–c, 2a–c, 3a–c, 4, 5a–b, 7, 10a, 14, 15, 16a, 17a, 17b, 19, 21, 22,
-  23, 25, 36, 37, 45a, 51a, 51b, 53, 54, 55, 56, plus the plan corrections (#351, titled
-  T-R4.0, not a plan task), the develop syncs (#344, #352, #364, #379, #396, #402) and the
-  team (#420, #421).
+- **Merged:** T-R4.1a–c, 2a–c, 3a–c, 4, 5a–b, 7, 10a, 11 (#429), 12a (#447), 14, 15, 16a
+  (#422), 16b (#423), 17a, 17b, 19, 21, 22, 23, 25, 28 (#416), 31a (#414), 35 (#428), 36, 37,
+  45a, 51a, 51b, 53, 54, 55, 56, 62a (#426), 62b (#450), 63 (#424), 64a–d (#430, #433, #435,
+  #436), 66a (#446); the fixes #427 (`x/tools`), #437 (F-27), #438 (F-23), #439 (F-30), #440
+  (T-19), #441 (F-31), #442 (FLAKE-1), #443 (F-34) and #449 (F-35, by the user); the D4
+  plan (#444, #445); and, from before the team, the plan corrections (#351, titled T-R4.0,
+  not a plan task), the develop syncs (#344, #352, #364, #379, #396, #402) and the team
+  (#420, #421).
 - **In flight:** see the checkpoint.
-- **Ready (every dependency merged):** backend T-R4.8, 9, 12 (after 11), 13, 20; frontend
-  T-R4.27a, 32, 46, 57. T-R3.1 to T-R3.3 (v0.9.1) become eligible on 2026-10-10.
-- **Blocked:** the rest. Close-out (T-R4.48 to 52) comes last.
-- **Migration numbers:** 00092 is taken (16a). Reserved by W1-APPROACH: 00093 and 00094
-  for 11, 00095 for 9, 00096 for 12; each is renumbered if another PR merges first (T-5).
-  Per-task readiness, sizes and open questions are in
-  [r4-readiness.md](r4-readiness.md). 16 is nearer L. 12 is nearer XL and is proposed as
-  two PRs: 12a the overrides table, extend and the override operations; 12b the attempt
-  deadline recompute, the monitor and the maintenance windows. The split is decided when
-  12 starts and written into `74-r4.md` T-R4.12 by its first PR (CONTRIBUTING, 70 §3).
+- **Order:** W3-PLAN (T-23). Frontend lane 1: 66b → 65 → 31b → 33. Lane 2: 29 → 30 → 57 →
+  38 → 39 → 43 → 44 → 45b → 6. Lane 3: 32 → 27a → 27b → 34 → 46 → 47 → 26a → 24 → 26b →
+  40 → 41 → 42. Backend stream A: 12b → 13 → 10b; stream B (8 → 9 → 20 → 18) starts when a
+  slot frees. Close-out (T-R4.48 to 52) comes last.
+- **Migration numbers:** 00092 (16a), 00097 and 00098 (62a), 00099 and 00100 (11), 00101
+  (12a). The next free number is 00102; the W1-APPROACH reservations are void, and T-5
+  governs.
+
+Still waiting on an unmerged dependency:
 
 | Task | Waits for |
 |---|---|
 | T-R4.6 command palette | 13 |
-| T-R4.10b notification producers | 11, 12 |
+| T-R4.10b notification producers | 12b |
 | T-R4.18 class schedule and room | 8 |
-| T-R4.62 alt text | 16 |
-| T-R4.24 assignments list | 12, 13 |
-| T-R4.26 assignment Questions and Settings | 11, 12, 13 |
-| T-R4.27b wizard schedule and rules | 27a, 11 |
-| T-R4.29 tests list, T-R4.30 test detail | 16 (and 29 for 30) |
-| T-R4.64 → 66 → 65 editor chain | 63; 65 also 35 and 62 |
-| T-R4.31b builder editor pane, T-R4.33 question editor | 65, 66 (and 31a, 32) |
-| T-R4.34 question groups | 63, 35 |
-| T-R4.38 import review, T-R4.39 preview | 63 (and 30 for 39) |
+| T-R4.24 assignments list | 12b, 13 |
+| T-R4.26 assignment Questions and Settings | 12b, 13 |
+| T-R4.27b wizard schedule and rules | 27a |
+| T-R4.30 test detail | 29 |
+| T-R4.65 | 66b |
+| T-R4.31b builder editor pane, T-R4.33 question editor | 65, 66b (and 30 for 31b) |
+| T-R4.39 import preview | 30 |
 | T-R4.40 students | 20 |
 | T-R4.41, 42 classes | 18 |
 | T-R4.43, 44 settings | 8, 9 |
 | T-R4.45b bell and student settings | 10b, 8 |
-| T-R4.47 attempt review | 46, 28 |
+| T-R4.47 attempt review | 46 |
 
 ## Environment baseline
 
@@ -149,7 +151,10 @@ and any reversal of the defaults above.
   onto `develop`, so the next develop-into-R4 sync meets the same files on both sides.
 - **T-2 (2026-10-07).** Models are pinned by full id in the definitions and checked from
   transcript metadata, never from an agent's own account.
-- **T-3 (2026-10-07).** At most four sub-agents run at once (70 §3, "Machine").
+- **T-3 (2026-10-07, amended 2026-10-09 and 2026-10-10).** At most four sub-agents ran at
+  once (70 §3, "Machine"). On 2026-10-09 the user cut that to two, after the weekly usage
+  limit stopped the team (F-14); on 2026-10-10 the user raised it to five. Reviews and
+  verifications count.
 - **T-4 (2026-10-07).** The ledger changes only in the Tech Lead's pull requests.
 - **T-5 (2026-10-07).** A migration takes its number before its PR runs CI, because goose
   refuses `NNNNN_` (T-R4.10a, "As built"); it is renumbered if another PR merges first.
@@ -173,13 +178,70 @@ and any reversal of the defaults above.
   4175); a frontend engineer 5185, 4185 and 4183, and a second frontend instance 5187,
   4187 and 4188; the backend engineer 8090, 5195 and 4195. An agent stops only servers it
   started. Two instances of one role run only in separate worktrees, within T-3's four.
-- **T-11 (2026-10-08).** Grading is last-write-wins in R4: the contract carries no
-  concurrency token for a grade, and the audit log keeps both writes (QA-416-5). T-R4.28's
-  "As built" records it.
+- **T-11 (2026-10-08, corrected 2026-10-09).** Grading is last-write-wins in R4: the
+  contract carries no concurrency token for a grade, and the second write replaces the
+  score, the comment, the grader and the time (QA-416-5). The first version of this entry
+  said the audit log keeps both writes; it does not, because grade writes are not audited
+  (`review_grade.go` is a single UPDATE), and spec §13.4's required entries do not include
+  grading (QA-416b-1). Whether a regrade should be audited was offered to the user as a
+  possible §13.4 addition; the default stands (T-22): not audited in R4. T-R4.28's "As
+  built" and `76-r6.md` say the same.
 - **T-12 (2026-10-08).** In the builder, the product's section keeps the word "section" in
   English, where the deck says "group", because the outline also shows the product's
   question groups (QA-414-2). It is DG-135, written by #414; the rest of the builder's
   English follows the deck.
+- **T-13 (2026-10-09, amended the same day).** Heavy runs take the machine-wide lock
+  (README, "The heavy lock"), with `-o`, so a server started by a locked command never holds
+  it: the tester's API once held it for 45 minutes (F-19). A timeout under load is not a
+  finding; CI on the pushed head is the authority for the full suites.
+- **T-14 (2026-10-09).** Upload's play-limit default is "2 plays", per DG-69 and the editor.
+- **T-15 (2026-10-09).** Commit trailers name the model that wrote the commit, from each
+  agent's own harness attribution; T-R4.11's mixed trailers stay.
+- **T-16 (2026-10-09).** `bundle.test` builds with the production export conditions (what
+  the student downloads, as the plan states the budgets), not vitest's development ones;
+  the limits stay 160, 220 and 64 KiB.
+- **T-17 (2026-10-09).** T-R4.64 shipped as four stacked PRs (64a to 64d). An empty field
+  opens in rich text; any other field opens in its stored form.
+- **T-18 (2026-10-09).** R64c-1 keeps that interim rule: an empty rich editor over a stored
+  starter prompt would show something other than what is stored (DG-110). T-R4.31b and
+  T-R4.34 each create the starter as rich content.
+- **T-19 (2026-10-09).** A true/false question's options are read by their canonical texts,
+  "True" and "False", never by position, because the deal shuffles them. One helper maps
+  the canonical texts to `t()` labels on every surface (DG-139, #440).
+- **T-20 (2026-10-10).** After merging the integration branch into a PR that changes a
+  shared type, run `pnpm typecheck` before pushing, even when the merge is clean: #429's
+  clean merge failed `tsc -b` on a fixture #440 added.
+- **T-21 (2026-10-10).** Gate policy G-2 (README, "Local gates"): changed-scope local gates,
+  CI as the authority for the full suites, no lock for small runs, the deck matrix once by
+  the tester, short hand-backs. Measured before it: six commands queued on the one lock,
+  a full `test:unit` waiting 16 minutes and a Playwright run 15.
+- **T-22 (2026-10-10, the user).** A done pull request into an integration branch merges
+  without asking; a release to `main`, a hotfix or a critical PR (security, data loss,
+  authentication, a migration rewriting populated tables) goes to the user first. The
+  pending R4 product decisions take their recommended defaults: the class-average floor is
+  three, DG-135's wording stays as built, grade changes are not audited, and alt text is
+  optional.
+- **T-23 (2026-10-10).** W3-PLAN: the remaining frontend tasks run in three file-disjoint
+  lanes (R4 status, "Order"). Frontend PRs merge one at a time. Router edits land in the
+  order 27a, 39, 43, 40/41, 48; 30 precedes 31b (`StudentPreview`), and 34 precedes 66b
+  (`gap-bindings.test`).
+- **T-24 (2026-10-10, the user).** D4 absorbs the v2 export and builds the AI assistant on
+  Anthropic's API, sending each feature only what it needs, from a $200 monthly pool that
+  only an Admin's approval extends (70 §1, D19 to D22). Q28 to Q35 in `74d` are accepted as
+  recommended; Q35 keeps two items open, the Test intro sentence (the user's wording) and
+  the data-retention setting on the provider account. No model identifier appears in code
+  or docs: the tiers are named by their environment variables.
+- **T-25 (2026-10-10).** The tests list (T-R4.29) restores "Select all on this page" in the
+  bulk bar once a card is ticked; its selection stays global across pages, tabs and
+  searches, and the bar says how many selected items are not shown (QA-29-2, QA-29-3; F-36).
+- **T-26 (2026-10-10).** Every character the UI draws is in the loaded font faces, and a
+  symbol the font lacks is an icon; content is shown in NFC. FONT-1 writes both into spec
+  §12 and pins the first with `font-coverage.test.ts`; the server composes stored text to
+  NFC in F-37.
+- **T-27 (2026-10-10).** A PR's CI runs on its merge ref, so a fix on the base reaches a
+  PR's next run without merging the base into the branch (F-29). Merge the base into a
+  branch for a conflict, before a reviewer's or the tester's run, or before the merge
+  when the base has moved since the last green run.
 
 ## Findings and open items
 
@@ -204,6 +266,32 @@ and any reversal of the defaults above.
 | QA-16a-1 | T-R4.16a: `Test.assignments`' three correlated counts lift `listTests` at `limit=100` past `jit_above_cost`, so the first five runs per connection take 82–131 ms instead of about 15 ms. | backend, in T-R4.16b (one `LATERAL` aggregate) | fixed on #423; the tester re-measures in VER-16b |
 | F-10 | `/opt/pw-browsers` holds Chromium 1194; Playwright 1.62.1 looks for headless shell 1234 and fails to launch. | senior_swe_platform | worked around (`environment.md`, differences table): `executablePath` in an untracked wrapper; a helper script is open |
 | F-11 | Agent worktrees under `.claude/worktrees/` showed as untracked in the main checkout. | Tech Lead | fixed: `.gitignore` |
+| F-13 | After a container restart the session-start hook can fail to start the database and MinIO ("container with given ID already exists", stale runc state); `docker compose up -d --force-recreate db minio` recovers with the volumes intact. | senior_swe_platform | open: the hook should detect it and recreate |
+| F-14 | The weekly usage limit stopped every agent on 2026-10-08 at about 04:15 UTC until 2026-10-09 11:00 UTC, with four agents running. | Tech Lead | closed: T-3 |
+| F-15 | The shared SegField and Segmented fill labels sit left where the deck centres them. | senior_swe_frontend | open: the next task touching forms, or T-R4.48 |
+| F-16 | `copy-field.test.tsx` "copies the value and says so for two seconds" failed once on CI (fake timers with `shouldAdvanceTime`). | senior_swe_frontend | open |
+| F-17 | T-R4.47 must also carry `mediaAlt` on the server side of the attempt review (`review_review.go`, `toAPIReviewQuestion`); its plan section names only web files. | T-R4.47 | open |
+| F-19 | The tester's API inherited the heavy lock from a locked start and held it for 45 minutes. | Tech Lead | fixed: T-13's `-o` |
+| F-20 | The reader's bundle imports `@/lib/i18n`, which bundles both locale dictionaries, so every string added anywhere grows the student's budget. Proposal: load the inactive locale lazily. | senior_swe_frontend, principal_swe | open: after the critical path, or R5 |
+| F-21 | Dialogs opened from a menu item without `returnFocus`: the rebuilt AssignmentDetailPage (Close early, Reopen) and the pages not yet rebuilt. | each rebuild task; a small fix for AssignmentDetailPage | open |
+| F-22 | A new accessible name containing an existing field label shadows a bare `getByLabel` in `*.live.spec.ts`, which `pnpm e2e` does not run. | every brief | closed: grep the live specs when a label changes; prefer `getByRole` with `exact` |
+| F-23 | The join-code rotation and a redemption took the class and code rows in opposite orders and deadlocked; the retry could deadlock again. | senior_swe_backend | fixed (#438): the writers take the class row `FOR NO KEY UPDATE` |
+| F-24 | A NUL character in any free-text field answers 500 (PostgreSQL refuses 0x00 in `text`). | senior_swe_platform | open: refuse it in `httpx.ValidateRequests` |
+| F-25 | The content editor says "ô trống" where the question editor and the blanks list say "chỗ trống". | T-R4.65, or whoever next touches the content editor | open |
+| F-26 | The Vietnamese grading score's accessible name reads "2.5", not "2,5". | the next grading copy change | open |
+| F-27 | Docker Hub's anonymous pull limit refused `postgres:18` in CI. | senior_swe_platform | fixed on r4 (#437, `mirror.gcr.io`); `develop` and `main` still need the change |
+| F-28 | The grading card's prompt is 14/21 where the deck draws 15/24. | R5 deck pass | open |
+| F-29 | A PR's CI runs on the merge ref; the planner can skip a later push whose merged tree is the same. | Tech Lead | closed: T-27 |
+| F-30 | `fill-blank-editor.test.tsx` timed out on the lazy rich editor's cold import. | senior_swe_frontend | fixed (#439) |
+| F-31 | No check caught a Tailwind class that resolves to no token (`bg-accent-soft`). | senior_swe_platform | fixed (#441): `tailwind-classes.test.ts` |
+| F-32 | The import review's `changeType` writes "Đúng"/"Sai" for true/false options instead of the canonical "True"/"False". | the imports owner | open |
+| F-33 | Spec §7's answer type still lists `{type:'true_false'; value: boolean}`; the engine writes `choice` and the server grades both. | Tech Lead | open: a sentence that the boolean form is legacy input, in the next spec change of the Tech Lead's |
+| F-34 | `assignment-sheet-presence.test.tsx`'s cold first test missed `findBy`'s one second under load. | senior_tester | fixed (#443) |
+| F-35 | `builder-group-recovery.spec.ts` failed when Back came within ~60 ms of the URL change. | the user | fixed (#449); an app-side guard for the six `useBlocker` callers is optional |
+| F-36 | The tests list: select-all, the "not shown" count, and a stubbed e2e for a failed Duplicate and a failed bulk delete (T-25). | senior_swe_frontend, lane 2 | open: after T-R4.57 |
+| F-37 | Decomposed (NFD) text from the server still falls back in plain fields such as a test title. Proposal: `content.Normalize` and `norm.NFC` in the command handlers (never passwords, tokens, emails or join codes), and a one-off backfill that skips published snapshots. | senior_swe_backend | open: when a slot frees |
+| QA-66a-1 | A failed builder autosave crashed the page (React #185). The cause was `MarqueeText` flipping as the "Not saved" label shrank the title. | senior_swe_frontend, lane 1 | fix in #452; QA-452-1 (the label unusable below 1280) in its fix round |
+| R12b-1 | `updateAssignment` and `reopenAssignment` change an assignment's window without recomputing in-progress deadlines or taking the windows lock. | senior_swe_backend | fix round on #451 |
 
 ## Reviews
 
@@ -256,13 +344,32 @@ and any reversal of the defaults above.
   them through (minor). The autosave flushes, the drag paths, the split pane, Finish and
   Retry, and reload recovery beyond 100 candidates all pass.
 
+- **2026-10-09 to 2026-10-10, in brief.** Every merge above had a review and an
+  independent verification, recorded in its PR:
+  - REV-64a and REV-64bcd (the Principal): one change required, R64c-1 (T-18);
+  - REV-11: R11-1 became the user's class-average floor (T-22);
+  - REV-F23 (join codes, high-risk);
+  - REV-TF: RTF-1, true/false options with plain content;
+  - REV-416: R416-1, an unsaved grading comment lost on navigation;
+  - REV-414: R414-1, the dead `bg-accent-soft` that led to F-31;
+  - REV-12a: R12a-5 to 7, carried into 12b;
+  - the Tech Lead's own reviews: R416-6, R66a-1, R12b-1.
+
+  The tester's VER-35, 62a, 64, 11, 414b and 414c, 416b to 416d, 66a and 29 each passed
+  with findings, and every major one was fixed before its merge. The two drafts the team
+  took over (#414, #416) never had a recorded code review before that; they got REV-414 and
+  REV-416 before merging.
+
 ## Next action
 
 As each hand-off arrives:
-- **VER-DRAFTS** → the frontend engineer finishes #414 and #416 (Done-when boxes, "As
-  built", fixes), then they merge.
-- **REV-63** → its fix round, then the tester's VER-63, then #424 merges.
-- **W0-64** → T-R4.64 after 63 merges.
-- **The 16b nit** → the tester's VER-16b, then #423 merges.
-- **T-R4.11** → its review and verification, then 12a, 12b and 13; 9 and 20 run beside
-  them when a slot is free.
+- **#448** merges on green CI; lane 2 then does T-R4.57, F-36 and T-R4.30.
+- **#452's fix round (QA-452-1)** goes to the tester's targeted re-check, then merges;
+  lane 1 resumes 66b, which merges r4 after #452.
+- **#451's fix round (R12b-1)** goes to VER-12 (12a and 12b), then merges; the backend
+  takes T-R4.13, then 10b.
+- **FONT-1** opens as a PR after its r4 merge, DG-141 and the spec §12 rules, then merges;
+  lane 3 starts T-R4.32.
+- **The next free slot** goes to the second backend stream (8 → 9 → 20 → 18), then to the
+  platform's gates PR (caches, a two-slot lock, a reusable live API; measure before and
+  after) and F-24.

@@ -200,6 +200,7 @@ export function QuestionEditor({
               onChange({
                 ...value,
                 mediaAssetId: next?.id ?? null,
+                mediaAlt: null,
                 audio:
                   next?.kind === "audio" ? (value.audio ?? DEFAULT_AUDIO_POLICY) : null,
                 transcript: next?.kind === "audio" ? value.transcript : null,

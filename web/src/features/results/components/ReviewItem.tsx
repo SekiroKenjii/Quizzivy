@@ -16,6 +16,7 @@ import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { RichBlankPrompt } from "@/components/shared/content/RichBlankPrompt";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { blankInputs } from "@/features/take-test/components/blankInputs";
+import { QuestionImage } from "@/features/take-test/components/QuestionImage";
 import type { Locale } from "@/lib/i18n";
 import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
@@ -149,7 +150,7 @@ function points(
 /**
  * ReviewItem is one answer under "Your answers", as the design deck draws it:
  * a status circle, the number and the prompt with what the answer earned,
- * then "You answered" and, where the review policy allows, the correct answer
+ * the question's image, then "You answered" and, where the review policy allows, the correct answer
  * and the explanation. The circle and the points come from the mark alone, so
  * a hidden score shows a dash and no points, and the answer is struck through
  * in danger only when it was marked and earned nothing. A question's own
@@ -203,6 +204,7 @@ export function ReviewItem({
             </span>
           )}
         </div>
+        <QuestionImage question={question} onRetry={onRetry} />
         <p className={LINE}>
           <span className="text-muted-fg">{t("result.youAnswered")} </span>
           <span
