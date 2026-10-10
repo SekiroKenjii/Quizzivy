@@ -49,8 +49,17 @@ func TestReleasingTwiceGivesBackOnlyOneSlot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	release()
-	release()
+	twice := make(chan struct{})
+	go func() {
+		release()
+		release()
+		close(twice)
+	}()
+	select {
+	case <-twice:
+	case <-time.After(2 * time.Second):
+		t.Fatal("a second release blocked")
+	}
 	again, err := gate.Acquire(context.Background())
 	if err != nil {
 		t.Fatal(err)
