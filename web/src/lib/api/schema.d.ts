@@ -1261,6 +1261,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teacher/assignments/{id}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Moves the assignment's `closesAt` later by `minutes`, for everyone. A
+         *     draft, a scheduled and an open assignment can be extended; a **closed**
+         *     one goes through `reopenAssignment` instead and answers
+         *     `ASSIGNMENT_CLOSED` here. Audited with the old and new close, in the
+         *     statement that moves it.
+         *
+         *     `notify` says the teacher wants the students told. It is recorded with
+         *     the audit entry; the notification itself is sent once the notification
+         *     producers exist (T-R4.10b), so until then it has no other effect.
+         *     An attempt already in progress keeps its own deadline until T-R4.12b
+         *     recomputes it; a student who starts afterwards gets the new close.
+         */
+        post: operations["extendAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/{id}/student-overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The overrides on an assignment the caller reaches
+         * @description Every override on the assignment for a student the caller reaches, by
+         *     student name. It is not paged: an assignment holds at most one override
+         *     per targeted student.
+         */
+        get: operations["listStudentOverrides"];
+        /**
+         * @description Gives each named student an override, or changes the one they have: a
+         *     later close, a longer time limit, more attempts, with the reason. It is
+         *     an accommodation, so it can open an assignment that has closed for
+         *     everyone else, for those students alone.
+         *
+         *     A field the request names replaces the stored one and a field it
+         *     leaves out keeps it, so lengthening a student's time does not take
+         *     away the attempts they were given. The reason always replaces; the
+         *     audit log keeps every earlier one. An override is removed with
+         *     `deleteStudentOverride`, not by sending zeros: a request that would
+         *     leave a row changing nothing is a `VALIDATION_FAILED`.
+         *
+         *     `closesAt` must be ahead. `extendBy` adds minutes to the student's
+         *     current close (their override's, when it is later, else the
+         *     assignment's) and is refused with `ASSIGNMENT_CLOSED` for a student
+         *     whose close has passed: a closed assignment is reopened for a student
+         *     with `closesAt`. A request names `extendBy` or `closesAt`, not both,
+         *     and at least one of the four. An override never shortens a close: the
+         *     later of it and the assignment's own is the student's.
+         *
+         *     Every id in `studentIds` must be a student of the assignment the caller
+         *     reaches: in a target class they teach or named on an assignment they
+         *     created, enabled, with a student role. One that is not answers `422
+         *     VALIDATION_FAILED` for the whole request and names the ids in
+         *     `details.studentIds`; nothing is written. A student who does not exist
+         *     and one the caller may not know exist answer the same.
+         *
+         *     Audited per student with the old and new values, in the statement that
+         *     writes them. `notify` is recorded with them, as on `extendAssignment`.
+         */
+        put: operations["setStudentOverrides"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/{id}/student-overrides/{studentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                studentId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Takes the override off one student: they have the assignment's own
+         *     window from then on. An override that does not exist is a 404, as one
+         *     on an assignment or a student the caller does not reach is. Audited
+         *     with the values removed. An attempt in progress keeps its deadline.
+         */
+        delete: operations["deleteStudentOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/assignments/{id}/attempts": {
         parameters: {
             query?: never;
@@ -2529,7 +2640,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -3314,7 +3425,8 @@ export interface components {
         /**
          * @description The intro screen's card: what StudentAssignmentCard carries, without
          *     `classId`, `classIds` and `liveAnsweredCount`, plus the policies §10.2 states in
-         *     plain Vietnamese before the student starts.
+         *     plain Vietnamese before the student starts. The window it states is the
+         *     student's own, as in StudentAssignmentCard.
          */
         StudentAssignmentDetail: {
             id: components["schemas"]["Uuid"];
@@ -4804,6 +4916,14 @@ export interface components {
             /** @description Enabled students in the union of class and individual targets, counting only the classes the caller teaches and the students they reach. */
             targetCount: number;
         };
+        /**
+         * @description `status`, `closesAt`, `durationMinutes` and `maxAttempts` are the
+         *     signed-in student's own: when a teacher has given this student an
+         *     override, they are the later close, the longer time limit and the added
+         *     attempts (T-R4.12), and an assignment that closed for everyone else
+         *     reads `open` here while the student's close is still ahead. Nothing in
+         *     the card says an override exists or why.
+         */
         StudentAssignmentCard: {
             id: components["schemas"]["Uuid"];
             testTitle: string;
@@ -5046,6 +5166,39 @@ export interface components {
             /** @description `short_answer` only. Rejected on any other type. */
             sampleAnswer?: string | null;
             tags?: string[];
+        };
+        /**
+         * @description What one teacher changed about one student's turn at an assignment.
+         *     Teacher-only: nothing here, the reason least of all, reaches the
+         *     student's payloads.
+         */
+        StudentOverride: {
+            studentId: components["schemas"]["Uuid"];
+            studentName: string;
+            /**
+             * Format: date-time
+             * @description The student's own close. Null when the override leaves the close alone. It never closes the student sooner than the assignment does.
+             */
+            closesAt: string | null;
+            /** @description The student's time limit. Null when the assignment's applies. */
+            durationMinutes: number | null;
+            /** @description Attempts added to the assignment's `maxAttempts`. */
+            extraAttempts: number;
+            reason: string;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        StudentOverrideInput: {
+            studentIds: components["schemas"]["Uuid"][];
+            /** @description Minutes added to each student's current close. Not with `closesAt`. */
+            extendBy?: number;
+            /** @description Must be ahead. Not with `extendBy`. */
+            closesAt?: components["schemas"]["Timestamp"];
+            durationMinutes?: number;
+            extraAttempts?: number;
+            reason: string;
+            /** @description Absent means false. */
+            notify?: boolean;
         };
         AssignmentInput: {
             /** @description Must be a published version. Immutable once any attempt exists. */
@@ -8035,6 +8188,136 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    extendAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    minutes: number;
+                    /** @description Absent means false. */
+                    notify?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Extended. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ASSIGNMENT_CLOSED` — a closed assignment is reopened, not extended. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listStudentOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["StudentOverride"][];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setStudentOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudentOverrideInput"];
+            };
+        };
+        responses: {
+            /** @description The overrides as they now stand, by student name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["StudentOverride"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ASSIGNMENT_CLOSED` — `extendBy` names a student whose close has passed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `VALIDATION_FAILED` — `details.studentIds` names the ids that are not students of this assignment the caller reaches. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteStudentOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                studentId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            404: components["responses"]["NotFound"];
         };
     };
     getAssignmentMonitor: {
