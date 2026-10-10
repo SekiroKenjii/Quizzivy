@@ -1,5 +1,6 @@
 DELETE /admin/users/{id} people.users.manage
 DELETE /auth/google/link self
+DELETE /me/avatar self
 DELETE /teacher/assignments/{id} teaching.assignments.write
 DELETE /teacher/assignments/{id}/student-overrides/{studentId} teaching.attempts.intervene
 DELETE /teacher/classes/{id} teaching.classes.write
@@ -110,6 +111,7 @@ POST /teacher/tests/{id}/duplicate content.tests.write
 POST /teacher/tests/{id}/publish content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/current content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/draft content.tests.write
+PUT /me/avatar self
 PUT /me/notification-preferences self
 PUT /teacher/assignments/{id}/student-overrides teaching.attempts.intervene
 PUT /teacher/imports/{id}/review content.tests.write

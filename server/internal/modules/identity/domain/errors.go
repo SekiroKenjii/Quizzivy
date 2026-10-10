@@ -6,6 +6,16 @@ import (
 
 var ErrUserNotFound = errors.New("user not found")
 
+// The reasons a profile photo is refused, in the order they are checked. None
+// of them stored anything.
+var (
+	ErrAvatarTooLarge     = errors.New("avatar is over the size limit")
+	ErrAvatarUnsupported  = errors.New("avatar is not a png or a jpeg")
+	ErrAvatarUnreadable   = errors.New("avatar cannot be read as an image")
+	ErrAvatarDimensions   = errors.New("avatar sides are out of range")
+	ErrAvatarsUnavailable = errors.New("profile photos are not configured")
+)
+
 var (
 	ErrDisplayNameInvalid  = errors.New("display name is invalid")
 	ErrPhoneInvalid        = errors.New("phone is invalid")

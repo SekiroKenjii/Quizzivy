@@ -1,6 +1,7 @@
 package wiring
 
 import (
+	"context"
 	"log/slog"
 
 	"quizzivy/internal/core/adapters"
@@ -13,6 +14,8 @@ import (
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/google"
+	"quizzivy/internal/platform/imagesafe"
+	"quizzivy/internal/platform/storage"
 	"quizzivy/internal/shared/stats"
 )
 
@@ -25,6 +28,29 @@ func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stat
 	app := identityapp.New(identityrepo.NewUsers(dbx), tokens, cfg.RefreshTokenTTL, identityrepo.NewStudents(dbx), stats)
 	attachGoogle(cfg, logger, app, enroller)
 	return app, tokens, nil
+}
+
+const photoDecodeSlots = 2
+
+func attachAvatars(ctx context.Context, cfg config.Config, logger *slog.Logger, app *identityapp.Application, images *imagesafe.Processor) error {
+	if !cfg.MediaEnabled() {
+		logger.Info("profile photos disabled (no bucket configured)")
+		return nil
+	}
+	objects, err := storage.New(ctx, storage.Config{
+		Endpoint:        cfg.S3Endpoint,
+		Region:          cfg.S3Region,
+		Bucket:          cfg.S3Bucket,
+		AccessKeyID:     cfg.S3AccessKeyID,
+		SecretAccessKey: cfg.S3SecretAccessKey,
+		ForcePathStyle:  cfg.S3ForcePathStyle,
+	})
+	if err != nil {
+		return err
+	}
+	app.SetAvatars(objects, adapters.Photos{Processor: images}, logger)
+	logger.Info("profile photos enabled", "bucket", cfg.S3Bucket, "decode_slots", photoDecodeSlots)
+	return nil
 }
 
 func identityTransport(cfg config.Config, app *identityapp.Application, docs *identitytoken.Issuer) identityhttp.Identity {

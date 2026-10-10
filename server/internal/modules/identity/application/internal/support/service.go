@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	classescommand "quizzivy/internal/modules/classes/application/command"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/application/model"
@@ -24,6 +25,19 @@ type Service struct {
 	Google     ports.GoogleProvider
 	Enroller   ports.SelfEnroller
 	Principals ports.Principals
+	Avatars    ports.ObjectStore
+	Photos     ports.PhotoProcessor
+	Log        *slog.Logger
+}
+
+// SetAvatars wires profile photos: the store that keeps them and the processor
+// that makes them. Either nil leaves photos unavailable rather than
+// half-configured; a failure the service survives is logged to logger.
+func (s *Service) SetAvatars(store ports.ObjectStore, photos ports.PhotoProcessor, logger *slog.Logger) {
+	if store == nil || photos == nil {
+		return
+	}
+	s.Avatars, s.Photos, s.Log = store, photos, logger
 }
 
 // SetGoogle wires the provider. Nil leaves Google sign-in unavailable rather
