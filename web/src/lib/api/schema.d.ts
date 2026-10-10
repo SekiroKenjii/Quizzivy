@@ -1165,6 +1165,13 @@ export interface paths {
          *     `review.release`, `review.showClassAverage` and `studentNote` are
          *     partial: omitted, they keep what is stored. `studentNote: null` clears
          *     the note. Every other field is replaced as before.
+         *
+         *     An attempt already in progress moves with a later close, in the same
+         *     transaction: its deadline becomes the earlier of its start plus the
+         *     student's time limit and the student's own close, when that is later
+         *     than the deadline it has. A deadline never moves earlier, so a shorter
+         *     close, or `closeNow`, leaves every attempt in progress where it is.
+         *     Each attempt moved is audited as `attempt.extended`.
          */
         patch: operations["updateAssignment"];
         trace?: never;
@@ -1253,6 +1260,11 @@ export interface paths {
          *     `closesAt` and its early close, if any, is lifted, so every student
          *     with attempts left can go back in. Only a closed assignment can be
          *     reopened, and only to a moment still ahead. Audited with the reason.
+         *
+         *     An attempt still in progress moves with it, in the same transaction,
+         *     as it does on `extendAssignment`: its deadline becomes the earlier of
+         *     its start plus the student's time limit and the student's own close,
+         *     when that is later than the deadline it has.
          */
         post: operations["reopenAssignment"];
         delete?: never;
