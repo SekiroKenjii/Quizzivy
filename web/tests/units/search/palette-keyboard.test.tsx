@@ -364,7 +364,8 @@ describe("searching", () => {
     expect(new Set(asked.map(({ q }) => q))).toEqual(new Set(["unit"]));
   });
 
-  it("never lets an older answer replace a newer one", async () => {
+  it("cancels an older search and never lets its answer replace a newer one", async () => {
+    let aborted = false;
     let releaseFirst: () => void = () => undefined;
     const first = new Promise<void>((resolve) => {
       releaseFirst = resolve;
@@ -372,7 +373,12 @@ describe("searching", () => {
     server.use(
       http.get(`${BASE}/teacher/tests`, async ({ request }) => {
         const q = new URL(request.url).searchParams.get("q");
-        if (q === "unit") await first;
+        if (q === "unit") {
+          request.signal.addEventListener("abort", () => {
+            aborted = true;
+          });
+          await first;
+        }
         const item = { ...test(), title: q === "unit" ? "Old answer" : "New answer" };
         return contractJson("/teacher/tests", "get", 200, {
           facets: { all: 1, draft: 0, published: 1, archived: 0 },
@@ -393,6 +399,7 @@ describe("searching", () => {
     expect(
       await screen.findByRole("option", { name: /New answer/ }, LOAD),
     ).toBeVisible();
+    await waitFor(() => expect(aborted).toBe(true));
     releaseFirst();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(screen.queryByRole("option", { name: /Old answer/ })).toBeNull();
