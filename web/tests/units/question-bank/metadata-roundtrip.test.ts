@@ -10,7 +10,7 @@ import { api } from "@/lib/api/client";
 
 vi.mock("@/lib/api/client", () => ({ api: vi.fn() }));
 
-const question: AdminQuestion = {
+const legacy: AdminQuestion = {
   id: "019535d9-3df7-79fb-b466-fa907fa17f9e",
   type: "single_choice",
   prompt: "Pick",
@@ -27,13 +27,23 @@ const question: AdminQuestion = {
     isCorrect: i === 0,
   })),
 };
+const question: AdminQuestion = { ...legacy, options: legacy.options!.slice(0, 8) };
 
 describe("bank metadata preservation", () => {
-  it("keeps metadata and stored legacy options through the real form schema and submit", () => {
+  it("keeps a stored ninth option in the form and refuses to save it, as the server does", () => {
+    const values = toFormValues(legacy);
+    expect(values.options).toHaveLength(9);
+    const result = questionSchema.safeParse(values);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.message)).toEqual([
+      "questionEditor.errors.maxOptions",
+    ]);
+  });
+  it("keeps metadata and eight options through the real form schema and submit", () => {
     const parsed = questionSchema.parse(toFormValues(question));
     expect(parsed.level).toBe("pre_a1");
     expect(parsed.skill).toBe("reading");
-    expect(parsed.options).toHaveLength(9);
+    expect(parsed.options).toHaveLength(8);
     updateQuestion(question.id, parsed);
     expect(api).toHaveBeenLastCalledWith("patch", "/teacher/questions/{id}", {
       path: { id: question.id },

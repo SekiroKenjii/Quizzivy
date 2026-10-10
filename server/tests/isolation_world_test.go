@@ -255,6 +255,10 @@ func (w *world) teacherWorld(name string) *party {
 
 	assignment := c.assign(versionID, p.ids["class"])
 	p.ids["assignment"] = id(assignment)
+	c.must(http.StatusOK, http.MethodPut, "/teacher/assignments/"+p.ids["assignment"]+"/student-overrides", map[string]any{
+		"studentIds": []string{p.ids["student"]}, "extraAttempts": 1, "reason": "Cách ly " + name,
+	})
+	p.ids["override"] = p.ids["student"]
 
 	learner := w.signedIn(user["email"].(string), created["temporaryPassword"].(string))
 	session := learner.must(http.StatusOK, http.MethodPost, "/app/assignments/"+p.ids["assignment"]+"/attempts", nil)
@@ -368,6 +372,7 @@ func (w *world) snapshotOf(p *party) string {
 		  UNION ALL SELECT row_to_json(x)::text FROM app.class_join_codes x JOIN app.classes c ON c.id = x.class_id WHERE c.teacher_id = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.class_members x JOIN app.classes c ON c.id = x.class_id WHERE c.teacher_id = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.assignments x WHERE x.created_by = $1::uuid
+		  UNION ALL SELECT row_to_json(x)::text FROM app.assignment_student_overrides x JOIN app.assignments a ON a.id = x.assignment_id WHERE a.created_by = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.attempts x JOIN app.assignments a ON a.id = x.assignment_id WHERE a.created_by = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.attempt_answers x JOIN app.attempts at ON at.id = x.attempt_id JOIN app.assignments a ON a.id = at.assignment_id WHERE a.created_by = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.notifications x WHERE x.user_id = $1::uuid

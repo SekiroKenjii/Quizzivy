@@ -23,12 +23,20 @@ type resultRules struct {
 // that releases after close withholds, until its close, what the review policy
 // would hide: the score, the marks, the key, the explanations and the grader's
 // comments, none of which is selected, and it says when the withholding ends.
+// The moment it ends is the reader's own close, which a later override of
+// theirs moves; the class average waits for the assignment's close, which no
+// override moves.
 func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord, now time.Time) (domain.Result, error) {
-	rules, err := s.resultRules(ctx, a.AssignmentID)
+	rules, override, err := s.resultRules(ctx, a.AssignmentID, a.StudentID)
 	if err != nil {
 		return domain.Result{}, err
 	}
-	readerClose := schedule.Close(rules.ClosesAt, rules.ClosedAt, nil)
+	var readerOverride *time.Time
+	if override != nil {
+		readerOverride = override.ClosesAt
+		rules.MaxAttempts += override.ExtraAttempts
+	}
+	readerClose := schedule.Close(rules.ClosesAt, rules.ClosedAt, readerOverride)
 	assignmentClose := schedule.Close(rules.ClosesAt, rules.ClosedAt, nil)
 	withheld := domain.Reviews.Withheld(rules.Review.Release, now, readerClose)
 	stored := rules.Review
@@ -181,27 +189,32 @@ func resultQuestion(q domain.Question, extras map[string]resultExtra, plays map[
 	return rq, &value
 }
 
-func (s *Postgres) resultRules(ctx context.Context, assignmentID string) (resultRules, error) {
-	var r resultRules
+func (s *Postgres) resultRules(ctx context.Context, assignmentID, studentID string) (resultRules, *schedule.Override, error) {
+	var (
+		r  resultRules
+		oc schedule.OverrideColumns
+	)
 	err := s.QueryRow(ctx, `
 		SELECT a.shuffle_questions, a.shuffle_options,
 		       a.review_show_score, a.review_show_correct_answers, a.review_show_explanations,
 		       a.review_release, a.review_show_class_average,
-		       a.closes_at, a.closed_at, a.max_attempts, t.title
+		       a.closes_at, a.closed_at, a.max_attempts, t.title, `+schedule.OverrideSelect+`
 		  FROM app.assignments a
 		  JOIN app.tests t ON t.id = a.test_id
-		 WHERE a.id = $1::uuid`, assignmentID).Scan(
+		  `+schedule.OverrideJoin("$2::uuid")+`
+		 WHERE a.id = $1::uuid`, assignmentID, studentID).Scan(
 		&r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Review.ShowScore, &r.Review.ShowCorrectAnswers, &r.Review.ShowExplanations,
 		&r.Review.Release, &r.Review.ShowClassAverage,
-		&r.ClosesAt, &r.ClosedAt, &r.MaxAttempts, &r.TestTitle)
+		&r.ClosesAt, &r.ClosedAt, &r.MaxAttempts, &r.TestTitle,
+		&oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return resultRules{}, domain.ErrNotFound
+		return resultRules{}, nil, domain.ErrNotFound
 	}
 	if err != nil {
-		return resultRules{}, fmt.Errorf("attempts: read review policy: %w", err)
+		return resultRules{}, nil, fmt.Errorf("attempts: read review policy: %w", err)
 	}
-	return r, nil
+	return r, oc.Override(), nil
 }
 
 type resultExtra struct {

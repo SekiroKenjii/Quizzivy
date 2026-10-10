@@ -64,9 +64,11 @@ async function publishListeningTest(page: Page, title: string) {
   await expect(settings).toBeHidden();
 
   for (const [index, text] of ["Gọi lại sau", "Đổi lịch hẹn"].entries()) {
-    await page.getByPlaceholder(`Lựa chọn ${index + 1}`).fill(text);
+    await page
+      .getByPlaceholder(`Lựa chọn ${String.fromCharCode(65 + index)}`)
+      .fill(text);
   }
-  await page.getByLabel("Lựa chọn 1", { exact: true }).check();
+  await page.getByLabel("Đánh dấu A là đáp án đúng", { exact: true }).check();
 
   await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
     timeout: 15_000,
