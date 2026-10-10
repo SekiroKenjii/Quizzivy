@@ -29,7 +29,7 @@ import { givenName } from "../studentTime";
 function subLine(sub: HomeSub, now: Date, locale: Locale, t: TFunction): string | null {
   switch (sub.kind) {
     case "live":
-      return t("student.home.subLive", { time: clockTime(sub.closes, now) });
+      return t("student.home.subLive", { time: clockTime(sub.closes, now, locale) });
     case "dueToday":
       return t("student.dueToday", { count: sub.count });
     case "next": {

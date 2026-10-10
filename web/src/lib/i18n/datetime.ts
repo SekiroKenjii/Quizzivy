@@ -218,14 +218,19 @@ export function formatTime(
   });
 }
 
-/** clockTime is "22:30" on the day of `now`, and "22:30, 02/10" on any other day. */
+/**
+ * clockTime is "22:30" on the day of `now`, and on any other day the time with
+ * the date: "22:30, 02/10" in Vietnamese and "22:30, 2 Oct" in English, where
+ * "02/10" would read as the other month to an American eye.
+ */
 export function clockTime(
   utc: string | Date,
   now: string | Date = new Date(),
+  locale: AppLocale = "vi",
   zone = getDisplayTimeZone(),
 ) {
   const time = formatInTimeZone(utc, zone, "HH:mm");
-  return sameAppDay(utc, now, zone) ? time : `${time}, ${shortDate(utc, zone)}`;
+  return sameAppDay(utc, now, zone) ? time : `${time}, ${dayMonth(utc, locale, zone)}`;
 }
 
 /**

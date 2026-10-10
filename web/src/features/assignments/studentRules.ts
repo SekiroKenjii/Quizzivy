@@ -15,7 +15,11 @@ import {
  * is left out for a closed assignment, about which no date would be true.
  */
 export interface RulesInput {
-  readonly review: ReviewPolicy;
+  readonly review: Pick<
+    ReviewPolicy,
+    "showScore" | "showCorrectAnswers" | "showExplanations"
+  > &
+    Partial<Pick<ReviewPolicy, "release">>;
   readonly integrity: IntegrityPolicy;
   readonly window?: {
     readonly opensAt: string | Date;
@@ -86,13 +90,14 @@ function leaving(integrity: IntegrityPolicy, t: TFunction): string {
     : t(`assignments.rules.leaving.limit.${action}`, { count: limit });
 }
 
-function score(review: ReviewPolicy, t: TFunction): string {
-  if (review.showCorrectAnswers && review.showExplanations)
-    return t("assignments.rules.score.all");
-  if (review.showCorrectAnswers) return t("assignments.rules.score.answers");
-  return review.showExplanations
-    ? t("assignments.rules.score.explanations")
-    : t("assignments.rules.score.only");
+function score(review: RulesInput["review"], t: TFunction): string {
+  const group =
+    review.release === "after_close"
+      ? "assignments.rules.scoreAfterClose"
+      : "assignments.rules.score";
+  if (review.showCorrectAnswers && review.showExplanations) return t(`${group}.all`);
+  if (review.showCorrectAnswers) return t(`${group}.answers`);
+  return review.showExplanations ? t(`${group}.explanations`) : t(`${group}.only`);
 }
 
 /** studentRules generates policy sentences using an explicit display zone while preserving engine behavior. */

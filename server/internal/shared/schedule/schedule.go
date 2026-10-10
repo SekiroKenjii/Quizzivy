@@ -1,6 +1,8 @@
-// Package schedule holds the one rule that derives an assignment's status
-// from its window, as SQL, so every list, filter and count of assignments by
-// status agrees whichever module asks.
+// Package schedule holds the rules that read an assignment's window: the one
+// that derives its status, as SQL, so every list, filter and count of
+// assignments by status agrees whichever module asks, and the one that finds
+// the moment it stops taking attempts, as SQL and in Go, with the window a
+// student's override changes.
 package schedule
 
 // DerivedStatus is the status of an assignment as a SQL expression over a row

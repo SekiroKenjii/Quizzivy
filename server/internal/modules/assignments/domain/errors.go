@@ -8,6 +8,9 @@ var (
 	ErrNotFound         = errors.New("assignments: not found")
 	ErrTestNotPublished = errors.New("assignments: test version is not published")
 	ErrVersionLocked    = errors.New("assignments: attempts exist")
+	// ErrAssignmentLocked is a change to the version, the duration or the
+	// number of attempts of an assignment that is open.
+	ErrAssignmentLocked = errors.New("assignments: open, so the test and timing are locked")
 )
 
 var (
