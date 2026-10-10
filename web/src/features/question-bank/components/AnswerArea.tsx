@@ -9,10 +9,11 @@ import type { QuestionValues } from "../questionSchema";
 /**
  * AnswerArea is the block a question's type answers with, then its grading
  * note. It holds no state: every block reads and writes `value`, so swapping
- * questions or types loses nothing. A fill-in-the-blank prompt that is rich
- * text, or still empty and so opening as rich text, answers with GapAnswers;
- * one stored as Markdown keeps BlanksEditor. `onInsertGap` is the prompt's
- * own gap command, for GapAnswers' empty card.
+ * questions or types loses nothing. A fill-in-the-blank prompt answers with
+ * GapAnswers while it is rich text: stored as rich content, or open in the
+ * rich editor, which is when the host passes `onInsertGap`, the prompt's own
+ * gap command for GapAnswers' empty card. A prompt in Markdown keeps
+ * BlanksEditor.
  */
 export function AnswerArea({
   value,
@@ -59,7 +60,7 @@ function AnswerBlock({
         />
       );
     case "fill_blank":
-      return value.promptContent != null || !value.prompt.trim() ? (
+      return value.promptContent != null || onInsertGap ? (
         <GapAnswers
           content={value.promptContent ?? null}
           blanks={value.blanks}
