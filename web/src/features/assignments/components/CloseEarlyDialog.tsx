@@ -1,17 +1,23 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Timer } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Assignment } from "@/features/assignments/api";
 import { formatMoment, formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { useLocale } from "@/lib/i18n/useLocale";
 
-/** G-09's "Đóng sớm" confirm: restates S-04's promise and asks for one tick. */
+/**
+ * CloseEarlyDialog is the "Close now" confirm: it restates what students
+ * keep, in the reader's language, and asks for one tick. Focus returns to
+ * `returnFocus` when it closes.
+ */
 export function CloseEarlyDialog({
   assignment,
   open,
   pending,
   failed,
+  returnFocus,
   onOpenChange,
   onConfirm,
 }: Readonly<{
@@ -19,11 +25,13 @@ export function CloseEarlyDialog({
   open: boolean;
   pending: boolean;
   failed: boolean;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }>) {
   useDisplayTimeZone();
   const { t } = useTranslation();
+  const locale = useLocale();
   const [understood, setUnderstood] = useState(false);
 
   return (
@@ -36,11 +44,12 @@ export function CloseEarlyDialog({
       title={t("assignments.detail.closeNowTitle")}
       description={t("assignments.detail.closeNowBody", {
         now: formatTime(new Date()),
-        planned: formatMoment(assignment.window.closesAt),
+        planned: formatMoment(assignment.window.closesAt, locale),
       })}
       confirmLabel={t("assignments.detail.closeNow")}
       disabled={!understood}
       pending={pending}
+      {...(returnFocus === undefined ? {} : { returnFocus })}
       error={failed ? t("assignments.detail.closeFailed") : null}
       onConfirm={onConfirm}
     >
