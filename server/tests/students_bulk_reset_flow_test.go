@@ -342,8 +342,10 @@ func TestASharedStudentIsRefusedToATeacherAndResetForAnAdmin(t *testing.T) {
 			t.Errorf("teacher %s resetting the shared student: %v and items %v, want %v", name, got, body["items"], want)
 		}
 	}
-	if status, _, body := r.a.callWith(nil, http.MethodPost, "/teacher/students/"+shared.id+"/reset-password", nil); status == http.StatusOK {
-		t.Errorf("the single reset of a shared student by a teacher answered 200 %v, where the bulk reset refuses it", body)
+	for name, teacher := range map[string]*client{"A": r.a, "B": r.b} {
+		if status, _, body := teacher.callWith(nil, http.MethodPost, "/teacher/students/"+shared.id+"/reset-password", nil); status != http.StatusForbidden || teacher.errorCode(body) != "STUDENT_SHARED" {
+			t.Errorf("the single reset of a shared student by teacher %s answered %d %v, want 403 STUDENT_SHARED as the bulk reset reports", name, status, body)
+		}
 	}
 	if after := r.account(shared.id); after != before {
 		t.Errorf("the refusals changed the shared student: %q became %q", before, after)
