@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  PASTE_EXAMPLE,
   normalizePaste,
   pasteLength,
   pastedTitle,
@@ -28,6 +29,12 @@ const CASES = JSON.parse(
 describe("the quick count of pasted text, against the server's fixture", () => {
   it("reads the whole shared corpus", () => {
     expect(CASES.length).toBeGreaterThanOrEqual(46);
+  });
+
+  it("shows as the page's example a case with an answer for every question", () => {
+    const example = CASES.find((c) => c.name === "page-example");
+    expect(example?.text).toBe(PASTE_EXAMPLE);
+    expect(example?.missing).toEqual([]);
   });
 
   it.each(CASES.map((c) => [c.name, c] as const))("%s", (_name, c) => {

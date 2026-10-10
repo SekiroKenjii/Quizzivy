@@ -29,6 +29,29 @@ interface Label {
   end: number;
 }
 
+/**
+ * PASTE_EXAMPLE is the example "How to lay out pasted text" shows and copies:
+ * the `page-example` case of `api/testdata/pasted-text-counts.json`, which
+ * has an answer for every question (DG-15).
+ */
+export const PASTE_EXAMPLE = [
+  "Part 1. Choose the best answer.",
+  "1. She ___ in Hanoi since 2019.",
+  "A. lives",
+  "B. has lived *",
+  "C. lived",
+  "",
+  "Part 2. True, False or Not given.",
+  "2. Parks are cheaper than roads.",
+  "Answer: Not given",
+  "",
+  "Part 3. Write ONE word in each gap.",
+  "3. We have lived here ___ 2015.",
+  "4. She has worked here ___ three years.",
+  "",
+  "Answer key: 3-since 4-for",
+].join("\n");
+
 const MAX_JUMP = 20;
 const TITLE_MAX = 120;
 
