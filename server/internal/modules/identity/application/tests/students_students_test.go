@@ -159,7 +159,7 @@ func TestTheClassFilterNarrowsToThatRoster(t *testing.T) {
 		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = $1::uuid`, teacher)
 	})
 
-	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Scope: everyone, ClassID: classID}})
+	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Scope: everyone, ClassIDs: []string{classID}}})
 	found := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)

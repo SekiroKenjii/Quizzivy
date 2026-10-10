@@ -1846,6 +1846,28 @@ components:
           description: Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them.
         stats: { $ref: '#/components/schemas/StudentStats' }
 
+    StudentPasswordReset:
+      type: object
+      description: One student `resetStudentsPasswords` reset. The password is shown once.
+      required: [studentId, fullName, email, temporaryPassword]
+      additionalProperties: false
+      properties:
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 254 }
+        temporaryPassword: { type: string }
+
+    StudentResetFailure:
+      type: object
+      description: One student `resetStudentsPasswords` did not reset, and why.
+      required: [studentId, code]
+      additionalProperties: false
+      properties:
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+          description: One of `NOT_FOUND`, `FORBIDDEN`, `STUDENT_SHARED` or `INTERNAL`.
+
     StudentFacets:
       type: object
       description: |
@@ -7983,7 +8005,24 @@ paths:
       tags: [teacher-students]
       parameters:
         - $ref: '#/components/parameters/Query'
-        - { name: classId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
+        - name: classId
+          in: query
+          description: |
+            Only students who are in at least one of these classes (`classId=a&classId=b`;
+            one value still works). A class the caller does not reach matches nothing,
+            as a missing class does.
+          schema:
+            type: array
+            maxItems: 50
+            items: { $ref: '#/components/schemas/Uuid' }
+        - name: mustChangePassword
+          in: query
+          description: |
+            `true` lists only the accounts still on a temporary password; after a
+            `resetStudentsPasswords` whose answer was lost, those are the students
+            whose password must be reset again. `false` lists only the others.
+            Absent lists both.
+          schema: { type: boolean }
         - name: status
           in: query
           description: |
@@ -8063,6 +8102,80 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/students/reset-passwords:
+    post:
+      operationId: resetStudentsPasswords
+      x-resource:
+        - { in: body, name: /studentIds/-, kind: student }
+      x-permission: people.students.reset_password
+      tags: [teacher-students]
+      summary: Reset the passwords of up to 40 students at once
+      description: |
+        Does for each student what `resetStudentPassword` does, one transaction
+        each: a new temporary password, `mustChangePassword` set, every refresh
+        family revoked, the session epoch moved, one audit row. The same guards
+        apply to each student, in the same order (`student` in the caller's reach
+        and student-like, the subset rule, then the shared-student rule), so a
+        batch cannot do what one reset cannot.
+
+        A student that fails does not stop the others: `failed` names it with
+        `NOT_FOUND` (another teacher's student, a disabled one, a missing id, an
+        account that is not a student, all alike), `FORBIDDEN` (the student's
+        permissions are not a subset of the caller's), `STUDENT_SHARED` (someone
+        else also reaches the student, so only a holder of `people.users.manage`
+        may reset them) or `INTERNAL` (a fault with that student alone, logged on
+        the server). The answer is 200 whenever the request was accepted, even
+        when every student failed. `items` and `failed` keep the order of
+        `studentIds`.
+
+        Each `temporaryPassword` is returned **once** and stored nowhere: the
+        server keeps only its hash. A reset that committed before the connection
+        dropped has lost its password for good; those students are on a
+        temporary password, so `listStudents` with `mustChangePassword=true`
+        lists them for another reset. The answer is never cached. Repeating a
+        request resets the same students again with new passwords.
+
+        Limited to 2 a minute and 10 an hour per signed-in user, a call counting
+        once however many students it names.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentIds]
+              additionalProperties: false
+              properties:
+                studentIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 40
+                  uniqueItems: true
+                  items: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: The batch ran. Passwords are returned **once**.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, failed]
+                additionalProperties: false
+                properties:
+                  items:
+                    type: array
+                    maxItems: 40
+                    items: { $ref: '#/components/schemas/StudentPasswordReset' }
+                  failed:
+                    type: array
+                    maxItems: 40
+                    items: { $ref: '#/components/schemas/StudentResetFailure' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 
   /teacher/students/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]

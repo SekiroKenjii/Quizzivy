@@ -5,12 +5,15 @@ export type Student = components["schemas"]["StudentRow"];
 export type StudentClass = components["schemas"]["StudentClass"];
 export type StudentStats = components["schemas"]["StudentStats"];
 export type StudentFacets = components["schemas"]["StudentFacets"];
+export type StudentPasswordReset = components["schemas"]["StudentPasswordReset"];
+export type StudentResetFailure = components["schemas"]["StudentResetFailure"];
 
 export type StudentStatus = "active" | "disabled" | "all";
 
 export interface ListStudentsParams {
   q?: string;
-  classId?: string;
+  classId?: readonly string[];
+  mustChangePassword?: boolean;
   status?: StudentStatus;
   page?: number;
   limit?: number;
@@ -19,7 +22,10 @@ export interface ListStudentsParams {
 export function listStudents(params: ListStudentsParams = {}, signal?: AbortSignal) {
   const query: Record<string, unknown> = {};
   if (params.q) query["q"] = params.q;
-  if (params.classId) query["classId"] = params.classId;
+  if (params.classId && params.classId.length > 0) query["classId"] = params.classId;
+  if (params.mustChangePassword !== undefined) {
+    query["mustChangePassword"] = params.mustChangePassword;
+  }
   if (params.status) query["status"] = params.status;
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
@@ -51,6 +57,12 @@ export function updateStudent(
 
 export function resetStudentPassword(id: string) {
   return api("post", "/teacher/students/{id}/reset-password", { path: { id } });
+}
+
+export function resetStudentsPasswords(studentIds: readonly string[]) {
+  return api("post", "/teacher/students/reset-passwords", {
+    body: { studentIds: [...studentIds] },
+  });
 }
 
 /** The percentage G-07 prints, from the (earned, total) pair the server sends. */

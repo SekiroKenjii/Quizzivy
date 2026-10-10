@@ -1954,6 +1954,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teacher/students/reset-passwords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset the passwords of up to 40 students at once
+         * @description Does for each student what `resetStudentPassword` does, one transaction
+         *     each: a new temporary password, `mustChangePassword` set, every refresh
+         *     family revoked, the session epoch moved, one audit row. The same guards
+         *     apply to each student, in the same order (`student` in the caller's reach
+         *     and student-like, the subset rule, then the shared-student rule), so a
+         *     batch cannot do what one reset cannot.
+         *
+         *     A student that fails does not stop the others: `failed` names it with
+         *     `NOT_FOUND` (another teacher's student, a disabled one, a missing id, an
+         *     account that is not a student, all alike), `FORBIDDEN` (the student's
+         *     permissions are not a subset of the caller's), `STUDENT_SHARED` (someone
+         *     else also reaches the student, so only a holder of `people.users.manage`
+         *     may reset them) or `INTERNAL` (a fault with that student alone, logged on
+         *     the server). The answer is 200 whenever the request was accepted, even
+         *     when every student failed. `items` and `failed` keep the order of
+         *     `studentIds`.
+         *
+         *     Each `temporaryPassword` is returned **once** and stored nowhere: the
+         *     server keeps only its hash. A reset that committed before the connection
+         *     dropped has lost its password for good; those students are on a
+         *     temporary password, so `listStudents` with `mustChangePassword=true`
+         *     lists them for another reset. The answer is never cached. Repeating a
+         *     request resets the same students again with new passwords.
+         *
+         *     Limited to 2 a minute and 10 an hour per signed-in user, a call counting
+         *     once however many students it names.
+         */
+        post: operations["resetStudentsPasswords"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/students/{id}": {
         parameters: {
             query?: never;
@@ -3862,6 +3907,20 @@ export interface components {
             /** @description Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them. */
             classes: components["schemas"]["StudentClass"][];
             stats: components["schemas"]["StudentStats"];
+        };
+        /** @description One student `resetStudentsPasswords` reset. The password is shown once. */
+        StudentPasswordReset: {
+            studentId: components["schemas"]["Uuid"];
+            fullName: string;
+            /** Format: email */
+            email: string;
+            temporaryPassword: string;
+        };
+        /** @description One student `resetStudentsPasswords` did not reset, and why. */
+        StudentResetFailure: {
+            studentId: components["schemas"]["Uuid"];
+            /** @description One of `NOT_FOUND`, `FORBIDDEN`, `STUDENT_SHARED` or `INTERNAL`. */
+            code: components["schemas"]["ErrorCode"];
         };
         /**
          * @description G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a page
@@ -9351,7 +9410,19 @@ export interface operations {
             query?: {
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
-                classId?: components["schemas"]["Uuid"];
+                /**
+                 * @description Only students who are in at least one of these classes (`classId=a&classId=b`;
+                 *     one value still works). A class the caller does not reach matches nothing,
+                 *     as a missing class does.
+                 */
+                classId?: components["schemas"]["Uuid"][];
+                /**
+                 * @description `true` lists only the accounts still on a temporary password; after a
+                 *     `resetStudentsPasswords` whose answer was lost, those are the students
+                 *     whose password must be reset again. `false` lists only the others.
+                 *     Absent lists both.
+                 */
+                mustChangePassword?: boolean;
                 /**
                  * @description Defaults to `active`. Without `disabled` there is no request that can
                  *     return a suspended account, so `updateStudent`'s `disabled: false`
@@ -9435,6 +9506,38 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    resetStudentsPasswords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    studentIds: components["schemas"]["Uuid"][];
+                };
+            };
+        };
+        responses: {
+            /** @description The batch ran. Passwords are returned **once**. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["StudentPasswordReset"][];
+                        failed: components["schemas"]["StudentResetFailure"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getStudent: {

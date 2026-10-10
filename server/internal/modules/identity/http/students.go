@@ -34,9 +34,10 @@ func (h Identity) ListStudents(ctx context.Context, request openapi.ListStudents
 	if request.Params.Q != nil {
 		in.Query = string(*request.Params.Q)
 	}
-	if request.Params.ClassId != nil {
-		in.ClassID = request.Params.ClassId.String()
+	for _, id := range httpapi.Deref(request.Params.ClassId) {
+		in.ClassIDs = append(in.ClassIDs, id.String())
 	}
+	in.MustChange = request.Params.MustChangePassword
 	if request.Params.Status != nil {
 		in.Status = domain.StudentStatus(*request.Params.Status)
 	}
@@ -195,6 +196,57 @@ func (h Identity) ResetStudentPassword(ctx context.Context, request openapi.Rese
 				"This student is still in another teacher's class or assignment, or was created by someone else, so only an admin can reset the password."))), nil
 	default:
 		return nil, err
+	}
+}
+
+// ResetStudentsPasswords resets up to 40 students, each as ResetStudentPassword
+// resets one. The answer is the only place the temporary passwords exist.
+func (h Identity) ResetStudentsPasswords(ctx context.Context, request openapi.ResetStudentsPasswordsRequestObject) (openapi.ResetStudentsPasswordsResponseObject, error) {
+	if h.app == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	req, ok := studentRequest(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	ids := make([]string, len(request.Body.StudentIds))
+	for i, id := range request.Body.StudentIds {
+		ids[i] = id.String()
+	}
+	result, err := h.app.Commands.ResetStudentsPasswords.Handle(ctx, command.ResetStudentsPasswords{Request: req, IDs: ids})
+	if err != nil {
+		return nil, err
+	}
+
+	var out openapi.ResetStudentsPasswords200JSONResponse
+	out.Headers.CacheControl = httpapi.Ptr("no-store")
+	out.Body.Items = make([]openapi.StudentPasswordReset, len(result.Reset))
+	for i, reset := range result.Reset {
+		out.Body.Items[i] = openapi.StudentPasswordReset{
+			StudentId:         httpapi.ParseUUID(reset.StudentID),
+			FullName:          reset.FullName,
+			Email:             openapi_types.Email(reset.Email),
+			TemporaryPassword: reset.TemporaryPassword,
+		}
+	}
+	out.Body.Failed = make([]openapi.StudentResetFailure, len(result.Failed))
+	for i, failure := range result.Failed {
+		out.Body.Failed[i] = openapi.StudentResetFailure{StudentId: httpapi.ParseUUID(failure.StudentID), Code: resetFailureCode(failure.Reason)}
+	}
+	return out, nil
+}
+
+func resetFailureCode(reason error) openapi.ErrorCode {
+	switch {
+	case errors.Is(reason, domain.ErrStudentNotFound):
+		return openapi.NOTFOUND
+	case errors.Is(reason, domain.ErrForbidden):
+		return openapi.FORBIDDEN
+	case errors.Is(reason, domain.ErrStudentShared):
+		return openapi.STUDENTSHARED
+	default:
+		return openapi.INTERNAL
 	}
 }
 

@@ -1,7 +1,33 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.74 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.75 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.74**
+
+R4, the bulk password reset and the student filters (T-R4.20):
+
+- §5.4 and §15 `POST /teacher/students/reset-passwords` (`people.students.reset_password`)
+  takes `studentIds` (1 to 40, no repeat) and answers `200` with `items` (`studentId`,
+  `fullName`, `email`, `temporaryPassword`) for the students it reset and `failed` (`studentId`,
+  `code`) for the others, each list in the order asked, with `Cache-Control: no-store`. A
+  failure is `NOT_FOUND` (another teacher's student, an account that is not a student, a
+  disabled student and a missing id are one answer), `FORBIDDEN` (the subset rule),
+  `STUDENT_SHARED` (someone else also reaches the student; a holder of `people.users.manage`
+  resets them) or `INTERNAL` (a fault, logged with the student's id and the cause, never the
+  password). The call answers `200` even when every student failed, and never fails once a
+  student is reset, because its answer is the only place the passwords exist; a lost answer
+  is recovered by listing `mustChangePassword=true` and resetting again.
+- §5.4 Each student is reset by the single reset's own write, after the same guards in the same
+  order, in a transaction of its own: the hash, `must_change_password`, the session epoch, every
+  refresh family and the audit row `student.password_reset` change together, and the student's
+  cached principal is forgotten after the commit. Two students are worked on at a time, inside
+  `MAX_CONCURRENT_PASSWORD_HASHES`. A cancelled request starts no further student and keeps
+  those already reset.
+- §6.5 `resetStudentsPasswords` 2/min and 10/h per signed-in user.
+- §15 `GET /teacher/students` takes `classId` more than once (a student in any of those
+  classes, counted once; a single value works as before) and `mustChangePassword`; its facets
+  count the same students as its list.
 
 **Changes since v0.73**
 
@@ -1024,7 +1050,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - Every request sends `Accept-Language` set to the app's locale, so server messages match the UI rather than the browser.
 - Reuse detection: presenting an already-rotated token revokes the whole family and forces re-login.
 - **Races.** A sign-in stores its refresh token under a lock on the user and compares the account with what it read: if the password, the session epoch or the disabled state changed meanwhile, a password sign-in answers `INVALID_CREDENTIALS` and a Google sign-in reads the account again. A rotation and a logout take the lock an update of the user takes, so one user's rotations, reuse detections and logouts run one at a time and none overlaps a reset, a disable or a password change: a session never survives the event that should have ended it.
-- **Session epoch.** `users.session_epoch` ends live sessions at once. Sign-in, Google sign-in and refresh put the user's current epoch in the access token (claim `sep`; a token without it reads as 0), and a token older than the user's epoch is refused (§5). In R2 two writes move it, each in the same transaction that revokes every refresh family the student has: disabling a student (`updateStudent` with `disabled: true`) and resetting a student's password (`resetStudentPassword`). Enabling the account again does not bring those sessions back. R5's sign-out-everywhere, role changes and set-password links move it too (70 §4.2).
+- **Session epoch.** `users.session_epoch` ends live sessions at once. Sign-in, Google sign-in and refresh put the user's current epoch in the access token (claim `sep`; a token without it reads as 0), and a token older than the user's epoch is refused (§5). In R2 two writes move it, each in the same transaction that revokes every refresh family the student has: disabling a student (`updateStudent` with `disabled: true`) and resetting a student's password (`resetStudentPassword`, and each student of `resetStudentsPasswords`). Enabling the account again does not bring those sessions back. R5's sign-out-everywhere, role changes and set-password links move it too (70 §4.2).
 - **Signed-in devices.** A session is a refresh-token family that is neither revoked nor expired. `GET /auth/sessions` returns the caller's own, at most 100, the one the request's refresh cookie names first with `current: true`: a handle (`familyId`), a `device` label ("Mac · Chrome", built at read time from closed lists of systems and browsers and never from the user agent's own text, or null), a `deviceKind` for the icon, a `location` ("City, CC", or null) and `lastUsedAt`. The location and the time are those of the latest sign-in or refresh, so the list shows where a device last refreshed, not where it first signed in: a rotation takes the label of its own request, and copies its predecessor's only when the request has none. The label is built from `CF-IPCity` and `CF-IPCountry` only when `CLIENT_IP_HEADER` is `CF-Connecting-IP` and the request carries that header; under any other configuration it is null. It reaches no log and no audit row. `DELETE /auth/sessions/{familyId}` ends one session, and `POST /auth/sessions/revoke-others` every one but the caller's. Each is one command: it takes the lock a rotation takes, revokes the family, moves the caller's session epoch, audits it and, after the commit, forgets the cached principal. A revoked device's access token stops working at once on that machine and within 10 seconds on any other; the caller's own next request answers 401 and recovers through the single-flight refresh, because the caller's family stays live and a refresh does not read the epoch. The caller's session is the one the refresh cookie names. A request whose cookie names no live session of the caller, such as one cleared by a sign-out in another tab or a bearer token alone, is answered `401 UNAUTHORIZED` by both writes, which write nothing; in the client that is a refresh that fails, and the sign-in overlay shows. An id that is another user's, revoked, expired or unknown answers `404`; the caller's own answers `409 SESSION_IS_CURRENT` (signing out is `POST /auth/logout`). A `revoke-others` that ends nothing writes nothing and moves no epoch.
 - **A disabled user is refused on the next request.** Every gated request reads `disabled_at` through the principal cache (§5): at once on the machine that made the change, within 10 seconds on any other. Refresh refuses a disabled user and revokes the family, so the client's refresh ends the session.
 
@@ -1064,7 +1090,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   transport/admission UI deadline and10s cleanup deadline show pending status without
   abandoning raw ownership; late timed-out login never auto-admits. Permanent hangs
   may keep admission closed. Cross-tab ordering is not promised by this design.
-- Password reset in v1: a holder of `people.students.reset_password` sets a temporary password from the student detail page, under the shared-student rule below. No self-service email flow (§17.1).
+- Password reset in v1: a holder of `people.students.reset_password` sets a temporary password from the student detail page, under the shared-student rule below, or for up to 40 students at once from the student list. No self-service email flow (§17.1).
 - New passwords have three rules:
   - at least 8 characters;
   - at least one number or symbol (`[\p{N}\p{P}\p{S}]`);
@@ -1073,10 +1099,10 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   The contract enforces the first two (`400 VALIDATION_FAILED`) and the server the third (`400 PASSWORD_UNCHANGED`). Existing passwords are never re-validated. `/change-password` shows the rules and a strength meter.
 - `/forgot-password` makes no request. It tells a Google user that no password is needed, and everyone else to ask the front desk (§4, when configured) or their teacher.
 - **Guards that are not permissions** (70 §4.3), enforced by the server. A guard on a student runs after the student is found in the caller's scope, so another teacher's student answers `404`, never `403`.
-  - **Strict student targets.** Every student read and write (the Students list and record, update, reset and delete, class membership, individual assignment targets, the dashboard's counts and `maintenance anonymize-student`) accepts only a role in `app.student_like_roles`: the built-in Student, or a custom role granted nothing but `learning.take_tests`. An Admin with "Take tests" turned on is never a student target. For an assignment's individual targets the rule applies to a target being added: a student who is already a target stays on the assignment when they are disabled or their role stops being student-like, so the teacher can still publish, edit and close it (#210).
-  - **The subset rule.** `updateStudent`, `resetStudentPassword` and `deleteUser` need the target's permissions, without `learning.take_tests`, to be a subset of the caller's (`access.CanActOn`); otherwise `403 FORBIDDEN`. 70 §4.3 lists the R5 operations it will also cover.
+  - **Strict student targets.** Every student read and write (the Students list and record, update, reset, bulk reset and delete, class membership, individual assignment targets, the dashboard's counts and `maintenance anonymize-student`) accepts only a role in `app.student_like_roles`: the built-in Student, or a custom role granted nothing but `learning.take_tests`. An Admin with "Take tests" turned on is never a student target. For an assignment's individual targets the rule applies to a target being added: a student who is already a target stays on the assignment when they are disabled or their role stops being student-like, so the teacher can still publish, edit and close it (#210).
+  - **The subset rule.** `updateStudent`, `resetStudentPassword`, `resetStudentsPasswords` (for each student in it) and `deleteUser` need the target's permissions, without `learning.take_tests`, to be a subset of the caller's (`access.CanActOn`); otherwise `403 FORBIDDEN`. 70 §4.3 lists the R5 operations it will also cover.
   - **Disabling.** `updateStudent` with `disabled`, either value, also needs `people.users.manage`; otherwise `403 FORBIDDEN`.
-  - **Shared students.** A reset, or a new `email`, by a caller without `people.users.manage` needs a student no one else reaches: every class they are in, archived ones included, is the caller's; no other account created them; no other account's assignment targets them individually; and a student in no class was created by the caller. Otherwise `403 STUDENT_SHARED`, and nothing is written. Sending the address the student already has is not a change. A new address could take the account over through Google sign-in, which links by email (§5.1).
+  - **Shared students.** A reset, single or bulk, or a new `email`, by a caller without `people.users.manage` needs a student no one else reaches: every class they are in, archived ones included, is the caller's; no other account created them; no other account's assignment targets them individually; and a student in no class was created by the caller. Otherwise `403 STUDENT_SHARED`, and nothing is written. Sending the address the student already has is not a change. A new address could take the account over through Google sign-in, which links by email (§5.1).
   - **The last Admin.** The `users_last_admin` trigger refuses any demotion, disable or delete that would leave no active Admin, whatever the path. No R2 operation can reach an Admin account; `409 LAST_ADMIN` arrives with R5.
   - The built-in Student role cannot lose `learning.take_tests`.
 
@@ -1155,7 +1181,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
   - `POST /auth/refresh` and `POST /auth/logout`: 120/min and 1,200/h per address.
   - `DELETE /auth/sessions/{familyId}`: 10/min and 60/h, and `POST /auth/sessions/revoke-others`: 5/min and 30/h, per signed-in user. Neither hands out a credential; each moves the user's session epoch and so makes every device of the user refresh (T-R4.9).
   - A code is counted after normalization, so respelling it buys no fresh allowance. Guessing stays at 600 codes an hour per address on each operation that checks one.
-  - The signed-in operations that hand out a credential are limited per signed-in user, after the permission check and wherever the user connects from, so staff behind one address do not share a budget (T-R4.53): `resetStudentPassword` 5/min and 30/h, `createStudent` 30/min and 300/h, `rotateJoinCode` 10/min and 60/h, `getJoinCode` 60/min and 600/h, `openDocsSession` 5/min and 30/h. A caller with no session or without the permission is answered `401` or `403` and spends no budget.
+  - The signed-in operations that hand out a credential are limited per signed-in user, after the permission check and wherever the user connects from, so staff behind one address do not share a budget (T-R4.53): `resetStudentPassword` 5/min and 30/h, `resetStudentsPasswords` 2/min and 10/h, `createStudent` 30/min and 300/h, `rotateJoinCode` 10/min and 60/h, `getJoinCode` 60/min and 600/h, `openDocsSession` 5/min and 30/h. A caller with no session or without the permission is answered `401` or `403` and spends no budget.
 - **Bounded bodies.** The four operations with a bucket keyed on a body field (login, Google sign-in, the preview and the in-app join) accept at most 8 KiB and answer `413` before any handler, so padding cannot hide the key from its bucket.
 - **Constant-time comparison** on code lookup; look up by a keyed hash (HMAC-SHA256) of the normalized code, not by plaintext equality. A code issued before v0.8.0 is found by its SHA-256 until R4 rotates it.
 - No audit row or log line carries a code, its ciphertext or its hash.
@@ -2526,10 +2552,14 @@ POST   /teacher/attempts/:id/grade      {items:[{questionId,points,comment}]}
 POST   /teacher/attempts/:id/finish-grading
 GET    /teacher/grading/queue?mode=student|question&assignmentId=&studentId=
                                           → {groups,items,answersRemaining,studentsWaiting}; default student
-GET    /teacher/students | POST | GET /:id
+GET    /teacher/students?q=&classId=&classId=&status=&mustChangePassword=&page=&limit= | POST | GET /:id
 PATCH  /teacher/students/:id            403 FORBIDDEN when disabled is sent without
                                           people.users.manage or the subset rule refuses; 403 STUDENT_SHARED
                                           for a new email when someone else also reaches the student (§5.4)
+POST   /teacher/students/reset-passwords {studentIds (1-40)}
+                                          → 200 {items:[{studentId,fullName,email,temporaryPassword}],
+                                          failed:[{studentId,code}]}, each in the order asked, Cache-Control
+                                          no-store; code NOT_FOUND | FORBIDDEN | STUDENT_SHARED | INTERNAL (§5.4)
 POST   /teacher/students/:id/reset-password
                                           403 STUDENT_SHARED when someone else also reaches the student,
                                           403 FORBIDDEN when the subset rule refuses (§5.4)
