@@ -1,7 +1,21 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.71 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.72 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.71**
+
+R4, profile photo (T-R4.8):
+
+- §15 `PUT /me/avatar` (`self`, multipart, a file of at most 2 MiB in a request of at most
+  2 MiB + 16 KiB) stores the caller's photo as a 256×256 PNG made from the centred square of a
+  PNG or JPEG whose sides are each 200 to 2048 pixels, EXIF orientation applied and every
+  other metadatum dropped, and answers `CurrentUser`; `DELETE /me/avatar` clears it and
+  answers the same. `CurrentUser.avatarUrl` is a presigned GET valid 24 hours. A new
+  `ErrorCode`, `IMAGE_DIMENSIONS` (415), answers sides out of range, an image that would need
+  more memory to decode than the server allows (48 MiB) and a JPEG of more than 32 scans;
+  `MEDIA_TOO_LARGE`, `MEDIA_TYPE_UNSUPPORTED` and `MEDIA_UNREADABLE` keep their meaning.
+  `PUT` is limited to 10 an hour per user. `User` (someone else) carries no photo yet.
 
 **Changes since v0.70**
 
