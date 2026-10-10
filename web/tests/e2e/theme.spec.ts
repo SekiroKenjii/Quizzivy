@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import { adminUser, anonymous, sessionAs, stubApi } from "./support/api";
 import {
   dashboard23,
@@ -15,6 +15,22 @@ async function prefer(page: Page, theme: string) {
 
 const background = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+
+const noClasses = async (route: Route) => {
+  await route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(
+      await contractJson("/teacher/classes", "get", 200, {
+        page: 1,
+        pageSize: 20,
+        total: 0,
+        items: [],
+        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
+      }).json(),
+    ),
+  });
+};
 
 test("paints a dark preference before the app runs", async ({ page }) => {
   await prefer(page, "dark");
@@ -44,13 +60,11 @@ test("keeps a console not yet rebuilt light under a dark preference", async ({
   page,
 }) => {
   const user = { ...adminUser, preferences: { theme: "dark" as const } };
-  await stubApi(page, sessionAs(user));
+  await stubApi(page, { ...sessionAs(user), "GET /teacher/classes": noClasses });
   await prefer(page, "dark");
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/teacher/settings");
-  await expect(page.getByRole("heading", { name: "Cài đặt", level: 1 })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Họ và tên" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Họ và tên" })).toHaveValue("Thuong");
+  await page.goto("/teacher/classes");
+  await expect(page.getByRole("heading", { name: "Lớp học", level: 1 })).toBeVisible();
   await expect(page.locator("[data-columns] main")).toBeVisible();
   await expect(page.locator('[data-scale="deck"] main')).toHaveCount(0);
   await expect(
@@ -60,7 +74,7 @@ test("keeps a console not yet rebuilt light under a dark preference", async ({
   expect(await background(page)).toBe("rgb(255, 255, 255)");
 });
 
-test("restores the dark preference after visiting old teacher settings through SPA links", async ({
+test("restores the dark preference after visiting a console not yet rebuilt through SPA links", async ({
   page,
 }) => {
   const user = { ...adminUser, preferences: { theme: "dark" as const } };
@@ -78,6 +92,8 @@ test("restores the dark preference after visiting old teacher settings through S
     "GET /teacher/summary": { body: dashboard23Summary() },
     "GET /me/summary": { body: { unreadNotifications: 0 } },
     "GET /teacher/assignments": { body: dashboard23Assignments() },
+    "GET /auth/sessions": { body: { items: [] } },
+    "GET /teacher/classes": noClasses,
   });
   await prefer(page, "dark");
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -97,6 +113,17 @@ test("restores the dark preference after visiting old teacher settings through S
   await expect(page.getByRole("heading", { name: "Cài đặt", level: 1 })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Họ và tên" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Họ và tên" })).toHaveValue("Thuong");
+  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator("[data-columns] main")).toHaveCount(0);
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  expect(await background(page)).toBe("rgb(14, 18, 19)");
+
+  await page
+    .getByRole("navigation", { name: "Điều hướng chính" })
+    .getByRole("link", { name: "Lớp học", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/teacher\/classes$/);
+  await expect(page.getByRole("heading", { name: "Lớp học", level: 1 })).toBeVisible();
   await expect(page.locator("[data-columns] main")).toBeVisible();
   await expect(page.locator('[data-scale="deck"] main')).toHaveCount(0);
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);

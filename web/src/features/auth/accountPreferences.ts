@@ -10,6 +10,7 @@ import {
   type ThemePreference,
 } from "@/lib/theme";
 import { setAccountTestText, writeLargerTestText } from "@/lib/testText";
+import { previewCompactTables, setAccountCompactTables } from "@/lib/compactTables";
 import { authStore, useAuthStore, type ActorLease } from "@/stores/auth";
 import {
   fetchCurrentUser,
@@ -29,7 +30,10 @@ import {
 
 /** PreferenceIntent is one existing account control's retained explicit choice. */
 export type PreferenceIntent =
-  { locale: Locale } | { theme: ThemePreference } | { largerTestText: boolean };
+  | { locale: Locale }
+  | { theme: ThemePreference }
+  | { largerTestText: boolean }
+  | { compactTables: boolean };
 
 /** AccountPreferenceStatus distinguishes previews and failures from server acknowledgments. */
 export interface AccountPreferenceStatus {
@@ -61,6 +65,7 @@ function applyUser(user: User) {
   void setLocale(user.locale ?? "vi");
   setAccountTheme(user.preferences?.theme ?? "light");
   setAccountTestText(user.preferences?.largerTestText ?? false);
+  setAccountCompactTables(user.preferences?.compactTables ?? false);
   const supported = setDisplayTimeZone(user.timeZone ?? APP_TIME_ZONE);
   const unsupportedZone = supported ? null : (user.timeZone ?? null);
   if (status.unsupportedZone !== unsupportedZone)
@@ -112,6 +117,7 @@ useAuthStore.subscribe((next, previous) => {
   if (!next.user && previous.user) {
     setAccountTheme(null);
     setAccountTestText(null);
+    setAccountCompactTables(null);
     setDisplayTimeZone(APP_TIME_ZONE);
   }
 });
@@ -158,6 +164,20 @@ export function saveProfilePatch(body: ProfilePatch) {
         ? body.fullName
         : body,
     );
+    acceptUser(user, lease);
+    return user;
+  });
+}
+
+/**
+ * replaceAccountUser runs an account write whose answer is the whole caller,
+ * such as setting or removing the photo, in the same ordered lane as the
+ * profile, and accepts the answer only for the actor that started it.
+ */
+export function replaceAccountUser(work: () => Promise<User>) {
+  const lease = authStore.captureActor();
+  return ordered(async () => {
+    const user = await work();
     acceptUser(user, lease);
     return user;
   });
@@ -212,6 +232,7 @@ export function runAccountMutation(
 function preview(intent: PreferenceIntent) {
   if ("locale" in intent) void setLocale(intent.locale);
   else if ("theme" in intent) writeThemePreference(intent.theme);
+  else if ("compactTables" in intent) previewCompactTables(intent.compactTables);
   else writeLargerTestText(intent.largerTestText);
 }
 

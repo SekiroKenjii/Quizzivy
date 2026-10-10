@@ -2,10 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import {
-  LanguageSection,
-  ProfileSection,
-} from "@/features/auth/components/SettingsSections";
+import { ProfileSection } from "@/features/settings/sections/Profile";
 import {
   StudentAppearanceSection,
   StudentProfileSection,
@@ -295,8 +292,8 @@ it("reports actual cleanup rejection even after the raw logout UI deadline", asy
   expect(transitionStatus().kind).toBe("idle");
 });
 
-it("saves only the teacher language choice and preserves a mounted dirty legal-name field through acknowledgment", async () => {
-  useAuthStore.getState().setSession("a", teacherUser);
+it("saves only the changed language, applies it once the server keeps it, and stores it for the next boot", async () => {
+  useAuthStore.getState().setSession("a", { ...teacherUser, locale: "vi" });
   const reply = gate();
   const bodies: unknown[] = [];
   server.use(
@@ -309,22 +306,23 @@ it("saves only the teacher language choice and preserves a mounted dirty legal-n
   render(
     <>
       <ProfileSection />
-      <LanguageSection />
       <Toaster />
     </>,
   );
   const user = userEvent.setup();
-  const name = screen.getByLabelText("Họ và tên");
-  await user.type(name, " unsaved");
-  await user.click(screen.getByRole("button", { name: "English" }));
+  await user.click(screen.getByRole("combobox", { name: "Ngôn ngữ" }));
+  await user.click(screen.getByRole("option", { name: "English" }));
+  expect(i18n.language).toBe("vi");
+  await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
   await waitFor(() => expect(bodies).toEqual([{ locale: "en" }]));
-  expect(i18n.language).toBe("en");
-  name.focus();
+  expect(i18n.language).toBe("vi");
   reply.open();
   await waitFor(() => expect(useAuthStore.getState().user?.locale).toBe("en"));
-  expect(screen.getByLabelText("Full name")).toBe(name);
-  expect(name).toHaveValue(`${teacherUser.fullName} unsaved`);
-  expect(name).toHaveFocus();
+  await waitFor(() => expect(i18n.language).toBe("en"));
+  expect(localStorage.getItem("quizzivy.locale")).toBe("en");
+  expect(document.documentElement.lang).toBe("en");
+  expect(await screen.findByText("Settings saved")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
   expect(useAuthStore.getState().user?.fullName).toBe(teacherUser.fullName);
 });
 

@@ -458,10 +458,14 @@ export async function downloadFile(
   };
 }
 
-/** Progress and cancellation for an upload, which fetch cannot report. */
+/**
+ * UploadOptions are an upload's progress and cancellation, which fetch cannot
+ * report, and its method, which is POST unless `method` says PUT.
+ */
 export interface UploadOptions {
   onProgress?: (fraction: number) => void;
   signal?: AbortSignal;
+  method?: "POST" | "PUT";
 }
 
 /**
@@ -480,7 +484,7 @@ export async function uploadFile<T>(
   const send = (token: string | null) =>
     new Promise<{ status: number; body: string }>((resolve, reject) => {
       const request = new XMLHttpRequest();
-      request.open("POST", url);
+      request.open(options.method ?? "POST", url);
       request.withCredentials = true;
       request.setRequestHeader("Accept", "application/json");
       request.setRequestHeader("Accept-Language", language());

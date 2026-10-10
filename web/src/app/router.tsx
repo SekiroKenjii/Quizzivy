@@ -301,7 +301,10 @@ const teacherTree: RouteObject = {
         },
         {
           path: "settings/:section?",
-          lazy: page(() => import("@/features/auth/pages/AdminSettingsPage")),
+          handle: { crumb: [{ key: "nav.settings" }], width: 1080 },
+          lazy: page(
+            () => import("@/features/settings/pages/teacher/TeacherSettingsPage"),
+          ),
         },
       ],
     },

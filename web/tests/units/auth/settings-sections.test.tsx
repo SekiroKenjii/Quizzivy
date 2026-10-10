@@ -4,11 +4,9 @@ import userEvent from "@testing-library/user-event";
 import {
   ApiDocsSection,
   GoogleSection,
-  LanguageSection,
   PasswordSection,
-  ProfileSection,
 } from "@/features/auth/components/SettingsSections";
-import { openDocsSession, updateProfile } from "@/features/auth/api";
+import { openDocsSession } from "@/features/auth/api";
 import { BASE_URL } from "@/lib/api/client";
 import { toast } from "@/components/ui/sonner";
 import { useAuthStore } from "@/stores/auth";
@@ -35,7 +33,6 @@ function signedIn(over: { hasPassword: boolean; google: boolean }) {
 
 vi.mock("@/features/auth/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/auth/api")>()),
-  updateProfile: vi.fn(),
   openDocsSession: vi.fn(),
 }));
 vi.mock("@/components/ui/sonner", async (importOriginal) => ({
@@ -44,7 +41,6 @@ vi.mock("@/components/ui/sonner", async (importOriginal) => ({
 }));
 
 beforeEach(() => {
-  vi.mocked(updateProfile).mockReset();
   vi.mocked(toast).mockReset();
 });
 afterEach(() => useAuthStore.getState().clearSession());
@@ -99,79 +95,6 @@ describe("the settings cards say what the deck writes", () => {
     expect(screen.getByText("Chưa liên kết với Google.")).toBeInTheDocument();
     expect(screen.queryByText(/Bỏ liên kết thì chỉ còn/)).toBeNull();
     expect(screen.queryByText(/cách duy nhất/)).toBeNull();
-  });
-
-  it("says what the language switch does and what it leaves alone (S-17)", () => {
-    render(<LanguageSection />);
-
-    expect(
-      screen.getByText(
-        "Đổi ngôn ngữ giao diện. Đề thi vẫn hiện đúng như giáo viên soạn.",
-      ),
-    ).toBeInTheDocument();
-  });
-});
-
-/**
- * The "Hồ sơ" card, which both settings boards draw and #94 asked for: the one
- * thing an account may change about itself, beside the one it may not.
- */
-describe("the profile card", () => {
-  it("edits the name, keeps the email read-only, and says where the email came from", async () => {
-    signedIn({ hasPassword: true, google: true });
-    vi.mocked(updateProfile).mockResolvedValue({
-      ...BASE,
-      fullName: "Nguyễn Đức Minh",
-      hasPassword: true,
-      linkedProviders: ["google"],
-    });
-    const user = userEvent.setup();
-    render(<ProfileSection />);
-
-    const email = screen.getByLabelText("Email");
-    expect(email).toHaveValue("an@example.com");
-    expect(email).toBeDisabled();
-    expect(email).toHaveAccessibleDescription(
-      "Email lấy từ tài khoản Google, không đổi được.",
-    );
-
-    const name = screen.getByLabelText("Họ và tên");
-    expect(name).toHaveValue("Nguyễn Văn An");
-    // Nothing to save until something changes.
-    expect(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeDisabled();
-
-    await user.clear(name);
-    await user.type(name, "Nguyễn Đức Minh");
-    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
-
-    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith("Nguyễn Đức Minh"));
-    // F-08 confirms a completed action with a toast, not a sentence that stays.
-    await waitFor(() => expect(toast).toHaveBeenCalledWith("Đã lưu họ và tên."));
-    expect(useAuthStore.getState().user?.fullName).toBe("Nguyễn Đức Minh");
-  });
-
-  it("names the teacher as the source when there is no Google account", () => {
-    signedIn({ hasPassword: true, google: false });
-    render(<ProfileSection />);
-
-    expect(screen.getByLabelText("Email")).toHaveAccessibleDescription(
-      "Email do giáo viên cấp, không đổi được.",
-    );
-  });
-
-  it("refuses an empty name without asking the server", async () => {
-    signedIn({ hasPassword: true, google: false });
-    const user = userEvent.setup();
-    render(<ProfileSection />);
-
-    await user.clear(screen.getByLabelText("Họ và tên"));
-    await user.type(screen.getByLabelText("Họ và tên"), " ");
-    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
-
-    expect(
-      await screen.findByText("Họ và tên không được để trống."),
-    ).toBeInTheDocument();
-    expect(updateProfile).not.toHaveBeenCalled();
   });
 });
 

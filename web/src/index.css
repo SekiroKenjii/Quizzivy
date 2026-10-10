@@ -67,6 +67,11 @@
   --qr-fg: #1b2123;
   --swatch-light: #ffffff;
   --swatch-dark: #0e1213;
+  --swatch-light-side: #f2f4f4;
+  --swatch-light-line: #e4e7e8;
+  --swatch-dark-side: #1a2022;
+  --swatch-dark-line: #252d2f;
+  --swatch-device: #9aa3a5;
   --qz-shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.2);
 
   /* Beyond the deck, for contrast (DG-30, DG-31): the focus ring, input borders and destructive buttons. */
@@ -199,6 +204,11 @@
   --color-qr-fg: var(--qr-fg);
   --color-swatch-light: var(--swatch-light);
   --color-swatch-dark: var(--swatch-dark);
+  --color-swatch-light-side: var(--swatch-light-side);
+  --color-swatch-light-line: var(--swatch-light-line);
+  --color-swatch-dark-side: var(--swatch-dark-side);
+  --color-swatch-dark-line: var(--swatch-dark-line);
+  --color-swatch-device: var(--swatch-device);
 
   --shadow-card: var(--qz-shadow);
   --shadow-float: var(--qz-shadow-lg);
@@ -444,21 +454,6 @@
   }
 }
 
-@keyframes settings-enter {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.settings-panel:not([hidden]) {
-  animation: settings-enter 150ms ease-out;
-}
-
 .surface-lift {
   transition:
     box-shadow 150ms ease-out,
@@ -473,9 +468,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settings-panel:not([hidden]) {
-    animation: none;
-  }
   .surface-lift {
     transition: none;
   }
