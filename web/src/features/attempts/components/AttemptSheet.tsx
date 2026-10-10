@@ -24,10 +24,12 @@ import {
 import { scoreText } from "@/features/assignments/studentTime";
 import { useCan, useWorkspace } from "@/features/auth/permissions";
 import { Timeline } from "@/features/integrity/components/Timeline";
+import { FLAGGED } from "@/features/integrity/tones";
 import { useTick } from "@/hooks/useTick";
 import { ApiError } from "@/lib/api/errors";
 import { countdown } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
+import { cn } from "@/lib/utils";
 import {
   getAttemptForReview,
   isHandedIn,
@@ -246,7 +248,7 @@ function AttemptFacts({
           </span>
         )}
         {data.attempt.integrity?.flagged && (
-          <span className="text-danger-ink inline-flex items-center gap-1">
+          <span className={cn(FLAGGED.ink, "inline-flex items-center gap-1")}>
             <Flag aria-hidden="true" className="size-3.5" />
             {t("status.attention.flagged")}
           </span>
@@ -268,6 +270,7 @@ function AttemptBody(props: Props & Readonly<{ data: AttemptReview }>) {
         questions={data.questions}
         live={open && data.attempt.status === "in_progress"}
         note={data.teacherNote}
+        submittedAt={data.attempt.submittedAt ?? null}
         presentation="compact"
         onViewPaper={() => {
           if (open) void navigate(`/teacher/attempts/${data.attempt.id}`);

@@ -58,6 +58,7 @@ import { AttemptSheet } from "@/features/attempts/components/AttemptSheet";
 import { Monitor } from "@/features/attempts/components/Monitor";
 import { SheetNoteController } from "@/features/attempts/components/sheetNotes";
 import { POLL_MS, monitorKey, reviewKey } from "@/features/attempts/keys";
+import { FLAGGED } from "@/features/integrity/tones";
 import { listVersions, previewTest, type TestVersion } from "@/features/tests/api";
 import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
@@ -683,7 +684,7 @@ function DetailStats({
         {
           label: t("assignments.detail.flagged"),
           value: stats === null ? "—" : String(stats.flagged),
-          tone: (stats?.flagged ?? 0) > 0 ? "danger" : "default",
+          tone: (stats?.flagged ?? 0) > 0 ? FLAGGED.tone : "default",
         },
       ]}
     />
