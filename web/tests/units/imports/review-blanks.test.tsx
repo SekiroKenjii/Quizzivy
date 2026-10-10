@@ -99,3 +99,13 @@ describe("a fill-blank question's accepted answers", () => {
     expect(lastBlank().accepted).toHaveLength(20);
   });
 });
+
+describe("a fill-blank question's prompt", () => {
+  it("is the content editor, whose toolbar keeps Insert gap", async () => {
+    await renderReview();
+    expect(
+      await screen.findByRole("textbox", { name: "Nội dung câu 1" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Thêm ô trống/ })).toBeInTheDocument();
+  });
+});
