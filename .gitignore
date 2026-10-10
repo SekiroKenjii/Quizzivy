@@ -16,6 +16,7 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+.eslintcache
 coverage/
 playwright-report/
 test-results/
