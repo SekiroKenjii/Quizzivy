@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { useBlocker, useSearchParams } from "react-router";
+import { useBlocker, useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { SplitPane } from "@/components/shared/SplitPane";
@@ -51,7 +51,6 @@ import {
 import { useImportAvailability } from "../../availability";
 import { sourceViewQuery } from "../../queries";
 import { isActiveStatus, reprocessOutcome } from "../../status";
-import { useImportCommit } from "../../useImportCommit";
 import { useReprocess } from "../../useReprocess";
 import { useReviewSession } from "../../useReviewSession";
 import {
@@ -63,7 +62,6 @@ import {
 import { QuestionEditor } from "./QuestionEditor";
 import { ExcludeDialog, PointsDialog } from "./ReviewDialogs";
 import { PhoneNote, ReviewBanners } from "./ReviewBanners";
-import { ReviewSummaryDialog } from "./ReviewSummaryDialog";
 import { ReviewToolbar, type ReviewPane } from "./ReviewToolbar";
 import { ReviewTopBar } from "./ReviewTopBar";
 import { SourcePane, type BlockTag, type SourceFocus } from "./SourcePane";
@@ -135,6 +133,25 @@ function firstSelection(review: ImportReview, structure: Structure): string | nu
   return questionPlaces(review.draft.sections)[0]?.question.id ?? null;
 }
 
+function selectionFor(finding: ImportFinding, structure: Structure): string | null {
+  const questionId = questionFor(finding, structure);
+  if (questionId !== null) return questionId;
+  return isGlobal(finding, structure) ? WHOLE_TEST : null;
+}
+
+function firstOpenIn(
+  review: ImportReview,
+  filter: FindingFilter,
+  structure: Structure,
+): ImportFinding | null {
+  return (
+    orderFindings(
+      review.findings.filter((finding) => isOpenIn(finding, filter)),
+      structure.positions,
+    )[0] ?? null
+  );
+}
+
 function nextTarget(id: string, focus: boolean) {
   return (previous: Target | null): Target => ({
     id,
@@ -152,7 +169,9 @@ function noop() {}
  * at a time below it. It edits a copy of `initial` taken at mount and is
  * read-only on a phone and whenever the import is not under review, the
  * draft changed elsewhere, processing finished after the page opened, or a
- * commit or reprocess is under way.
+ * reprocess is under way. Opened with `?filter=`, it starts on that filter's
+ * first open finding and focuses it, once, at mount. "Preview & finish" goes
+ * to the import's "Preview and create" page.
  */
 export function ReviewWorkspace({
   value,
@@ -172,11 +191,7 @@ export function ReviewWorkspace({
   const session = useReviewSession(importId, origin, locked);
   const { working, server, editQuestion, setTitle, acknowledge } = session;
   const { status, flush, retry } = session.autosave;
-  const { state: commitState, commit } = useImportCommit(
-    importId,
-    flush,
-    session.revision,
-  );
+  const navigate = useNavigate();
   const {
     reprocess,
     pending: reprocessPending,
@@ -193,8 +208,11 @@ export function ReviewWorkspace({
     : "all";
 
   const structure = useMemo(() => structureOf(origin.draft.sections), [origin]);
+  const [jump] = useState(() =>
+    requestedFilter === null ? null : firstOpenIn(origin, filter, structure),
+  );
   const [selectedId, setSelectedId] = useState<string | null>(() =>
-    firstSelection(origin, structure),
+    jump === null ? firstSelection(origin, structure) : selectionFor(jump, structure),
   );
   const [section, setSection] = useState("all");
   const [sourceRole, setSourceRole] = useState<ImportSourceRole>("exam");
@@ -203,11 +221,14 @@ export function ReviewWorkspace({
     nonce: 0,
     take: false,
   }));
-  const [anchor, setAnchor] = useState<FindingAnchor | null>(null);
-  const [findingTarget, setFindingTarget] = useState<Target | null>(null);
+  const [anchor, setAnchor] = useState<FindingAnchor | null>(() =>
+    jump === null ? null : { id: jump.id, at: findingRank(jump, structure.positions) },
+  );
+  const [findingTarget, setFindingTarget] = useState<Target | null>(() =>
+    jump === null ? null : { id: jump.id, focus: true, nonce: 0 },
+  );
   const [examTarget, setExamTarget] = useState<Target | null>(null);
   const [view, setView] = useState<ReviewPane>("exam");
-  const [summaryOpen, setSummaryOpen] = useState(false);
   const [leaveFailed, setLeaveFailed] = useState(false);
   const [adopting, setAdopting] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
@@ -215,8 +236,6 @@ export function ReviewWorkspace({
   const excludeReturn = useRef<HTMLElement | null>(null);
   const [pointsOpen, setPointsOpen] = useState(false);
   const [phoneNote, setPhoneNote] = useState(true);
-  const finishButton = useRef<HTMLButtonElement>(null);
-  const afterSummary = useRef<string | null>(null);
   const examScroller = useRef<HTMLDivElement>(null);
   const examScrollTop = useRef(0);
 
@@ -226,20 +245,13 @@ export function ReviewWorkspace({
     status.kind === "saving" ||
     status.kind === "failed" ||
     stale;
-  const committed = value.status === "committed" || commitState.phase === "done";
+  const committed = value.status === "committed";
   const underReview = value.status === "needs_review";
   const [openedWhile] = useState(value.status);
   const finished =
     isActiveStatus(openedWhile) && underReview && reprocessOutcome(value) === null;
   const readOnly =
-    phone ||
-    stale ||
-    committed ||
-    finished ||
-    !underReview ||
-    commitState.phase === "pending" ||
-    commitState.phase === "lost" ||
-    reprocessPending;
+    phone || stale || committed || finished || !underReview || reprocessPending;
 
   useEffect(() => {
     locked.current = readOnly;
@@ -619,31 +631,7 @@ export function ReviewWorkspace({
     return () => window.removeEventListener("beforeunload", warn);
   }, [unsaved]);
 
-  const openSummary = () => {
-    setSummaryOpen(true);
-    flush().catch(() => undefined);
-  };
-  const showFilter = (next: FindingFilter) => {
-    setSummaryOpen(false);
-    setFilter(next);
-    const first = orderFindings(
-      findings.filter((finding) => isOpenIn(finding, next)),
-      structure.positions,
-    )[0];
-    if (!first) return;
-    afterSummary.current = first.id;
-    goTo(first);
-  };
-  const restoreAfterSummary = (event: Event) => {
-    event.preventDefault();
-    const findingId = afterSummary.current;
-    afterSummary.current = null;
-    const target =
-      findingId === null
-        ? finishButton.current
-        : document.getElementById(`finding-${findingId}`);
-    target?.focus();
-  };
+  const openPreview = () => void navigate(`/teacher/imports/${importId}/confirm`);
 
   const excluded = excluding === null ? undefined : labels.get(excluding);
   const facts = wholeTestFacts(value, working.sections, included.length, t);
@@ -685,7 +673,7 @@ export function ReviewWorkspace({
         readOnly={readOnly}
         facts={facts}
         allDone={underReview && !readOnly && open.blocking + open.review === 0}
-        onFinish={openSummary}
+        onFinish={openPreview}
         handlers={handlers}
         editor={editor}
       />
@@ -709,16 +697,12 @@ export function ReviewWorkspace({
         onRetry={retry}
         blocking={open.blocking}
         review={open.review}
-        finishRef={finishButton}
-        finishDisabled={!underReview && commitState.phase !== "done"}
-        onFinish={openSummary}
+        finishDisabled={!underReview && !committed}
+        onFinish={openPreview}
       />
       <ReviewBanners
         value={value}
         stale={stale}
-        committedTestId={
-          commitState.phase === "done" ? commitState.result.testId : null
-        }
         reprocessed={server.reprocessed && underReview && !stale && !finished}
         finished={finished}
         onReload={onReload}
@@ -784,18 +768,6 @@ export function ReviewWorkspace({
         }
       />
 
-      <ReviewSummaryDialog
-        open={summaryOpen}
-        onOpenChange={setSummaryOpen}
-        summary={server.summary}
-        ready={server.ready && underReview}
-        save={status}
-        state={commitState}
-        onCommit={() => void commit()}
-        onRetrySave={retry}
-        onShowFilter={showFilter}
-        onCloseAutoFocus={restoreAfterSummary}
-      />
       <ExcludeDialog
         label={excluded?.label ?? ""}
         open={excluding !== null && !readOnly}

@@ -170,16 +170,17 @@ export function savedFrom(initial: ImportReview, body: SaveImportReview): Import
   };
 }
 
-export async function renderReview() {
+export async function renderReview(search = "") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
       { path: "/teacher/imports/:id/review", element: <ImportReviewPage /> },
       { path: "/teacher/imports/:id", element: <p>import detail</p> },
+      { path: "/teacher/imports/:id/confirm", element: <p>confirm page</p> },
       { path: "/teacher/imports", element: <p>history</p> },
       { path: "/teacher/tests/:id/edit", element: <p>builder</p> },
     ],
-    { initialEntries: [`/teacher/imports/${IMPORT_ID}/review`] },
+    { initialEntries: [`/teacher/imports/${IMPORT_ID}/review${search}`] },
   );
   render(
     <QueryClientProvider client={client}>
