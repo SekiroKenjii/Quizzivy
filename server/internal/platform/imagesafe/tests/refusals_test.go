@@ -140,6 +140,8 @@ func TestRefusalsNeverWaitForADecodeSlot(t *testing.T) {
 		"a small png":          {encodePNG(t, solid(100, 100, red)), imagesafe.ErrDimensions},
 		"a declared bomb":      {declaredPNG(30000, 30000), imagesafe.ErrDimensions},
 		"a heavy progressive":  {jpegFrame(frameSpec{progressive: true, width: 2048, height: 2048, sampling: [][2]int{{1, 1}, {1, 1}, {1, 1}}}), imagesafe.ErrDimensions},
+		"33 empty scans":       {eobRunJPEG(2048, 33), imagesafe.ErrDimensions},
+		"20000 empty scans":    {eobRunJPEG(2048, 20000), imagesafe.ErrDimensions},
 		"an unreadable header": {[]byte("\x89PNG\r\n\x1a\n"), imagesafe.ErrUnreadable},
 	}
 	for name, c := range refusals {

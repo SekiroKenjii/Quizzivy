@@ -25,22 +25,27 @@ import (
 // MaxDecodedBytes is the most memory one decode may be estimated to need from the image's header; an image above it is refused before any pixel is allocated.
 const MaxDecodedBytes = 48 << 20
 
+// MaxScans is the most scans a JPEG may hold: the standard decoder makes a full pass over the image's coefficients for each scan and cannot be cancelled, so only the count bounds its time.
+const MaxScans = 32
+
 // Why an upload is refused. Each is checked before the next costs anything.
 var (
 	ErrTooLarge    = errors.New("imagesafe: file is over the size limit")
 	ErrUnsupported = errors.New("imagesafe: not a png or a jpeg")
 	ErrUnreadable  = errors.New("imagesafe: image cannot be read")
-	ErrDimensions  = errors.New("imagesafe: sides are out of range or the image is too large to decode")
+	ErrDimensions  = errors.New("imagesafe: sides are out of range, or the image needs too much memory or time to decode")
 )
 
-// Limits bounds what Square accepts and what it makes. MaxDecodedBytes is
-// normally the package's constant of the same name.
+// Limits bounds what Square accepts and what it makes. MaxDecodedBytes and
+// MaxScans are normally the package's constants of the same names; a zero
+// MaxScans refuses every JPEG.
 type Limits struct {
 	MaxFileBytes    int64
 	MinSide         int
 	MaxSide         int
 	OutSide         int
 	MaxDecodedBytes int64
+	MaxScans        int
 }
 
 // Processor decodes and normalises images, taking one slot of its Gate for the
@@ -135,14 +140,14 @@ func inspect(data []byte, kind string, lim Limits) (header, error) {
 	if cfg.Width < lim.MinSide || cfg.Height < lim.MinSide || cfg.Width > lim.MaxSide || cfg.Height > lim.MaxSide {
 		return header{}, ErrDimensions
 	}
-	need, orientation, err := memoryNeeded(data, kind, cfg)
+	prof, err := profileOf(data, kind, cfg)
 	if err != nil {
 		return header{}, err
 	}
-	if need > lim.MaxDecodedBytes {
+	if prof.need > lim.MaxDecodedBytes || prof.scans > lim.MaxScans {
 		return header{}, ErrDimensions
 	}
-	return header{width: cfg.Width, height: cfg.Height, orientation: orientation}, nil
+	return header{width: cfg.Width, height: cfg.Height, orientation: prof.orientation}, nil
 }
 
 func decode(data []byte, kind string, head header) (img image.Image, err error) {

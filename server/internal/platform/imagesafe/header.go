@@ -1,21 +1,28 @@
 package imagesafe
 
 import (
+	"bytes"
 	"image"
 	"image/color"
 )
 
 const bytesPerBlock = 64 * 4
 
-func memoryNeeded(data []byte, kind string, cfg image.Config) (need int64, orientation int, err error) {
+type profile struct {
+	need        int64
+	orientation int
+	scans       int
+}
+
+func profileOf(data []byte, kind string, cfg image.Config) (profile, error) {
 	if kind == kindPNG {
-		return int64(cfg.Width) * int64(cfg.Height) * pngBytesPerPixel(cfg.ColorModel), 1, nil
+		return profile{need: int64(cfg.Width) * int64(cfg.Height) * pngBytesPerPixel(cfg.ColorModel), orientation: 1}, nil
 	}
 	frame, ok := scanJPEG(data)
 	if !ok {
-		return 0, 1, ErrUnreadable
+		return profile{orientation: 1}, ErrUnreadable
 	}
-	return frame.decodeBytes(cfg.Width, cfg.Height), frame.orientation, nil
+	return profile{need: frame.decodeBytes(cfg.Width, cfg.Height), orientation: frame.orientation, scans: frame.scans}, nil
 }
 
 func pngBytesPerPixel(model color.Model) int64 {
@@ -46,6 +53,7 @@ type jpegFrame struct {
 	adobe          bool
 	adobeTransform byte
 	exifSeen       bool
+	scans          int
 	comps          []jpegComponent
 	orientation    int
 }
@@ -110,6 +118,7 @@ func scanJPEG(data []byte) (jpegFrame, bool) {
 		pos = next
 		if segment.marker == markerSOF0 || segment.marker == markerSOF1 || segment.marker == markerSOF2 {
 			frame.progressive = segment.marker == markerSOF2
+			frame.scans = bytes.Count(data[pos:], []byte{0xff, markerSOS})
 			return frame, frame.readComponents(segment.body)
 		}
 		frame.absorb(segment)

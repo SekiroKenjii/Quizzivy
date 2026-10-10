@@ -15,11 +15,12 @@ var photoLimits = imagesafe.Limits{
 	MaxSide:         2048,
 	OutSide:         256,
 	MaxDecodedBytes: imagesafe.MaxDecodedBytes,
+	MaxScans:        imagesafe.MaxScans,
 }
 
 // Photos makes a profile photo from an upload for the identity module's
 // PhotoProcessor port: a PNG or a JPEG of at most 2 MiB, each side 200 to 2048
-// pixels, stored as a 256 x 256 PNG. The Processor's gate is the server's bound
+// pixels and at most 32 scans, stored as a 256 x 256 PNG. The Processor's gate is the server's bound
 // on images decoded at once.
 type Photos struct{ Processor *imagesafe.Processor }
 

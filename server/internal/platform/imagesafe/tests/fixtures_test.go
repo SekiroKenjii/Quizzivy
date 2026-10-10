@@ -20,6 +20,7 @@ var avatarLimits = imagesafe.Limits{
 	MaxSide:         2048,
 	OutSide:         256,
 	MaxDecodedBytes: imagesafe.MaxDecodedBytes,
+	MaxScans:        imagesafe.MaxScans,
 }
 
 func square(t *testing.T, data []byte) ([]byte, error) {

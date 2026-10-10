@@ -86,3 +86,23 @@ func TestPhotosPassOnAReadThatFailsAsItIs(t *testing.T) {
 type errReader struct{ err error }
 
 func (e errReader) Read([]byte) (int, error) { return 0, e.err }
+
+func jpegOfScans(scans int) []byte {
+	out := []byte{0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0, 1, 1, 0, 0, 1, 0, 1, 0, 0}
+	out = append(out, 0xff, 0xc0, 0x00, 0x0b, 8, 0x01, 0x2c, 0x01, 0x2c, 1, 1, 0x11, 0)
+	for range scans {
+		out = append(out, 0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00, 0x00)
+	}
+	return append(out, 0xff, 0xd9)
+}
+
+func TestPhotosRefuseAJpegOfMoreThanThirtyTwoScansBeforeDecodingIt(t *testing.T) {
+	photos := adapters.Photos{Processor: imagesafe.New(imagesafe.NewGate(1))}
+
+	if _, err := photos.Square(context.Background(), bytes.NewReader(jpegOfScans(33))); !errors.Is(err, identitydomain.ErrAvatarDimensions) {
+		t.Errorf("33 scans answered %v, want ErrAvatarDimensions", err)
+	}
+	if _, err := photos.Square(context.Background(), bytes.NewReader(jpegOfScans(32))); !errors.Is(err, identitydomain.ErrAvatarUnreadable) {
+		t.Errorf("32 scans answered %v, want them let through to a decode that fails (ErrAvatarUnreadable)", err)
+	}
+}
