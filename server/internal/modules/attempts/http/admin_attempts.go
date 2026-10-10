@@ -58,6 +58,7 @@ func (h Attempts) GetAssignmentMonitor(ctx context.Context, request openapi.GetA
 			FocusLossCount: r.FocusLossCount,
 			Flagged:        httpapi.Ptr(r.Flagged),
 			AudioOverLimit: httpapi.Ptr(r.AudioOverLimit),
+			ExtendedTo:     r.ExtendedTo,
 		}
 		if r.AttemptID != nil {
 			id := httpapi.RawUUID(*r.AttemptID)

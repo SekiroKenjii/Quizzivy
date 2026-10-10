@@ -1,7 +1,40 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.65 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.66 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.65**
+
+R4, extensions and per-student overrides, second half (T-R4.12b):
+
+- §13 An attempt in progress follows a change to its window. `POST
+  /teacher/assignments/:id/extend`, `PATCH /teacher/assignments/:id` (a later close),
+  `POST /teacher/assignments/:id/reopen` and `PUT
+  /teacher/assignments/:id/student-overrides` set the deadline of each attempt in
+  progress to the earlier of its start plus its student's time limit and its student's
+  close, in the transaction that changed the window, and only where that is later than
+  the deadline it has. A deadline never moves earlier: removing an override (`DELETE`),
+  setting a shorter time limit or a shorter close, and closing early leave a running
+  attempt where it is, and so does an attempt whose deadline has already passed (judged on
+  the database's clock), which is over whether or not it has been swept and is not revived.
+  Each attempt moved is audited as `attempt.extended` with the old and new deadline and the
+  cause. An override moves only the attempts of the students it
+  names.
+- §13 An attempt starts under the window as it stands when it commits. A start that is
+  racing an extension stores the extended deadline, or is itself lengthened by the
+  extension, whichever commits first; it is never left on the close it read before.
+- §15 `closesAt` of an override must be ahead of the database's clock, not the API
+  server's.
+- §15 `MonitorRow.extendedTo` carries the time a student's own override closes when that
+  is later than the assignment's effective close, and is absent otherwise. An override
+  that closes sooner than the assignment says nothing. Closing an assignment early does
+  not take an override away: a student whose override reaches past the close stays open.
+- §13.9 The maintenance window's extension also moves the close of each student override of
+  a published assignment that falls inside the window, by the window's length, and writes
+  an `assignment.override_extended` audit entry per override. The operator's role needs
+  `SELECT, UPDATE (closes_at)` on `assignment_student_overrides` (release checklist).
+  `extendAssignment` and the two override writes take the same advisory lock (73819, 40)
+  shared, as a start does.
 
 **Changes since v0.64**
 
@@ -27,7 +60,7 @@ R4, extensions and per-student overrides, first half (T-R4.12a):
   reads open to a student whose override is still ahead. A result released `after_close`
   is withheld until that student's own close; the class average still waits for the
   assignment's. Nothing in a student's payload says an override exists or why.
-- An attempt already in progress keeps its deadline until T-R4.12b recomputes it.
+- An attempt already in progress kept its deadline in this version; v0.66 (T-R4.12b) recomputes it.
 
 **Changes since v0.63**
 
@@ -2228,9 +2261,9 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 
 - A window runs at most 12 hours, and windows that are not cancelled may not overlap (an exclusion constraint).
 - The app role only reads the table. The operator schedules, cancels and ends windows through `cmd/maintenance`.
-- Scheduling extends by the window's length every in-progress attempt that would still be running when it starts, and every published, open assignment that would close inside it. Every extension is audited as System.
+- Scheduling extends by the window's length every in-progress attempt that would still be running when it starts, every published, open assignment that would close inside it, and every student override of a published assignment that would close inside it. Every extension is audited as System.
 - The API reads the table into a snapshot at most every 30 s, and only while requests arrive. During an active window it answers 503 (§15), and it refuses an attempt start that would run into a window.
-- A start and a schedule take the same advisory lock (73819, 40), so a new attempt is either refused or extended.
+- A start and a schedule take the same advisory lock (73819, 40), so a new attempt is either refused or extended. So do every other writer of an assignment's window or overrides: the teacher's extension, the assignment update, the reopening and the two override writes (shared, as a start does), so none of them runs between a window's scheduling and its extensions.
 
 ---
 

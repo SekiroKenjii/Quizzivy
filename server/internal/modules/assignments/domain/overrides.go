@@ -23,7 +23,8 @@ type StudentOverride struct {
 // OverrideInput asks to give StudentIDs an override. A field that is set
 // replaces the stored one; a field that is nil keeps it. ExtendBy, in minutes,
 // moves each student's own close later from where it is now and is the
-// alternative to ClosesAt. Notify is recorded with the audit entry.
+// alternative to ClosesAt. Notify is recorded with the audit entry, and Now is
+// the moment the audit entries carry.
 type OverrideInput struct {
 	StudentIDs    []string
 	ExtendBy      *int
@@ -41,8 +42,8 @@ func (in OverrideInput) CleanReason() string {
 }
 
 // Validate refuses what the schema cannot: a reason of only whitespace, both
-// ways of naming the close at once, a close that is not ahead, and a request
-// that changes nothing.
+// ways of naming the close at once, and a request that changes nothing. That
+// ClosesAt is ahead is judged where the write is, at the database's clock.
 func (in OverrideInput) Validate() error {
 	var fields []FieldError
 
@@ -51,9 +52,6 @@ func (in OverrideInput) Validate() error {
 	}
 	if in.ExtendBy != nil && in.ClosesAt != nil {
 		fields = append(fields, FieldError{Field: "closesAt", Message: "Chỉ chọn một trong hai: gia hạn thêm hoặc thời điểm đóng mới."})
-	}
-	if in.ClosesAt != nil && !in.ClosesAt.After(in.Now) {
-		fields = append(fields, FieldError{Field: "closesAt", Message: "Thời điểm đóng mới phải ở phía trước."})
 	}
 	if in.ExtendBy == nil && in.ClosesAt == nil && in.DurationMin == nil && in.ExtraAttempts == nil {
 		fields = append(fields, FieldError{Field: "extendBy", Message: "Hãy chọn ít nhất một thay đổi: thời gian đóng, thời lượng hoặc số lượt làm."})
