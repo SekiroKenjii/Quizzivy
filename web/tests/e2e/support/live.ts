@@ -117,31 +117,45 @@ export async function chooseOption(page: Page, text: string) {
 /**
  * Assigns a published test to the seeded class and lands on the list.
  *
- * Two steps in the picker: the test expands, then a version is picked, because
- * an assignment pins a version rather than a test.
+ * The wizard picks the test and the class and saves a draft; the edit form
+ * then assigns it, until the wizard has its own Assign step (T-R4.27b).
  */
 export async function assignToClass(page: Page, title: string) {
-  await page.goto("/teacher/assignments/new");
-  await page.getByRole("button", { name: "Chọn đề thi" }).click();
-  const picker = page.getByRole("dialog");
-  await picker.getByText(title).click();
-  await picker
-    .getByRole("button", { name: /Dùng bản này/ })
-    .first()
-    .click();
-  await expect(page.getByRole("button", { name: "Đổi đề" })).toBeVisible();
-
-  await page.getByPlaceholder("thêm lớp").fill("Tiếng Anh");
-  // Scoped to the combobox's own listbox: the duration <select> further down the
-  // form carries options too.
-  await page
-    .getByRole("listbox")
-    .getByRole("option", { name: /Tiếng Anh giao tiếp/ })
-    .first()
-    .click();
-
+  const id = await saveDraftFromWizard(page, title);
+  await page.goto(`/teacher/assignments/${id}/edit`);
   await page.getByRole("button", { name: "Giao bài", exact: true }).click();
-  await expect(page).toHaveURL(/\/teacher\/assignments$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`/teacher/assignments/${id}$`), {
+    timeout: 30_000,
+  });
+  await page.goto("/teacher/assignments");
+}
+
+/**
+ * Picks `title` and the seeded class in the new-assignment wizard, saves a
+ * draft and returns its id. `query` is the address's query string, such as
+ * `?test=<id>`; a test it preselects is checked, not clicked.
+ */
+export async function saveDraftFromWizard(page: Page, title: string, query = "") {
+  await page.goto(`/teacher/assignments/new${query}`);
+  const test = page.getByRole("radio", { name: new RegExp(title) });
+  if (query.includes("test=")) await expect(test).toBeChecked();
+  else await test.click();
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: /Tiếng Anh giao tiếp/ })
+    .first()
+    .click();
+  const created = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith("/teacher/assignments"),
+  );
+  await page.getByRole("button", { name: "Lưu nháp", exact: true }).click();
+  const assignment = (await (await created).json()) as { id: string };
+  await expect(page).toHaveURL(/\/teacher\/assignments\?status=draft$/, {
+    timeout: 30_000,
+  });
+  return assignment.id;
 }
 
 /**

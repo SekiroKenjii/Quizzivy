@@ -207,7 +207,7 @@ describe("a card on the tests list", () => {
     ).toEqual(["Giao cho lớp", "Nhân bản", "Lưu trữ"]);
     expect(
       within(menu).getByRole("menuitem", { name: "Giao cho lớp" }),
-    ).toHaveAttribute("href", `/teacher/assignments/new?testId=${PUBLISHED_ID}`);
+    ).toHaveAttribute("href", `/teacher/assignments/new?test=${PUBLISHED_ID}`);
   });
 
   it("offers Restore, Duplicate and Delete for an archived test, and deletes after confirming", async () => {

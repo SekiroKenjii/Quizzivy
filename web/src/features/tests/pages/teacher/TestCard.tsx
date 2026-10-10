@@ -206,7 +206,7 @@ function CardMenu({
         ) : null}
         {test.status === "published" ? (
           <DropdownMenuItem asChild>
-            <Link to={`/teacher/assignments/new?testId=${test.id}`}>
+            <Link to={`/teacher/assignments/new?test=${test.id}`}>
               <Send aria-hidden="true" />
               {t("tests.assignToClass")}
             </Link>

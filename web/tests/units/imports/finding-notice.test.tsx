@@ -51,6 +51,22 @@ describe("a PDF note in the review", () => {
     expect(screen.queryByText(/đối tượng trong tài liệu không đọc được/)).toBeNull();
   });
 
+  it("says pasted text keeps no formatting, and why that matters", () => {
+    show(
+      finding({
+        id: "f4",
+        code: "UNSUPPORTED_DOCUMENT_OBJECT",
+        field: "TEXT_MARKS_UNAVAILABLE",
+        severity: "informational",
+      }),
+    );
+    expect(screen.getByText("Văn bản dán không giữ định dạng chữ")).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Văn bản thuần không giữ được gạch chân/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/đối tượng trong tài liệu không đọc được/)).toBeNull();
+  });
+
   it("keeps the generic title for a Word object", () => {
     show(
       finding({
