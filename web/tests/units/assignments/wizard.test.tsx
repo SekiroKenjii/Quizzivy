@@ -67,6 +67,7 @@ function version(id: string, manualCount: number) {
     questionCount: 24,
     audioCount: 0,
     manualCount,
+    skills: [],
     assignmentCount: 0,
     changeNote: null,
     publishedAt: NOW,

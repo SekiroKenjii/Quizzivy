@@ -4461,6 +4461,13 @@ export interface components {
             version: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
+            /**
+             * @description Sorted distinct non-null skills of the questions this version froze,
+             *     grouped members included: the version's counterpart of `Test.skills`.
+             *     It is read from the version's own questions, so editing the draft or
+             *     the bank after the publish does not change it.
+             */
+            skills: components["schemas"]["QuestionSkill"][];
             /** @description Questions with their own audio or a shared group recording, counted once per question; shown when picking a version to assign (G-01). */
             audioCount: number;
             /**

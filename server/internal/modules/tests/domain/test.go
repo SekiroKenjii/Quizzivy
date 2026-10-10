@@ -79,6 +79,7 @@ type Version struct {
 	QuestionCount   int
 	AudioCount      int
 	ManualCount     int
+	Skills          []string
 	PublishedAt     time.Time
 	PublishedBy     string
 	AssignmentCount int
