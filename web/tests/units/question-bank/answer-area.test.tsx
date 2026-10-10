@@ -253,6 +253,35 @@ describe("the true/false field", () => {
     expect(screen.getByRole("radio", { name: "Sai" })).toBeChecked();
   });
 
+  it("reads a reversed legacy pair by its truth words, before falling back to position", async () => {
+    const { user, seen } = renderArea({
+      type: "true_false",
+      options: [stored("Sai", true, FALSE_ID), stored("Đúng", false, TRUE_ID)],
+    });
+    expect(screen.getByRole("radio", { name: "Sai" })).toBeChecked();
+
+    await user.click(screen.getByRole("radio", { name: "Đúng" }));
+    expect(seen.at(-1)!.options).toEqual([
+      { id: TRUE_ID, text: "True", isCorrect: true },
+      { id: FALSE_ID, text: "False", isCorrect: false },
+    ]);
+  });
+
+  it.each([
+    [["No", "Yes"], 1],
+    [["không", "Có."], 1],
+    [["F", "T"], 1],
+    [["sai", "Lựa chọn khác"], 1],
+    [["Một", "Hai"], 0],
+  ])("finds the true one of %j at index %i", (texts, index) => {
+    const options = texts.map((text, at) =>
+      stored(text, at === index, at === 0 ? FALSE_ID : TRUE_ID),
+    );
+    const answer = readTrueFalse(options);
+    expect(answer.trueOption).toBe(options[index]);
+    expect(answer.trueIsCorrect).toBe(true);
+  });
+
   it("takes the option beside a lone canonical False as true", () => {
     const answer = readTrueFalse([
       stored("False", false, FALSE_ID),

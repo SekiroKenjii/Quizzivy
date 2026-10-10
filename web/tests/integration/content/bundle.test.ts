@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { build } from "vite";
+import en from "@/lib/i18n/locales/en.json";
 
 type Chunk = {
   type: "chunk";
@@ -17,13 +18,14 @@ function closure(
   entry: Chunk,
   chunks: Map<string, Chunk>,
   includeDynamic = true,
+  outside: ReadonlySet<string> = new Set(),
 ): Chunk[] {
   const seen = new Set<string>();
   const pending = [entry];
   const result: Chunk[] = [];
   while (pending.length) {
     const chunk = pending.pop()!;
-    if (seen.has(chunk.fileName)) continue;
+    if (seen.has(chunk.fileName) || outside.has(chunk.fileName)) continue;
     seen.add(chunk.fileName);
     result.push(chunk);
     for (const name of [
@@ -38,7 +40,9 @@ function closure(
 }
 
 /**
- * The budgets are what a student downloads. Inside vitest NODE_ENV is "test",
+ * The budgets are what a student downloads. English strings are a chunk
+ * fetched only on a switch to English (F-20), so the reader's budget leaves
+ * them out and pins that they stay out of every chunk it does count. Inside vitest NODE_ENV is "test",
  * so Vite would resolve the `development` export conditions and count builds
  * no student receives (micromark's, with their assertions); the build names
  * the production conditions instead (T-16), and the limits stay as written.
@@ -56,9 +60,21 @@ test("keeps editor modules out of the reader and pins prototype transfer budgets
   })) as unknown as Output;
   const chunks = result.output.filter((item): item is Chunk => item.type === "chunk");
   const byName = new Map(chunks.map((chunk) => [chunk.fileName, chunk]));
-  const reader = closure(
-    chunks.find((chunk) => chunk.name === "reader")!,
-    byName,
+  const readerEntry = chunks.find((chunk) => chunk.name === "reader")!;
+  const english = chunks.find((chunk) =>
+    chunk.moduleIds.some((id) => id.endsWith("/locales/en.json")),
+  )!;
+  expect(english.moduleIds.map((id) => id.split("/").pop())).toEqual(["en.json"]);
+  expect(
+    closure(readerEntry, byName, false).map((chunk) => chunk.fileName),
+  ).not.toContain(english.fileName);
+  expect(closure(readerEntry, byName).map((chunk) => chunk.fileName)).toContain(
+    english.fileName,
+  );
+  const lazy = new Set([english.fileName]);
+  const reader = closure(readerEntry, byName, true, lazy);
+  expect(reader.filter((chunk) => chunk.code.includes(en.common.actionFailed))).toEqual(
+    [],
   );
   const editor = closure(
     chunks.find((chunk) => chunk.name === "editor")!,
@@ -81,6 +97,8 @@ test("keeps editor modules out of the reader and pins prototype transfer budgets
       chunk.moduleIds.some((id) => id.endsWith("/editor/clipboardHTML.ts")),
     )!,
     byName,
+    true,
+    lazy,
   );
   expect(
     clipboard.flatMap((chunk) => chunk.moduleIds).some((id) => id.includes("parse5")),

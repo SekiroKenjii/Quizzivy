@@ -9,7 +9,7 @@ import {
 import { markdownToQuestionContent } from "@/components/shared/content/editor/markdown";
 import { questionGaps } from "@/components/shared/content/gaps";
 import type { QuestionPromptContent } from "@/components/shared/content/questionContent";
-import { BlanksEditor } from "@/features/question-bank/components/BlanksEditor";
+import { GapAnswers } from "@/features/question-bank/components/GapAnswers";
 import { publishProblem } from "@/features/tests/publishProblem";
 import { t } from "i18next";
 import "@/lib/i18n";
@@ -164,17 +164,13 @@ test("gap deletion preserves orphaned answers for undo and requires explicit con
   expect(reconciled).toEqual(blanks);
   expect(reconcileGapBlanks(content, reconciled)).toEqual(blanks);
   const onChange = vi.fn();
-  render(
-    <BlanksEditor
-      prompt="[2]"
-      content={after}
-      blanks={reconciled}
-      onChange={onChange}
-    />,
-  );
+  render(<GapAnswers content={after} blanks={reconciled} onChange={onChange} />);
   expect(screen.getByRole("alert")).toHaveTextContent("Ô này đã được bỏ khỏi nội dung");
-  expect(screen.getByRole("button", { name: "Xoá chỗ trống 2" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "Xoá chỗ trống 1" }));
+  expect(screen.getByRole("group", { name: "Ô trống 2" })).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Xoá đáp án của ô 2" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Xoá đáp án của ô 1" }));
   expect(onChange).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Xoá đáp án" }));
   expect(onChange).toHaveBeenCalledWith([blanks[1]]);

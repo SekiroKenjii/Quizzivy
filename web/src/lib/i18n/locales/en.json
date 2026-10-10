@@ -671,7 +671,7 @@
     "audioShowTranscript": "Show transcript after submit",
     "blankOrdinal": "Blank {{n}}",
     "blanks": "Blanks",
-    "blanksHint": "Mark blanks in the question text with {{'{{1}}'}}, {{'{{2}}'}}",
+    "blanksHint": "Mark blanks in the question text with {{first}}, {{second}}",
     "caseSensitive": "Case sensitive",
     "explanation": "Explanation",
     "explanationHint": "— shown after submit, if the assignment allows it",
@@ -748,7 +748,6 @@
     "blankConversionBlocked": "Conversion requires each {{n}} marker to appear once with a matching answer. Check the blanks before converting.",
     "richBlankHint": "Use Insert gap in the toolbar. Answers stay attached when moving a gap or undoing an edit.",
     "richBlankSwitch": "Remove gaps from the content and resolve leftover answers before changing the question type.",
-    "richBlankAnswersHint": "Add or remove gaps in the content editor.",
     "orphanedBlank": "This gap was removed from the content. Undo in the editor to restore it, or delete its answers before saving.",
     "removeOrphanTitle": "Delete answers for the removed gap?",
     "removeOrphanDescription": "The accepted answers for this gap will be removed from the draft.",
@@ -768,6 +767,24 @@
       "manual": "Graded by hand. Each answer goes to the grading queue.",
       "anyAccepted": "An answer is correct if it matches any accepted answer.",
       "exactlyTicked": "Students must choose exactly the ticked options."
+    },
+    "gapAnswers": {
+      "label": "Accepted answers",
+      "hint": "for each gap in the prompt.",
+      "caseIgnored": "Capital letters and extra spaces are ignored.",
+      "group": "Gap {{label}}",
+      "inputFor": "Accepted answer for gap {{label}}",
+      "placeholderFirst": "Type an answer + Enter",
+      "placeholderMore": "Add another answer",
+      "removeAnswer": "Remove answer {{value}}",
+      "matchCase": "Match case",
+      "matchCaseFor": "Match case for gap {{label}}",
+      "empty": "Add at least one accepted answer for gap {{label}}.",
+      "noGapsTitle": "No gaps in the prompt yet",
+      "noGapsText": "Put the cursor where students type the answer, then insert a gap.",
+      "insertGap": "Insert gap",
+      "removedGroup": "Removed gap {{label}}",
+      "removeOrphan": "Delete answers for gap {{label}}"
     }
   },
   "builder": {
