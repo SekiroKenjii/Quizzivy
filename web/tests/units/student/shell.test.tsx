@@ -36,6 +36,9 @@ const CLASS = {
   name: "IELTS Foundation",
   description: "Thứ 3 và thứ 5, 19:30–21:00.",
   teacherName: "Cô Thương",
+  teacherAvatarUrl: null,
+  scheduleLabel: null,
+  room: null,
   joinedAt: "2026-06-01T00:00:00Z",
 };
 
