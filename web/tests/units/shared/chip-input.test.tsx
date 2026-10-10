@@ -36,6 +36,7 @@ function Answers({
   frame?: boolean;
   commaAdds?: boolean;
   invalid?: boolean;
+  describedBy?: string;
   same?: ChipSame;
 }>) {
   const [values, setValues] = useState(start);
@@ -356,6 +357,20 @@ describe("the chip input's drawing", () => {
     expect(input()).toHaveAttribute("aria-invalid", "true");
     expect(box()).toHaveClass("border-danger");
     expect(box()).not.toHaveClass("border-input");
+  });
+
+  it("is described by the message its host names, and by nothing otherwise", () => {
+    const plain = render(<Answers />);
+    expect(input()).not.toHaveAttribute("aria-describedby");
+    plain.unmount();
+
+    render(
+      <>
+        <Answers invalid describedBy="answers-error" />
+        <p id="answers-error">Thêm ít nhất một đáp án.</p>
+      </>,
+    );
+    expect(input()).toHaveAccessibleDescription("Thêm ít nhất một đáp án.");
   });
 });
 

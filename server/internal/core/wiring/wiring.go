@@ -70,7 +70,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	questionsApp, questionsRepo := questions(dbx, mediaApp)
 	testsApp := tests(dbx, questionsRepo, mediaRepo, mediaApp)
-	attemptsApp := attempts(dbx).WithGroupContexts(testsApp.Queries.GroupContexts)
+	attemptsApp := attempts(dbx).WithGroupContexts(testsApp.Queries.GroupContexts).WithZones(adapters.ProfileZone{Query: identityApp.Queries.EffectiveZone})
 	availabilityApp, availabilityTransport := availability(dbx, logger)
 
 	return Assembly{

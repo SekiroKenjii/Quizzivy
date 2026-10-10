@@ -166,7 +166,7 @@ func TestEveryTeacherListNamesTheKindItLists(t *testing.T) {
 			t.Errorf("GET %s lists unknown kind %q", path, kind)
 		}
 	}
-	if lists != 14 {
-		t.Errorf("%d teacher lists, want 14", lists)
+	if lists != 15 {
+		t.Errorf("%d teacher lists, want 15", lists)
 	}
 }

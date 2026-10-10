@@ -660,7 +660,7 @@ func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	found, page, err := store.List(ctx, domain.ListInput{Scope: everyone, ClassID: &mine.class})
+	found, page, err := store.List(ctx, domain.ListInput{Scope: everyone, ClassIDs: []string{mine.class}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -668,7 +668,7 @@ func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 		t.Fatalf("classId=%s returned %d rows (total %d), want only %s", mine.class, len(found), page.Total, kept.ID)
 	}
 
-	facets, err := store.Facets(ctx, domain.ListInput{Scope: everyone, ClassID: &mine.class})
+	facets, err := store.Facets(ctx, domain.ListInput{Scope: everyone, ClassIDs: []string{mine.class}})
 	if err != nil {
 		t.Fatal(err)
 	}
