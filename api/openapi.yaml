@@ -3009,13 +3009,21 @@ components:
       description: Immutable. Editing a published test creates a new one; in-flight attempts keep theirs (§7).
       required:
         [id, version, totalPoints, questionCount, audioCount, manualCount,
-         publishedAt, publishedBy, assignmentCount, changeNote]
+         skills, publishedAt, publishedBy, assignmentCount, changeNote]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         version: { type: integer, minimum: 1 }
         totalPoints: { $ref: '#/components/schemas/Points' }
         questionCount: { type: integer, minimum: 0 }
+        skills:
+          type: array
+          items: { $ref: '#/components/schemas/QuestionSkill' }
+          description: |
+            Sorted distinct non-null skills of the questions this version froze,
+            grouped members included: the version's counterpart of `Test.skills`.
+            It is read from the version's own questions, so editing the draft or
+            the bank after the publish does not change it.
         audioCount:
           type: integer
           minimum: 0

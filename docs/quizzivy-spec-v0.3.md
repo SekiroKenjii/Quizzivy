@@ -1,7 +1,17 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.69 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.70 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.69**
+
+R4, the skills of a published version (F-43):
+
+- §15 `TestVersion` (`publishTest`, `listTestVersions`) gains a required `skills`: the sorted
+  distinct skills of the questions the version froze, a group's members included, from the same
+  six values as `Test.skills`. A version whose questions carry none, which is every version
+  published before T-R4.15, answers `[]`. It is read from the version's own rows, so editing the
+  draft or the bank after the publish does not change it.
 
 **Changes since v0.68**
 

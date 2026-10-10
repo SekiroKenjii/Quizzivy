@@ -14,7 +14,7 @@ import type { RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useBlocker, useNavigate, useParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, History, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Eye, FolderInput as FolderInputIcon, History } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -24,10 +24,10 @@ import { MarqueeText } from "@/components/shared/MarqueeText";
 import { SplitPane } from "@/components/shared/SplitPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
-import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
 import { PageAsideSlot } from "@/layouts/slots";
 import {
   createQuestion,
+  duplicateQuestion,
   getQuestion,
   toFormValues,
   updateQuestion,
@@ -44,6 +44,10 @@ import {
   type PublishViolation,
   type Test,
 } from "@/features/tests/api";
+import {
+  BuilderQuestionEditor,
+  type BuilderQuestionActions,
+} from "@/features/tests/components/BuilderQuestionEditor";
 import { DraftPreviewDialog } from "@/features/tests/components/DraftPreviewDialog";
 import { PublishDialog } from "@/features/tests/components/PublishDialog";
 import {
@@ -79,12 +83,16 @@ import {
   editableOutline,
   findUnit,
   groupOwners,
+  moveUnit,
   reconcileSections,
+  removeUnit,
   sectionQuestionIds,
   unitsOf,
   withUnits,
 } from "../../outlineUnits";
 import { ApiError } from "@/lib/api/errors";
+import { notify } from "@/lib/toast";
+import { FormDialog } from "@/components/shared/form/FormDialog";
 
 /**
  * §2 asks for dnd-kit to be split out: it is ~40 kB that only the one admin
@@ -158,8 +166,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const [violations, setViolations] = useState<PublishViolation[] | null>(null);
   const [picking, setPicking] = useState(false);
   const pickerOpener = useRef<HTMLElement | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
@@ -173,6 +181,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   });
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [publishFailure, setPublishFailure] = useState<string | null>(null);
   const [leaveBusy, setLeaveBusy] = useState(false);
 
   // The version guard moves with each save.
@@ -359,7 +369,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }
   }
 
-  function appendQuestion(questionId: string) {
+  function appendQuestions(added: readonly string[]) {
+    const first = added[0];
+    if (first === undefined) return;
     const current = latestOutline.current;
     const last = destinationIndex();
     updateOutline(
@@ -367,12 +379,12 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         i === last
           ? withUnits(section, [
               ...unitsOf(section),
-              { kind: "question", id: questionId },
+              ...added.map((id) => ({ kind: "question" as const, id })),
             ])
           : section,
       ),
     );
-    void selectQuestion(questionId);
+    void selectQuestion(first);
   }
 
   async function onCreateQuestion() {
@@ -382,7 +394,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       const created = await createQuestion(starterQuestion(t));
       queryClient.setQueryData(["admin-question", created.id], created);
       setStarterIds((current) => new Set([...current, created.id]));
-      appendQuestion(created.id);
+      appendQuestions([created.id]);
     } catch (cause) {
       setPublishError(
         cause instanceof ApiError ? cause.message : t("builder.addFailed"),
@@ -406,14 +418,27 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     ]);
   }
 
-  async function onPublish() {
+  async function openPublish() {
     setPublishError(null);
+    setPublishFailure(null);
     setViolations(null);
-    setPublishing(true);
     try {
       await flushQuestion.current?.();
       await outline.flush();
-      await publishTest(test.id);
+      setChecking(true);
+    } catch (cause) {
+      report(cause);
+    }
+  }
+
+  async function onPublish(changeNote: string) {
+    setPublishFailure(null);
+    setPublishing(true);
+    try {
+      const published = await publishTest(test.id, changeNote);
+      if (published.testUpdatedAt) version.current = published.testUpdatedAt;
+      setChecking(false);
+      setViolations(null);
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["admin-test", test.id],
@@ -423,18 +448,73 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         queryClient.invalidateQueries({ queryKey: ["admin-test-preview", test.id] }),
         queryClient.invalidateQueries({ queryKey: ["admin-tests"] }),
       ]);
-      await navigate(`/teacher/tests/${test.id}`);
+      notify.success(t("builder.publishDone"), {
+        action: {
+          label: t("builder.assign"),
+          onClick: () => void navigate(`/teacher/assignments/new?test=${test.id}`),
+        },
+      });
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "PUBLISH_VALIDATION_FAILED") {
         setViolations(cause.violations);
         return;
       }
-      setPublishError(
+      setPublishFailure(
         cause instanceof ApiError ? cause.message : t("builder.publishFailed"),
       );
     } finally {
       setPublishing(false);
     }
+  }
+
+  async function duplicateSelected(questionId: string) {
+    setCreating(true);
+    setPublishError(null);
+    try {
+      await flushQuestion.current?.();
+      const copy = await duplicateQuestion(questionId);
+      queryClient.setQueryData(["admin-question", copy.id], copy);
+      const current = latestOutline.current;
+      updateOutline(
+        current.map((section) => {
+          const units = unitsOf(section);
+          const at = units.findIndex(
+            (unit) => unit.kind === "question" && unit.id === questionId,
+          );
+          if (at < 0) return section;
+          const next = [...units];
+          next.splice(at + 1, 0, { kind: "question", id: copy.id });
+          return withUnits(section, next);
+        }),
+      );
+      void selectQuestion(copy.id);
+    } catch (cause) {
+      setPublishError(
+        cause instanceof ApiError ? cause.message : t("builder.addFailed"),
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function moveSelected(questionId: string, sectionIndex: number) {
+    const current = latestOutline.current;
+    const from = findUnit(current, `question:${questionId}`);
+    const target = current[sectionIndex];
+    if (!from || !target || from.sectionIndex === sectionIndex) return;
+    updateOutline(
+      moveUnit(current, from, { sectionIndex, index: unitsOf(target).length }),
+    );
+  }
+
+  function deleteSelected(questionId: string) {
+    const current = latestOutline.current;
+    const order = current.flatMap((section) => section.questionIds);
+    const index = order.indexOf(questionId);
+    const next = order[index + 1] ?? order[index - 1] ?? null;
+    updateOutline(removeUnit(current, `question:${questionId}`));
+    setSelectedId(next);
+    notify.success(t("builder.removedFromTest"));
   }
 
   async function selectGroup(groupId: string, questionId?: string) {
@@ -620,8 +700,6 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }
   }
 
-  const contextLabel = describePosition(sections, selectedId, t, groups);
-
   const saveStatus = mergeAutosave([outline.status, questionStatus]);
   const stale = saveStatus.kind === "stale";
   // Typed but not yet on the server: leaving now would lose it (F-14).
@@ -673,18 +751,21 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           {questionIds.length === 0 ? t("builder.empty") : t("builder.noSelection")}
         </p>
       );
+    const questionId = selectedId;
     return (
       <QuestionPane
-        settingsOpen={settingsOpen}
-        settingsTriggerRef={settingsTriggerRef}
-        onSettingsOpenChange={setSettingsOpen}
-        key={selectedId}
-        questionId={selectedId}
-        clearStarterPrompt={starterIds.has(selectedId)}
+        key={questionId}
+        questionId={questionId}
+        number={positionOf(sections, questionId, groups)}
+        clearStarterPrompt={starterIds.has(questionId)}
         flushRef={flushQuestion}
         retryRef={retryQuestion}
         onStatus={setQuestionStatus}
-        contextLabel={contextLabel}
+        actions={{
+          onDuplicate: () => void duplicateSelected(questionId),
+          onMove: () => setMoving(true),
+          onDelete: () => setDeleting(true),
+        }}
       />
     );
   }
@@ -720,19 +801,6 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {selectedId === null || selectedGroupId ? null : (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground"
-              ref={settingsTriggerRef}
-              aria-label={t("questionEditor.settings")}
-              title={t("questionEditor.settings")}
-              onClick={() => setSettingsOpen(true)}
-            >
-              <SlidersHorizontal aria-hidden="true" />
-            </Button>
-          )}
           <Button
             variant="ghost"
             size="icon"
@@ -756,9 +824,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             size="md"
             className="h-9"
             disabled={publishing || stale}
-            onClick={() => void onPublish()}
+            onClick={() => void openPublish()}
           >
-            {publishing ? t("builder.publishing") : t("builder.publish")}
+            {t("builder.publish")}
           </Button>
         </div>
       </div>
@@ -836,7 +904,10 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           <div data-columns className="flex min-w-0 flex-1 items-start">
             <div
               data-resize-middle
-              className="bg-card shadow-card min-w-0 flex-1 rounded-xl border p-4"
+              className={cn(
+                "bg-card shadow-card min-w-0 flex-1 rounded-xl border",
+                selectedId === null || selectedGroupId ? "p-4" : "p-0",
+              )}
             >
               <PageAsideSlot.Provider value={asideSlot}>
                 {activeEditor()}
@@ -852,7 +923,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         excluded={new Set(questionIds)}
         returnFocus={pickerOpener}
         onOpenChange={setPicking}
-        onPick={appendQuestion}
+        destination={sections[destinationIndex()]?.title ?? null}
+        onPick={appendQuestions}
         onPickGroup={() => {
           setPicking(false);
           setPickingGroup(true);
@@ -888,13 +960,32 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       />
 
       <PublishDialog
+        open={checking}
+        pending={publishing}
+        error={publishFailure}
+        problems={loaded.flatMap((result) => {
+          const question = result.data;
+          const problem = question ? publishProblem(question, t) : null;
+          return question && problem
+            ? [
+                {
+                  questionId: question.id,
+                  message: problem,
+                  location: describePosition(sections, question.id, t, groups),
+                },
+              ]
+            : [];
+        })}
         violations={violations}
-        warnings={loaded.flatMap((result, index) =>
+        groupCount={groupIds.length}
+        warnings={loaded.flatMap((result) =>
           result.data && !result.data.explanation?.trim()
             ? [
                 {
                   questionId: result.data.id,
-                  message: t("builder.missingExplanation", { number: index + 1 }),
+                  message: t("builder.missingExplanation", {
+                    number: positionOf(sections, result.data.id, groups) ?? 0,
+                  }),
                 },
               ]
             : [],
@@ -906,7 +997,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
               null)
         }
         onGoToSection={(sectionId) => {
-          setViolations(null);
+          setChecking(false);
           requestAnimationFrame(() => {
             const section = document.querySelector(
               `[data-outline-section="${CSS.escape(sectionId)}"]`,
@@ -919,10 +1010,64 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             control?.scrollIntoView({ block: "nearest" });
           });
         }}
-        onClose={() => setViolations(null)}
-        onGoTo={(questionId) => {
-          void selectQuestion(questionId);
+        onOpenChange={(open) => {
+          if (open || publishing) return;
+          setChecking(false);
           setViolations(null);
+        }}
+        onGoTo={(questionId) => {
+          setChecking(false);
+          setViolations(null);
+          void selectQuestion(questionId);
+        }}
+        onPublish={(note) => void onPublish(note)}
+      />
+
+      <FormDialog
+        open={moving && selectedId !== null}
+        onOpenChange={setMoving}
+        title={t("builder.editor.moveTitle", {
+          number: positionOf(sections, selectedId, groups) ?? "",
+        })}
+        icon={FolderInputIcon}
+        initial={{
+          section: String(
+            Math.max(
+              0,
+              sections.findIndex((section) =>
+                selectedId === null ? false : section.questionIds.includes(selectedId),
+              ),
+            ),
+          ),
+        }}
+        fields={[
+          {
+            kind: "select",
+            name: "section",
+            label: t("builder.editor.moveTo"),
+            options: sections.map((section, index) => ({
+              value: String(index),
+              label: section.title,
+            })),
+          },
+        ]}
+        submitLabel={t("builder.editor.moveSubmit")}
+        onSubmit={({ section }) => {
+          if (selectedId !== null) moveSelected(selectedId, Number(section));
+          setMoving(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleting && selectedId !== null}
+        onOpenChange={setDeleting}
+        title={t("builder.editor.deleteTitle")}
+        description={t("builder.editor.deleteBody")}
+        confirmLabel={t("common.delete")}
+        destructive
+        onConfirm={() => {
+          if (selectedId !== null) deleteSelected(selectedId);
+          setDeleting(false);
         }}
       />
 
@@ -931,6 +1076,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         questions={draftQuestions}
         sections={sections}
         groups={loadedGroups.flatMap((result) => (result.data ? [result.data] : []))}
+        startAt={selectedId}
         onOpenChange={setPreviewing}
       />
 
@@ -1052,24 +1198,20 @@ function BuilderTitle({
 
 function QuestionPane({
   questionId,
+  number,
   clearStarterPrompt,
   flushRef,
   retryRef,
   onStatus,
-  contextLabel,
-  settingsOpen,
-  settingsTriggerRef,
-  onSettingsOpenChange,
+  actions,
 }: Readonly<{
   questionId: string;
+  number: number | null;
   clearStarterPrompt: boolean;
   flushRef: RefObject<(() => Promise<void>) | null>;
   retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
-  contextLabel: string | null;
-  settingsOpen: boolean;
-  settingsTriggerRef: RefObject<HTMLButtonElement | null>;
-  onSettingsOpenChange: (open: boolean) => void;
+  actions: BuilderQuestionActions;
 }>) {
   const { t } = useTranslation();
   const question = useQuery({
@@ -1079,14 +1221,14 @@ function QuestionPane({
 
   if (question.isPending) {
     return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+      <p role="status" aria-live="polite" className="text-muted-foreground p-4 text-sm">
         {t("common.loading")}
       </p>
     );
   }
   if (question.isError) {
     return (
-      <p role="alert" className="text-destructive text-sm">
+      <p role="alert" className="text-destructive p-4 text-sm">
         {t("questionEditor.loadFailed")}
       </p>
     );
@@ -1095,41 +1237,38 @@ function QuestionPane({
   return (
     <QuestionForm
       questionId={questionId}
+      number={number}
       clearStarterPrompt={clearStarterPrompt}
       initial={question.data}
       flushRef={flushRef}
       retryRef={retryRef}
       onStatus={onStatus}
-      contextLabel={contextLabel}
-      settingsOpen={settingsOpen}
-      settingsTriggerRef={settingsTriggerRef}
-      onSettingsOpenChange={onSettingsOpenChange}
+      actions={actions}
+      onRefresh={() => void question.refetch()}
     />
   );
 }
 
 function QuestionForm({
   questionId,
+  number,
   clearStarterPrompt,
   initial,
   flushRef,
   retryRef,
   onStatus,
-  contextLabel,
-  settingsOpen,
-  settingsTriggerRef,
-  onSettingsOpenChange,
+  actions,
+  onRefresh,
 }: Readonly<{
   questionId: string;
+  number: number | null;
   clearStarterPrompt: boolean;
   initial: Parameters<typeof toFormValues>[0];
   flushRef: RefObject<(() => Promise<void>) | null>;
   retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
-  contextLabel: string | null;
-  settingsOpen: boolean;
-  settingsTriggerRef: RefObject<HTMLButtonElement | null>;
-  onSettingsOpenChange: (open: boolean) => void;
+  actions: BuilderQuestionActions;
+  onRefresh: () => void;
 }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -1169,26 +1308,19 @@ function QuestionForm({
   }, [onStatus, status]);
 
   return (
-    <div>
-      <QuestionEditor
-        value={values}
-        clearPromptOnFocus={clearStarterPrompt}
-        asset={asset}
-        contextLabel={contextLabel}
-        settings={{
-          hideBelow: "lg",
-          always: true,
-          triggerRef: settingsTriggerRef,
-          open: settingsOpen,
-          onOpenChange: onSettingsOpenChange,
-        }}
-        onChange={(next) => {
-          setValues(next);
-          autosave.schedule(next);
-        }}
-        onAssetChange={setAsset}
-      />
-    </div>
+    <BuilderQuestionEditor
+      value={values}
+      asset={asset}
+      number={number}
+      clearPromptOnFocus={clearStarterPrompt}
+      actions={actions}
+      onChange={(next) => {
+        setValues(next);
+        autosave.schedule(next);
+      }}
+      onAssetChange={setAsset}
+      onRefresh={onRefresh}
+    />
   );
 }
 
@@ -1199,6 +1331,15 @@ function starterQuestion(t: TFunction): QuestionValues {
     level: null,
     skill: null,
     prompt: t("builder.starterPrompt"),
+    promptContent: {
+      format: "semantic_v1",
+      blocks: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: t("builder.starterPrompt"), marks: [] }],
+        },
+      ],
+    },
     mediaAssetId: null,
     mediaAlt: null,
     audio: null,
@@ -1237,6 +1378,18 @@ function describePosition(
     }
   }
   return null;
+}
+
+function positionOf(
+  sections: OutlineSection[],
+  questionId: string | null,
+  groups: Map<string, GroupBundle>,
+): number | null {
+  if (questionId === null) return null;
+  const index = sections
+    .flatMap((section) => sectionQuestionIds(section, groups))
+    .indexOf(questionId);
+  return index < 0 ? null : index + 1;
 }
 
 function problemFor(

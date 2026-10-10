@@ -81,6 +81,7 @@ beforeEach(() => {
             questionCount: 1,
             audioCount: 0,
             manualCount: 0,
+            skills: [],
             assignmentCount: 0,
             changeNote: null,
             publishedAt: "2026-01-02T03:00:00Z",

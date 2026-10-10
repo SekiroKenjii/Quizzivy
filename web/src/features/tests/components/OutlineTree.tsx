@@ -33,11 +33,6 @@ import {
   ChevronRight,
   ChevronUp,
   CircleAlert,
-  CircleDot,
-  ListChecks,
-  ToggleLeft,
-  TextCursorInput,
-  PenLine,
   Ellipsis,
   GripVertical,
   Headphones,
@@ -65,6 +60,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { MarqueeText } from "@/components/shared/MarqueeText";
 import type { QuestionValues } from "@/features/question-bank/questionSchema";
 import { cn } from "@/lib/utils";
+import { QUESTION_TYPE_ICONS } from "@/features/question-bank/components/questionTypeIcons";
 import { moveSection, type OutlineSection } from "@/features/tests/outline";
 import {
   findUnit,
@@ -923,13 +919,7 @@ function OutlineRow({
   const label = question?.prompt.trim() ?? "";
   const Icon = question?.hasAudio
     ? Headphones
-    : {
-        single_choice: CircleDot,
-        multiple_choice: ListChecks,
-        true_false: ToggleLeft,
-        fill_blank: TextCursorInput,
-        short_answer: PenLine,
-      }[question?.type ?? "single_choice"];
+    : QUESTION_TYPE_ICONS[question?.type ?? "single_choice"];
 
   return (
     <div
