@@ -123,6 +123,7 @@ const teacherTree: RouteObject = {
         },
         {
           path: "question-bank",
+          handle: { crumb: [{ key: "teacherShell.nav.questionBank" }], width: 1320 },
           lazy: page(
             () => import("@/features/question-bank/pages/teacher/QuestionBankPage"),
           ),

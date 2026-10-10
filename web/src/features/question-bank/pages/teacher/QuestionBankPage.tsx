@@ -1,648 +1,335 @@
-import { BankNavigation } from "@/features/question-groups/components/BankNavigation";
-import { useBulkSelection } from "@/hooks/useBulkSelection";
-import { BulkActions } from "@/components/shared/BulkActions";
-import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
-import { useLocale } from "@/lib/i18n/useLocale";
-import { useListFilters } from "@/hooks/useListFilters";
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import {
-  ArrowUpRight,
-  ChevronDown,
-  Copy,
-  Play,
-  Plus,
-  Tag as TagIcon,
-  Trash2,
-  X,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Link } from "react-router";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FilePlus, Plus, SlidersHorizontal, Tag, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { BulkActions, BulkBarButton } from "@/components/shared/BulkActions";
+import { DataTable } from "@/components/shared/data/DataTable";
+import { Pager } from "@/components/shared/data/Pager";
+import { LoadError } from "@/components/shared/ListState";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { Sheet } from "@/components/shared/Sheet";
 import { AddToTestDialog } from "@/features/question-bank/components/AddToTestDialog";
 import { BulkTagDialog } from "@/features/question-bank/components/BulkTagDialog";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { AudioPreviewRow } from "@/features/question-bank/components/AudioPreviewRow";
-import { QuestionUsageRow } from "@/features/question-bank/components/QuestionUsageRow";
 import {
   deleteQuestion,
-  duplicateQuestion,
   listQuestions,
   type AdminQuestion,
-  type QuestionType,
 } from "@/features/question-bank/api";
+import { BankNavigation } from "@/features/question-groups/components/BankNavigation";
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { useListFilters } from "@/hooks/useListFilters";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { usePage, usePageSize } from "@/hooks/usePage";
+import { PageHead } from "@/layouts/shell/PageHead";
+import { useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
-import { PageAside } from "@/components/shared/PageAside";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
-import { RowMenu } from "@/components/shared/RowMenu";
-import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { toast } from "@/components/ui/sonner";
-import { ApiError, referencingTests, type ReferencingTest } from "@/lib/api/errors";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { SearchInput } from "@/components/shared/SearchInput";
-import { Pager } from "@/components/shared/Pager";
-import { usePage } from "@/hooks/usePage";
-import type { TFunction } from "i18next";
+import { BankFilterPanel, type BankFilterChange } from "./BankFilterPanel";
+import { activeFilterCount, promptLine, readBankFilters } from "./bankFilters";
+import { BANK_ASIDE_WIDTH, bankColumns } from "./bankColumns";
 
-const TYPES: QuestionType[] = [
-  "single_choice",
-  "multiple_choice",
-  "true_false",
-  "fill_blank",
-  "short_answer",
-];
+const QUERY_KEY = ["admin-questions"] as const;
+
+const SEARCH =
+  "w-auto min-w-0 flex-[1_1_240px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
+
+const FILTERS_BUTTON =
+  "bg-card hover:bg-muted inline-flex h-8.5 flex-none cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm leading-4";
+
+const COUNT =
+  "bg-primary text-primary-fg text-caption rounded-full px-1.5 leading-normal tabular-nums";
+
+const EMPTY_ACTION = "text-fg cursor-pointer underline underline-offset-2";
+
+function filterParam(
+  change: BankFilterChange,
+): [string, string | readonly string[] | null] {
+  if ("types" in change) return ["type", change.types];
+  if ("levels" in change) return ["level", change.levels];
+  if ("skills" in change) return ["skill", change.skills];
+  if ("tags" in change) return ["tag", change.tags];
+  if ("tagMatch" in change)
+    return ["tagMatch", change.tagMatch === "all" ? "all" : null];
+  return ["hasAudio", change.audio ? "true" : null];
+}
+
+function EmptyLine({
+  children,
+  action,
+}: Readonly<{ children: string; action?: { label: string; run: () => void } }>) {
+  return (
+    <span>
+      {children}
+      {action && (
+        <>
+          {" "}
+          <button type="button" className={EMPTY_ACTION} onClick={action.run}>
+            {action.label}
+          </button>
+        </>
+      )}
+    </span>
+  );
+}
+
+function BankSkeleton() {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={t("common.loading")}
+      className="bg-card shadow-card overflow-hidden rounded-xl border"
+    >
+      <div className="bg-muted h-10" />
+      {Array.from({ length: 6 }, (_, index) => (
+        <div key={index} className="flex items-center gap-3 border-t px-4 py-3.5">
+          <Skeleton className="size-4 flex-none rounded-[0.25rem]" />
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-4 w-20 flex-none" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
- * §8's question bank, as the deck's A-06.
- *
- * Filters on the left, results on the right: the second test is faster than the
- * first only if last term's work is findable.
+ * QuestionBankPage is the teacher's question bank as the deck draws it: the
+ * filters in a 220px aside from 1024px and in a sheet below it, a search by
+ * prompt, the questions in a table whose columns drop as the table narrows,
+ * and a bulk bar that adds the selection to a test, tags it or deletes it.
+ * The filters, the search, the page and its size live in the URL, so a
+ * filtered list survives a reload and a trip to the editor and back. A row
+ * opens the question's editor.
  */
-const PAGE_SIZE = 20;
-
 export default function QuestionBankPage() {
   useDisplayTimeZone();
   const { t } = useTranslation();
-  const navigate = useNavigate();
-
-  // Sets, not single values: A-06's rail is checkboxes and chips.
-  const { params, setFilter } = useListFilters();
-  const types = params
-    .getAll("type")
-    .filter((value): value is QuestionType => TYPES.some((type) => type === value));
-  const setTypes = (value: readonly QuestionType[]) => setFilter("type", value);
-  const tags = params.getAll("tag");
-  const setTags = (value: readonly string[]) => setFilter("tag", value);
-  const audioOnly = params.get("hasAudio") === "true";
-  const setAudioOnly = (value: boolean) => setFilter("hasAudio", value ? "true" : null);
-  const bulk = useBulkSelection<AdminQuestion>();
-  const selected = new Set(bulk.selected.keys());
+  const locale = useLocale();
+  const client = useQueryClient();
+  const { params, setParams, setFilter } = useListFilters();
+  const filters = readBankFilters(params);
+  const search = useDebounced(filters.query.trim(), 300);
+  const wide = useMediaQuery("(min-width: 1024px)");
+  const [size] = usePageSize();
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [tagging, setTagging] = useState(false);
-  const [addingOne, setAddingOne] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<AdminQuestion | null>(null);
-  const [blocked, setBlocked] = useState<ReferencingTest[] | null>(null);
-  const queryClient = useQueryClient();
-  const remove = useMutation({
-    mutationFn: (id: string) => deleteQuestion(id),
-    onSuccess: async () => {
-      setDeleting(null);
-      await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
-      toast(t("bank.deleted"));
-    },
-    onError: (cause) => {
-      if (cause instanceof ApiError && cause.code === "QUESTION_REFERENCED")
-        setBlocked(referencingTests(cause));
-      else toast(t("bank.deleteFailed"));
-    },
-  });
-  const [duplicated, setDuplicated] = useState<ReadonlySet<string>>(new Set());
-  const duplicate = useMutation({
-    mutationFn: (id: string) => duplicateQuestion(id),
-    onSuccess: async (copy, sourceId) => {
-      setDuplicated((current) => new Set([...current, sourceId, copy.id]));
-      await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
-      toast(t("bank.duplicated"));
-    },
-    onError: () => toast(t("bank.duplicateFailed")),
-  });
   const [adding, setAdding] = useState(false);
-  const query = params.get("q") ?? "";
-  const setQuery = (value: string) => setFilter("q", value);
-  const [playing, setPlaying] = useState<string | null>(null);
-
-  const search = useDebounced(query, 300);
-
+  const bulk = useBulkSelection<AdminQuestion>();
+  const { types, levels, skills, tags, tagMatch, audio } = filters;
   const [page] = usePage(
-    JSON.stringify({
-      types: [...types],
-      tags: [...tags],
-      audioOnly,
-      search: search.trim(),
-    }),
+    JSON.stringify({ types, levels, skills, tags, tagMatch, audio, search, size }),
   );
   const bank = useQuery({
-    queryKey: ["admin-questions", { types, tags, audioOnly, search, page }],
+    queryKey: [
+      ...QUERY_KEY,
+      { types, levels, skills, tags, tagMatch, audio, search, page, size },
+    ],
     queryFn: ({ signal }) =>
       listQuestions(
         {
-          limit: PAGE_SIZE,
+          limit: size,
           page,
           ...(types.length > 0 ? { type: [...types] } : {}),
+          ...(levels.length > 0 ? { level: [...levels] } : {}),
+          ...(skills.length > 0 ? { skill: [...skills] } : {}),
           ...(tags.length > 0 ? { tag: [...tags] } : {}),
-          ...(audioOnly ? { hasAudio: true } : {}),
-          ...(search.trim() === "" ? {} : { q: search.trim() }),
+          ...(tags.length > 1 && tagMatch === "all" ? { tagMatch } : {}),
+          ...(audio ? { hasAudio: true } : {}),
+          ...(search === "" ? {} : { q: search }),
         },
         signal,
       ),
     placeholderData: keepPreviousData,
   });
+  const columns = useMemo(() => bankColumns(t, wide ? BANK_ASIDE_WIDTH : 0), [t, wide]);
+  const figure = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 
-  const items = bank.data?.items ?? [];
-  const data = bank.data;
-  const selectPage = (checked: boolean) => bulk.selectPage(items, checked);
-  const toggleSelected = (id: string) => {
-    const item = items.find((q) => q.id === id);
-    if (item) bulk.toggle(item);
+  const invalidate = () => client.invalidateQueries({ queryKey: QUERY_KEY });
+  const change = (next: BankFilterChange) => {
+    const [name, value] = filterParam(next);
+    setFilter(name, value);
   };
-  const facets = data?.facets;
-  // From the server, not from `items`.
-  const shownTags = [...new Set([...tags, ...(bank.data?.tags ?? [])])].sort((a, b) =>
-    a.localeCompare(b, "vi"),
+  const clear = (names: readonly string[]) =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        for (const name of [...names, "page"]) next.delete(name);
+        return next;
+      },
+      { replace: true },
+    );
+  const clearTags = () => clear(["tag", "tagMatch"]);
+  const clearFilters = () =>
+    clear(["type", "level", "skill", "tag", "tagMatch", "hasAudio", "q"]);
+
+  const data = bank.data;
+  const active = activeFilterCount(filters);
+  const selected = [...bulk.selected.values()];
+  const newQuestion = (
+    <Button asChild>
+      <Link to="/teacher/question-bank/new">
+        <Plus aria-hidden="true" />
+        {t("bank.newQuestion")}
+      </Link>
+    </Button>
   );
-  const filtering = types.length > 0 || tags.length > 0 || audioOnly;
-  const allSelected = items.length > 0 && items.every((q) => selected.has(q.id));
+
+  const empty = (): ReactNode => {
+    if (data === undefined || data.items.length > 0) return null;
+    if (data.bankTotal === 0) return <EmptyLine>{t("bank.empty")}</EmptyLine>;
+    if (tags.length > 0)
+      return (
+        <EmptyLine action={{ label: t("bank.clearTags"), run: clearTags }}>
+          {t("bank.noTagMatches")}
+        </EmptyLine>
+      );
+    return (
+      <EmptyLine action={{ label: t("bank.clearFilters"), run: clearFilters }}>
+        {t("bank.noMatches")}
+      </EmptyLine>
+    );
+  };
+
+  const panel = (
+    <BankFilterPanel
+      filters={filters}
+      facets={data?.facets}
+      tags={data?.tags ?? []}
+      onChange={change}
+    />
+  );
 
   return (
-    <>
-      <FilterRail
-        facets={facets}
-        types={types}
-        tags={tags}
-        shownTags={shownTags}
-        tagsReady={bank.isSuccess}
-        audioOnly={audioOnly}
-        onTypes={setTypes}
-        onTags={setTags}
-        onAudioOnly={setAudioOnly}
+    <div className="flex min-w-0 flex-col gap-4">
+      <PageHead
+        title={t("teacherShell.nav.questionBank")}
+        description={
+          data === undefined
+            ? " "
+            : t("bank.description", {
+                count: data.bankTotal,
+                total: figure.format(data.bankTotal),
+              })
+        }
+        actions={newQuestion}
       />
+      <BankNavigation />
 
-      <div className="space-y-4">
-        <PageHeader
-          variant="title"
-          title={t("nav.questionBank")}
-          subtitle={bankSubtitle(data, t)}
-          actions={
-            <Button asChild size="sm">
-              <Link to="/teacher/question-bank/new">
-                <Plus aria-hidden="true" />
-                {t("bank.newQuestion")}
-              </Link>
-            </Button>
-          }
-        />
-
-        <BankNavigation />
-        <SearchInput
-          className="w-full"
-          value={query}
-          onChange={setQuery}
-          placeholder={t("bank.searchPlaceholder")}
-        />
-
-        <BulkActions
-          selected={[...bulk.selected.values()]}
-          name={(item) => item.prompt}
-          selectionLabel={t("bank.selectedCount", { count: selected.size })}
-          actions={[
-            {
-              label: t("common.bulkDelete"),
-              description: t("common.permanentDeleteBody"),
-              run: (item) => deleteQuestion(item.id),
-            },
-          ]}
-          onRemoved={bulk.remove}
-          onClear={bulk.clear}
-          onSettled={() =>
-            queryClient.invalidateQueries({ queryKey: ["admin-questions"] })
-          }
-        >
-          <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
-            <Plus aria-hidden="true" />
-            {t("bank.addToTest")}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setTagging(true)}>
-            <TagIcon aria-hidden="true" />
-            {t("bank.bulkTag")}
-          </Button>
-        </BulkActions>
-        <QueryStates
-          query={bank}
-          skeleton={<ListSkeleton />}
-          failed={t("bank.loadFailed")}
-        >
-          {(data) =>
-            items.length === 0 ? (
-              <EmptyState
-                action={
-                  <Button asChild size="sm">
-                    <Link to="/teacher/question-bank/new">{t("bank.newQuestion")}</Link>
-                  </Button>
-                }
-              >
-                {filtering || search.trim() !== ""
-                  ? t("bank.noMatches")
-                  : t("bank.empty")}
-              </EmptyState>
-            ) : (
-              <>
-                <Card className="gap-0 overflow-hidden py-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-9">
-                          <Checkbox
-                            aria-label={t("bank.selectAll")}
-                            checked={allSelected}
-                            onChange={(event) => selectPage(event.target.checked)}
-                          />
-                        </TableHead>
-                        <TableHead className="w-[42%]">{t("bank.prompt")}</TableHead>
-                        <TableHead>{t("bank.type")}</TableHead>
-                        <TableHead>{t("bank.tags")}</TableHead>
-                        <TableHead className="text-right">{t("bank.points")}</TableHead>
-                        <TableHead>{t("bank.usedIn")}</TableHead>
-                        <TableHead>{t("common.updated")}</TableHead>
-                        <TableHead className="w-10" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((question) => (
-                        <Row
-                          key={question.id}
-                          selected={selected.has(question.id)}
-                          onToggleSelect={() => toggleSelected(question.id)}
-                          question={question}
-                          duplicated={duplicated.has(question.id)}
-                          duplicating={duplicate.isPending}
-                          playing={playing === question.id}
-                          onOpen={() =>
-                            void navigate(`/teacher/question-bank/${question.id}`)
-                          }
-                          onRetry={() => void bank.refetch()}
-                          onTogglePlay={() =>
-                            setPlaying(playing === question.id ? null : question.id)
-                          }
-                          onAddToTest={() => setAddingOne(question.id)}
-                          onDuplicate={() => duplicate.mutate(question.id)}
-                          onDelete={() => {
-                            setBlocked(null);
-                            setDeleting(question);
-                          }}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Card>
-
-                {data && (
-                  <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
-                )}
-              </>
-            )
-          }
-        </QueryStates>
-      </div>
-      <BulkTagDialog
-        questionIds={[...selected]}
-        suggestions={shownTags}
-        open={tagging}
-        onOpenChange={setTagging}
-        onApplied={() => bulk.clear()}
-      />
-      <AddToTestDialog
-        questionIds={addingOne === null ? [...selected] : [addingOne]}
-        open={adding || addingOne !== null}
-        onOpenChange={(open) => {
-          if (open) return;
-          setAdding(false);
-          setAddingOne(null);
-        }}
-        onAdded={() => {
-          if (addingOne === null) bulk.clear();
-        }}
-      />
-      <ConfirmDialog
-        open={deleting !== null}
-        onOpenChange={(open) => !open && setDeleting(null)}
-        title={t(blocked ? "bank.deleteBlockedTitle" : "bank.deleteConfirmTitle")}
-        description={t(blocked ? "bank.deleteBlockedBody" : "bank.deleteConfirmBody")}
-        confirmLabel={t(blocked ? "common.close" : "bank.delete")}
-        destructive={blocked === null}
-        pending={remove.isPending}
-        {...(blocked === null
-          ? { onConfirm: () => deleting && remove.mutate(deleting.id) }
-          : {})}
-      >
-        <p className="bg-muted truncate rounded-md px-3 py-2 text-sm">
-          {deleting?.prompt}
-        </p>
-        {/* A-06a: the drafts that block it, as links, instead of a button that cannot fire. */}
-        {blocked === null || blocked.length === 0 ? null : (
-          <p className="text-sm">
-            {t("bank.deleteBlockedList", { count: blocked.length })}{" "}
-            {blocked.map((test, index) => (
-              <span key={test.id}>
-                {index === 0 ? null : ", "}
-                <Link
-                  to={`/teacher/tests/${test.id}/edit`}
-                  className="font-medium underline underline-offset-4"
-                >
-                  {test.title}
-                </Link>
-              </span>
-            ))}
-          </p>
+      <div className="flex items-start gap-3.5">
+        {wide && (
+          <aside aria-label={t("bank.filters")} className="sticky top-0 w-55 flex-none">
+            {panel}
+          </aside>
         )}
-      </ConfirmDialog>
-    </>
-  );
-}
-
-function Row({
-  question,
-  duplicated,
-  duplicating,
-  playing,
-  onOpen,
-  onRetry,
-  onTogglePlay,
-  selected,
-  onToggleSelect,
-  onAddToTest,
-  onDuplicate,
-  onDelete,
-}: Readonly<{
-  question: AdminQuestion;
-  duplicated: boolean;
-  duplicating: boolean;
-  playing: boolean;
-  selected: boolean;
-  onOpen: () => void;
-  onRetry: () => void;
-  onTogglePlay: () => void;
-  onToggleSelect: () => void;
-  onAddToTest: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
-}>) {
-  const { t } = useTranslation();
-  const locale = useLocale();
-  const audio = question.media?.kind === "audio" ? question.media : null;
-  const [usageOpen, setUsageOpen] = useState(false);
-
-  return (
-    <>
-      <TableRow>
-        <TableCell>
-          <Checkbox
-            checked={selected}
-            aria-label={t("bank.selectQuestion", { prompt: question.prompt })}
-            onChange={onToggleSelect}
-          />
-        </TableCell>
-        <TableCell>
-          <div className="flex items-center gap-2">
-            {audio ? (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="text-muted-foreground shrink-0"
-                aria-label={t("bank.previewOf", { prompt: question.prompt })}
-                aria-pressed={playing}
-                onClick={onTogglePlay}
+        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+          <div className="flex flex-wrap gap-2">
+            <SearchInput
+              className={SEARCH}
+              value={filters.query}
+              onChange={(value) => setFilter("q", value)}
+              placeholder={t("bank.searchPlaceholder")}
+            />
+            {!wide && (
+              <button
+                type="button"
+                className={FILTERS_BUTTON}
+                aria-haspopup="dialog"
+                aria-label={
+                  active > 0
+                    ? t("bank.filtersActive", { count: active })
+                    : t("bank.filters")
+                }
+                onClick={() => setSheetOpen(true)}
               >
-                <Play aria-hidden="true" />
-              </Button>
-            ) : null}
-            <Link
-              to={`/teacher/question-bank/${question.id}`}
-              className="truncate hover:underline"
-            >
-              {question.prompt.replace(/\{\{\d+\}\}/g, "___")}
-            </Link>
-            {duplicated ? (
-              <Badge variant="outline">{t("common.justDuplicated")}</Badge>
-            ) : null}
+                <SlidersHorizontal aria-hidden="true" className="size-3.5" />
+                {t("bank.filters")}
+                {active > 0 && (
+                  <span aria-hidden="true" className={COUNT}>
+                    {active}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
-        </TableCell>
-        <TableCell className="text-muted-foreground">
-          {t(`questionEditor.type.${question.type}`)}
-        </TableCell>
-        <TableCell>
-          <span className="flex flex-wrap gap-1">
-            {question.tags.map((value) => (
-              <Badge key={value}>{value}</Badge>
-            ))}
-          </span>
-        </TableCell>
-        <TableCell className="text-right tabular-nums">{question.points}</TableCell>
-        <TableCell className="text-muted-foreground tabular-nums">
-          {question.usedInTests ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 px-1.5"
-              aria-expanded={usageOpen}
-              aria-controls={`question-usage-${question.id}`}
-              onClick={() => setUsageOpen(!usageOpen)}
-            >
-              <ChevronDown
-                className={usageOpen ? "rotate-180" : ""}
-                aria-hidden="true"
-              />
-              {t("bank.usedInCount", { count: question.usedInTests })}
-            </Button>
-          ) : (
-            "—"
+
+          <BulkActions
+            selected={selected}
+            name={promptLine}
+            actions={[
+              {
+                label: t("bank.delete"),
+                description: t("bank.deleteSelectedBody"),
+                icon: Trash2,
+                run: (question) => deleteQuestion(question.id),
+              },
+            ]}
+            onRemoved={bulk.remove}
+            onClear={bulk.clear}
+            onSettled={invalidate}
+          >
+            <BulkBarButton icon={FilePlus} onClick={() => setAdding(true)}>
+              {t("bank.addToTest")}
+            </BulkBarButton>
+            <BulkBarButton icon={Tag} onClick={() => setTagging(true)}>
+              {t("bank.bulkTag")}
+            </BulkBarButton>
+          </BulkActions>
+
+          {bank.isError && (
+            <LoadError error={bank.error} onRetry={() => void bank.refetch()}>
+              {t("bank.loadFailed")}
+            </LoadError>
           )}
-        </TableCell>
-        <TableCell className="text-muted-foreground">
-          {formatRelative(question.updatedAt, locale)}
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1">
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label={t("common.duplicateNamed", { name: question.prompt })}
-              disabled={duplicating}
-              onClick={onDuplicate}
-            >
-              <Copy aria-hidden="true" />
-            </Button>
-            <RowMenu>
-              <DropdownMenuItem onSelect={onOpen}>
-                <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
-                {t("bank.open")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onAddToTest}>
-                <Plus className="text-muted-foreground" aria-hidden="true" />
-                {t("bank.addToTest")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onDuplicate}>
-                <Copy className="text-muted-foreground" aria-hidden="true" />
-                {t("bank.duplicate")}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-                <Trash2 aria-hidden="true" />
-                {t("bank.delete")}
-              </DropdownMenuItem>
-            </RowMenu>
-          </div>
-        </TableCell>
-      </TableRow>
-
-      {usageOpen ? (
-        <QuestionUsageRow questionId={question.id} prompt={question.prompt} />
-      ) : null}
-      {audio && playing ? (
-        <TableRow>
-          <TableCell colSpan={8} className="p-0">
-            <AudioPreviewRow
-              key={audio.url}
-              asset={audio}
-              onRetry={onRetry}
-              onClose={onTogglePlay}
+          {data === undefined ? (
+            bank.isPending && <BankSkeleton />
+          ) : (
+            <DataTable
+              label={t("teacherShell.nav.questionBank")}
+              columns={columns}
+              rows={data.items}
+              rowSize={{ padY: 10 }}
+              rowHref={(question) => `/teacher/question-bank/${question.id}`}
+              selection={bulk}
+              rowName={promptLine}
+              empty={empty()}
+              footer={
+                <Pager
+                  page={data.page}
+                  pageSize={data.pageSize}
+                  total={data.total}
+                  noun={(count) => t("bank.questionsNoun", { count })}
+                />
+              }
             />
-          </TableCell>
-        </TableRow>
-      ) : null}
-    </>
-  );
-}
-
-/** The tags actually present in the results, so the rail cannot offer a dead end. */
-
-function FilterRail({
-  facets,
-  types,
-  tags,
-  shownTags,
-  tagsReady,
-  audioOnly,
-  onTypes,
-  onTags,
-  onAudioOnly,
-}: Readonly<{
-  facets: Record<QuestionType | "all", number> | undefined;
-  types: readonly QuestionType[];
-  tags: readonly string[];
-  shownTags: readonly string[];
-  tagsReady: boolean;
-  audioOnly: boolean;
-  onTypes: (next: readonly QuestionType[]) => void;
-  onTags: (next: readonly string[]) => void;
-  onAudioOnly: (next: boolean) => void;
-}>) {
-  const { t } = useTranslation();
-  return (
-    <PageAside side="left" label={t("bank.filters")}>
-      <div>
-        <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
-          {t("bank.typeFilter")}
-        </p>
-        <div className="space-y-3">
-          {TYPES.map((value) => (
-            <FilterOption
-              key={value}
-              label={t(`questionEditor.type.${value}`)}
-              count={facets?.[value]}
-              checked={types.includes(value)}
-              onChange={() => onTypes(toggle(types, value))}
-            />
-          ))}
+          )}
         </div>
       </div>
 
-      <Separator />
-
-      <div>
-        <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
-          {t("bank.tagFilter")}
-        </p>
-        {tagsReady &&
-          (shownTags.length === 0 ? (
-            <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {shownTags.map((value) => {
-                const picked = tags.includes(value);
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={picked}
-                    onClick={() => onTags(toggle(tags, value))}
-                  >
-                    <Badge variant={picked ? "primary" : "outline"} className="gap-1">
-                      {value}
-                      {picked ? <X className="size-3" aria-hidden="true" /> : null}
-                    </Badge>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-      </div>
-
-      <Separator />
-
-      <label className="flex items-center gap-2.5 text-sm">
-        <Checkbox
-          checked={audioOnly}
-          onChange={(event) => onAudioOnly(event.target.checked)}
-        />
-        {t("bank.audioOnly")}
-      </label>
-    </PageAside>
+      <Sheet
+        open={!wide && sheetOpen}
+        onOpenChange={setSheetOpen}
+        title={t("bank.filters")}
+        width={320}
+      >
+        {panel}
+      </Sheet>
+      <BulkTagDialog
+        questionIds={[...bulk.selected.keys()]}
+        suggestions={data?.tags ?? []}
+        open={tagging}
+        onOpenChange={setTagging}
+        onApplied={bulk.clear}
+      />
+      <AddToTestDialog
+        questionIds={[...bulk.selected.keys()]}
+        open={adding}
+        onOpenChange={setAdding}
+        onAdded={bulk.clear}
+      />
+    </div>
   );
-}
-
-function FilterOption({
-  label,
-  count,
-  checked,
-  onChange,
-}: Readonly<{
-  label: string;
-  count: number | undefined;
-  checked: boolean;
-  onChange: () => void;
-}>) {
-  return (
-    <label className="flex items-center gap-2.5 text-sm">
-      <Checkbox checked={checked} onChange={onChange} />
-      {label}
-      {count === undefined ? null : (
-        <span className="text-muted-foreground ml-auto text-xs tabular-nums">
-          {count}
-        </span>
-      )}
-    </label>
-  );
-}
-
-/** Adds or removes one value, keeping the rest. */
-function toggle<T>(values: readonly T[], value: T): readonly T[] {
-  return values.includes(value)
-    ? values.filter((v) => v !== value)
-    : [...values, value];
-}
-
-function bankSubtitle(
-  data: { readonly total: number; readonly bankTotal: number } | undefined,
-  t: TFunction,
-): string {
-  if (data === undefined) return "\u00a0";
-  if (data.total === data.bankTotal)
-    return t("bank.summary", { count: data.bankTotal });
-  return t("bank.summaryFiltered", { count: data.bankTotal, filtered: data.total });
 }
