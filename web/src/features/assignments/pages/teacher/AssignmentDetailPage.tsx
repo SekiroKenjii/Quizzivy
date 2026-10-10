@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocale } from "@/lib/i18n/useLocale";
 import {
   Link,
   useBeforeUnload,
@@ -354,6 +355,7 @@ function AssignmentMeta({
   status,
 }: Readonly<{ a: Assignment; status: ReturnType<typeof statusAt> }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   return (
     <p className="text-muted-fg text-ui mt-1">
       {a.targets.classes.map((value) => value.name).join(", ")} ·{" "}
@@ -361,6 +363,7 @@ function AssignmentMeta({
         status === "scheduled"
           ? a.window.opensAt
           : (a.window.closedAt ?? a.window.closesAt),
+        locale,
       )}{" "}
       · {t("assignments.minutes", { count: a.durationMinutes })}
     </p>

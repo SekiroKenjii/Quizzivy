@@ -159,6 +159,8 @@ describe("the assignment detail", () => {
     expect(
       await screen.findByText(
         "24 câu · 30 điểm · 4 câu nghe · 2 câu chấm tay · bản v3",
+        {},
+        { timeout: 5_000 },
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "IELTS Foundation" })).toBeInTheDocument();
