@@ -108,6 +108,7 @@ POST /teacher/questions content.questions.write | content.tests.write
 POST /teacher/questions/tags content.questions.write
 POST /teacher/questions/{id}/duplicate content.questions.write | content.tests.write
 POST /teacher/students people.students.create
+POST /teacher/students/reset-passwords people.students.reset_password
 POST /teacher/students/{id}/reset-password people.students.reset_password
 POST /teacher/tests content.tests.write
 POST /teacher/tests/{id}/duplicate content.tests.write
