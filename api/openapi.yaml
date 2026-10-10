@@ -510,6 +510,7 @@ components:
         - LAST_LOGIN_METHOD
         - REFRESH_TOKEN_INVALID
         - REFRESH_TOKEN_REUSED
+        - SESSION_IS_CURRENT
         # join codes — distinct, but see JoinPreviewResponse on what they may not carry
         - JOIN_CODE_INVALID
         - JOIN_CODE_EXPIRED
@@ -1862,6 +1863,42 @@ components:
           description: Held in memory only (§5.2). The refresh token is set as a cookie, not returned here.
         expiresIn: { type: integer, description: Seconds. }
         user: { $ref: '#/components/schemas/CurrentUser' }
+
+    Session:
+      type: object
+      description: |
+        One sign-in of the caller that is still live: a refresh-token family
+        that is neither revoked nor expired (§5.2). It is the caller's own and
+        nobody else's. It carries no IP address, no raw user agent and nothing
+        that could be presented as a credential.
+
+        `device` is computed from the user agent when the list is read and is
+        made only of names from a closed list, "Mac · Chrome", "Mac" or
+        "Chrome", never of any part of the header itself. It is null, and
+        `deviceKind` is `unknown`, when neither the system nor the browser is
+        recognised; the client words that case in the reader's language.
+        `deviceKind` picks the icon. An iPad that asks for desktop sites sends
+        a Mac user agent and reads as one.
+
+        `location` is "City, CC", the place of the request that last signed in
+        or refreshed this session, taken from the edge's location headers and
+        only where the server trusts them. It is null otherwise. `lastUsedAt`
+        is that same moment, so it is at most one access-token lifetime old.
+      required: [familyId, device, deviceKind, location, lastUsedAt, current]
+      additionalProperties: false
+      properties:
+        familyId:
+          $ref: '#/components/schemas/Uuid'
+        device: { type: [string, 'null'], maxLength: 40 }
+        deviceKind: { type: string, enum: [computer, phone, tablet, unknown] }
+        location: { type: [string, 'null'], maxLength: 80 }
+        lastUsedAt: { $ref: '#/components/schemas/Timestamp' }
+        current:
+          type: boolean
+          description: |
+            True for the session the request's refresh cookie belongs to. False
+            for every session when the request carries no cookie that names a
+            live session of the caller.
 
     # ---------------------------------------------------------------- classes
 
@@ -4915,6 +4952,128 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/sessions:
+    get:
+      operationId: listSessions
+      x-permission: self
+      tags: [auth]
+      summary: The caller's signed-in devices
+      description: |
+        Every live session of the caller, one row per sign-in, and no one
+        else's. The session of the request's refresh cookie comes first with
+        `current: true`; the others follow by `lastUsedAt`, newest first, then
+        by `familyId`. At most 100 rows: a caller with more sees the newest
+        ones, and "sign out the others" still ends them all.
+
+        The calling session is identified by the refresh cookie, which reaches
+        this endpoint because it is scoped `Path=/auth`. Without a cookie that
+        names a live session of the caller, the list is still returned and no
+        row is current.
+
+        **Leak review.** Each row holds a handle, a label built from a closed
+        list of names, a city and a country code, and a time, all of the
+        caller's own session. A row holds no IP address, no raw user agent, no
+        token or hash and no expiry. The location is the approximate place of
+        the last sign-in or refresh, which the caller can already see on their
+        own device. Responses are `no-store`.
+      responses:
+        '200':
+          description: The live sessions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items:
+                    type: array
+                    maxItems: 100
+                    items: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/sessions/revoke-others:
+    post:
+      operationId: revokeOtherSessions
+      x-permission: self
+      tags: [auth]
+      summary: Sign out every other device
+      description: |
+        Revokes every live session of the caller except the calling one, and
+        only when there is one to revoke also moves the caller's session epoch
+        and forgets the cached principal, so the access tokens of the sessions
+        that ended stop working at once on the server that took the request
+        and within 10 seconds on any other (§5). The epoch is the caller's,
+        so the caller's own access token is refused on its next request as
+        well; the client's single-flight refresh replaces it and the calling
+        session keeps its place. With nothing to revoke nothing is written, the
+        epoch does not move and `revoked` is 0.
+
+        The calling session is identified by the refresh cookie. When the
+        request carries none that names a live session of the caller, the
+        answer is `401 UNAUTHORIZED` and nothing is written: the server cannot
+        tell the caller's session from the others, and a holder of an access
+        token alone is not enough to sign an account out everywhere.
+
+        Limited to 5 a minute and 30 an hour per signed-in user.
+      responses:
+        '200':
+          description: The other sessions are revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revoked]
+                additionalProperties: false
+                properties:
+                  revoked:
+                    type: integer
+                    minimum: 0
+                    description: How many sessions this call ended.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/sessions/{familyId}:
+    delete:
+      operationId: revokeSession
+      x-permission: self
+      tags: [auth]
+      summary: Sign out one device
+      description: |
+        Revokes one live session of the caller, moves the caller's session
+        epoch and forgets the cached principal in the same command, so the
+        access tokens of every session of the caller are refused on their next
+        request, at once on the server that took the request and within 10
+        seconds on any other (§5). The sessions that were not revoked refresh
+        and carry on; the revoked one cannot refresh.
+
+        The id of another user's session, of one that is revoked or expired and
+        of one that never existed answer alike: `404 NOT_FOUND`. The calling
+        session is refused with `409 SESSION_IS_CURRENT`; signing out of it is
+        `POST /auth/logout`.
+
+        The calling session is identified by the refresh cookie. When the
+        request carries none that names a live session of the caller, the
+        answer is `401 UNAUTHORIZED` and nothing is written.
+
+        Limited to 10 a minute and 60 an hour per signed-in user.
+      parameters:
+        - name: familyId
+          in: path
+          required: true
+          description: The `familyId` of a session `listSessions` returned.
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`SESSION_IS_CURRENT` — the session is the one making the request.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 
   # =============================================================== teacher/tests
 

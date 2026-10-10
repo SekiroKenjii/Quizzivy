@@ -1,7 +1,23 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.70 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.71 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.70**
+
+R4, signed-in devices (T-R4.9):
+
+- §5.2 Signed-in devices. `GET /auth/sessions` lists the caller's live sessions, and `DELETE
+  /auth/sessions/{familyId}` and `POST /auth/sessions/revoke-others` end one or all but the
+  caller's. The location shown is where the device last signed in or last refreshed, not where
+  it first signed in. Both writes move the caller's session epoch, so the caller's own next
+  request answers 401 and recovers through the single-flight refresh. A request whose refresh
+  cookie names no live session of the caller is answered 401 by both writes; the client's normal
+  refresh then fails and the sign-in overlay shows.
+- §6.5 `DELETE /auth/sessions/{familyId}` 10/min and 60/h and `POST /auth/sessions/revoke-others`
+  5/min and 30/h, per signed-in user.
+- §13.5 `refresh_tokens.geo_label` (1 to 80 characters, nullable), migration 00102.
+- §15 The three operations, `Session`, and the error code `SESSION_IS_CURRENT`.
 
 **Changes since v0.69**
 
@@ -975,6 +991,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - Reuse detection: presenting an already-rotated token revokes the whole family and forces re-login.
 - **Races.** A sign-in stores its refresh token under a lock on the user and compares the account with what it read: if the password, the session epoch or the disabled state changed meanwhile, a password sign-in answers `INVALID_CREDENTIALS` and a Google sign-in reads the account again. A rotation and a logout take the lock an update of the user takes, so one user's rotations, reuse detections and logouts run one at a time and none overlaps a reset, a disable or a password change: a session never survives the event that should have ended it.
 - **Session epoch.** `users.session_epoch` ends live sessions at once. Sign-in, Google sign-in and refresh put the user's current epoch in the access token (claim `sep`; a token without it reads as 0), and a token older than the user's epoch is refused (§5). In R2 two writes move it, each in the same transaction that revokes every refresh family the student has: disabling a student (`updateStudent` with `disabled: true`) and resetting a student's password (`resetStudentPassword`). Enabling the account again does not bring those sessions back. R5's sign-out-everywhere, role changes and set-password links move it too (70 §4.2).
+- **Signed-in devices.** A session is a refresh-token family that is neither revoked nor expired. `GET /auth/sessions` returns the caller's own, at most 100, the one the request's refresh cookie names first with `current: true`: a handle (`familyId`), a `device` label ("Mac · Chrome", built at read time from closed lists of systems and browsers and never from the user agent's own text, or null), a `deviceKind` for the icon, a `location` ("City, CC", or null) and `lastUsedAt`. The location and the time are those of the latest sign-in or refresh, so the list shows where a device last refreshed, not where it first signed in: a rotation takes the label of its own request, and copies its predecessor's only when the request has none. The label is built from `CF-IPCity` and `CF-IPCountry` only when `CLIENT_IP_HEADER` is `CF-Connecting-IP` and the request carries that header; under any other configuration it is null. It reaches no log and no audit row. `DELETE /auth/sessions/{familyId}` ends one session, and `POST /auth/sessions/revoke-others` every one but the caller's. Each is one command: it takes the lock a rotation takes, revokes the family, moves the caller's session epoch, audits it and, after the commit, forgets the cached principal. A revoked device's access token stops working at once on that machine and within 10 seconds on any other; the caller's own next request answers 401 and recovers through the single-flight refresh, because the caller's family stays live and a refresh does not read the epoch. The caller's session is the one the refresh cookie names. A request whose cookie names no live session of the caller, such as one cleared by a sign-out in another tab or a bearer token alone, is answered `401 UNAUTHORIZED` by both writes, which write nothing; in the client that is a refresh that fails, and the sign-in overlay shows. An id that is another user's, revoked, expired or unknown answers `404`; the caller's own answers `409 SESSION_IS_CURRENT` (signing out is `POST /auth/logout`). A `revoke-others` that ends nothing writes nothing and moves no epoch.
 - **A disabled user is refused on the next request.** Every gated request reads `disabled_at` through the principal cache (§5): at once on the machine that made the change, within 10 seconds on any other. Refresh refuses a disabled user and revokes the family, so the client's refresh ends the session.
 
 ### 5.3 Google flow
@@ -1102,6 +1119,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
   - `POST /join/preview`, `POST /app/classes/join` and `POST /auth/google`: 120/min and 600/h per address; 200/h per code, from any address. Google sign-in counts a code only when the body carries a `joinCode`.
   - `POST /auth/login`: 120/min and 600/h per address; 10/min per address and email; 20/h per email.
   - `POST /auth/refresh` and `POST /auth/logout`: 120/min and 1,200/h per address.
+  - `DELETE /auth/sessions/{familyId}`: 10/min and 60/h, and `POST /auth/sessions/revoke-others`: 5/min and 30/h, per signed-in user. Neither hands out a credential; each moves the user's session epoch and so makes every device of the user refresh (T-R4.9).
   - A code is counted after normalization, so respelling it buys no fresh allowance. Guessing stays at 600 codes an hour per address on each operation that checks one.
   - The signed-in operations that hand out a credential are limited per signed-in user, after the permission check and wherever the user connects from, so staff behind one address do not share a budget (T-R4.53): `resetStudentPassword` 5/min and 30/h, `createStudent` 30/min and 300/h, `rotateJoinCode` 10/min and 60/h, `getJoinCode` 60/min and 600/h, `openDocsSession` 5/min and 30/h. A caller with no session or without the permission is answered `401` or `403` and spends no budget.
 - **Bounded bodies.** The four operations with a bucket keyed on a body field (login, Google sign-in, the preview and the in-app join) accept at most 8 KiB and answer `413` before any handler, so padding cannot hide the key from its bucket.
@@ -2312,7 +2330,7 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 
 ### 13.5 Security in the data layer
 
-- Refresh tokens stored as SHA-256 hashes: `token_hash`, `family_id`, `user_id`, `expires_at`, `revoked_at`, `replaced_by`, `user_agent`, `ip`.
+- Refresh tokens stored as SHA-256 hashes: `token_hash`, `family_id`, `user_id`, `expires_at`, `revoked_at`, `replaced_by`, `user_agent`, `ip`, `geo_label` (the place of the request that issued the token, "City, CC", or NULL; R4).
 - Join codes sealed with AES-256-GCM under a key the database never holds, and found by an HMAC-SHA256 of the normalized code under a key derived from it (§13.3). Lookup by hash, compared in constant time. A code issued before v0.8.0 keeps its SHA-256 hash until R4 rotates it.
 - Passwords: Argon2id (bcrypt cost ≥ 12 if unavailable).
 - `sample_answer`, `transcript`, `is_correct`, and `accepted_answers` must never reach a student response. Enforce with explicit column lists — **no `SELECT *` in student-facing paths.** Add a test that asserts these keys are absent from `GET /app/attempts/:id`.
@@ -2421,6 +2439,14 @@ PUT    /me/notification-preferences     the five switches, each once → the sto
 POST   /auth/change-password            400 VALIDATION_FAILED on the rules (§5.4), 400 PASSWORD_UNCHANGED
 POST   /auth/google/link                link Google to current account → CurrentUser
 DELETE /auth/google/link                rejected if it would leave no login method
+GET    /auth/sessions                   → {items: [Session]}: the caller's live sessions, at most 100, the one the
+                                          refresh cookie names first; {familyId, device|null, deviceKind, location|null,
+                                          lastUsedAt, current}. Without a cookie that names one, none is current
+DELETE /auth/sessions/{familyId}        → 204; 404 for another user's, revoked, expired or unknown id, 409 SESSION_IS_CURRENT
+                                          for the calling session, 401 when no cookie names the caller's session;
+                                          moves the session epoch; 10/min and 60/h per user
+POST   /auth/sessions/revoke-others     → {revoked}; 401 as above; moves the epoch only when revoked > 0;
+                                          5/min and 30/h per user
 
 # teacher
 GET    /teacher/dashboard?range=7d|14d|30d → Dashboard (default 14d; own teaching)

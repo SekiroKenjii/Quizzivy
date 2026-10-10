@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/shared/opt"
 	"time"
 
 	"github.com/google/uuid"
@@ -90,7 +91,7 @@ func (s *Service) GoogleSession(ctx context.Context, user domain.User, in Google
 	if user.Disabled() {
 		return model.GoogleSignInResult{}, domain.ErrAccountDisabled
 	}
-	session, err := s.IssueSession(ctx, user, in.UserAgent, in.IP)
+	session, err := s.IssueSession(ctx, user, in.Origin())
 	if errors.Is(err, domain.ErrAccountChanged) {
 		user, err = s.Users.FindUserByID(ctx, user.ID)
 		if err != nil {
@@ -99,7 +100,7 @@ func (s *Service) GoogleSession(ctx context.Context, user domain.User, in Google
 		if user.Disabled() {
 			return model.GoogleSignInResult{}, domain.ErrAccountDisabled
 		}
-		session, err = s.IssueSession(ctx, user, in.UserAgent, in.IP)
+		session, err = s.IssueSession(ctx, user, in.Origin())
 	}
 	if err != nil {
 		return model.GoogleSignInResult{}, err
@@ -122,7 +123,7 @@ func NewService(users domain.Users, tokens *token.Issuer, refreshTTL time.Durati
 // SetClock replaces the time source. Tests only.
 func (s *Service) SetClock(now func() time.Time) { s.Now = now }
 
-func (s *Service) IssueSession(ctx context.Context, user domain.User, userAgent, ip string) (model.Session, error) {
+func (s *Service) IssueSession(ctx context.Context, user domain.User, origin Origin) (model.Session, error) {
 	principal, err := s.Principals.Resolve(ctx, user.ID)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("resolve permissions: %w", err)
@@ -145,12 +146,9 @@ func (s *Service) IssueSession(ctx context.Context, user domain.User, userAgent,
 		IssuedAt:  now,
 		ExpiresAt: now.Add(s.RefreshTTL),
 	}
-	if userAgent != "" {
-		rec.UserAgent = &userAgent
-	}
-	if ip != "" {
-		rec.IP = &ip
-	}
+	rec.UserAgent = opt.String(origin.UserAgent)
+	rec.IP = opt.String(origin.IP)
+	rec.GeoLabel = opt.String(origin.GeoLabel)
 	if err := s.Users.CreateRefreshToken(ctx, rec, domain.SessionBasis{Epoch: user.SessionEpoch, PasswordHash: user.PasswordHash}); err != nil {
 		return model.Session{}, fmt.Errorf("store refresh token: %w", err)
 	}

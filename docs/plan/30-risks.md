@@ -215,6 +215,23 @@ promise in `client.ts`, with `client.refresh.test.ts` asserting five concurrent
 Rare, self-corrects on the next login, and the alternative (a cross-tab lock via
 `BroadcastChannel`) is not worth it at this scale.
 
+**Residual added by T-R4.9 (2026-10-10).** Signing out a device, or every other device,
+moves the caller's session epoch, so the access token of every tab the caller has open
+is refused on its next request, all at the same moment. Tabs of one browser share one
+cookie and have separate single-flights, so two visible tabs of a device can send
+`POST /auth/refresh` inside one round trip; the second presents a token the first just
+rotated, reuse detection fires, and that device's family is revoked and its user signs
+in again. The estimate is the overlap window over the poll interval, per extra visible
+tab on a device: about 0.3 s of round trip over the 60 s of `useNavCounts` and
+`useNotificationSummary`, so about 0.5% per revoke. A hidden or idle tab does not poll
+and meets its 401 on resume, staggered. `ChangePassword` and every other write that
+ends access carry the same exposure; the revoke only makes it voluntary. A second
+revoke started while the first one's refresh is in flight can also leave a retried
+request with a second 401, which shows the sign-in overlay; T-R4.43 disables the revoke
+buttons while one is pending. The durable fix is a cross-tab refresh lock in the client
+(Web Locks or a `BroadcastChannel`), tracked as F-49 because `client.refresh.test.ts` is
+a canary.
+
 ---
 
 ## R-07 — Cross-origin cookie or CORS misconfiguration

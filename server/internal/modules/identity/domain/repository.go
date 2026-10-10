@@ -19,6 +19,9 @@ type Users interface {
 	WriteAudit(ctx context.Context, e audit.Entry) error
 	Rotate(ctx context.Context, tokenHash []byte, next RefreshTokenRecord, now time.Time) (RotateResult, error)
 	RevokeFamilyByToken(ctx context.Context, tokenHash []byte, now time.Time) (string, error)
+	ListSessions(ctx context.Context, q SessionsQuery) ([]Session, error)
+	RevokeSession(ctx context.Context, in RevokeSessionRecord) error
+	RevokeOtherSessions(ctx context.Context, in RevokeOtherSessionsRecord) (int, error)
 	DeleteExpired(ctx context.Context, before time.Time) (int64, error)
 	ChangePassword(ctx context.Context, in ChangePasswordRecord) error
 	UpdateProfile(ctx context.Context, in ProfileRecord) (User, error)

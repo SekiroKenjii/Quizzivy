@@ -51,6 +51,8 @@ type Commands struct {
 	UpdateProfile        cqrs.CommandHandler[command.UpdateProfile, domain.User]
 	UpdatePreferences    cqrs.CommandHandler[command.UpdatePreferences, domain.Preferences]
 	ResetStudentPassword cqrs.CommandHandler[command.ResetStudentPassword, string]
+	RevokeOtherSessions  cqrs.CommandHandler[command.RevokeOtherSessions, int]
+	RevokeSession        cqrs.CommandHandler[command.RevokeSession, cqrs.Nothing]
 	UnlinkGoogle         cqrs.CommandHandler[command.UnlinkGoogle, cqrs.Nothing]
 	UpdateStudent        cqrs.CommandHandler[command.UpdateStudent, domain.Student]
 }
@@ -59,6 +61,7 @@ type Queries struct {
 	CurrentUser    cqrs.QueryHandler[query.CurrentUser, domain.User]
 	EffectiveZone  cqrs.QueryHandler[query.EffectiveZone, string]
 	GetStudent     cqrs.QueryHandler[query.GetStudent, domain.Student]
+	ListSessions   cqrs.QueryHandler[query.ListSessions, []domain.Session]
 	ListStudents   cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
 	StudentAccount cqrs.QueryHandler[query.StudentAccount, domain.Account]
 	StudentFacets  cqrs.QueryHandler[query.StudentFacets, domain.StudentFacets]
@@ -81,6 +84,8 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 			UpdateProfile:        command.UpdateProfileHandler{Service: service},
 			UpdatePreferences:    command.UpdatePreferencesHandler{Service: service},
 			ResetStudentPassword: command.ResetStudentPasswordHandler{Students: students},
+			RevokeOtherSessions:  command.RevokeOtherSessionsHandler{Service: service},
+			RevokeSession:        command.RevokeSessionHandler{Service: service},
 			UnlinkGoogle:         command.UnlinkGoogleHandler{Service: service},
 			UpdateStudent:        command.UpdateStudentHandler{Students: students},
 		},
@@ -88,6 +93,7 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 			CurrentUser:    query.CurrentUserHandler{Service: service},
 			EffectiveZone:  query.EffectiveZoneHandler{Service: service},
 			GetStudent:     query.GetStudentHandler{Students: students},
+			ListSessions:   query.ListSessionsHandler{Service: service},
 			ListStudents:   query.ListStudentsHandler{Students: students},
 			StudentAccount: query.StudentAccountHandler{Students: students},
 			StudentFacets:  query.StudentFacetsHandler{Students: students},
