@@ -1360,6 +1360,7 @@ listed here matches the spec.
 | D-34 | `assignments` gains `review_release` (`on_submit` or `after_close`, default `on_submit`) and `review_show_class_average` (default false) | The deck's Review step releases results after submitting or after the window closes, and shows the class average only on request (DG-65, T-R4.11). Constant defaults, so the previous release's insert keeps its meaning (results at once, no average) and nothing is rewritten; no fill trigger |
 | D-35 | `assignments` gains a nullable `student_note`, 1 to 500 characters once trimmed of the whitespace JavaScript's `trim()` removes (the set of `shared/answered`, not `btrim`'s space alone) | The Student deck's Test intro draws a note from the teacher and the Teacher deck had no field for it (DG-71, T-R4.11). Nullable with no default, so the previous release's insert keeps working; the command trims the same set and stores NULL for a note that is blank once trimmed, so the check never meets an empty string, and a note of a tab, a newline or a no-break space is refused by the check as it is dropped by the command |
 | D-36 | Add `assignment_student_overrides (assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by, created_at, updated_at)` | §13.3 has no per-student accommodation, and R4 lets a teacher give one student more time, more attempts or a reopened window without touching the assignment everyone else has (T-R4.12). A separate table, not columns on `assignments`, because the rows are per student and optional: no row is the assignment as it is. A new table adds nothing the previous release reads or writes, so the rolling deploy needs no expand step (§38) |
+| D-37 | `refresh_tokens` gains a nullable `geo_label`, 1 to 80 characters | The Signed-in devices list names where a device last signed in or refreshed (T-R4.9, DG-58). A label is the edge's city and country at the request, so it is data about the request and lives beside `ip` and `user_agent` on the token row, which each rotation rewrites; a column on `users` or a table of devices would need a second writer and a second delete path. Nullable with no default, so the previous release's insert keeps working; the command stores NULL for no label, never an empty string, so the check never meets one (§39) |
 
 ---
 
@@ -1467,6 +1468,7 @@ the file it adds.
 | `00099_add_assignment_review_options.sql` | `assignments.review_release`, `assignments_review_release_check` and `review_show_class_average`, constant defaults | R4 (T-R4.11), D-34 |
 | `00100_add_assignments_student_note.sql` | `assignments.student_note` and `assignments_student_note_check` (1 to 500 characters once trimmed of the `shared/answered` whitespace set), added with the column | R4 (T-R4.11), D-35 |
 | `00101_create_assignment_student_overrides.sql` | `assignment_student_overrides`, its four checks, `assignment_student_overrides_student_idx` and the `updated_at` trigger | R4 (T-R4.12), D-36 |
+| `00102_add_refresh_tokens_geo_label.sql` | `refresh_tokens.geo_label` and `refresh_tokens_geo_label_check` (1 to 80 characters), added with the column | R4 (T-R4.9), D-37 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2706,3 +2708,27 @@ the one the first check covered, it runs the maintenance check a second time ove
 lock, so the assignment lock already orders a start against every override write, and a lock on
 the override row would only add a second, unordered path. The override join is a `LEFT JOIN`,
 and `FOR SHARE` on its nullable side is refused by PostgreSQL in any case.
+
+## 39. Where a device last refreshed (T-R4.9)
+
+`00102_add_refresh_tokens_geo_label.sql` adds one nullable column. Down drops the constraint,
+then the column.
+
+```sql
+ALTER TABLE app.refresh_tokens
+  ADD COLUMN geo_label text
+    CONSTRAINT refresh_tokens_geo_label_check
+    CHECK (char_length(geo_label) BETWEEN 1 AND 80);
+```
+
+The server builds the label as "City, CC" from `CF-IPCity` and `CF-IPCountry`, only when
+`CLIENT_IP_HEADER` names `CF-Connecting-IP` and the request carries it. A sign-in stores it, and a
+rotation stores the label of its own request when it has one and copies the predecessor's when it
+has none, so a family's head row says where the device last signed in or refreshed. The check
+scans the table once while the column is added; `refresh_tokens` is pruned by expiry, so the scan is
+cheap, and a nullable column with no default rewrites nothing. The label reaches no log and no
+`audit_log` row, and leaves the server only in `GET /auth/sessions`, to the owner of the family.
+
+A session is a family with an unrevoked, unexpired row. The list reads it through
+`refresh_tokens_user_live_idx (user_id) WHERE revoked_at IS NULL`, and the current session's
+lookup by `token_hash` and `refresh_tokens_family_idx`; neither needed a new index.

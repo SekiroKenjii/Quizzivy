@@ -160,10 +160,10 @@ func (s *Users) CreateRefreshToken(ctx context.Context, in domain.RefreshTokenRe
 
 	const q = `
 		INSERT INTO app.refresh_tokens
-		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip, geo_label)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	if _, err := tx.Exec(ctx, q,
-		in.UserID, in.FamilyID, in.TokenHash, in.IssuedAt, in.ExpiresAt, in.UserAgent, in.IP); err != nil {
+		in.UserID, in.FamilyID, in.TokenHash, in.IssuedAt, in.ExpiresAt, in.UserAgent, in.IP, in.GeoLabel); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

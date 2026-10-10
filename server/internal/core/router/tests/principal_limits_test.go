@@ -36,6 +36,8 @@ var thePerActorLimits = map[string][]ratelimit.Rule{
 	"POST /admin/docs-session":                   {{Burst: 5, Window: time.Minute}, {Burst: 30, Window: time.Hour}},
 	"GET /teacher/assignments/results.csv":       {{Burst: 10, Window: time.Minute}, {Burst: 60, Window: time.Hour}},
 	"PUT /me/avatar":                             {{Burst: 10, Window: time.Hour}},
+	"DELETE /auth/sessions/{familyId}":           {{Burst: 10, Window: time.Minute}, {Burst: 60, Window: time.Hour}},
+	"POST /auth/sessions/revoke-others":          {{Burst: 5, Window: time.Minute}, {Burst: 30, Window: time.Hour}},
 }
 
 func sendFrom(t *testing.T, h http.Handler, issuer *identitytoken.Issuer, method, path, userID, address, body string) *httptest.ResponseRecorder {

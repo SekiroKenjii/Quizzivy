@@ -26,6 +26,7 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 		RedirectURI:  request.Body.RedirectUri,
 		UserAgent:    meta.UserAgent,
 		IP:           meta.IP,
+		GeoLabel:     GeoLabelFromContext(ctx),
 	}
 	if request.Body.JoinCode != nil {
 		in.JoinCode = *request.Body.JoinCode
