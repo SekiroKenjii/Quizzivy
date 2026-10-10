@@ -21,9 +21,11 @@ GET /me/notification-preferences self
 GET /me/notifications self
 GET /me/summary self
 GET /teacher/assignments workspace.teacher
+GET /teacher/assignments/results.csv teaching.grading
 GET /teacher/assignments/{id} workspace.teacher
 GET /teacher/assignments/{id}/answers teaching.grading
 GET /teacher/assignments/{id}/attempts workspace.teacher
+GET /teacher/assignments/{id}/item-analysis teaching.grading
 GET /teacher/assignments/{id}/student-overrides teaching.attempts.intervene
 GET /teacher/attempts teaching.grading | teaching.attempts.intervene
 GET /teacher/attempts/{id} teaching.grading | teaching.attempts.intervene
@@ -75,6 +77,7 @@ POST /auth/change-password self
 POST /auth/google/link self
 POST /me/notifications/read self
 POST /teacher/assignments teaching.assignments.write
+POST /teacher/assignments/{id}/duplicate teaching.assignments.write
 POST /teacher/assignments/{id}/extend teaching.assignments.write
 POST /teacher/assignments/{id}/reopen teaching.assignments.write
 POST /teacher/attempts/{id}/extend teaching.attempts.intervene

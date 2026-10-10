@@ -3339,6 +3339,10 @@ components:
         status: { $ref: '#/components/schemas/AssignmentStatus' }
         submittedCount: { type: integer, minimum: 0, description: Distinct enabled students with at least one handed-in non-voided attempt. }
         targetCount: { type: integer, minimum: 0 }
+        questionCount:
+          type: integer
+          minimum: 0
+          description: Questions on the pinned version, counted as `TestVersion.questionCount` counts them.
         flaggedCount: { type: integer, minimum: 0 }
         pendingManualCount:
           type: integer
@@ -3348,6 +3352,58 @@ components:
           type: integer
           minimum: 0
           description: Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm").
+
+    DuplicateAssignmentInput:
+      type: object
+      required: [classIds]
+      additionalProperties: false
+      properties:
+        classIds:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Uuid' }
+          description: The classes the copy is assigned to. May be empty, since the copy is a draft and is given its targets later.
+
+    ItemAnalysis:
+      type: object
+      required: [handedIn, items]
+      additionalProperties: false
+      properties:
+        handedIn:
+          type: integer
+          minimum: 0
+          description: |
+            The papers the figures range over: for each student the caller
+            reaches, their latest handed-in attempt that is not voided.
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ItemAnalysisItem' }
+          description: Sorted by `correctRate` ascending, a question with none last, then by `number`.
+
+    ItemAnalysisItem:
+      type: object
+      required: [questionId, number, type, promptExcerpt, answered, correctRate]
+      additionalProperties: false
+      properties:
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        number: { type: integer, minimum: 1, description: The question's place on the paper, counted across sections. }
+        type: { $ref: '#/components/schemas/QuestionType' }
+        promptExcerpt: { type: string, maxLength: 140, description: The prompt as plain text with its whitespace collapsed, cut at 140 characters. }
+        answered:
+          type: integer
+          minimum: 0
+          description: Papers with an answer that says something to this question.
+        correctRate:
+          type: [number, 'null']
+          format: double
+          minimum: 0
+          maximum: 1
+          description: |
+            Papers that earned the question's full points, over the papers that
+            have a mark for it. A question left unanswered counts against it; a
+            manually marked answer the teacher has not marked yet counts for
+            neither side. Null when no paper has a mark for it.
 
     # ---------------------------------------------------------------- attempts
 
@@ -6650,15 +6706,28 @@ paths:
         caller who holds `scope.all` that is every target, as in
         `getAssignment`.
         `classId` narrows the list to assignments that target
-        that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
-        tab counts are the class's and never disagree with the rows. A class
-        the caller does not teach lists nothing, as a missing class does,
-        unless the caller holds `scope.all`: it then lists those of the
-        caller's own assignments that target it.
+        any of the classes named, one or several (G-06's "Xem tất cả", G-12);
+        the facets follow it, so the tab counts are those of the classes and
+        never disagree with the rows. A class the caller does not teach lists
+        nothing, as a missing class does, unless the caller holds `scope.all`:
+        it then lists those of the caller's own assignments that target it.
+        `q` keeps the assignments whose test title, or the name of a target
+        class the caller reaches, contains the text; it is accent-insensitive
+        and the facets follow it too. Every row carries `questionCount`.
       tags: [teacher-assignments]
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/AssignmentStatus' } }
-        - { name: classId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
+        - name: classId
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 50
+            uniqueItems: true
+            items: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/Query'
         - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
@@ -6706,6 +6775,75 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '409':
           description: '`TEST_NOT_PUBLISHED`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/assignments/results.csv:
+    get:
+      operationId: exportResultsCsv
+      x-resource:
+        - { in: query, name: ids, kind: assignment }
+      x-permission: teaching.grading
+      tags: [teacher-assignments]
+      summary: Download the results of up to 50 assignments as a CSV file
+      description: |
+        One row per student of each assignment the caller reaches, in the order
+        of `ids` and then by name, for the students the caller reaches: the
+        roster the assignment's Students tab draws, so a student who has not
+        started has a row. The attempt that stands for a student is the one
+        that tab shows: their latest attempt that is not voided, else the
+        latest. Columns: Assignment (the test's title), Version, Class (the
+        target classes the caller reaches that the student belongs to, joined
+        by `; `), Student, Email, Status, Score, Max, Percent (score over max,
+        one decimal), Submitted (in the caller's own time zone, named in the
+        header; the default zone when the stored one is invalid), Focus lost
+        and Flagged. Score, Max and Percent are empty until every manually
+        marked answer of the attempt has a mark. Headers and the Status and
+        Flagged words follow `Accept-Language`, Vietnamese by default.
+
+        The file is UTF-8 with a byte-order mark and CRLF line ends, so
+        spreadsheets open it correctly. A cell that a spreadsheet would run as
+        a formula (it starts with `=`, `+`, `-`, `@`, a tab or a carriage
+        return, also after leading spaces, or with the full-width forms of the
+        first four) is written with a leading `'`. Overdue attempts are closed
+        before the file is read, as the monitor does.
+
+        An id the caller does not reach answers 404 for the whole request, as
+        a missing one does. More than 20000 rows answer 422. The response is
+        `private, no-store`, and a caller is limited to 10 files a minute and
+        60 an hour.
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 50
+            uniqueItems: true
+            items: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: The file.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="results-YYYYMMDD.csv"`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`private, no-store`.'
+              schema: { type: string }
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: '`VALIDATION_FAILED` — the assignments hold more than 20000 rows; `details.ids` says so. Pick fewer.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -6895,6 +7033,70 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/assignments/{id}/duplicate:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: duplicateAssignment
+      x-resource:
+        - { in: path, name: id, kind: assignment }
+        - { in: body, name: /classIds/-, kind: class }
+      x-permission: teaching.assignments.write
+      tags: [teacher-assignments]
+      summary: Copy an assignment as a draft
+      description: |
+        Creates a **draft** that pins the same version and keeps the original's
+        time limit, attempts, shuffle flags, review options, integrity policy
+        and note to students, owned by the caller. Its window opens now and
+        lasts as long as the original's (`closesAt - opensAt`). It is assigned
+        to `classIds` and to no student by name; students never see a draft.
+        The original is not changed.
+
+        The original must be one the caller reaches, and its version one the
+        caller may assign (a published test of their own, or any under
+        `scope.all`): otherwise 409 `TEST_NOT_PUBLISHED`. A class the caller
+        does not teach answers 400 as an unknown one does.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DuplicateAssignmentInput' }
+      responses:
+        '201':
+          description: The draft.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`TEST_NOT_PUBLISHED` — the original''s version is not one the caller can assign.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/assignments/{id}/item-analysis:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getItemAnalysis
+      x-resource:
+        - { in: path, name: id, kind: assignment }
+      x-resource-list: version-question
+      x-permission: teaching.grading
+      tags: [teacher-attempts]
+      summary: How often students got each question wrong
+      description: |
+        Every question of the pinned version, hardest first, over the papers
+        handed in by the students the caller reaches (see `handedIn`). Overdue
+        attempts are closed before it is read, as the monitor does. A question
+        no paper has a mark for sorts last with a null rate.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemAnalysis' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/assignments/{id}/reopen:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
