@@ -25,6 +25,23 @@ type ProfileRecord struct {
 	UserAgent *string
 }
 
+// AvatarRecord is one write of the caller's photo and its audit metadata. A nil
+// Key clears the photo.
+type AvatarRecord struct {
+	UserID    string
+	Key       *string
+	Now       time.Time
+	IP        *string
+	UserAgent *string
+}
+
+// AvatarWrite is the caller as stored after the write, with the key the photo
+// had before it, which the caller of the write deletes from the object store.
+type AvatarWrite struct {
+	User        User
+	PreviousKey *string
+}
+
 // Preferences is the account's stored top-level preferences without materialized defaults.
 type Preferences struct {
 	AssignmentDefaults *AssignmentDefaults `json:"assignmentDefaults,omitempty"`
