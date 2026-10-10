@@ -2980,5 +2980,9 @@
     "switchWarning": "Markdown keeps text, bold, italic, headings, lists, tables and links. Underline, superscript and subscript have no Markdown form and are removed.",
     "switchToMarkdown": "Switch to Markdown",
     "gapsBlockMarkdown": "Remove the gaps to switch to Markdown: the gaps hold the accepted answers."
+  },
+  "trueFalse": {
+    "true": "True",
+    "false": "False"
   }
 }

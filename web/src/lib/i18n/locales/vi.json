@@ -2980,5 +2980,9 @@
     "switchWarning": "Markdown giữ văn bản, chữ đậm, chữ nghiêng, tiêu đề, danh sách, bảng và liên kết. Gạch chân, chỉ số trên và chỉ số dưới không có dạng Markdown nên sẽ bị bỏ.",
     "switchToMarkdown": "Chuyển sang Markdown",
     "gapsBlockMarkdown": "Hãy bỏ hết chỗ trống khỏi nội dung để chuyển sang Markdown: các chỗ trống đang giữ đáp án được chấp nhận."
+  },
+  "trueFalse": {
+    "true": "Đúng",
+    "false": "Sai"
   }
 }
