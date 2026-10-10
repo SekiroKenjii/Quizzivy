@@ -378,13 +378,14 @@ describe("starting a Word import", () => {
     expect(await screen.findByText("Chọn tệp để nhập")).toBeInTheDocument();
     expect(screen.getAllByText("Bắt buộc")).toHaveLength(1);
   });
-  it("reads paste mode from the URL without pretending a text intake endpoint exists", async () => {
+  it("reads paste mode from the URL and shows the text box in place of the files", async () => {
     const user = renderPage("/teacher/imports/new?source=paste&keep=1");
     expect(screen.getByRole("button", { name: "Dán văn bản" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText("Dán đề chưa khả dụng.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Nội dung đề" })).toBeVisible();
+    expect(screen.getByText("Chọn tệp để nhập")).not.toBeVisible();
     expect(screen.getByRole("button", { name: "Bắt đầu xử lý" })).toBeDisabled();
     expect(screen.getByText("Cách đọc nội dung")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Tải tệp lên" }));

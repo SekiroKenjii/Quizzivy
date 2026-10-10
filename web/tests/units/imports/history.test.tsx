@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,7 +8,17 @@ import ImportsListPage from "@/features/imports/pages/teacher/ImportsListPage";
 import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { BASE, TEST_ID, capabilities, run, wordImport } from "./fixtures";
+import { useAuthStore } from "@/stores/auth";
+import { STUDENT } from "../student/support";
+import {
+  BASE,
+  TEST_ID,
+  USER_ID,
+  capabilities,
+  run,
+  source,
+  wordImport,
+} from "./fixtures";
 import "@/lib/i18n";
 
 let items: WordImport[] = [];
@@ -271,5 +281,51 @@ describe("the Word import history", () => {
     );
     for (const item of screen.getAllByRole("menuitem"))
       expect(item).toHaveAttribute("data-disabled");
+  });
+});
+
+describe("a pasted import in the history", () => {
+  afterEach(() => {
+    useAuthStore.setState({ user: null });
+  });
+
+  it("draws the clipboard tile, Pasted text and the character count", async () => {
+    useAuthStore.setState({
+      user: { ...STUDENT, id: USER_ID, fullName: "Hoàng Thương" },
+    });
+    items = [
+      wordImport({
+        id: "018f0000-0000-7000-8000-000000000131",
+        title: "Unit 5 Quick Check",
+        sources: [
+          source("exam", {
+            filename: "pasted-text.txt",
+            format: "text",
+            characters: 12345,
+          }),
+        ],
+      }),
+      wordImport({
+        id: "018f0000-0000-7000-8000-000000000132",
+        title: "Đề Word",
+        sources: [source("exam")],
+      }),
+    ];
+    renderHistory();
+    const pasted = (
+      await screen.findByRole("link", { name: "Unit 5 Quick Check" })
+    ).closest<HTMLElement>("[role=row]")!;
+    expect(within(pasted).getByText("Văn bản đã dán")).toBeInTheDocument();
+    expect(within(pasted).queryByText("pasted-text.txt")).toBeNull();
+    expect(
+      within(pasted).getByText(/^Hoàng Thương · .+ · 12\.345 ký tự$/),
+    ).toBeInTheDocument();
+    expect(pasted.querySelector(".lucide-clipboard-paste")).not.toBeNull();
+    const file = screen
+      .getByRole("link", { name: "Đề Word" })
+      .closest<HTMLElement>("[role=row]")!;
+    expect(within(file).getByText("de-thi-hk1.docx")).toBeInTheDocument();
+    expect(within(file).queryByText(/ký tự/)).toBeNull();
+    expect(file.querySelector(".lucide-file-text")).not.toBeNull();
   });
 });
