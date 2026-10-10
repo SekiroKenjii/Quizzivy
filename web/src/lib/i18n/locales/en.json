@@ -2334,8 +2334,6 @@
       "source": "Source",
       "fileMode": "Upload a file",
       "pasteMode": "Paste text",
-      "pasteDeferred": "Pasting a test is not available yet.",
-      "pasteDeferredHint": "You can upload a Word or PDF file. Importing pasted text will be added later.",
       "recognitionHeading": "How to read the content",
       "automatic": "Recognise automatically",
       "privacyLead": "Where your content goes.",

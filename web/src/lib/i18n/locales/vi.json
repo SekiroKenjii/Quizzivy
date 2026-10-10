@@ -2334,8 +2334,6 @@
       "source": "Nguồn",
       "fileMode": "Tải tệp lên",
       "pasteMode": "Dán văn bản",
-      "pasteDeferred": "Dán đề chưa khả dụng.",
-      "pasteDeferredHint": "Bạn có thể tải tệp Word hoặc PDF lên. Nhập đề từ văn bản sẽ được bổ sung sau.",
       "recognitionHeading": "Cách đọc nội dung",
       "automatic": "Tự động nhận diện",
       "privacyLead": "Nội dung của bạn được xử lý ở đâu.",
