@@ -62,8 +62,12 @@ describe("stored group metadata", () => {
       expect(independentBundle(recovered!.bundle).questions[0]?.input.mediaAlt).toBe(
         alt,
       );
+      expect(memberValues(recovered!.bundle.questions[0]!.input).mediaAlt).toBe(alt);
     },
   );
+  it("gives the editor a member with no alt text as null", () => {
+    expect(memberValues(bundle().questions[0]!.input).mediaAlt).toBeNull();
+  });
   it("normalizes old version-one omissions while rejecting invalid enum metadata", () => {
     const original = bundle();
     const missing = {
