@@ -30,8 +30,12 @@ func (h Assignments) ListAssignments(ctx context.Context, request openapi.ListAs
 		in.Status = &status
 	}
 	if request.Params.ClassId != nil {
-		classID := request.Params.ClassId.String()
-		in.ClassID = &classID
+		for _, id := range *request.Params.ClassId {
+			in.ClassIDs = append(in.ClassIDs, id.String())
+		}
+	}
+	if request.Params.Q != nil {
+		in.Query = *request.Params.Q
 	}
 	if request.Params.Page != nil {
 		in.Page = int(*request.Params.Page)
@@ -123,6 +127,7 @@ func toAPIAssignment(a domain.Assignment) openapi.Assignment {
 		PublishedAt:         a.PublishedAt,
 		SubmittedCount:      &a.SubmittedCount,
 		TargetCount:         &a.TargetCount,
+		QuestionCount:       &a.QuestionCount,
 		FlaggedCount:        &a.FlaggedCount,
 		PendingGradingCount: &a.PendingGradingCount,
 		PendingManualCount:  &a.PendingManualCount,

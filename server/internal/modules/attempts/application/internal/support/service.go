@@ -18,6 +18,7 @@ import (
 type Service struct {
 	Store        domain.Repository
 	Groups       ports.GroupContexts
+	Zones        ports.Zones
 	Now          func() time.Time
 	NewSessionID func() string
 	NewSeed      func() (int64, error)

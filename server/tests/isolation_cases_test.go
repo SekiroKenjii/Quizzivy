@@ -350,6 +350,9 @@ func isolationCases() map[string]isoCase {
 		"reopenAssignment":       {body: fixed(map[string]any{"closesAt": later, "reason": "Kiểm tra cách ly"})},
 		"getAssignmentMonitor":   {},
 		"extendAssignment":       {body: fixed(map[string]any{"minutes": 10, "notify": false})},
+		"duplicateAssignment":    {body: fixed(map[string]any{"classIds": []any{""}})},
+		"getItemAnalysis":        {},
+		"exportResultsCsv":       {},
 		"listStudentOverrides":   {},
 		"setStudentOverrides": {body: fixed(map[string]any{
 			"studentIds": []any{""}, "extraAttempts": 1, "reason": "Kiểm tra cách ly",
