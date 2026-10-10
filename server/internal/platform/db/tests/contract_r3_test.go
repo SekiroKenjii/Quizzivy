@@ -216,6 +216,7 @@ func TestTheLegacyRoleMigrationGivesUpWhenItsLockDoesNotArrive(t *testing.T) {
 		}
 	case <-time.After(30 * time.Second):
 		release()
+		<-result
 		t.Fatal("the migration kept waiting for its lock past its lock_timeout")
 	}
 	release()
