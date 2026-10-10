@@ -961,7 +961,7 @@
     "summarySoFar": "{{count}} tests loaded",
     "tagFilter": "Tags",
     "archiveConfirmTitle": "Archive {{title}}?",
-    "archiveConfirmBody": "The test leaves the list and can no longer be assigned. Existing assignments and students' work stay as they are.",
+    "archiveConfirmBody": "The test leaves Published and Drafts and can no longer be assigned. It stays under All, where you can restore it. Existing assignments and students' work stay as they are.",
     "archived": "Test archived",
     "restore": "Restore",
     "restored": "Test restored",

@@ -961,7 +961,7 @@
     "summarySoFar": "{{count}} đề đã tải",
     "tagFilter": "Thẻ",
     "archiveConfirmTitle": "Lưu trữ đề {{title}}?",
-    "archiveConfirmBody": "Đề rời khỏi danh sách và không giao được nữa. Bài giao đã có và bài làm của học viên vẫn giữ nguyên.",
+    "archiveConfirmBody": "Đề rời khỏi mục Đã phát hành và Bản nháp, và không giao được nữa. Đề vẫn nằm trong mục Tất cả để bạn khôi phục khi cần. Bài giao đã có và bài làm của học viên vẫn giữ nguyên.",
     "archived": "Đã lưu trữ đề",
     "restore": "Khôi phục",
     "restored": "Đã khôi phục đề",
