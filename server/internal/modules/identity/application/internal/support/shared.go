@@ -35,6 +35,7 @@ type Origin struct {
 	GeoLabel  string
 }
 
+// Origin is where the Google sign-in came from.
 func (in GoogleSignInInput) Origin() Origin {
 	return Origin{UserAgent: in.UserAgent, IP: in.IP, GeoLabel: in.GeoLabel}
 }

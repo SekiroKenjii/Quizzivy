@@ -91,12 +91,12 @@ func TestTheLabelHoldsOnlyPrintableTextOnOneLine(t *testing.T) {
 	}{
 		{"a line break", "Ha\r\nNoi", "Ha Noi, VN"},
 		{"tabs and runs of spaces", "  Da \t\t Nang  ", "Da Nang, VN"},
-		{"a no-break space", "Da Nang", "Da Nang, VN"},
+		{"a no-break space", "Da\u00a0Nang", "Da Nang, VN"},
 		{"a control character", "Ha\x00no\x07i", "Hanoi, VN"},
-		{"a right-to-left override", "‮evil", "evil, VN"},
-		{"a zero-width joiner", "Ha‍noi", "Hanoi, VN"},
+		{"a right-to-left override", "\u202eevil", "evil, VN"},
+		{"a zero-width joiner", "Ha\u200dnoi", "Hanoi, VN"},
 		{"invalid UTF-8", "\xff\xfeHanoi", "VN"},
-		{"only unprintable characters", "\x00\x01‮", "VN"},
+		{"only unprintable characters", "\x00\x01\u202e", "VN"},
 		{"an encoded line break", "Ha%0D%0ASet-Cookie:%20x=y", "Ha Set-Cookie: x=y, VN"},
 	}
 	for _, c := range cases {

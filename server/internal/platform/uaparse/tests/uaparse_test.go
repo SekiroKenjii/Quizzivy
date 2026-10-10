@@ -74,7 +74,7 @@ func TestParseNeverEchoesTheAgent(t *testing.T) {
 	agents := []string{
 		"<script>alert(1)</script> Macintosh Chrome/1 <img src=x onerror=alert(1)>",
 		"Windows · Firefox · Spoofed Laptop Macintosh",
-		"Macintosh ‮Chrome/1‬",
+		"Macintosh \u202eChrome/1\u202c",
 		"Macintosh; Chrome/1\r\nSet-Cookie: x=y",
 		strings.Repeat("Linux Firefox/1 ", 2000),
 	}
