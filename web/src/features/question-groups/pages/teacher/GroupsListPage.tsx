@@ -123,6 +123,11 @@ export default function GroupsListPage() {
   const [size] = usePageSize();
   const [page, setPage] = usePage(JSON.stringify({ search, status, size }));
   const bulk = useBulkSelection<GroupSummary>();
+  const [selectionStatus, setSelectionStatus] = useState(status);
+  if (selectionStatus !== status) {
+    setSelectionStatus(status);
+    bulk.clear();
+  }
   const [recent, setRecent] = useState<ReadonlySet<string>>(new Set());
   const [action, setAction] = useState<Action | null>(null);
   const [error, setError] = useState<string | null>(null);
