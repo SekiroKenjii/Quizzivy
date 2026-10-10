@@ -12,7 +12,7 @@ import (
 
 var resourceKinds = []string{
 	"test", "test-version", "section", "question", "version-question", "version-recording", "question-group", "media",
-	"import", "import-source", "class", "assignment", "attempt", "student", "notification", "none",
+	"import", "import-source", "class", "assignment", "attempt", "student", "notification", "override", "none",
 }
 
 type resourceEntry struct {
@@ -166,7 +166,7 @@ func TestEveryTeacherListNamesTheKindItLists(t *testing.T) {
 			t.Errorf("GET %s lists unknown kind %q", path, kind)
 		}
 	}
-	if lists != 13 {
-		t.Errorf("%d teacher lists, want 13", lists)
+	if lists != 14 {
+		t.Errorf("%d teacher lists, want 14", lists)
 	}
 }
