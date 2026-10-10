@@ -73,14 +73,14 @@ export function BuilderQuestionEditor({
   const placeholder = t("builder.editor.promptPlaceholder");
   return (
     <div className="flex min-w-0 flex-col">
-      <div className="flex flex-wrap items-center gap-2.5 border-b px-4 py-3">
-        <h2 className="text-[13px] font-semibold">
+      <div className="flex min-w-0 items-center gap-2.5 border-b px-4 py-3">
+        <h2 className="shrink-0 text-[13px] font-semibold whitespace-nowrap">
           {number === null
             ? t("builder.editor.question")
             : t("builder.editor.questionNumber", { number })}
         </h2>
         <TypeMenu value={value} onChange={onChange} />
-        <label className="text-muted-fg ml-auto flex items-center gap-2 text-[12.5px]">
+        <label className="text-muted-fg ml-auto flex shrink-0 items-center gap-2 text-[12.5px] whitespace-nowrap">
           {t("questionEditor.points")}
           <Input
             type="number"
@@ -205,10 +205,10 @@ function TypeMenu({
           variant="outline"
           size="sm"
           aria-label={`${t("questionEditor.typeLabel")}: ${typeName}`}
-          className="bg-card h-7.5 gap-1.5 rounded-[7px] px-2.5 text-[12.5px] font-normal in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:text-[12.5px]"
+          className="bg-card h-7.5 min-w-0 shrink gap-1.5 rounded-[7px] px-2.5 text-[12.5px] font-normal in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:text-[12.5px]"
         >
           <Current aria-hidden="true" className="size-3.25" />
-          {typeName}
+          <span className="truncate">{typeName}</span>
           <ChevronDown aria-hidden="true" className="text-muted-fg size-3.25" />
         </Button>
       </DropdownMenuTrigger>
