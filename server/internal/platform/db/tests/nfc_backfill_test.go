@@ -9,8 +9,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"golang.org/x/text/unicode/norm"
 
@@ -32,7 +36,30 @@ type composeWorld struct {
 
 func nfd(s string) string { return norm.NFD.String(s) }
 
-func uniqueDatabase(t *testing.T) *sql.DB {
+type noticeLog struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+func (n *noticeLog) record(_ *pgconn.PgConn, notice *pgconn.Notice) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.lines = append(n.lines, notice.Message)
+}
+
+func (n *noticeLog) reset() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.lines = nil
+}
+
+func (n *noticeLog) text() string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return strings.Join(n.lines, "\n")
+}
+
+func uniqueDatabase(t *testing.T) (*sql.DB, *noticeLog) {
 	t.Helper()
 	nonce := make([]byte, 6)
 	if _, err := rand.Read(nonce); err != nil {
@@ -52,12 +79,15 @@ func uniqueDatabase(t *testing.T) *sql.DB {
 	if _, err := admin.Exec(`CREATE DATABASE ` + name); err != nil {
 		t.Fatalf("creating %s: %v", name, err)
 	}
-	conn, err := sql.Open("pgx", swapDatabase(t, db.TestDSN(t), name))
+	config, err := pgx.ParseConfig(swapDatabase(t, db.TestDSN(t), name))
 	if err != nil {
 		t.Fatal(err)
 	}
+	notices := &noticeLog{}
+	config.OnNotice = notices.record
+	conn := stdlib.OpenDB(*config)
 	t.Cleanup(func() { _ = conn.Close() })
-	return conn
+	return conn, notices
 }
 
 func (w *composeWorld) insert(t *testing.T, query string, args ...any) string {
@@ -320,7 +350,7 @@ func TestTheComposeMigrationComposesWhatItListsAndNothingElse(t *testing.T) {
 	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
 		t.Skip("TEST_DESTRUCTIVE=1 required for an isolated migration database")
 	}
-	conn := uniqueDatabase(t)
+	conn, notices := uniqueDatabase(t)
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatal(err)
 	}
@@ -358,6 +388,7 @@ func TestTheComposeMigrationComposesWhatItListsAndNothingElse(t *testing.T) {
 	assertUnchangedDocuments(t, w)
 	assertTags(t, w)
 	assertAcceptedAnswers(t, w)
+	assertNotices(t, notices, "folded 2 decomposed duplicate accepted answer(s)", "every listed column is composed")
 	assertUpdatedAtKept(t, w, before)
 	assertTriggersWork(t, w)
 }
@@ -471,7 +502,7 @@ func TestTheComposeMigrationIsIdempotentAndItsDownChangesNothing(t *testing.T) {
 	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
 		t.Skip("TEST_DESTRUCTIVE=1 required for an isolated migration database")
 	}
-	conn := uniqueDatabase(t)
+	conn, notices := uniqueDatabase(t)
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatal(err)
 	}
@@ -488,6 +519,7 @@ func TestTheComposeMigrationIsIdempotentAndItsDownChangesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	once := w.versions(t)
+	assertNotices(t, notices, "folded 2 decomposed duplicate accepted answer(s)", "every listed column is composed")
 	if err := goose.DownTo(conn, dir, composeMigration-1); err != nil {
 		t.Fatal(err)
 	}
@@ -502,19 +534,21 @@ func TestTheComposeMigrationIsIdempotentAndItsDownChangesNothing(t *testing.T) {
 			t.Errorf("after the Down %s.%s = %q, want it to stay composed (%q)", c.table, c.column, got, want)
 		}
 	}
+	notices.reset()
 	if err := goose.UpTo(conn, dir, composeMigration); err != nil {
 		t.Fatal(err)
 	}
 	if w.versions(t) != once {
 		t.Error("running the migration again touched a row; it must select only the rows that change")
 	}
+	assertNotices(t, notices, "folded 0 decomposed duplicate accepted answer(s)", "every listed column is composed")
 }
 
 func TestTheComposeMigrationLeavesAValueThatComposingWouldTakePastItsCheck(t *testing.T) {
 	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
 		t.Skip("TEST_DESTRUCTIVE=1 required for an isolated migration database")
 	}
-	conn := uniqueDatabase(t)
+	conn, notices := uniqueDatabase(t)
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatal(err)
 	}
@@ -537,5 +571,19 @@ func TestTheComposeMigrationLeavesAValueThatComposingWouldTakePastItsCheck(t *te
 	}
 	if got := w.value(t, composedColumn{"tests", "title", short, ""}); got != "Đề kiểm tra" {
 		t.Errorf("the neighbouring title was not composed: %q", got)
+	}
+	assertNotices(t, notices, "folded 0 decomposed duplicate accepted answer(s)", "app.tests.title: 1 row(s) left as they were")
+	if strings.Contains(notices.text(), "every listed column is composed") {
+		t.Errorf("the log says every column is composed although one row was left: %s", notices.text())
+	}
+}
+
+func assertNotices(t *testing.T, notices *noticeLog, wants ...string) {
+	t.Helper()
+	logged := notices.text()
+	for _, want := range wants {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the deploy log lacks %q:\n%s", want, logged)
+		}
 	}
 }

@@ -31,11 +31,16 @@
 -- not, until the migration commits. The rest take only ROW EXCLUSIVE. Production holds
 -- tens of questions and a handful of accounts, so the transaction lasts milliseconds
 -- to seconds; lock_timeout makes it fail at once, and be run again, rather than queue
--- every writer behind a long transaction.
+-- every writer behind a long transaction. A failure rolls the whole transaction back,
+-- the triggers included, so nothing is left disabled.
 --
 -- Idempotent: every statement selects only the rows that are not composed, so a
 -- second run changes nothing. A value is left as it is if composing would take it past
 -- the CHECK that bounds the column, which only a few scripts can do (U+0958 grows).
+--
+-- The deploy log says what it did, as NOTICEs: how many decomposed accepted answers
+-- were folded into their composed twin, each column that still holds a row that is not
+-- composed (only the CHECK guard leaves one), or that every listed column is composed.
 SET LOCAL lock_timeout = '5s';
 
 ALTER TABLE app.tests DISABLE TRIGGER tests_set_updated_at;
@@ -47,22 +52,28 @@ ALTER TABLE app.assignment_student_overrides DISABLE TRIGGER assignment_student_
 ALTER TABLE app.users DISABLE TRIGGER users_set_updated_at;
 ALTER TABLE app.word_imports DISABLE TRIGGER word_imports_updated_at;
 
--- (blank_id, answer) is unique. Where a decomposed answer and its composed twin both
--- exist, the grader already counts them as one, so keep the composed row and drop the other.
-DELETE FROM app.question_blank_answers
- WHERE id IN (SELECT id
-                FROM (SELECT id,
-                             row_number() OVER (PARTITION BY blank_id, normalize(answer, NFC)
-                                                ORDER BY (answer IS NFC NORMALIZED) DESC, id) AS position
-                        FROM app.question_blank_answers) ranked
-               WHERE position > 1);
-
 -- +goose StatementBegin
 DO $$
 DECLARE
-  target record;
-  bound  text;
+  target    record;
+  bound     text;
+  only_rows text;
+  folded    bigint;
+  left_over bigint;
+  total     bigint := 0;
 BEGIN
+  -- (blank_id, answer) is unique. Where a decomposed answer and its composed twin both
+  -- exist, the grader already counts them as one, so keep the composed row and drop the other.
+  DELETE FROM app.question_blank_answers
+   WHERE id IN (SELECT id
+                  FROM (SELECT id,
+                               row_number() OVER (PARTITION BY blank_id, normalize(answer, NFC)
+                                                  ORDER BY (answer IS NFC NORMALIZED) DESC, id) AS position
+                          FROM app.question_blank_answers) ranked
+                 WHERE position > 1);
+  GET DIAGNOSTICS folded = ROW_COUNT;
+  RAISE NOTICE 'F-37: folded % decomposed duplicate accepted answer(s) into their composed twin', folded;
+
   FOR target IN
     SELECT tbl, col, max_chars, only_where
       FROM (VALUES
@@ -96,22 +107,41 @@ BEGIN
   LOOP
     bound := CASE WHEN target.max_chars IS NULL THEN ''
                   ELSE format(' AND char_length(normalize(%I, NFC)) <= %s', target.col, target.max_chars) END;
+    only_rows := coalesce(target.only_where, 'true');
     EXECUTE format('UPDATE app.%1$I SET %2$I = normalize(%2$I, NFC) WHERE %2$I IS NOT NFC NORMALIZED%3$s AND (%4$s)',
-                   target.tbl, target.col, bound, coalesce(target.only_where, 'true'));
+                   target.tbl, target.col, bound, only_rows);
+    EXECUTE format('SELECT count(*) FROM app.%1$I WHERE %2$I IS NOT NFC NORMALIZED AND (%3$s)',
+                   target.tbl, target.col, only_rows) INTO left_over;
+    IF left_over > 0 THEN
+      total := total + left_over;
+      RAISE NOTICE 'F-37: app.%.%: % row(s) left as they were, because composing would pass the limit of the column',
+                   target.tbl, target.col, left_over;
+    END IF;
   END LOOP;
+
+  -- A tag is an element of an array: compose each, drop the repeat that composing makes
+  -- of two spellings, and keep the order of first appearance.
+  UPDATE app.questions q
+     SET tags = ARRAY(SELECT composed.tag
+                        FROM (SELECT normalize(spelling, NFC) AS tag, min(position) AS first_at
+                                FROM unnest(q.tags) WITH ORDINALITY AS spellings(spelling, position)
+                               GROUP BY 1) composed
+                       ORDER BY composed.first_at)
+   WHERE EXISTS (SELECT 1 FROM unnest(q.tags) AS spellings(spelling) WHERE spelling IS NOT NFC NORMALIZED);
+  SELECT count(*) INTO left_over
+    FROM app.questions q
+   WHERE EXISTS (SELECT 1 FROM unnest(q.tags) AS spellings(spelling) WHERE spelling IS NOT NFC NORMALIZED);
+  IF left_over > 0 THEN
+    total := total + left_over;
+    RAISE NOTICE 'F-37: app.questions.tags: % row(s) left as they were', left_over;
+  END IF;
+
+  IF total = 0 THEN
+    RAISE NOTICE 'F-37: every listed column is composed';
+  END IF;
 END
 $$;
 -- +goose StatementEnd
-
--- A tag is an element of an array: compose each, drop the repeat that composing makes
--- of two spellings, and keep the order of first appearance.
-UPDATE app.questions q
-   SET tags = ARRAY(SELECT composed.tag
-                      FROM (SELECT normalize(spelling, NFC) AS tag, min(position) AS first_at
-                              FROM unnest(q.tags) WITH ORDINALITY AS spellings(spelling, position)
-                             GROUP BY 1) composed
-                     ORDER BY composed.first_at)
- WHERE EXISTS (SELECT 1 FROM unnest(q.tags) AS spellings(spelling) WHERE spelling IS NOT NFC NORMALIZED);
 
 ALTER TABLE app.tests ENABLE TRIGGER tests_set_updated_at;
 ALTER TABLE app.questions ENABLE TRIGGER questions_set_updated_at;
@@ -125,7 +155,7 @@ ALTER TABLE app.word_imports ENABLE TRIGGER word_imports_updated_at;
 -- +goose Down
 
 -- Data only, and forward-safe: composed and decomposed text are the same text, and
--- nothing records which rows were decomposed before, so there is nothing to restore.
+-- nothing records which rows were decomposed, so there is nothing to restore.
 -- The previous binary reads composed text exactly as it read decomposed text. The
 -- deleted duplicate accepted answers were equal to the grader's eyes and are not
 -- brought back.
