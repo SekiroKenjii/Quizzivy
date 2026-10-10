@@ -208,6 +208,18 @@ describe("the Rules step", () => {
       ),
     ).toBeVisible();
   });
+
+  it("holds spec §10.5's full limits in a disclosure that starts closed", async () => {
+    const user = userEvent.setup();
+    renderWizard("/teacher/assignments/new?step=4");
+    const summary = screen.getByText("Hệ thống thấy được gì và không thấy gì");
+    const details = summary.closest("details")!;
+    expect(details).not.toHaveAttribute("open");
+    await user.click(summary);
+    expect(details).toHaveAttribute("open");
+    expect(within(details).getByText(/thiết bị thứ hai/)).toBeVisible();
+    expect(within(details).getByText(/không phải bằng chứng/)).toBeVisible();
+  });
 });
 
 describe("assigning", () => {

@@ -1748,6 +1748,12 @@
       "awayHint": "Rời bài ngắn hơn mức này thì không tính",
       "seconds": "{{count}} giây",
       "honesty": "Trình duyệt không thể ngăn gian lận. Các quy định này ghi lại điều đã xảy ra để bạn tự quyết định.",
+      "limits": {
+        "title": "Hệ thống thấy được gì và không thấy gì",
+        "detects": "Hệ thống chỉ phát hiện khi tab làm bài này bị rời đi: học viên chuyển sang tab khác, cửa sổ khác hoặc thoát toàn màn hình.",
+        "cannotSee": "Nó không thấy thiết bị thứ hai, chiếc điện thoại đặt cạnh máy tính, người ngồi trong phòng hay tờ giấy in sẵn.",
+        "conversation": "Các tín hiệu này là thông tin để trò chuyện với học viên, không phải bằng chứng."
+      },
       "note": "Lời nhắn cho học viên (không bắt buộc)",
       "noteHint": "Hiện trên trang giới thiệu bài làm.",
       "noteCount": "{{count}}/500",

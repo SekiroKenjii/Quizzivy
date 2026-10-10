@@ -1748,6 +1748,12 @@
       "awayHint": "Leaving for less than this is not counted",
       "seconds": "{{count}} s",
       "honesty": "A browser cannot prevent cheating. These rules record what happened so you can decide.",
+      "limits": {
+        "title": "What it can and cannot see",
+        "detects": "It detects only this test tab losing focus: the student switching to another tab or window, or leaving fullscreen.",
+        "cannotSee": "It cannot see a second device, a phone beside the laptop, a person in the room or a printed sheet.",
+        "conversation": "These signals are evidence for a conversation with the student, not proof."
+      },
       "note": "Note to students (optional)",
       "noteHint": "Shown on the test's intro page.",
       "noteCount": "{{count}}/500",
