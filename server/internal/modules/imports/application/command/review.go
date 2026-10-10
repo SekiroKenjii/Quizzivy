@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/shared/actor"
+	"quizzivy/internal/shared/content"
 )
 
 type SaveReview struct {
@@ -18,6 +19,11 @@ type SaveReview struct {
 type SaveReviewHandler struct{ Drafts domain.Drafts }
 
 func (h SaveReviewHandler) Handle(ctx context.Context, in SaveReview) (domain.ReviewState, error) {
+	var c content.Composer
+	in.Title = c.Text("title", in.Title, maxTitle)
+	if err := c.Err(); err != nil {
+		return domain.ReviewState{}, err
+	}
 	stored, err := h.Drafts.Draft(ctx, reach(in.Actor), in.ImportID)
 	if err != nil {
 		return domain.ReviewState{}, err

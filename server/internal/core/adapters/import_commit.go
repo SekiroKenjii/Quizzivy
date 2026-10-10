@@ -15,6 +15,7 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
+	"quizzivy/internal/shared/validation"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -48,7 +49,8 @@ func (c ImportCommitter) Materialize(ctx context.Context, plan importsdomain.Com
 		return record(ctx, importsrepo.NewPostgres(scoped), id)
 	})
 	var invalid *testsdomain.GroupError
-	if errors.Is(err, mediadomain.ErrNotFound) || errors.Is(err, questionsdomain.ErrMediaNotFound) || errors.As(err, &invalid) {
+	var refused *validation.Error
+	if errors.Is(err, mediadomain.ErrNotFound) || errors.Is(err, questionsdomain.ErrMediaNotFound) || errors.As(err, &invalid) || errors.As(err, &refused) {
 		return "", importsdomain.ErrBadDraft
 	}
 	return testID, err
