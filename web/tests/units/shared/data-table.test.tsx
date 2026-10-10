@@ -13,6 +13,7 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { useContentBand } from "@/layouts/shell/contentWidth";
+import { previewCompactTables, setAccountCompactTables } from "@/lib/compactTables";
 import { contentWidth } from "@tests/support/contentWidth";
 import { viewport } from "@tests/support/viewport";
 import "@/lib/i18n";
@@ -581,6 +582,34 @@ describe("geometry the deck draws", () => {
     expect(header).toHaveClass("h-10");
     expect(header.style.height).toBe("");
     expect(header.style.paddingTop).toBe("");
+  });
+
+  describe("under the account's Compact tables (DG-37)", () => {
+    afterEach(() => {
+      act(() => setAccountCompactTables(null));
+    });
+
+    it("draws compact rows when the account chose them, and follows the choice without a reload", () => {
+      renderAssignments({ rowSize: { height: 56 } });
+      for (const row of bodyRows()) expect(row).toHaveStyle({ height: "56px" });
+
+      act(() => setAccountCompactTables(true));
+      for (const row of bodyRows()) expect(row).toHaveStyle({ height: "40px" });
+
+      act(() => previewCompactTables(false));
+      for (const row of bodyRows()) expect(row).toHaveStyle({ height: "56px" });
+    });
+
+    it("lets a table's own dense prop win over the account's choice", () => {
+      act(() => setAccountCompactTables(true));
+      const { unmount } = renderAssignments({ rowSize: { height: 56 }, dense: false });
+      for (const row of bodyRows()) expect(row).toHaveStyle({ height: "56px" });
+      unmount();
+
+      act(() => setAccountCompactTables(false));
+      renderAssignments({ rowSize: { height: 56 }, dense: true });
+      for (const row of bodyRows()) expect(row).toHaveStyle({ height: "40px" });
+    });
   });
 
   it("lets every data cell and its header shrink, so a long title truncates", () => {

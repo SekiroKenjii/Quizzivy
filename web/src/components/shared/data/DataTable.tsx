@@ -17,6 +17,7 @@ import {
 import { RowMenu } from "@/components/shared/RowMenu";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useContentBand } from "@/layouts/shell/contentWidth";
+import { useCompactTables } from "@/lib/compactTables";
 import { cn } from "@/lib/utils";
 import {
   MENU_TRACK,
@@ -389,8 +390,9 @@ function CardList<T extends Item>({
  * control in the row or outside the row, as one in an open menu does. The row
  * itself is never focusable. Below 768px a table that has `card` renders a
  * list of cards instead, without checkboxes, menus or asides. Content wider
- * than the table scrolls sideways inside it. Loading and failure stay with
- * the screen.
+ * than the table scrolls sideways inside it. Rows are dense when `dense`
+ * says so, and otherwise when the account chose "Compact tables" (DG-37).
+ * Loading and failure stay with the screen.
  */
 export function DataTable<T extends Item>(props: DataTableProps<T>) {
   const {
@@ -398,7 +400,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
     columns,
     rows,
     rowSize,
-    dense = false,
+    dense: denseChoice,
     rowTone,
     canOpen,
     shown: given,
@@ -419,6 +421,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
       : { selection: props.selection, name: props.rowName };
   const baseId = useId();
   const wide = useMediaQuery("(min-width: 768px)");
+  const compact = useCompactTables();
   const own = given === undefined;
   const thresholds = useMemo(
     () => (own ? thresholdsOf(columns) : NO_THRESHOLDS),
@@ -452,7 +455,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
     select: select !== undefined,
     ...(menu === undefined ? {} : { menuTrack }),
   });
-  const box = rowBox(rowSize, dense);
+  const box = rowBox(rowSize, denseChoice ?? compact);
   return (
     <div
       data-slot="data-table"
