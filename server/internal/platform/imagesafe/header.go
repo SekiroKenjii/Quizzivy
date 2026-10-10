@@ -45,6 +45,7 @@ type jpegFrame struct {
 	jfif           bool
 	adobe          bool
 	adobeTransform byte
+	exifSeen       bool
 	comps          []jpegComponent
 	orientation    int
 }
@@ -60,58 +61,76 @@ const (
 	markerAPP14 = 0xee
 )
 
-func scanJPEG(data []byte) (jpegFrame, bool) {
-	frame := jpegFrame{orientation: 1}
-	seenExif := false
-	pos := 2
-	for pos < len(data) {
-		if data[pos] != 0xff {
-			pos++
-			continue
-		}
-		for pos < len(data) && data[pos] == 0xff {
-			pos++
-		}
-		if pos >= len(data) {
-			return frame, false
-		}
-		marker := data[pos]
+type jpegSegment struct {
+	marker byte
+	body   []byte
+}
+
+func markerAt(data []byte, pos int) (marker byte, next int, ok bool) {
+	for pos < len(data) && data[pos] != 0xff {
 		pos++
-		switch {
-		case marker == 0:
-			continue
-		case marker == markerEOI || marker == markerSOS:
-			return frame, false
-		case marker >= 0xd0 && marker <= 0xd7:
+	}
+	for pos < len(data) && data[pos] == 0xff {
+		pos++
+	}
+	if pos >= len(data) {
+		return 0, pos, false
+	}
+	return data[pos], pos + 1, true
+}
+
+func nextSegment(data []byte, pos int) (segment jpegSegment, next int, ok bool) {
+	for {
+		marker, after, found := markerAt(data, pos)
+		if !found || marker == markerEOI || marker == markerSOS {
+			return jpegSegment{}, after, false
+		}
+		pos = after
+		if marker == 0 || (marker >= 0xd0 && marker <= 0xd7) {
 			continue
 		}
 		if pos+2 > len(data) {
-			return frame, false
+			return jpegSegment{}, pos, false
 		}
 		length := int(data[pos])<<8 | int(data[pos+1])
 		if length < 2 || pos+length > len(data) {
+			return jpegSegment{}, pos, false
+		}
+		return jpegSegment{marker: marker, body: data[pos+2 : pos+length]}, pos + length, true
+	}
+}
+
+func scanJPEG(data []byte) (jpegFrame, bool) {
+	frame := jpegFrame{orientation: 1}
+	for pos := 2; ; {
+		segment, next, ok := nextSegment(data, pos)
+		if !ok {
 			return frame, false
 		}
-		body := data[pos+2 : pos+length]
-		pos += length
-		switch marker {
-		case markerSOF0, markerSOF1, markerSOF2:
-			frame.progressive = marker == markerSOF2
-			return frame, frame.readComponents(body)
-		case markerAPP0:
-			frame.jfif = frame.jfif || len(body) >= 5 && string(body[:5]) == "JFIF\x00"
-		case markerAPP14:
-			if len(body) >= 12 && string(body[:5]) == "Adobe" {
-				frame.adobe, frame.adobeTransform = true, body[11]
-			}
-		case markerAPP1:
-			if !seenExif && len(body) >= 6 && string(body[:6]) == "Exif\x00\x00" {
-				seenExif = true
-				frame.orientation = exifOrientation(body[6:])
-			}
+		pos = next
+		if segment.marker == markerSOF0 || segment.marker == markerSOF1 || segment.marker == markerSOF2 {
+			frame.progressive = segment.marker == markerSOF2
+			return frame, frame.readComponents(segment.body)
+		}
+		frame.absorb(segment)
+	}
+}
+
+func (f *jpegFrame) absorb(segment jpegSegment) {
+	body := segment.body
+	switch segment.marker {
+	case markerAPP0:
+		f.jfif = f.jfif || (len(body) >= 5 && string(body[:5]) == "JFIF\x00")
+	case markerAPP14:
+		if len(body) >= 12 && string(body[:5]) == "Adobe" {
+			f.adobe, f.adobeTransform = true, body[11]
+		}
+	case markerAPP1:
+		if !f.exifSeen && len(body) >= 6 && string(body[:6]) == "Exif\x00\x00" {
+			f.exifSeen = true
+			f.orientation = exifOrientation(body[6:])
 		}
 	}
-	return frame, false
 }
 
 func (f *jpegFrame) readComponents(body []byte) bool {

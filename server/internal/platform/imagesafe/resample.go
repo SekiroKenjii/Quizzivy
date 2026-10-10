@@ -89,47 +89,67 @@ func to8(v uint64) uint8 {
 func rowReader(src image.Image) func(dst []uint32, x0, y int) {
 	switch img := src.(type) {
 	case *image.NRGBA:
-		return func(dst []uint32, x0, y int) {
-			off := img.PixOffset(x0, y)
-			for i := 0; i < len(dst); i += 4 {
-				a := uint32(img.Pix[off+3]) * 0x101
-				dst[i] = uint32(img.Pix[off]) * 0x101 * a / 0xffff
-				dst[i+1] = uint32(img.Pix[off+1]) * 0x101 * a / 0xffff
-				dst[i+2] = uint32(img.Pix[off+2]) * 0x101 * a / 0xffff
-				dst[i+3] = a
-				off += 4
-			}
-		}
+		return nrgbaRows(img)
 	case *image.RGBA:
-		return func(dst []uint32, x0, y int) {
-			off := img.PixOffset(x0, y)
-			for i := 0; i < len(dst); i += 4 {
-				dst[i], dst[i+1], dst[i+2], dst[i+3] = uint32(img.Pix[off])*0x101, uint32(img.Pix[off+1])*0x101, uint32(img.Pix[off+2])*0x101, uint32(img.Pix[off+3])*0x101
-				off += 4
-			}
-		}
+		return rgbaRows(img)
 	case *image.YCbCr:
-		return func(dst []uint32, x0, y int) {
-			for i := 0; i < len(dst); i += 4 {
-				x := x0 + i/4
-				r, g, b := color.YCbCrToRGB(img.Y[img.YOffset(x, y)], img.Cb[img.COffset(x, y)], img.Cr[img.COffset(x, y)])
-				dst[i], dst[i+1], dst[i+2], dst[i+3] = uint32(r)*0x101, uint32(g)*0x101, uint32(b)*0x101, 0xffff
-			}
-		}
+		return ycbcrRows(img)
 	case *image.Gray:
-		return func(dst []uint32, x0, y int) {
-			off := img.PixOffset(x0, y)
-			for i := 0; i < len(dst); i += 4 {
-				v := uint32(img.Pix[off]) * 0x101
-				dst[i], dst[i+1], dst[i+2], dst[i+3] = v, v, v, 0xffff
-				off++
-			}
-		}
+		return grayRows(img)
 	default:
-		return func(dst []uint32, x0, y int) {
-			for i := 0; i < len(dst); i += 4 {
-				dst[i], dst[i+1], dst[i+2], dst[i+3] = src.At(x0+i/4, y).RGBA()
-			}
+		return anyRows(src)
+	}
+}
+
+func nrgbaRows(img *image.NRGBA) func(dst []uint32, x0, y int) {
+	return func(dst []uint32, x0, y int) {
+		off := img.PixOffset(x0, y)
+		for i := 0; i < len(dst); i += 4 {
+			a := uint32(img.Pix[off+3]) * 0x101
+			dst[i] = uint32(img.Pix[off]) * 0x101 * a / 0xffff
+			dst[i+1] = uint32(img.Pix[off+1]) * 0x101 * a / 0xffff
+			dst[i+2] = uint32(img.Pix[off+2]) * 0x101 * a / 0xffff
+			dst[i+3] = a
+			off += 4
+		}
+	}
+}
+
+func rgbaRows(img *image.RGBA) func(dst []uint32, x0, y int) {
+	return func(dst []uint32, x0, y int) {
+		off := img.PixOffset(x0, y)
+		for i := 0; i < len(dst); i += 4 {
+			dst[i], dst[i+1], dst[i+2], dst[i+3] = uint32(img.Pix[off])*0x101, uint32(img.Pix[off+1])*0x101, uint32(img.Pix[off+2])*0x101, uint32(img.Pix[off+3])*0x101
+			off += 4
+		}
+	}
+}
+
+func ycbcrRows(img *image.YCbCr) func(dst []uint32, x0, y int) {
+	return func(dst []uint32, x0, y int) {
+		for i := 0; i < len(dst); i += 4 {
+			x := x0 + i/4
+			r, g, b := color.YCbCrToRGB(img.Y[img.YOffset(x, y)], img.Cb[img.COffset(x, y)], img.Cr[img.COffset(x, y)])
+			dst[i], dst[i+1], dst[i+2], dst[i+3] = uint32(r)*0x101, uint32(g)*0x101, uint32(b)*0x101, 0xffff
+		}
+	}
+}
+
+func grayRows(img *image.Gray) func(dst []uint32, x0, y int) {
+	return func(dst []uint32, x0, y int) {
+		off := img.PixOffset(x0, y)
+		for i := 0; i < len(dst); i += 4 {
+			v := uint32(img.Pix[off]) * 0x101
+			dst[i], dst[i+1], dst[i+2], dst[i+3] = v, v, v, 0xffff
+			off++
+		}
+	}
+}
+
+func anyRows(src image.Image) func(dst []uint32, x0, y int) {
+	return func(dst []uint32, x0, y int) {
+		for i := 0; i < len(dst); i += 4 {
+			dst[i], dst[i+1], dst[i+2], dst[i+3] = src.At(x0+i/4, y).RGBA()
 		}
 	}
 }

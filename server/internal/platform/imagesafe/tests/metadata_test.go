@@ -121,7 +121,7 @@ func TestAnExifBlockThatIsDamagedOrOddIsIgnored(t *testing.T) {
 		"an unknown byte order":        badOrder,
 		"an empty block":               nil,
 		"only a byte order":            []byte("II"),
-		"a header with no IFD":         []byte{'I', 'I', 42, 0, 8, 0, 0, 0},
+		"a header with no IFD":         {'I', 'I', 42, 0, 8, 0, 0, 0},
 	}
 	for name, block := range cases {
 		got, err := square(t, withExif(t, plain, block))

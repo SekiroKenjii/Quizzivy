@@ -93,7 +93,6 @@ var (
 	green  = color.NRGBA{G: 255, A: 255}
 	blue   = color.NRGBA{B: 255, A: 255}
 	yellow = color.NRGBA{R: 255, G: 255, A: 255}
-	white  = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 )
 
 func quadrants(size int, a, b, c, d color.NRGBA) *image.NRGBA {
