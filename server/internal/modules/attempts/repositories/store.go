@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/schedule"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -31,12 +32,12 @@ func NewPostgres(dbx db.Context, guard StartGuard) *Postgres {
 	return &Postgres{Repository: db.NewRepository(dbx), guard: guard}
 }
 
-const rulesQuery = `
+var rulesQuery = `
 	SELECT a.test_version_id, a.opens_at, a.closes_at, a.closed_at, a.published_at,
 	       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 	       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded,
-	       a.integrity_min_away_ms, t.title,
+	       a.integrity_min_away_ms, t.title, ` + schedule.OverrideSelect + `,
 	       -- Targeted by class or by name is one answer, not two: EXISTS over
 	       -- the union rather than two counts, for the same reason the roster
 	       -- count is a union (a student reached both ways is one person).
@@ -56,16 +57,23 @@ const rulesQuery = `
 	  FROM app.assignments a
 	  JOIN app.test_versions v ON v.id = a.test_version_id
 	  JOIN app.tests t ON t.id = v.test_id
+	  ` + schedule.OverrideJoin("$2::uuid") + `
 	 WHERE a.id = $1::uuid`
 
+// Rules reads the assignment's rules as this student sees them: the window,
+// the time limit and the attempts they have under their own override, when
+// they have one.
 func (s *Postgres) Rules(ctx context.Context, assignmentID, studentID string) (domain.Rules, error) {
-	var r domain.Rules
+	var (
+		r  domain.Rules
+		oc schedule.OverrideColumns
+	)
 	err := s.QueryRow(ctx, rulesQuery, assignmentID, studentID).Scan(
 		&r.TestVersionID, &r.OpensAt, &r.ClosesAt, &r.ClosedAt, &r.PublishedAt,
 		&r.DurationMinutes, &r.MaxAttempts, &r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Integrity.RequireFullscreen, &r.Integrity.BlockCopyPaste,
 		&r.Integrity.MaxFocusLoss, &r.Integrity.OnLimitExceeded, &r.Integrity.MinAwayMs,
-		&r.TestTitle, &r.Targeted,
+		&r.TestTitle, &oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts, &r.Targeted,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Rules{}, domain.ErrNotFound
@@ -73,7 +81,17 @@ func (s *Postgres) Rules(ctx context.Context, assignmentID, studentID string) (d
 	if err != nil {
 		return domain.Rules{}, fmt.Errorf("attempts: read rules: %w", err)
 	}
-	return r, nil
+	return withOverride(r, oc.Override()), nil
+}
+
+func withOverride(r domain.Rules, o *schedule.Override) domain.Rules {
+	w := schedule.Window{
+		OpensAt: r.OpensAt, ClosesAt: r.ClosesAt, ClosedAt: r.ClosedAt,
+		DurationMin: r.DurationMinutes, MaxAttempts: r.MaxAttempts,
+	}.WithOverride(o)
+	r.OpensAt, r.ClosesAt, r.ClosedAt = w.OpensAt, w.ClosesAt, w.ClosedAt
+	r.DurationMinutes, r.MaxAttempts = w.DurationMin, w.MaxAttempts
+	return r
 }
 
 const attemptColumns = `
@@ -434,23 +452,28 @@ func (s *Postgres) ByID(ctx context.Context, attemptID, studentID string) (domai
 // RulesFor loads the assignment behind an attempt. Separate from Rules because
 // the attempt already proves which assignment applies -- re-deriving it from a
 // client-supplied id would be a way to render one paper under another's rules.
-func (s *Postgres) RulesFor(ctx context.Context, assignmentID string) (domain.Rules, error) {
-	var r domain.Rules
+// The rules are the attempt's student's, under their own override.
+func (s *Postgres) RulesFor(ctx context.Context, assignmentID, studentID string) (domain.Rules, error) {
+	var (
+		r  domain.Rules
+		oc schedule.OverrideColumns
+	)
 	err := s.QueryRow(ctx, `
 		SELECT a.test_version_id, a.opens_at, a.closes_at, a.closed_at, a.published_at,
 		       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
 		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded,
-		       a.integrity_min_away_ms, t.title
+		       a.integrity_min_away_ms, t.title, `+schedule.OverrideSelect+`
 		  FROM app.assignments a
 		  JOIN app.test_versions v ON v.id = a.test_version_id
 		  JOIN app.tests t ON t.id = v.test_id
-		 WHERE a.id = $1::uuid`, assignmentID).Scan(
+		  `+schedule.OverrideJoin("$2::uuid")+`
+		 WHERE a.id = $1::uuid`, assignmentID, studentID).Scan(
 		&r.TestVersionID, &r.OpensAt, &r.ClosesAt, &r.ClosedAt, &r.PublishedAt,
 		&r.DurationMinutes, &r.MaxAttempts, &r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Integrity.RequireFullscreen, &r.Integrity.BlockCopyPaste,
 		&r.Integrity.MaxFocusLoss, &r.Integrity.OnLimitExceeded, &r.Integrity.MinAwayMs,
-		&r.TestTitle,
+		&r.TestTitle, &oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Rules{}, domain.ErrNotFound
@@ -459,7 +482,7 @@ func (s *Postgres) RulesFor(ctx context.Context, assignmentID string) (domain.Ru
 		return domain.Rules{}, fmt.Errorf("attempts: read rules for attempt: %w", err)
 	}
 	r.Targeted = true
-	return r, nil
+	return withOverride(r, oc.Override()), nil
 }
 
 // Rebeacon issues a fresh append-only token WITHOUT touching session_id.
