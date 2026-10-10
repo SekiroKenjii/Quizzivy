@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"net/http"
+	"slices"
 	"testing"
 )
 
@@ -18,7 +19,8 @@ func TestATeacherSignsInRefreshesAndSignsOut(t *testing.T) {
 	}
 
 	me := browser.must(http.StatusOK, http.MethodGet, "/auth/me", nil)
-	if me["role"] != "admin" {
+	workspaces, _ := me["workspaces"].([]any)
+	if _, hasRole := me["role"]; hasRole || me["email"] != email || !slices.Contains(workspaces, any("teacher")) {
 		t.Fatalf("/auth/me = %v", me)
 	}
 
