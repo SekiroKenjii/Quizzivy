@@ -1472,7 +1472,7 @@ the file it adds.
 | `00100_add_assignments_student_note.sql` | `assignments.student_note` and `assignments_student_note_check` (1 to 500 characters once trimmed of the `shared/answered` whitespace set), added with the column | R4 (T-R4.11), D-35 |
 | `00101_create_assignment_student_overrides.sql` | `assignment_student_overrides`, its four checks, `assignment_student_overrides_student_idx` and the `updated_at` trigger | R4 (T-R4.12), D-36 |
 | `00102_add_refresh_tokens_geo_label.sql` | `refresh_tokens.geo_label` and `refresh_tokens_geo_label_check` (1 to 80 characters), added with the column | R4 (T-R4.9), D-37 |
-| `00104_add_classes_schedule_room.sql` | `classes.schedule_label` and `classes.room`, each with its check (1 to 120 and 1 to 60 characters), added with the column; 00103 is reserved for F-37 | R4 (T-R4.18), D-38 |
+| `00104_add_classes_schedule_room.sql` | `classes.schedule_label` and `classes.room`, each with its check (1 to 120 and 1 to 60 characters), added with the column; 00103 is reserved for F-37, which merges first, and the second of the two renumbers if the order inverts | R4 (T-R4.18), D-38 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2740,8 +2740,11 @@ lookup by `token_hash` and `refresh_tokens_family_idx`; neither needed a new ind
 ## 40. When and where a class meets (T-R4.18)
 
 `00104_add_classes_schedule_room.sql` adds two nullable columns. Down drops the two constraints,
-then the two columns. The number follows 00102 because 00103 is reserved for F-37; a database that
-runs 00104 before 00103 is merged needs `goose up -allow-missing` for it.
+then the two columns. The number follows 00102 because 00103 is reserved for F-37, and the order
+of merging is the rule: F-37 (00103) merges before T-R4.18 (00104). If the order ever inverts, the
+second pull request renumbers its migration before it merges. goose refuses a database that has
+applied 00104 when 00103 is missing ("found 1 missing migrations"), and a deploy never passes
+`-allow-missing` to get past it.
 
 ```sql
 ALTER TABLE app.classes
