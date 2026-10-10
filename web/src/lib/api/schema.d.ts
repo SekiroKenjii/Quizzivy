@@ -3350,7 +3350,7 @@ export interface components {
              * @description The caller's profile photo as a presigned `GET`, valid 24 hours and
              *     minted again on every response that carries it. Absent when the
              *     caller has no photo. Set and cleared by `setAvatar` and
-             *     `deleteAvatar`; the stored key never leaves the server.
+             *     `deleteAvatar`.
              */
             avatarUrl?: string;
             phone?: string;
