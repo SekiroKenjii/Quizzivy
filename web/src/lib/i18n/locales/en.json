@@ -2375,6 +2375,8 @@
     "one": "Question group",
     "noun_one": "group",
     "noun_other": "groups",
+    "questions_one": "{{count}} question",
+    "questions_other": "{{count}} questions",
     "bankHint": "Keep passages, recordings and their questions together. Each use in a test creates an independent copy.",
     "create": "New group",
     "search": "Search group titles or question text…",

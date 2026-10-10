@@ -1,12 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { Archive, Copy, Plus, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,23 +56,32 @@ function groupColumns(
     {
       id: "title",
       header: t("groups.titleLabel"),
-      track: "minmax(200px,1fr)",
-      cell: (group) => (
-        <span className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
+      track: "minmax(160px,1fr)",
+      cell: (group, shown) => (
+        <span className="block min-w-0">
+          <span className="block font-medium [overflow-wrap:anywhere]">
             {group.title}
           </span>
-          {recent.has(group.id) && (
-            <Badge variant="outline">{t("common.justDuplicated")}</Badge>
+          {!shown.has("questions") && (
+            <span className="text-muted-fg text-meta block">
+              {t("groups.questions", { count: group.questionCount })}
+            </span>
           )}
         </span>
       ),
+      aside: (group) =>
+        recent.has(group.id) ? (
+          <Badge variant="outline" className="mt-1">
+            {t("common.justDuplicated")}
+          </Badge>
+        ) : null,
     },
     {
       id: "questions",
       header: t("groups.questionCount"),
       track: "110px",
       align: "end",
+      showFrom: 440,
       cell: (group) => <span className="tabular-nums">{group.questionCount}</span>,
     },
     {
@@ -126,7 +130,6 @@ export default function GroupsListPage() {
     queryKey: [...QUERY_KEY, search, status, page, size],
     queryFn: ({ signal }) =>
       listGroups({ q: search, status, page, limit: size }, signal),
-    placeholderData: keepPreviousData,
   });
   const columns = useMemo(() => groupColumns(t, locale, recent), [t, locale, recent]);
   const refresh = () => client.invalidateQueries({ queryKey: QUERY_KEY });

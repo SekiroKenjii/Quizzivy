@@ -2375,6 +2375,8 @@
     "one": "Nhóm câu hỏi",
     "noun_one": "nhóm",
     "noun_other": "nhóm",
+    "questions_one": "{{count}} câu",
+    "questions_other": "{{count}} câu",
     "bankHint": "Lưu bài đọc, bài nghe và các câu hỏi liên quan cùng nhau. Mỗi lần dùng trong đề sẽ tạo một bản sao độc lập.",
     "create": "Nhóm mới",
     "search": "Tìm nhóm theo tên hoặc nội dung câu hỏi…",
