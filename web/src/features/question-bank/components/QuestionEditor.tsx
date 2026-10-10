@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { BlankPromptField } from "./BlankPromptField";
 import { AnswerArea } from "./AnswerArea";
 import { useTranslation } from "react-i18next";
@@ -31,14 +32,21 @@ interface QuestionEditorProps {
   onAssetChange: (asset: MediaAsset | null) => void;
   /** Refetches the question so an expired media URL can be replaced. */
   onRefresh?: (() => void) | undefined;
-  /** The builder has no room for a third column below 1024px, so it takes the panel as a sheet. */
-  settings?: { hideBelow: "lg"; open: boolean; onOpenChange: (open: boolean) => void };
+  /** The host controls when question settings use its dialog. */
+  settings?: {
+    hideBelow: "lg";
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    always?: boolean;
+    triggerRef?: RefObject<HTMLElement | null> | undefined;
+  };
 }
 
 /**
- * QuestionEditor is §7's five question types in one editor: the prompt, the
- * type's answer block with its grading note, and the explanation in the middle
- * column; points, tags and media in the settings rail.
+ * QuestionEditor is §7's five question types in one controlled editor: the
+ * prompt, the type's answer block with its grading note, and the explanation in
+ * the middle column; points, tags and media in the settings rail, which a host
+ * can present in its dialog instead.
  */
 export function QuestionEditor({
   value,
@@ -133,7 +141,12 @@ export function QuestionEditor({
           ? {}
           : {
               hideBelow: settings.hideBelow,
-              sheet: { open: settings.open, onOpenChange: settings.onOpenChange },
+              sheet: {
+                open: settings.open,
+                onOpenChange: settings.onOpenChange,
+                always: settings.always ?? false,
+                triggerRef: settings.triggerRef,
+              },
             })}
       >
         <div>

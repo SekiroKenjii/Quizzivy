@@ -24,15 +24,25 @@ async function publishListeningTest(page: Page, title: string) {
   await page.getByRole("button", { name: "Đề thi mới" }).first().click();
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
 
-  await page.getByLabel("Tên đề thi").fill(title);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).fill(title);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần" }).click();
-  await expect(page.getByText("Phần 1")).toBeVisible();
+  const sectionName = page.getByRole("textbox", { name: "Tên phần", exact: true });
+  await expect(sectionName).toBeFocused();
+  await sectionName.press("Enter");
+  await expect(
+    page.getByRole("button", { name: /^Phần 1 \d+ · [\d.,]+đ$/ }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
   await page
     .getByLabel("Nội dung câu hỏi", { exact: true })
     .fill("Người phụ nữ đề nghị làm gì?");
 
+  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Cài đặt câu hỏi", exact: true });
+  await expect(settings).toBeVisible();
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
   // The upload is a real round trip through the API and object storage, and a
   // rejection renders as an alert rather than as a slow success.
@@ -50,6 +60,9 @@ async function publishListeningTest(page: Page, title: string) {
   // §11.1's default, and exactly the allowance this test needs.
   await expect(page.getByLabel("Số lần được nghe")).toHaveText("2 lần");
 
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
+
   for (const [index, text] of ["Gọi lại sau", "Đổi lịch hẹn"].entries()) {
     await page
       .getByPlaceholder(`Lựa chọn ${String.fromCharCode(65 + index)}`)
@@ -57,7 +70,9 @@ async function publishListeningTest(page: Page, title: string) {
   }
   await page.getByLabel("Đánh dấu A là đáp án đúng", { exact: true }).check();
 
-  await expect(page.getByText(/Đã lưu \d\d:\d\d/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
+    timeout: 15_000,
+  });
   await page.getByRole("button", { name: "Phát hành" }).click();
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
 }
@@ -70,6 +85,9 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
 
   const teacher = await browser.newContext();
   const student = await browser.newContext();
+  let bodyFailed = false;
+  let bodyError: unknown;
+  let closeOutcomes: PromiseSettledResult<void>[] = [];
   try {
     const admin = await teacher.newPage();
     await signInAsAdmin(admin);
@@ -102,8 +120,27 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
     // that comes back was read from attempt_audio_plays.
     await page.reload();
     await expect(page.getByText("Đã nghe 2/2 lượt")).toBeVisible({ timeout: 30_000 });
+  } catch (error) {
+    bodyFailed = true;
+    bodyError = error;
   } finally {
-    await teacher.close();
-    await student.close();
+    closeOutcomes = await Promise.allSettled(
+      [teacher, student].map(async (context) => {
+        await context.close();
+      }),
+    );
   }
+  for (const [index, outcome] of closeOutcomes.entries()) {
+    test.info().annotations.push({
+      type: "context-cleanup",
+      description: `${index === 0 ? "teacher" : "student"}: ${outcome.status}${
+        outcome.status === "rejected" ? `: ${String(outcome.reason)}` : ""
+      }`,
+    });
+  }
+  if (bodyFailed) throw bodyError;
+  const failures: unknown[] = closeOutcomes.flatMap((outcome) =>
+    outcome.status === "rejected" ? [outcome.reason] : [],
+  );
+  if (failures.length) throw new AggregateError(failures, "Context cleanup failed");
 });

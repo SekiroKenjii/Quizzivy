@@ -149,27 +149,51 @@ test("progress uses 200ms native ease and is static under reduced motion", async
   const fill = page.getByRole("progressbar").locator("div");
   await expect(fill).toHaveCSS("transition-duration", "0.2s");
   await expect(fill).toHaveCSS("transition-timing-function", "ease");
-  const frames = fill.evaluate(
-    (element) =>
-      new Promise<{ elapsed: number; width: number }[]>((resolve) => {
-        const start = performance.now();
-        const samples: { elapsed: number; width: number }[] = [];
-        const frame = () => {
-          const elapsed = performance.now() - start;
-          samples.push({ elapsed, width: element.getBoundingClientRect().width });
-          if (elapsed >= 400) resolve(samples);
-          else requestAnimationFrame(frame);
-        };
-        requestAnimationFrame(frame);
-      }),
-  );
+  await fill.evaluate((element) => {
+    element.addEventListener(
+      "transitionrun",
+      ((event: TransitionEvent) => {
+        if (event.propertyName !== "width") return;
+        const transition = element
+          .getAnimations()
+          .find(
+            (animation): animation is CSSTransition =>
+              animation instanceof CSSTransition &&
+              animation.transitionProperty === "width",
+          );
+        transition?.pause();
+        (
+          window as unknown as { heldTransition?: CSSTransition | undefined }
+        ).heldTransition = transition;
+      }) as EventListener,
+      { once: true },
+    );
+  });
   await page.getByRole("button", { name: "Chấm 0 điểm" }).click();
-  const samples = await frames;
-  const settled = samples.at(-1)!.width;
-  expect(samples.some((sample) => sample.width > 0 && sample.width < settled - 1)).toBe(
-    true,
+  await page.waitForFunction(
+    () => (window as unknown as { heldTransition?: CSSTransition }).heldTransition,
   );
-  expect(settled).toBeGreaterThan(0);
+  const held = await fill.evaluate((element) => {
+    const transition = (window as unknown as { heldTransition: CSSTransition })
+      .heldTransition;
+    const effect = transition.effect as KeyframeEffect;
+    const widthAt = (ms: number) => {
+      transition.currentTime = ms;
+      return element.getBoundingClientRect().width;
+    };
+    const measured = {
+      duration: effect.getTiming().duration,
+      start: widthAt(0),
+      middle: widthAt(100),
+      end: widthAt(200),
+    };
+    transition.finish();
+    return measured;
+  });
+  expect(held.duration).toBe(200);
+  expect(held.start).toBe(0);
+  expect(held.end).toBeGreaterThan(0);
+  expect(held.middle / held.end).toBeCloseTo(0.8, 1);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(fill).toHaveCSS("transition-property", "none");
 });
