@@ -169,6 +169,20 @@ export function saveProfilePatch(body: ProfilePatch) {
   });
 }
 
+/**
+ * replaceAccountUser runs an account write whose answer is the whole caller,
+ * such as setting or removing the photo, in the same ordered lane as the
+ * profile, and accepts the answer only for the actor that started it.
+ */
+export function replaceAccountUser(work: () => Promise<User>) {
+  const lease = authStore.captureActor();
+  return ordered(async () => {
+    const user = await work();
+    acceptUser(user, lease);
+    return user;
+  });
+}
+
 /** savePreferences serializes partial preference writes while preserving unrelated account properties. */
 export function savePreferences(body: PreferencesPatch) {
   const lease = authStore.captureActor();

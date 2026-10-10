@@ -561,20 +561,97 @@
     "emailFromTeacher": "Your teacher issued this email; it cannot be changed here.",
     "errors": {
       "nameRequired": "Enter your name.",
-      "nameTooLong": "A name is at most 200 characters."
+      "nameTooLong": "A name is at most 200 characters.",
+      "displayNameTooLong": "A name students see is at most 80 characters.",
+      "phoneInvalid": "A phone number is 6–20 digits, + and spaces."
     },
     "description": "Manage your profile, security and account preferences.",
     "navigation": "Settings section",
     "roleTeacher": "Teacher",
     "sections": {
       "profile": "Profile",
-      "security": "Security",
-      "preferences": "Preferences"
+      "security": "Sign-in & security",
+      "preferences": "Preferences",
+      "appearance": "Appearance",
+      "api": "API reference"
     },
     "preferenceSaving": "Saving preference…",
     "preferenceSaved": "Preference saved.",
     "preferenceFailed": "Could not save preference.",
-    "accountZoneUnsupported": "This browser does not support your account time zone. Times are temporarily shown in Vietnam time."
+    "accountZoneUnsupported": "This browser does not support your account time zone. Times are temporarily shown in Vietnam time.",
+    "pageHint": "Your profile, sign-in and how Quizzivy works for you.",
+    "profileHint": "Students see your name and photo.",
+    "displayName": "Name students see",
+    "displayNameHint": "Shown on tests and messages",
+    "emailHint": "Used to sign in",
+    "phone": "Phone",
+    "timeZone": "Time zone",
+    "saved": "Settings saved",
+    "photo": {
+      "alt": "Your profile photo",
+      "change": "Change photo",
+      "remove": "Remove",
+      "changeTitle": "Change photo",
+      "limits": "Square PNG or JPG, at least 200 × 200",
+      "save": "Save photo",
+      "updated": "Photo updated",
+      "removeTitle": "Remove your photo?",
+      "removeBody": "Students will see your initials instead.",
+      "removeConfirm": "Remove",
+      "removed": "Photo removed",
+      "wrongType": "Choose a PNG or JPG image.",
+      "tooLarge": "A photo is at most 2 MB."
+    },
+    "zones": {
+      "hoChiMinh": "Ho Chi Minh City",
+      "bangkok": "Bangkok",
+      "jakarta": "Jakarta",
+      "kualaLumpur": "Kuala Lumpur",
+      "singapore": "Singapore",
+      "manila": "Manila",
+      "shanghai": "Shanghai",
+      "hongKong": "Hong Kong",
+      "taipei": "Taipei",
+      "seoul": "Seoul",
+      "tokyo": "Tokyo",
+      "sydney": "Sydney",
+      "london": "London",
+      "paris": "Paris",
+      "berlin": "Berlin",
+      "newYork": "New York",
+      "losAngeles": "Los Angeles",
+      "utc": "UTC"
+    },
+    "devices": {
+      "title": "Signed-in devices",
+      "hint": "Sign out anywhere you don't recognise.",
+      "signOutOthers": "Sign out other devices",
+      "signOut": "Sign out",
+      "signOutNamed": "Sign out {{name}}",
+      "signingOut": "Signing out…",
+      "thisDevice": "This device",
+      "now": "now",
+      "unknown": "Unknown device",
+      "loadFailed": "Your devices could not be loaded.",
+      "confirmTitle": "Sign out other devices?",
+      "confirmBody": "Every session except this one ends right away.",
+      "signedOutOne": "Device signed out",
+      "signedOutOthersOne": "Signed out of 1 other device",
+      "signedOutOthersMany": "Signed out of {{count}} other devices",
+      "noOthers": "No other device was signed in."
+    },
+    "appearance": {
+      "title": "Appearance",
+      "hint": "Only changes how Quizzivy looks for you.",
+      "theme": "Theme",
+      "themes": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "Match device"
+      },
+      "compact": "Compact tables",
+      "compactHint": "Show more rows with less spacing"
+    }
   },
   "media": {
     "cancel": "Cancel upload",

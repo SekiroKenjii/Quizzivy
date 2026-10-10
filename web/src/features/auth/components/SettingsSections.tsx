@@ -1,160 +1,40 @@
-import {
-  chooseAccountPreference,
-  retryAccountPreference,
-  refreshAccount,
-  runAccountMutation,
-  saveProfilePatch,
-  useAccountPreferenceStatus,
-} from "@/features/auth/accountPreferences";
+import { runAccountMutation } from "@/features/auth/accountPreferences";
 import { PasswordInput } from "@/components/shared/PasswordInput";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { SettingsCard } from "@/components/shared/SettingsCard";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
 import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Segmented } from "@/components/ui/segmented";
 import { toast } from "@/components/ui/sonner";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changePassword, openDocsSession } from "@/features/auth/api";
 import {
   changePasswordSchema,
   type ChangePasswordValues,
 } from "@/features/auth/changePasswordSchema";
-import { profileSchema, type ProfileValues } from "@/features/auth/profileSchema";
 import {
   googleSignInAvailable,
   useGoogleSignIn,
 } from "@/features/auth/google/useGoogleSignIn";
 import { api, BASE_URL } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
-import { useChosenLocale } from "@/lib/i18n/useLocale";
 import { authStore, useAuthStore } from "@/stores/auth";
 
-function Section({
-  title,
-  labelledBy,
-  children,
-}: Readonly<{
-  title: string;
-  labelledBy: string;
-  children: ReactNode;
-}>) {
-  return (
-    <section aria-labelledby={labelledBy} className="space-y-5">
-      <div className="space-y-1 border-b pb-4">
-        <h2 id={labelledBy} className="text-lg font-semibold tracking-tight">
-          {title}
-        </h2>
-      </div>
-      <div>{children}</div>
-    </section>
-  );
-}
+const BODY = "flex flex-col gap-3.5 p-4.5";
+const GRID = "grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5";
+const FIELD = "flex min-w-0 flex-col gap-1.5";
+const LABEL = "text-meta in-data-[scale=deck]:text-meta leading-normal font-medium";
+const INPUT = "bg-bg h-9.5";
+const ACTION = "h-8.5 self-start";
 
 /**
- * The "Hồ sơ" card both settings boards draw (S-10, S-17): a name the account
- * owns and may change, and the email it signs in with, which it may not. The
- * hint says who the address came from, because that is the answer to "why can
- * I not edit this?" -- Google for a linked account, the teacher otherwise.
+ * PasswordSection is the Password card of the teacher's Sign-in & security
+ * settings: the current and the new password, changed by its own button
+ * (DG-156). A Google-only account has no password to change and gets no card.
  */
-export function ProfileSection() {
-  const { t } = useTranslation();
-  const user = useAuthStore((s) => s.user);
-  const mounted = useMounted();
-  const [error, setError] = useState<string | null>(null);
-
-  const form = useForm<ProfileValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: { fullName: user?.fullName ?? "" },
-    mode: "onTouched",
-  });
-  const nameError = form.formState.errors.fullName;
-  const dirty = form.formState.isDirty;
-  const fullName = user?.fullName ?? "";
-  const { reset } = form;
-  useEffect(() => {
-    if (!dirty) reset({ fullName });
-  }, [dirty, fullName, reset]);
-
-  const onSubmit = form.handleSubmit(async (values) => {
-    const lease = authStore.captureActor();
-    const submittedName = form.getValues("fullName");
-    setError(null);
-    try {
-      const saved = await saveProfilePatch({ fullName: values.fullName });
-      if (!mounted.current || !authStore.isCurrent(lease)) return;
-      form.reset(
-        { fullName: saved.fullName },
-        { keepValues: form.getValues("fullName") !== submittedName },
-      );
-      // F-08: a completed action is confirmed by a toast, not by a sentence
-      // that stays on the screen and pushes the button under the pointer.
-      toast(t("settings.profileSaved"));
-    } catch (cause) {
-      if (!mounted.current || !authStore.isCurrent(lease)) return;
-      setError(cause instanceof ApiError ? cause.message : t("api.failed"));
-    }
-  });
-
-  if (!user) return null;
-  const fromGoogle = user.linkedProviders.includes("google");
-
-  return (
-    <Section title={t("settings.profile")} labelledBy="settings-profile">
-      <form onSubmit={(e) => void onSubmit(e)} className="space-y-5" noValidate>
-        <div className="grid gap-2 border-b pb-5 sm:grid-cols-[minmax(9rem,1fr)_minmax(0,2fr)] sm:gap-x-6 [&>label]:sm:pt-3 [&>p]:sm:col-start-2">
-          <Label htmlFor="settings-name">{t("settings.fullName")}</Label>
-          <Input
-            id="settings-name"
-            className="h-11"
-            autoComplete="name"
-            aria-invalid={nameError ? true : undefined}
-            aria-describedby={nameError ? "settings-name-error" : undefined}
-            {...form.register("fullName")}
-          />
-          {nameError ? (
-            <p id="settings-name-error" className="text-destructive text-xs">
-              {t(nameError.message ?? "settings.errors.nameRequired")}
-            </p>
-          ) : null}
-        </div>
-        <div className="grid gap-2 border-b pb-5 sm:grid-cols-[minmax(9rem,1fr)_minmax(0,2fr)] sm:gap-x-6 [&>label]:sm:pt-3 [&>p]:sm:col-start-2">
-          <Label htmlFor="settings-email">{t("settings.email")}</Label>
-          <Input
-            id="settings-email"
-            className="h-11"
-            value={user.email}
-            disabled
-            readOnly
-            aria-describedby="settings-email-hint"
-          />
-          <p id="settings-email-hint" className="text-muted-foreground text-xs">
-            {t(fromGoogle ? "settings.emailFromGoogle" : "settings.emailFromTeacher")}
-          </p>
-        </div>
-        {error !== null ? (
-          // S-02's rule, which holds anywhere a form can fail: an error is a
-          // line under the button, never a toast that leaves before it is read.
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        ) : null}
-        <Button
-          type="submit"
-          size="sm"
-          disabled={form.formState.isSubmitting || !form.formState.isDirty}
-        >
-          {form.formState.isSubmitting ? t("common.loading") : t("common.saveChanges")}
-        </Button>
-      </form>
-    </Section>
-  );
-}
-
 export function PasswordSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
@@ -188,66 +68,73 @@ export function PasswordSection() {
     }
   });
 
-  // S-10 draws no password card for a Google-only account: there is nothing to
-  // change and no way to set one, and the Google card already says so. A card
-  // whose whole body is "you have no password" is a hole in the grid (S-17).
   if (user && !user.hasPassword) return null;
 
   return (
-    <Section title={t("settings.password")} labelledBy="settings-password">
-      <form onSubmit={(e) => void onSubmit(e)} className="space-y-5" noValidate>
-        <div className="grid gap-2 border-b pb-5 sm:grid-cols-[minmax(9rem,1fr)_minmax(0,2fr)] sm:gap-x-6 [&>label]:sm:pt-3 [&>p]:sm:col-start-2">
-          <Label htmlFor="settings-current">{t("changePassword.current")}</Label>
-          <PasswordInput
-            id="settings-current"
-
-            className="h-11"
-            autoComplete="current-password"
-            {...form.register("currentPassword")}
-          />
+    <SettingsCard title={t("settings.password")}>
+      <form onSubmit={(e) => void onSubmit(e)} className={BODY} noValidate>
+        <div className={GRID}>
+          <div className={FIELD}>
+            <Label htmlFor="settings-current" className={LABEL}>
+              {t("changePassword.current")}
+            </Label>
+            <PasswordInput
+              id="settings-current"
+              className={INPUT}
+              autoComplete="current-password"
+              {...form.register("currentPassword")}
+            />
+          </div>
+          <div className={FIELD}>
+            <Label htmlFor="settings-new" className={LABEL}>
+              {t("changePassword.new")}
+            </Label>
+            <PasswordInput
+              id="settings-new"
+              className={INPUT}
+              autoComplete="new-password"
+              aria-invalid={newPasswordError ? true : undefined}
+              aria-describedby={
+                newPasswordError ? "settings-new-error" : "settings-new-hint"
+              }
+              {...form.register("newPassword")}
+            />
+            {newPasswordError ? (
+              <p id="settings-new-error" className="text-danger-ink text-xs">
+                {t(newPasswordError.message ?? "changePassword.errors.tooShort")}
+              </p>
+            ) : (
+              <p id="settings-new-hint" className="text-muted-fg text-xs">
+                {t("changePassword.hint")}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="grid gap-2 border-b pb-5 sm:grid-cols-[minmax(9rem,1fr)_minmax(0,2fr)] sm:gap-x-6 [&>label]:sm:pt-3 [&>p]:sm:col-start-2">
-          <Label htmlFor="settings-new">{t("changePassword.new")}</Label>
-          <PasswordInput
-            id="settings-new"
-
-            className="h-11"
-            autoComplete="new-password"
-            aria-invalid={newPasswordError ? true : undefined}
-            aria-describedby={
-              newPasswordError ? "settings-new-error" : "settings-new-hint"
-            }
-            {...form.register("newPassword")}
-          />
-          {newPasswordError ? (
-            // F-06 swaps the hint's colour, not its size: the card must not
-            // grow the moment a field goes invalid.
-            <p id="settings-new-error" className="text-destructive text-xs">
-              {t(newPasswordError.message ?? "changePassword.errors.tooShort")}
-            </p>
-          ) : (
-            <p id="settings-new-hint" className="text-muted-foreground text-xs">
-              {t("changePassword.hint")}
-            </p>
-          )}
-        </div>
-        {error !== null ? (
-          // S-02's rule, which holds anywhere a form can fail: an error is a
-          // line under the button, never a toast that leaves before it is read.
-          <p role="alert" className="text-destructive text-sm">
+        {error === null ? null : (
+          <p role="alert" className="text-danger-ink text-sm">
             {error}
           </p>
-        ) : null}
-        <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
+        )}
+        <Button
+          type="submit"
+          variant="outline"
+          className={ACTION}
+          disabled={form.formState.isSubmitting}
+        >
           {form.formState.isSubmitting
-            ? t("common.loading")
+            ? t("common.saving")
             : t("changePassword.submit")}
         </Button>
       </form>
-    </Section>
+    </SettingsCard>
   );
 }
 
+/**
+ * GoogleSection is the Google account card the deck does not draw (DG-156):
+ * whether Google is linked, what unlinking would leave, and the control that
+ * links or unlinks it.
+ */
 export function GoogleSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
@@ -277,43 +164,39 @@ export function GoogleSection() {
   if (!user) return null;
 
   return (
-    <Section title={t("settings.google")} labelledBy="settings-google">
-      {linked ? (
-        <div className="flex items-center gap-2">
-          <CircleCheck className="text-success size-4" aria-hidden="true" />
-          <p className="text-sm">{t("settings.googleLinked")}</p>
-        </div>
-      ) : (
-        <p className="text-muted-foreground text-sm">{t("settings.googleNotLinked")}</p>
-      )}
-
-      {(error ?? google.error) ? (
-        <p role="alert" className="text-destructive mt-3 text-sm">
-          {error ?? google.error}
-        </p>
-      ) : null}
-
-      {linked ? (
-        <p
-          id="settings-google-explainer"
-          className="text-muted-foreground mt-2 text-xs leading-relaxed"
-        >
-          {t(
-            wouldLockOut
-              ? "settings.googleOnlyExplainer"
-              : "settings.googleBothExplainer",
-          )}
-        </p>
-      ) : null}
-
-      <div className="mt-3">
+    <SettingsCard title={t("settings.google")}>
+      <div className={BODY}>
+        {linked ? (
+          <p className="text-ui flex items-center gap-2">
+            <CircleCheck className="text-success-ink size-4" aria-hidden="true" />
+            {t("settings.googleLinked")}
+          </p>
+        ) : (
+          <p className="text-muted-fg text-ui">{t("settings.googleNotLinked")}</p>
+        )}
+        {linked ? (
+          <p
+            id="settings-google-explainer"
+            className="text-muted-fg text-meta leading-normal"
+          >
+            {t(
+              wouldLockOut
+                ? "settings.googleOnlyExplainer"
+                : "settings.googleBothExplainer",
+            )}
+          </p>
+        ) : null}
+        {(error ?? google.error) ? (
+          <p role="alert" className="text-danger-ink text-sm">
+            {error ?? google.error}
+          </p>
+        ) : null}
         {linked ? (
           <Button
             variant="outline"
-            size="sm"
             aria-disabled={pending || wouldLockOut}
             aria-describedby="settings-google-explainer"
-            className={wouldLockOut ? "opacity-50" : undefined}
+            className={wouldLockOut ? `${ACTION} opacity-50` : ACTION}
             onClick={() => {
               if (pending || wouldLockOut) return;
               void unlink();
@@ -330,56 +213,20 @@ export function GoogleSection() {
           />
         )}
       </div>
-    </Section>
+    </SettingsCard>
   );
 }
 
-export function LanguageSection() {
-  const { t } = useTranslation();
-  const chosenLocale = useChosenLocale();
-  const preferenceStatus = useAccountPreferenceStatus();
-
-  return (
-    <Section title={t("common.language")} labelledBy="settings-language">
-      <fieldset
-        disabled={preferenceStatus.phase === "saving"}
-        className="m-0 min-w-0 border-0 p-0"
-      >
-        <Segmented
-          label={t("common.language")}
-          value={chosenLocale}
-          options={SUPPORTED_LOCALES.map((locale: Locale) => ({
-            value: locale,
-            label: t(`settings.locale.${locale}`),
-          }))}
-          onChange={(locale) =>
-            void chooseAccountPreference({ locale: locale as Locale })
-          }
-        />
-      </fieldset>
-      <PreferenceNotice />
-      {/* S-17 writes this under the switch; S-10's phone card is the tabs and
-          nothing else, so the sentence arrives with the room for it. */}
-      <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
-        {t("settings.languageExplainer")}
-      </p>
-    </Section>
-  );
-}
-
-/** The link button, or the reason there is none: GIS is a public config value that can be absent. */
 function LinkGoogleControl({
   pending,
   onStart,
 }: Readonly<{ pending: boolean; onStart: () => void }>) {
   const { t } = useTranslation();
   if (!googleSignInAvailable()) {
-    return (
-      <p className="text-muted-foreground text-sm">{t("login.googleUnavailable")}</p>
-    );
+    return <p className="text-muted-fg text-ui">{t("login.googleUnavailable")}</p>;
   }
   return (
-    <Button variant="outline" size="sm" disabled={pending} onClick={onStart}>
+    <Button variant="outline" className={ACTION} disabled={pending} onClick={onStart}>
       <GoogleMark />
       {t("settings.linkGoogle")}
     </Button>
@@ -425,19 +272,27 @@ export function ApiDocsSection() {
       });
   };
   return (
-    <Section title={t("settings.apiDocs.title")} labelledBy="settings-api-docs">
-      <p className="text-muted-foreground mb-4 text-sm leading-relaxed">
-        {t("settings.apiDocs.body")}
-      </p>
-      <Button type="button" variant="outline" disabled={pending} onClick={open}>
-        {t("settings.apiDocs.open")}
-      </Button>
-      {problem ? (
-        <p role="alert" className="mt-3 text-sm">
-          {t(`settings.apiDocs.${problem}`)}
+    <SettingsCard title={t("settings.apiDocs.title")}>
+      <div className={BODY}>
+        <p className="text-muted-fg text-ui leading-relaxed">
+          {t("settings.apiDocs.body")}
         </p>
-      ) : null}
-    </Section>
+        <Button
+          type="button"
+          variant="outline"
+          className={ACTION}
+          disabled={pending}
+          onClick={open}
+        >
+          {t("settings.apiDocs.open")}
+        </Button>
+        {problem ? (
+          <p role="alert" className="text-sm">
+            {t(`settings.apiDocs.${problem}`)}
+          </p>
+        ) : null}
+      </div>
+    </SettingsCard>
   );
 }
 
@@ -450,50 +305,4 @@ function useMounted() {
     };
   }, []);
   return mounted;
-}
-
-function PreferenceNotice() {
-  const { t } = useTranslation();
-  const status = useAccountPreferenceStatus();
-  const message = {
-    idle: "settings.preferenceSaved",
-    saving: "settings.preferenceSaving",
-    saved: "settings.preferenceSaved",
-    failed: "settings.preferenceFailed",
-  }[status.phase];
-  return (
-    <>
-      {status.phase !== "idle" && (
-        <p
-          role={status.phase === "failed" ? "alert" : "status"}
-          className="text-muted-fg mt-3 text-sm"
-        >
-          {t(message)}
-          {status.phase === "failed" && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => void retryAccountPreference()}
-            >
-              {t("common.retry")}
-            </Button>
-          )}
-        </p>
-      )}
-      {status.unsupportedZone && (
-        <p role="alert" className="text-muted-fg mt-3 text-sm">
-          {t("settings.accountZoneUnsupported")}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => void refreshAccount().catch(() => undefined)}
-          >
-            {t("auth.transition.checkStatus")}
-          </Button>
-        </p>
-      )}
-    </>
-  );
 }

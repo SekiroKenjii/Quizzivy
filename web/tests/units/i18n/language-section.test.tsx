@@ -1,72 +1,103 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { LanguageSection } from "@/features/auth/components/SettingsSections";
+import { http, HttpResponse } from "msw";
+import { ProfileSection } from "@/features/settings/sections/Profile";
 import i18n, { setLocale } from "@/lib/i18n";
 import en from "@/lib/i18n/locales/en.json";
+import { useAuthStore } from "@/stores/auth";
+import { teacherUser } from "@tests/support/fixtures";
+import { server } from "@tests/support/server";
 
-afterEach(() => {
+const BASE = "http://localhost:8080";
+
+beforeEach(() => {
+  useAuthStore.getState().setSession("token", { ...teacherUser, locale: "vi" });
+});
+
+afterEach(async () => {
+  useAuthStore.getState().clearSession();
   i18n.addResourceBundle("en", "translation", en, true, true);
-  setLocale("vi");
+  await setLocale("vi");
   localStorage.clear();
 });
 
-/** The choice has to outlive the tab: stored, and announced on <html lang>. */
-describe("the language control", () => {
-  it("persists the choice and updates the document language", async () => {
+function savesAs(locale: "vi" | "en") {
+  const bodies: unknown[] = [];
+  server.use(
+    http.patch(`${BASE}/auth/me`, async ({ request }) => {
+      bodies.push(await request.json());
+      return HttpResponse.json({ ...teacherUser, locale });
+    }),
+  );
+  return bodies;
+}
+
+/**
+ * The language is a field of the teacher's Profile (DG-157): it applies once
+ * saved, and the choice outlives the tab, stored where `boot.js` reads it
+ * before the first paint and announced on <html lang>.
+ */
+describe("the Profile's language", () => {
+  it("lists Tiếng Việt first and stays as it was until Save changes", async () => {
+    const bodies = savesAs("en");
     const user = userEvent.setup();
-    render(<LanguageSection />);
+    render(<ProfileSection />);
 
-    await user.click(screen.getByRole("button", { name: "English" }));
+    const field = screen.getByRole("combobox", { name: "Ngôn ngữ" });
+    expect(field).toHaveTextContent("Tiếng Việt");
+    await user.click(field);
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Tiếng Việt",
+      "English",
+    ]);
+    await user.click(screen.getByRole("option", { name: "English" }));
 
-    expect(i18n.language).toBe("en");
+    expect(i18n.language).toBe("vi");
+    expect(localStorage.getItem("quizzivy.locale")).not.toBe("en");
+    expect(bodies).toEqual([]);
+  });
+
+  it("stores the saved language for the next boot and updates the document language", async () => {
+    const bodies = savesAs("en");
+    const user = userEvent.setup();
+    render(<ProfileSection />);
+
+    await user.click(screen.getByRole("combobox", { name: "Ngôn ngữ" }));
+    await user.click(screen.getByRole("option", { name: "English" }));
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+
+    await waitFor(() => expect(i18n.language).toBe("en"));
+    expect(bodies).toEqual([{ locale: "en" }]);
     expect(localStorage.getItem("quizzivy.locale")).toBe("en");
     expect(document.documentElement.lang).toBe("en");
   });
 
-  /**
-   * It is a group of buttons, not a tab strip: Radix Tabs with no panel to
-   * control emitted a dangling aria-controls and left every trigger at
-   * tabindex="-1", which put the switch out of reach of the keyboard.
-   */
-  it("is reachable by keyboard and says which language is on", async () => {
+  it("is reachable by keyboard", async () => {
+    savesAs("en");
     const user = userEvent.setup();
-    render(<LanguageSection />);
+    render(<ProfileSection />);
 
-    const vi = screen.getByRole("button", { name: "Tiếng Việt" });
-    const en = screen.getByRole("button", { name: "English" });
-    expect(vi).toHaveAttribute("aria-pressed", "true");
-    expect(en).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByRole("tab")).toBeNull();
-
-    await user.tab();
-    expect(vi).toHaveFocus();
-    await user.tab();
-    expect(en).toHaveFocus();
+    const field = screen.getByRole("combobox", { name: "Ngôn ngữ" });
+    field.focus();
     await user.keyboard("{Enter}");
-    expect(i18n.language).toBe("en");
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(field).toHaveTextContent("English");
   });
 
-  it("shows a language whose strings are still loading, and takes a pick back", async () => {
+  it("switches once the English strings arrive when they were not loaded", async () => {
     i18n.removeResourceBundle("en", "translation");
+    savesAs("en");
     const user = userEvent.setup();
-    render(<LanguageSection />);
+    render(<ProfileSection />);
 
-    let english = Promise.resolve();
-    act(() => {
-      english = setLocale("en");
-    });
+    await user.click(screen.getByRole("combobox", { name: "Ngôn ngữ" }));
+    await user.click(screen.getByRole("option", { name: "English" }));
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
 
-    expect(i18n.language).toBe("vi");
-    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-
-    await user.click(screen.getByRole("button", { name: "Tiếng Việt" }));
-    await english;
-
-    expect(i18n.language).toBe("vi");
-    expect(localStorage.getItem("quizzivy.locale")).toBe("vi");
+    await waitFor(() => expect(i18n.language).toBe("en"));
+    expect(i18n.hasResourceBundle("en", "translation")).toBe(true);
+    expect(localStorage.getItem("quizzivy.locale")).toBe("en");
   });
 });
