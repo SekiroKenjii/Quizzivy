@@ -436,7 +436,7 @@ jobs:
       # §2: "CI fails on lint errors."
       - name: Lint
         working-directory: web
-        run: pnpm lint
+        run: pnpm lint:ci
 
       - name: Typecheck
         working-directory: web
@@ -444,7 +444,7 @@ jobs:
 
       - name: Format check
         working-directory: web
-        run: pnpm format:check
+        run: pnpm format:ci
 
       - name: Integration tests
         working-directory: web

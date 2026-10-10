@@ -294,6 +294,9 @@ function HistoryRow({
     item.status === "awaiting_sources" && !processing ? "view" : item.status;
   const exam = item.sources.find((source) => source.role === "exam");
   const key = item.sources.find((source) => source.role === "answer_key");
+  const pasted = exam?.format === "text";
+  const SourceIcon = pasted ? ClipboardPaste : FileText;
+  const sourceName = pasted ? t("imports.history.pastedText") : exam?.filename;
   return (
     <div
       role="row"
@@ -307,14 +310,14 @@ function HistoryRow({
         className="flex min-w-0 items-start gap-2.5 @[960px]/import-history:col-start-1"
       >
         <span className="bg-info-soft text-info-ink grid size-8 shrink-0 place-items-center rounded-lg">
-          <FileText aria-hidden="true" className="size-4" />
+          <SourceIcon aria-hidden="true" className="size-4" />
         </span>
         <div className="min-w-0">
-          {exam ? (
-            <p className="truncate font-medium" title={exam.filename}>
-              {exam.filename}
+          {sourceName === undefined ? null : (
+            <p className="truncate font-medium" title={sourceName}>
+              {sourceName}
             </p>
-          ) : null}
+          )}
           <Link
             to={importHref(item)}
             title={item.title}
@@ -328,6 +331,15 @@ function HistoryRow({
           >
             {creator === null ? null : <>{creator} · </>}
             {formatRelative(item.createdAt, locale)}
+            {pasted && exam.characters !== undefined ? (
+              <>
+                {" · "}
+                {t("imports.history.characters", {
+                  count: exam.characters,
+                  n: new Intl.NumberFormat(locale).format(exam.characters),
+                })}
+              </>
+            ) : null}
             {key ? (
               <> · {t("imports.history.withKey", { name: key.filename })}</>
             ) : null}

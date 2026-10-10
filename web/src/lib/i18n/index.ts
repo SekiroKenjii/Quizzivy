@@ -46,11 +46,46 @@ export async function loadLocale(locale: Locale): Promise<void> {
   i18n.addResourceBundle(locale, "translation", strings.default, true, true);
 }
 
+let latest = 0;
+let chosen = i18n.language as Locale;
+const listeners = new Set<() => void>();
+
+function choose(locale: Locale) {
+  if (chosen === locale) return;
+  chosen = locale;
+  for (const listener of listeners) listener();
+}
+
+i18n.on("languageChanged", (language: string) => choose(language as Locale));
+
+function apply(locale: Locale): Promise<void> {
+  const changed = i18n.changeLanguage(locale);
+  document.documentElement.lang = locale;
+  return changed.then(() => undefined);
+}
+
+/**
+ * chosenLocale is the language chosen last: the one on screen, or one whose
+ * strings are still loading. A language picker shows it, so that picking
+ * again while a load is pending is a change and reaches setLocale.
+ */
+export function chosenLocale(): Locale {
+  return chosen;
+}
+
+/** subscribeChosenLocale calls listener whenever chosenLocale changes and returns its unsubscribe. */
+export function subscribeChosenLocale(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 /**
  * localeReady is what the first render waits for: null when the starting
  * language's strings are bundled, or the load of the stored language's
- * strings, which settles either way so a failed fetch still renders, in the
- * fallback language.
+ * strings, which settles either way. A failed fetch renders the session in
+ * the default language, and keeps the stored choice for the next load.
  */
 export const localeReady: Promise<void> | null = i18n.hasResourceBundle(
   i18n.language,
@@ -59,16 +94,8 @@ export const localeReady: Promise<void> | null = i18n.hasResourceBundle(
   ? null
   : loadLocale(i18n.language as Locale).then(
       () => i18n.changeLanguage(i18n.language).then(() => undefined),
-      () => undefined,
+      () => apply(DEFAULT_LOCALE),
     );
-
-let latest = 0;
-
-function apply(locale: Locale): Promise<void> {
-  const changed = i18n.changeLanguage(locale);
-  document.documentElement.lang = locale;
-  return changed.then(() => undefined);
-}
 
 /**
  * setLocale applies the current explicit language choice and mirrors it when
@@ -79,6 +106,7 @@ function apply(locale: Locale): Promise<void> {
  */
 export function setLocale(locale: Locale): Promise<void> {
   const request = ++latest;
+  choose(locale);
   try {
     localStorage.setItem(STORAGE_KEY, locale);
   } catch {
@@ -87,7 +115,9 @@ export function setLocale(locale: Locale): Promise<void> {
   if (i18n.hasResourceBundle(locale, "translation")) return apply(locale);
   return loadLocale(locale).then(
     () => (request === latest ? apply(locale) : undefined),
-    () => undefined,
+    () => {
+      if (request === latest) choose(i18n.language as Locale);
+    },
   );
 }
 

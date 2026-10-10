@@ -95,7 +95,14 @@ const teacherTree: RouteObject = {
             },
             {
               path: "new",
-              handle: { crumb: [{ key: "imports.newTitle" }], width: 860 },
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "tests.importHistory", to: "/teacher/imports" },
+                  { key: "imports.newTitle" },
+                ],
+                width: 860,
+              },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/NewImportPage"),
               ),

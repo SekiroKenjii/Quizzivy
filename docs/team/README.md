@@ -138,24 +138,37 @@ Repository state:        working directory, branch, base revision
   (the user, 2026-10-10; ledger T-3). Two instances of one role run only in separate
   worktrees and on separate ports (T-10).
 - **The heavy lock.** Full suites (`test:unit`, `test:integration`, Playwright, the Go
-  integration and e2e tiers) and `vite build` run under one machine-wide lock, so five agents
-  do not starve a four-core box:
+  integration and e2e tiers) and `vite build` run under a machine-wide lock of two slots, so
+  five agents do not starve a four-core box:
+
+  ```
+  scripts/dev/heavy.sh <command>
+  scripts/dev/heavy.sh --status      # who holds each slot, since when
+  ```
+
+  `heavy.sh` takes whichever of `/tmp/quizzivy-heavy.1.lock` and `/tmp/quizzivy-heavy.2.lock`
+  is free and waits for the first to free otherwise. It runs the command without the lock
+  descriptors, so a server started by a locked command never holds a slot; still, never start a
+  server under the lock. It also holds `/tmp/quizzivy-heavy.lock` in shared mode, so the old form
+  still works and stays correct: a run in either form waits for a run in the other.
 
   ```
   flock -o /tmp/quizzivy-heavy.lock <command>
   ( flock -o 9; <command> ) 9>/tmp/quizzivy-heavy.lock   # where the sandbox refuses the first form
   ```
 
-  Both forms take the same lock. `-o` closes the lock in the child, so a server started by a
-  locked command never holds it; still, never start a server under the lock. Take it once per
-  suite, not once per agent session. An agent that finds no documented lock asks the Tech Lead
-  rather than inventing one. A timeout under load is not a finding: rerun it once under the
-  lock, and CI on the pushed head decides.
+  The old form takes the whole machine (it excludes every `heavy.sh` run and every other old-form
+  run), so use `heavy.sh`. Take it once per suite, not once per agent session. An agent that finds
+  no documented lock asks the Tech Lead rather than inventing one. A timeout under load is not a
+  finding: rerun it once under the lock, and CI on the pushed head decides.
 - **Local gates (G-2).** Before a hand-back or a push, an agent runs the fast checks on its
   changed scope only:
   - `pnpm typecheck`;
-  - `eslint --cache` and `prettier --check` on the changed files;
-  - `vitest run --changed origin/<integration branch>` plus the tests it added;
+  - `eslint --cache` and `prettier --check` on the changed files (`pnpm lint:changed`,
+    `pnpm format:changed`);
+  - `vitest run --changed origin/<integration branch>` plus the tests it added
+    (`pnpm test:changed`);
+  - `pnpm test:integration` when a page, route or shared component changes;
   - `go test` of the packages it touched, with `-tags integration` or `-tags e2e` where those
     packages carry them;
   - `make gen-check` when the contract changed;
@@ -170,6 +183,18 @@ Repository state:        working directory, branch, base revision
   the deck at 1280 light and dark and at 360, and the tester runs the full matrix once, at
   verification. Hand-backs are short: the head, a gates table, findings and open questions; the
   narrative goes in the PR body draft.
+- **Caches and the changed scope.** `pnpm lint` and `pnpm format:check` keep a content-keyed
+  cache under `web/node_modules/.cache/`, so a rerun lints only what changed. The `:changed`
+  scripts take the files changed against `origin/work/redesign-r4`, measured from the merge
+  base (`BASE=origin/<branch> pnpm lint:changed` for another base). The cache is a local
+  convenience: eslint's type-aware rules can leave a stale pass on a file whose imported types
+  changed, so CI and the tester run `pnpm lint:ci` and `pnpm format:ci`, which do not cache.
+  When a cached pass looks wrong, delete `web/node_modules/.cache/eslint`.
+- **A live stack for a check.** `scripts/dev/live-stack.sh up <name>` starts a private
+  database `qa_<name>` (migrated and seeded), the API and `vite preview` on ports derived from
+  the name, and prints their URLs; `down <name>` stops them and drops the database. It never
+  runs under the heavy lock. Postgres and MinIO must already be up; `docs/team/environment.md`
+  has the details. Tell the Tech Lead before keeping more than one running.
 - `git add` takes explicit paths only. Never `-A` in a shared checkout.
 
 ## Findings

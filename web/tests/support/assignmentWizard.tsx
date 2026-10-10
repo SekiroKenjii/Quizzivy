@@ -8,6 +8,8 @@ import type { components } from "@/lib/api/schema";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 
+type QuestionSkill = components["schemas"]["QuestionSkill"];
+
 export const BASE = "http://localhost:8080";
 export const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 export const OTHER_TEST_ID = "018f0000-0000-7000-8000-0000000000a2";
@@ -48,7 +50,7 @@ function publishedTest(id: string, title: string, skills: string[]) {
   };
 }
 
-export function version(id: string, manualCount: number) {
+export function version(id: string, manualCount: number, skills: QuestionSkill[] = []) {
   return {
     id,
     version: 3,
@@ -56,6 +58,7 @@ export function version(id: string, manualCount: number) {
     questionCount: 24,
     audioCount: 0,
     manualCount,
+    skills,
     assignmentCount: 0,
     changeNote: null,
     publishedAt: NOW,

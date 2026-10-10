@@ -12,33 +12,37 @@ import (
 )
 
 // Save writes a batch of answers and the events that accompanied them, in one
-// transaction.
-func (s *Postgres) Save(ctx context.Context, in domain.SaveInput, now time.Time) (domain.SaveResult, error) {
+// transaction. The milestones say that the integrity policy flagged the paper
+// in this save, and that the limit closed it.
+func (s *Postgres) Save(ctx context.Context, in domain.SaveInput, now time.Time) (domain.SaveResult, domain.Milestones, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
-		return domain.SaveResult{}, fmt.Errorf("attempts: begin save: %w", err)
+		return domain.SaveResult{}, domain.Milestones{}, fmt.Errorf("attempts: begin save: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
 	versionID, deadlineAt, err := writable(ctx, tx, in, now)
 	if err != nil {
-		return domain.SaveResult{}, err
+		return domain.SaveResult{}, domain.Milestones{}, err
 	}
 	saved, dropped, err := upsertAnswers(ctx, tx, in, versionID)
 	if err != nil {
-		return domain.SaveResult{}, err
+		return domain.SaveResult{}, domain.Milestones{}, err
 	}
-	if err := insertEvents(ctx, tx, in.AttemptID, in.SessionID, in.Events, versionID); err != nil {
-		return domain.SaveResult{}, err
+	flagged, err := insertEvents(ctx, tx, in.AttemptID, in.SessionID, in.Events, versionID)
+	if err != nil {
+		return domain.SaveResult{}, domain.Milestones{}, err
 	}
 
-	if _, err := closeForFocusLimit(ctx, tx, in.AttemptID, now); err != nil {
-		return domain.SaveResult{}, err
+	limit, err := closeForFocusLimit(ctx, tx, in.AttemptID, now)
+	if err != nil {
+		return domain.SaveResult{}, domain.Milestones{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return domain.SaveResult{}, fmt.Errorf("attempts: commit save: %w", err)
+		return domain.SaveResult{}, domain.Milestones{}, fmt.Errorf("attempts: commit save: %w", err)
 	}
-	return domain.SaveResult{SavedAt: now, DeadlineAt: deadlineAt, Saved: saved, Dropped: dropped}, nil
+	reached := domain.Milestones{AttemptID: in.AttemptID, HandedIn: limit.closed, Flagged: flagged || limit.flagged}
+	return domain.SaveResult{SavedAt: now, DeadlineAt: deadlineAt, Saved: saved, Dropped: dropped}, reached, nil
 }
 
 func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time) (string, time.Time, error) {
@@ -130,9 +134,9 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in domain.SaveInput, versionI
 	return len(landed), dropped, nil
 }
 
-func insertEvents(ctx context.Context, q db.Querier, attemptID, sessionID string, events []domain.Event, versionID string) error {
+func insertEvents(ctx context.Context, q db.Querier, attemptID, sessionID string, events []domain.Event, versionID string) (bool, error) {
 	if len(events) == 0 {
-		return nil
+		return false, nil
 	}
 	kinds := make([]string, len(events))
 	occurred := make([]time.Time, len(events))
@@ -166,13 +170,14 @@ func insertEvents(ctx context.Context, q db.Querier, attemptID, sessionID string
 `,
 		attemptID, sessionID, kinds, occurred, seqs, questions, metas, versionID)
 	if err != nil {
-		return fmt.Errorf("attempts: insert events: %w", err)
+		return false, fmt.Errorf("attempts: insert events: %w", err)
 	}
 	return deriveFocusLoss(ctx, q, attemptID)
 }
 
-func deriveFocusLoss(ctx context.Context, q db.Querier, attemptID string) error {
-	_, err := q.Exec(ctx, `
+func deriveFocusLoss(ctx context.Context, q db.Querier, attemptID string) (bool, error) {
+	var newlyFlagged bool
+	err := q.QueryRow(ctx, `
 		UPDATE app.attempts at
 		   SET focus_loss_count = counted.n,
 		       flagged = at.flagged
@@ -188,9 +193,10 @@ func deriveFocusLoss(ctx context.Context, q db.Querier, attemptID string) error 
 		                     THEN (e.meta->>'awayMs')::numeric >= a.integrity_min_away_ms
 		                     ELSE false END
 		       ) AS counted
-		 WHERE at.id = $1::uuid AND a.id = at.assignment_id`, attemptID)
+		 WHERE at.id = $1::uuid AND a.id = at.assignment_id
+		RETURNING NOT old.flagged AND new.flagged`, attemptID).Scan(&newlyFlagged)
 	if err != nil {
-		return fmt.Errorf("attempts: derive focus loss: %w", err)
+		return false, fmt.Errorf("attempts: derive focus loss: %w", err)
 	}
-	return nil
+	return newlyFlagged, nil
 }

@@ -45,6 +45,20 @@ export const handlers = [
     }),
   ),
   http.get(`${BASE}/auth/me`, () => contractJson("/auth/me", "get", 200, studentUser)),
+  http.get(`${BASE}/me/notification-preferences`, () =>
+    contractJson(
+      "/me/notification-preferences",
+      "get",
+      200,
+      [
+        "attempt.submitted",
+        "attempt.flagged",
+        "assignment.closing",
+        "assignment.due_soon",
+        "result.ready",
+      ].map((event) => ({ event, inApp: true, email: false })),
+    ),
+  ),
   http.get(`${BASE}/teacher/imports/capabilities`, () =>
     contractJson("/teacher/imports/capabilities", "get", 200, {
       intakeEnabled: true,

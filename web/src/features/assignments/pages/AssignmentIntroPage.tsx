@@ -27,6 +27,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { enterFullscreen, fullscreenSupported } from "@/features/integrity/fullscreen";
+import { useDueSoonOn } from "@/features/notifications/useDueSoonOn";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useMinute } from "@/hooks/useTick";
@@ -339,6 +340,16 @@ function IntroSkeleton() {
   );
 }
 
+function OpensHint() {
+  const { t } = useTranslation();
+  const tellsWhenOpen = useDueSoonOn();
+  return (
+    <span className={HINT}>
+      {t(tellsWhenOpen ? "student.intro.opensNotify" : "student.intro.opensHint")}
+    </span>
+  );
+}
+
 function Action({
   assignment: a,
   now,
@@ -446,7 +457,7 @@ function Action({
           {opensLabel(a, now, locale, t)}
           <ArrowRight aria-hidden="true" className="size-[18px]" />
         </Button>
-        <span className={HINT}>{t("student.intro.opensHint")}</span>
+        <OpensHint />
       </div>
     );
 

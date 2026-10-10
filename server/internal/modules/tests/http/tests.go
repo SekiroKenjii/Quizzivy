@@ -327,6 +327,10 @@ func testVersion(v domain.Version) (openapi.TestVersion, error) {
 	if err != nil {
 		return openapi.TestVersion{}, err
 	}
+	skills := make([]openapi.QuestionSkill, len(v.Skills))
+	for i, skill := range v.Skills {
+		skills[i] = openapi.QuestionSkill(skill)
+	}
 	return openapi.TestVersion{
 		Id:              httpapi.ParseUUID(v.ID),
 		Version:         v.Version,
@@ -334,6 +338,7 @@ func testVersion(v domain.Version) (openapi.TestVersion, error) {
 		QuestionCount:   v.QuestionCount,
 		AudioCount:      v.AudioCount,
 		ManualCount:     v.ManualCount,
+		Skills:          skills,
 		PublishedAt:     v.PublishedAt,
 		PublishedBy:     v.PublishedBy,
 		AssignmentCount: v.AssignmentCount,

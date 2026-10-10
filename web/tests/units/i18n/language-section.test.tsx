@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LanguageSection } from "@/features/auth/components/SettingsSections";
 import i18n, { setLocale } from "@/lib/i18n";
+import en from "@/lib/i18n/locales/en.json";
 
 afterEach(() => {
+  i18n.addResourceBundle("en", "translation", en, true, true);
   setLocale("vi");
   localStorage.clear();
 });
@@ -43,5 +45,28 @@ describe("the language control", () => {
     expect(en).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(i18n.language).toBe("en");
+  });
+
+  it("shows a language whose strings are still loading, and takes a pick back", async () => {
+    i18n.removeResourceBundle("en", "translation");
+    const user = userEvent.setup();
+    render(<LanguageSection />);
+
+    let english = Promise.resolve();
+    act(() => {
+      english = setLocale("en");
+    });
+
+    expect(i18n.language).toBe("vi");
+    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tiếng Việt" }));
+    await english;
+
+    expect(i18n.language).toBe("vi");
+    expect(localStorage.getItem("quizzivy.locale")).toBe("vi");
   });
 });

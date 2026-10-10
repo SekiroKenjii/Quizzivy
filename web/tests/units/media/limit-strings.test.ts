@@ -12,7 +12,7 @@ describe("the sentences that name an upload's size name the limit in force", () 
         locale.media.dropHint,
         locale.media.rejectSize,
         locale.media.limitsAudio,
-        locale.questionEditor.mediaHint,
+        locale.questionEditor.questionMedia.audioTooBig,
       ]) {
         expect(sentence).toContain(megabytes(MAX_AUDIO_BYTES));
         expect(sentence).not.toContain(megabytes(MAX_IMAGE_BYTES));
@@ -24,10 +24,20 @@ describe("the sentences that name an upload's size name the limit in force", () 
         locale.groups.imageLimit,
         locale.media.limitsImage,
         locale.media.rejectImageSize,
+        locale.questionEditor.questionMedia.imageTooBig,
       ]) {
         expect(sentence).toContain(megabytes(MAX_IMAGE_BYTES));
         expect(sentence).not.toContain(megabytes(MAX_AUDIO_BYTES));
       }
+    });
+
+    it(`${language}: the question media line names both limits`, () => {
+      const line = locale.questionEditor.questionMedia.limits;
+      expect(line).toContain(megabytes(MAX_AUDIO_BYTES));
+      expect(line.indexOf(megabytes(MAX_AUDIO_BYTES))).toBeLessThan(
+        line.indexOf(megabytes(MAX_IMAGE_BYTES)),
+      );
+      expect(line).toContain(megabytes(MAX_IMAGE_BYTES));
     });
   }
 });

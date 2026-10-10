@@ -16,5 +16,10 @@ type FlushHandler struct {
 }
 
 func (s FlushHandler) Handle(ctx context.Context, cmd Flush) (cqrs.Nothing, error) {
-	return cqrs.Nothing{}, s.Store.Flush(ctx, cmd.Input, s.Now())
+	reached, err := s.Store.Flush(ctx, cmd.Input, s.Now())
+	if err != nil {
+		return cqrs.Nothing{}, err
+	}
+	s.Announcer.Announce(ctx, reached)
+	return cqrs.Nothing{}, nil
 }
