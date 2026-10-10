@@ -967,8 +967,6 @@
       "current": "Current",
       "removeGapsFirst": "Remove gaps first",
       "moreOptions": "More options",
-      "promptPlaceholder": "Write the question students will read",
-      "explanationPlaceholder": "Explain the correct answer.",
       "moveTitle": "Move question {{number}}",
       "moveTo": "Section",
       "moveSubmit": "Move",

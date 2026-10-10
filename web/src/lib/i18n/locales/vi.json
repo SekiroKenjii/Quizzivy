@@ -967,8 +967,6 @@
       "current": "Đang dùng",
       "removeGapsFirst": "Bỏ ô trống trước",
       "moreOptions": "Tuỳ chọn khác",
-      "promptPlaceholder": "Viết câu hỏi học viên sẽ đọc",
-      "explanationPlaceholder": "Giải thích đáp án đúng.",
       "moveTitle": "Chuyển câu {{number}}",
       "moveTo": "Phần",
       "moveSubmit": "Chuyển",
