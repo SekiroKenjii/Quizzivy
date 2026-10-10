@@ -2228,6 +2228,7 @@
     "tabsLabel": "Paper sections",
     "loadFailed": "Couldn't load this paper.",
     "loadFailedHint": "Marks and comments already saved are intact.",
+    "notFound": "This attempt was not found.",
     "tabs": {
       "paper": "Paper",
       "integrity": "Integrity"

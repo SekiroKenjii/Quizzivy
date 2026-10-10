@@ -26,7 +26,7 @@ import { FLAGGED } from "@/features/integrity/tones";
 import { scoreText } from "@/features/assignments/studentTime";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useCrumbs } from "@/layouts/shell/crumbs";
-import { failureMessage } from "@/lib/api/errors";
+import { ApiError, failureMessage } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
@@ -61,6 +61,7 @@ export default function AttemptReviewPage() {
   const [tab, setTab] = useState<Tab>("paper");
   const [byQuestion, setByQuestion] = useState(false);
   const [picked, setCurrent] = useState<number | null>(null);
+  const [pointsFor, setPointsFor] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   const review = useQuery({
@@ -121,25 +122,10 @@ export default function AttemptReviewPage() {
   );
 
   if (review.isPending) return <ReviewSkeleton />;
-  if (review.isError || data === undefined) {
+  if (review.isError || data === undefined)
     return (
-      <div className="flex min-w-0 flex-col gap-4">
-        <PageHead
-          title={t("review.title")}
-          back={{
-            to: "/teacher/assignments",
-            label: t("teacherShell.nav.assignments"),
-          }}
-        />
-        <div className="space-y-1">
-          <LoadError error={review.error} onRetry={() => void review.refetch()}>
-            {t("review.loadFailed")}
-          </LoadError>
-          <p className="text-muted-fg text-xs">{t("review.loadFailedHint")}</p>
-        </div>
-      </div>
+      <ReviewUnavailable error={review.error} onRetry={() => void review.refetch()} />
     );
-  }
 
   const { attempt, student } = data;
   const pending = pendingIndexes.length;
@@ -154,8 +140,14 @@ export default function AttemptReviewPage() {
   const numbers = new Map(questions.map((item, index) => [item.id, index + 1]));
 
   const next = () => {
-    if (current !== null)
-      setCurrent(nextIndex(current, pendingIndexes, questions.length));
+    if (current === null) return;
+    const to = nextIndex(current, pendingIndexes, questions.length);
+    setCurrent(to);
+    setPointsFor(questions[to]?.id ?? null);
+  };
+  const pick = (index: number) => {
+    setCurrent(index);
+    setPointsFor(null);
   };
 
   const manualIds = questions.filter((q) => q.type === "short_answer").map((q) => q.id);
@@ -203,34 +195,31 @@ export default function AttemptReviewPage() {
                 {t("review.pendingBadge", { count: pending })}
               </Badge>
             )}
-            {flagged ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={t("review.unflag")}
-                disabled={attempt.status === "voided" || flag.isPending}
-                onClick={() => flag.mutate(false)}
-              >
-                <FlagOff aria-hidden="true" />
-                <span className="hidden lg:inline">{t("review.unflag")}</span>
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={t("review.flag")}
-                disabled={attempt.status === "voided" || flag.isPending}
-                onClick={() => flag.mutate(true)}
-              >
-                <Flag aria-hidden="true" />
-                <span className="hidden lg:inline">{t("review.flag")}</span>
-              </Button>
-            )}
+            <Button
+              variant={flagged ? "ghost" : "outline"}
+              size="sm"
+              aria-label={t(flagged ? "review.unflag" : "review.flag")}
+              disabled={attempt.status === "voided"}
+              aria-disabled={flag.isPending || undefined}
+              className={cn(flag.isPending && "opacity-50")}
+              onClick={() => {
+                if (!flag.isPending) flag.mutate(!flagged);
+              }}
+            >
+              {flagged ? <FlagOff aria-hidden="true" /> : <Flag aria-hidden="true" />}
+              <span className="hidden lg:inline">
+                {t(flagged ? "review.unflag" : "review.flag")}
+              </span>
+            </Button>
             {tab === "paper" && (
               <Button
                 size="sm"
-                disabled={!gradable || pending > 0 || finish.isPending}
-                onClick={() => finish.mutate()}
+                disabled={!gradable || pending > 0}
+                aria-disabled={finish.isPending || undefined}
+                className={cn(finish.isPending && "opacity-50")}
+                onClick={() => {
+                  if (!finish.isPending) finish.mutate();
+                }}
               >
                 {t("review.finish")}
               </Button>
@@ -279,7 +268,7 @@ export default function AttemptReviewPage() {
                     type="button"
                     aria-current={i === current ? "true" : undefined}
                     aria-label={dotLabel(i, verdicts[i] ?? "unanswered", t)}
-                    onClick={() => setCurrent(i)}
+                    onClick={() => pick(i)}
                     className={cn(
                       DOT.base,
                       "h-9",
@@ -348,7 +337,7 @@ export default function AttemptReviewPage() {
                     onRetry={() => void review.refetch()}
                     onQuestion={(questionId) => {
                       const number = numbers.get(questionId);
-                      if (number !== undefined) setCurrent(number - 1);
+                      if (number !== undefined) pick(number - 1);
                       document.getElementById("review-answer")?.focus();
                     }}
                   />
@@ -391,6 +380,8 @@ export default function AttemptReviewPage() {
                     answer={answer}
                     pending={grade.isPending}
                     error={null}
+                    focusPoints={pointsFor === question.id}
+                    onPointsFocused={() => setPointsFor(null)}
                     onSave={(points, comment) =>
                       grade.mutate(
                         { questionId: question.id, points, comment },
@@ -410,6 +401,34 @@ export default function AttemptReviewPage() {
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function ReviewUnavailable({
+  error,
+  onRetry,
+}: Readonly<{ error: Error | null; onRetry: () => void }>) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      <PageHead
+        title={t("review.title")}
+        back={{
+          to: "/teacher/assignments",
+          label: t("teacherShell.nav.assignments"),
+        }}
+      />
+      {error instanceof ApiError && error.status === 404 ? (
+        <EmptyState>{t("review.notFound")}</EmptyState>
+      ) : (
+        <div className="space-y-1">
+          <LoadError error={error} onRetry={onRetry}>
+            {t("review.loadFailed")}
+          </LoadError>
+          <p className="text-muted-fg text-xs">{t("review.loadFailedHint")}</p>
+        </div>
+      )}
     </div>
   );
 }
