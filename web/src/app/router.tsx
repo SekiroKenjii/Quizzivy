@@ -142,6 +142,21 @@ const teacherTree: RouteObject = {
                 () => import("@/features/imports/pages/teacher/ImportReviewPage"),
               ),
             },
+            {
+              path: ":id/confirm",
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "tests.importHistory", to: "/teacher/imports" },
+                  { key: "imports.review.crumb" },
+                  { key: "imports.confirm.crumb" },
+                ],
+                width: 1320,
+              },
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/ImportConfirmPage"),
+              ),
+            },
           ],
         },
         {
