@@ -58,7 +58,7 @@ function requireActor(lease: ActorLease) {
 }
 
 function applyUser(user: User) {
-  setLocale(user.locale ?? "vi");
+  void setLocale(user.locale ?? "vi");
   setAccountTheme(user.preferences?.theme ?? "light");
   setAccountTestText(user.preferences?.largerTestText ?? false);
   const supported = setDisplayTimeZone(user.timeZone ?? APP_TIME_ZONE);
@@ -210,7 +210,7 @@ export function runAccountMutation(
 }
 
 function preview(intent: PreferenceIntent) {
-  if ("locale" in intent) setLocale(intent.locale);
+  if ("locale" in intent) void setLocale(intent.locale);
   else if ("theme" in intent) writeThemePreference(intent.theme);
   else writeLargerTestText(intent.largerTestText);
 }

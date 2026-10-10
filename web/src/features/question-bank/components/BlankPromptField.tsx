@@ -1,4 +1,5 @@
 import { lazy, Suspense, useRef, useState } from "react";
+import type { Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
 import { questionGaps } from "@/components/shared/content/gaps";
@@ -25,11 +26,17 @@ const PREVIEW_PLUGINS = [blankSlots];
  * rich content whose gaps bind the answers, or Markdown with `{{n}}`
  * placeholders. "Markdown" is disabled while the prompt holds a gap. Only
  * "Switch to Markdown" and "Apply conversion" change the stored form.
+ * `onEditor` receives the rich editor while it is live and `null` otherwise.
  */
 export function BlankPromptField({
   value,
   onChange,
-}: Readonly<{ value: QuestionValues; onChange: (value: QuestionValues) => void }>) {
+  onEditor,
+}: Readonly<{
+  value: QuestionValues;
+  onChange: (value: QuestionValues) => void;
+  onEditor?: ((editor: Editor | null) => void) | undefined;
+}>) {
   const { t } = useTranslation();
   const header = useRef<HTMLDivElement>(null);
   const [moved, setMoved] = useState(false);
@@ -88,6 +95,7 @@ export function BlankPromptField({
                 switchTo("markdown");
               }}
               onChange={onChange}
+              onEditor={onEditor}
             />
           </Suspense>
         </>

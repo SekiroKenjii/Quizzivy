@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import { ContentEditor } from "@/components/shared/content/editor/ContentEditor";
 import { contentPlainText } from "@/components/shared/content/plainText";
@@ -19,6 +20,7 @@ const EMPTY: QuestionPromptContent = {
  * RichBlankEditor is a fill-in-the-blank prompt's rich body, always live. It
  * keeps each blank's answers bound to its gap through formatting, moves, undo
  * and removal. While `leaving` it asks "Switch to Markdown" under its toolbar.
+ * `onEditor` hands the live editor to the host, for "Insert gap" elsewhere.
  */
 export function RichBlankEditor({
   value,
@@ -27,6 +29,7 @@ export function RichBlankEditor({
   onCancelLeave,
   onConfirmLeave,
   onChange,
+  onEditor,
 }: Readonly<{
   value: QuestionValues;
   leaving: boolean;
@@ -34,6 +37,7 @@ export function RichBlankEditor({
   onCancelLeave: () => void;
   onConfirmLeave: () => void;
   onChange: (value: QuestionValues) => void;
+  onEditor?: ((editor: Editor | null) => void) | undefined;
 }>) {
   const { t } = useTranslation();
   const [initial] = useState(() => value.promptContent ?? EMPTY);
@@ -47,6 +51,7 @@ export function RichBlankEditor({
       label={t("questionEditor.prompt")}
       profile="prompt"
       gapLabel={() => String(nextBlankOrdinal(value.blanks))}
+      onEditor={onEditor}
       tools={() =>
         leaving && (
           <SwitchToMarkdown onCancel={onCancelLeave} onConfirm={onConfirmLeave} />
