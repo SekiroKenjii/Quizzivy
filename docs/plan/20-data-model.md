@@ -1359,6 +1359,7 @@ listed here matches the spec.
 | D-33 | `questions` and `test_version_questions` gain a nullable `media_alt`, 1 to 1000 characters | The deck's builder draws "Alt text: describe the image for screen readers" under a question's image and the model had no field for it (DG-111, T-R4.62a). The bound is `ContentImage.alt`'s. It lives on the question and is frozen at publish like every other part of the question, so a later edit of the bank question never reaches a version. Nullable with no default and no backfill, so the previous release's insert keeps working and a row written before it reads NULL. No check ties it to an image in R4: the write path refuses it for any other media (a field error on `mediaAlt`) and the bank store keeps it only beside an image, and a database check would make an R3 write that swaps an image for audio fail during the rolling deploy. The rule becomes a database invariant one release later, as a contract step (§37) |
 | D-34 | `assignments` gains `review_release` (`on_submit` or `after_close`, default `on_submit`) and `review_show_class_average` (default false) | The deck's Review step releases results after submitting or after the window closes, and shows the class average only on request (DG-65, T-R4.11). Constant defaults, so the previous release's insert keeps its meaning (results at once, no average) and nothing is rewritten; no fill trigger |
 | D-35 | `assignments` gains a nullable `student_note`, 1 to 500 characters once trimmed of the whitespace JavaScript's `trim()` removes (the set of `shared/answered`, not `btrim`'s space alone) | The Student deck's Test intro draws a note from the teacher and the Teacher deck had no field for it (DG-71, T-R4.11). Nullable with no default, so the previous release's insert keeps working; the command trims the same set and stores NULL for a note that is blank once trimmed, so the check never meets an empty string, and a note of a tab, a newline or a no-break space is refused by the check as it is dropped by the command |
+| D-36 | Add `assignment_student_overrides (assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by, created_at, updated_at)` | §13.3 has no per-student accommodation, and R4 lets a teacher give one student more time, more attempts or a reopened window without touching the assignment everyone else has (T-R4.12). A separate table, not columns on `assignments`, because the rows are per student and optional: no row is the assignment as it is. A new table adds nothing the previous release reads or writes, so the rolling deploy needs no expand step (§38) |
 
 ---
 
@@ -1465,6 +1466,7 @@ the file it adds.
 | `00098_add_test_version_questions_media_alt.sql` | `test_version_questions.media_alt` and `test_version_questions_media_alt_check` (1 to 1000 characters), added with the column | R4 (T-R4.62a), D-33 |
 | `00099_add_assignment_review_options.sql` | `assignments.review_release`, `assignments_review_release_check` and `review_show_class_average`, constant defaults | R4 (T-R4.11), D-34 |
 | `00100_add_assignments_student_note.sql` | `assignments.student_note` and `assignments_student_note_check` (1 to 500 characters once trimmed of the `shared/answered` whitespace set), added with the column | R4 (T-R4.11), D-35 |
+| `00101_create_assignment_student_overrides.sql` | `assignment_student_overrides`, its four checks, `assignment_student_overrides_student_idx` and the `updated_at` trigger | R4 (T-R4.12), D-36 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2615,3 +2617,55 @@ The predicate must say `IS NOT DISTINCT FROM`, as `00011` does for audio: with a
 `= 'image'` a NULL kind makes the whole check NULL, and a CHECK passes on NULL, so alt
 text with no media at all would be accepted. Each Down drops its constraint, and the
 three files are numbered when R5 plans them.
+
+## 38. Per-student overrides (T-R4.12)
+
+`00101_create_assignment_student_overrides.sql` adds one table. Down drops it.
+
+```sql
+CREATE TABLE app.assignment_student_overrides (
+  assignment_id    uuid NOT NULL REFERENCES app.assignments(id) ON DELETE CASCADE,
+  student_id       uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+  closes_at        timestamptz,
+  duration_minutes integer,
+  extra_attempts   smallint NOT NULL DEFAULT 0,
+  reason           text NOT NULL,
+  created_by       uuid REFERENCES app.users(id) ON DELETE SET NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (assignment_id, student_id)
+  -- and the four named checks in the table below
+);
+```
+
+| Constraint or index | What it holds |
+|---|---|
+| `assignment_student_overrides_pkey (assignment_id, student_id)` | One override per student and assignment; its leading column serves the cascade from `app.assignments` and every read of one assignment's overrides |
+| `assignment_student_overrides_student_idx (student_id)` | The cascade from `app.users` |
+| `..._duration_check` | `duration_minutes BETWEEN 1 AND 600`, the assignment's own bound |
+| `..._extra_attempts_check` | `extra_attempts BETWEEN 0 AND 10` |
+| `..._reason_check` | `char_length(reason) BETWEEN 1 AND 500`; the command stores the trimmed reason, so a reason of only whitespace never reaches the check |
+| `..._changes_check` | `closes_at IS NOT NULL OR duration_minutes IS NOT NULL OR extra_attempts > 0`: a row that changes nothing is a DELETE |
+
+`created_by` is `ON DELETE SET NULL`, so removing a teacher's account keeps the
+accommodation they gave. The previous release neither reads nor writes the table, so
+the table needs no expand step, and a rolled-back binary leaves its rows alone. The
+app role holds the usual `SELECT, INSERT, UPDATE, DELETE` through the default
+privileges. R5's `grant_maintenance_role` grants `quizzivy_maintenance` `SELECT,
+UPDATE (closes_at)` on it for the maintenance extension (T-R4.12b).
+
+**The merge.** `setStudentOverrides` computes the merged row in its `wanted`
+CTE, from the existing override, and inserts that row: PostgreSQL checks the
+CHECKs on the proposed row before it looks for the conflict, so a candidate
+that carried only the request's fields would fail `..._changes_check` on a
+student whose stored row holds the rest. `ON CONFLICT DO UPDATE` then takes the
+merged values from `EXCLUDED`. The assignment row is held `FOR NO KEY UPDATE`
+for the transaction, which serialises writers of one assignment's window and
+overrides and does not block an attempt's insert (its foreign-key check takes
+`FOR KEY SHARE`).
+
+**Reading the student's window.** `schedule.OverrideJoin` is the `LEFT JOIN` on the
+student, `schedule.CloseOf("o")` the close it yields, and `schedule.Window.WithOverride`
+its Go twin; `attempts.Rules`, `attempts.RulesFor`, `LoadResult` and the student's card
+and intro all read through them. An override's `closes_at` never closes a student
+sooner: the close is `greatest(least(closed_at, closes_at), o.closes_at)`.

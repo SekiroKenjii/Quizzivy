@@ -156,6 +156,14 @@ func freshStudent(x *iso, own *party) *party {
 	return own.with("student", created["user"].(map[string]any)["id"].(string))
 }
 
+func freshOverride(x *iso, own *party) *party {
+	student := freshStudent(x, own).id("student")
+	own.c.must(http.StatusOK, http.MethodPut, "/teacher/assignments/"+own.id("assignment")+"/student-overrides", map[string]any{
+		"studentIds": []any{student}, "extraAttempts": 1, "reason": "Dùng một lần",
+	})
+	return own.with("override", student)
+}
+
 func freshAttempt(x *iso, own *party) *party {
 	created := own.c.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "lam-bai-" + nonce(x.t) + "@example.com", "fullName": "Học viên làm bài", "classIds": []any{own.id("class")},
@@ -341,6 +349,12 @@ func isolationCases() map[string]isoCase {
 		"listAnswersForQuestion": {},
 		"reopenAssignment":       {body: fixed(map[string]any{"closesAt": later, "reason": "Kiểm tra cách ly"})},
 		"getAssignmentMonitor":   {},
+		"extendAssignment":       {body: fixed(map[string]any{"minutes": 10, "notify": false})},
+		"listStudentOverrides":   {},
+		"setStudentOverrides": {body: fixed(map[string]any{
+			"studentIds": []any{""}, "extraAttempts": 1, "reason": "Kiểm tra cách ly",
+		})},
+		"deleteStudentOverride": {fresh: freshOverride},
 
 		"listGradingQueue":    {},
 		"listAttempts":        {},

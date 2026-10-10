@@ -33,7 +33,7 @@ func (s GetHandler) Handle(ctx context.Context, q Get) (domain.Session, error) {
 		}
 		return domain.Session{}, err
 	}
-	rules, err := s.Store.RulesFor(ctx, attempt.AssignmentID)
+	rules, err := s.Store.RulesFor(ctx, attempt.AssignmentID, attempt.StudentID)
 	if err != nil {
 		return domain.Session{}, err
 	}

@@ -73,7 +73,12 @@ the "one package per feature" layout AGENTS.md described until then.
   (`least(closed_at, closes_at)`, or the later of that and a student's
   override), and `Close` and `Window.WithOverride` are its Go twin. attempts
   uses them to hold a result back until the close and to decide whether the
-  class average may show (T-R4.11); T-R4.12 passes the overrides.
+  class average may show (T-R4.11). The same package reads a student's override:
+  `OverrideJoin` is the `LEFT JOIN` on one student and `OverrideColumns` scans
+  it, so the student's card and intro (assignments) and a start, a resume and
+  a result (attempts) all take one student's window, time limit and attempts
+  from one rule (T-R4.12). The override feeds the reader's own close and never
+  the assignment's, which is what the class average waits for.
 - **Access in the kernel.** `shared/access` is the authorization model every
   layer may use, and it imports only the standard library: the catalogue as
   `Key`s, with the pseudo-keys `self`, `workspace.teacher` and

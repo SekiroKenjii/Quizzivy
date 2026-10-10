@@ -4,10 +4,10 @@ import type { components } from "../../src/lib/api/schema";
 
 const QUESTION_ID = "018f0000-0000-7000-8000-0000000000b1";
 
-/** optionTools is the formatting toolbar of "Nội dung lựa chọn 1", which another editor on the page does not share. */
+/** optionTools is the formatting toolbar of "Lựa chọn A", which another editor on the page does not share. */
 function optionTools(page: Page) {
   return page.getByRole("toolbar", {
-    name: "Thanh định dạng: Nội dung lựa chọn 1",
+    name: "Thanh định dạng: Lựa chọn A",
     exact: true,
   });
 }
@@ -138,9 +138,9 @@ test("builder flushes rich edits before switching questions and previews the sav
     },
   });
   await page.goto(`/teacher/tests/${testID}/edit`);
-  await page.getByRole("button", { name: "Sửa định dạng phương án 1" }).click();
+  await page.getByRole("button", { name: "Sửa định dạng lựa chọn A" }).click();
   const editor = page.getByRole("textbox", {
-    name: "Nội dung lựa chọn 1",
+    name: "Lựa chọn A",
     exact: true,
   });
   await editor.click();
@@ -159,7 +159,7 @@ test("builder flushes rich edits before switching questions and previews the sav
     page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true }),
   ).toHaveValue("Second question");
   await page.getByRole("button", { name: "First question", exact: true }).click();
-  await page.getByRole("button", { name: "Sửa định dạng phương án 1" }).click();
+  await page.getByRole("button", { name: "Sửa định dạng lựa chọn A" }).click();
   await expect(editor.locator("u")).toHaveText("think");
   await page.getByRole("button", { name: "Xong", exact: true }).click();
   await page.getByRole("button", { name: "Xem trước", exact: true }).click();
@@ -265,9 +265,9 @@ test("bank formatting survives save and reload without changing the answer key",
   });
   await page.setViewportSize({ width: 768, height: 900 });
   await page.goto(`/teacher/question-bank/${QUESTION_ID}`);
-  await page.getByRole("button", { name: "Sửa định dạng phương án 1" }).click();
+  await page.getByRole("button", { name: "Sửa định dạng lựa chọn A" }).click();
   const editor = page.getByRole("textbox", {
-    name: "Nội dung lựa chọn 1",
+    name: "Lựa chọn A",
     exact: true,
   });
   await expect(editor.locator("u")).toHaveText("th");
@@ -295,9 +295,9 @@ test("bank formatting survives save and reload without changing the answer key",
     fullPage: true,
   });
   await page.getByRole("button", { name: "Xong", exact: true }).click();
-  await page.getByRole("button", { name: "Định dạng phương án 2" }).click();
+  await page.getByRole("button", { name: "Định dạng lựa chọn B" }).click();
   const second = page.getByRole("textbox", {
-    name: "Nội dung lựa chọn 2",
+    name: "Lựa chọn B",
     exact: true,
   });
   await second.click();
@@ -328,7 +328,7 @@ test("bank formatting survives save and reload without changing the answer key",
   expect(question.options![1]!.isCorrect).toBe(false);
   expect(question.options![1]!.text).toBe("Tiếng\nViệt\nmới");
   await page.reload();
-  await page.getByRole("button", { name: "Sửa định dạng phương án 1" }).click();
+  await page.getByRole("button", { name: "Sửa định dạng lựa chọn A" }).click();
   await expect(editor).toHaveText("think mới");
   await expect(editor.locator("u")).toHaveText("th");
 });

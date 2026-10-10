@@ -10,6 +10,9 @@ import { z } from "zod";
 import type { components } from "@/lib/api/schema";
 import { comparePlaceholders, hasMismatch } from "./placeholders";
 
+/** MAX_OPTIONS is the most options a choice question takes, as the contract's maxItems. */
+export const MAX_OPTIONS = 8;
+
 /** Form input validation for §7's question editor. */
 const audioPolicySchema = z.object({
   maxPlays: z.number().int().min(1).nullable(),
@@ -89,9 +92,10 @@ export const questionSchema = z
       .string()
       .refine((text) => text.trim().length > 0, "questionEditor.errors.promptRequired"),
     mediaAssetId: z.uuid().nullable(),
+    mediaAlt: z.string().nullable().default(null),
     audio: audioPolicySchema.nullable(),
     transcript: z.string().nullable(),
-    options: z.array(optionSchema),
+    options: z.array(optionSchema).max(MAX_OPTIONS, "questionEditor.errors.maxOptions"),
     blanks: z.array(blankSchema),
     points: z
       .number()
@@ -174,6 +178,8 @@ function validateBlankStructure(
   if (value.promptContent != null) {
     if (!gapBindingsMatch(value.promptContent, value.blanks))
       issue("blanks", "gapMismatch");
+    else if (gapProblems(value.promptContent, value.blanks).emptyGapLabels.length)
+      issue("blanks", "answerRequired");
   } else if (
     value.blanks.some((blank) => blank.gapId != null) ||
     hasMismatch(comparePlaceholders(value.prompt, ordinals))
@@ -181,16 +187,65 @@ function validateBlankStructure(
     issue("blanks", "placeholderMismatch");
 }
 
+/** ChoiceProblems names what is wrong, or merely unusual, with a choice question's options. */
+export interface ChoiceProblems {
+  tooFew: boolean;
+  tooMany: boolean;
+  noneCorrect: boolean;
+  /** A multiple-choice question with one tick: a warning, never a blocking rule. */
+  oneCorrectOfMany: boolean;
+  manyCorrectOfOne: boolean;
+}
+
+/**
+ * choiceProblems is the one reading of a choice question's options that the
+ * schema and the options editor share. Only `oneCorrectOfMany` does not block
+ * saving: the server takes a multiple-choice question with one correct answer.
+ */
+export function choiceProblems(
+  value: Pick<QuestionValues, "type" | "options">,
+): ChoiceProblems {
+  const correct = value.options.filter((option) => option.isCorrect).length;
+  const multiple = value.type === "multiple_choice";
+  return {
+    tooFew: value.options.length < 2,
+    tooMany: value.options.length > MAX_OPTIONS,
+    noneCorrect: correct === 0,
+    oneCorrectOfMany: multiple && correct === 1,
+    manyCorrectOfOne: !multiple && correct > 1,
+  };
+}
+
+/**
+ * gapProblems lists, in prompt order, the labels of the gaps in a rich prompt
+ * whose answer row has no accepted answer that says something.
+ */
+export function gapProblems(
+  content: NonNullable<QuestionValues["promptContent"]>,
+  blanks: ReadonlyArray<{ gapId?: string | null; acceptedAnswers: readonly string[] }>,
+): { emptyGapLabels: string[] } {
+  const answered = new Set(
+    blanks
+      .filter((blank) => blank.acceptedAnswers.some((answer) => answer.trim() !== ""))
+      .map((blank) => blank.gapId),
+  );
+  return {
+    emptyGapLabels: questionGaps(content)
+      .filter((gap) => !answered.has(gap.id))
+      .map((gap) => gap.label),
+  };
+}
+
 function validateChoice(
   value: Pick<QuestionValues, "type" | "options">,
   issue: (path: string, key: string) => void,
 ) {
-  const correct = value.options.filter((option) => option.isCorrect).length;
-  if (value.options.length < 2) issue("options", "twoOptions");
+  const problems = choiceProblems(value);
+  if (problems.tooFew) issue("options", "twoOptions");
   if (value.type === "true_false" && value.options.length !== 2)
     issue("options", "trueFalseCount");
-  if (correct === 0) issue("options", "correctRequired");
-  if (value.type !== "multiple_choice" && correct > 1) issue("options", "oneCorrect");
+  if (problems.noneCorrect) issue("options", "correctRequired");
+  if (problems.manyCorrectOfOne) issue("options", "oneCorrect");
 }
 
 /** A blank single-choice question -- what /teacher/question-bank/new starts from. */
@@ -201,6 +256,7 @@ export function emptyQuestion(): QuestionValues {
     skill: null,
     prompt: "",
     mediaAssetId: null,
+    mediaAlt: null,
     audio: null,
     transcript: null,
     options: [

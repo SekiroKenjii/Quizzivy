@@ -44,7 +44,7 @@ var studentCardColumns = `
 	       a.opens_at, a.closes_at, a.closed_at, a.published_at,
 	       a.duration_minutes, a.max_attempts,
 	       (a.review_show_score
-	        AND (a.review_release = 'on_submit' OR now() >= ` + schedule.CloseOf("") + `)),
+	        AND (a.review_release = 'on_submit' OR now() >= ` + schedule.CloseOf("o") + `)),
 	       (SELECT count(*) FROM app.test_version_questions q
 	          JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
 	         WHERE sec.test_version_id = a.test_version_id),
@@ -73,12 +73,13 @@ var studentCardColumns = `
 	           AND at.status = 'in_progress' AND at.deadline_at > now()
 	         ORDER BY at.deadline_at DESC LIMIT 1),
 	       last.id::text, last.status::text, last.submitted_at,
-	       last.earned, last.total, last.pending`
+	       last.earned, last.total, last.pending, ` + schedule.OverrideSelect
 
-const studentCardFrom = `
+var studentCardFrom = `
 	  FROM app.assignments a
 	  JOIN app.tests t ON t.id = a.test_id
 	  JOIN app.test_versions v ON v.id = a.test_version_id
+	  ` + schedule.OverrideJoin("$1::uuid") + `
 	  LEFT JOIN LATERAL (
 	       SELECT at.id, at.status, at.submitted_at,
 	              at.score_earned::float8 AS earned,
@@ -111,21 +112,32 @@ func (l lastAttempt) apply(c *domain.StudentCard, showScore bool) {
 	}
 }
 
+func applyOverride(c *domain.StudentCard, oc schedule.OverrideColumns) {
+	w := schedule.Window{
+		OpensAt: c.OpensAt, ClosesAt: c.ClosesAt, ClosedAt: c.ClosedAt,
+		DurationMin: c.DurationMin, MaxAttempts: c.MaxAttempts,
+	}.WithOverride(oc.Override())
+	c.ClosesAt, c.ClosedAt, c.DurationMin, c.MaxAttempts = w.ClosesAt, w.ClosedAt, w.DurationMin, w.MaxAttempts
+}
+
 func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 	var (
 		c         domain.StudentCard
 		showScore bool
 		l         lastAttempt
+		oc        schedule.OverrideColumns
 	)
 	err := row.Scan(&c.ID, &c.TestTitle, &c.ClassName, &c.ClassID, &c.ClassIDs,
 		&c.OpensAt, &c.ClosesAt, &c.ClosedAt, &c.PublishedAt,
 		&c.DurationMin, &c.MaxAttempts, &showScore,
 		&c.QuestionCount, &c.TotalPoints,
 		&c.AttemptsUsed, &c.HasLiveAttempt, &c.LiveDeadlineAt, &c.LiveAnsweredCount,
-		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending)
+		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending,
+		&oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts)
 	if err != nil {
 		return domain.StudentCard{}, err
 	}
+	applyOverride(&c, oc)
 	l.apply(&c, showScore)
 	return c, nil
 }
@@ -134,7 +146,7 @@ func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 func (s *Postgres) ForStudent(ctx context.Context, studentID string, now time.Time) (domain.StudentSections, error) {
 	rows, err := s.Query(ctx, studentCardColumns+studentCardFrom+`
 	 WHERE a.published_at IS NOT NULL AND `+targeted+`
-	 ORDER BY a.closes_at ASC, a.id DESC`, studentID)
+	 ORDER BY greatest(a.closes_at, o.closes_at) ASC, a.id DESC`, studentID)
 	if err != nil {
 		return domain.StudentSections{}, fmt.Errorf("assignments: list for student: %w", err)
 	}
@@ -169,6 +181,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		d         domain.StudentDetail
 		showScore bool
 		l         lastAttempt
+		oc        schedule.OverrideColumns
 		onLimit   string
 		maxPlays  *int
 	)
@@ -190,6 +203,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		&d.QuestionCount, &d.TotalPoints,
 		&d.AttemptsUsed, &d.HasLiveAttempt, &d.LiveDeadlineAt, &d.LiveAnsweredCount,
 		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending,
+		&oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts,
 		&d.TeacherName,
 		&d.Review.ShowCorrectAnswers, &d.Review.ShowExplanations,
 		&d.Review.ShowScore, &d.Review.Release, &d.Review.ShowClassAverage, &d.StudentNote,
@@ -203,6 +217,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		return domain.StudentDetail{}, fmt.Errorf("assignments: student detail: %w", err)
 	}
 	d.Integrity.OnLimitExceeded = onLimit
+	applyOverride(&d.StudentCard, oc)
 	l.apply(&d.StudentCard, showScore)
 	if d.HasAudio {
 		d.AudioMaxPlays = maxPlays

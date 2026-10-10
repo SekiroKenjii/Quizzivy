@@ -37,11 +37,13 @@ func (s *Reviews) Get(ctx context.Context, scope access.Scope, attemptID string)
 		SELECT at.id::text, at.assignment_id::text, at.student_id::text, at.test_version_id::text,
 		       at.attempt_no, at.status, at.started_at, at.deadline_at, at.submitted_at, at.graded_at,
 		       at.focus_loss_count, at.flagged, at.score_total, at.teacher_note,
-		       asg.max_attempts, t.title, v.published_at
+		       asg.max_attempts + coalesce(o.extra_attempts, 0), t.title, v.published_at
 		  FROM app.attempts at
 		  JOIN app.assignments asg ON asg.id = at.assignment_id
 		  JOIN app.tests t ON t.id = asg.test_id
 		  JOIN app.test_versions v ON v.id = at.test_version_id
+		  LEFT JOIN app.assignment_student_overrides o
+		         ON o.assignment_id = at.assignment_id AND o.student_id = at.student_id
 		 WHERE at.id = $1::uuid AND ($2::boolean OR at.assignment_id IN `+visibility.AssignmentIDs(3)+`)`,
 		attemptID, scope.All, opt.String(scope.UserID)).Scan(
 		&a.ID, &a.AssignmentID, &a.StudentID, &a.TestVersionID,
