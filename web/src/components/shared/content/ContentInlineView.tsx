@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { nfc } from "@/lib/nfc";
 import type { ContentInline, ContentMark } from "./model";
 
 function markedText(value: string, marks: ContentMark[]): ReactNode {
@@ -18,7 +19,7 @@ function markedText(value: string, marks: ContentMark[]): ReactNode {
       case "subscript":
         return <sub>{child}</sub>;
     }
-  }, value);
+  }, nfc(value));
 }
 
 /** ContentInlineView renders an already validated inline node without HTML injection or asset requests. */
@@ -40,9 +41,9 @@ export function ContentInlineView({
         <span
           className="content-gap"
           role="img"
-          aria-label={t("contentEditor.gapLabel", { label: node.label })}
+          aria-label={t("contentEditor.gapLabel", { label: nfc(node.label) })}
         >
-          {node.label}
+          {nfc(node.label)}
         </span>
       );
     case "link":

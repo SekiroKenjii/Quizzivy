@@ -2087,7 +2087,7 @@ media owner, described under the table.
 |---|---|---|
 | 10 | Word imports (W-10a, W-13b) | Upload quota reservation |
 | 11 | Word imports (W-11a) | Run capacity allocation and renewal |
-| 40 | Maintenance windows (T-R1.12, T-R1.13) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions |
+| 40 | Maintenance windows (T-R1.12, T-R1.13, T-R4.12b) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions. `extendAssignment`, `updateAssignment`, `reopenAssignment`, `setStudentOverrides` and `deleteStudentOverride` take it shared too, before they lock the assignment row (`schedule.LockWindows`), so none of them runs between a window's scheduling and its extensions, and none can wait on a row that `window-schedule` holds while it waits on theirs |
 | 41 | Legacy join-code rotation (T-R4.22) | Each class's rotation across API machines |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
 
@@ -2669,3 +2669,39 @@ student, `schedule.CloseOf("o")` the close it yields, and `schedule.Window.WithO
 its Go twin; `attempts.Rules`, `attempts.RulesFor`, `LoadResult` and the student's card
 and intro all read through them. An override's `closes_at` never closes a student
 sooner: the close is `greatest(least(closed_at, closes_at), o.closes_at)`.
+
+**Moving the deadlines in progress (12b).** `extendAssignment`, `updateAssignment`,
+`reopenAssignment` and `setStudentOverrides` end by calling `schedule.RecomputeDeadlines` in the
+transaction that changed the window; `deleteStudentOverride` takes the same two locks and
+recomputes nothing, because removing an override can only shorten a student's window and a
+deadline never moves earlier. An update or a reopening recomputes the whole assignment
+unconditionally, and a shorter close or a Close now moves nothing for the same reason. An
+attempt whose `deadline_at` is not after the database's `now()` is over, swept or not, and is
+skipped, so no writer revives it. The recompute sets `deadline_at` of each `in_progress` attempt to `least(started_at +
+coalesce(o.duration_minutes, a.duration_minutes), CloseOf("o"))` where that is later than the
+deadline the attempt has, and writes one `attempt.extended` audit entry per attempt moved
+(`deadline_at` old and new, the cause, the assignment) through a data-modifying CTE. A deadline
+never moves earlier: removing an override, or a time limit shorter than the one an attempt
+started under, leaves a running attempt alone, and a deadline that a maintenance window pushed
+past the rule stays where it is. The recompute is limited to `studentIds` for an override and
+runs over every attempt of the assignment for an extension.
+
+*Lock order, always:* the maintenance-windows advisory lock `(73819, 40)` shared, then the
+assignment row, then the attempt rows in id order. An attempt start takes the lock and the
+assignment row `FOR SHARE` before it inserts; the five writers above take the assignment row
+`FOR NO KEY UPDATE` (`updateAssignment` its long-standing `FOR UPDATE`), both of which conflict
+with `FOR SHARE`, so a start waits for them; a plain `NO KEY` lock does not conflict with the
+`FOR KEY SHARE` an attempt's foreign key takes. A start therefore either commits before the writer reads the
+attempts, and the recompute moves the attempt it inserted, or reads the rules after the writer
+committed, and computes its deadline from the new window. `window-schedule` takes the lock
+exclusively and updates assignments and attempts in one statement, so it never runs among them.
+
+*The start race (R12a-5).* `attempts.Store.Create` re-reads the rules inside its transaction,
+after the maintenance guard, with `FOR SHARE OF a`, and stores the deadline it computes from
+that read. The service's earlier read, outside the transaction, decides what the first
+maintenance check covers and nothing else: the transaction checks again that the student is
+targeted and that the committed window is open, and when the deadline it computes is later than
+the one the first check covered, it runs the maintenance check a second time over the longer span. `FOR SHARE OF o` is not taken: an override is written under the assignment row
+lock, so the assignment lock already orders a start against every override write, and a lock on
+the override row would only add a second, unordered path. The override join is a `LEFT JOIN`,
+and `FOR SHARE` on its nullable side is refused by PostgreSQL in any case.

@@ -186,7 +186,7 @@ export function CommandPalette({
             aria-label={t("palette.placeholder")}
             className="h-auto flex-1 border-0 bg-transparent p-0 text-sm outline-none"
           />
-          <Kbd>{t("palette.escape")}</Kbd>
+          <Kbd className="font-sans">{t("palette.escape")}</Kbd>
         </div>
 
         <div

@@ -202,6 +202,86 @@ describe("the question editor, per question type", () => {
     ).toBeChecked();
   });
 
+  it.each(["removed", "replaced by a recording"])(
+    "drops an image's alt text when the image is %s, as the server requires",
+    async (change) => {
+      const IMAGE: MediaAsset = {
+        id: "018f0000-0000-7000-8000-000000000002",
+        kind: "image",
+        originalFilename: "map.png",
+        bytes: 24_000,
+        mimeType: "image/png",
+        createdAt: "2026-01-01T00:00:00Z",
+        url: "https://example.test/map.png",
+      };
+      server.use(
+        http.get("http://localhost:8080/teacher/media", () =>
+          contractJson("/teacher/media", "get", 200, {
+            totalBytes: 2_400_000,
+            facets: { all: 1, audio: 1, image: 0, unused: 1 },
+            usage: { audioBytes: 2_400_000, imageBytes: 0, quotaBytes: 5_368_709_120 },
+            page: 1,
+            pageSize: 50,
+            total: 0,
+            items: [
+              {
+                ...AUDIO,
+                displayName: AUDIO.originalFilename,
+                defaultMaxPlays: null,
+                width: null,
+                height: null,
+                questionCount: 0,
+              },
+            ],
+            nextCursor: null,
+          }),
+        ),
+      );
+      const seen: QuestionValues[] = [];
+      function Harness() {
+        const [value, setValue] = useState<QuestionValues>({
+          ...emptyQuestion(),
+          mediaAssetId: IMAGE.id,
+          mediaAlt: "Bản đồ thị trấn",
+        });
+        const [current, setCurrent] = useState<MediaAsset | null>(IMAGE);
+        return (
+          <QuestionEditor
+            value={value}
+            asset={current}
+            onChange={(next) => {
+              seen.push(next);
+              setValue(next);
+            }}
+            onAssetChange={setCurrent}
+          />
+        );
+      }
+      render(
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <Harness />
+        </QueryClientProvider>,
+      );
+      const user = userEvent.setup();
+
+      if (change === "removed") {
+        await user.click(screen.getByRole("button", { name: "Gỡ" }));
+      } else {
+        await user.click(screen.getByRole("button", { name: "Chọn từ thư viện" }));
+        await user.click(
+          await screen.findByRole("button", { name: /unit5-listening-2\.mp3/ }),
+        );
+      }
+
+      expect(seen.at(-1)).toMatchObject({
+        mediaAssetId: change === "removed" ? null : AUDIO.id,
+        mediaAlt: null,
+      });
+    },
+  );
+
   it("names the attached file with its length and size", () => {
     renderEditor({ mediaAssetId: AUDIO.id }, AUDIO);
 

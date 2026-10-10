@@ -50,6 +50,35 @@ describe("bank metadata preservation", () => {
       body: parsed,
     });
   });
+  it.each([
+    ["set", "Bản đồ thị trấn"],
+    ["null", null],
+  ])("sends an image's alt text back unchanged when %s", (_what, mediaAlt) => {
+    const image: AdminQuestion = {
+      ...question,
+      media: {
+        id: "019535d9-3df7-79fb-b466-fa907fa17fa0",
+        kind: "image",
+        url: "https://assets.example/map.png",
+        mimeType: "image/png",
+        bytes: 12,
+        originalFilename: "map.png",
+        createdAt: "2026-01-01T00:00:00Z",
+      },
+      mediaAlt,
+    };
+    const parsed = questionSchema.parse(toFormValues(image));
+    expect(parsed.mediaAlt).toBe(mediaAlt);
+    updateQuestion(image.id, parsed);
+    expect(api).toHaveBeenLastCalledWith("patch", "/teacher/questions/{id}", {
+      path: { id: image.id },
+      body: expect.objectContaining({ mediaAlt }),
+    });
+  });
+  it("starts a new question, and reads a question stored without it, with no alt text", () => {
+    expect(emptyQuestion().mediaAlt).toBeNull();
+    expect(questionSchema.parse(toFormValues(question)).mediaAlt).toBeNull();
+  });
   it("normalizes unset defaults and refuses unknown enums", () => {
     expect(emptyQuestion()).toMatchObject({ level: null, skill: null });
     const unset = questionSchema.parse({

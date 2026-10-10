@@ -28,4 +28,8 @@ type MonitorRow struct {
 	FocusLossCount *int
 	Flagged        bool
 	AudioOverLimit bool
+	// ExtendedTo is the student's own close when an override of theirs reaches
+	// past the assignment's. While it is ahead the student may still start or
+	// carry on, whatever the assignment has done.
+	ExtendedTo *time.Time
 }

@@ -1200,6 +1200,7 @@ function starterQuestion(t: TFunction): QuestionValues {
     skill: null,
     prompt: t("builder.starterPrompt"),
     mediaAssetId: null,
+    mediaAlt: null,
     audio: null,
     transcript: null,
     options: [

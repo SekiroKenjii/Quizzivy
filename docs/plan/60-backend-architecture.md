@@ -78,7 +78,19 @@ the "one package per feature" layout AGENTS.md described until then.
   it, so the student's card and intro (assignments) and a start, a resume and
   a result (attempts) all take one student's window, time limit and attempts
   from one rule (T-R4.12). The override feeds the reader's own close and never
-  the assignment's, which is what the class average waits for.
+  the assignment's, which is what the class average waits for. The same package
+  moves the deadlines of attempts in progress (T-R4.12b): `LockWindows` takes
+  the maintenance-windows lock shared, and `RecomputeDeadlines` lengthens each
+  live attempt's deadline to the window's, only ever later and audited, in the
+  transaction that changed the window. assignments calls `LockWindows` before
+  it locks the assignment row in an extension, an update, a reopening, an
+  override write and an override delete, and `RecomputeDeadlines` after the
+  write in all but the last;
+  attempts' start takes the same lock and then the assignment row
+  `FOR SHARE`, so the lock order is the same everywhere: windows, assignment,
+  attempts. The kernel owns the statement because assignments writes the
+  window, the rows it moves are attempts', and the two modules do not import
+  each other.
 - **Access in the kernel.** `shared/access` is the authorization model every
   layer may use, and it imports only the standard library: the catalogue as
   `Key`s, with the pseudo-keys `self`, `workspace.teacher` and

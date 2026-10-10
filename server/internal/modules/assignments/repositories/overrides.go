@@ -23,6 +23,8 @@ const overrideChangesCheck = "assignment_student_overrides_changes_check"
 // assignment that has not closed qualifies, judged at the database's clock as
 // Reopen judges it, so exactly one of the two takes any given assignment; a
 // closed one answers ErrClosed and another teacher's answers ErrNotFound.
+// The attempts in progress move with it, in the same transaction: the
+// maintenance-windows lock, then the assignment row, then the attempt rows.
 func (s *Postgres) Extend(ctx context.Context, req domain.Request, minutes int, notify bool, now time.Time) (domain.Assignment, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -30,6 +32,9 @@ func (s *Postgres) Extend(ctx context.Context, req domain.Request, minutes int, 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := schedule.LockWindows(ctx, tx); err != nil {
+		return domain.Assignment{}, err
+	}
 	var extended string
 	err = tx.QueryRow(ctx, `
 		WITH updated AS (
@@ -54,6 +59,9 @@ func (s *Postgres) Extend(ctx context.Context, req domain.Request, minutes int, 
 	}
 	if err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: extend: %w", err)
+	}
+	if _, err := schedule.RecomputeDeadlines(ctx, tx, recomputeFor(req, nil, "assignment_extended", now)); err != nil {
+		return domain.Assignment{}, err
 	}
 
 	saved, err := s.get(ctx, tx, req.Scope(), req.ID, false)
@@ -92,8 +100,10 @@ func whyNotExtended(ctx context.Context, q db.Querier, scope access.Scope, id st
 // actor reaches, or changes the one they have, and records each in the
 // statement that writes it. The students must be targets of the assignment
 // that the actor reaches; if any is not, nothing is written and the error
-// names them. The assignment row is held for the transaction, so concurrent
-// writes to one assignment's window and overrides take turns.
+// names them. The transaction takes the maintenance-windows lock shared, then
+// holds the assignment row, so concurrent writes to one assignment's window and
+// overrides take turns and an attempt start waits for them. The attempts in
+// progress of the students named move with their overrides before it commits.
 func (s *Postgres) SetOverrides(ctx context.Context, req domain.Request, in domain.OverrideInput) ([]domain.StudentOverride, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
@@ -104,7 +114,10 @@ func (s *Postgres) SetOverrides(ctx context.Context, req domain.Request, in doma
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := lockForOverrides(ctx, tx, req.Scope(), req.ID); err != nil {
+	if err := lockWindowAndAssignment(ctx, tx, req.Scope(), req.ID); err != nil {
+		return nil, err
+	}
+	if err := requireCloseAhead(ctx, tx, in.ClosesAt); err != nil {
 		return nil, err
 	}
 	if err := checkOverrideTargets(ctx, tx, req, in.StudentIDs); err != nil {
@@ -119,10 +132,43 @@ func (s *Postgres) SetOverrides(ctx context.Context, req domain.Request, in doma
 	if err != nil {
 		return nil, err
 	}
+	if _, err := schedule.RecomputeDeadlines(ctx, tx, recomputeFor(req, in.StudentIDs, "student_override", in.Now)); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("assignments: commit set overrides: %w", err)
 	}
 	return written, nil
+}
+
+func recomputeFor(req domain.Request, students []string, cause string, now time.Time) schedule.Recompute {
+	return schedule.Recompute{
+		AssignmentID: req.ID, StudentIDs: students, ActorID: req.ActorID,
+		IP: req.IP, UserAgent: req.UserAgent, Cause: cause, Now: now,
+	}
+}
+
+func lockWindowAndAssignment(ctx context.Context, tx pgx.Tx, scope access.Scope, id string) error {
+	if err := schedule.LockWindows(ctx, tx); err != nil {
+		return err
+	}
+	return lockForOverrides(ctx, tx, scope, id)
+}
+
+func requireCloseAhead(ctx context.Context, tx pgx.Tx, closesAt *time.Time) error {
+	if closesAt == nil {
+		return nil
+	}
+	var ahead bool
+	if err := tx.QueryRow(ctx, `SELECT $1::timestamptz > now()`, *closesAt).Scan(&ahead); err != nil {
+		return fmt.Errorf("assignments: check the close is ahead: %w", err)
+	}
+	if !ahead {
+		return &domain.ValidationError{Fields: []domain.FieldError{{
+			Field: "closesAt", Message: "Thời điểm đóng mới phải ở phía trước.",
+		}}}
+	}
+	return nil
 }
 
 func lockForOverrides(ctx context.Context, tx pgx.Tx, scope access.Scope, id string) error {
@@ -296,8 +342,17 @@ func (s *Postgres) Overrides(ctx context.Context, scope access.Scope, assignment
 // reaches and records the values it removed, in one statement. An override the
 // actor does not reach, or that does not exist, answers ErrNotFound.
 func (s *Postgres) DeleteOverride(ctx context.Context, req domain.Request, studentID string, now time.Time) error {
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("assignments: begin delete override: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := lockWindowAndAssignment(ctx, tx, req.Scope(), req.ID); err != nil {
+		return err
+	}
 	var removed int
-	err := s.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		WITH removed AS (
 		  DELETE FROM app.assignment_student_overrides ov
 		   WHERE ov.assignment_id = $1::uuid AND ov.student_id = $2::uuid
@@ -323,6 +378,9 @@ func (s *Postgres) DeleteOverride(ctx context.Context, req domain.Request, stude
 	}
 	if removed == 0 {
 		return domain.ErrNotFound
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("assignments: commit delete override: %w", err)
 	}
 	return nil
 }

@@ -67,6 +67,7 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
     promptContent: question.promptContent ?? null,
     explanationContent: question.explanationContent ?? null,
     mediaAssetId: question.media?.id ?? null,
+    mediaAlt: question.mediaAlt ?? null,
     audio: question.audio ?? null,
     transcript: question.transcript ?? null,
     options: (question.options ?? []).map((option) => ({

@@ -126,6 +126,28 @@ test("learner preview cannot receive answer keys, explanations or shared transcr
   );
 });
 
+test("learner preview carries a member's image alt text, and null when it has none", async () => {
+  const { groupPreview } = await import("@/features/question-groups/preview");
+  const bundle = group();
+  const image = {
+    id: crypto.randomUUID(),
+    kind: "image" as const,
+    url: "https://assets.example/map.png",
+    mimeType: "image/png" as const,
+    bytes: 12,
+    originalFilename: "map.png",
+    createdAt: "2026-10-01T00:00:00Z",
+  };
+  bundle.questions[0]!.input.mediaAssetId = image.id;
+  bundle.questions[0]!.input.mediaAlt = "Bản đồ thị trấn";
+  const described = groupPreview(bundle, [image]).questions[0]!;
+  expect(described.media?.id).toBe(image.id);
+  expect(described.mediaAlt).toBe("Bản đồ thị trấn");
+
+  delete bundle.questions[0]!.input.mediaAlt;
+  expect(groupPreview(bundle, [image]).questions[0]!.mediaAlt).toBeNull();
+});
+
 test("independent recovery remaps both ends of rich blank links without mutating the original", () => {
   const bundle = group();
   const question = bundle.questions[0]!;
