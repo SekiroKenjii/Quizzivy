@@ -578,6 +578,43 @@ describe("the result page", () => {
       .click(await within(article).findByRole("button", { name: "Thử lại" }));
     await waitFor(() => expect(reads).toBe(2));
   });
+
+  it("draws a question's image under its prompt, described by its alt text", async () => {
+    const image = (n: number) => ({
+      id: uuid("cc", n),
+      kind: "image" as const,
+      url: `https://assets.example/map-${n}.png`,
+      mimeType: "image/png" as const,
+      bytes: 12,
+      originalFilename: `map-${n}.png`,
+      createdAt: "2026-08-20T00:00:00Z",
+    });
+    serve(
+      scored([
+        choice(1, AB, [1], {
+          prompt: "Bưu điện ở đâu?",
+          earned: 1,
+          media: image(1),
+          mediaAlt: "Bản đồ trung tâm, bưu điện cạnh ngân hàng",
+        }),
+        choice(2, AB, [1], { prompt: "Còn chợ?", earned: 1, media: image(2) }),
+      ]),
+    );
+    renderResult();
+
+    const described = await screen.findByAltText(
+      "Bản đồ trung tâm, bưu điện cạnh ngân hàng",
+    );
+    expect(described).toHaveAttribute("src", "https://assets.example/map-1.png");
+    expect(item("Bưu điện ở đâu?")).toContainElement(described);
+    const prompt = screen.getByText("Bưu điện ở đâu?");
+    expect(
+      prompt.compareDocumentPosition(described) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(item("Còn chợ?")).getByAltText("Hình ảnh của câu hỏi"),
+    ).toHaveAttribute("src", "https://assets.example/map-2.png");
+  });
 });
 
 describe("the deck's three variants", () => {

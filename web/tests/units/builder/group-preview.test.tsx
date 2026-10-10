@@ -145,6 +145,32 @@ it("draws a question's own recording and image in the preview", () => {
   );
 });
 
+it("describes a question's image by its frozen alt text in the preview", () => {
+  render(
+    <StudentPreview
+      questions={[
+        {
+          ...previewQuestions[1]!,
+          media: {
+            id: "01935000-0000-7000-8000-000000000032",
+            kind: "image",
+            mimeType: "image/png",
+            bytes: 12,
+            originalFilename: "map.png",
+            createdAt: "2026-09-24T00:00:00Z",
+            url: "https://assets.example/map.png",
+          },
+          mediaAlt: "Bản đồ trung tâm thị trấn, bưu điện cạnh ngân hàng",
+        },
+      ]}
+    />,
+  );
+  expect(
+    screen.getByAltText("Bản đồ trung tâm thị trấn, bưu điện cạnh ngân hàng"),
+  ).toHaveAttribute("src", "https://assets.example/map.png");
+  expect(screen.queryByAltText("Hình ảnh của câu hỏi")).toBeNull();
+});
+
 it("does not resolve an unbound material asset or recording from its ID", () => {
   const { container, rerender } = render(
     <StudentPreview
