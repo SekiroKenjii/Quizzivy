@@ -2,6 +2,7 @@ import { useEffect, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
@@ -41,6 +42,12 @@ interface PaneProps {
   onStatus: (status: AutosaveStatus) => void;
 }
 
+/**
+ * BuilderGroupPane edits a shared-context group in the builder's editor pane,
+ * framed as the question editor is: a header with the group's title, its save
+ * state and "Save a copy to the bank", then the group's alerts and the
+ * embedded `GroupComposer`.
+ */
 export function BuilderGroupPane(props: Readonly<PaneProps>) {
   const { t } = useTranslation();
   const owner = useAuthStore((state) => state.user?.id ?? "");
@@ -50,12 +57,19 @@ export function BuilderGroupPane(props: Readonly<PaneProps>) {
     refetchOnWindowFocus: false,
     queryFn: ({ signal }) => getGroup(props.id, signal),
   });
-  if (query.isPending) return <ListSkeleton rows={6} />;
+  if (query.isPending)
+    return (
+      <div className="p-4">
+        <ListSkeleton rows={6} />
+      </div>
+    );
   if (query.isError)
     return (
-      <LoadError error={query.error} onRetry={() => void query.refetch()}>
-        {t("groups.loadFailed")}
-      </LoadError>
+      <div className="p-4">
+        <LoadError error={query.error} onRetry={() => void query.refetch()}>
+          {t("groups.loadFailed")}
+        </LoadError>
+      </div>
     );
   return (
     <GroupRecoveryGate owner={owner} stored={query.data}>
@@ -148,59 +162,68 @@ function GroupForm({
       .catch(() => setError(t("groups.loadFailed")));
   }
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p role="status" className="text-muted-foreground text-sm">
-          {t(localSaveLabel(editor))}
-        </p>
+    <div className="flex min-w-0 flex-col">
+      <div className="flex min-w-0 items-center gap-2.5 border-b px-4 py-3">
+        <Layers className="text-muted-fg size-3.5 shrink-0" aria-hidden="true" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h2 className="truncate text-[13px] font-semibold">
+            {editor.bundle.group.title || t("groups.newGroup")}
+          </h2>
+          <p role="status" className="text-muted-fg truncate text-xs">
+            {t(localSaveLabel(editor))}
+          </p>
+        </div>
         <Button
           variant="outline"
           size="sm"
+          className="bg-card h-7.5 shrink-0 rounded-[7px] px-2.5 text-[12.5px] font-normal in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:text-[12.5px]"
           disabled={copying}
           onClick={() => void saveBankCopy()}
         >
           {t("builder.saveGroupToBank")}
         </Button>
       </div>
-      {copied ? (
-        <p role="status" className="text-sm">
-          {t("builder.groupSavedToBank")}{" "}
-          <Link className="underline" to={`/teacher/question-bank/groups/${copied}`}>
-            {t("common.view")}
-          </Link>
-        </p>
-      ) : null}
-      {copyRequired ? (
-        <Alert>
-          <AlertTitle>{t("groups.conflictTitle")}</AlertTitle>
-          <AlertDescription>{t("groups.conflictBody")}</AlertDescription>
-        </Alert>
-      ) : null}
-      {error || status.kind === "failed" ? (
-        <Alert>
-          <AlertDescription role="alert">
-            {error ??
-              (status.kind === "failed"
-                ? status.message || t("groups.saveFailed")
-                : "")}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      <GroupComposer
-        embedded
-        bundle={editor.bundle}
-        assets={assets}
-        selectedQuestionId={selectedQuestionId ?? undefined}
-        onSelectedQuestionChange={onSelectedQuestionChange}
-        onChange={editor.change}
-        onAsset={(asset) =>
-          setAssets((current) => [
-            ...current.filter((item) => item.id !== asset.id),
-            asset,
-          ])
-        }
-        onRefresh={refresh}
-      />
+      <div className="flex min-w-0 flex-col gap-4.5 px-4 py-4.5">
+        {copied ? (
+          <p role="status" className="text-sm">
+            {t("builder.groupSavedToBank")}{" "}
+            <Link className="underline" to={`/teacher/question-bank/groups/${copied}`}>
+              {t("common.view")}
+            </Link>
+          </p>
+        ) : null}
+        {copyRequired ? (
+          <Alert>
+            <AlertTitle>{t("groups.conflictTitle")}</AlertTitle>
+            <AlertDescription>{t("groups.conflictBody")}</AlertDescription>
+          </Alert>
+        ) : null}
+        {error || status.kind === "failed" ? (
+          <Alert>
+            <AlertDescription role="alert">
+              {error ??
+                (status.kind === "failed"
+                  ? status.message || t("groups.saveFailed")
+                  : "")}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <GroupComposer
+          embedded
+          bundle={editor.bundle}
+          assets={assets}
+          selectedQuestionId={selectedQuestionId ?? undefined}
+          onSelectedQuestionChange={onSelectedQuestionChange}
+          onChange={editor.change}
+          onAsset={(asset) =>
+            setAssets((current) => [
+              ...current.filter((item) => item.id !== asset.id),
+              asset,
+            ])
+          }
+          onRefresh={refresh}
+        />
+      </div>
     </div>
   );
 }

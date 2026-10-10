@@ -906,7 +906,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
               data-resize-middle
               className={cn(
                 "bg-card shadow-card min-w-0 flex-1 rounded-xl border",
-                selectedId === null || selectedGroupId ? "p-4" : "p-0",
+                selectedId === null && !selectedGroupId ? "p-4" : "p-0",
               )}
             >
               <PageAsideSlot.Provider value={asideSlot}>
