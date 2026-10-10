@@ -248,19 +248,23 @@ func maintenanceWindow(t *testing.T, pool *pgxpool.Pool, startsAt, endsAt time.T
 	})
 }
 
-func createAt(pool *pgxpool.Pool, w world, startedAt, deadline time.Time) (domain.AttemptRecord, error) {
+func sittingAt(start time.Time) worldOpts {
+	return worldOpts{opensAt: start.Add(-time.Hour), closesAt: start.Add(3 * time.Hour), maxAttempts: 1, duration: 60}
+}
+
+func createAt(pool *pgxpool.Pool, w world, startedAt time.Time) (domain.AttemptRecord, error) {
 	hash := sha256.Sum256([]byte(uuid.NewString()))
-	return repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}).Create(context.Background(), domain.CreateInput{
-		AssignmentID:  w.assignment,
-		TestVersionID: w.versionID,
-		StudentID:     w.student,
-		AttemptNo:     1,
-		SessionID:     uuid.NewString(),
-		Seed:          1,
-		BeaconHash:    hash[:],
-		StartedAt:     startedAt,
-		DeadlineAt:    deadline,
+	created, _, err := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}).Create(context.Background(), domain.CreateInput{
+		AssignmentID:       w.assignment,
+		StudentID:          w.student,
+		AttemptNo:          1,
+		SessionID:          uuid.NewString(),
+		Seed:               1,
+		BeaconHash:         hash[:],
+		StartedAt:          startedAt,
+		ExpectedDeadlineAt: startedAt.Add(time.Hour),
 	})
+	return created, err
 }
 
 func attemptsOf(t *testing.T, pool *pgxpool.Pool, w world) int {
@@ -275,11 +279,11 @@ func attemptsOf(t *testing.T, pool *pgxpool.Pool, w world) int {
 
 func TestAStartThatWouldRunIntoMaintenanceIsRefused(t *testing.T) {
 	pool := newPool(t)
-	w := seedWorld(t, pool, openAssignment())
 	start := farPast()
+	w := seedWorld(t, pool, sittingAt(start))
 	maintenanceWindow(t, pool, start.Add(30*time.Minute), start.Add(90*time.Minute))
 
-	_, err := createAt(pool, w, start, start.Add(time.Hour))
+	_, err := createAt(pool, w, start)
 
 	var scheduled *domain.MaintenanceScheduledError
 	if !errors.As(err, &scheduled) {
@@ -295,11 +299,11 @@ func TestAStartThatWouldRunIntoMaintenanceIsRefused(t *testing.T) {
 
 func TestAStartThatEndsBeforeMaintenanceGoesAhead(t *testing.T) {
 	pool := newPool(t)
-	w := seedWorld(t, pool, openAssignment())
 	start := farPast()
+	w := seedWorld(t, pool, sittingAt(start))
 	maintenanceWindow(t, pool, start.Add(time.Hour), start.Add(2*time.Hour))
 
-	got, err := createAt(pool, w, start, start.Add(time.Hour))
+	got, err := createAt(pool, w, start)
 	if err != nil {
 		t.Fatalf("start = %v, want the attempt", err)
 	}
