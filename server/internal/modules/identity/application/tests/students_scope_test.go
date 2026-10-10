@@ -122,9 +122,16 @@ func newRosterWorld(t *testing.T) *rosterWorld {
 	return w
 }
 
+func classFilter(classID string) []string {
+	if classID == "" {
+		return nil
+	}
+	return []string{classID}
+}
+
 func (w *rosterWorld) list(t *testing.T, scope access.Scope, classID string) map[string]domain.Student {
 	t.Helper()
-	found, err := w.app.Queries.ListStudents.Handle(context.Background(), query.ListStudents{Query: domain.StudentQuery{Query: w.marker, ClassIDs: []string{classID}, Limit: 100, Scope: scope}})
+	found, err := w.app.Queries.ListStudents.Handle(context.Background(), query.ListStudents{Query: domain.StudentQuery{Query: w.marker, ClassIDs: classFilter(classID), Limit: 100, Scope: scope}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +147,7 @@ func (w *rosterWorld) list(t *testing.T, scope access.Scope, classID string) map
 
 func (w *rosterWorld) facets(t *testing.T, scope access.Scope, classID string) domain.StudentFacets {
 	t.Helper()
-	f, err := w.app.Queries.StudentFacets.Handle(context.Background(), query.StudentFacets{Query: domain.StudentQuery{Query: w.marker, ClassIDs: []string{classID}, Scope: scope}})
+	f, err := w.app.Queries.StudentFacets.Handle(context.Background(), query.StudentFacets{Query: domain.StudentQuery{Query: w.marker, ClassIDs: classFilter(classID), Scope: scope}})
 	if err != nil {
 		t.Fatal(err)
 	}
