@@ -212,6 +212,7 @@ var teacherRequest = domain.WriteRequest{ActorID: "teacher", Grants: access.NewS
 func TestABulkResetAnswersEachStudentInTheOrderAskedWithItsOwnReason(t *testing.T) {
 	rig := newBulkRig("a", "grader", "shared", "b", "broken", "disabled", "gone", "c")
 	rig.principal.sets["grader"] = access.NewSet(access.LearningTakeTests, access.TeachingGrading)
+	rig.principal.sets["hidden"] = access.NewSet(access.LearningTakeTests, access.TeachingGrading)
 	rig.principal.unknown["gone"] = true
 	rig.shelf.fail["shared"] = domain.ErrStudentShared
 	rig.shelf.fail["broken"] = errors.New("pq: deadlock detected")
@@ -221,16 +222,17 @@ func TestABulkResetAnswersEachStudentInTheOrderAskedWithItsOwnReason(t *testing.
 	student.DisabledAt = &disabled
 	rig.shelf.known["disabled"] = student
 
-	result := rig.reset(context.Background(), teacherRequest, "a", "missing", "grader", "shared", "b", "broken", "disabled", "gone", "c")
+	result := rig.reset(context.Background(), teacherRequest, "a", "missing", "hidden", "grader", "shared", "b", "broken", "disabled", "gone", "c")
 
 	if got, want := resetIDs(result), []string{"a", "b", "c"}; !slices.Equal(got, want) {
 		t.Errorf("reset %v, want %v in the order asked, though a finished last", got, want)
 	}
-	if got, want := failureOf(result), []string{"missing", "grader", "shared", "broken", "disabled", "gone"}; !slices.Equal(got, want) {
+	if got, want := failureOf(result), []string{"missing", "hidden", "grader", "shared", "broken", "disabled", "gone"}; !slices.Equal(got, want) {
 		t.Errorf("failed %v, want %v in the order asked", got, want)
 	}
 	for id, want := range map[string]error{
 		"missing":  domain.ErrStudentNotFound,
+		"hidden":   domain.ErrStudentNotFound,
 		"grader":   domain.ErrForbidden,
 		"shared":   domain.ErrStudentShared,
 		"broken":   domain.ErrResetFailed,
