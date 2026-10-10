@@ -2418,10 +2418,11 @@ POST   /me/notifications/read           {ids?} (1 to 100; absent means all) → 
 GET    /me/summary                      → {unreadNotifications}; writes the due-time notifications first
 GET    /me/notification-preferences     → the five switches [{event,inApp,email}]
 PUT    /me/notification-preferences     the five switches, each once → the stored switches
-PUT    /me/avatar                      multipart file (PNG or JPEG, at most 2 MiB, each side 200–2048 px)
-                                          → CurrentUser; stored as a 256×256 PNG, EXIF orientation applied
-                                          then dropped; 413 MEDIA_TOO_LARGE, 415 MEDIA_TYPE_UNSUPPORTED |
-                                          MEDIA_UNREADABLE | IMAGE_DIMENSIONS; 10 an hour per user
+PUT    /me/avatar                      multipart file (PNG or JPEG, at most 2 MiB, each side 200–2048 px,
+                                          a JPEG at most 32 scans) → CurrentUser; stored as a 256×256 PNG,
+                                          EXIF orientation applied then dropped; 413 MEDIA_TOO_LARGE, 415
+                                          MEDIA_TYPE_UNSUPPORTED | MEDIA_UNREADABLE | IMAGE_DIMENSIONS;
+                                          10 an hour per user
 DELETE /me/avatar                      → CurrentUser without avatarUrl
 POST   /auth/change-password            400 VALIDATION_FAILED on the rules (§5.4), 400 PASSWORD_UNCHANGED
 POST   /auth/google/link                link Google to current account → CurrentUser
