@@ -88,7 +88,7 @@ export function BuilderQuestionEditor({
             step={0.5}
             value={value.points}
             aria-invalid={value.points <= 0}
-            className="bg-background h-7.5 w-14 rounded-[7px] px-1.5 text-center text-[13px] in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px]"
+            className="bg-background h-7.5 w-12 rounded-[7px] px-0.5 text-center text-[13px] in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:px-0.5 in-data-[scale=deck]:text-[13px]"
             onChange={(event) =>
               onChange({ ...value, points: Number(event.target.value) })
             }
@@ -159,7 +159,7 @@ export function BuilderQuestionEditor({
         />
 
         <details className="group/more border-t pt-3.5">
-          <summary className="w-fit cursor-pointer rounded-[6px] text-[13px] font-medium">
+          <summary className="cursor-pointer rounded-[6px] text-[13px] font-medium">
             {t("builder.editor.moreOptions")}
           </summary>
           <div className="mt-3 flex flex-col gap-3.5">
