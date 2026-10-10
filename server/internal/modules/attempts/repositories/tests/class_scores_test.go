@@ -159,6 +159,7 @@ func TestAClassScoreIsTheBestGradedAttemptOfEachLiveMemberOnEachOfItsAssignments
 	w.attempt(z, a, 1, "graded", points(9), points(10))
 	w.attempt(z, other, 1, "graded", points(7), points(10))
 	w.exec(`DELETE FROM app.class_members WHERE class_id = $1 AND user_id = $2`, classK, left)
+	w.enrol(classM, left)
 
 	source := repositories.NewStudentStats(db.NewContext(w.pool))
 	scores, err := source.ClassScores(context.Background(), []string{classK, classL, classM, uuid.NewString()})
