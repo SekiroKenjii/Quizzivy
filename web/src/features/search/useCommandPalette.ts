@@ -32,7 +32,7 @@ export function isApplePlatform(): boolean {
           ?.platform ??
         navigator.platform ??
         "");
-  return /Mac|iPhone|iPad/.test(platform);
+  return /mac|iphone|ipad/i.test(platform);
 }
 
 /** commandKeyLabel names the command modifier in running text: "Cmd" on Apple devices, "Ctrl" elsewhere. */
