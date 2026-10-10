@@ -183,7 +183,7 @@ server/            Go module `quizzivy`: a modular monolith
   internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, ...)
   internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation, content,
                      access (permission keys, Principal, Scope, CanActOn), visibility (who a teacher reaches),
-                     answered (when a saved answer counts as answered), schedule (the assignment status and close rules)
+                     answered (when a saved answer counts as answered), schedule (the assignment status and close rules, and a student's override of them)
   internal/modules/  one directory per bounded context, four layers each:
                      domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/;
                      access (roles, grants, the principal cache) has no http/ until R5
