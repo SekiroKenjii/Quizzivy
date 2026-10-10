@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next";
 import { useBlocker, useBeforeUnload, useNavigate, useParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { Callout } from "@/components/shared/Callout";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { PageHead } from "@/layouts/shell/PageHead";
 import { useAuthStore } from "@/stores/auth";
 import { ApiError } from "@/lib/api/errors";
 import { createGroup, getGroup, updateGroup, type StoredGroup } from "../../api";
@@ -20,6 +20,12 @@ import { useGroupEditor } from "../../useGroupEditor";
 import { GroupPreviewDialog } from "../../components/GroupPreviewDialog";
 import { GroupComposer } from "../../components/GroupComposer";
 
+/**
+ * GroupEditorPage edits one question group (DG-68): its title, materials,
+ * questions and gaps through `GroupComposer`, with a local draft that
+ * survives a reload, an explicit save, a copy when someone else changed the
+ * group, a student preview, and a guard on leaving with unsaved changes.
+ */
 export default function GroupEditorPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
@@ -52,6 +58,7 @@ function Editor({
   const [assets, setAssets] = useState(stored.assets);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
+  const previewTrigger = useRef<HTMLButtonElement>(null);
   const [copying, setCopying] = useState(false);
   const leaving = useRef(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
@@ -122,17 +129,21 @@ function Editor({
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
-      <PageHeader
+    <div className="flex min-w-0 flex-col gap-4">
+      <PageHead
+        crumb
         title={editor.bundle.group.title || t("groups.newGroup")}
-        backTo="/teacher/question-bank/groups"
+        back={{ to: "/teacher/question-bank/groups", label: t("groups.bankTitle") }}
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={() => setPreview(true)}>
+            <Button
+              ref={previewTrigger}
+              variant="outline"
+              onClick={() => setPreview(true)}
+            >
               {t("builder.previewAsStudent")}
             </Button>
             <Button
-              size="sm"
               disabled={
                 copying || editor.status.kind === "saving" || stored.archivedAt !== null
               }
@@ -145,39 +156,33 @@ function Editor({
             </Button>
           </>
         }
-      />
-      <p role="status" className="text-muted-foreground text-sm">
-        {t(saveLabel(editor))}
-      </p>
+      >
+        <p role="status" className="text-muted-fg text-sm">
+          {t(saveLabel(editor))}
+        </p>
+      </PageHead>
       {editor.copyRequired ? (
-        <Alert>
-          <AlertTitle>{t("groups.conflictTitle")}</AlertTitle>
-          <AlertDescription>{t("groups.conflictBody")}</AlertDescription>
-        </Alert>
+        <Callout tone="warning" lead={t("groups.conflictTitle")}>
+          {t("groups.conflictBody")}
+        </Callout>
       ) : null}
-      {stored.archivedAt ? (
-        <Alert>
-          <AlertDescription>{t("groups.archivedHint")}</AlertDescription>
-        </Alert>
-      ) : null}
+      {stored.archivedAt ? <Callout>{t("groups.archivedHint")}</Callout> : null}
       {error || editor.status.kind === "failed" ? (
-        <Alert>
-          <AlertDescription role="alert">
-            {error ??
-              (editor.status.kind === "failed"
-                ? editor.status.message || t("groups.saveFailed")
-                : "")}
-          </AlertDescription>
-        </Alert>
+        <Callout tone="danger" announce>
+          {error ??
+            (editor.status.kind === "failed"
+              ? editor.status.message || t("groups.saveFailed")
+              : "")}
+        </Callout>
       ) : null}
-      {preview ? (
-        <GroupPreviewDialog
-          bundle={editor.bundle}
-          assets={assets}
-          onClose={() => setPreview(false)}
-          onRefresh={refresh}
-        />
-      ) : null}
+      <GroupPreviewDialog
+        open={preview}
+        bundle={editor.bundle}
+        assets={assets}
+        returnFocus={previewTrigger}
+        onClose={() => setPreview(false)}
+        onRefresh={refresh}
+      />
       <fieldset disabled={stored.archivedAt !== null || copying} className="min-w-0">
         {stored.archivedAt === null ? (
           <GroupComposer

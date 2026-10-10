@@ -17,6 +17,7 @@ function testRow(id: string, title: string, status: Status) {
     description: null,
     status,
     currentVersion: status === "draft" ? 0 : 3,
+    nextVersion: status === "draft" ? 1 : 4,
     totalPoints: 30,
     questionCount: 24,
     audioCount: 0,

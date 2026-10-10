@@ -85,6 +85,7 @@ describe("question metadata wire boundaries", () => {
       title: "Test",
       status: "draft",
       currentVersion: 0,
+      nextVersion: 1,
       totalPoints: 0,
       questionCount: 0,
       audioCount: 0,

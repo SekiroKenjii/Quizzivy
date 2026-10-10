@@ -30,6 +30,7 @@ export function testFixture(overrides: Partial<Test> = {}): Test {
     description: null,
     status: "published",
     currentVersion: 1,
+    nextVersion: (overrides.currentVersion ?? 1) + 1,
     totalPoints: 2,
     questionCount: 1,
     audioCount: 0,

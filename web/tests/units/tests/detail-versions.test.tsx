@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import i18n from "@/lib/i18n";
 import { registerContentElement } from "@/layouts/shell/contentWidth";
 import {
   ADDED_PROMPT,
@@ -368,6 +369,55 @@ describe("publishing the draft from the detail", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(detail.publishBodies).toEqual([{ changeNote: "Sửa đáp án câu 1" }]);
+  });
+
+  it("names the number the server will assign, not the highest listed version + 1", async () => {
+    twoVersions();
+    detail.test = testFixture({
+      currentVersion: 2,
+      nextVersion: 4,
+      unpublishedChanges: 4,
+    });
+    const { user } = renderDetail();
+
+    expect(
+      await screen.findByText(
+        "Bài giao mới vẫn nhận phiên bản 2 cho tới khi bạn phát hành bản nháp thành phiên bản 4.",
+        { exact: false },
+      ),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Phát hành phiên bản 4" }));
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Phát hành bản nháp thành phiên bản 4?",
+      }),
+    ).toBeVisible();
+  });
+
+  it("says the same in English", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      twoVersions();
+      detail.test = testFixture({
+        currentVersion: 2,
+        nextVersion: 4,
+        unpublishedChanges: 4,
+      });
+      const { user } = renderDetail();
+
+      expect(
+        await screen.findByText(
+          "New assignments get version 2 until you publish the draft as version 4.",
+          { exact: false },
+        ),
+      ).toBeVisible();
+      await user.click(screen.getByRole("button", { name: "Publish version 4" }));
+      expect(
+        await screen.findByRole("dialog", { name: "Publish the draft as version 4?" }),
+      ).toBeVisible();
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
   });
 
   it("sends a null change note when the note is blank", async () => {
