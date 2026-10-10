@@ -409,6 +409,10 @@ func (c *committed) student(t *testing.T) string {
 		RETURNING id::text`, uuid.NewString()).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := c.pool.Exec(context.Background(),
+		`INSERT INTO app.assignment_students(assignment_id, user_id) VALUES ($1::uuid, $2::uuid)`, c.assignment, id); err != nil {
+		t.Fatal(err)
+	}
 	c.students = append(c.students, id)
 	return id
 }
@@ -422,17 +426,18 @@ func TestWindowScheduleSerialisesAgainstAttemptStart(t *testing.T) {
 	for attempt := range 8 {
 		windowStart := base.Add(time.Duration(attempt) * 24 * time.Hour)
 		hash := sha256.Sum256([]byte(uuid.NewString()))
+		startedAt := windowStart.Add(-15 * time.Minute)
 		in := attemptsdomain.CreateInput{
-			AssignmentID:  c.assignment,
-			TestVersionID: c.version,
-			StudentID:     c.student(t),
-			AttemptNo:     1,
-			SessionID:     uuid.NewString(),
-			Seed:          1,
-			BeaconHash:    hash[:],
-			StartedAt:     time.Now().Add(-10 * 365 * 24 * time.Hour),
-			DeadlineAt:    windowStart.Add(30 * time.Minute),
+			AssignmentID:       c.assignment,
+			StudentID:          c.student(t),
+			AttemptNo:          1,
+			SessionID:          uuid.NewString(),
+			Seed:               1,
+			BeaconHash:         hash[:],
+			StartedAt:          startedAt,
+			ExpectedDeadlineAt: startedAt.Add(45 * time.Minute),
 		}
+		deadline := windowStart.Add(30 * time.Minute)
 
 		var wg sync.WaitGroup
 		var created attemptsdomain.AttemptRecord
@@ -440,7 +445,7 @@ func TestWindowScheduleSerialisesAgainstAttemptStart(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			created, createErr = starts.Create(ctx, in)
+			created, _, createErr = starts.Create(ctx, in)
 		}()
 		go func() {
 			defer wg.Done()
@@ -457,13 +462,13 @@ func TestWindowScheduleSerialisesAgainstAttemptStart(t *testing.T) {
 		case createErr != nil:
 			t.Fatalf("attempt %d: start failed with %v, want the attempt or MaintenanceScheduledError", attempt, createErr)
 		default:
-			var deadline time.Time
-			if err := c.pool.QueryRow(ctx, `SELECT deadline_at FROM app.attempts WHERE id = $1::uuid`, created.ID).Scan(&deadline); err != nil {
+			var stored time.Time
+			if err := c.pool.QueryRow(ctx, `SELECT deadline_at FROM app.attempts WHERE id = $1::uuid`, created.ID).Scan(&stored); err != nil {
 				t.Fatal(err)
 			}
-			if want := in.DeadlineAt.Add(time.Hour); !deadline.Equal(want) {
+			if want := deadline.Add(time.Hour); !stored.Equal(want) {
 				t.Fatalf("attempt %d: an attempt started across a new window kept deadline %v, want %v; "+
-					"it will be cut off by the maintenance", attempt, deadline, want)
+					"it will be cut off by the maintenance", attempt, stored, want)
 			}
 		}
 		if _, err := c.pool.Exec(ctx, `DELETE FROM app.attempts WHERE student_id = $1::uuid`, in.StudentID); err != nil {

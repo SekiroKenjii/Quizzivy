@@ -1291,7 +1291,7 @@
     },
     "summaryTitle": "Summary",
     "progressValue": "{{submitted}}/{{total}}",
-    "windowValue": "{{opens}} → {{closes}}",
+    "windowValue": "{{opens}} – {{closes}}",
     "latestVersion": "latest: v{{version}}",
     "saveDraft": "Save draft",
     "needTargets": "Choose a class or student before assigning.",
@@ -1846,7 +1846,7 @@
     "strip": {
       "totalAway": "Total time away",
       "openNotSummed": "excluding the open one",
-      "episodes": "Times away ≥3s",
+      "episodes": "Times away 3s+",
       "oneOpen": "1 open",
       "pastes": "Pastes",
       "resumes": "Resumes",
@@ -2042,7 +2042,7 @@
     "gradedBadge": "Graded",
     "save": "Save",
     "pointsFor": "Points for {{who}}",
-    "keys": "↓ next student · 0 – {{max}} to score · ⌘⏎ save and go to the next question",
+    "keys": "<down/> next student · 0 – {{max}} to score · {{modifier}}+Enter save and go to the next question",
     "notManual": "This question is graded automatically.",
     "empty": "No paper has answered this question yet.",
     "loadFailed": "Could not load the answers."
@@ -2913,7 +2913,7 @@
     "tagSuggestions": "Tag suggestions",
     "createTag": "Create “{{tag}}”",
     "newTag": "New tag",
-    "tagKeys": "↑ ↓ to move · Enter to add · Esc to close"
+    "tagKeys": "<up/> <down/> to move · Enter to add · Esc to close"
   },
   "toast": {
     "region": "Notifications",
@@ -3051,5 +3051,11 @@
   "trueFalse": {
     "true": "True",
     "false": "False"
+  },
+  "keyGlyph": {
+    "command": "Command",
+    "enter": "Enter",
+    "up": "Up arrow",
+    "down": "Down arrow"
   }
 }

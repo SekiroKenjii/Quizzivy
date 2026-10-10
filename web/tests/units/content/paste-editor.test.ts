@@ -341,7 +341,7 @@ describe("the notice band", () => {
 
   test.each([
     ["Win32", "Ctrl+Shift+V"],
-    ["MacIntel", "⇧⌘V"],
+    ["MacIntel", "Cmd+Shift+V"],
   ])(
     "names the plain-paste shortcut of %s in the band and the footer alike",
     (platform, key) => {

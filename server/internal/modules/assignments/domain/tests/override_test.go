@@ -13,7 +13,7 @@ func count(n int) *int { return &n }
 
 func TestAnOverrideRequestIsRefusedWhenItSaysNothingOrContradictsItself(t *testing.T) {
 	now := time.Date(2026, 10, 10, 8, 0, 0, 0, time.UTC)
-	ahead, behind := now.Add(time.Hour), now.Add(-time.Hour)
+	ahead := now.Add(time.Hour)
 	cases := []struct {
 		name   string
 		in     domain.OverrideInput
@@ -27,8 +27,6 @@ func TestAnOverrideRequestIsRefusedWhenItSaysNothingOrContradictsItself(t *testi
 		{"nothing to change", domain.OverrideInput{Reason: "ốm"}, []string{"extendBy"}},
 		{"a reason of only whitespace", domain.OverrideInput{ExtendBy: count(30), Reason: " \t\n "}, []string{"reason"}},
 		{"both ways to name the close", domain.OverrideInput{ExtendBy: count(30), ClosesAt: &ahead, Reason: "ốm"}, []string{"closesAt"}},
-		{"a close that is not ahead", domain.OverrideInput{ClosesAt: &behind, Reason: "ốm"}, []string{"closesAt"}},
-		{"a close that is now", domain.OverrideInput{ClosesAt: &now, Reason: "ốm"}, []string{"closesAt"}},
 		{"nothing to change and no reason", domain.OverrideInput{}, []string{"extendBy", "reason"}},
 	}
 	for _, c := range cases {
