@@ -1,7 +1,33 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.64 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.65 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.64**
+
+R4, extensions and per-student overrides, first half (T-R4.12a):
+
+- §13 New table `assignment_student_overrides`, one row per assignment and student, that
+  gives one student a later close, a longer time limit (1 to 600 minutes) and up to 10
+  more attempts, with a required reason (1 to 500 characters). It cascades with the
+  assignment and with the student, and a row must change something. Migration 00101.
+  A missing row is the assignment as everyone has it.
+- §15 `POST /teacher/assignments/:id/extend` moves the close later for everyone
+  (`teaching.assignments.write`) and answers `409 ASSIGNMENT_CLOSED` for a closed
+  assignment, which is reopened instead. `PUT`, `GET` and `DELETE` on
+  `/teacher/assignments/:id/student-overrides[/:studentId]`
+  (`teaching.attempts.intervene`) set, list and remove one student's override. A request
+  names only students of the assignment the caller reaches; a student who is not one
+  answers `422 VALIDATION_FAILED` for the whole request. A field the request names
+  replaces the stored one and a field it leaves out keeps it. Every write is audited with
+  the old and new values.
+- §9 The student's card, intro, start and result read the student's own window: the later
+  of the assignment's close and their override's (which lifts an early close), their time
+  limit, and the attempts they were given. An assignment that closed for everyone else
+  reads open to a student whose override is still ahead. A result released `after_close`
+  is withheld until that student's own close; the class average still waits for the
+  assignment's. Nothing in a student's payload says an override exists or why.
+- An attempt already in progress keeps its deadline until T-R4.12b recomputes it.
 
 **Changes since v0.63**
 
@@ -2087,6 +2113,8 @@ Snapshotting into **normalized rows** rather than one `jsonb` blob keeps per-que
 
 **Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Until v0.9.1 (T-R3.2) the owner columns are `NOT NULL … NOT VALID`, and triggers fill them for the v0.7.0 binary's inserts. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
 
+**Per-student overrides** (R4). `assignment_student_overrides(assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by, created_at, updated_at)`, primary key `(assignment_id, student_id)`, both foreign keys `ON DELETE CASCADE`, `created_by` `ON DELETE SET NULL`. `closes_at` and `duration_minutes` are nullable and `extra_attempts` defaults to 0; a check requires at least one of the three to change something. A student's close is `greatest(least(closed_at, closes_at), override.closes_at)`: an override only ever lengthens, and one that reaches past an early close lifts it for that student alone. `shared/schedule` holds that rule as SQL and in Go, and the join that reads it.
+
 **Assignments and attempts:**
 
 ```sql
@@ -2280,6 +2308,13 @@ DELETE /teacher/media/:id               409 if referenced by a published version
 GET    /teacher/assignments | POST | GET /:id | PATCH /:id
                                         PATCH 409 ASSIGNMENT_LOCKED while the assignment is open and the
                                         body changes testVersionId, durationMinutes or maxAttempts
+POST   /teacher/assignments/:id/extend  {minutes,notify?} → Assignment; 409 ASSIGNMENT_CLOSED when closed
+GET    /teacher/assignments/:id/student-overrides   → {items}
+PUT    /teacher/assignments/:id/student-overrides   {studentIds,extendBy?|closesAt?,durationMinutes?,
+                                          extraAttempts?,reason,notify?} → {items}; 422 for a student
+                                          who is not a target the caller reaches; 409 ASSIGNMENT_CLOSED
+                                          for extendBy on a student whose close has passed
+DELETE /teacher/assignments/:id/student-overrides/:studentId
 GET    /teacher/assignments/:id/attempts  → rows incl. integrity + audio summary
 POST   /teacher/attempts/:id/extend     {minutes,reason}
 POST   /teacher/attempts/:id/reset      {reason}

@@ -16,10 +16,13 @@ type Application struct {
 }
 
 type Commands struct {
-	Delete cqrs.CommandHandler[command.Delete, cqrs.Nothing]
-	Create cqrs.CommandHandler[command.Create, domain.Assignment]
-	Reopen cqrs.CommandHandler[command.Reopen, domain.Assignment]
-	Update cqrs.CommandHandler[command.Update, domain.Assignment]
+	Delete         cqrs.CommandHandler[command.Delete, cqrs.Nothing]
+	Create         cqrs.CommandHandler[command.Create, domain.Assignment]
+	Reopen         cqrs.CommandHandler[command.Reopen, domain.Assignment]
+	Update         cqrs.CommandHandler[command.Update, domain.Assignment]
+	Extend         cqrs.CommandHandler[command.Extend, domain.Assignment]
+	SetOverrides   cqrs.CommandHandler[command.SetOverrides, []domain.StudentOverride]
+	DeleteOverride cqrs.CommandHandler[command.DeleteOverride, cqrs.Nothing]
 }
 
 type Queries struct {
@@ -27,6 +30,7 @@ type Queries struct {
 	ForStudent    cqrs.QueryHandler[query.ForStudent, domain.StudentSections]
 	Get           cqrs.QueryHandler[query.Get, domain.Assignment]
 	List          cqrs.QueryHandler[query.List, query.ListResult]
+	Overrides     cqrs.QueryHandler[query.Overrides, []domain.StudentOverride]
 	StudentDetail cqrs.QueryHandler[query.StudentDetail, domain.StudentDetail]
 }
 
@@ -34,16 +38,20 @@ func New(repo domain.Repository) *Application {
 	service := support.NewService(repo)
 	return &Application{
 		Commands: Commands{
-			Delete: command.DeleteHandler{Service: service},
-			Create: command.CreateHandler{Service: service},
-			Reopen: command.ReopenHandler{Service: service},
-			Update: command.UpdateHandler{Service: service},
+			Delete:         command.DeleteHandler{Service: service},
+			Create:         command.CreateHandler{Service: service},
+			Reopen:         command.ReopenHandler{Service: service},
+			Update:         command.UpdateHandler{Service: service},
+			Extend:         command.ExtendHandler{Service: service},
+			SetOverrides:   command.SetOverridesHandler{Service: service},
+			DeleteOverride: command.DeleteOverrideHandler{Service: service},
 		},
 		Queries: Queries{
 			Facets:        query.FacetsHandler{Service: service},
 			ForStudent:    query.ForStudentHandler{Service: service},
 			Get:           query.GetHandler{Service: service},
 			List:          query.ListHandler{Service: service},
+			Overrides:     query.OverridesHandler{Service: service},
 			StudentDetail: query.StudentDetailHandler{Service: service},
 		},
 		service: service,
