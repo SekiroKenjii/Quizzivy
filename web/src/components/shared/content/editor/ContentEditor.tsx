@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import type { SemanticContent } from "../model";
@@ -41,6 +41,7 @@ export type ContentEditorProps = {
   placeholder?: string | undefined;
   fileNotice?: string | undefined;
   readOnly?: boolean | undefined;
+  onEditor?: ((editor: Editor | null) => void) | undefined;
 };
 
 function ActiveEditor({
@@ -55,6 +56,7 @@ function ActiveEditor({
   footer,
   placeholder,
   fileNotice,
+  onEditor,
   style,
 }: Readonly<
   Omit<ContentEditorProps, "profile" | "footer"> & {
@@ -99,6 +101,11 @@ function ActiveEditor({
       }
     },
   });
+  useEffect(() => {
+    if (!editor || !onEditor) return;
+    onEditor(editor);
+    return () => onEditor(null);
+  }, [editor, onEditor]);
   if (!editor) return <p role="status">{t("contentEditor.loading")}</p>;
   const message =
     notice === "file"
@@ -144,7 +151,9 @@ function ActiveEditor({
  * document to isolate its undo history. The frame's minimum height, text size
  * and footer default by profile; `fileNotice` is what the notice band says
  * about a pasted or dropped file; `readOnly` renders the document with
- * `ContentView` and no toolbar or footer.
+ * `ContentView` and no toolbar or footer. `onEditor` receives the live editor
+ * once it exists and `null` when it goes, for a host command that acts at its
+ * caret; it must be a stable callback.
  */
 export function ContentEditor(props: Readonly<ContentEditorProps>) {
   const { t } = useTranslation();
