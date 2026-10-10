@@ -57,6 +57,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		return Assembly{}, err
 	}
 	identityApp.SetPrincipals(principals)
+	attachClassPorts(classesApp, identityApp, stats)
 	if err := attachAvatars(ctx, cfg, logger, identityApp, imagesafe.New(imagesafe.NewGate(photoDecodeSlots))); err != nil {
 		return Assembly{}, err
 	}

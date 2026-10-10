@@ -54,7 +54,12 @@ function listOf(items: components["schemas"]["Class"][]) {
   return http.get(`${BASE}/teacher/classes`, ({ request }) => {
     statuses.push(new URL(request.url).searchParams.get("status"));
     return contractJson("/teacher/classes", "get", 200, {
-      items,
+      items: items.map((c) => ({
+        ...c,
+        joinCode:
+          c.joinCode === null ? null : { ...c.joinCode, code: null, legacy: false },
+        averageScore: null,
+      })),
       page: 1,
       pageSize: 20,
       total: items.length,

@@ -44,6 +44,9 @@ const SAMPLE_CLASS = {
   name: "IELTS Foundation",
   description: null,
   teacherName: "Cô Thương",
+  teacherAvatarUrl: null,
+  scheduleLabel: null,
+  room: null,
   joinedAt: "2026-06-01T00:00:00Z",
 };
 

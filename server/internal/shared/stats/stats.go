@@ -23,3 +23,20 @@ type Student struct {
 type Source interface {
 	StudentStats(ctx context.Context, scope access.Scope, ids []string) (map[string]Student, error)
 }
+
+// ClassScore is how a class did: the sum of the points earned and of the
+// points on offer in the best graded attempt of each live member on each
+// assignment that targets the class, and the manual answers still unmarked in
+// those attempts.
+type ClassScore struct {
+	Earned        float64
+	Total         float64
+	PendingManual int
+}
+
+// ClassSource answers ClassScore for a set of classes in one query. The caller
+// has already scoped the ids, so the source applies no scope of its own. A
+// class with nothing graded has no entry. The attempts module provides it.
+type ClassSource interface {
+	ClassScores(ctx context.Context, classIDs []string) (map[string]ClassScore, error)
+}

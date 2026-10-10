@@ -77,6 +77,7 @@ function klass(id: string, name: string, studentCount: number) {
     selfJoinEnabled: false,
     archivedAt: null,
     createdAt: NOW,
+    averageScore: null,
   };
 }
 

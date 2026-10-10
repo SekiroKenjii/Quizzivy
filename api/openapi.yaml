@@ -1919,6 +1919,16 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         name: { type: string, minLength: 1, maxLength: 120 }
         description: { type: [string, 'null'] }
+        scheduleLabel:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+          description: When the class meets, as its teacher worded it ("Thứ 3, 5 · 18:00"). Plain text, trimmed; `null` for none.
+        room:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 60
+          description: Where the class meets. Plain text, trimmed; `null` for none.
         studentCount: { type: integer, minimum: 0 }
         openAssignmentCount:
           type: integer
@@ -1934,6 +1944,68 @@ components:
           description: Teacher responses only. Never present on a `/app/*` response.
           oneOf:
             - $ref: '#/components/schemas/JoinCodeInfo'
+            - type: 'null'
+        averageScore:
+          description: |
+            Teacher responses only. Never present on a `/app/*` response: a student
+            does not see how the class did. The sum of earned points over the sum of
+            total points of the best graded attempt (the highest score, the later
+            attempt on a tie) of each **current member** on each assignment that
+            targets the class, with the manual answers still unmarked in those
+            attempts as `pendingManual`. A student who has left the class counts for
+            nothing. Voided attempts and attempts not yet graded are ignored. `null`
+            when nothing is graded yet.
+          oneOf:
+            - $ref: '#/components/schemas/AttemptScore'
+            - type: 'null'
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    ClassListItem:
+      type: object
+      description: |
+        A row of `listClasses`: every property of `Class`, with `joinCode` read in
+        full. It repeats `Class` rather than extending it so that no other
+        operation's response carries a readable code; a test holds the two property
+        lists together. `joinCode.code` is the code when the request asked for codes
+        with `withCodes`, the caller holds `teaching.classes.write`, and
+        `getJoinCode` would read that class's code for that caller; otherwise it is
+        `null`.
+      required: [id, name, studentCount, openAssignmentCount, selfJoinEnabled, archivedAt, createdAt, averageScore]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'] }
+        scheduleLabel:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+          description: When the class meets, as its teacher worded it ("Thứ 3, 5 · 18:00"). Plain text, trimmed; `null` for none.
+        room:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 60
+          description: Where the class meets. Plain text, trimmed; `null` for none.
+        studentCount: { type: integer, minimum: 0 }
+        openAssignmentCount:
+          type: integer
+          minimum: 0
+          description: Assignments whose derived status is `open` and that target this class (G-08).
+        selfJoinEnabled: { type: boolean }
+        archivedAt:
+          description: Set once archived. An archived class leaves every picker and keeps its record (G-08).
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        joinCode:
+          description: The active code with its metadata, or `null` for a class with none. Teacher responses only.
+          oneOf:
+            - $ref: '#/components/schemas/JoinCode'
+            - type: 'null'
+        averageScore:
+          description: As `Class.averageScore`; `null` when nothing is graded yet.
+          oneOf:
+            - $ref: '#/components/schemas/AttemptScore'
             - type: 'null'
         createdAt: { $ref: '#/components/schemas/Timestamp' }
 
@@ -2011,9 +2083,10 @@ components:
     MyClass:
       type: object
       description: |
-        A class as its student sees it (S-10): the name, who teaches it and
-        when they joined. Never the join code or the roster.
-      required: [id, name, description, teacherName, joinedAt]
+        A class as its student sees it (S-10): the name, who teaches it, when
+        and where it meets, and when they joined. Never the join code, a count,
+        the roster or an average.
+      required: [id, name, description, teacherName, teacherAvatarUrl, scheduleLabel, room, joinedAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -2022,6 +2095,15 @@ components:
         teacherName:
           type: [string, 'null']
           description: The display name of the class's own teacher.
+        teacherAvatarUrl:
+          type: [string, 'null']
+          description: The teacher's profile photo, a presigned GET valid 24 hours; `null` when the teacher has none or no store is configured.
+        scheduleLabel:
+          type: [string, 'null']
+          description: When the class meets, as its teacher worded it.
+        room:
+          type: [string, 'null']
+          description: Where the class meets.
         joinedAt: { $ref: '#/components/schemas/Timestamp' }
 
     # ------------------------------------------------------------------ media
@@ -8231,6 +8313,17 @@ paths:
         Classes, newest first. Paginated and searchable like every other list:
         §1.3 promised single-digit classes, and a development database already
         holds over a hundred, which is what broke the class pickers.
+
+        **Codes.** Each item's `joinCode.code` is a bearer secret, so it is opened
+        only when the request says `withCodes=true`, which the class cards send and
+        the pickers do not. It is then the code exactly when `getJoinCode` would
+        read it for the same caller and class: the caller holds
+        `teaching.classes.write`, reaches the class, and the code is readable (not
+        a legacy code, and sealed under a key this server holds). In every other
+        case `code` is `null`, a missing permission included, which is not an
+        error. The answer is never cached, whether or not codes are asked for, and
+        the operation is limited like the others that reveal one: 60 a minute and
+        600 an hour per user.
       tags: [teacher-classes]
       parameters:
         - $ref: '#/components/parameters/Query'
@@ -8251,9 +8344,17 @@ paths:
             type: string
             enum: [active, joinable, archived, all]
             default: active
+        - name: withCodes
+          in: query
+          required: false
+          description: Open each item's join code. Only the screen that shows codes asks.
+          schema: { type: boolean, default: false }
       responses:
         '200':
           description: OK
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
           content:
             application/json:
               schema:
@@ -8262,8 +8363,9 @@ paths:
                   - type: object
                     required: [items, facets]
                     properties:
-                      items: { type: array, items: { $ref: '#/components/schemas/Class' } }
+                      items: { type: array, items: { $ref: '#/components/schemas/ClassListItem' } }
                       facets: { $ref: '#/components/schemas/ClassFacets' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
     post:
       operationId: createClass
       x-permission: teaching.classes.write
@@ -8280,6 +8382,14 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 120 }
                 description: { type: [string, 'null'] }
+                scheduleLabel:
+                  type: [string, 'null']
+                  maxLength: 120
+                  description: Plain text, trimmed by the server; omitted, `null` and blank are all none. The 120 characters are counted before trimming.
+                room:
+                  type: [string, 'null']
+                  maxLength: 60
+                  description: As `scheduleLabel`, 60 characters.
                 selfJoinEnabled: { type: boolean, default: true }
       responses:
         '201':
@@ -8331,7 +8441,7 @@ paths:
       x-resource:
         - { in: path, name: id, kind: class }
       x-permission: teaching.classes.write
-      description: Edits name and description, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that.
+      description: Edits name, description, schedule and room, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that.
       tags: [teacher-classes]
       requestBody:
         required: true
@@ -8343,6 +8453,22 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 120 }
                 description: { type: [string, 'null'] }
+                scheduleLabel:
+                  type: [string, 'null']
+                  maxLength: 120
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                  description: |
+                    Plain text, trimmed by the server; a value that is blank once
+                    trimmed is the same as none. Omitted, the stored value is kept;
+                    `null` or blank clears it. The 120 characters are counted before
+                    trimming.
+                room:
+                  type: [string, 'null']
+                  maxLength: 60
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                  description: As `scheduleLabel`, 60 characters.
                 selfJoinEnabled: { type: boolean }
                 archived: { type: boolean, description: 'true archives, false restores; either is idempotent.' }
       responses:
@@ -8505,7 +8631,16 @@ paths:
               type: object
               additionalProperties: false
               properties:
-                expiresInDays: { type: integer, minimum: 1, maximum: 365, default: 30 }
+                expiresInDays:
+                  type: integer
+                  minimum: 1
+                  maximum: 365
+                  default: 30
+                  description: |
+                    The code works through 23:59:59 on the day this many days from
+                    today, in the caller's time zone: the profile preference, or
+                    `Asia/Ho_Chi_Minh` when there is none or it cannot be read. A code
+                    made at any hour of a day expires at the end of the same day.
                 maxUses:
                   type: integer
                   minimum: 1

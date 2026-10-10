@@ -36,6 +36,11 @@ type world struct {
 
 func boot(t *testing.T, configure ...func(*config.Config)) *world {
 	t.Helper()
+	return bootLogging(t, slog.New(slog.DiscardHandler), configure...)
+}
+
+func bootLogging(t *testing.T, logger *slog.Logger, configure ...func(*config.Config)) *world {
+	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL is not set; the end-to-end suite needs a database")
@@ -75,7 +80,7 @@ func boot(t *testing.T, configure ...func(*config.Config)) *world {
 		}
 	}
 	var err error
-	app, err = core.New(ctx, cfg, slog.New(slog.DiscardHandler))
+	app, err = core.New(ctx, cfg, logger)
 	if err != nil {
 		t.Fatalf("assemble the application: %v", err)
 	}

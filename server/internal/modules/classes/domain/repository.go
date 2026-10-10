@@ -26,6 +26,10 @@ type Repository interface {
 	Rotate(ctx context.Context, in RotateInput) (IssuedCode, error)
 	Revoke(ctx context.Context, in RevokeInput) error
 	ActiveCode(ctx context.Context, scope access.Scope, classID string) (StoredCode, error)
+	// ActiveCodes reads the active code of each class among classIDs that the
+	// scope reaches and that has one, as ActiveCode reads one. A class the
+	// scope does not reach, and one without an active code, is absent.
+	ActiveCodes(ctx context.Context, scope access.Scope, classIDs []string) (map[string]StoredCode, error)
 	// LegacyCodeClasses lists every class whose active join code is a legacy
 	// one that has not expired at now, archived classes included, by teacher
 	// and then by name.

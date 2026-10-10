@@ -2068,6 +2068,17 @@ export interface paths {
          * @description Classes, newest first. Paginated and searchable like every other list:
          *     §1.3 promised single-digit classes, and a development database already
          *     holds over a hundred, which is what broke the class pickers.
+         *
+         *     **Codes.** Each item's `joinCode.code` is a bearer secret, so it is opened
+         *     only when the request says `withCodes=true`, which the class cards send and
+         *     the pickers do not. It is then the code exactly when `getJoinCode` would
+         *     read it for the same caller and class: the caller holds
+         *     `teaching.classes.write`, reaches the class, and the code is readable (not
+         *     a legacy code, and sealed under a key this server holds). In every other
+         *     case `code` is `null`, a missing permission included, which is not an
+         *     error. The answer is never cached, whether or not codes are asked for, and
+         *     the operation is limited like the others that reveal one: 60 a minute and
+         *     600 an hour per user.
          */
         get: operations["listClasses"];
         put?: never;
@@ -2096,7 +2107,7 @@ export interface paths {
         delete: operations["deleteClass"];
         options?: never;
         head?: never;
-        /** @description Edits name and description, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that. */
+        /** @description Edits name, description, schedule and room, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that. */
         patch: operations["updateClass"];
         trace?: never;
     };
@@ -3920,6 +3931,10 @@ export interface components {
             id: components["schemas"]["Uuid"];
             name: string;
             description?: string | null;
+            /** @description When the class meets, as its teacher worded it ("Thứ 3, 5 · 18:00"). Plain text, trimmed; `null` for none. */
+            scheduleLabel?: string | null;
+            /** @description Where the class meets. Plain text, trimmed; `null` for none. */
+            room?: string | null;
             studentCount: number;
             /** @description Assignments whose derived status is `open` and that target this class (G-08). */
             openAssignmentCount: number;
@@ -3928,6 +3943,46 @@ export interface components {
             archivedAt: components["schemas"]["Timestamp"] | null;
             /** @description Teacher responses only. Never present on a `/app/*` response. */
             joinCode?: components["schemas"]["JoinCodeInfo"] | null;
+            /**
+             * @description Teacher responses only. Never present on a `/app/*` response: a student
+             *     does not see how the class did. The sum of earned points over the sum of
+             *     total points of the best graded attempt (the highest score, the later
+             *     attempt on a tie) of each **current member** on each assignment that
+             *     targets the class, with the manual answers still unmarked in those
+             *     attempts as `pendingManual`. A student who has left the class counts for
+             *     nothing. Voided attempts and attempts not yet graded are ignored. `null`
+             *     when nothing is graded yet.
+             */
+            averageScore?: components["schemas"]["AttemptScore"] | null;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description A row of `listClasses`: every property of `Class`, with `joinCode` read in
+         *     full. It repeats `Class` rather than extending it so that no other
+         *     operation's response carries a readable code; a test holds the two property
+         *     lists together. `joinCode.code` is the code when the request asked for codes
+         *     with `withCodes`, the caller holds `teaching.classes.write`, and
+         *     `getJoinCode` would read that class's code for that caller; otherwise it is
+         *     `null`.
+         */
+        ClassListItem: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            description?: string | null;
+            /** @description When the class meets, as its teacher worded it ("Thứ 3, 5 · 18:00"). Plain text, trimmed; `null` for none. */
+            scheduleLabel?: string | null;
+            /** @description Where the class meets. Plain text, trimmed; `null` for none. */
+            room?: string | null;
+            studentCount: number;
+            /** @description Assignments whose derived status is `open` and that target this class (G-08). */
+            openAssignmentCount: number;
+            selfJoinEnabled: boolean;
+            /** @description Set once archived. An archived class leaves every picker and keeps its record (G-08). */
+            archivedAt: components["schemas"]["Timestamp"] | null;
+            /** @description The active code with its metadata, or `null` for a class with none. Teacher responses only. */
+            joinCode?: components["schemas"]["JoinCode"] | null;
+            /** @description As `Class.averageScore`; `null` when nothing is graded yet. */
+            averageScore: components["schemas"]["AttemptScore"] | null;
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
@@ -3991,8 +4046,9 @@ export interface components {
             joinCodeHint?: string | null;
         };
         /**
-         * @description A class as its student sees it (S-10): the name, who teaches it and
-         *     when they joined. Never the join code or the roster.
+         * @description A class as its student sees it (S-10): the name, who teaches it, when
+         *     and where it meets, and when they joined. Never the join code, a count,
+         *     the roster or an average.
          */
         MyClass: {
             id: components["schemas"]["Uuid"];
@@ -4000,6 +4056,12 @@ export interface components {
             description: string | null;
             /** @description The display name of the class's own teacher. */
             teacherName: string | null;
+            /** @description The teacher's profile photo, a presigned GET valid 24 hours; `null` when the teacher has none or no store is configured. */
+            teacherAvatarUrl: string | null;
+            /** @description When the class meets, as its teacher worded it. */
+            scheduleLabel: string | null;
+            /** @description Where the class meets. */
+            room: string | null;
             joinedAt: components["schemas"]["Timestamp"];
         };
         /** @enum {string} */
@@ -9644,6 +9706,8 @@ export interface operations {
                 limit?: number;
                 /** @description Defaults to `active`, so every picker drops archived classes without asking (G-08). */
                 status?: "active" | "joinable" | "archived" | "all";
+                /** @description Open each item's join code. Only the screen that shows codes asks. */
+                withCodes?: boolean;
             };
             header?: never;
             path?: never;
@@ -9654,15 +9718,17 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
-                        items: components["schemas"]["Class"][];
+                        items: components["schemas"]["ClassListItem"][];
                         facets: components["schemas"]["ClassFacets"];
                     };
                 };
             };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     createClass: {
@@ -9677,6 +9743,10 @@ export interface operations {
                 "application/json": {
                     name: string;
                     description?: string | null;
+                    /** @description Plain text, trimmed by the server; omitted, `null` and blank are all none. The 120 characters are counted before trimming. */
+                    scheduleLabel?: string | null;
+                    /** @description As `scheduleLabel`, 60 characters. */
+                    room?: string | null;
                     /** @default true */
                     selfJoinEnabled?: boolean;
                 };
@@ -9769,6 +9839,15 @@ export interface operations {
                 "application/json": {
                     name?: string;
                     description?: string | null;
+                    /**
+                     * @description Plain text, trimmed by the server; a value that is blank once
+                     *     trimmed is the same as none. Omitted, the stored value is kept;
+                     *     `null` or blank clears it. The 120 characters are counted before
+                     *     trimming.
+                     */
+                    scheduleLabel?: string | null;
+                    /** @description As `scheduleLabel`, 60 characters. */
+                    room?: string | null;
                     selfJoinEnabled?: boolean;
                     /** @description true archives, false restores; either is idempotent. */
                     archived?: boolean;
@@ -9914,7 +9993,13 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
-                    /** @default 30 */
+                    /**
+                     * @description The code works through 23:59:59 on the day this many days from
+                     *     today, in the caller's time zone: the profile preference, or
+                     *     `Asia/Ho_Chi_Minh` when there is none or it cannot be read. A code
+                     *     made at any hour of a day expires at the end of the same day.
+                     * @default 30
+                     */
                     expiresInDays?: number;
                     /**
                      * @description Defaults to 40 rather than spec §6.1's `null = unlimited`

@@ -183,6 +183,37 @@ func (s *Postgres) ActiveCode(ctx context.Context, scope access.Scope, classID s
 	return c, nil
 }
 
+// ActiveCodes reads the active code of each class among classIDs that the
+// scope reaches, with the columns and the predicate ActiveCode uses. A class the
+// scope does not reach and a class without an active code are absent.
+func (s *Postgres) ActiveCodes(ctx context.Context, scope access.Scope, classIDs []string) (map[string]domain.StoredCode, error) {
+	out := make(map[string]domain.StoredCode, len(classIDs))
+	if len(classIDs) == 0 {
+		return out, nil
+	}
+	const q = `
+		SELECT c.id::text, jc.id::text, jc.code_hint, jc.expires_at, jc.max_uses, jc.uses_count,
+		       jc.lookup_scheme, jc.key_id, jc.code_hash, jc.code_ciphertext
+		  FROM app.classes c
+		  JOIN app.class_join_codes jc ON jc.class_id = c.id AND jc.revoked_at IS NULL
+		 WHERE c.id = ANY($1::uuid[]) AND ` + taughtClass
+
+	rows, err := s.Query(ctx, q, classIDs, scope.All, opt.String(scope.UserID))
+	if err != nil {
+		return nil, fmt.Errorf("load active join codes: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var c domain.StoredCode
+		if err := rows.Scan(&c.ClassID, &c.ID, &c.Hint, &c.ExpiresAt, &c.MaxUses, &c.UsesCount,
+			&c.Lookup.Scheme, &c.Lookup.KeyID, &c.Lookup.Hash, &c.Ciphertext); err != nil {
+			return nil, fmt.Errorf("load active join codes: scan: %w", err)
+		}
+		out[c.ClassID] = c
+	}
+	return out, rows.Err()
+}
+
 // LegacyCodeClasses lists every class whose active join code is a legacy one
 // that has not expired at now, archived classes included, by teacher and then
 // by name. It locks nothing: RotateLegacyCode reads each code again.

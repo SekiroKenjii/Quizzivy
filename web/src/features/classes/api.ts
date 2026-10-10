@@ -14,6 +14,8 @@ export interface ListClassesParams {
   limit?: number;
   /** Absent means active: pickers never see an archived class (G-08). */
   status?: ClassStatus;
+  /** Only the screen that shows join codes asks; a picker never receives one. */
+  withCodes?: boolean;
 }
 
 export function fetchClasses(params: ListClassesParams = {}, signal?: AbortSignal) {
@@ -22,6 +24,7 @@ export function fetchClasses(params: ListClassesParams = {}, signal?: AbortSigna
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   if (params.status) query["status"] = params.status;
+  if (params.withCodes) query["withCodes"] = true;
   return api("get", "/teacher/classes", signal ? { query, signal } : { query });
 }
 
