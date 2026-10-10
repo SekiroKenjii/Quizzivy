@@ -25,7 +25,8 @@ const NAV_BUTTON =
 
 /**
  * ReviewToolbar sits under the review's top bar: the section select, the
- * finding filter with its counts, the Source | Test switch on a narrow
+ * finding filter with its counts (two by two at full width below 768px, the
+ * shell's breakpoint), the Source | Test switch on a narrow
  * review, and the navigator through the open items ("{i} of {n} open",
  * Previous and Next).
  */
@@ -81,7 +82,7 @@ export function ReviewToolbar({
       <div
         role="group"
         aria-label={t("imports.review.filterLabel")}
-        className="bg-muted rounded-ctl flex max-w-full [scrollbar-width:none] gap-0.5 overflow-x-auto p-[0.1875rem]"
+        className="bg-muted rounded-ctl grid w-full grid-cols-2 gap-0.5 p-[0.1875rem] min-[768px]:flex min-[768px]:w-auto min-[768px]:max-w-full min-[768px]:[scrollbar-width:none] min-[768px]:overflow-x-auto"
       >
         {FINDING_FILTERS.map((value) => {
           const on = value === filter;
@@ -92,7 +93,7 @@ export function ReviewToolbar({
               aria-pressed={on}
               onClick={() => onFilter(value)}
               className={cn(
-                "rounded-seg text-meta flex h-7 flex-none cursor-pointer items-center gap-1.5 px-2.5 font-medium whitespace-nowrap",
+                "rounded-seg text-meta flex h-7 min-w-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 font-medium whitespace-nowrap min-[768px]:flex-none",
                 on ? "bg-card text-fg shadow-card ring-border ring-1" : "text-muted-fg",
               )}
             >
