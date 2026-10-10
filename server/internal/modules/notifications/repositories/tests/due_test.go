@@ -85,8 +85,8 @@ func TestAReminderFallsADayAndAnHourBeforeTheStudentsClose(t *testing.T) {
 		{"a day and a second ahead", day + time.Second, nil},
 		{"exactly a day ahead", day, []domain.Lead{domain.LeadDay}},
 		{"an hour and a second ahead", hour + time.Second, []domain.Lead{domain.LeadDay}},
-		{"exactly an hour ahead", hour, []domain.Lead{domain.LeadDay, domain.LeadHour}},
-		{"a second ahead", time.Second, []domain.Lead{domain.LeadDay, domain.LeadHour}},
+		{"exactly an hour ahead", hour, []domain.Lead{domain.LeadHour}},
+		{"a second ahead", time.Second, []domain.Lead{domain.LeadHour}},
 		{"closing now", 0, nil},
 		{"closed a second ago", -time.Second, nil},
 	}
@@ -148,7 +148,7 @@ func TestAStudentWhoHandedInOrHasNoAttemptLeftIsNotReminded(t *testing.T) {
 				w.attempt(assignment, w.student, c.status, c.deadline)
 			}
 			got := ofKind(w.due(w.student), domain.AssignmentDueSoon)
-			if (len(got) == 2) != c.reminded || len(got) != 0 && len(got) != 2 {
+			if (len(got) == 1) != c.reminded || len(got) > 1 {
 				t.Errorf("%d reminders, reminded = %v", len(got), c.reminded)
 			}
 		})
@@ -165,13 +165,9 @@ func TestAnEarlyCloseSetsTheMomentAndEndsTheReminders(t *testing.T) {
 	soon := newDueWorld(t)
 	assignment := soon.assignment(spec{opens: at(-3 * day), closes: at(3 * day), closedAt: moment(30 * time.Minute)})
 	got := ofKind(soon.due(soon.student), domain.AssignmentDueSoon)
-	want := []string{
-		domain.DueSoonKey(assignment, at(30*time.Minute), domain.LeadDay),
-		domain.DueSoonKey(assignment, at(30*time.Minute), domain.LeadHour),
-	}
-	slices.Sort(want)
+	want := []string{domain.DueSoonKey(assignment, at(30*time.Minute), domain.LeadHour)}
 	if !slices.Equal(keysOf(got), want) {
-		t.Fatalf("reminders %v, want both, keyed on the early close %v", keysOf(got), want)
+		t.Fatalf("reminders %v, want the hour's, keyed on the early close %v", keysOf(got), want)
 	}
 	for _, n := range got {
 		if !n.Params.(domain.DueSoon).ClosesAt.Equal(at(30 * time.Minute)) {
@@ -187,8 +183,8 @@ func TestAnOverrideMovesOnlyThatStudentsReminders(t *testing.T) {
 	assignment := w.assignment(spec{opens: at(-10 * day), closes: at(hour)})
 	w.override(assignment, second, moment(2*day+hour), 0)
 
-	if got := ofKind(w.due(w.student), domain.AssignmentDueSoon); len(got) != 2 {
-		t.Errorf("the student without an override has %d reminders, want 2", len(got))
+	if got := ofKind(w.due(w.student), domain.AssignmentDueSoon); len(got) != 1 {
+		t.Errorf("the student without an override has %d reminders, want the hour's", len(got))
 	}
 	if got := w.due(second); len(got) != 0 {
 		t.Errorf("a student whose override closes two days later has %+v", got)
@@ -212,42 +208,59 @@ func TestAnOverrideThatReachesPastAnEarlyCloseKeepsThatStudentOpen(t *testing.T)
 		t.Errorf("a student closed an hour ago has %+v", got)
 	}
 	got := ofKind(w.due(second), domain.AssignmentDueSoon)
-	want := []string{
-		domain.DueSoonKey(assignment, at(hour), domain.LeadDay),
-		domain.DueSoonKey(assignment, at(hour), domain.LeadHour),
-	}
-	slices.Sort(want)
+	want := []string{domain.DueSoonKey(assignment, at(hour), domain.LeadHour)}
 	if !slices.Equal(keysOf(got), want) {
-		t.Errorf("the student the override reopened has %v, want both reminders for their own close, %v", keysOf(got), want)
+		t.Errorf("the student the override reopened has %v, want the hour's reminder for their own close, %v", keysOf(got), want)
 	}
 }
 
 func TestAnExtendedCloseEarnsItsRemindersAgainAndAnUnchangedOneDoesNot(t *testing.T) {
 	w := newDueWorld(t)
-	assignment := w.assignment(spec{opens: at(-10 * day), closes: at(30 * time.Minute)})
-	first := w.due(w.student)
-	if written, err := w.store.InsertAbsent(t.Context(), w.student, first); err != nil || written != 2 {
-		t.Fatalf("writing the first reminders: %d, %v", written, err)
+	assignment := w.assignment(spec{opens: at(-10 * day), closes: at(2 * hour)})
+	dayFirst := w.due(w.student)
+	if written, err := w.store.InsertAbsent(t.Context(), w.student, dayFirst); err != nil || written != 1 {
+		t.Fatalf("writing the first reminder: %d, %v", written, err)
 	}
 	if again, err := w.store.InsertAbsent(t.Context(), w.student, w.due(w.student)); err != nil || again != 0 {
 		t.Errorf("the same close wrote %d more, %v; want none", again, err)
 	}
 
-	w.exec(`UPDATE app.assignments SET closes_at = $2 WHERE id = $1::uuid`, assignment, at(2*hour+30*time.Minute))
-	later := w.dueAt(w.student, at(90*time.Minute))
-	got := ofKind(later, domain.AssignmentDueSoon)
-	newClose := at(2*hour + 30*time.Minute)
-	want := []string{domain.DueSoonKey(assignment, newClose, domain.LeadDay), domain.DueSoonKey(assignment, newClose, domain.LeadHour)}
-	slices.Sort(want)
-	if !slices.Equal(keysOf(got), want) {
-		t.Errorf("after the extension: %v, want both reminders for the new close %v", keysOf(got), want)
+	hourLater := w.dueAt(w.student, at(hour+time.Minute))
+	if written, err := w.store.InsertAbsent(t.Context(), w.student, hourLater); err != nil || written != 1 {
+		t.Fatalf("writing the hour's reminder an hour on: %d, %v; want 1", written, err)
 	}
-	if written, err := w.store.InsertAbsent(t.Context(), w.student, later); err != nil || written != 2 {
-		t.Errorf("writing the extended close's reminders: %d, %v; want 2", written, err)
+
+	w.exec(`UPDATE app.assignments SET closes_at = $2 WHERE id = $1::uuid`, assignment, at(5*hour))
+	later := w.dueAt(w.student, at(4*hour+30*time.Minute))
+	got := ofKind(later, domain.AssignmentDueSoon)
+	newClose := at(5 * hour)
+	if want := []string{domain.DueSoonKey(assignment, newClose, domain.LeadHour)}; !slices.Equal(keysOf(got), want) {
+		t.Errorf("after the extension: %v, want the hour's reminder for the new close %v", keysOf(got), want)
+	}
+	if written, err := w.store.InsertAbsent(t.Context(), w.student, later); err != nil || written != 1 {
+		t.Errorf("writing the extended close's reminder: %d, %v; want 1", written, err)
 	}
 	var held int
-	if err := w.tx.QueryRow(t.Context(), `SELECT count(*) FROM app.notifications WHERE user_id = $1::uuid AND kind = 'assignment.due_soon'`, w.student).Scan(&held); err != nil || held != 4 {
-		t.Errorf("the student holds %d reminders, want the two for the old close and the two for the new: %v", held, err)
+	if err := w.tx.QueryRow(t.Context(), `SELECT count(*) FROM app.notifications WHERE user_id = $1::uuid AND kind = 'assignment.due_soon'`, w.student).Scan(&held); err != nil || held != 3 {
+		t.Errorf("the student holds %d reminders, want the day's and the hour's for the old close and the hour's for the new: %v", held, err)
+	}
+}
+
+func TestAFirstReadInsideTheLastHourYieldsTheHoursReminderAlone(t *testing.T) {
+	w := newDueWorld(t)
+	assignment := w.assignment(spec{opens: at(-10 * day), closes: at(40 * time.Minute)})
+	got := ofKind(w.due(w.student), domain.AssignmentDueSoon)
+	if want := []string{domain.DueSoonKey(assignment, at(40*time.Minute), domain.LeadHour)}; !slices.Equal(keysOf(got), want) {
+		t.Errorf("reminders %v, want the hour's alone: the day's would only repeat it", keysOf(got))
+	}
+}
+
+func TestTheDaysReminderIsStillWrittenWhileTheHoursIsAhead(t *testing.T) {
+	w := newDueWorld(t)
+	assignment := w.assignment(spec{opens: at(-10 * day), closes: at(23 * hour)})
+	got := ofKind(w.due(w.student), domain.AssignmentDueSoon)
+	if want := []string{domain.DueSoonKey(assignment, at(23*hour), domain.LeadDay)}; !slices.Equal(keysOf(got), want) {
+		t.Errorf("reminders %v, want the day's", keysOf(got))
 	}
 }
 

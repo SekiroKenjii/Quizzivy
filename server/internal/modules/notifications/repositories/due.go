@@ -63,6 +63,7 @@ SELECT '` + dueSoon + `', m.assignment_id::text, NULL::text, m.title, m.closes_a
  CROSS JOIN (VALUES ('` + string(domain.LeadDay) + `', interval '24 hours'),
                     ('` + string(domain.LeadHour) + `', interval '1 hour')) AS lead(label, before)
  WHERE NOT m.handed_in AND m.spent < m.allowed
+   AND (lead.label = '` + string(domain.LeadHour) + `' OR m.closes_at - interval '1 hour' > $2::timestamptz)
    AND m.closes_at - lead.before > $3::timestamptz AND m.closes_at - lead.before <= $2::timestamptz
    AND m.closes_at - lead.before >= m.available_at
    AND $2::timestamptz < m.closes_at
@@ -107,8 +108,9 @@ type dueRow struct {
 }
 
 // Due reads, for userID as a student, the assignments that opened, the closes
-// a day and an hour away, and the results an after-close release has made
-// ready; and, for userID as a teacher, the assignments that close within the
+// a day and an hour away (the day's reminder only while the hour's is not yet
+// due, so a first read inside the last hour yields the hour's alone), and the
+// results an after-close release has made ready; and, for userID as a teacher, the assignments that close within the
 // hour with a student they reach still to hand in. Every moment lies in
 // (now - DueLookback, now]. A student's close is the one their override and an
 // early close make it (schedule.CloseOf), and a teacher is counted only the

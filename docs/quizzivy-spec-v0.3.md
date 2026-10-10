@@ -28,7 +28,9 @@ R4, notification producers and due-time items (T-R4.10b):
   off writes nothing. For a student: `assignment.opened` (when the assignment opened or was
   published, whichever is later), `assignment.due_soon` a day and an hour before the
   student's own close, override and early close included, while they have handed nothing in
-  and have an attempt left and the test was available at that moment, and `result.ready`
+  and have an attempt left and the test was available at that moment, the day's only while
+  the hour's is not yet due (a student who first reads inside the last hour gets the
+  hour's alone), and `result.ready`
   at the close of an `after_close` release for a paper with nothing waiting for a mark. For
   a teacher: `assignment.closing` an hour before the assignment's close, with the number of
   students they reach who have not handed in and whose own close is the assignment's. A

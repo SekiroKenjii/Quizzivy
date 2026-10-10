@@ -53,13 +53,13 @@ func (w *dueWorld) write(user string, notices []domain.Notice) int {
 
 func TestAWrittenDueItemIsNeverTouchedAgain(t *testing.T) {
 	w := newDueWorld(t)
-	w.assignment(spec{opens: at(-26 * hour), closes: at(30 * time.Minute)})
+	w.assignment(spec{opens: at(-26 * hour), closes: at(2 * hour)})
 	due := w.due(w.student)
-	if len(due) != 3 {
-		t.Fatalf("the student has %d items due, want the opening and the two reminders", len(due))
+	if len(due) != 2 {
+		t.Fatalf("the student has %d items due, want the opening and the day's reminder", len(due))
 	}
-	if written := w.write(w.student, due); written != 3 {
-		t.Fatalf("wrote %d, want 3", written)
+	if written := w.write(w.student, due); written != 2 {
+		t.Fatalf("wrote %d, want 2", written)
 	}
 
 	read := at(time.Minute)
@@ -72,8 +72,8 @@ func TestAWrittenDueItemIsNeverTouchedAgain(t *testing.T) {
 	if row.readAt == nil || !row.readAt.Equal(read) || row.params != `{"title": "Đã sửa"}` {
 		t.Errorf("a notification the user had read was changed: %+v", row)
 	}
-	if got := len(w.held(w.student)); got != 3 {
-		t.Errorf("the student holds %d rows, want 3", got)
+	if got := len(w.held(w.student)); got != 2 {
+		t.Errorf("the student holds %d rows, want 2", got)
 	}
 }
 
