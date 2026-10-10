@@ -7,13 +7,21 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Archive, ClipboardPaste, FileUp, History, Plus, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ClipboardPaste,
+  FileUp,
+  History,
+  ListChecks,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
-import { BulkActions } from "@/components/shared/BulkActions";
+import { BulkActions, BulkBarButton } from "@/components/shared/BulkActions";
 import { CardGrid } from "@/components/shared/CardGrid";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DeleteItemDialog } from "@/components/shared/DeleteItemButton";
@@ -56,6 +64,59 @@ const GHOST =
 
 function toTab(value: string | null): Tab {
   return TABS.find((tab) => tab === value) ?? "all";
+}
+
+const NO_TESTS: readonly Test[] = [];
+
+function TestsBulkBar({
+  bulk,
+  shown,
+  onSettled,
+}: Readonly<{
+  bulk: ReturnType<typeof useBulkSelection<Test>>;
+  shown: readonly Test[];
+  onSettled: () => Promise<unknown>;
+}>) {
+  const { t } = useTranslation();
+  const selected = [...bulk.selected.values()];
+  const shownIds = new Set(shown.map((test) => test.id));
+  const notShown = selected.filter((test) => !shownIds.has(test.id)).length;
+  const pageSelected = shown.every((test) => bulk.selected.has(test.id));
+  return (
+    <BulkActions
+      selected={selected}
+      {...(notShown > 0 && {
+        selectionLabel: t("tests.selectedNotShown", {
+          count: selected.length,
+          notShown,
+        }),
+      })}
+      name={(item) => item.title}
+      actions={[
+        {
+          label: t("common.archiveSelected"),
+          description: t("common.archiveSelectedBody"),
+          icon: Archive,
+          run: archiveTest,
+        },
+        {
+          label: t("common.deletePermanently"),
+          description: t("common.deleteInactiveBody"),
+          icon: Trash2,
+          run: (item) => deleteTest(item.id),
+        },
+      ]}
+      onRemoved={bulk.remove}
+      onClear={bulk.clear}
+      onSettled={onSettled}
+    >
+      {pageSelected ? null : (
+        <BulkBarButton icon={ListChecks} onClick={() => bulk.selectPage(shown, true)}>
+          {t("tests.selectPage")}
+        </BulkBarButton>
+      )}
+    </BulkActions>
+  );
 }
 
 function menuTrigger(id: string): HTMLElement | null {
@@ -298,25 +359,9 @@ export default function TestsListPage() {
         />
       </div>
 
-      <BulkActions
-        selected={[...bulk.selected.values()]}
-        name={(item) => item.title}
-        actions={[
-          {
-            label: t("common.archiveSelected"),
-            description: t("common.archiveSelectedBody"),
-            icon: Archive,
-            run: archiveTest,
-          },
-          {
-            label: t("common.deletePermanently"),
-            description: t("common.deleteInactiveBody"),
-            icon: Trash2,
-            run: (item) => deleteTest(item.id),
-          },
-        ]}
-        onRemoved={bulk.remove}
-        onClear={bulk.clear}
+      <TestsBulkBar
+        bulk={bulk}
+        shown={tests.data?.items ?? NO_TESTS}
         onSettled={invalidate}
       />
 

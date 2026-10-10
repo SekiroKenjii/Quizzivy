@@ -1083,7 +1083,9 @@
       "listening": "Listening",
       "writing": "Writing",
       "speaking": "Speaking"
-    }
+    },
+    "selectPage": "Select all on this page",
+    "selectedNotShown": "{{count}} selected · {{notShown}} not shown"
   },
   "preview": {
     "questionNumber": "Question {{n}}",
