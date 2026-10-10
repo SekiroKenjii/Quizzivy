@@ -1,8 +1,42 @@
 import { useTranslation } from "react-i18next";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import type { Assignment } from "@/features/assignments/api";
+import type { Assignment, AssignmentStatus } from "@/features/assignments/api";
 import { statusAt } from "@/features/assignments/status";
 import { targetsOf, windowOf, type ListTab } from "./assignmentWindow";
+
+const PILL_SHAPE =
+  "border-0 in-data-[scale=deck]:rounded-full in-data-[scale=deck]:px-2";
+
+const PILL: Record<AssignmentStatus, string> = {
+  open: `${PILL_SHAPE} [&>[aria-hidden]]:bg-success`,
+  scheduled: `${PILL_SHAPE} bg-info-soft text-info-ink [&>[aria-hidden]]:bg-info`,
+  closed: `${PILL_SHAPE} bg-muted text-muted-fg [&>[aria-hidden]]:bg-muted-fg`,
+  draft: `${PILL_SHAPE} bg-transparent text-muted-fg [&>[aria-hidden]]:bg-border`,
+};
+
+/**
+ * AssignmentStatusPill is an assignment's status as the deck's Assignments
+ * screen draws it: Live in success, Scheduled in info, Closed muted and Draft
+ * bare, each with its 6px dot. The shared badge map is left as it is for the
+ * screens not yet rebuilt (DG-156).
+ */
+export function AssignmentStatusPill({
+  assignment,
+  now,
+  className,
+}: Readonly<{ assignment: Assignment; now: Date; className?: string }>) {
+  const status = statusAt(assignment, now);
+  return (
+    <StatusBadge
+      kind="assignment"
+      status={status}
+      dot
+      className={
+        className === undefined ? PILL[status] : `${PILL[status]} ${className}`
+      }
+    />
+  );
+}
 
 /**
  * AssignmentCell is the Assignment column: the title, "Test v{n} · {q}
@@ -71,12 +105,8 @@ export function AssignmentCard({
   return (
     <>
       <span className="flex items-start justify-between gap-2.5">
-        <span className="text-sm font-medium">{assignment.testTitle}</span>
-        <StatusBadge
-          kind="assignment"
-          status={statusAt(assignment, now)}
-          className="flex-none"
-        />
+        <span className="text-base font-medium">{assignment.testTitle}</span>
+        <AssignmentStatusPill assignment={assignment} now={now} className="flex-none" />
       </span>
       <span className="text-muted-fg text-[12.5px]">
         {targetsOf(assignment, t)} · {windowOf(assignment, tab, now, t)}

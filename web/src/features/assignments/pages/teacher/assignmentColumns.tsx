@@ -1,9 +1,7 @@
 import type { TFunction } from "i18next";
 import type { DataColumn } from "@/components/shared/data/DataTable";
-import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { Assignment } from "@/features/assignments/api";
-import { statusAt } from "@/features/assignments/status";
-import { AssignmentCell, SubmittedBar } from "./AssignmentCells";
+import { AssignmentCell, AssignmentStatusPill, SubmittedBar } from "./AssignmentCells";
 import { targetsOf, windowOf, type ListTab } from "./assignmentWindow";
 
 /**
@@ -66,9 +64,7 @@ export function assignmentColumns(
       header: t("assignments.list.status"),
       track: "110px",
       showFrom: 760,
-      cell: (assignment) => (
-        <StatusBadge kind="assignment" status={statusAt(assignment, now)} />
-      ),
+      cell: (assignment) => <AssignmentStatusPill assignment={assignment} now={now} />,
     },
   ];
 }

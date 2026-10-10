@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type { Assignment, AssignmentStatus } from "@/features/assignments/api";
+import { statusAt } from "@/features/assignments/status";
 import { compactMoment, formatTime, sameAppDay } from "@/lib/i18n/datetime";
 
 /** ListTab is a tab of the assignments list: the server's status it lists. */
@@ -40,4 +41,18 @@ export function targetsOf(assignment: Assignment, t: TFunction): string {
   if (students.length > 0)
     parts.push(t("assignments.list.students", { count: students.length }));
   return parts.length === 0 ? t("assignments.list.notAssigned") : parts.join(", ");
+}
+
+/**
+ * nameOf tells one assignment from another of the same test in a bulk dialog
+ * or a failure list: the title, then its classes, or its window when it has
+ * no class.
+ */
+export function nameOf(assignment: Assignment, now: Date, t: TFunction): string {
+  const classes = assignment.targets.classes.map((klass) => klass.name);
+  const where =
+    classes.length > 0
+      ? classes.join(", ")
+      : windowOf(assignment, statusAt(assignment, now), now, t);
+  return `${assignment.testTitle} · ${where}`;
 }

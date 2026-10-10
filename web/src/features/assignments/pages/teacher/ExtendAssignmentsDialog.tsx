@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Clock } from "lucide-react";
 import { FormDialog } from "@/components/shared/form/FormDialog";
 import { toast } from "@/components/ui/sonner";
 import { extendAssignment, type Assignment } from "@/features/assignments/api";
 import { ApiError } from "@/lib/api/errors";
+import { nameOf } from "./assignmentWindow";
 
 const STEPS = ["15", "30", "60", "1440"] as const;
 
@@ -16,18 +17,21 @@ type Failure = { id: string; title: string; message: string };
  * one, 1 hour for several, as the deck's two forms default), and whether to
  * notify the students. It extends one assignment at a time; when some fail it
  * stays open on those alone, names each with the server's reason, and offers
- * to retry them. `onExtended` hears the ids that were extended.
+ * to retry them, and its title counts those. `onExtended` hears the ids
+ * that were extended. Focus returns to `returnFocus` when it closes.
  */
 export function ExtendAssignmentsDialog({
   items,
   when,
   open,
+  returnFocus,
   onOpenChange,
   onExtended,
 }: Readonly<{
   items: readonly Assignment[];
   when?: string | undefined;
   open: boolean;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
   onOpenChange: (open: boolean) => void;
   onExtended: (ids: string[]) => void;
 }>) {
@@ -48,6 +52,7 @@ export function ExtendAssignmentsDialog({
     setPending(true);
     const done: string[] = [];
     const failed: Failure[] = [];
+    const now = new Date();
     for (const item of remaining) {
       try {
         await extendAssignment(item.id, Number(minutes), notify);
@@ -55,7 +60,7 @@ export function ExtendAssignmentsDialog({
       } catch (cause) {
         failed.push({
           id: item.id,
-          title: item.testTitle,
+          title: nameOf(item, now, t),
           message: cause instanceof ApiError ? cause.message : t("common.actionFailed"),
         });
       }
@@ -85,9 +90,9 @@ export function ExtendAssignmentsDialog({
       }}
       icon={Clock}
       title={
-        items.length === 1
+        remaining.length === 1
           ? t("assignments.list.extendTitle")
-          : t("assignments.list.extendTitleMany", { count: items.length })
+          : t("assignments.list.extendTitleMany", { count: remaining.length })
       }
       description={
         single !== undefined && when !== undefined
@@ -115,6 +120,7 @@ export function ExtendAssignmentsDialog({
           : t("assignments.list.extendSubmit")
       }
       pending={pending}
+      returnFocus={returnFocus}
       onSubmit={({ by, notify }) => void extend(by, notify)}
     >
       {failures.length > 0 ? (

@@ -44,7 +44,8 @@
     "bulkCompleted": "Đã xử lý {{count}} mục.",
     "selectedCount": "Đã chọn {{count}} mục",
     "clearSelection": "Bỏ chọn",
-    "retryFailed": "Thử lại {{count}} mục chưa thành công",
+    "retryFailed_one": "Thử lại {{count}} mục chưa thành công",
+    "retryFailed_other": "Thử lại {{count}} mục chưa thành công",
     "confirmSelected": "Xác nhận {{count}} mục",
     "bulkProgress": "Đang xử lý {{completed}}/{{total}} mục",
     "selectPage": "Chọn tất cả mục trên trang này",
@@ -1860,7 +1861,11 @@
       "exportTooMany": "Mỗi lần xuất tối đa 50 bài giao.",
       "closeNow": "Đóng ngay",
       "closeNowBody": "Học viên chưa bắt đầu sẽ không vào được nữa. Học viên đang làm vẫn được làm hết giờ của mình.",
-      "notLive": "Bài giao này không đang mở."
+      "notLive": "Bài giao này chưa mở hoặc đã đóng.",
+      "exporting_one": "Đang xuất kết quả của {{count}} bài giao…",
+      "exporting_other": "Đang xuất kết quả của {{count}} bài giao…",
+      "exported_one": "Đã xuất kết quả của {{count}} bài giao.",
+      "exported_other": "Đã xuất kết quả của {{count}} bài giao."
     }
   },
   "students": {

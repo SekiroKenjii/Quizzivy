@@ -14,7 +14,7 @@ import { contractJson } from "@tests/support/contractResponse";
 import { teacherUser } from "@tests/support/fixtures";
 import { contentWidth } from "@tests/support/contentWidth";
 import { viewport } from "@tests/support/viewport";
-import "@/lib/i18n";
+import i18n from "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
 const NOW = new Date("2026-08-29T10:00:00Z");
@@ -183,6 +183,14 @@ beforeEach(() => {
         },
       });
     }),
+    http.get(`${BASE}/teacher/assignments/:id`, ({ params }) =>
+      contractJson(
+        "/teacher/assignments/{id}",
+        "get",
+        200,
+        items.find((item) => item.id === params["id"]),
+      ),
+    ),
   );
 });
 
@@ -224,7 +232,7 @@ async function table() {
 
 async function openMenu(user: ReturnType<typeof userEvent.setup>) {
   const rows = await table();
-  await user.click(rows.getByRole("button", { name: "Thao tác" }));
+  await user.click(rows.getByRole("button", { name: "Thao tác với Unit 5" }));
   return screen.findByRole("menu");
 }
 
@@ -458,7 +466,7 @@ describe("the bulk bar", () => {
     await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-      "Unit 6: Bài giao đã đóng.",
+      "Unit 6 · IELTS Foundation: Bài giao đã đóng.",
     );
     expect(extends_.map((call) => call.id)).toEqual([A1, A2]);
     expect(extends_[0]?.body).toEqual({ minutes: 60, notify: true });
@@ -478,7 +486,7 @@ describe("the bulk bar", () => {
     await user.click(within(dialog).getByRole("button", { name: /Xác nhận 2/ }));
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-      "Unit 6: Bài giao này không đang mở.",
+      "Unit 6 · IELTS Foundation: Bài giao này chưa mở hoặc đã đóng.",
     );
     expect(closes.map((call) => call.id)).toEqual([A1]);
     expect(closes[0]?.body).toMatchObject({ closeNow: true, draft: false });
@@ -539,15 +547,301 @@ describe("the bulk bar", () => {
   });
 });
 
+describe("what the selection remembers (QA-24-1)", () => {
+  const EXTENDED = "2026-09-01T14:00:00.000Z";
+
+  async function selectAll(user: ReturnType<typeof userEvent.setup>) {
+    const rows = await table();
+    await user.click(rows.getByRole("checkbox", { name: /Chọn tất cả/ }));
+  }
+
+  async function closeNow(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: "Đóng ngay" }));
+    const dialog = await screen.findByRole("dialog", { name: "Đóng ngay" });
+    await user.click(within(dialog).getByRole("button", { name: /Xác nhận 1/ }));
+    await waitFor(() => expect(closes).toHaveLength(1));
+  }
+
+  it("keeps a class added elsewhere after the row was ticked", async () => {
+    const { user } = renderList();
+    await selectAll(user);
+    items = [
+      assignment({
+        targets: {
+          classes: [
+            { id: CLASS_A, name: "IELTS Foundation", studentCount: 18 },
+            { id: CLASS_B, name: "TOEIC 600", studentCount: 18 },
+          ],
+          students: [],
+        },
+      }),
+    ];
+
+    await closeNow(user);
+
+    expect(closes[0]?.body).toMatchObject({
+      closeNow: true,
+      targets: { classIds: [CLASS_A, CLASS_B] },
+    });
+  });
+
+  it("keeps a bulk extension made before Close now", async () => {
+    server.use(
+      http.post(`${BASE}/teacher/assignments/:id/extend`, ({ params }) => {
+        items = items.map((item) =>
+          item.id === params["id"]
+            ? { ...item, window: { ...item.window, closesAt: EXTENDED } }
+            : item,
+        );
+        return contractJson(
+          "/teacher/assignments/{id}/extend",
+          "post",
+          200,
+          items.find((item) => item.id === params["id"]),
+        );
+      }),
+    );
+    const { user } = renderList();
+    await selectAll(user);
+    await user.click(screen.getByRole("button", { name: "Gia hạn" }));
+    const dialog = await screen.findByRole("dialog", { name: "Gia hạn" });
+    await user.click(within(dialog).getByRole("button", { name: "1 ngày" }));
+    await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    await closeNow(user);
+
+    expect(closes[0]?.body).toMatchObject({
+      closeNow: true,
+      window: { closesAt: EXTENDED },
+    });
+  });
+});
+
+describe("the selection's scope (QA-34-1's rule)", () => {
+  const selectedCount = () => screen.queryByText(/^Đã chọn/);
+
+  async function selectAll(user: ReturnType<typeof userEvent.setup>, count = 1) {
+    const rows = await table();
+    await user.click(rows.getByRole("checkbox", { name: /Chọn tất cả/ }));
+    expect(selectedCount()).toHaveTextContent(`Đã chọn ${count}`);
+  }
+
+  it("clears when the tab changes", async () => {
+    const { user } = renderList();
+    await selectAll(user);
+    await user.click(screen.getByRole("button", { name: /Đã lên lịch/ }));
+    await waitFor(() => expect(selectedCount()).toBeNull());
+  });
+
+  it("clears when the search changes", async () => {
+    const { user } = renderList();
+    await selectAll(user);
+    await user.type(screen.getByRole("searchbox"), "unit");
+    await waitFor(() => expect(selectedCount()).toBeNull());
+  });
+
+  it("clears when the class filter changes", async () => {
+    const { user } = renderList();
+    await selectAll(user);
+    await user.click(screen.getByRole("button", { name: "Lớp" }));
+    await user.click(
+      await screen.findByRole("menuitemcheckbox", { name: "TOEIC 600" }),
+    );
+    await waitFor(() => expect(selectedCount()).toBeNull());
+  });
+
+  it("is kept across pages", async () => {
+    servePages(25);
+    const { user } = renderList();
+    await selectAll(user, 20);
+    await user.click(screen.getByRole("link", { name: "Trang sau" }));
+    await waitFor(() => expect(requests.at(-1)?.get("page")).toBe("2"));
+    expect(selectedCount()).toHaveTextContent("Đã chọn 20");
+  });
+});
+
+function servePages(total: number) {
+  const all = Array.from({ length: total }, (_, index) =>
+    assignment({
+      id: `018f0000-0000-7000-8000-${String(index).padStart(12, "0")}`,
+      testTitle: `Unit ${index + 1}`,
+    }),
+  );
+  server.use(
+    http.get(`${BASE}/teacher/assignments`, ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      requests.push(params);
+      const page = Number(params.get("page") ?? "1");
+      return contractJson("/teacher/assignments", "get", 200, {
+        page,
+        pageSize: 20,
+        total,
+        items: all.slice((page - 1) * 20, page * 20),
+        facets: { all: total, draft: 0, scheduled: 0, open: total, closed: 0 },
+      });
+    }),
+  );
+}
+
+describe("a page past the end (QA-24-5)", () => {
+  it("moves to the last page instead of saying there is nothing", async () => {
+    servePages(25);
+    const { router } = renderList("/teacher/assignments?page=99");
+
+    await waitFor(() => expect(router.state.location.search).toBe("?page=2"));
+    expect(await screen.findByText("Unit 21")).toBeVisible();
+    expect(screen.queryByText("Không có bài giao nào ở đây.")).toBeNull();
+  });
+});
+
+describe("the row menu's dialogs give focus back (QA-24-2)", () => {
+  const DRAFT = { publishedAt: null };
+
+  it.each([
+    ["Gia hạn", "Gia hạn", {}],
+    ["Nhân bản", "Nhân bản bài giao", {}],
+    ["Đóng sớm", "Đóng bài giao ngay?", {}],
+    ["Xoá", "Xoá bài giao nháp này?", DRAFT],
+  ] as const)(
+    "returns to the menu button from %s, after Escape and after Cancel",
+    async (item, title, over) => {
+      items = [assignment(over)];
+      const { user } = renderList(
+        "publishedAt" in over ? "/teacher/assignments?status=draft" : undefined,
+      );
+      const button = (await table()).getByRole("button", {
+        name: "Thao tác với Unit 5",
+      });
+
+      for (const leave of ["escape", "cancel"] as const) {
+        await user.click(button);
+        const menu = await screen.findByRole("menu");
+        await user.click(within(menu).getByRole("menuitem", { name: item }));
+        const dialog = await screen.findByRole("dialog", { name: title });
+        if (leave === "escape") await user.keyboard("{Escape}");
+        else await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        await waitFor(() => expect(button).toHaveFocus());
+      }
+    },
+  );
+});
+
+describe("in English", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("vi");
+  });
+
+  it("writes the planned close in English in Close early (QA-24-7)", async () => {
+    await i18n.changeLanguage("en");
+    const { user } = renderList();
+    await user.click(
+      (await screen.findByRole("table")).querySelector<HTMLElement>(
+        'button[aria-label="Actions for Unit 5"]',
+      )!,
+    );
+    const menu = await screen.findByRole("menu");
+    await user.click(within(menu).getByRole("menuitem", { name: "Close early" }));
+    const dialog = await screen.findByRole("dialog");
+
+    expect(dialog).toHaveTextContent(/Monday/);
+    expect(dialog).not.toHaveTextContent(/Thứ/);
+  });
+});
+
+describe("Export results' toast (QA-24-8)", () => {
+  it("says it is exporting, then that it is done", async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    Object.assign(URL, {
+      createObjectURL: vi.fn(() => "blob:x"),
+      revokeObjectURL: vi.fn(),
+    });
+    const clicked = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+    server.use(
+      http.get(`${BASE}/teacher/assignments/results.csv`, async () => {
+        await held;
+        return new HttpResponse("Assignment,Student\n", {
+          headers: { "Content-Type": "text/csv" },
+        });
+      }),
+    );
+    const { user } = renderList();
+    const rows = await table();
+    await user.click(rows.getByRole("checkbox", { name: /Chọn tất cả/ }));
+    await user.click(screen.getByRole("button", { name: "Xuất kết quả" }));
+
+    expect(await screen.findByText("Đang xuất kết quả của 1 bài giao…")).toBeVisible();
+    release();
+    expect(await screen.findByText("Đã xuất kết quả của 1 bài giao.")).toBeVisible();
+    clicked.mockRestore();
+  });
+});
+
+describe("the deck's status pills (QA-24-3)", () => {
+  it.each([
+    ["open", {}, "bg-success-soft", "bg-success"],
+    [
+      "scheduled",
+      {
+        window: {
+          opensAt: "2026-09-01T00:00:00Z",
+          closesAt: "2026-09-03T00:00:00Z",
+          closedAt: null,
+        },
+      },
+      "bg-info-soft",
+      "bg-info",
+    ],
+    [
+      "closed",
+      {
+        window: {
+          opensAt: "2026-08-20T00:00:00Z",
+          closesAt: "2026-08-28T00:00:00Z",
+          closedAt: null,
+        },
+      },
+      "bg-muted",
+      "bg-muted-fg",
+    ],
+    ["draft", { publishedAt: null }, "bg-transparent", "bg-border"],
+  ] as const)(
+    "draws %s with its tone and a 6px dot",
+    async (status, over, tone, dot) => {
+      items = [assignment(over)];
+      renderList(
+        status === "open" ? undefined : `/teacher/assignments?status=${status}`,
+      );
+      const pill = (await table())
+        .getAllByRole("cell")
+        .at(-2)!
+        .querySelector("[data-slot=badge]")!;
+      expect(pill.className).toContain(tone);
+      expect(pill.className).toContain(`[&>[aria-hidden]]:${dot}`);
+      expect(pill.querySelector("[aria-hidden]")).toHaveClass(
+        "size-1.5",
+        "rounded-full",
+      );
+    },
+  );
+});
+
 describe("the assignments list on a phone", () => {
   it("draws cards with no checkbox, menu or bulk bar", async () => {
     viewport("phone");
     renderList();
     const list = await screen.findByRole("list", { name: "Bài giao" });
     expect(within(list).getByText("Unit 5")).toBeVisible();
+    expect(within(list).getByText("Unit 5")).toHaveClass("text-base");
     expect(within(list).getByText(/IELTS Foundation · /)).toBeVisible();
     expect(screen.queryByRole("checkbox")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Thao tác" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Thao tác/ })).toBeNull();
   });
 });
 

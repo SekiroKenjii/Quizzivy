@@ -44,7 +44,8 @@
     "bulkCompleted": "Processed {{count}} items.",
     "selectedCount": "{{count}} items selected",
     "clearSelection": "Clear selection",
-    "retryFailed": "Retry {{count}} failed items",
+    "retryFailed_one": "Retry {{count}} failed item",
+    "retryFailed_other": "Retry {{count}} failed items",
     "confirmSelected": "Confirm {{count}} items",
     "bulkProgress": "Processing {{completed}}/{{total}} items",
     "selectPage": "Select all items on this page",
@@ -1860,7 +1861,11 @@
       "exportTooMany": "Export up to 50 assignments at a time.",
       "closeNow": "Close now",
       "closeNowBody": "Students who have not started can no longer get in. Students mid-test keep their time.",
-      "notLive": "This assignment is not live."
+      "notLive": "This assignment is not live.",
+      "exporting_one": "Exporting results for {{count}} assignment",
+      "exporting_other": "Exporting results for {{count}} assignments",
+      "exported_one": "Exported results for {{count}} assignment",
+      "exported_other": "Exported results for {{count}} assignments"
     }
   },
   "students": {

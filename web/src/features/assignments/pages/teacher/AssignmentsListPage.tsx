@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import {
@@ -33,6 +33,7 @@ import { useCan } from "@/features/auth/permissions";
 import {
   deleteAssignment,
   exportResults,
+  getAssignment,
   listAssignments,
   updateAssignment,
   type Assignment,
@@ -50,7 +51,7 @@ import { useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { AssignmentCard } from "./AssignmentCells";
 import { assignmentColumns } from "./assignmentColumns";
-import { windowOf, type ListTab } from "./assignmentWindow";
+import { nameOf, windowOf, type ListTab } from "./assignmentWindow";
 import { DuplicateAssignmentDialog } from "./DuplicateAssignmentDialog";
 import { ExtendAssignmentsDialog } from "./ExtendAssignmentsDialog";
 
@@ -61,8 +62,14 @@ const EXPORT_LIMIT = 50;
 const SEARCH =
   "w-auto min-w-0 flex-[0_1_260px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
 
+const EXPORT_TOAST = "assignments-export";
+
+type Origin = RefObject<HTMLElement | null> | undefined;
+
+type ActKind = "extend" | "duplicate" | "close" | "delete";
+
 type Acting = {
-  kind: "extend" | "duplicate" | "close" | "delete";
+  kind: Exclude<ActKind, "extend">;
   assignment: Assignment;
 } | null;
 
@@ -72,6 +79,13 @@ function toTab(value: string | null): ListTab {
 
 function failure(cause: unknown, fallback: string) {
   return cause instanceof ApiError ? cause.message : fallback;
+}
+
+async function closeLatest(id: string, notLive: string): Promise<Assignment> {
+  const latest = await getAssignment(id);
+  if (statusAt(latest, new Date()) !== "open")
+    throw new ApiError({ status: 409, code: "UNKNOWN", message: notLive });
+  return updateAssignment(id, { ...toInput(latest), draft: false, closeNow: true });
 }
 
 function ListSkeleton() {
@@ -104,7 +118,7 @@ function AssignmentMenuItems({
   assignment: Assignment;
   now: Date;
   write: boolean;
-  onAct: (kind: NonNullable<Acting>["kind"], assignment: Assignment) => void;
+  onAct: (kind: ActKind, assignment: Assignment) => void;
 }>): ReactNode {
   const { t } = useTranslation();
   const status = statusAt(assignment, now);
@@ -163,9 +177,10 @@ function AssignmentMenuItems({
 
 /**
  * AssignmentsBulkBar is the bulk bar of the assignments list: Extend deadline
- * (`onExtend` opens its dialog) and Close now with `write`, which close the
- * live ones one at a time and report the others; Export results with
- * `grading`, one CSV for up to 50, whose refusal is shown.
+ * (`onExtend` opens its dialog) and Close now with `write`; Close now reads
+ * each assignment again and closes it only while it is live, so nothing the
+ * selection remembers is written back; Export results with `grading`, one CSV
+ * for up to 50, with a toast while it runs and when it is done or refused.
  */
 function AssignmentsBulkBar({
   selected,
@@ -185,29 +200,34 @@ function AssignmentsBulkBar({
   onSettled: () => Promise<unknown>;
 }>) {
   const { t } = useTranslation();
+  const now = new Date();
   const download = useMutation({
     mutationFn: (chosen: readonly Assignment[]) => exportResults(chosen),
-    onError: (cause) => toast.error(failure(cause, t("assignments.list.exportFailed"))),
+    onMutate: (chosen) => {
+      toast(t("assignments.list.exporting", { count: chosen.length }), {
+        id: EXPORT_TOAST,
+        duration: Infinity,
+      });
+    },
+    onSuccess: (_, chosen) => {
+      toast(t("assignments.list.exported", { count: chosen.length }), {
+        id: EXPORT_TOAST,
+        duration: 4000,
+      });
+    },
+    onError: (cause) =>
+      toast.error(failure(cause, t("assignments.list.exportFailed")), {
+        id: EXPORT_TOAST,
+        duration: 6000,
+      }),
   });
   const closeNow = (assignment: Assignment) =>
-    statusAt(assignment, new Date()) === "open"
-      ? updateAssignment(assignment.id, {
-          ...toInput(assignment),
-          draft: false,
-          closeNow: true,
-        })
-      : Promise.reject(
-          new ApiError({
-            status: 409,
-            code: "UNKNOWN",
-            message: t("assignments.list.notLive"),
-          }),
-        );
+    closeLatest(assignment.id, t("assignments.list.notLive"));
 
   return (
     <BulkActions
       selected={selected}
-      name={(assignment) => assignment.testTitle}
+      name={(assignment) => nameOf(assignment, now, t)}
       hideOnPhone
       actions={
         write
@@ -247,6 +267,35 @@ function AssignmentsBulkBar({
   );
 }
 
+function useFreshSelection(
+  bulk: ReturnType<typeof useBulkSelection<Assignment>>,
+  items: readonly Assignment[] | undefined,
+) {
+  const [synced, setSynced] = useState(items);
+  if (items !== undefined && items !== synced) {
+    setSynced(items);
+    const fresh = items.filter(
+      (item) => bulk.selected.has(item.id) && bulk.selected.get(item.id) !== item,
+    );
+    if (fresh.length > 0) bulk.selectPage(fresh, true);
+  }
+}
+
+function useLastPage(
+  settled: { total: number; pageSize: number } | undefined,
+  page: number,
+  setPage: (page: number) => void,
+): boolean {
+  const lastPage =
+    settled === undefined
+      ? undefined
+      : Math.max(1, Math.ceil(settled.total / settled.pageSize));
+  useEffect(() => {
+    if (lastPage !== undefined && page > lastPage) setPage(lastPage);
+  }, [page, lastPage, setPage]);
+  return lastPage !== undefined && page > lastPage;
+}
+
 /**
  * AssignmentsListPage is the teacher's assignments as the deck's Assignments
  * screen draws them: the Live, Scheduled, Closed and Drafts tabs with their
@@ -271,10 +320,17 @@ export default function AssignmentsListPage() {
   const query = params.get("q") ?? "";
   const search = useDebounced(query.trim(), 300);
   const [size] = usePageSize();
-  const [page] = usePage(JSON.stringify({ tab, classIds, search, size }));
+  const [page, setPage] = usePage(JSON.stringify({ tab, classIds, search, size }));
   const bulk = useBulkSelection<Assignment>();
+  const scope = JSON.stringify({ tab, classIds, search });
+  const [selectionScope, setSelectionScope] = useState(scope);
+  if (selectionScope !== scope) {
+    setSelectionScope(scope);
+    bulk.clear();
+  }
   const [acting, setActing] = useState<Acting>(null);
   const [extending, setExtending] = useState<readonly Assignment[]>([]);
+  const [origin, setOrigin] = useState<Origin>(undefined);
   const now = new Date();
 
   const assignments = useQuery({
@@ -302,11 +358,7 @@ export default function AssignmentsListPage() {
   const invalidate = () => client.invalidateQueries({ queryKey: QUERY_KEY });
   const close = useMutation({
     mutationFn: (assignment: Assignment) =>
-      updateAssignment(assignment.id, {
-        ...toInput(assignment),
-        draft: false,
-        closeNow: true,
-      }),
+      closeLatest(assignment.id, t("assignments.list.notLive")),
     onSuccess: async (closed) => {
       setActing(null);
       toast(
@@ -328,6 +380,9 @@ export default function AssignmentsListPage() {
   });
 
   const data = assignments.data;
+  const settled = assignments.isPlaceholderData ? undefined : data;
+  useFreshSelection(bulk, settled?.items);
+  const outOfRange = useLastPage(settled, page, setPage);
   const selected = [...bulk.selected.values()];
   const selecting = write || grading;
   const selectionProps = selecting
@@ -344,10 +399,12 @@ export default function AssignmentsListPage() {
   const single = extending.length === 1 ? extending[0] : undefined;
   const extendingWhen =
     single === undefined ? undefined : windowOf(single, "open", now, t);
-  const act = (kind: NonNullable<Acting>["kind"], assignment: Assignment) => {
+  const act = (kind: ActKind, assignment: Assignment, from: Origin) => {
+    setOrigin(from);
     if (kind === "extend") setExtending([assignment]);
     else setActing({ kind, assignment });
   };
+  const returnFocus = origin === undefined ? {} : { returnFocus: origin };
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <PageHead
@@ -393,7 +450,10 @@ export default function AssignmentsListPage() {
           selected={selected}
           write={write}
           grading={grading}
-          onExtend={() => setExtending(selected)}
+          onExtend={() => {
+            setOrigin(undefined);
+            setExtending(selected);
+          }}
           onRemoved={bulk.remove}
           onClear={bulk.clear}
           onSettled={invalidate}
@@ -405,8 +465,8 @@ export default function AssignmentsListPage() {
           {t("assignments.loadFailed")}
         </LoadError>
       ) : null}
-      {data === undefined ? (
-        assignments.isPending && <ListSkeleton />
+      {data === undefined || outOfRange ? (
+        (assignments.isPending || outOfRange) && <ListSkeleton />
       ) : (
         <DataTable
           label={t("assignments.list.table")}
@@ -415,14 +475,17 @@ export default function AssignmentsListPage() {
           rowSize={{ minHeight: 60 }}
           rowHref={(assignment) => `/teacher/assignments/${assignment.id}`}
           {...selectionProps}
-          menu={(assignment) => (
+          menu={(assignment, { triggerRef }) => (
             <AssignmentMenuItems
               assignment={assignment}
               now={now}
               write={write}
-              onAct={act}
+              onAct={(kind, chosen) => act(kind, chosen, triggerRef)}
             />
           )}
+          menuLabel={(assignment) =>
+            t("assignments.list.more", { title: assignment.testTitle })
+          }
           card={(assignment) => (
             <AssignmentCard assignment={assignment} tab={tab} now={now} />
           )}
@@ -447,6 +510,7 @@ export default function AssignmentsListPage() {
         items={extending}
         when={extendingWhen}
         open={extending.length > 0}
+        {...returnFocus}
         onOpenChange={(open) => {
           if (!open) setExtending([]);
         }}
@@ -455,6 +519,7 @@ export default function AssignmentsListPage() {
       <DuplicateAssignmentDialog
         assignment={acting?.kind === "duplicate" ? acting.assignment : null}
         open={acting?.kind === "duplicate"}
+        {...returnFocus}
         onOpenChange={(open) => {
           if (!open) setActing(null);
         }}
@@ -474,6 +539,7 @@ export default function AssignmentsListPage() {
           open
           pending={close.isPending}
           failed={close.isError}
+          {...returnFocus}
           onOpenChange={(open) => {
             if (!open) {
               setActing(null);
@@ -485,6 +551,7 @@ export default function AssignmentsListPage() {
       ) : null}
       <ConfirmDialog
         open={acting?.kind === "delete"}
+        {...returnFocus}
         onOpenChange={(open) => {
           if (!open) {
             setActing(null);

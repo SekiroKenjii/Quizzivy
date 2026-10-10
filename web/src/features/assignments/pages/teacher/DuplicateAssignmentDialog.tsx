@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Copy } from "lucide-react";
@@ -11,15 +11,18 @@ import { ApiError } from "@/lib/api/errors";
  * DuplicateAssignmentDialog is the row menu's "Duplicate": a draft with the
  * same test and rules, assigned to the classes chosen, the original's classes
  * to start with. Nothing is sent to students. `onDuplicated` hears the draft.
+ * Focus returns to `returnFocus` when it closes.
  */
 export function DuplicateAssignmentDialog({
   assignment,
   open,
+  returnFocus,
   onOpenChange,
   onDuplicated,
 }: Readonly<{
   assignment: Assignment | null;
   open: boolean;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
   onOpenChange: (open: boolean) => void;
   onDuplicated: (draft: Assignment) => void;
 }>) {
@@ -72,6 +75,7 @@ export function DuplicateAssignmentDialog({
       submitLabel={t("assignments.list.duplicateSubmit")}
       pending={duplicate.isPending}
       error={error}
+      returnFocus={returnFocus}
       onSubmit={({ classIds }) => {
         if (assignment !== null) duplicate.mutate({ id: assignment.id, classIds });
       }}
