@@ -228,7 +228,10 @@ export function PasteField({
               variant="ghost"
               size="sm"
               disabled={busy}
-              className={cn(TOOL_BUTTON, "text-muted-fg hover:bg-hover hover:text-fg")}
+              className={cn(
+                TOOL_BUTTON,
+                "text-muted-fg hover:bg-hover hover:text-fg border border-transparent",
+              )}
               onClick={() => {
                 onTextChange("");
                 box.current?.focus();
@@ -257,8 +260,8 @@ export function PasteField({
                     stat.warn ? "bg-warning-soft text-warning-ink" : "bg-card",
                   )}
                 >
-                  <dt className="text-muted-fg text-xs">{stat.label}</dt>
-                  <dd className="text-xl font-semibold tabular-nums">
+                  <dt className="text-muted-fg text-xs leading-normal">{stat.label}</dt>
+                  <dd className="text-xl leading-normal font-semibold tabular-nums">
                     {numbers.format(stat.value)}
                   </dd>
                 </div>
@@ -276,7 +279,9 @@ export function PasteField({
                 <span className="min-w-0 flex-1">{note.text}</span>
               </p>
             ))}
-            <p className="text-muted-fg text-xs">{t("imports.paste.footnote")}</p>
+            <p className="text-muted-fg text-xs leading-normal">
+              {t("imports.paste.footnote")}
+            </p>
           </div>
         ) : null}
         <button
@@ -318,14 +323,14 @@ export function PasteField({
             ))}
           </ol>
           <div className="flex min-w-0 flex-col items-start gap-1.5">
-            <pre className="bg-card w-full rounded-lg border px-3 py-2.5 font-mono text-xs leading-[1.6] [overflow-wrap:anywhere] whitespace-pre-wrap">
+            <pre className="bg-card w-full rounded-[8px] border px-3 py-2.5 font-mono text-xs leading-[1.6] [overflow-wrap:anywhere] whitespace-pre-wrap">
               {PASTE_EXAMPLE}
             </pre>
             <CopyButton
               value={PASTE_EXAMPLE}
               label={t("imports.paste.copyExample")}
               failedMessage={t("imports.paste.copyFailed")}
-              className="bg-card h-7 border"
+              className="bg-card h-7 gap-1.5 rounded-[8px] border px-[11px] text-xs in-data-[scale=deck]:h-7"
             />
           </div>
         </div>
