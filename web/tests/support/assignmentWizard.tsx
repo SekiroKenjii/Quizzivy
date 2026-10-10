@@ -38,6 +38,7 @@ function publishedTest(id: string, title: string, skills: string[]) {
     description: null,
     status: "published",
     currentVersion: 3,
+    nextVersion: 4,
     totalPoints: 30,
     questionCount: 99,
     audioCount: 0,

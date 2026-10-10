@@ -22,10 +22,11 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	current, err := lockTest(ctx, tx, req.TestID, req.Scope)
+	lastPublished, err := lockTest(ctx, tx, req.TestID, req.Scope)
 	if err != nil {
 		return domain.Version{}, err
 	}
+	next := domain.NextVersion(lastPublished)
 
 	if err := lockDraftContent(ctx, tx, req.TestID, false); err != nil {
 		return domain.Version{}, err
@@ -40,7 +41,7 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 
 	total, _ := domain.Publishing.Totals(draft)
 
-	versionID, err := insertVersion(ctx, tx, req, current+1, total, now)
+	versionID, err := insertVersion(ctx, tx, req, next, total, now)
 	if err != nil {
 		return domain.Version{}, err
 	}
@@ -52,7 +53,7 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 	if err := tx.QueryRow(ctx,
 		`UPDATE app.tests SET status = 'published', current_version = $2, last_published_version = $2 WHERE id = $1
 		 RETURNING updated_at`,
-		req.TestID, current+1).Scan(&testUpdatedAt); err != nil {
+		req.TestID, next).Scan(&testUpdatedAt); err != nil {
 		return domain.Version{}, fmt.Errorf("publish: bump current_version: %w", err)
 	}
 
@@ -80,17 +81,17 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 }
 
 func lockTest(ctx context.Context, tx pgx.Tx, testID string, scope access.Scope) (int, error) {
-	var current int
+	var lastPublished int
 	err := tx.QueryRow(ctx,
 		`SELECT last_published_version FROM app.tests WHERE id = $1 AND deleted_at IS NULL AND `+scopedTest+` FOR UPDATE`,
-		testID, scope.All, opt.String(scope.UserID)).Scan(&current)
+		testID, scope.All, opt.String(scope.UserID)).Scan(&lastPublished)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, domain.ErrDraftNotFound
 	}
 	if err != nil {
 		return 0, fmt.Errorf("publish: lock test: %w", err)
 	}
-	return current, nil
+	return lastPublished, nil
 }
 
 func insertVersion(ctx context.Context, tx pgx.Tx, req domain.PublishRequest, version int, total string, now time.Time) (string, error) {

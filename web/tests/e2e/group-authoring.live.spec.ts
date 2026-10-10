@@ -7,7 +7,7 @@ test("group graph and uploaded material round-trip through the real API, then co
   test.setTimeout(120_000);
   await signInAsAdmin(page);
   await page.goto("/teacher/question-bank/groups");
-  await page.getByRole("button", { name: "Nhóm mới", exact: true }).click();
+  await page.getByRole("button", { name: "Nhóm mới", exact: true }).first().click();
   await expect(page).toHaveURL(/\/question-bank\/groups\/[0-9a-f-]+$/);
   const originalPath = new URL(page.url()).pathname;
   const title = `Nhóm bài đọc ${Date.now()}`;
@@ -52,7 +52,7 @@ test("group graph and uploaded material round-trip through the real API, then co
       exact: true,
     })
     .click();
-  await expect(prompt).toHaveValue("Theo thông báo, hoạt động diễn ra khi nào?");
+  await expect(prompt).toHaveText("Theo thông báo, hoạt động diễn ra khi nào?");
   await page.getByRole("button", { name: "Thông báo câu lạc bộ", exact: true }).click();
   await page.getByRole("button", { name: "Xem ngữ liệu", exact: true }).click();
   await expect(
@@ -75,15 +75,17 @@ test("group graph and uploaded material round-trip through the real API, then co
     fullPage: true,
   });
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Quay lại", exact: true }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Nhóm câu hỏi", exact: true })
+    .click();
   const search = page.getByPlaceholder("Tìm nhóm theo tên hoặc nội dung câu hỏi…");
   await search.fill(title);
   const original = page
     .getByRole("row")
     .filter({ has: page.locator(`a[href="${originalPath}"]`) });
-  await original
-    .getByRole("button", { name: `Nhân bản ${title}`, exact: true })
-    .click();
+  await original.getByRole("button", { name: "Thao tác", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Nhân bản", exact: true }).click();
   await expect(page).toHaveURL(/\/question-bank\/groups\?/);
   const copyRow = page.getByRole("row").filter({ hasText: "Vừa nhân bản" });
   await expect(copyRow).toBeVisible();
@@ -95,8 +97,10 @@ test("group graph and uploaded material round-trip through the real API, then co
     .click();
   await expect(original).toBeHidden();
   await expect(copyRow).toBeVisible();
-  await page.getByRole("combobox", { name: "Trạng thái", exact: true }).click();
-  await page.getByRole("option", { name: "Đã lưu trữ", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Trạng thái", exact: true })
+    .getByRole("button", { name: "Đã lưu trữ", exact: true })
+    .click();
   const archived = page
     .getByRole("row")
     .filter({ has: page.getByRole("link", { name: title, exact: true }) });
@@ -118,8 +122,10 @@ test("group graph and uploaded material round-trip through the real API, then co
   expect((await deleted).status()).toBe(204);
   await expect(page.getByRole("dialog")).toBeHidden();
   await expect(archived).toBeHidden();
-  await page.getByRole("combobox", { name: "Trạng thái", exact: true }).click();
-  await page.getByRole("option", { name: "Đang sử dụng", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Trạng thái", exact: true })
+    .getByRole("button", { name: "Đang sử dụng", exact: true })
+    .click();
   await copyRow.getByRole("link", { name: title, exact: true }).click();
   await page
     .getByRole("button", {
@@ -127,7 +133,7 @@ test("group graph and uploaded material round-trip through the real API, then co
       exact: true,
     })
     .click();
-  await expect(prompt).toHaveValue("Theo thông báo, hoạt động diễn ra khi nào?");
+  await expect(prompt).toHaveText("Theo thông báo, hoạt động diễn ra khi nào?");
   await page.getByRole("button", { name: "Thông báo câu lạc bộ", exact: true }).click();
   await page.getByRole("button", { name: "Xem ngữ liệu", exact: true }).click();
   await expect(

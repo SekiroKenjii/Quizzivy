@@ -63,7 +63,7 @@ async function choose(file: File) {
     </QueryClientProvider>,
   );
   await user.upload(
-    screen.getByLabelText("Tải tệp mới lên", { selector: "input" }),
+    screen.getByLabelText("Chọn tệp từ máy", { selector: "input" }),
     file,
   );
 }
@@ -72,7 +72,7 @@ describe("the group editor's image upload keeps the image limit", () => {
   it("refuses an image one byte over 10 MB without sending it", async () => {
     await choose(imageReporting(MAX_IMAGE_BYTES + 1));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/tối đa 10 MB/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/vượt quá 10 MB/);
     expect(uploads).toBe(0);
   });
 
@@ -87,7 +87,7 @@ describe("the group editor's image upload keeps the image limit", () => {
   it("does not take the audio limit for an image", async () => {
     await choose(imageReporting(MAX_AUDIO_BYTES));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/tối đa 10 MB/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/vượt quá 10 MB/);
     expect(uploads).toBe(0);
   });
 });

@@ -272,6 +272,7 @@ func toAPITest(t domain.Test) (openapi.Test, error) {
 		Description:    t.Description,
 		Status:         openapi.TestStatus(t.Status),
 		CurrentVersion: t.CurrentVersion,
+		NextVersion:    t.NextVersion,
 		TotalPoints:    points,
 		QuestionCount:  t.QuestionCount,
 		AudioCount:     t.AudioCount,

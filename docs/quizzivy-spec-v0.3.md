@@ -1,7 +1,27 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.72 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.74 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.73**
+
+R4, the starter questions (T-R4.31b, T-R4.34):
+
+- §7.1 The builder's and the group composer's starter prompt is created as rich text, so a new
+  question in either opens in Rich text; while its text is still the starter it opens empty
+  under the placeholder, and the starter stays stored until the first edit.
+
+**Changes since v0.72**
+
+R4, the next version number (F-46):
+
+- §7 and §15 `Test` gains a required `nextVersion`: the number the next publish takes, one more
+  than the highest version ever published, deleted or not (`tests.last_published_version + 1`),
+  so it is 1 for a test never published. Deleting the newest version, which is allowed while
+  it is not the default, does not lower it. The publish command and every read of a `Test`
+  (`getTest`, `listTests`, the answer of a write) take it from the same function, so they
+  cannot disagree. The test detail's draft banner and publish dialog name it in place of the
+  highest listed version + 1, which named 3 where the server assigned 4 (VER-30).
 
 **Changes since v0.71**
 
@@ -209,8 +229,8 @@ R4, the content editor's Rich text and Markdown modes (T-R4.64, DG-110):
 - §7.1: rich prose is how a prompt and an explanation are written, no longer
   an opt-in behind `VITE_RICH_QUESTION_EDITOR`, which is removed. A field opens
   in the form it is stored in, and a field with no text opens as rich text;
-  the builder's and the group composer's starter prompt is stored as Markdown
-  and opens as Markdown until T-R4.31b and T-R4.34 create it as rich text.
+  the builder's and the group composer's starter prompt was stored as Markdown
+  until T-R4.31b and T-R4.34 created it as rich text (see v0.74).
   "Switch to Markdown" and "Apply conversion" are the only ways the stored form
   changes, each behind its confirmation; Markdown is refused while a
   fill-in-the-blank prompt holds a gap. Markdown gains GitHub's tables and
@@ -1243,6 +1263,7 @@ interface Test {
   totalPoints: number;                  // server-computed
   status: 'draft' | 'published' | 'archived';
   currentVersion: number;
+  nextVersion: number;                  // server-computed: the number the next publish takes (last published + 1), whatever was deleted
   createdAt; updatedAt;
 }
 
@@ -1366,10 +1387,9 @@ release both explanation fields only when `review.showExplanations` permits it.
 Legacy writes omitting a rich field must leave its companion string unchanged;
 otherwise the update fails atomically. Explicit null clears a document. A
 field is written in the form it is stored in: a document in the rich editor, a
-Markdown string in the Markdown editor; a field with no text is rich text,
-except that the builder's and the group composer's starter prompt is stored as
-Markdown and opens as Markdown until T-R4.31b and T-R4.34 create it as rich
-text. The
+Markdown string in the Markdown editor; a field with no text is rich text, and
+so is the builder's and the group composer's starter prompt, which opens empty
+under the placeholder while its text is still the starter. The
 form changes only through "Switch to Markdown" (which keeps text, bold, italic,
 strikethrough, headings, lists, tables and links, and drops underline,
 superscript and subscript) and "Apply conversion", each after its confirmation.
@@ -2473,7 +2493,7 @@ GET    /teacher/dashboard?range=7d|14d|30d → Dashboard (default 14d; own teach
 GET    /teacher/summary                → TeacherSummary {liveAssignments,answersToGrade,unreadNotifications}
 GET    /teacher/tests?status=&q=&cursor=
 POST   /teacher/tests | GET /:id | PATCH /:id
-POST   /teacher/tests/:id/publish       → new version
+POST   /teacher/tests/:id/publish       → new version; its number is the `nextVersion` the test reported
 POST   /teacher/tests/:id/duplicate
 GET    /teacher/questions?type=&tag=&tagMatch=any|all&level=&skill=&q=&cursor=
 POST   /teacher/questions | PATCH /:id | DELETE /:id

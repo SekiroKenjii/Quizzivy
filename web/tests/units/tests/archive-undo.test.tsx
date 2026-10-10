@@ -25,6 +25,7 @@ function test(over: Record<string, unknown> = {}) {
     description: null,
     status: "draft" as const,
     currentVersion: 0,
+    nextVersion: 1,
     totalPoints: 10,
     questionCount: 4,
     audioCount: 0,
@@ -116,7 +117,7 @@ describe("undoing an archive from the toast", () => {
   });
 
   it("offers no undo for a published test, because restoring cannot republish it", async () => {
-    status = { status: "published", currentVersion: 1 };
+    status = { status: "published", currentVersion: 1, nextVersion: 2 };
     const user = renderList();
     await user.click(await screen.findByRole("button", { name: /Thao tác/ }));
     await user.click(await screen.findByRole("menuitem", { name: "Lưu trữ" }));

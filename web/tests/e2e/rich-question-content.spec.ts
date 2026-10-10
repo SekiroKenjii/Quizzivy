@@ -101,6 +101,7 @@ async function setup(page: Page, initial = sample(), delayed = false) {
         title: "Soạn nội dung",
         status: "draft",
         currentVersion: 0,
+        nextVersion: 1,
         totalPoints: 2,
         questionCount: 2,
         audioCount: 0,

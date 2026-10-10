@@ -14,11 +14,13 @@ type Test struct {
 	Description    *string
 	Status         Status
 	CurrentVersion int
-	TotalPoints    string
-	QuestionCount  int
-	AudioCount     int
-	Skills         []string
-	Assignments    AssignmentCounts
+	// NextVersion is the number the next publish takes; see NextVersion.
+	NextVersion   int
+	TotalPoints   string
+	QuestionCount int
+	AudioCount    int
+	Skills        []string
+	Assignments   AssignmentCounts
 	// UnpublishedChanges is how many changes the draft holds against the
 	// latest version; nil where it was not computed or cannot be.
 	UnpublishedChanges *int
@@ -27,6 +29,12 @@ type Test struct {
 	UpdatedAt          time.Time
 	DeletedAt          *time.Time
 }
+
+// NextVersion is the number the next publish of a test takes: one more than
+// lastPublished, the highest version ever published, which tests keeps even
+// after that version is deleted. The publisher numbers a version with it and
+// every read of a Test reports it, so the two cannot disagree.
+func NextVersion(lastPublished int) int { return lastPublished + 1 }
 
 // AssignmentCounts is how many non-draft assignments name any version of a
 // test, by derived status: Live counts the open ones.
