@@ -189,20 +189,23 @@ func writeOverrides(ctx context.Context, tx pgx.Tx, req domain.Request, in domai
 	rows, err := tx.Query(ctx, `
 		WITH wanted AS (
 		  SELECT s.student_id,
-		         CASE WHEN $3::int IS NULL THEN $4::timestamptz
-		              ELSE `+schedule.CloseOf("o")+` + make_interval(mins => $3::int) END AS closes_at
+		         coalesce(CASE WHEN $3::int IS NULL THEN $4::timestamptz
+		                       ELSE `+schedule.CloseOf("o")+` + make_interval(mins => $3::int) END,
+		                  o.closes_at) AS closes_at,
+		         coalesce($5::int, o.duration_minutes) AS duration_minutes,
+		         coalesce($6::int, o.extra_attempts, 0) AS extra_attempts
 		    FROM unnest($2::uuid[]) AS s(student_id)
 		    JOIN app.assignments a ON a.id = $1::uuid
 		    `+schedule.OverrideJoin("s.student_id")+`
 		), upserted AS (
 		  INSERT INTO app.assignment_student_overrides AS ov
 		         (assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by)
-		  SELECT $1::uuid, w.student_id, w.closes_at, $5::int, coalesce($6::int, 0), $7::text, $8::uuid
+		  SELECT $1::uuid, w.student_id, w.closes_at, w.duration_minutes, w.extra_attempts, $7::text, $8::uuid
 		    FROM wanted w
 		  ON CONFLICT (assignment_id, student_id) DO UPDATE
-		     SET closes_at = coalesce(EXCLUDED.closes_at, ov.closes_at),
-		         duration_minutes = coalesce(EXCLUDED.duration_minutes, ov.duration_minutes),
-		         extra_attempts = coalesce($6::int, ov.extra_attempts),
+		     SET closes_at = EXCLUDED.closes_at,
+		         duration_minutes = EXCLUDED.duration_minutes,
+		         extra_attempts = EXCLUDED.extra_attempts,
 		         reason = EXCLUDED.reason
 		  RETURNING ov.student_id, ov.closes_at, ov.duration_minutes, ov.extra_attempts, ov.reason,
 		            ov.created_at, ov.updated_at,
