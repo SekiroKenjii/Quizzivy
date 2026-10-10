@@ -25,6 +25,13 @@ func (a *Application) WithGroupContexts(groups ports.GroupContexts) *Application
 	return a
 }
 
+// WithZones supplies the reader of a caller's calendar zone, which the results
+// export writes its times in. Without it the export uses query.DefaultZone.
+func (a *Application) WithZones(zones ports.Zones) *Application {
+	a.service.Zones = zones
+	return a
+}
+
 type Commands struct {
 	ExpireDue       cqrs.CommandHandler[command.ExpireDue, cqrs.Nothing]
 	Extend          cqrs.CommandHandler[command.Extend, domain.Attempt]
@@ -44,6 +51,8 @@ type Commands struct {
 
 type Queries struct {
 	GradingQueue       cqrs.QueryHandler[query.GradingQueue, domain.GradingQueue]
+	ItemAnalysis       cqrs.QueryHandler[query.ItemAnalysis, domain.ItemAnalysis]
+	ResultsExport      cqrs.QueryHandler[query.ResultsExport, domain.ResultsExport]
 	AnswersForQuestion cqrs.QueryHandler[query.AnswersForQuestion, domain.ByQuestion]
 	Get                cqrs.QueryHandler[query.Get, domain.Session]
 	Monitor            cqrs.QueryHandler[query.Monitor, domain.Monitor]
@@ -75,6 +84,8 @@ func New(repo domain.TimelineRepository, reviewRepo domain.ReviewRepository, sto
 		},
 		Queries: Queries{
 			GradingQueue:       query.GradingQueueHandler{Review: review},
+			ItemAnalysis:       query.ItemAnalysisHandler{Service: service},
+			ResultsExport:      query.ResultsExportHandler{Service: service},
 			AnswersForQuestion: query.AnswersForQuestionHandler{Review: review},
 			Get:                query.GetHandler{Service: service},
 			Monitor:            query.MonitorHandler{Service: service},

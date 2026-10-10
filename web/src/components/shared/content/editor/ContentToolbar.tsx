@@ -24,6 +24,7 @@ import { useRovingToolbar } from "./roving";
 import { ToolButton } from "./ToolButton";
 import { LinkPopover } from "./LinkPopover";
 import { TableToolbar } from "./TableToolbar";
+import { insertGap } from "./gapCommands";
 
 type ButtonTool = {
   key: string;
@@ -40,23 +41,6 @@ type Tool = ButtonTool | { key: "link"; link: true };
 type ToolGroup = { key: string; tools: Tool[] };
 
 const OPTION_GROUPS = new Set(["marks", "history"]);
-
-function insertGap(editor: Editor, gapLabel: (() => string) | undefined) {
-  const labels = new Set<string>();
-  editor.state.doc.descendants((node) => {
-    if (node.type.name === "gap") labels.add(String(node.attrs.label));
-  });
-  let label = 1;
-  while (labels.has(String(label))) label++;
-  editor
-    .chain()
-    .focus()
-    .insertContent({
-      type: "gap",
-      attrs: { id: crypto.randomUUID(), label: gapLabel?.() ?? String(label) },
-    })
-    .run();
-}
 
 /**
  * ContentToolbar is the editor's formatting toolbar, in the deck's order, and

@@ -12,6 +12,13 @@ function promptTools(page: Page) {
   });
 }
 
+/** answers are the accepted-answer chips on gap `label`'s row. */
+function answers(page: Page, label: string) {
+  return page
+    .getByRole("group", { name: `Ô trống ${label}`, exact: true })
+    .locator('[data-slot="chip"]');
+}
+
 test("rich blanks retain answers through conversion, table editing, undo, save and reload on a tablet", async ({
   page,
 }) => {
@@ -82,12 +89,12 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
     .click();
   await expect(prompt.locator("table .content-gap")).toHaveText("3");
   await expect(prompt.locator(".content-gap")).toHaveText(["2", "1", "3"]);
-  await page
-    .getByRole("textbox", {
-      name: "Đáp án được chấp nhận cho chỗ trống 3",
-      exact: true,
-    })
-    .fill("three");
+  const third = page.getByRole("textbox", {
+    name: "Đáp án được chấp nhận cho ô 3",
+    exact: true,
+  });
+  await third.fill("three");
+  await third.press("Enter");
   await prompt.locator("th").first().click();
   await page.keyboard.press("Home");
   await page.keyboard.press("Shift+ArrowRight");
@@ -99,12 +106,7 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
     .getByRole("button", { name: "Hoàn tác", exact: true })
     .click();
   await expect(prompt.locator("table .content-gap")).toHaveText("3");
-  await expect(
-    page.getByRole("textbox", {
-      name: "Đáp án được chấp nhận cho chỗ trống 3",
-      exact: true,
-    }),
-  ).toHaveValue("three");
+  await expect(answers(page, "3")).toHaveText(["three"]);
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
   await expect.poll(() => writes).toBe(1);
   expect(question.blanks?.map((blank) => blank.acceptedAnswers)).toEqual([
@@ -116,12 +118,7 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   expect(new Set(gaps).size).toBe(3);
   await page.reload();
   await expect(prompt.locator(".content-gap")).toHaveText(["2", "1", "3"]);
-  await expect(
-    page.getByRole("textbox", {
-      name: "Đáp án được chấp nhận cho chỗ trống 1",
-      exact: true,
-    }),
-  ).toHaveValue("one");
+  await expect(answers(page, "1")).toHaveText(["one"]);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true);

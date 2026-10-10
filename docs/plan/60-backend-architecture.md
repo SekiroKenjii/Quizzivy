@@ -110,6 +110,14 @@ the "one package per feature" layout AGENTS.md described until then.
   Postgres type embeds `db.Repository` and uses the generic `QueryOne`,
   `QueryMany`, `Count`, `Exists`, `IsUniqueViolation`, `EscapeLike`. Optional
   values go through `shared/opt`, field errors through `shared/validation`.
+- **A table that leaves the product goes through `platform/tabular`** (T-R4.13):
+  `EscapeCell` prefixes an apostrophe to a cell a spreadsheet would run as a
+  formula, and the `CSV` writer passes every cell through it after a
+  byte-order mark, CRLF-ended. A transport that exports builds its file with it
+  and nothing else; R5 adds XLSX to the package. A time in such a file is
+  written in the caller's own zone, which attempts reads through its
+  `ports.Zones`, the way dashboard does, wired from identity's
+  `EffectiveZone` in `core/wiring`.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware

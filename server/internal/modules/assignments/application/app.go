@@ -18,6 +18,7 @@ type Application struct {
 type Commands struct {
 	Delete         cqrs.CommandHandler[command.Delete, cqrs.Nothing]
 	Create         cqrs.CommandHandler[command.Create, domain.Assignment]
+	Duplicate      cqrs.CommandHandler[command.Duplicate, domain.Assignment]
 	Reopen         cqrs.CommandHandler[command.Reopen, domain.Assignment]
 	Update         cqrs.CommandHandler[command.Update, domain.Assignment]
 	Extend         cqrs.CommandHandler[command.Extend, domain.Assignment]
@@ -40,6 +41,7 @@ func New(repo domain.Repository) *Application {
 		Commands: Commands{
 			Delete:         command.DeleteHandler{Service: service},
 			Create:         command.CreateHandler{Service: service},
+			Duplicate:      command.DuplicateHandler{Service: service},
 			Reopen:         command.ReopenHandler{Service: service},
 			Update:         command.UpdateHandler{Service: service},
 			Extend:         command.ExtendHandler{Service: service},
