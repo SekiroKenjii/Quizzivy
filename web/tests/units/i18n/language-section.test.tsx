@@ -34,7 +34,7 @@ function savesAs(locale: "vi" | "en") {
 }
 
 /**
- * The language is a field of the teacher's Profile (DG-157): it applies once
+ * The language is a field of the teacher's Profile (DG-158): it applies once
  * saved, and the choice outlives the tab, stored where `boot.js` reads it
  * before the first paint and announced on <html lang>.
  */

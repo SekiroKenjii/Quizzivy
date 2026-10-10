@@ -33,7 +33,7 @@ const ACTION = "h-8.5 self-start";
 /**
  * PasswordSection is the Password card of the teacher's Sign-in & security
  * settings: the current and the new password, changed by its own button
- * (DG-156). A Google-only account has no password to change and gets no card.
+ * (DG-157). A Google-only account has no password to change and gets no card.
  */
 export function PasswordSection() {
   const { t } = useTranslation();
@@ -131,7 +131,7 @@ export function PasswordSection() {
 }
 
 /**
- * GoogleSection is the Google account card the deck does not draw (DG-156):
+ * GoogleSection is the Google account card the deck does not draw (DG-157):
  * whether Google is linked, what unlinking would leave, and the control that
  * links or unlinks it.
  */

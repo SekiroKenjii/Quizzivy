@@ -20,7 +20,7 @@ const BASE = "/teacher/settings";
  * `/teacher/settings/:section`: Profile (also the bare address), Sign-in &
  * security, Appearance and, for holders of `system.api_reference` until R5,
  * API reference. Notifications and Assignment defaults join with T-R4.44
- * (DG-156). Every section stays mounted, so an unsaved profile survives a
+ * (DG-157). Every section stays mounted, so an unsaved profile survives a
  * visit to another one. Any other section, the pre-R4 "preferences"
  * included, is replaced by the bare address.
  */

@@ -46,7 +46,7 @@ type Revoking = { kind: "one"; familyId: string } | { kind: "others" } | null;
  * caller's own session epoch, so while one is in flight every Sign out is
  * off, and the list is read again once it settles, through the client's one
  * refresh. Only the server's labels are shown: an unrecognised device reads
- * "Unknown device", and a location is shown as given (DG-158).
+ * "Unknown device", and a location is shown as given (DG-164).
  */
 export function DevicesSection() {
   const { t } = useTranslation();

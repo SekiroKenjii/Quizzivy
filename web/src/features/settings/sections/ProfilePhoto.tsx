@@ -33,7 +33,7 @@ function photoProblem(file: File, t: TFunction): string | null {
 /**
  * ProfilePhoto is the photo row of the Profile card: the account's photo, or
  * its initials, with Change photo and, while there is a photo, Remove. Both
- * save at once, outside the form's unsaved changes (DG-157). A file of the
+ * save at once, outside the form's unsaved changes (DG-158). A file of the
  * wrong type or over 2 MiB is refused before it is sent; the server checks
  * again and its message is shown as written.
  */

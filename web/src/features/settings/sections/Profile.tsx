@@ -105,7 +105,7 @@ function described(id: string, hint: boolean, error: boolean) {
  * the email the account signs in with (read only), the phone, the language
  * and the time zone. An edit raises the DirtyBar; Save changes sends only the
  * changed fields in one `PATCH /auth/me`, and the language and the zone apply
- * once they are saved (DG-157). Discard restores what was saved.
+ * once they are saved (DG-158). Discard restores what was saved.
  */
 export function ProfileSection() {
   const user = useAuthStore((s) => s.user);
