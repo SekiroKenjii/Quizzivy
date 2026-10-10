@@ -53,9 +53,11 @@ type Recompute struct {
 // deadline is the earlier of its start plus its student's time limit and its
 // student's close, the rule Rules.Deadline applies at the start; it is moved
 // only when that is later than the deadline it has, so a deadline never
-// shortens and one a maintenance window pushed past the rule stays. The
-// student's own override counts in both terms, so a student whose override
-// closes later than the assignment keeps it.
+// shortens and one a maintenance window pushed past the rule stays. An attempt
+// whose deadline has already passed, on the database's clock, is over whether
+// or not it has been swept, and is not revived. The student's own override
+// counts in both terms, so a student whose override closes later than the
+// assignment keeps it.
 //
 // tx must be the transaction that changed the window, after it took the
 // assignment row. Each attempt row is locked as it is read, so a concurrent
@@ -77,6 +79,7 @@ func RecomputeDeadlines(ctx context.Context, tx Execer, in Recompute) (int, erro
 		    JOIN app.assignments a ON a.id = at.assignment_id
 		    `+OverrideJoin("at.student_id")+`
 		   WHERE at.assignment_id = $1::uuid AND at.status = 'in_progress'
+		     AND at.deadline_at > now()
 		     AND ($2::uuid[] IS NULL OR at.student_id = ANY($2::uuid[]))
 		   ORDER BY at.id
 		     FOR UPDATE OF at
