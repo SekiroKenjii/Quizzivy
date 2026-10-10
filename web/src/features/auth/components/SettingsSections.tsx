@@ -31,6 +31,7 @@ import {
 import { api, BASE_URL } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { useChosenLocale } from "@/lib/i18n/useLocale";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 function Section({
@@ -334,7 +335,8 @@ export function GoogleSection() {
 }
 
 export function LanguageSection() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const chosenLocale = useChosenLocale();
   const preferenceStatus = useAccountPreferenceStatus();
 
   return (
@@ -345,7 +347,7 @@ export function LanguageSection() {
       >
         <Segmented
           label={t("common.language")}
-          value={i18n.language}
+          value={chosenLocale}
           options={SUPPORTED_LOCALES.map((locale: Locale) => ({
             value: locale,
             label: t(`settings.locale.${locale}`),

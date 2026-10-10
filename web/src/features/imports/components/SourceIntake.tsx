@@ -1,5 +1,12 @@
-import { useId, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import {
+  useCallback,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { Link, useBeforeUnload, useBlocker } from "react-router";
 import {
   Card,
   CardHeader,
@@ -14,12 +21,63 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { formatBytes } from "@/features/media/format";
+import { commandKeyLabel } from "@/features/search/useCommandPalette";
+import { dayMonth } from "@/lib/i18n/datetime";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { getWordImportLimits, type WordImport, type ImportRetention } from "../api";
+import { usePastedText, type PasteState } from "../usePastedText";
 import { SOURCE_ROLES, useSourceIntake } from "../useSourceIntake";
 import { FileSlot } from "./FileSlot";
+import { PasteField } from "./PasteField";
 
 const TITLE_MAX = 200;
+const PASTE_MAX = 100_000;
+
+function pasteHint(
+  state: PasteState,
+  questions: number,
+  max: number,
+  t: TFunction,
+  locale: string,
+): string {
+  if (state === "empty") return t("imports.paste.emptyHint");
+  if (state === "over")
+    return t("imports.paste.overHint", {
+      max: new Intl.NumberFormat(locale).format(max),
+    });
+  if (state === "none") return t("imports.paste.noQuestionsHint");
+  return [
+    t("imports.paste.foundHint", { count: questions }),
+    t("imports.paste.processingHint"),
+    t("imports.paste.shortcutHint", { key: commandKeyLabel() }),
+  ].join(" ");
+}
+
+function footerHint(
+  {
+    busy,
+    pasting,
+    canStart,
+    paste,
+    questions,
+    max,
+  }: {
+    busy: boolean;
+    pasting: boolean;
+    canStart: boolean;
+    paste: PasteState;
+    questions: number;
+    max: number;
+  },
+  t: TFunction,
+  locale: string,
+): string {
+  if (busy) return t("imports.upload.starting");
+  if (pasting) return pasteHint(paste, questions, max, t, locale);
+  return canStart ? t("imports.upload.readyHint") : t("imports.upload.chooseHint");
+}
 
 function titleFromFilename(name: string): string {
   return name
@@ -32,7 +90,9 @@ function titleFromFilename(name: string): string {
  * SourceIntake is the upload form for a new import, one awaiting its sources,
  * and, with `replacing`, a failed one whose files are replaced: the limits,
  * the exam and optional key, and one action that uploads what changed and
- * queues processing.
+ * queues processing. For a new import, `fileMode` false shows the pasted-text
+ * box in place of the files; the files, the text and a typed title survive a
+ * switch, and leaving with text that has not started asks first.
  */
 export function SourceIntake({
   existing,
@@ -56,7 +116,8 @@ export function SourceIntake({
   onStarted: (started: WordImport) => void;
 }>) {
   const { t } = useTranslation();
-  const titleId = useId();
+  const locale = useLocale();
+  const released = useRef(false);
   const limits = useQuery({
     queryKey: ["word-import-limits"],
     queryFn: ({ signal }) => getWordImportLimits(signal),
@@ -67,18 +128,51 @@ export function SourceIntake({
     limits: limits.data,
     replacing,
     onChanged,
-    onStarted,
+    onStarted: (started) => {
+      released.current = true;
+      onStarted(started);
+    },
   });
   const [typedTitle, setTypedTitle] = useState<string | null>(null);
+  const pasteMax = limits.data?.pasteMaxCharacters ?? PASTE_MAX;
+  const paste = usePastedText(pasteMax);
+  const pasting = existing === null && !fileMode;
   const examName = intake.slots.exam.file?.name ?? intake.slots.exam.received?.filename;
-  const title =
-    typedTitle ?? (examName === undefined ? "" : titleFromFilename(examName));
+  const suggested = examName === undefined ? "" : titleFromFilename(examName);
+  const title = typedTitle ?? (pasting ? paste.firstLine : suggested);
   const askTitle = existing === null;
   const titleLocked = intake.importId !== null;
   const accept = (limits.data?.formats ?? ["docx"])
     .map((format) => `.${format}`)
     .join(",");
-  const canStart = enabled && intake.ready && (!askTitle || title.trim() !== "");
+  const filesReady = intake.ready && (!askTitle || title.trim() !== "");
+  const pasteReady = !intake.busy && paste.state === "ready";
+  const canStart = enabled && (pasting ? pasteReady : filesReady);
+  const fallbackTitle = t("imports.paste.fallbackTitle", {
+    date: dayMonth(new Date(), locale),
+  });
+  const hint = footerHint(
+    {
+      busy: intake.busy,
+      pasting,
+      canStart,
+      paste: paste.state,
+      questions: paste.scan.questions,
+      max: pasteMax,
+    },
+    t,
+    locale,
+  );
+
+  function submit() {
+    if (!canStart) return;
+    if (!pasting) {
+      void intake.start(title.trim());
+      return;
+    }
+    const exact = paste.sendable();
+    if (exact !== null) void intake.startText(title.trim() || fallbackTitle, exact);
+  }
 
   const files = (
     <>
@@ -111,7 +205,7 @@ export function SourceIntake({
       className="flex flex-col gap-6"
       onSubmit={(event) => {
         event.preventDefault();
-        if (canStart) void intake.start(title.trim());
+        submit();
       }}
     >
       <div hidden={!fileMode}>
@@ -128,22 +222,26 @@ export function SourceIntake({
         )}
       </div>
       {askTitle ? (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={titleId}>{t("imports.upload.titleLabel")}</Label>
-          <Input
-            id={titleId}
+        <>
+          <div hidden={!pasting}>
+            <PasteField
+              text={paste.text}
+              length={paste.length}
+              max={pasteMax}
+              scan={paste.scan}
+              busy={intake.busy}
+              onTextChange={paste.setText}
+            />
+          </div>
+          <TitleField
             value={title}
-            maxLength={TITLE_MAX}
-            disabled={titleLocked || intake.busy}
-            placeholder={t("imports.upload.titlePlaceholder")}
-            onChange={(event) => setTypedTitle(event.target.value)}
+            disabled={intake.busy}
+            locked={titleLocked}
+            pasting={pasting}
+            fallback={fallbackTitle}
+            onChange={setTypedTitle}
           />
-          <p className="text-muted-foreground text-xs">
-            {titleLocked
-              ? t("imports.upload.titleLocked")
-              : t("imports.upload.titleHint")}
-          </p>
-        </div>
+        </>
       ) : null}
       <Recognition deck={deck} replacing={replacing} />
       {deck ? (
@@ -167,12 +265,83 @@ export function SourceIntake({
       )}
       <IntakeFooter
         deck={deck}
-        fileMode={fileMode}
+        hint={hint}
         canStart={canStart}
         busy={intake.busy}
         replacing={replacing}
       />
+      {askTitle ? <LeaveGuard dirty={paste.text !== ""} released={released} /> : null}
     </form>
+  );
+}
+
+function TitleField({
+  value,
+  disabled,
+  locked,
+  pasting,
+  fallback,
+  onChange,
+}: Readonly<{
+  value: string;
+  disabled: boolean;
+  locked: boolean;
+  pasting: boolean;
+  fallback: string;
+  onChange: (next: string) => void;
+}>) {
+  const { t } = useTranslation();
+  const id = useId();
+  let hint = pasting ? t("imports.paste.titleHint") : t("imports.upload.titleHint");
+  if (locked) hint = t("imports.upload.titleLocked");
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id}>{t("imports.upload.titleLabel")}</Label>
+      <Input
+        id={id}
+        value={value}
+        maxLength={TITLE_MAX}
+        disabled={locked || disabled}
+        placeholder={pasting ? fallback : t("imports.upload.titlePlaceholder")}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <p className="text-muted-foreground text-xs">{hint}</p>
+    </div>
+  );
+}
+
+function LeaveGuard({
+  dirty,
+  released,
+}: Readonly<{ dirty: boolean; released: RefObject<boolean> }>) {
+  const { t } = useTranslation();
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      dirty && !released.current && currentLocation.pathname !== nextLocation.pathname,
+  );
+  useBeforeUnload(
+    useCallback(
+      (event: BeforeUnloadEvent) => {
+        if (dirty && !released.current) event.preventDefault();
+      },
+      [dirty, released],
+    ),
+  );
+  return (
+    <ConfirmDialog
+      open={blocker.state === "blocked"}
+      onOpenChange={(open) => {
+        if (!open && blocker.state === "blocked") blocker.reset();
+      }}
+      title={t("imports.paste.leaveTitle")}
+      description={t("imports.paste.leaveBody")}
+      confirmLabel={t("imports.paste.leave")}
+      cancelLabel={t("imports.paste.stay")}
+      destructive
+      onConfirm={() => {
+        if (blocker.state === "blocked") blocker.proceed();
+      }}
+    />
   );
 }
 
@@ -205,22 +374,18 @@ function Recognition({
 
 function IntakeFooter({
   deck,
-  fileMode,
+  hint,
   canStart,
   busy,
   replacing,
 }: Readonly<{
   deck: boolean;
-  fileMode: boolean;
+  hint: string;
   canStart: boolean;
   busy: boolean;
   replacing: boolean;
 }>) {
   const { t } = useTranslation();
-  let hint = t("imports.upload.chooseHint");
-  if (busy) hint = t("imports.upload.starting");
-  else if (!fileMode) hint = t("imports.upload.pasteDeferredHint");
-  else if (canStart) hint = t("imports.upload.readyHint");
   return (
     <div
       className={cn(

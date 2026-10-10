@@ -3,7 +3,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
+import { Toaster, toast } from "@/components/ui/sonner";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
+import { emptyQuestion } from "@/features/question-bank/questionSchema";
 import { MaterialAssetDialog } from "@/features/question-groups/components/MaterialAssetDialog";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
@@ -68,7 +70,10 @@ beforeEach(() => {
   );
 });
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  toast.dismiss();
+  vi.restoreAllMocks();
+});
 
 function audio(name: string): File {
   return new File([new Uint8Array(1024)], name, { type: "audio/mpeg" });
@@ -76,7 +81,17 @@ function audio(name: string): File {
 
 const hosts = {
   "the question editor's media field": (onUploaded: (asset: unknown) => void) =>
-    render(<QuestionMediaField value={null} onChange={onUploaded} />),
+    render(
+      <>
+        <QuestionMediaField
+          value={emptyQuestion()}
+          asset={null}
+          onChange={vi.fn()}
+          onAssetChange={onUploaded}
+        />
+        <Toaster />
+      </>,
+    ),
   "the group editor's audio dialog": (onUploaded: (asset: unknown) => void) => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
@@ -119,7 +134,14 @@ for (const [host, mount] of Object.entries(hosts)) {
       mount(vi.fn());
       await user.upload(screen.getByLabelText("Chọn tệp từ máy"), audio("dai.mp3"));
 
-      expect(await screen.findByRole("alert")).toHaveTextContent(/dai\.mp3.*5 phút/);
+      if (host.startsWith("the question")) {
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Âm thanh dài tối đa 5 phút",
+        );
+        expect(screen.getByText(/dai\.mp3.*5 phút/)).toBeInTheDocument();
+      } else {
+        expect(await screen.findByRole("alert")).toHaveTextContent(/dai\.mp3.*5 phút/);
+      }
       expect(uploads).toBe(0);
     });
 
