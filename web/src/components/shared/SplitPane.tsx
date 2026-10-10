@@ -1,5 +1,12 @@
 /* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- The APG splitter uses a focusable separator with a value. */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import {
@@ -30,7 +37,12 @@ interface SplitPaneProps {
   secondClassName?: string;
 }
 
-/** SplitPane resizes stable pane wrappers in pixels or percentages without remounting their contents when stacked. */
+/**
+ * SplitPane resizes stable pane wrappers in pixels or percentages without
+ * remounting their contents when stacked. While split it measures its row from
+ * the first paint and on every resize, so the separator's value and maximum
+ * are the rendered width and the real ceiling from the start.
+ */
 export function SplitPane({
   label,
   first,
@@ -98,6 +110,19 @@ export function SplitPane({
     },
     [split, stopDrag],
   );
+  useLayoutEffect(() => {
+    const element = row.current;
+    if (!split || element === null) return;
+    const read = () => {
+      const width = element.getBoundingClientRect().width;
+      setMeasuredWidth(width > 0 ? width : null);
+    };
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(read);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [split]);
   const apply = (next: number) => {
     heldSize.current = next;
     setSize(next);

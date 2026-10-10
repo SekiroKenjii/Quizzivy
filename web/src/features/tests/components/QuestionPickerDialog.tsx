@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -19,22 +19,32 @@ interface QuestionPickerDialogProps {
   onOpenChange: (open: boolean) => void;
   onPick: (questionId: string) => void;
   onPickGroup?: () => void;
+  /** Takes focus back when the dialog closes, if it is still in the page. */
+  returnFocus?: RefObject<HTMLElement | null>;
 }
 
-/** A-04's "Lấy từ ngân hàng": the second test is faster only if the first is reusable. */
+/** QuestionPickerDialog adds a question from the bank to the test. */
 export function QuestionPickerDialog({
   open,
   excluded,
   onOpenChange,
   onPick,
   onPickGroup,
+  returnFocus,
 }: Readonly<QuestionPickerDialogProps>) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+        onCloseAutoFocus={(event) => {
+          const opener = returnFocus?.current;
+          if (!opener?.isConnected) return;
+          event.preventDefault();
+          opener.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t("builder.fromBank")}</DialogTitle>
         </DialogHeader>
@@ -118,7 +128,7 @@ function BankList({
             <span className="flex shrink-0 items-center gap-2">
               <Badge>{t(`questionEditor.type.${question.type}`)}</Badge>
               <span className="text-muted-foreground tabular-nums">
-                {t("builder.points", { points: question.points })}
+                {t("builder.points", { count: question.points })}
               </span>
             </span>
           </button>

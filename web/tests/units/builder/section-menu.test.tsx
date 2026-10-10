@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   OutlineTree,
@@ -81,13 +81,7 @@ describe("the section menu", () => {
       within(menu)
         .getAllByRole("menuitem")
         .map((item) => (item.textContent ?? "").trim()),
-    ).toEqual([
-      "Đổi tên",
-      "Hướng dẫn phần",
-      "Di chuyển lên",
-      "Di chuyển xuống",
-      "Xoá phần",
-    ]);
+    ).toEqual(["Đổi tên", "Hướng dẫn", "Di chuyển lên", "Di chuyển xuống", "Gỡ phần"]);
   });
 
   it("renames a section in place, committing on Enter", async () => {
@@ -106,7 +100,7 @@ describe("the section menu", () => {
       "Nghe hiểu",
       "Viết",
     ]);
-    expect(screen.getByText("Nghe hiểu")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Nghe hiểu \d/ })).toBeInTheDocument();
     expect(screen.queryByLabelText("Tên phần")).toBeNull();
   });
 
@@ -121,7 +115,7 @@ describe("the section menu", () => {
     await user.keyboard("Nghe hiểu{Escape}");
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByText("Nghe")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Nghe \d/ })).toBeInTheDocument();
   });
 
   it("refuses to commit an empty name", async () => {
@@ -134,7 +128,7 @@ describe("the section menu", () => {
     await user.keyboard("{Enter}");
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByText("Nghe")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Nghe \d/ })).toBeInTheDocument();
   });
 
   it("cannot move the first section up, and moves the second", async () => {
@@ -179,7 +173,7 @@ describe("the section menu", () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 2);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual([
@@ -193,14 +187,14 @@ describe("the section menu", () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 0);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/Ngữ pháp/)).toBeInTheDocument();
     expect(within(dialog).getByText(/2 câu/)).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
 
-    await user.click(within(dialog).getByRole("button", { name: "Xoá phần" }));
+    await user.click(within(dialog).getByRole("button", { name: "Gỡ phần" }));
 
     expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual([
       "Nghe",
@@ -213,23 +207,23 @@ describe("the section menu", () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 0);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByText("Ngữ pháp")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Ngữ pháp \d/ })).toBeInTheDocument();
   });
 
   it("edits a section's instructions through the same outline change", async () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 1);
-    await user.click(await screen.findByRole("menuitem", { name: "Hướng dẫn phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Hướng dẫn" }));
 
     const dialog = await screen.findByRole("dialog");
-    const field = within(dialog).getByLabelText("Hướng dẫn phần");
+    const field = within(dialog).getByLabelText("Hướng dẫn");
     expect(field).toHaveValue("Nghe kỹ trước khi chọn.");
 
     await user.clear(field);
@@ -244,10 +238,10 @@ describe("the section menu", () => {
     const { user, onChange } = renderTree();
 
     await openMenu(user, 1);
-    await user.click(await screen.findByRole("menuitem", { name: "Hướng dẫn phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Hướng dẫn" }));
 
     const dialog = await screen.findByRole("dialog");
-    await user.clear(within(dialog).getByLabelText("Hướng dẫn phần"));
+    await user.clear(within(dialog).getByLabelText("Hướng dẫn"));
     await user.click(within(dialog).getByRole("button", { name: "Lưu" }));
 
     const next = onChange.mock.calls[0]![0] as OutlineSection[];
@@ -264,7 +258,7 @@ describe("the section menu", () => {
     await user.click(headers[1]!);
 
     expect(screen.queryByText("Câu ba")).toBeNull();
-    expect(screen.getByText("Nghe")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Nghe \d/ })).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -309,7 +303,7 @@ describe("the section menu", () => {
 
 it("renames a section after a double click on its title", async () => {
   const { user, onChange } = renderTree();
-  await user.dblClick(screen.getByText("Nghe", { exact: true }));
+  await user.dblClick(screen.getByRole("button", { name: /^Nghe \d/ }));
   const field = await screen.findByLabelText("Tên phần");
   await user.clear(field);
   await user.type(field, "Listening{Enter}");
@@ -337,12 +331,12 @@ describe("removing a section from a builder that owns groups", () => {
     const { user, onChange } = renderTree(withGroup(), onRemoveSection);
 
     await openMenu(user, 0);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/Ngữ pháp/)).toBeInTheDocument();
     expect(within(dialog).getByText(/2 câu/)).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Xoá phần" }));
+    await user.click(within(dialog).getByRole("button", { name: "Gỡ phần" }));
 
     expect(onRemoveSection).not.toHaveBeenCalled();
     expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual([
@@ -357,7 +351,7 @@ describe("removing a section from a builder that owns groups", () => {
     const { user, onChange } = renderTree(withGroup(), onRemoveSection);
 
     await openMenu(user, 2);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(onRemoveSection).not.toHaveBeenCalled();
@@ -369,10 +363,53 @@ describe("removing a section from a builder that owns groups", () => {
     const { user, onChange } = renderTree(withGroup(), onRemoveSection);
 
     await openMenu(user, 3);
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Gỡ phần" }));
 
     expect(onRemoveSection).toHaveBeenCalledWith(3);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
+});
+
+it("renames the section it started on even when the outline reorders during the press", async () => {
+  const onChange = vi.fn();
+  let setOutline: (next: OutlineSection[]) => void = () => {};
+  function Harness() {
+    const [value, setValue] = useState(sections());
+    setOutline = setValue;
+    return (
+      <OutlineTree
+        sections={value}
+        questions={questions}
+        selectedId="q1"
+        creating={false}
+        onCreateQuestion={vi.fn()}
+        onPickFromBank={vi.fn()}
+        onAddSection={vi.fn()}
+        onSelect={vi.fn()}
+        onChange={(next) => {
+          onChange(next);
+          setValue(next);
+        }}
+      />
+    );
+  }
+  render(<Harness />);
+  const user = userEvent.setup();
+  await user.dblClick(screen.getByRole("button", { name: /^Nghe 1 · / }));
+  const name = screen.getByRole("textbox", { name: "Tên phần" });
+  await user.clear(name);
+  await user.type(name, "Nghe hiểu");
+  const bank = screen.getByRole("button", { name: "Từ ngân hàng câu hỏi" });
+
+  await user.pointer({ keys: "[MouseLeft>]", target: bank });
+  const [first, second, third] = sections();
+  act(() => setOutline([second!, first!, third!]));
+  await user.pointer({ keys: "[/MouseLeft]", target: bank });
+
+  expect(titles(onChange.mock.lastCall![0] as OutlineSection[])).toEqual([
+    "Nghe hiểu",
+    "Ngữ pháp",
+    "Viết",
+  ]);
 });

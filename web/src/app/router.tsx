@@ -72,6 +72,13 @@ const teacherTree: RouteObject = {
 
         {
           path: "tests/:id/edit",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+              { key: "builder.titleLabel" },
+            ],
+            width: 1320,
+          },
           lazy: page(() => import("@/features/tests/pages/teacher/TestBuilderPage")),
         },
         {
