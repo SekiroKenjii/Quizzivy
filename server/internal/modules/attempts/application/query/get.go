@@ -23,7 +23,7 @@ type GetHandler struct {
 }
 
 func (s GetHandler) Handle(ctx context.Context, q Get) (domain.Session, error) {
-	if err := s.Store.ExpireIfDue(ctx, q.AttemptID, s.Now()); err != nil {
+	if err := s.Expire(ctx, q.AttemptID); err != nil {
 		return domain.Session{}, err
 	}
 	attempt, err := s.Store.ByID(ctx, q.AttemptID, q.StudentID)

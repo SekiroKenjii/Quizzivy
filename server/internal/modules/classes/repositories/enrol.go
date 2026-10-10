@@ -60,6 +60,10 @@ func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.Enro
 	if err != nil {
 		return domain.EnrolResult{}, err
 	}
+	studentName, teacherID, err := loadJoiner(ctx, tx, code.classID, userID)
+	if err != nil {
+		return domain.EnrolResult{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.EnrolResult{}, fmt.Errorf("commit enrol: %w", err)
 	}
@@ -68,7 +72,21 @@ func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.Enro
 		UserID:        userID,
 		AlreadyMember: alreadyMember,
 		Class:         class,
+		StudentName:   studentName,
+		TeacherID:     teacherID,
 	}, nil
+}
+
+func loadJoiner(ctx context.Context, tx pgx.Tx, classID, userID string) (string, string, error) {
+	var name, teacherID string
+	err := tx.QueryRow(ctx, `
+		SELECT u.full_name, c.teacher_id::text
+		  FROM app.classes c, app.users u
+		 WHERE c.id = $1::uuid AND u.id = $2::uuid`, classID, userID).Scan(&name, &teacherID)
+	if err != nil {
+		return "", "", fmt.Errorf("load joiner %s of class %s: %w", userID, classID, err)
+	}
+	return name, teacherID, nil
 }
 
 type claimedCode struct {

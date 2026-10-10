@@ -11,11 +11,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Submit closes an attempt and grades everything a machine can.
-func (s *Postgres) Submit(ctx context.Context, attemptID, studentID string, reason domain.Reason, now time.Time) (domain.AttemptRecord, error) {
+// Submit closes an attempt and grades everything a machine can. The
+// milestones say that the paper was handed in, and that the integrity limit
+// flagged it when that is what closed it.
+func (s *Postgres) Submit(ctx context.Context, attemptID, studentID string, reason domain.Reason, now time.Time) (domain.AttemptRecord, domain.Milestones, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
-		return domain.AttemptRecord{}, fmt.Errorf("attempts: begin submit: %w", err)
+		return domain.AttemptRecord{}, domain.Milestones{}, fmt.Errorf("attempts: begin submit: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -30,38 +32,47 @@ func (s *Postgres) Submit(ctx context.Context, attemptID, studentID string, reas
 		 WHERE id = $1::uuid AND ($2 = '' OR student_id = $2::uuid)
 		   FOR UPDATE`, attemptID, studentID).Scan(&status, &versionID, &deadlineAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.AttemptRecord{}, domain.ErrForbidden
+		return domain.AttemptRecord{}, domain.Milestones{}, domain.ErrForbidden
 	}
 	if err != nil {
-		return domain.AttemptRecord{}, fmt.Errorf("attempts: lock attempt for submit: %w", err)
+		return domain.AttemptRecord{}, domain.Milestones{}, fmt.Errorf("attempts: lock attempt for submit: %w", err)
 	}
 	if status != domain.InProgress {
-		return domain.AttemptRecord{}, domain.ErrAttemptClosed
+		return domain.AttemptRecord{}, domain.Milestones{}, domain.ErrAttemptClosed
 	}
 
-	if closed, err := closeForFocusLimit(ctx, tx, attemptID, now); err != nil {
-		return domain.AttemptRecord{}, err
-	} else if closed {
-		result, err := scanAttempt(tx.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.attempts WHERE id = $1`, attemptID))
-		if err != nil {
-			return domain.AttemptRecord{}, err
-		}
-		return result, tx.Commit(ctx)
+	limit, err := closeForFocusLimit(ctx, tx, attemptID, now)
+	if err != nil {
+		return domain.AttemptRecord{}, domain.Milestones{}, err
+	}
+	if limit.closed {
+		return commitLimitClose(ctx, tx, attemptID, limit)
 	}
 	if reason == domain.TimerExpired && deadlineAt.Sub(now) > domain.TimerGrace {
-		return domain.AttemptRecord{}, &domain.DeadlineNotReachedError{DeadlineAt: deadlineAt}
+		return domain.AttemptRecord{}, domain.Milestones{}, &domain.DeadlineNotReachedError{DeadlineAt: deadlineAt}
 	}
 	if reason == domain.AutoSubmit {
 		reason = domain.Manual
 	}
 	closed, err := gradeAndClose(ctx, tx, attemptID, versionID, reason, deadlineAt, now)
 	if err != nil {
-		return domain.AttemptRecord{}, err
+		return domain.AttemptRecord{}, domain.Milestones{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return domain.AttemptRecord{}, fmt.Errorf("attempts: commit submit: %w", err)
+		return domain.AttemptRecord{}, domain.Milestones{}, fmt.Errorf("attempts: commit submit: %w", err)
 	}
-	return closed, nil
+	return closed, domain.Milestones{AttemptID: attemptID, HandedIn: true}, nil
+}
+
+func commitLimitClose(ctx context.Context, tx pgx.Tx, attemptID string, limit focusClose) (domain.AttemptRecord, domain.Milestones, error) {
+	closed, err := scanAttempt(tx.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.attempts WHERE id = $1`, attemptID))
+	if err != nil {
+		return domain.AttemptRecord{}, domain.Milestones{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.AttemptRecord{}, domain.Milestones{}, fmt.Errorf("attempts: commit submit: %w", err)
+	}
+	return closed, domain.Milestones{AttemptID: attemptID, HandedIn: true, Flagged: limit.flagged}, nil
 }
 
 func gradeAndClose(ctx context.Context, tx pgx.Tx, attemptID, versionID string, reason domain.Reason, deadlineAt, now time.Time) (domain.AttemptRecord, error) {
@@ -244,11 +255,11 @@ func submittedAnswers(ctx context.Context, tx pgx.Tx, attemptID string) (map[str
 }
 
 // ExpireIfDue closes an attempt whose time ran out, and does nothing to one
-// that has not.
-func (s *Postgres) ExpireIfDue(ctx context.Context, attemptID string, now time.Time) error {
+// that has not. The milestones say that the paper was handed in when it did.
+func (s *Postgres) ExpireIfDue(ctx context.Context, attemptID string, now time.Time) (domain.Milestones, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("attempts: begin expiry: %w", err)
+		return domain.Milestones{}, fmt.Errorf("attempts: begin expiry: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -262,20 +273,23 @@ func (s *Postgres) ExpireIfDue(ctx context.Context, attemptID string, now time.T
 		  FROM app.attempts WHERE id = $1::uuid FOR UPDATE`, attemptID).
 		Scan(&status, &versionID, &deadlineAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
+		return domain.Milestones{}, nil
 	}
 	if err != nil {
-		return fmt.Errorf("attempts: lock attempt for expiry: %w", err)
+		return domain.Milestones{}, fmt.Errorf("attempts: lock attempt for expiry: %w", err)
 	}
 	if status != domain.InProgress {
-		return nil
+		return domain.Milestones{}, nil
 	}
 	if !now.After(deadlineAt) {
-		return nil
+		return domain.Milestones{}, nil
 	}
 
 	if _, err := gradeAndClose(ctx, tx, attemptID, versionID, domain.TimerExpired, deadlineAt, now); err != nil {
-		return err
+		return domain.Milestones{}, err
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return domain.Milestones{}, err
+	}
+	return domain.Milestones{AttemptID: attemptID, HandedIn: true}, nil
 }

@@ -1,7 +1,43 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.68 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.69 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.68**
+
+R4, notification producers and due-time items (T-R4.10b):
+
+- §15 Who is told, and when. A notification is written after the change that caused it has
+  committed, under a budget of its own that the end of the request does not cancel; a
+  failure is logged and never fails the request. The teachers are the assignment's creator
+  and the teachers of a target class the student belongs to (`visibility.PaperReaders`, the
+  rule that lets a teacher see a paper, read the other way), each once, so a teacher of
+  another class is told nothing about this student. `attempt.submitted` merges the papers
+  handed in on one assignment into one notification per fifteen minutes, a timed-out paper
+  being a hand-in; `attempt.flagged` is written once, when the integrity policy flags a
+  paper, and never for a teacher's own flag or under `warn`; `class.joined`, which has no
+  switch, on a join by code. The student is told `assignment.extended` when `notify` is
+  true on an extension (everyone whose close it moved) or on an override that moves a
+  close (those it gave time past the assignment's own close), and `result.ready` when a
+  teacher finishes grading and the review policy shows the score at that moment. A
+  `result.ready` notification carries the title and the attempt, never a score.
+- §15 Due-time items. `GET /me/summary` and `GET /me/notifications` first write what the
+  passing of time has earned the caller, at most once in five minutes per caller in the
+  serving process; there is no timer and no job. A moment older than seven days is not made
+  up, a row the caller already holds is left as it is, read or not, and a switch that is
+  off writes nothing. For a student: `assignment.opened` (when the assignment opened or was
+  published, whichever is later), `assignment.due_soon` a day and an hour before the
+  student's own close, override and early close included, while they have handed nothing in
+  and have an attempt left and the test was available at that moment, the day's only while
+  the hour's is not yet due (a student who first reads inside the last hour gets the
+  hour's alone), and `result.ready`
+  at the close of an `after_close` release for a paper with nothing waiting for a mark. For
+  a teacher: `assignment.closing` an hour before the assignment's close, with the number of
+  students they reach who have not handed in and whose own close is the assignment's. A
+  close that moves earns its reminders again.
+- §9 The Test intro says "We will notify you when it opens." under a test that has not
+  opened for a student whose "Test due soon" switch is on, and "You can start once it
+  opens." otherwise.
 
 **Changes since v0.67**
 
@@ -2365,6 +2401,13 @@ PATCH  /auth/me                         {fullName?,displayName?|null,phone?|null
 PATCH  /me/preferences                 top-level UserPreferences merge → UserPreferences;
                                           nested assignmentDefaults replaces its key, {} no-op;
                                           raw/stored UTF8 cap8192 bytes,400 on excess
+GET    /me/notifications?before=&limit= → {items: [Notification], nextBefore}; the caller's own,
+                                          newest first (20 by default, 50 at most). Writes the caller's
+                                          due-time notifications first, at most once in 5 minutes
+POST   /me/notifications/read           {ids?} (1 to 100; absent means all) → 204 whatever matched
+GET    /me/summary                      → {unreadNotifications}; writes the due-time notifications first
+GET    /me/notification-preferences     → the five switches [{event,inApp,email}]
+PUT    /me/notification-preferences     the five switches, each once → the stored switches
 PUT    /me/avatar                      multipart file (PNG or JPEG, at most 2 MiB, each side 200–2048 px)
                                           → CurrentUser; stored as a 256×256 PNG, EXIF orientation applied
                                           then dropped; 413 MEDIA_TOO_LARGE, 415 MEDIA_TYPE_UNSUPPORTED |

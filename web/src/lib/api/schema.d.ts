@@ -1398,8 +1398,13 @@ export interface paths {
          *     statement that moves it.
          *
          *     `notify` says the teacher wants the students told. It is recorded with
-         *     the audit entry; the notification itself is sent once the notification
-         *     producers exist (T-R4.10b), so until then it has no other effect.
+         *     the audit entry. When it is true, each enabled student of a published
+         *     assignment whose own close the extension changed is sent an
+         *     `assignment.extended` notification naming the close they now have,
+         *     once the extension has committed: a student without an override, and
+         *     one whose override closes before the new close. A student whose
+         *     override closes at or after it keeps the close they had and is told
+         *     nothing. A failure to send is logged and never fails the extension.
          *
          *     An attempt already in progress moves with it, in the same transaction:
          *     its deadline becomes the earlier of its start plus the student's time
@@ -1462,7 +1467,13 @@ export interface paths {
          *     and one the caller may not know exist answer the same.
          *
          *     Audited per student with the old and new values, in the statement that
-         *     writes them. `notify` is recorded with them, as on `extendAssignment`.
+         *     writes them. `notify` is recorded with them. When it is true and the
+         *     request moves a close (`extendBy` or `closesAt`), each student named
+         *     whose override now closes after the assignment's own close is sent an
+         *     `assignment.extended` notification naming their close, once the
+         *     override has committed; more attempts or a longer time limit move no
+         *     close and tell nobody. A failure to send is logged and never fails the
+         *     request.
          *
          *     Each named student's attempt in progress moves with the override, as it
          *     does on `extendAssignment`: its deadline becomes the earlier of its
@@ -2467,6 +2478,13 @@ export interface paths {
          *     newest first. A notification first written more than 180 days ago is
          *     deleted, once a day.
          *
+         *     Before it reads, the server writes the notifications the passing of
+         *     time has earned the caller, at most once in five minutes: an
+         *     assignment that opened, a close a day or an hour away, an assignment
+         *     about to close with students still to hand in, and a result an
+         *     after-close release has made ready. A moment older than seven days is
+         *     not made up, and one the caller already holds is left as it is.
+         *
          *     Paged by a cursor, not by a page number: ask again with `before` set
          *     to `nextBefore` for the next older page. Ids are time-ordered, so a
          *     notification written while the caller pages never moves a row from one
@@ -2581,7 +2599,9 @@ export interface paths {
         /**
          * The counts the caller's shell shows
          * @description How many of the caller's notifications are unread: the dot on the
-         *     bell. One count over the caller's own rows, cheap enough to poll.
+         *     bell. One count over the caller's own rows, cheap enough to poll. It
+         *     writes the caller's due-time notifications first, exactly as
+         *     `listNotifications` does, so the count includes them.
          */
         get: operations["getMySummary"];
         put?: never;
