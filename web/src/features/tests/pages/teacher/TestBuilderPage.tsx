@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 import type { RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useBlocker, useNavigate, useParams } from "react-router";
@@ -995,7 +996,13 @@ function BuilderTitle({
     }
   }, [editing]);
   return (
-    <div className="min-w-16 flex-[0_1_auto]">
+    <div
+      className={cn(
+        "min-w-16 flex-[0_1_auto]",
+        !editing &&
+          "group/builder-title hover:bg-hover hover:border-border -ml-2 rounded-[8px] border border-transparent transition-[background-color,border-color] duration-150 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none",
+      )}
+    >
       {editing ? (
         <Input
           ref={input}
@@ -1021,7 +1028,7 @@ function BuilderTitle({
           ref={trigger}
           type="button"
           aria-label={t("builder.titleLabel")}
-          className="group/builder-title hover:bg-hover text-stat hover:border-border relative -ml-2 block w-[calc(100%+8px)] min-w-0 rounded-[8px] border border-transparent px-2 py-0 text-left leading-[34px] font-semibold tracking-[-0.02em] transition-[background-color,border-color] duration-150 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none"
+          className="text-stat relative block h-[34px] w-full min-w-0 rounded-[7px] py-0 pr-[calc(0.5rem+0.21em)] pl-2 text-left leading-[34px] font-semibold tracking-[-0.02em]"
           onClick={() => setEditing(true)}
         >
           <MarqueeText

@@ -753,6 +753,8 @@ function EmptySectionDrop({
   );
 }
 
+const TAP_SETTLE_MS = 400;
+
 function SectionTitleInput({
   title,
   onDone,
@@ -786,8 +788,11 @@ function SectionTitleInput({
       deferred.current = null;
       commit?.();
     };
-    const releaseSoon = () => {
-      timer = window.setTimeout(release, 0);
+    const releaseSoon = (event: PointerEvent) => {
+      timer = window.setTimeout(
+        release,
+        event.pointerType === "mouse" ? 0 : TAP_SETTLE_MS,
+      );
     };
     document.addEventListener("pointerdown", press, true);
     window.addEventListener("pointerup", releaseSoon);
@@ -994,9 +999,9 @@ function OutlineRow({
 
       <span
         className={cn(
-          "pointer-events-none flex w-0 shrink-0 overflow-hidden opacity-0 min-[768px]:group-hover/row:pointer-events-auto min-[768px]:group-hover/row:w-auto min-[768px]:group-hover/row:overflow-visible min-[768px]:group-hover/row:opacity-100 min-[768px]:group-has-[:focus-visible]/row:pointer-events-auto min-[768px]:group-has-[:focus-visible]/row:w-auto min-[768px]:group-has-[:focus-visible]/row:overflow-visible min-[768px]:group-has-[:focus-visible]/row:opacity-100",
+          "pointer-events-none -ml-1 flex w-0 shrink-0 overflow-hidden opacity-0 min-[768px]:group-hover/row:pointer-events-auto min-[768px]:group-hover/row:ml-0 min-[768px]:group-hover/row:w-auto min-[768px]:group-hover/row:overflow-visible min-[768px]:group-hover/row:opacity-100 min-[768px]:group-has-[:focus-visible]/row:pointer-events-auto min-[768px]:group-has-[:focus-visible]/row:ml-0 min-[768px]:group-has-[:focus-visible]/row:w-auto min-[768px]:group-has-[:focus-visible]/row:overflow-visible min-[768px]:group-has-[:focus-visible]/row:opacity-100",
           selected &&
-            "max-[767px]:pointer-events-auto max-[767px]:w-auto max-[767px]:overflow-visible max-[767px]:opacity-100 max-[767px]:[&_button]:size-11",
+            "max-[767px]:pointer-events-auto max-[767px]:ml-0 max-[767px]:w-auto max-[767px]:overflow-visible max-[767px]:opacity-100 max-[767px]:[&_button]:size-11",
         )}
       >
         <Button

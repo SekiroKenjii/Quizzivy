@@ -114,7 +114,7 @@ describe("the outline's deck states", () => {
     expect(changed.mock.lastCall![0].at(-1).title).toBe("Nghe");
   });
 
-  it("holds a rename blurred by a touch until the click that follows it", async () => {
+  it("holds a rename blurred by a touch until the click that follows it, past a tick after pointerup", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       const picked = vi.fn();
@@ -153,6 +153,7 @@ describe("the outline's deck states", () => {
 
       fireEvent.pointerDown(bank, { pointerType: "touch" });
       fireEvent.pointerUp(bank, { pointerType: "touch" });
+      await act(() => vi.advanceTimersByTimeAsync(1));
       act(() => bank.focus());
       expect(screen.getByRole("textbox", { name: "Tên phần" })).toBeInTheDocument();
       fireEvent.click(bank);
