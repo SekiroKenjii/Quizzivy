@@ -33,11 +33,13 @@ export function BlankPromptField({
   onChange,
   onEditor,
   placeholder,
+  label: given,
 }: Readonly<{
   value: QuestionValues;
   onChange: (value: QuestionValues) => void;
   onEditor?: ((editor: Editor | null) => void) | undefined;
   placeholder?: string | undefined;
+  label?: string | undefined;
 }>) {
   const { t } = useTranslation();
   const header = useRef<HTMLDivElement>(null);
@@ -45,7 +47,7 @@ export function BlankPromptField({
   const field = useProseMode((): ProseMode =>
     value.promptContent != null || !value.prompt.trim() ? "rich" : "markdown",
   );
-  const label = t("questionEditor.prompt");
+  const label = given ?? t("questionEditor.prompt");
   const content = value.promptContent;
   const holdsGaps = content != null && questionGaps(content).length > 0;
   const cancel = () => {
@@ -83,6 +85,7 @@ export function BlankPromptField({
             <RichBlankEditor
               key="rich"
               value={value}
+              label={label}
               leaving={field.step === "leaving" && !holdsGaps}
               focusOnMount={moved}
               onCancelLeave={cancel}

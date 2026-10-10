@@ -21,12 +21,14 @@ const EMPTY: QuestionPromptContent = {
  * keeps each blank's answers bound to its gap through formatting, moves, undo
  * and removal. While `leaving` it asks "Switch to Markdown" under its toolbar.
  * `onEditor` hands the live editor to the host, for "Insert gap" elsewhere.
+ * `label` names it, "Prompt" unless the host names it otherwise.
  */
 export function RichBlankEditor({
   value,
   leaving,
   focusOnMount = false,
   placeholder,
+  label,
   onCancelLeave,
   onConfirmLeave,
   onChange,
@@ -36,6 +38,7 @@ export function RichBlankEditor({
   leaving: boolean;
   focusOnMount?: boolean;
   placeholder?: string | undefined;
+  label?: string | undefined;
   onCancelLeave: () => void;
   onConfirmLeave: () => void;
   onChange: (value: QuestionValues) => void;
@@ -50,7 +53,7 @@ export function RichBlankEditor({
     <ContentEditor
       initialContent={initial}
       id="question-prompt"
-      label={t("questionEditor.prompt")}
+      label={label ?? t("questionEditor.prompt")}
       profile="prompt"
       gapLabel={() => String(nextBlankOrdinal(value.blanks))}
       onEditor={onEditor}

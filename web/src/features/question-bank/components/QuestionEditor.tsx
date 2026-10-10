@@ -1,16 +1,14 @@
-import { useState, type RefObject } from "react";
-import type { Editor } from "@tiptap/react";
-import { insertGap } from "@/components/shared/content/editor/gapCommands";
-import { nextBlankOrdinal } from "@/features/question-bank/blankContent";
-import { BlankPromptField } from "./BlankPromptField";
-import { AnswerArea } from "./AnswerArea";
+import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { PageAside } from "@/components/shared/PageAside";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MediaAsset } from "@/features/media/api";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
-import { QuestionProseField } from "@/features/question-bank/components/QuestionProseField";
+import {
+  ExplanationField,
+  QuestionPromptAnswers,
+} from "@/features/question-bank/components/QuestionPromptAnswers";
 import { TagsField } from "@/features/question-bank/components/TagsField";
 import type {
   QuestionType,
@@ -59,7 +57,6 @@ export function QuestionEditor({
   onAssetChange,
 }: Readonly<QuestionEditorProps>) {
   const { t } = useTranslation();
-  const [promptEditor, setPromptEditor] = useState<Editor | null>(null);
   const locked = typeLocked(value);
 
   function switchType(type: QuestionType) {
@@ -101,37 +98,10 @@ export function QuestionEditor({
             {t("questionEditor.richBlankSwitch")}
           </p>
         )}
-        <div>
-          {value.type === "fill_blank" ? (
-            <BlankPromptField
-              value={value}
-              onChange={onChange}
-              onEditor={setPromptEditor}
-            />
-          ) : (
-            <QuestionProseField
-              id="question-prompt"
-              text={value.prompt}
-              content={value.promptContent}
-              label={t("questionEditor.prompt")}
-              prompt
-              clearOnFocus={clearPromptOnFocus}
-              onChange={(prompt, promptContent) =>
-                onChange({ ...value, prompt, promptContent })
-              }
-            />
-          )}
-        </div>
-
-        <AnswerArea
+        <QuestionPromptAnswers
           value={value}
+          clearPromptOnFocus={clearPromptOnFocus}
           onChange={onChange}
-          onInsertGap={
-            promptEditor
-              ? () =>
-                  insertGap(promptEditor, () => String(nextBlankOrdinal(value.blanks)))
-              : undefined
-          }
         />
 
         <QuestionMediaField
@@ -142,18 +112,7 @@ export function QuestionEditor({
           onRefresh={onRefresh}
         />
 
-        <div>
-          <QuestionProseField
-            id="question-explanation"
-            text={value.explanation ?? ""}
-            content={value.explanationContent}
-            label={t("questionEditor.explanation")}
-            hint={t("questionEditor.explanationHint")}
-            onChange={(explanation, explanationContent) =>
-              onChange({ ...value, explanation, explanationContent })
-            }
-          />
-        </div>
+        <ExplanationField value={value} onChange={onChange} />
       </div>
 
       <PageAside
