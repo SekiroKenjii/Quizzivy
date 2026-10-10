@@ -54,6 +54,7 @@ export default function AssignmentWizardPage() {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const leaving = useRef(false);
+  const saving = useRef(false);
   const laterId = useId();
 
   usePickFromQuery(params.get("test") ?? params.get("testId"), setDraft);
@@ -88,14 +89,18 @@ export default function AssignmentWizardPage() {
       notify.success(t("assignments.wizard.savedDraft"));
       void navigate("/teacher/assignments?status=draft");
     },
-    onError: (cause) =>
-      setError(failureMessage(cause, t("assignments.wizard.saveFailed"))),
+    onError: (cause) => {
+      saving.current = false;
+      setError(failureMessage(cause, t("assignments.wizard.saveFailed")));
+    },
   });
   const saveDraft = () => {
+    if (saving.current) return;
     if (draft.picked === null) {
       setError(t("assignments.wizard.needTest"));
       return;
     }
+    saving.current = true;
     save.mutate(draft);
   };
 
