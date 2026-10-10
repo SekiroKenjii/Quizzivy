@@ -52,7 +52,7 @@ test("group graph and uploaded material round-trip through the real API, then co
       exact: true,
     })
     .click();
-  await expect(prompt).toHaveValue("Theo thông báo, hoạt động diễn ra khi nào?");
+  await expect(prompt).toHaveText("Theo thông báo, hoạt động diễn ra khi nào?");
   await page.getByRole("button", { name: "Thông báo câu lạc bộ", exact: true }).click();
   await page.getByRole("button", { name: "Xem ngữ liệu", exact: true }).click();
   await expect(
@@ -122,8 +122,10 @@ test("group graph and uploaded material round-trip through the real API, then co
   expect((await deleted).status()).toBe(204);
   await expect(page.getByRole("dialog")).toBeHidden();
   await expect(archived).toBeHidden();
-  await page.getByRole("combobox", { name: "Trạng thái", exact: true }).click();
-  await page.getByRole("option", { name: "Đang sử dụng", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Trạng thái", exact: true })
+    .getByRole("button", { name: "Đang sử dụng", exact: true })
+    .click();
   await copyRow.getByRole("link", { name: title, exact: true }).click();
   await page
     .getByRole("button", {
@@ -131,7 +133,7 @@ test("group graph and uploaded material round-trip through the real API, then co
       exact: true,
     })
     .click();
-  await expect(prompt).toHaveValue("Theo thông báo, hoạt động diễn ra khi nào?");
+  await expect(prompt).toHaveText("Theo thông báo, hoạt động diễn ra khi nào?");
   await page.getByRole("button", { name: "Thông báo câu lạc bộ", exact: true }).click();
   await page.getByRole("button", { name: "Xem ngữ liệu", exact: true }).click();
   await expect(
