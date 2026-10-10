@@ -211,6 +211,9 @@ const (
 	outsideEvent    = "an event naming a question outside the attempt's paper is kept without it; the cross-reference scan proves the id is not stored"
 	outsideAnswer   = "an answer to a question outside the attempt's paper is dropped; the cross-reference scan proves no row names it"
 	ownOnly         = "marks only the caller's own notifications; any other id is skipped"
+
+	reportedPerStudent = "answers 200 and reports each student it cannot reset as NOT_FOUND, another teacher's as a missing one's; the bulk reset flow test proves the rows stay untouched"
+	budgetSpent        = "the third call in a minute is refused 429 (two a minute per user), so the caller's own id cannot be tried here; the bulk reset flow test resets the caller's own students beside another teacher's in one batch"
 )
 
 func isolationCases() map[string]isoCase {
@@ -379,6 +382,11 @@ func isolationCases() map[string]isoCase {
 		"getStudent":           {},
 		"updateStudent":        {body: fixed(map[string]any{"fullName": "Tên đã sửa"})},
 		"resetStudentPassword": {fresh: freshStudent},
+		"resetStudentsPasswords": {
+			excuse: map[string]string{"body /studentIds/-": reportedPerStudent},
+			blind:  map[string]string{"body /studentIds/-": budgetSpent},
+			body:   fixed(map[string]any{"studentIds": []any{""}}),
+		},
 
 		"listClasses":      {},
 		"createClass":      {},
