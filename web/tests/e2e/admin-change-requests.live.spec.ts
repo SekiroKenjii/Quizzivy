@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   chooseOption,
   goAway,
+  saveDraftFromWizard,
   signInAsAdmin,
   signInAsStudent,
   startAttempt,
@@ -135,7 +136,8 @@ test("admin edits persist through selection, empty-group drops and immutable ver
     .click();
   await confirm(page, "Đặt làm mặc định");
   await expect(firstVersion.getByText("Mặc định", { exact: true })).toBeVisible();
-  await page.goto(`/teacher/assignments/new?testId=${id}`);
+  const draftId = await saveDraftFromWizard(page, title, `?test=${id}`);
+  await page.goto(`/teacher/assignments/${draftId}/edit`);
   await expect(page.getByText(/Bài giao gắn với bản v1/)).toBeVisible();
   await expect(page.getByLabel("Số lượt làm", { exact: true })).toHaveValue("1");
   await page.getByLabel("Thời lượng làm bài", { exact: true }).click();
@@ -151,21 +153,9 @@ test("admin edits persist through selection, empty-group drops and immutable ver
     .getByRole("option", { name: "Tự nộp ngay, ghi nhận vi phạm", exact: true })
     .click();
   await expect(page.getByLabel("Khi vượt quá", { exact: true })).toBeFocused();
-  await page.getByPlaceholder("thêm lớp").fill("Tiếng Anh");
-  await page
-    .getByRole("listbox")
-    .getByRole("option", { name: /Tiếng Anh giao tiếp/ })
-    .first()
-    .click();
-  const created = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response.url().endsWith("/teacher/assignments"),
-  );
   await page.getByRole("button", { name: "Giao bài", exact: true }).click();
-  const assignment = (await (await created).json()) as { id: string };
-  await expect(page).toHaveURL(/\/teacher\/assignments$/);
-  await page.goto(`/teacher/assignments/${assignment.id}/edit`);
+  await expect(page).toHaveURL(new RegExp(`/teacher/assignments/${draftId}$`));
+  await page.goto(`/teacher/assignments/${draftId}/edit`);
   await expect(page.getByLabel("Thời lượng tự nhập (phút)")).toHaveValue("65");
   await expect(page.getByLabel("Số lượt làm", { exact: true })).toHaveValue("2");
   await expect(
@@ -242,7 +232,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await page.getByRole("menuitem", { name: "Đăng xuất", exact: true }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/login");
   await signInAsStudent(page);
-  await startAttempt(page, assignment.id);
+  await startAttempt(page, draftId);
   await expect(page.getByText("First updated promptly", { exact: true })).toBeVisible();
   await chooseOption(page, "Lựa chọn 1");
   await goAway(page, 3500);

@@ -33,83 +33,34 @@ import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageAside } from "@/components/shared/PageAside";
 import { DateTimeField } from "@/components/shared/DateTimeField";
-import {
-  TestVersionPicker,
-  type PickedVersion,
-} from "@/features/assignments/components/TestVersionPicker";
+import { TestVersionPicker } from "@/features/assignments/components/TestVersionPicker";
 import {
   ClassTargetPicker,
   StudentTargetPicker,
 } from "@/features/assignments/components/TargetPickers";
-import type { Token } from "@/features/assignments/components/TokenField";
 import { StudentRulesPreview } from "@/features/assignments/components/StudentRulesPreview";
 import {
   createAssignment,
   getAssignment,
   updateAssignment,
-  type Assignment,
-  type AssignmentInput,
 } from "@/features/assignments/api";
-import { fetchClass } from "@/features/classes/api";
-import { getTest, listVersions, type TestVersion } from "@/features/tests/api";
-import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
+import {
+  draftBody,
+  draftOf,
+  emptyDraft,
+  type AssignmentDraft,
+} from "@/features/assignments/draft";
+import {
+  useClassFromQuery,
+  usePickFromQuery,
+} from "@/features/assignments/usePreselect";
+import { fromDateTimeInput } from "@/lib/i18n/datetime";
+import { listVersions } from "@/features/tests/api";
 import { failureMessage, fieldMessages } from "@/lib/api/errors";
 
 const DURATIONS = [30, 45, 60];
 
-interface Draft {
-  picked: PickedVersion | null;
-  classes: Token[];
-  students: Token[];
-  opensAt: string;
-  closesAt: string;
-  durationMinutes: number;
-  maxAttempts: number;
-  shuffleQuestions: boolean;
-  shuffleOptions: boolean;
-  review: {
-    showScore: boolean;
-    showCorrectAnswers: boolean;
-    showExplanations: boolean;
-  };
-  integrity: {
-    requireFullscreen: boolean;
-    blockCopyPaste: boolean;
-    maxFocusLoss: number;
-    onLimitExceeded: "warn" | "flag" | "auto_submit";
-    minAwayMs: number;
-  };
-}
-
-// §10.3's defaults, restated here so a teacher who changes nothing has chosen
-// the conservative option rather than missed a step.
-function emptyDraft(): Draft {
-  const opens = new Date();
-  opens.setMinutes(0, 0, 0);
-  const closes = new Date(opens.getTime() + 3 * 24 * 60 * 60 * 1000);
-
-  return {
-    picked: null,
-    classes: [],
-    students: [],
-    opensAt: toDateTimeInput(opens),
-    closesAt: toDateTimeInput(closes),
-    durationMinutes: 45,
-    maxAttempts: 1,
-    shuffleQuestions: false,
-    shuffleOptions: false,
-    review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
-    integrity: {
-      requireFullscreen: false,
-      blockCopyPaste: true,
-      maxFocusLoss: 0,
-      onLimitExceeded: "flag",
-      minAwayMs: 3000,
-    },
-  };
-}
-
-function assignmentReadiness(draft: Draft) {
+function assignmentReadiness(draft: AssignmentDraft) {
   const hasTargets = draft.classes.length > 0 || draft.students.length > 0;
   const validNumbers =
     Number.isInteger(draft.durationMinutes) &&
@@ -134,7 +85,7 @@ export default function AssignmentFormPage() {
   const [params] = useSearchParams();
   const { id } = useParams<{ id: string }>();
   const editing = id !== undefined;
-  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [draft, setDraft] = useState<AssignmentDraft>(() => emptyDraft());
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<{ summary: string; fields: string[] } | null>(
     null,
@@ -147,7 +98,7 @@ export default function AssignmentFormPage() {
 
   const save = useMutation({
     mutationFn: (asDraft: boolean) =>
-      saveAssignment(id, { draft: asDraft, ...toBody(draft) }),
+      saveAssignment(id, { draft: asDraft, ...draftBody(draft) }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
       await queryClient.invalidateQueries({ queryKey: ["admin-assignment", id] });
@@ -538,53 +489,10 @@ export default function AssignmentFormPage() {
   );
 }
 
-function toBody(draft: Draft): Omit<AssignmentInput, "draft"> {
-  const picked = draft.picked;
-  if (!picked) throw new Error("no version picked");
-  return {
-    testVersionId: picked.version.id,
-    targets: {
-      classIds: draft.classes.map((c) => c.id),
-      studentIds: draft.students.map((s) => s.id),
-    },
-    window: {
-      opensAt: fromDateTimeInput(draft.opensAt).toISOString(),
-      closesAt: fromDateTimeInput(draft.closesAt).toISOString(),
-    },
-    durationMinutes: draft.durationMinutes,
-    maxAttempts: draft.maxAttempts,
-    shuffleQuestions: draft.shuffleQuestions,
-    shuffleOptions: draft.shuffleOptions,
-    review: draft.review,
-    integrity: draft.integrity,
-  };
-}
-
-function fromAssignment(a: Assignment, versions: TestVersion[]): Draft {
-  const version = versions.find((v) => v.id === a.testVersionId);
-  return {
-    picked: version ? { testId: a.testId, testTitle: a.testTitle, version } : null,
-    classes: a.targets.classes.map((c) => ({
-      id: c.id,
-      label: c.name,
-      hint: String(c.studentCount),
-    })),
-    students: a.targets.students.map((s) => ({ id: s.id, label: s.name })),
-    opensAt: toDateTimeInput(a.window.opensAt),
-    closesAt: toDateTimeInput(a.window.closesAt),
-    durationMinutes: a.durationMinutes,
-    maxAttempts: a.maxAttempts,
-    shuffleQuestions: a.shuffleQuestions,
-    shuffleOptions: a.shuffleOptions,
-    review: a.review,
-    integrity: {
-      ...a.integrity,
-      onLimitExceeded: a.integrity.onLimitExceeded,
-    },
-  };
-}
-
-function Summary({ draft, count }: Readonly<{ draft: Draft; count: number | null }>) {
+function Summary({
+  draft,
+  count,
+}: Readonly<{ draft: AssignmentDraft; count: number | null }>) {
   const { t } = useTranslation();
 
   const total = count ?? 0;
@@ -699,54 +607,7 @@ function submitKey(published: boolean): string {
   return published ? "assignments.saveChanges" : "assignments.assign";
 }
 
-type SetDraft = Dispatch<SetStateAction<Draft>>;
-
-/** A-03's "Giao cho lớp" arrives with the test chosen; its current default is the pick. */
-function usePickFromQuery(testId: string | null, setDraft: SetDraft) {
-  const test = useQuery({
-    queryKey: ["admin-test", testId],
-    queryFn: ({ signal }) => getTest(testId ?? "", signal),
-    enabled: testId !== null,
-  });
-  const versions = useQuery({
-    queryKey: ["admin-test-versions", testId],
-    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
-    enabled: testId !== null,
-  });
-  const latest = versions.data?.items.find(
-    (version) => version.version === test.data?.currentVersion,
-  );
-  const [pickedFor, setPickedFor] = useState<string | null>(null);
-  if (test.data && latest && pickedFor !== test.data.id) {
-    setPickedFor(test.data.id);
-    const picked = {
-      testId: test.data.id,
-      testTitle: test.data.title,
-      version: latest,
-    };
-    setDraft((current) => (current.picked === null ? { ...current, picked } : current));
-  }
-}
-
-/** G-06's "Giao bài" arrives with the class chosen; it joins the targets once. */
-function useClassFromQuery(classId: string | null, setDraft: SetDraft) {
-  const klass = useQuery({
-    queryKey: ["admin-class", classId],
-    queryFn: ({ signal }) => fetchClass(classId ?? "", signal),
-    enabled: classId !== null,
-  });
-  const [appliedFor, setAppliedFor] = useState<string | null>(null);
-  const found = klass.data;
-  if (found && appliedFor !== found.id) {
-    setAppliedFor(found.id);
-    const token = { id: found.id, label: found.name, hint: String(found.studentCount) };
-    setDraft((current) =>
-      current.classes.some((c) => c.id === token.id)
-        ? current
-        : { ...current, classes: [...current.classes, token] },
-    );
-  }
-}
+type SetDraft = Dispatch<SetStateAction<AssignmentDraft>>;
 
 /** Editing loads the assignment and its test's versions, then fills the draft once. */
 function useExistingAssignment(id: string | undefined, setDraft: SetDraft) {
@@ -764,7 +625,7 @@ function useExistingAssignment(id: string | undefined, setDraft: SetDraft) {
   const [hydratedFor, setHydratedFor] = useState<string | null>(null);
   if (existing.data && versions.data && hydratedFor !== existing.data.id) {
     setHydratedFor(existing.data.id);
-    setDraft(fromAssignment(existing.data, versions.data.items));
+    setDraft(draftOf(existing.data, versions.data.items));
   }
   return { existing, versions, hydrated: hydratedFor !== null };
 }
