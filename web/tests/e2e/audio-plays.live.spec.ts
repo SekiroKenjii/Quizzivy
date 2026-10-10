@@ -1,6 +1,11 @@
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
-import { assignToClass, signInAsAdmin, signInAsStudent } from "./support/live";
+import {
+  assignToClass,
+  publishInBuilder,
+  signInAsAdmin,
+  signInAsStudent,
+} from "./support/live";
 
 /**
  * E2E 8 (§16, phase-3 exit criterion): the listening allowance is the server's
@@ -71,7 +76,7 @@ async function publishListeningTest(page: Page, title: string) {
   await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
     timeout: 15_000,
   });
-  await page.getByRole("button", { name: "Phát hành" }).click();
+  await publishInBuilder(page);
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
 }
 

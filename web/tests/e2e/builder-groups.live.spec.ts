@@ -147,6 +147,12 @@ test("mixed builder saves new sections, moves complete groups, copies context an
       new URL(response.url()).pathname.endsWith("/publish"),
   );
   await page.getByRole("button", { name: "Phát hành", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Phát hành đề thi?", exact: true })
+    .getByRole("button", { name: "Phát hành", exact: true })
+    .click();
   expect((await published).status()).toBe(201);
+  await expect(page.getByText("Đã phát hành. Giờ bạn có thể giao bài.")).toBeVisible();
+  await page.goto(builderPath.replace(/\/edit$/, ""));
   await expect(page).toHaveURL(builderPath.replace(/\/edit$/, ""));
 });
