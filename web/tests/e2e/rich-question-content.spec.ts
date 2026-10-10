@@ -23,11 +23,11 @@ function sample(): Question {
   };
 }
 
-function modes(page: Page, label = "Nội dung câu hỏi") {
+function modes(page: Page, label = "Câu hỏi") {
   return page.getByRole("group", { name: `Chế độ soạn: ${label}`, exact: true });
 }
 
-async function toRich(page: Page, label = "Nội dung câu hỏi") {
+async function toRich(page: Page, label = "Câu hỏi") {
   await modes(page, label)
     .getByRole("button", { name: "Văn bản định dạng", exact: true })
     .click();
@@ -126,10 +126,10 @@ async function setup(page: Page, initial = sample(), delayed = false) {
   };
 }
 
-/** promptTools is the formatting toolbar of "Nội dung câu hỏi", which another editor on the page does not share. */
+/** promptTools is the formatting toolbar of "Câu hỏi", which another editor on the page does not share. */
 function promptTools(page: Page) {
   return page.getByRole("toolbar", {
-    name: "Thanh định dạng: Nội dung câu hỏi",
+    name: "Thanh định dạng: Câu hỏi",
     exact: true,
   });
 }
@@ -140,7 +140,7 @@ test("bank saves a confirmed structured paste and retains formatting after reloa
   const state = await setup(page);
   await page.goto(`/teacher/question-bank/${ID}`);
   await toRich(page);
-  const editor = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  const editor = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
   await editor.click();
   await page.keyboard.press("Control+a");
   await editor.evaluate((element) => {
@@ -182,7 +182,7 @@ test("bank leaves pasted images out unloaded, says so, and refuses a file alone"
   await setup(page);
   await page.goto(`/teacher/question-bank/${ID}`);
   await toRich(page);
-  const editor = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  const editor = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
   await editor.click();
   await page.keyboard.press("Control+End");
   const paste = (html: string, file: boolean) =>
@@ -244,7 +244,7 @@ test("bank previews Markdown conversion, preserves tables and explanations after
   ).toBeVisible();
   expect(state.writes()).toBe(0);
   await page.getByRole("button", { name: "Áp dụng chuyển đổi", exact: true }).click();
-  const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  const prompt = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
   await expect(prompt.locator("strong")).toHaveText("Đọc kỹ");
   await expect(
     promptTools(page).getByRole("button", { name: "Thêm ô trống", exact: true }),
@@ -307,7 +307,7 @@ test("bank previews Markdown conversion, preserves tables and explanations after
   await toMarkdown.click();
   await page.getByRole("button", { name: "Chuyển sang Markdown", exact: true }).click();
   const markdown = page.getByRole("textbox", {
-    name: "Nội dung câu hỏi",
+    name: "Câu hỏi",
     exact: true,
   });
   await expect(markdown).toHaveValue(/\*\*Đọc kỹ\*\*/);
@@ -335,9 +335,9 @@ test("unsupported Markdown conversion leaves the original editable and never wri
     .click();
   await expect(page.getByRole("alert")).toContainText("Bản gốc được giữ nguyên");
   await page.getByRole("button", { name: "Giữ Markdown", exact: true }).click();
-  await expect(
-    page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true }),
-  ).toHaveValue(original);
+  await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toHaveValue(
+    original,
+  );
   expect(state.writes()).toBe(0);
 });
 
