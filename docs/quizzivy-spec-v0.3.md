@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.72 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.73 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.72**
+
+R4, the starter questions (T-R4.31b, T-R4.34):
+
+- §7.1 The builder's and the group composer's starter prompt is created as rich text, so a new
+  question in either opens in Rich text; while its text is still the starter it opens empty
+  under the placeholder, and the starter stays stored until the first edit.
 
 **Changes since v0.71**
 
@@ -32,14 +40,6 @@ R4, signed-in devices (T-R4.9):
   5/min and 30/h, per signed-in user.
 - §13.5 `refresh_tokens.geo_label` (1 to 80 characters, nullable), migration 00102.
 - §15 The three operations, `Session`, and the error code `SESSION_IS_CURRENT`.
-
-**Changes since v0.70**
-
-R4, the starter questions (T-R4.31b, T-R4.34):
-
-- §7.1 The builder's and the group composer's starter prompt is created as rich text, so a new
-  question in either opens in Rich text; while its text is still the starter it opens empty
-  under the placeholder, and the starter stays stored until the first edit.
 
 **Changes since v0.69**
 
