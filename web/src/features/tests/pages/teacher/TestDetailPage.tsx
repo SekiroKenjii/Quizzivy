@@ -392,7 +392,7 @@ function DetailHead({
 }: Readonly<{ test: Test; wide: boolean; onHistory: () => void }>) {
   const { t } = useTranslation();
   const locale = useLocale();
-  const assignable = test.currentVersion > 0 && test.status !== "archived";
+  const assignLocked = assignLockedReason(test, t);
   return (
     <PageHead
       title={nfc(test.title)}
@@ -420,7 +420,7 @@ function DetailHead({
               {t("tests.detail.openBuilder")}
             </Link>
           </Button>
-          {assignable ? (
+          {assignLocked === null ? (
             <Button asChild className="h-9">
               <Link to={`/teacher/assignments/new?test=${test.id}`}>
                 <ClipboardList aria-hidden="true" />
@@ -428,7 +428,11 @@ function DetailHead({
               </Link>
             </Button>
           ) : (
-            <Button className="h-9" disabled>
+            <Button
+              className="aria-disabled:hover:bg-primary h-9 aria-disabled:cursor-default aria-disabled:opacity-50"
+              aria-disabled="true"
+              title={assignLocked}
+            >
               <ClipboardList aria-hidden="true" />
               {t("tests.detail.assign")}
             </Button>
@@ -448,6 +452,15 @@ function DetailHead({
       </p>
     </PageHead>
   );
+}
+
+function assignLockedReason(
+  test: Test,
+  t: ReturnType<typeof useTranslation>["t"],
+): string | null {
+  if (test.status === "archived") return t("tests.detail.history.restoreLocked");
+  if (test.currentVersion === 0) return t("tests.detail.assignLocked");
+  return null;
 }
 
 function DraftBanner({

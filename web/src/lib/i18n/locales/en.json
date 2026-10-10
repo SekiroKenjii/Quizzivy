@@ -1071,6 +1071,7 @@
       "versionHistory": "Version history",
       "openBuilder": "Open builder",
       "assign": "Assign",
+      "assignLocked": "Publish the test before assigning it",
       "loadFailed": "Could not load the test.",
       "banner": {
         "title": "The draft has changes that are not published.",

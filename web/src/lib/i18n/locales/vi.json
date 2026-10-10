@@ -1071,6 +1071,7 @@
       "versionHistory": "Lịch sử phiên bản",
       "openBuilder": "Mở trình soạn đề",
       "assign": "Giao bài",
+      "assignLocked": "Phát hành đề trước khi giao bài",
       "loadFailed": "Không tải được đề thi.",
       "banner": {
         "title": "Bản nháp có thay đổi chưa phát hành.",

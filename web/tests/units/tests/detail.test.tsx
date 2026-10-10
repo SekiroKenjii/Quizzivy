@@ -55,17 +55,35 @@ describe("the test detail's header", () => {
     );
   });
 
-  it("cannot assign a test with no version", async () => {
+  it("cannot assign a test with no version, and says to publish it first", async () => {
     detail.test = testFixture({
       status: "draft",
       currentVersion: 0,
       unpublishedChanges: null,
     });
     detail.versions = [];
-    renderDetail();
+    const { user, router } = renderDetail();
 
-    expect(await screen.findByRole("button", { name: "Giao bài" })).toBeDisabled();
+    const assign = await screen.findByRole("button", { name: "Giao bài" });
+    expect(assign).toHaveAttribute("aria-disabled", "true");
+    expect(assign).toHaveAccessibleDescription("Phát hành đề trước khi giao bài");
     expect(screen.queryByRole("link", { name: "Giao bài" })).toBeNull();
+    assign.focus();
+    expect(assign).toHaveFocus();
+    await user.click(assign);
+    await user.keyboard("{Enter}");
+    expect(router.state.location.pathname).toBe(`/teacher/tests/${TEST_ID}`);
+  });
+
+  it("cannot assign an archived test, and says to restore it first", async () => {
+    detail.test = testFixture({ status: "archived" });
+    const { user, router } = renderDetail();
+
+    const assign = await screen.findByRole("button", { name: "Giao bài" });
+    expect(assign).toHaveAttribute("aria-disabled", "true");
+    expect(assign).toHaveAccessibleDescription("Hãy khôi phục đề trước");
+    await user.click(assign);
+    expect(router.state.location.pathname).toBe(`/teacher/tests/${TEST_ID}`);
   });
 
   it("offers the history in the header only below the two columns", async () => {
