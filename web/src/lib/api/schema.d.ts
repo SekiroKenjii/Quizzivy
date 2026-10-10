@@ -1117,16 +1117,63 @@ export interface paths {
          *     caller who holds `scope.all` that is every target, as in
          *     `getAssignment`.
          *     `classId` narrows the list to assignments that target
-         *     that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
-         *     tab counts are the class's and never disagree with the rows. A class
-         *     the caller does not teach lists nothing, as a missing class does,
-         *     unless the caller holds `scope.all`: it then lists those of the
-         *     caller's own assignments that target it.
+         *     any of the classes named, one or several (G-06's "Xem tất cả", G-12);
+         *     the facets follow it, so the tab counts are those of the classes and
+         *     never disagree with the rows. A class the caller does not teach lists
+         *     nothing, as a missing class does, unless the caller holds `scope.all`:
+         *     it then lists those of the caller's own assignments that target it.
+         *     `q` keeps the assignments whose test title, or the name of a target
+         *     class the caller reaches, contains the text; it is accent-insensitive
+         *     and the facets follow it too. Every row carries `questionCount`.
          */
         get: operations["listAssignments"];
         put?: never;
         /** @description Only a **published** version may be assigned (§8). */
         post: operations["createAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/results.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the results of up to 50 assignments as a CSV file
+         * @description One row per student of each assignment the caller reaches, in the order
+         *     of `ids` and then by name, for the students the caller reaches: the
+         *     roster the assignment's Students tab draws, so a student who has not
+         *     started has a row. The attempt that stands for a student is the one
+         *     that tab shows: their latest attempt that is not voided, else the
+         *     latest. Columns: Assignment (the test's title), Version, Class (the
+         *     target classes the caller reaches that the student belongs to, joined
+         *     by `; `), Student, Email, Status, Score, Max, Percent (score over max,
+         *     one decimal), Submitted (in the caller's own time zone, named in the
+         *     header; the default zone when the stored one is invalid), Focus lost
+         *     and Flagged. Score, Max and Percent are empty until every manually
+         *     marked answer of the attempt has a mark. Headers and the Status and
+         *     Flagged words follow `Accept-Language`, Vietnamese by default.
+         *
+         *     The file is UTF-8 with a byte-order mark and CRLF line ends, so
+         *     spreadsheets open it correctly. A cell that a spreadsheet would run as
+         *     a formula (it starts with `=`, `+`, `-`, `@`, a tab or a carriage
+         *     return, also after leading spaces, or with the full-width forms of the
+         *     first four) is written with a leading `'`. Overdue attempts are closed
+         *     before the file is read, as the monitor does.
+         *
+         *     An id the caller does not reach answers 404 for the whole request, as
+         *     a missing one does. More than 20000 rows answer 422. The response is
+         *     `private, no-store`, and a caller is limited to 10 files a minute and
+         *     60 an hour.
+         */
+        get: operations["exportResultsCsv"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1229,6 +1276,63 @@ export interface paths {
          *     the question is graded (anonymous marking).
          */
         get: operations["listAnswersForQuestion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy an assignment as a draft
+         * @description Creates a **draft** that pins the same version and keeps the original's
+         *     time limit, attempts, shuffle flags, review options, integrity policy
+         *     and note to students, owned by the caller. Its window opens now and
+         *     lasts as long as the original's (`closesAt - opensAt`). It is assigned
+         *     to `classIds` and to no student by name; students never see a draft.
+         *     The original is not changed.
+         *
+         *     The original must be one the caller reaches, and its version one the
+         *     caller may assign (a published test of their own, or any under
+         *     `scope.all`): otherwise 409 `TEST_NOT_PUBLISHED`. A class the caller
+         *     does not teach answers 400 as an unknown one does.
+         */
+        post: operations["duplicateAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/{id}/item-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * How often students got each question wrong
+         * @description Every question of the pinned version, hardest first, over the papers
+         *     handed in by the students the caller reaches (see `handedIn`). Overdue
+         *     attempts are closed before it is read, as the monitor does. A question
+         *     no paper has a mark for sorts last with a null rate.
+         */
+        get: operations["getItemAnalysis"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4570,11 +4674,43 @@ export interface components {
             /** @description Distinct enabled students with at least one handed-in non-voided attempt. */
             submittedCount?: number;
             targetCount?: number;
+            /** @description Questions on the pinned version, counted as `TestVersion.questionCount` counts them. */
+            questionCount?: number;
             flaggedCount?: number;
             /** @description Outstanding manual answers across handed-in attempts, including partially graded papers. */
             pendingManualCount?: number;
             /** @description Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm"). */
             pendingGradingCount?: number;
+        };
+        DuplicateAssignmentInput: {
+            /** @description The classes the copy is assigned to. May be empty, since the copy is a draft and is given its targets later. */
+            classIds: components["schemas"]["Uuid"][];
+        };
+        ItemAnalysis: {
+            /**
+             * @description The papers the figures range over: for each student the caller
+             *     reaches, their latest handed-in attempt that is not voided.
+             */
+            handedIn: number;
+            /** @description Sorted by `correctRate` ascending, a question with none last, then by `number`. */
+            items: components["schemas"]["ItemAnalysisItem"][];
+        };
+        ItemAnalysisItem: {
+            questionId: components["schemas"]["Uuid"];
+            /** @description The question's place on the paper */
+            number: number;
+            type: components["schemas"]["QuestionType"];
+            /** @description The prompt as plain text with its whitespace collapsed */
+            promptExcerpt: string;
+            /** @description Papers with an answer that says something to this question. */
+            answered: number;
+            /**
+             * @description Papers that earned the question's full points, over the papers that
+             *     have a mark for it. A question left unanswered counts against it; a
+             *     manually marked answer the teacher has not marked yet counts for
+             *     neither side. Null when no paper has a mark for it.
+             */
+            correctRate: number | null;
         };
         /** @enum {string} */
         AttemptStatus: "in_progress" | "submitted" | "timed_out" | "graded" | "voided";
@@ -7914,7 +8050,9 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["AssignmentStatus"];
-                classId?: components["schemas"]["Uuid"];
+                classId?: components["schemas"]["Uuid"][];
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
@@ -7975,6 +8113,43 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             /** @description `TEST_NOT_PUBLISHED`. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    exportResultsCsv: {
+        parameters: {
+            query: {
+                ids: components["schemas"]["Uuid"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="results-YYYYMMDD.csv"`. */
+                    "Content-Disposition": string;
+                    /** @description `private, no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `VALIDATION_FAILED` — the assignments hold more than 20000 rows; `details.ids` says so. Pick fewer. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8148,6 +8323,66 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    duplicateAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicateAssignmentInput"];
+            };
+        };
+        responses: {
+            /** @description The draft. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `TEST_NOT_PUBLISHED` — the original's version is not one the caller can assign. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getItemAnalysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemAnalysis"];
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
     reopenAssignment: {
