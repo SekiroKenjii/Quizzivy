@@ -44,6 +44,26 @@ describe("stored group metadata", () => {
     expect(clone.questions[0]?.input).toMatchObject({ level: "c2", skill: "speaking" });
     expect(original.questions[0]?.input.level).toBe("c2");
   });
+  it.each([
+    ["set", "Bản đồ thị trấn"],
+    ["null", null],
+  ])(
+    "keeps a member's image alt text through recovery and cloning when %s",
+    (_what, alt) => {
+      const original = bundle();
+      original.questions[0]!.input.mediaAssetId =
+        "018f0000-0000-7000-8000-0000000000c1";
+      original.questions[0]!.input.mediaAlt = alt;
+      const recovered = readGroupRecovery(
+        { version: 1, revision: 1, bundle: original },
+        original.group.id,
+      );
+      expect(recovered?.bundle.questions[0]?.input.mediaAlt).toBe(alt);
+      expect(independentBundle(recovered!.bundle).questions[0]?.input.mediaAlt).toBe(
+        alt,
+      );
+    },
+  );
   it("normalizes old version-one omissions while rejecting invalid enum metadata", () => {
     const original = bundle();
     const missing = {
