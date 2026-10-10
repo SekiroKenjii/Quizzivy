@@ -330,7 +330,7 @@ function Row({
             {archived ? null : (
               <>
                 <DropdownMenuItem asChild>
-                  <Link to={`/teacher/assignments/new?classId=${klass.id}`}>
+                  <Link to={`/teacher/assignments/new?class=${klass.id}`}>
                     <Send className="text-muted-foreground" aria-hidden="true" />
                     {t("classes.assign")}
                   </Link>

@@ -19,9 +19,12 @@ export default function NewImportPage() {
   const [params, setParams] = useSearchParams();
   const sourceMode = params.get("source") === "paste" ? "paste" : "file";
   const retention = useImportRetention();
+  const pasting = sourceMode === "paste";
   const header = (
     <PageHead
-      title={t("imports.newTitle")}
+      title={pasting ? t("imports.paste.title") : t("imports.newTitle")}
+      description={pasting ? t("imports.paste.sub") : undefined}
+      crumb={pasting}
       back={{ to: "/teacher/imports", label: t("imports.backToHistory") }}
     />
   );
@@ -63,19 +66,13 @@ export default function NewImportPage() {
             { replace: true },
           )
         }
-        className="[&_button]:min-w-[168px]"
       />
-      {sourceMode === "paste" ? (
-        <EmptyState hint={t("imports.upload.pasteDeferredHint")}>
-          {t("imports.upload.pasteDeferred")}
-        </EmptyState>
-      ) : null}
       <SourceIntake
         existing={null}
         deck
-        fileMode={sourceMode === "file"}
+        fileMode={!pasting}
         retention={retention}
-        enabled={processing && sourceMode === "file"}
+        enabled={processing}
         privacy={
           <Callout icon={ShieldCheck} lead={t("imports.upload.privacyLead")}>
             {t("imports.upload.privacy", {
