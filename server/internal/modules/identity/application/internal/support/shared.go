@@ -25,6 +25,28 @@ type GoogleSignInInput struct {
 	JoinCode     string
 	UserAgent    string
 	IP           string
+	GeoLabel     string
+}
+
+// Origin is where a sign-in came from, as the request told the server.
+type Origin struct {
+	UserAgent string
+	IP        string
+	GeoLabel  string
+}
+
+func (in GoogleSignInInput) Origin() Origin {
+	return Origin{UserAgent: in.UserAgent, IP: in.IP, GeoLabel: in.GeoLabel}
+}
+
+// TokenHash is the SHA-256 of a refresh token, which is what the database
+// stores; nil for no token.
+func TokenHash(token string) []byte {
+	if token == "" {
+		return nil
+	}
+	sum := sha256.Sum256([]byte(token))
+	return sum[:]
 }
 
 type LinkGoogleInput struct {

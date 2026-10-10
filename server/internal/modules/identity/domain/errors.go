@@ -51,6 +51,18 @@ var ErrRefreshReused = errors.New("refresh token reused")
 
 var ErrRefreshTokenNotFound = errors.New("refresh token not found")
 
+// ErrSessionNotFound means the caller has no live session with that id: it is
+// unknown, another user's, revoked or expired, and the four read alike.
+var ErrSessionNotFound = errors.New("session not found")
+
+// ErrSessionIsCurrent means the session to end is the one making the request.
+var ErrSessionIsCurrent = errors.New("session is the current one")
+
+// ErrNoCurrentSession means the request carried no refresh cookie that names
+// a live session of the caller, so the caller's own session cannot be told
+// from the others and nothing is revoked.
+var ErrNoCurrentSession = errors.New("no current session")
+
 var (
 	ErrLastLoginMethod           = errors.New("google is the account's only login method")
 	ErrEmailBelongsToAnotherUser = errors.New("that Google address belongs to another account")

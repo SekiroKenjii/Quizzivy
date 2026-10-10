@@ -27,6 +27,7 @@ func (h Identity) Login(ctx context.Context, request openapi.LoginRequestObject)
 		Password:  request.Body.Password,
 		UserAgent: meta.UserAgent,
 		IP:        meta.IP,
+		GeoLabel:  GeoLabelFromContext(ctx),
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidCredentials) {
@@ -72,6 +73,7 @@ func (h Identity) RefreshSession(ctx context.Context, _ openapi.RefreshSessionRe
 	res, err := h.app.Commands.Refresh.Handle(ctx, command.Refresh{Token: refreshTokenFromContext(ctx),
 		UserAgent: meta.UserAgent,
 		IP:        meta.IP,
+		GeoLabel:  GeoLabelFromContext(ctx),
 	})
 	switch {
 	case errors.Is(err, domain.ErrRefreshReused):
