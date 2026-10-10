@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { PASTE_EXAMPLE, type PasteScan } from "../paste";
 
 const SHOWN_NUMBERS = 6;
+const TOOL_BUTTON =
+  "h-8 gap-1.5 rounded-[8px] px-[11px] text-[13px] in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] [&_svg:not([class*='size-'])]:size-3.5";
 
 type Tone = "danger" | "warning" | "muted";
 
@@ -204,7 +206,7 @@ export function PasteField({
           onChange={(event) => onTextChange(event.target.value)}
           onKeyDown={startOnShortcut}
           className={cn(
-            "bg-bg min-h-[340px] rounded-[10px] border-[1.5px] px-4 py-3.5 font-mono text-[13.5px] leading-[1.7] [tab-size:4] in-data-[scale=deck]:px-4 lg:text-[13.5px] in-data-[scale=deck]:lg:text-[13.5px]",
+            "bg-bg border-border min-h-[340px] rounded-[10px] border-[1.5px] px-4 py-3.5 font-mono text-[13.5px] leading-[1.7] [tab-size:4] in-data-[scale=deck]:px-4 lg:text-[13.5px] in-data-[scale=deck]:lg:text-[13.5px]",
             over && "border-danger focus-visible:border-danger",
           )}
         />
@@ -214,6 +216,7 @@ export function PasteField({
             variant="outline"
             size="sm"
             disabled={busy}
+            className={TOOL_BUTTON}
             onClick={() => void fromClipboard()}
           >
             <ClipboardPaste aria-hidden="true" />
@@ -225,7 +228,7 @@ export function PasteField({
               variant="ghost"
               size="sm"
               disabled={busy}
-              className="text-muted-fg hover:bg-hover hover:text-fg"
+              className={cn(TOOL_BUTTON, "text-muted-fg hover:bg-hover hover:text-fg")}
               onClick={() => {
                 onTextChange("");
                 box.current?.focus();
@@ -281,7 +284,7 @@ export function PasteField({
           aria-expanded={tipsOpen}
           aria-controls={tipsId}
           onClick={() => setTipsWanted(!tipsOpen)}
-          className="inline-flex items-center gap-1.5 self-start rounded-sm text-[13px] font-medium"
+          className="inline-flex items-center gap-1.5 self-start rounded-sm text-[13px] leading-4 font-medium"
         >
           {tipsOpen ? (
             <ChevronDown aria-hidden="true" className="size-3.75" />
@@ -293,7 +296,7 @@ export function PasteField({
         <div
           id={tipsId}
           hidden={!tipsOpen}
-          className="bg-muted grid grid-cols-1 gap-3 rounded-[10px] p-3 @[596px]/paste:grid-cols-2"
+          className="bg-muted grid grid-cols-1 gap-3 rounded-[10px] p-3 @[594px]/paste:grid-cols-2"
         >
           <ol className="flex min-w-0 flex-col gap-2">
             {tips.map(([head, body], index) => (
