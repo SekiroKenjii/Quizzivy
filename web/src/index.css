@@ -4,6 +4,10 @@
 @import "@fontsource/be-vietnam-pro/500.css";
 @import "@fontsource/be-vietnam-pro/600.css";
 @import "@fontsource/be-vietnam-pro/700.css";
+@import "@fontsource/be-vietnam-pro/400-italic.css";
+@import "@fontsource/be-vietnam-pro/500-italic.css";
+@import "@fontsource/be-vietnam-pro/600-italic.css";
+@import "@fontsource/be-vietnam-pro/700-italic.css";
 
 /*
   Design tokens: the deck's (docs/design/deck/, spec §12), under the deck's own

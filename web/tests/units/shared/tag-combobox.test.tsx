@@ -105,7 +105,15 @@ describe("the tag field", () => {
     const user = userEvent.setup();
     render(<Tags />);
     await user.type(input(), "re");
-    const keys = screen.getByText("↑ ↓ để di chuyển · Enter để thêm · Esc để đóng");
+    const keys = screen.getByText(
+      (_, element) =>
+        element?.tagName === "P" &&
+        element.textContent?.trim() === "để di chuyển · Enter để thêm · Esc để đóng",
+    );
+    expect(within(keys).getByRole("img", { name: "Mũi tên lên" })).toBeInTheDocument();
+    expect(
+      within(keys).getByRole("img", { name: "Mũi tên xuống" }),
+    ).toBeInTheDocument();
     expect(list()).not.toContainElement(keys);
     expect(list().parentElement).toContainElement(keys);
   });

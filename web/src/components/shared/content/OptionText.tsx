@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { nfc } from "@/lib/nfc";
 import { ContentInlineView } from "./ContentInlineView";
 import { isOptionContent } from "./optionContent";
 import { contentPlainText } from "./plainText";
@@ -20,7 +21,7 @@ export function OptionText({
   if (canonical !== null)
     return <span className="break-words whitespace-pre-wrap">{t(canonical)}</span>;
   if (content == null)
-    return <span className="break-words whitespace-pre-wrap">{text}</span>;
+    return <span className="break-words whitespace-pre-wrap">{nfc(text)}</span>;
   if (!isOptionContent(content) || contentPlainText(content) !== text)
     return <span role="alert">{t("contentEditor.invalidContent")}</span>;
   return (

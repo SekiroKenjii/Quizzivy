@@ -249,3 +249,51 @@ func TestExtendingAnOpenAssignmentMovesTheCloseForEveryone(t *testing.T) {
 		t.Errorf("another teacher extending it answered %d, want 404", status)
 	}
 }
+
+func TestExtendingAnAssignmentLengthensAnAttemptAlreadyInProgress(t *testing.T) {
+	w := boot(t)
+	email, password := w.teacher()
+	teacher := w.browser()
+	teacher.login(email, password)
+
+	classID := teacher.class("Lớp đang làm bài " + nonce(t))
+	_, versionID := teacher.publishedVersion("Đề đang làm " + nonce(t))
+	student := w.enrolledStudent(teacher, classID)
+	now := time.Now()
+	assignment := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/assignments", map[string]any{
+		"testVersionId":   versionID,
+		"targets":         map[string]any{"classIds": []string{classID}, "studentIds": []string{}},
+		"window":          map[string]any{"opensAt": rfc3339(now.Add(-time.Minute)), "closesAt": rfc3339(now.Add(20 * time.Minute))},
+		"durationMinutes": 30,
+		"maxAttempts":     1,
+		"review":          map[string]any{"showScore": true, "showCorrectAnswers": false, "showExplanations": false},
+		"integrity": map[string]any{
+			"requireFullscreen": false, "blockCopyPaste": true, "maxFocusLoss": 0, "onLimitExceeded": "flag", "minAwayMs": 3000,
+		},
+	})
+	closes, _ := time.Parse(time.RFC3339, assignment["window"].(map[string]any)["closesAt"].(string))
+
+	session := student.must(http.StatusOK, http.MethodPost, "/app/assignments/"+id(assignment)+"/attempts", nil)
+	attempt := session["attempt"].(map[string]any)
+	started, _ := time.Parse(time.RFC3339Nano, attempt["startedAt"].(string))
+	deadline, _ := time.Parse(time.RFC3339Nano, attempt["deadlineAt"].(string))
+	if !deadline.Equal(closes) {
+		t.Fatalf("the attempt runs to %v, want the close %v that holds it down", deadline, closes)
+	}
+
+	teacher.must(http.StatusOK, http.MethodPost, "/teacher/assignments/"+id(assignment)+"/extend", map[string]any{"minutes": 60})
+
+	reloaded := student.must(http.StatusOK, http.MethodGet, "/app/attempts/"+id(attempt), nil)
+	moved, _ := time.Parse(time.RFC3339Nano, reloaded["attempt"].(map[string]any)["deadlineAt"].(string))
+	if want := started.Add(30 * time.Minute); !moved.Equal(want) {
+		t.Errorf("after the extension the attempt runs to %v, want its start plus 30 minutes, %v", moved, want)
+	}
+	monitor := teacher.must(http.StatusOK, http.MethodGet, "/teacher/assignments/"+id(assignment)+"/attempts", nil)
+	for _, row := range monitor["rows"].([]any) {
+		if got, _ := row.(map[string]any)["deadlineAt"].(string); got != "" {
+			if seen, _ := time.Parse(time.RFC3339Nano, got); !seen.Equal(moved) {
+				t.Errorf("the monitor shows the deadline %v, want %v", seen, moved)
+			}
+		}
+	}
+}
