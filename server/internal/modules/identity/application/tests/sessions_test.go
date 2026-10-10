@@ -784,6 +784,46 @@ func TestARevocationWaitsForARotationInFlightAndRevokesItsSuccessor(t *testing.T
 	}
 }
 
+func TestRevokingTheOthersWaitsForARotationInFlightAndRevokesItsSuccessor(t *testing.T) {
+	pool := newPool(t)
+	svc := newService(t, pool)
+	id, email := makeUser(t, pool)
+	current := signInFrom(t, svc, pool, email, macChrome)
+	other := signInFrom(t, svc, pool, email, iphone)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rotation, pid := heldRotation(t, pool, id, other.refresh)
+
+	var revoked int
+	done := make(chan error, 1)
+	go func() {
+		var err error
+		revoked, err = revokeOthers(svc, id, current.refresh)
+		done <- err
+	}()
+	waitUntilRevocationIsBlockedBy(t, pool, pid, done)
+
+	if err := rotation.Commit(ctx); err != nil {
+		t.Fatalf("commit the rotation: %v", err)
+	}
+	select {
+	case err := <-done:
+		if err != nil || revoked != 1 {
+			t.Fatalf("revoke others = %d, %v, want the one other family", revoked, err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the revocation did not return after the rotation committed")
+	}
+
+	if n := liveTokensInFamily(t, pool, other.family); n != 0 {
+		t.Errorf("the other family has %d live tokens: the successor of the rotation in flight survived", n)
+	}
+	if n := liveTokensInFamily(t, pool, current.family); n != 1 {
+		t.Errorf("the calling family has %d live tokens", n)
+	}
+}
+
 func TestTwoRevocationsOfOneSessionMoveTheEpochOnce(t *testing.T) {
 	pool := newPool(t)
 	svc, spy := serviceWithSpy(t, pool)
