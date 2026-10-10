@@ -255,15 +255,22 @@ func TestACloseThatIsNotAheadOfTheDatabaseClockIsRefused(t *testing.T) {
 	ctx := context.Background()
 	req := as(w.a, false)
 	req.ID = w.mineA
-	for name, at := range map[string]*time.Time{"in the past": after(-time.Minute), "now": after(0)} {
+	var databaseNow time.Time
+	if err := w.tx.QueryRow(ctx, `SELECT now()`).Scan(&databaseNow); err != nil {
+		t.Fatal(err)
+	}
+	for name, at := range map[string]time.Time{"in the past": databaseNow.Add(-time.Minute), "exactly now": databaseNow} {
 		_, err := w.store.SetOverrides(ctx, req, domain.OverrideInput{
-			StudentIDs: []string{w.studentA}, ClosesAt: at, Reason: "mở lại", Now: time.Now().Add(-time.Hour),
+			StudentIDs: []string{w.studentA}, ClosesAt: &at, Reason: "mở lại", Now: databaseNow.Add(-time.Hour),
 		})
 		if got := fieldsOf(t, err); got["closesAt"] == "" {
 			t.Errorf("a close %s: fields %v, want one on closesAt", name, got)
 		}
 	}
-	if found, err := w.store.Overrides(ctx, req.Scope(), w.mineA); err != nil || len(found) != 0 {
-		t.Errorf("refused closes left %+v (%v)", found, err)
+	ahead := databaseNow.Add(time.Second)
+	if _, err := w.store.SetOverrides(ctx, req, domain.OverrideInput{
+		StudentIDs: []string{w.studentA}, ClosesAt: &ahead, Reason: "mở lại", Now: databaseNow.Add(-time.Hour),
+	}); err != nil {
+		t.Errorf("a close a second ahead of the database clock: %v", err)
 	}
 }
