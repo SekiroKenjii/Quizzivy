@@ -40,7 +40,7 @@ func TestReplacementRouterMissingAndForeignPreflightLeaveBodyUnread(t *testing.T
 			req := httptest.NewRequest(http.MethodPost, "/teacher/media/"+id+"/replace", body)
 			req.ContentLength = -1
 			req.Header.Set("Content-Type", "multipart/form-data; boundary=test")
-			token, err := issuer.Issue(teacherUser, "admin", 0)
+			token, err := issuer.Issue(teacherUser, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -61,7 +61,7 @@ func TestReplacementRouterKindRefusalIsLocalizedAndDoesNotPut(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/teacher/media/"+libraryAsset+"/replace", strings.NewReader(raw))
 		req.Header.Set("Content-Type", "multipart/form-data; boundary=test")
 		req.Header.Set("Accept-Language", lang)
-		token, err := issuer.Issue(teacherUser, "admin", 0)
+		token, err := issuer.Issue(teacherUser, 0)
 		if err != nil {
 			t.Fatal(err)
 		}

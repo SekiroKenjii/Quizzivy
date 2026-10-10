@@ -140,8 +140,8 @@ func TestTheR2ExpandKeepsTheOldBinaryWorking(t *testing.T) {
 		}
 		legacy[u.email] = lu
 	}
-	if err := goose.Up(migrate, dir); err != nil {
-		t.Fatalf("up: %v", err)
+	if err := goose.UpTo(migrate, dir, versionBefore(t, dir, dropLegacyRoleSuffix)); err != nil {
+		t.Fatalf("up to the end of the expand half: %v", err)
 	}
 
 	for email, lu := range legacy {
@@ -423,8 +423,8 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 		rows[i].updatedAt = &updatedAt
 	}
 
-	if err := goose.Up(migrate, dir); err != nil {
-		t.Fatalf("up: %v", err)
+	if err := goose.UpTo(migrate, dir, versionBefore(t, dir, dropLegacyRoleSuffix)); err != nil {
+		t.Fatalf("up to the end of the expand half: %v", err)
 	}
 
 	for _, row := range rows {

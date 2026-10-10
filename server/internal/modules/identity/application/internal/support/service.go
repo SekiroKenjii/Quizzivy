@@ -142,7 +142,7 @@ func (s *Service) IssueSession(ctx context.Context, user domain.User, origin Ori
 	if err != nil {
 		return model.Session{}, fmt.Errorf("resolve permissions: %w", err)
 	}
-	access, err := s.Tokens.Issue(user.ID, user.Role, user.SessionEpoch)
+	access, err := s.Tokens.Issue(user.ID, user.SessionEpoch)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("issue access token: %w", err)
 	}

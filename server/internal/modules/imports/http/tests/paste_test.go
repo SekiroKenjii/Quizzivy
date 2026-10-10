@@ -77,7 +77,7 @@ func TestPasteRuntimeSchemaAndPermissionGatePrecedeDisabledIntake(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, err := issuer.Issue(user, "teacher", 0)
+	token, err := issuer.Issue(user, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

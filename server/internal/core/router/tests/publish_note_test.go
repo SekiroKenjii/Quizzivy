@@ -10,7 +10,7 @@ import (
 func TestPublishTestTakesAnOptionalNoteOfAtMostTwoHundredCharacters(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := newAuthTestRouter(t, issuer)
-	token, err := issuer.Issue("01935000-0000-7000-8000-000000000001", "admin", 0)
+	token, err := issuer.Issue("01935000-0000-7000-8000-000000000001", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

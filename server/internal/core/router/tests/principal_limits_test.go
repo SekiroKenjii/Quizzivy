@@ -48,7 +48,7 @@ func sendFrom(t *testing.T, h http.Handler, issuer *identitytoken.Issuer, method
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if userID != "" {
-		raw, err := issuer.Issue(userID, "admin", 0)
+		raw, err := issuer.Issue(userID, 0)
 		if err != nil {
 			t.Fatal(err)
 		}

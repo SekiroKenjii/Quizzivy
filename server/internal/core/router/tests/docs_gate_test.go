@@ -67,7 +67,7 @@ func withDocsCookie(value string) func(*http.Request) {
 
 func (h docsHarness) docsToken(t *testing.T, userID string) string {
 	t.Helper()
-	raw, err := h.docs.Issue(userID, "admin", 0)
+	raw, err := h.docs.Issue(userID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func assertSecurityHeaders(t *testing.T, rec *httptest.ResponseRecorder) {
 
 func TestTheDocsRefuseACallerWithoutADocsSession(t *testing.T) {
 	h := newDocsRouter(t, false)
-	accessToken, err := h.access.Issue("01935000-0000-7000-8000-0000000000d1", "admin", 0)
+	accessToken, err := h.access.Issue("01935000-0000-7000-8000-0000000000d1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestTheDocsRefuseACallerWithoutADocsSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	expired.SetClock(func() time.Time { return time.Now().Add(-time.Hour) })
-	stale, err := expired.Issue("01935000-0000-7000-8000-0000000000d1", "admin", 0)
+	stale, err := expired.Issue("01935000-0000-7000-8000-0000000000d1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func spliced(signedFor, claimsFrom string) string {
 func TestOnlyAnAdminCanOpenADocsSession(t *testing.T) {
 	h := newDocsRouter(t, false)
 	post := func(userID string) *httptest.ResponseRecorder {
-		raw, err := h.access.Issue(userID, "admin", 0)
+		raw, err := h.access.Issue(userID, 0)
 		if err != nil {
 			t.Fatal(err)
 		}

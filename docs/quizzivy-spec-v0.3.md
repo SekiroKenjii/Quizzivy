@@ -1,7 +1,20 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.74 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.75 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.74**
+
+R4, the legacy role goes (T-R4.49, T-R3.1):
+
+- §5.2 An access token carries the user, its times and the session epoch, and no role. A token
+  minted before this release still names one, and it is ignored.
+- §7 `Role`, `User.role` and `CurrentUser.role` are gone. A caller's authority was already
+  its permissions; a client that wants to know whether the signed-in user only learns reads
+  `workspaces`.
+- §13.2, §13.3 `app.user_role`, `users.role`, its index and the trigger `users_sync_legacy_role`
+  are dropped by 00105; `users.role_id` is `NOT NULL`, validated. The previous binary (v0.9.0)
+  never names the column.
 
 **Changes since v0.73**
 
@@ -1001,7 +1014,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 
 ### 5.2 Session model
 
-- Access token: JWT, ~15 min, held **in memory** (Zustand). Never localStorage, never sessionStorage.
+- Access token: JWT, ~15 min, held **in memory** (Zustand). Never localStorage, never sessionStorage. It carries the user, its times and the session epoch (`sep`) and no role; a token minted before v0.10.0 also names one, which is ignored.
 - Refresh token: opaque, rotating, `httpOnly; Secure; SameSite=Lax; Path=/auth` cookie. Stored server-side as a hash (§13.5).
 - On 401 the client calls `POST /auth/refresh` once and retries. The refresh is single-flight.
 - A **refused** refresh (401 or 403), or a second 401, ends the session.
@@ -1172,10 +1185,8 @@ A leaked code lets a stranger into the class. Mitigations, all required:
 Mirrors §13. IDs are UUID strings; timestamps ISO 8601 UTC.
 
 ```ts
-type Role = 'admin' | 'student';        // legacy: 'student' for a student-like role (§5.4), 'admin' for any other; v0.9.1 (T-R3.1) removes it
-
 interface User {
-  id; email; fullName; role: Role;
+  id; email; fullName;
   displayName?: string;
   avatarUrl?: string;
   hasPassword: boolean;                 // false for Google-only accounts
@@ -2063,7 +2074,6 @@ Sketch, not final DDL. The agent produces real migrations after loading the skil
 ```sql
 CREATE SCHEMA app;
 
-CREATE TYPE app.user_role      AS ENUM ('admin','student');
 CREATE TYPE app.test_status    AS ENUM ('draft','published','archived');
 CREATE TYPE app.question_type  AS ENUM ('single_choice','multiple_choice','true_false','fill_blank','short_answer');
 CREATE TYPE app.attempt_status AS ENUM ('in_progress','submitted','timed_out','graded','voided');
@@ -2074,7 +2084,6 @@ CREATE TABLE app.users (
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
   email         text NOT NULL,
   full_name     text NOT NULL,
-  role          app.user_role NOT NULL DEFAULT 'student',  -- legacy; v0.9.1 (T-R3.1) drops it
   role_id       uuid NOT NULL REFERENCES app.roles(id) ON DELETE RESTRICT,
   password_hash text,                              -- NULL = Google-only account
   must_change_password boolean NOT NULL DEFAULT false,
@@ -2143,7 +2152,7 @@ CREATE TABLE app.role_permissions (
 
 `permissions` is plan 70 §4.1's catalogue. A migration writes the catalogue, the four built-in roles and their grants (`docs/plan/20-data-model.md` D-21). A custom role has no `builtin_key`, and no role's `builtin_key` changes. The Admin stores no grant but `learning.take_tests`: it holds every other key as the wildcard. Triggers refuse a hidden key for any role and keep `learning.take_tests` on the built-in Student, and every grant change bumps the role's `revision`. The view `app.student_like_roles` is the one definition of a strict student target (§5.4): the built-in Student, or a custom role holding nothing but `learning.take_tests`.
 
-`users.role_id` replaces `users.role`. Until v0.9.1 (T-R3.1) both exist, and a trigger keeps them in step for the v0.7.0 binary; `role_id` is `NOT NULL … NOT VALID` until v0.9.1 validates it and drops `role` and `app.user_role`. The trigger `users_last_admin` refuses a demotion, disable or delete that would leave no active Admin. An access token carries the user's `session_epoch`, and a token below the stored value is refused; a disable and a staff password reset bump it (§5). `created_by` names the staff member who created the account; it is NULL for an account older than R2 and for a Google self-join. Details: `docs/plan/20-data-model.md` §29–§30.
+`users.role_id` replaced `users.role`. Migration 00105 (T-R3.1) validated its `NOT NULL` and dropped `role`, its index, `app.user_role` and the trigger that kept the two in step for the v0.7.0 binary. The trigger `users_last_admin` refuses a demotion, disable or delete that would leave no active Admin. An access token carries the user's `session_epoch`, and a token below the stored value is refused; a disable and a staff password reset bump it (§5). `created_by` names the staff member who created the account; it is NULL for an account older than R2 and for a Google self-join. Details: `docs/plan/20-data-model.md` §29–§30.
 
 **Classes and join codes** (§6):
 

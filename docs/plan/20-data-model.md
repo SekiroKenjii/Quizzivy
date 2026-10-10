@@ -1348,7 +1348,7 @@ listed here matches the spec.
 | D-22 | `tests`, `questions`, `question_groups` and `media_assets` gain `owner_id` beside `created_by` / `uploaded_by`; `users` gains a nullable `created_by` | Ownership is who a row belongs to and provenance is who made it. R5's ownership transfer and R7's co-editing move the first and must not rewrite the second (T-R2.9) |
 | D-23 | `classes.teacher_id` is backfilled from the oldest active Admin, with no `classes.created_by` | `app.classes` never recorded a creator, and the oldest active Admin is who v0.7.0 shows as every class's teacher, so no teacher changes; a class's creator from R2 on is its `class.created` audit row (Thuong, 2026-09-28; T-R2.9) |
 | D-24 | Add the view `app.student_like_roles`, the one strict-student predicate: the built-in Student, or a custom role holding nothing but `learning.take_tests`; the other built-in roles are excluded by key | The Admin stores only its "Take tests" cell, so a predicate on grants alone would make it a student target; every student read and write, the legacy-role sync and the anonymiser use this one definition (plan 70 §4.3, T-R2.1) |
-| D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum, expand half: added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step until v0.9.1 (T-R3.1) drops the column and the enum | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
+| D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum. Expand half (00056): added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step. Contract half (00105, T-R4.49, §41): the constraint validated, and the trigger, `role`, its index and the enum dropped | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
 | D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
 | D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
 | D-28 | Add `notifications` and `notification_preferences`. `notifications.params` and `target` are `jsonb`, bounded objects rather than columns, and `kind` is a checked dotted `text`, not an enum | §13.3 has no notification. Each kind carries its own few fields and every release adds kinds, so columns would be mostly NULL and an enum a migration per kind; the contract's closed `NotificationParams` and the Go type per kind are the schema. A name in `params` is a copy, not a reference: R5's anonymisation (T-R5.17a) deletes or scrubs the notifications that name an anonymised user (§34, T-R4.10a) |
@@ -1469,6 +1469,7 @@ the file it adds.
 | `00100_add_assignments_student_note.sql` | `assignments.student_note` and `assignments_student_note_check` (1 to 500 characters once trimmed of the `shared/answered` whitespace set), added with the column | R4 (T-R4.11), D-35 |
 | `00101_create_assignment_student_overrides.sql` | `assignment_student_overrides`, its four checks, `assignment_student_overrides_student_idx` and the `updated_at` trigger | R4 (T-R4.12), D-36 |
 | `00102_add_refresh_tokens_geo_label.sql` | `refresh_tokens.geo_label` and `refresh_tokens_geo_label_check` (1 to 80 characters), added with the column | R4 (T-R4.9), D-37 |
+| `00105_drop_users_legacy_role.sql` | Validates `users_role_id_not_null`; drops `users_sync_legacy_role`, `users_role_active_idx`, `users.role` and `app.user_role`; `lock_timeout` 5 s | R4 (T-R4.49, T-R3.1), D-25, §41 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2164,8 +2165,8 @@ from `quizzivy_app`. `access.IsStudentLike` is the same predicate in Go.
 ## 30. A role per user, the session epoch and the last Admin (T-R2.2)
 
 The expand half of moving users from `users.role` to `users.role_id` (plan 70
-§3, D-25). v0.9.1 (73-r3.md T-R3.1) validates the constraint, drops the sync
-trigger, `users.role`, `users_role_active_idx` and `app.user_role`.
+§3, D-25). 00105 (73-r3.md T-R3.1, §41) validated the constraint and dropped the
+sync trigger, `users.role`, `users_role_active_idx` and `app.user_role`.
 
 - `00056_add_users_role_id.sql` adds `role_id uuid REFERENCES app.roles ON
   DELETE RESTRICT`, nullable, and backfills it: `admin` → the Admin role,
@@ -2210,7 +2211,7 @@ trigger, `users.role`, `users_role_active_idx` and `app.user_role`.
     another Admin's departure (and two transfers cannot deadlock).
   - No column list: the v0.7.0 binary demotes by writing `role`, and a column
     list matches the columns an UPDATE names, not those a BEFORE trigger sets.
-    Naming `role` would also make v0.9.1's `DROP COLUMN role` depend on the trigger.
+    Naming `role` would also have made 00105's `DROP COLUMN role` depend on the trigger.
 - **The schema's first `SECURITY DEFINER` function (D-26).** The row lock
   needs UPDATE privilege on `app.roles`, which `00054` revokes from
   `quizzivy_app`. Running as the invoker, R5's demote and disable would fail
@@ -2263,8 +2264,8 @@ functions (73-r3.md T-R3.2).
   shows for every class. It raises if no active Admin exists and a class does.
   `classes_fill_teacher` (BEFORE INSERT) applies the same rule to the old
   binary's inserts; it and its function `app.classes_fill_teacher()` share the
-  name. It reads `users.role_id`, not the legacy `role`, so v0.9.1's `DROP COLUMN
-  role` cannot break it before v0.9.1 drops it.
+  name. It reads `users.role_id`, not the legacy `role`, so 00105's `DROP COLUMN
+  role` could not break it.
 - `00066`–`00070` add the foreign keys, `<table>_owner_id_fkey` and
   `classes_teacher_id_fkey`, each `REFERENCES app.users ON DELETE RESTRICT`
   and each in its own file after the columns. A column file holds ACCESS
@@ -2732,3 +2733,46 @@ cheap, and a nullable column with no default rewrites nothing. The label reaches
 A session is a family with an unrevoked, unexpired row. The list reads it through
 `refresh_tokens_user_live_idx (user_id) WHERE revoked_at IS NULL`, and the current session's
 lookup by `token_hash` and `refresh_tokens_family_idx`; neither needed a new index.
+
+## 41. The legacy role goes (T-R4.49, T-R3.1)
+
+The contract half of §30 (D-25). `00105_drop_users_legacy_role.sql` takes the legacy role out
+once nothing older than v0.8.0 can still be serving. v0.8.0 and the previous binary, v0.9.0,
+never name `users.role`, insert `role_id` themselves, derive what they need from
+`student_like_roles`, and accept a token with or without a `role` claim.
+
+One transaction, `SET LOCAL lock_timeout = '5s'`, in this order:
+
+1. `VALIDATE CONSTRAINT users_role_id_not_null` under SHARE UPDATE EXCLUSIVE, so reads and writes
+   continue. A row without a role stops the migration here with `23502`, before anything is
+   dropped. The constraint has refused every new and updated row since 00056, so a row inserted
+   meanwhile cannot make the validation fail.
+2. `DROP TRIGGER users_sync_legacy_role` and its function. The trigger goes first: its
+   `UPDATE OF role` list depends on the column, and dropping the column first fails.
+3. `DROP INDEX users_role_active_idx`, `DROP COLUMN role`, `DROP TYPE app.user_role`. There is no
+   `IF EXISTS` anywhere, so a wrong name fails the migration rather than leaving an object.
+
+Steps 2 and 3 hold ACCESS EXCLUSIVE on `app.users` to commit. Nothing is rewritten, because a
+dropped column is only marked, so the window is milliseconds at any size. What waits is a read or
+write of `app.users` in those milliseconds. A query already running on the table delays the lock
+request, and every later query queues behind the request, so `lock_timeout` turns a lock that does
+not arrive within five seconds into a failed migration: the release stops with the schema as it
+was (`55P03`), instead of a sign-in queue. The app role's grants on `app.users` are table level, so
+a column added back by Down inherits them.
+
+A deploy that fails after the migration leaves v0.9.0 serving the contracted schema, which it
+reads. A rollback as far as v0.8.0 works for this migration too; v0.7.0 names the column
+(`docs/setup/deploy.md` says roll forward).
+
+Down restores the enum (and `USAGE` for the app role, granted explicitly rather than left to default
+privileges), the column, backfilled with `users_set_updated_at` disabled so no `updated_at` moves,
+then `NOT NULL DEFAULT 'student'`, the index, the function and the trigger. The backfill reads
+`app.student_like_roles`: a rule over grants alone would call an Admin with "Take tests" on a
+student. The constraint stays validated, because Down never weakens a valid `NOT NULL`. Nothing
+runs it in production.
+
+Tests: `contract_r3_test.go` (what is gone and what is kept, the refusal of a user without
+`role_id`, the stop at a user without a role, the give-up under a held lock, and the Down), the
+two expand tests in `expand_r2_test.go`, which stop at the migration before this one because they
+prove the old binary on the expand schema, and `core/tests/legacy_role_test.go`, which fails on
+the legacy role anywhere in `server/`, `seed/` and `docker/` except the directory of migration tests.

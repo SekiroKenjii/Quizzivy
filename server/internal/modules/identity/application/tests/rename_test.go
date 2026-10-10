@@ -37,7 +37,7 @@ func TestRenamingKeepsEverythingElseAboutTheAccount(t *testing.T) {
 	if after.FullName != "Nguyễn Đức Minh" {
 		t.Errorf("name is %q; the surrounding spaces should have gone", after.FullName)
 	}
-	if after.Email != before.Email || after.Role != before.Role {
+	if after.Email != before.Email {
 		t.Errorf("rename moved more than the name: %+v -> %+v", before, after)
 	}
 

@@ -20,7 +20,7 @@ import (
 func profileHTTPString(s string) *string { return &s }
 func profileHTTPBool(b bool) *bool       { return &b }
 func profileHTTPUser() domain.User {
-	return domain.User{ID: "01935000-0000-7000-8000-0000000000a1", Email: "profile@example.com", FullName: "Private name", Role: "student", DisplayName: profileHTTPString("Public name"), Phone: profileHTTPString("+84 123456"), Locale: profileHTTPString("en"), TimeZone: profileHTTPString("UTC"), Preferences: domain.Preferences{Theme: profileHTTPString("dark"), CompactTables: profileHTTPBool(false)}, CreatedAt: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+	return domain.User{ID: "01935000-0000-7000-8000-0000000000a1", Email: "profile@example.com", FullName: "Private name", DisplayName: profileHTTPString("Public name"), Phone: profileHTTPString("+84 123456"), Locale: profileHTTPString("en"), TimeZone: profileHTTPString("UTC"), Preferences: domain.Preferences{Theme: profileHTTPString("dark"), CompactTables: profileHTTPBool(false)}, CreatedAt: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
 }
 
 func TestEverySuccessfulCurrentUserWirePathCarriesOnlyCallerProfile(t *testing.T) {
