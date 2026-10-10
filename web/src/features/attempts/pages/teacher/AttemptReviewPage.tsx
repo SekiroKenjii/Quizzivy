@@ -11,21 +11,22 @@ import {
 } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { Eye, Flag, FlagOff, Headphones, Rows3 } from "lucide-react";
+import { Callout } from "@/components/shared/Callout";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
-import { PageAside } from "@/components/shared/PageAside";
-import { PageHeader } from "@/components/shared/PageHeader";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Timeline } from "@/features/integrity/components/Timeline";
 import { clockSpan } from "@/features/integrity/timeline";
+import { FLAGGED } from "@/features/integrity/tones";
 import { scoreText } from "@/features/assignments/studentTime";
-import { failureMessage } from "@/lib/api/errors";
+import { PageHead } from "@/layouts/shell/PageHead";
+import { useCrumbs } from "@/layouts/shell/crumbs";
+import { ApiError, failureMessage } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,11 @@ import { DOT, type Verdict } from "../../components/answerStyles";
 
 type Tab = "paper" | "integrity";
 
-/** G-03: read, award, comment, next -- with the integrity tab beside it (G-05). */
+/**
+ * AttemptReviewPage is one student's paper in the teacher shell: the answers
+ * with a rail of questions and the grading card, Finish grading, the flag, and
+ * an Integrity tab with the full timeline and the private note.
+ */
 export default function AttemptReviewPage() {
   useDisplayTimeZone();
   const { t } = useTranslation();
@@ -56,6 +61,7 @@ export default function AttemptReviewPage() {
   const [tab, setTab] = useState<Tab>("paper");
   const [byQuestion, setByQuestion] = useState(false);
   const [picked, setCurrent] = useState<number | null>(null);
+  const [pointsFor, setPointsFor] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   const review = useQuery({
@@ -103,21 +109,23 @@ export default function AttemptReviewPage() {
   const questions = data?.questions ?? [];
   const pendingIndexes = pendingIndexesOf(questions, data?.answers ?? {});
   const current = picked ?? firstIndex(pendingIndexes, questions.length);
+  useCrumbs(
+    data === undefined
+      ? null
+      : [
+          {
+            label: data.testTitle,
+            to: `/teacher/assignments/${data.attempt.assignmentId}`,
+          },
+          { label: data.student.fullName },
+        ],
+  );
 
   if (review.isPending) return <ReviewSkeleton />;
-  if (review.isError || data === undefined) {
+  if (review.isError || data === undefined)
     return (
-      <>
-        <PageHeader title={t("review.title")} backTo="/teacher/assignments" />
-        <div className="space-y-1">
-          <LoadError error={review.error} onRetry={() => void review.refetch()}>
-            {t("review.loadFailed")}
-          </LoadError>
-          <p className="text-muted-foreground text-xs">{t("review.loadFailedHint")}</p>
-        </div>
-      </>
+      <ReviewUnavailable error={review.error} onRetry={() => void review.refetch()} />
     );
-  }
 
   const { attempt, student } = data;
   const pending = pendingIndexes.length;
@@ -132,11 +140,16 @@ export default function AttemptReviewPage() {
   const numbers = new Map(questions.map((item, index) => [item.id, index + 1]));
 
   const next = () => {
-    if (current !== null)
-      setCurrent(nextIndex(current, pendingIndexes, questions.length));
+    if (current === null) return;
+    const to = nextIndex(current, pendingIndexes, questions.length);
+    setCurrent(to);
+    setPointsFor(questions[to]?.id ?? null);
+  };
+  const pick = (index: number) => {
+    setCurrent(index);
+    setPointsFor(null);
   };
 
-  // G-04: the same route, a toggle; it starts on this paper's essay when there is one.
   const manualIds = questions.filter((q) => q.type === "short_answer").map((q) => q.id);
   if (byQuestion && manualIds.length > 0) {
     const from = startManualId(question, manualIds);
@@ -150,105 +163,102 @@ export default function AttemptReviewPage() {
     );
   }
 
+  const flagged = attempt.integrity?.flagged === true;
   return (
-    <>
-      <PageHeader
+    <div className="flex min-w-0 flex-col gap-4">
+      <PageHead
         title={student.fullName}
-        backTo={`/teacher/assignments/${attempt.assignmentId}`}
-        leading={<Avatar name={student.fullName} size="sm" />}
-        meta={
+        back={{
+          to: `/teacher/assignments/${attempt.assignmentId}`,
+          label: t("review.backToAssignment"),
+        }}
+        status={
           <>
-            {/* F-12: the bar keeps the title and the primary action legible at 768; the rest yields. */}
-            <span className="text-muted-foreground hidden min-w-0 shrink-[1000] truncate text-xs xl:inline">
-              {headerMeta(data, t)}
-            </span>
-            <Tabs
-              value={tab}
-              onValueChange={(value) => setTab(value as Tab)}
-              className="ml-4"
-            >
-              <TabsList>
-                <TabsTrigger value="paper" className="whitespace-nowrap">
-                  {t("review.tabs.paper")}
-                </TabsTrigger>
-                <TabsTrigger value="integrity" className="whitespace-nowrap">
-                  {t("review.tabs.integrity")}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {attempt.status === "graded" && (
+              <Badge variant="success">{t("status.attempt.graded")}</Badge>
+            )}
+            {flagged && <FlaggedPill />}
           </>
         }
         actions={
           <>
             {tab === "paper" && score && (
-              <span className="text-sm tabular-nums">
+              <span className="text-ui self-center tabular-nums">
                 <span className="font-semibold">
                   {scoreText(score.earned, score.total, locale, t).split("/")[0]}
                 </span>
-                <span className="text-muted-foreground">/{score.total}</span>
+                <span className="text-muted-fg">/{score.total}</span>
               </span>
             )}
             {tab === "paper" && pending > 0 && gradable && (
-              <Badge variant="outline" className="hidden lg:inline-flex">
+              <Badge variant="outline" className="self-center">
                 {t("review.pendingBadge", { count: pending })}
               </Badge>
             )}
-            {tab === "paper" && attempt.status === "graded" && (
-              <Badge variant="success">{t("status.attempt.graded")}</Badge>
-            )}
-            {/* G-05: a mark to look again, set or cleared by hand; never a verdict. */}
-            {attempt.integrity?.flagged ? (
-              <>
-                <Badge variant="warning">{t("review.flaggedBadge")}</Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t("review.unflag")}
-                  disabled={attempt.status === "voided" || flag.isPending}
-                  onClick={() => flag.mutate(false)}
-                >
-                  <FlagOff aria-hidden="true" />
-                  <span className="hidden lg:inline">{t("review.unflag")}</span>
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={t("review.flag")}
-                disabled={attempt.status === "voided" || flag.isPending}
-                onClick={() => flag.mutate(true)}
-              >
-                <Flag aria-hidden="true" />
-                <span className="hidden lg:inline">{t("review.flag")}</span>
-              </Button>
-            )}
+            <Button
+              variant={flagged ? "ghost" : "outline"}
+              size="sm"
+              aria-label={t(flagged ? "review.unflag" : "review.flag")}
+              disabled={attempt.status === "voided"}
+              aria-disabled={flag.isPending || undefined}
+              className={cn(flag.isPending && "opacity-50")}
+              onClick={() => {
+                if (!flag.isPending) flag.mutate(!flagged);
+              }}
+            >
+              {flagged ? <FlagOff aria-hidden="true" /> : <Flag aria-hidden="true" />}
+              <span className="hidden lg:inline">
+                {t(flagged ? "review.unflag" : "review.flag")}
+              </span>
+            </Button>
             {tab === "paper" && (
               <Button
                 size="sm"
-                disabled={!gradable || pending > 0 || finish.isPending}
-                onClick={() => finish.mutate()}
+                disabled={!gradable || pending > 0}
+                aria-disabled={finish.isPending || undefined}
+                className={cn(finish.isPending && "opacity-50")}
+                onClick={() => {
+                  if (!finish.isPending) finish.mutate();
+                }}
               >
                 {t("review.finish")}
               </Button>
             )}
           </>
         }
-      />
+      >
+        <p className="text-muted-fg flex min-w-0 items-center gap-2 text-sm">
+          <Avatar name={student.fullName} className="text-2xs size-6 flex-none" />
+          <span className="min-w-0 [overflow-wrap:anywhere]">
+            {headerMeta(data, t)}
+          </span>
+        </p>
+      </PageHead>
 
-      {tab === "integrity" ? (
-        <Timeline
-          attemptId={attempt.id}
-          questions={questions}
-          live={live}
-          note={data.teacherNote}
-          onViewPaper={() => setTab("paper")}
-        />
-      ) : (
-        <>
-          <PageAside label={t("review.rail")} side="left">
+      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+        <TabsList aria-label={t("review.tabsLabel")}>
+          <TabsTrigger value="paper">{t("review.tabs.paper")}</TabsTrigger>
+          <TabsTrigger value="integrity">{t("review.tabs.integrity")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="integrity" className="pt-4.5">
+          <Timeline
+            attemptId={attempt.id}
+            questions={questions}
+            live={live}
+            note={data.teacherNote}
+            onViewPaper={() => setTab("paper")}
+          />
+        </TabsContent>
+        <TabsContent
+          value="paper"
+          className="grid gap-4 pt-4.5 lg:grid-cols-[16.25rem_minmax(0,1fr)] lg:items-start"
+        >
+          <aside
+            aria-label={t("review.rail")}
+            className="bg-card shadow-card flex min-w-0 flex-col gap-4 rounded-xl border p-4"
+          >
             <div>
-              <p className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+              <p className="text-muted-fg mb-2 text-xs font-medium">
                 {t("review.questions")}
               </p>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1.5">
@@ -258,7 +268,7 @@ export default function AttemptReviewPage() {
                     type="button"
                     aria-current={i === current ? "true" : undefined}
                     aria-label={dotLabel(i, verdicts[i] ?? "unanswered", t)}
-                    onClick={() => setCurrent(i)}
+                    onClick={() => pick(i)}
                     className={cn(
                       DOT.base,
                       "h-9",
@@ -272,7 +282,7 @@ export default function AttemptReviewPage() {
                 ))}
               </div>
               {pending > 0 && (
-                <p className="text-muted-foreground mt-2 text-xs">
+                <p className="text-muted-fg mt-2 text-xs">
                   {t("review.pendingNote", { count: pending })}
                 </p>
               )}
@@ -288,105 +298,154 @@ export default function AttemptReviewPage() {
                 </Button>
               )}
             </div>
-            <Separator />
-            <RailStats data={data} />
-          </PageAside>
-
-          {failure !== null && (
-            <p role="alert" className="text-destructive mb-3 text-sm">
-              {failure}
-            </p>
-          )}
-
-          {question === null ? (
-            <EmptyState>{t("review.noQuestions")}</EmptyState>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-xs">
-                  {t("review.questionMeta", {
-                    n: (current ?? 0) + 1,
-                    type: t(`questionEditor.type.${question.type}`, {
-                      defaultValue: question.type,
-                    }),
-                    points: question.points,
-                  })}
-                </span>
-                <VerdictBadge verdict={verdicts[current ?? 0] ?? "unanswered"} />
-              </div>
-
-              {group && data.sharedContext && (
-                <ReviewGroup
-                  key={group.id}
-                  group={group}
-                  numbers={numbers}
-                  transcripts={data.sharedContext.transcripts}
-                  plays={data.sharedContext.audioPlays}
-                  onRetry={() => void review.refetch()}
-                  onQuestion={(questionId) => {
-                    const number = numbers.get(questionId);
-                    if (number !== undefined) setCurrent(number - 1);
-                    document.getElementById("review-answer")?.focus();
-                  }}
-                />
-              )}
-              <Card id="review-answer" tabIndex={-1}>
-                <CardContent className="space-y-4">
-                  <AnswerReview question={question} answer={answer} />
-                  {question.type === "short_answer" &&
-                    question.sampleAnswer != null && (
-                      <details open className="bg-muted/30 rounded-md border p-4">
-                        <summary className="text-muted-foreground flex cursor-pointer items-center gap-1.5 text-xs">
-                          <Eye className="size-3.5" aria-hidden="true" />
-                          {t("review.sampleAnswer")}
-                        </summary>
-                        <p className="mt-2.5 text-sm leading-relaxed whitespace-pre-wrap">
-                          {question.sampleAnswer}
-                        </p>
-                        {question.explanation != null && (
-                          <QuestionProse
-                            className="text-muted-foreground mt-2 text-xs"
-                            text={question.explanation}
-                            content={question.explanationContent}
-                          />
-                        )}
-                      </details>
-                    )}
-                  {question.audio && (
-                    <AudioNote
-                      question={question}
-                      plays={data.audioPlays[question.id] ?? 0}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-
-              {question.type === "short_answer" && gradable && (
-                <GradingCard
-                  key={question.id}
-                  question={question}
-                  answer={answer}
-                  pending={grade.isPending}
-                  error={null}
-                  onSave={(points, comment) =>
-                    grade.mutate(
-                      { questionId: question.id, points, comment },
-                      { onSuccess: next },
-                    )
-                  }
-                  onSkip={next}
-                />
-              )}
-              {question.type === "short_answer" && !gradable && (
-                <p className="text-muted-foreground text-sm">
-                  {t(live ? "review.notYetSubmitted" : "review.voided")}
-                </p>
-              )}
+            <div className="border-t pt-4">
+              <RailStats data={data} />
             </div>
-          )}
-        </>
+          </aside>
+
+          <div className="min-w-0 space-y-4">
+            {failure !== null && (
+              <Callout tone="danger" announce>
+                {failure}
+              </Callout>
+            )}
+
+            {question === null ? (
+              <EmptyState>{t("review.noQuestions")}</EmptyState>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-fg text-xs">
+                    {t("review.questionMeta", {
+                      n: (current ?? 0) + 1,
+                      type: t(`questionEditor.type.${question.type}`, {
+                        defaultValue: question.type,
+                      }),
+                      points: question.points,
+                    })}
+                  </span>
+                  <VerdictBadge verdict={verdicts[current ?? 0] ?? "unanswered"} />
+                </div>
+
+                {group && data.sharedContext && (
+                  <ReviewGroup
+                    key={group.id}
+                    group={group}
+                    numbers={numbers}
+                    transcripts={data.sharedContext.transcripts}
+                    plays={data.sharedContext.audioPlays}
+                    onRetry={() => void review.refetch()}
+                    onQuestion={(questionId) => {
+                      const number = numbers.get(questionId);
+                      if (number !== undefined) pick(number - 1);
+                      document.getElementById("review-answer")?.focus();
+                    }}
+                  />
+                )}
+                <Card id="review-answer" tabIndex={-1}>
+                  <CardContent className="space-y-4">
+                    <AnswerReview question={question} answer={answer} />
+                    {question.type === "short_answer" &&
+                      question.sampleAnswer != null && (
+                        <details open className="bg-muted rounded-lg border p-4">
+                          <summary className="text-muted-fg flex w-fit cursor-pointer items-center gap-1.5 rounded-sm text-xs">
+                            <Eye className="size-3.5" aria-hidden="true" />
+                            {t("review.sampleAnswer")}
+                          </summary>
+                          <p className="mt-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap">
+                            {question.sampleAnswer}
+                          </p>
+                          {question.explanation != null && (
+                            <QuestionProse
+                              className="text-muted-fg mt-2 text-xs"
+                              text={question.explanation}
+                              content={question.explanationContent}
+                            />
+                          )}
+                        </details>
+                      )}
+                    {question.audio && (
+                      <AudioNote
+                        question={question}
+                        plays={data.audioPlays[question.id] ?? 0}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+
+                {question.type === "short_answer" && gradable && (
+                  <GradingCard
+                    key={question.id}
+                    question={question}
+                    answer={answer}
+                    pending={grade.isPending}
+                    error={null}
+                    focusPoints={pointsFor === question.id}
+                    onPointsFocused={() => setPointsFor(null)}
+                    onSave={(points, comment) =>
+                      grade.mutate(
+                        { questionId: question.id, points, comment },
+                        { onSuccess: next },
+                      )
+                    }
+                    onSkip={next}
+                  />
+                )}
+                {question.type === "short_answer" && !gradable && (
+                  <p className="text-muted-fg text-sm">
+                    {t(live ? "review.notYetSubmitted" : "review.voided")}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function ReviewUnavailable({
+  error,
+  onRetry,
+}: Readonly<{ error: Error | null; onRetry: () => void }>) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      <PageHead
+        title={t("review.title")}
+        back={{
+          to: "/teacher/assignments",
+          label: t("teacherShell.nav.assignments"),
+        }}
+      />
+      {error instanceof ApiError && error.status === 404 ? (
+        <EmptyState>{t("review.notFound")}</EmptyState>
+      ) : (
+        <div className="space-y-1">
+          <LoadError error={error} onRetry={onRetry}>
+            {t("review.loadFailed")}
+          </LoadError>
+          <p className="text-muted-fg text-xs">{t("review.loadFailedHint")}</p>
+        </div>
       )}
-    </>
+    </div>
+  );
+}
+
+function FlaggedPill() {
+  const { t } = useTranslation();
+  return (
+    <span
+      className={cn(
+        FLAGGED.soft,
+        FLAGGED.ink,
+        "inline-flex h-5.5 items-center gap-1 rounded-full px-2 text-xs font-medium whitespace-nowrap",
+      )}
+    >
+      <Flag aria-hidden="true" className="size-3" />
+      {t("review.flaggedBadge")}
+    </span>
   );
 }
 
@@ -464,7 +523,7 @@ function trim(n: number): string {
 function Line({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-fg">{label}</span>
       <span className="tabular-nums">{value}</span>
     </div>
   );
@@ -486,7 +545,7 @@ function AudioNote({
           : t("review.playsOf", { plays, max })}
       </Badge>
       {over && (
-        <p className="text-muted-foreground text-xs leading-relaxed">
+        <p className="text-muted-fg text-xs leading-relaxed">
           {t("review.overLimitNote")}
         </p>
       )}
