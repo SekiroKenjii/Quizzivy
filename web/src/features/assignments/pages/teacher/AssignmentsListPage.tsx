@@ -1,348 +1,513 @@
-import { useBulkSelection } from "@/hooks/useBulkSelection";
-import { BulkActions } from "@/components/shared/BulkActions";
-import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
-import { DeleteItemButton } from "@/components/shared/DeleteItemButton";
-import type { ReactNode } from "react";
-import { useListFilters } from "@/hooks/useListFilters";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
-import { keepPreviousData, useQueryClient, useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Flag, GraduationCap, Pencil, Plus, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { RowMenu } from "@/components/shared/RowMenu";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  ArrowUpRight,
+  CircleStop,
+  Clock,
+  Copy,
+  Download,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { BulkActions, BulkBarButton } from "@/components/shared/BulkActions";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { DataTable } from "@/components/shared/data/DataTable";
+import { FacetFilter } from "@/components/shared/data/FacetFilter";
+import { Pager } from "@/components/shared/data/Pager";
+import { LoadError } from "@/components/shared/ListState";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { Button } from "@/components/ui/button";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Segmented } from "@/components/ui/segmented";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/sonner";
+import { useCan } from "@/features/auth/permissions";
 import {
   deleteAssignment,
+  exportResults,
   listAssignments,
+  updateAssignment,
   type Assignment,
-  type AssignmentStatus,
 } from "@/features/assignments/api";
+import { CloseEarlyDialog } from "@/features/assignments/components/CloseEarlyDialog";
+import { toInput } from "@/features/assignments/input";
 import { statusAt } from "@/features/assignments/status";
-import { fetchClass } from "@/features/classes/api";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import type { Locale } from "@/lib/i18n";
-import { useLocale } from "@/lib/i18n/useLocale";
-import { formatDateTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
-import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { Pager } from "@/components/shared/Pager";
-import { usePage } from "@/hooks/usePage";
+import { fetchClasses } from "@/features/classes/api";
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { useListFilters } from "@/hooks/useListFilters";
+import { usePage, usePageSize } from "@/hooks/usePage";
+import { PageHead } from "@/layouts/shell/PageHead";
+import { ApiError } from "@/lib/api/errors";
+import { useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { useDebounced } from "@/lib/useDebounced";
+import { AssignmentCard } from "./AssignmentCells";
+import { assignmentColumns } from "./assignmentColumns";
+import { windowOf, type ListTab } from "./assignmentWindow";
+import { DuplicateAssignmentDialog } from "./DuplicateAssignmentDialog";
+import { ExtendAssignmentsDialog } from "./ExtendAssignmentsDialog";
 
-const TABS: (AssignmentStatus | "all")[] = [
-  "all",
-  "draft",
-  "open",
-  "scheduled",
-  "closed",
-];
+const QUERY_KEY = ["admin-assignments"] as const;
+const TABS: readonly ListTab[] = ["open", "scheduled", "closed", "draft"];
+const EXPORT_LIMIT = 50;
+
+const SEARCH =
+  "w-auto min-w-0 flex-[0_1_260px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
+
+type Acting = {
+  kind: "extend" | "duplicate" | "close" | "delete";
+  assignment: Assignment;
+} | null;
+
+function toTab(value: string | null): ListTab {
+  return TABS.find((tab) => tab === value) ?? "open";
+}
+
+function failure(cause: unknown, fallback: string) {
+  return cause instanceof ApiError ? cause.message : fallback;
+}
+
+function ListSkeleton() {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={t("common.loading")}
+      className="bg-card shadow-card overflow-hidden rounded-xl border"
+    >
+      <div className="bg-muted h-10" />
+      {Array.from({ length: 6 }, (_, index) => (
+        <div key={index} className="flex items-center gap-3 border-t px-4 py-5">
+          <Skeleton className="size-4 flex-none rounded-[0.25rem]" />
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-4 w-24 flex-none" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AssignmentMenuItems({
+  assignment,
+  now,
+  write,
+  onAct,
+}: Readonly<{
+  assignment: Assignment;
+  now: Date;
+  write: boolean;
+  onAct: (kind: NonNullable<Acting>["kind"], assignment: Assignment) => void;
+}>): ReactNode {
+  const { t } = useTranslation();
+  const status = statusAt(assignment, now);
+  const href = `/teacher/assignments/${assignment.id}`;
+  return (
+    <>
+      <DropdownMenuItem asChild>
+        <Link to={href}>
+          <ArrowUpRight aria-hidden="true" />
+          {t("assignments.list.open")}
+        </Link>
+      </DropdownMenuItem>
+      {write ? (
+        <>
+          <DropdownMenuItem asChild>
+            <Link to={`${href}?tab=settings`}>
+              <Pencil aria-hidden="true" />
+              {t("assignments.list.editSettings")}
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={status === "draft" || status === "closed"}
+            onSelect={() => onAct("extend", assignment)}
+          >
+            <Clock aria-hidden="true" />
+            {t("assignments.list.extend")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onAct("duplicate", assignment)}>
+            <Copy aria-hidden="true" />
+            {t("assignments.list.duplicate")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {status === "draft" ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => onAct("delete", assignment)}
+            >
+              <Trash2 aria-hidden="true" />
+              {t("assignments.list.delete")}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={status !== "open"}
+              onSelect={() => onAct("close", assignment)}
+            >
+              <CircleStop aria-hidden="true" />
+              {t("assignments.list.closeEarly")}
+            </DropdownMenuItem>
+          )}
+        </>
+      ) : null}
+    </>
+  );
+}
 
 /**
- * §8's assignments list.
- *
- * The deck has no board for this route -- it goes straight from G-01 to the
- * monitor -- so the columns are §8's list verbatim and the shape is A-03's,
- * which is the deck's answer for every other list screen.
+ * AssignmentsBulkBar is the bulk bar of the assignments list: Extend deadline
+ * (`onExtend` opens its dialog) and Close now with `write`, which close the
+ * live ones one at a time and report the others; Export results with
+ * `grading`, one CSV for up to 50, whose refusal is shown.
  */
-const PAGE_SIZE = 20;
+function AssignmentsBulkBar({
+  selected,
+  write,
+  grading,
+  onExtend,
+  onRemoved,
+  onClear,
+  onSettled,
+}: Readonly<{
+  selected: readonly Assignment[];
+  write: boolean;
+  grading: boolean;
+  onExtend: () => void;
+  onRemoved: (ids: string[]) => void;
+  onClear: () => void;
+  onSettled: () => Promise<unknown>;
+}>) {
+  const { t } = useTranslation();
+  const download = useMutation({
+    mutationFn: (chosen: readonly Assignment[]) => exportResults(chosen),
+    onError: (cause) => toast.error(failure(cause, t("assignments.list.exportFailed"))),
+  });
+  const closeNow = (assignment: Assignment) =>
+    statusAt(assignment, new Date()) === "open"
+      ? updateAssignment(assignment.id, {
+          ...toInput(assignment),
+          draft: false,
+          closeNow: true,
+        })
+      : Promise.reject(
+          new ApiError({
+            status: 409,
+            code: "UNKNOWN",
+            message: t("assignments.list.notLive"),
+          }),
+        );
 
+  return (
+    <BulkActions
+      selected={selected}
+      name={(assignment) => assignment.testTitle}
+      hideOnPhone
+      actions={
+        write
+          ? [
+              {
+                label: t("assignments.list.closeNow"),
+                description: t("assignments.list.closeNowBody"),
+                icon: CircleStop,
+                run: closeNow,
+              },
+            ]
+          : []
+      }
+      onRemoved={onRemoved}
+      onClear={onClear}
+      onSettled={onSettled}
+    >
+      {write ? (
+        <BulkBarButton icon={Clock} onClick={onExtend}>
+          {t("assignments.list.extend")}
+        </BulkBarButton>
+      ) : null}
+      {grading ? (
+        <BulkBarButton
+          icon={Download}
+          disabled={download.isPending}
+          onClick={() => {
+            if (selected.length > EXPORT_LIMIT)
+              toast.error(t("assignments.list.exportTooMany"));
+            else download.mutate(selected);
+          }}
+        >
+          {t("assignments.list.export")}
+        </BulkBarButton>
+      ) : null}
+    </BulkActions>
+  );
+}
+
+/**
+ * AssignmentsListPage is the teacher's assignments as the deck's Assignments
+ * screen draws them: the Live, Scheduled, Closed and Drafts tabs with their
+ * counts, a search and a class facet, and the assignments in a table whose
+ * columns drop as the content narrows and which becomes cards below 768px.
+ * The tab (`status`), the classes (`classId`), the search (`q`), the page and
+ * its size live in the URL. A row opens the assignment. Its menu, and the
+ * bulk bar's Extend deadline, Export results and Close now, show only with
+ * the permissions they need; the bulk actions run one assignment at a time
+ * and report each failure.
+ */
 export default function AssignmentsListPage() {
   useDisplayTimeZone();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const client = useQueryClient();
+  const write = useCan("teaching.assignments.write");
+  const grading = useCan("teaching.grading");
+  const { params, setFilter } = useListFilters();
+  const tab = toTab(params.get("status"));
+  const classIds = params.getAll("classId");
+  const query = params.get("q") ?? "";
+  const search = useDebounced(query.trim(), 300);
+  const [size] = usePageSize();
+  const [page] = usePage(JSON.stringify({ tab, classIds, search, size }));
   const bulk = useBulkSelection<Assignment>();
-  const queryClient = useQueryClient();
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
-  const { params, setParams, setFilter } = useListFilters();
-  const tab = TABS.find((value) => value === params.get("status")) ?? "all";
-  const setTab = (value: AssignmentStatus | "all") =>
-    setFilter("status", value === "all" ? null : value);
-  const locale = useLocale();
+  const [acting, setActing] = useState<Acting>(null);
+  const [extending, setExtending] = useState<readonly Assignment[]>([]);
   const now = new Date();
-  // G-12: arriving from a class narrows the list, and the chip is the way out.
-  const classId = params.get("classId") ?? undefined;
-  const klass = useQuery({
-    queryKey: ["admin-class", classId],
-    queryFn: ({ signal }) => fetchClass(classId ?? "", signal),
-    enabled: classId !== undefined,
-  });
 
-  const [page] = usePage(`${tab}:${classId ?? ""}`);
   const assignments = useQuery({
-    queryKey: ["admin-assignments", { tab, page, classId }],
+    queryKey: [...QUERY_KEY, { tab, classIds, search, page, size }],
     queryFn: ({ signal }) =>
       listAssignments(
         {
-          limit: PAGE_SIZE,
+          status: tab,
+          limit: size,
           page,
-          ...(tab === "all" ? {} : { status: tab }),
-          ...(classId === undefined ? {} : { classId }),
+          ...(classIds.length > 0 ? { classId: classIds } : {}),
+          ...(search === "" ? {} : { q: search }),
         },
         signal,
       ),
     placeholderData: keepPreviousData,
   });
+  const classes = useQuery({
+    queryKey: ["admin-classes", "picker", { limit: 100 }],
+    queryFn: ({ signal }) => fetchClasses({ limit: 100 }, signal),
+    staleTime: 60_000,
+  });
+  const columns = useMemo(() => assignmentColumns(t, tab, new Date()), [t, tab]);
 
-  const items = assignments.data?.items ?? [];
-  const facets = assignments.data?.facets;
+  const invalidate = () => client.invalidateQueries({ queryKey: QUERY_KEY });
+  const close = useMutation({
+    mutationFn: (assignment: Assignment) =>
+      updateAssignment(assignment.id, {
+        ...toInput(assignment),
+        draft: false,
+        closeNow: true,
+      }),
+    onSuccess: async (closed) => {
+      setActing(null);
+      toast(
+        t("assignments.list.closed", {
+          submitted: closed.submittedCount ?? 0,
+          target: closed.targetCount ?? 0,
+        }),
+      );
+      await invalidate();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (assignment: Assignment) => deleteAssignment(assignment.id),
+    onSuccess: async () => {
+      setActing(null);
+      toast(t("assignments.list.deleted"));
+      await invalidate();
+    },
+  });
 
+  const data = assignments.data;
+  const selected = [...bulk.selected.values()];
+  const selecting = write || grading;
+  const selectionProps = selecting
+    ? { selection: bulk, rowName: (assignment: Assignment) => assignment.testTitle }
+    : {};
+  const newAssignment = write ? (
+    <Button asChild>
+      <Link to="/teacher/assignments/new">
+        <Plus aria-hidden="true" />
+        {t("assignments.new")}
+      </Link>
+    </Button>
+  ) : null;
+  const single = extending.length === 1 ? extending[0] : undefined;
+  const extendingWhen =
+    single === undefined ? undefined : windowOf(single, "open", now, t);
+  const act = (kind: NonNullable<Acting>["kind"], assignment: Assignment) => {
+    if (kind === "extend") setExtending([assignment]);
+    else setActing({ kind, assignment });
+  };
   return (
-    <div className="space-y-4">
-      <PageHeader
-        variant="title"
-        title={t("nav.assignments")}
-        subtitle={
-          facets
-            ? t("assignments.summary", { count: facets.all, open: facets.open })
-            : " "
-        }
-        actions={
-          <Button size="sm" onClick={() => void navigate("/teacher/assignments/new")}>
-            <Plus aria-hidden="true" />
-            {t("assignments.new")}
-          </Button>
-        }
+    <div className="flex min-w-0 flex-col gap-4">
+      <PageHead
+        title={t("teacherShell.nav.assignments")}
+        description={t("assignments.list.description")}
+        actions={newAssignment}
       />
 
-      <div className="flex items-center gap-2">
-        <Tabs
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <Segmented
+          label={t("assignments.list.tabs")}
           value={tab}
-          onValueChange={(next) => setTab(next as AssignmentStatus | "all")}
-        >
-          <TabsList aria-label={t("assignments.statusFilter")}>
-            {TABS.map((value) => (
-              <TabsTrigger key={value} value={value}>
-                {value === "all"
-                  ? t("assignments.all")
-                  : t(`status.assignment.${value}`)}
-                {facets ? (
-                  <span className="text-muted-foreground ml-1 tabular-nums">
-                    {facets[value]}
-                  </span>
-                ) : null}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        {classId === undefined ? null : (
-          <Badge variant="secondary" className="gap-1.5 py-0.5">
-            <GraduationCap aria-hidden="true" />
-            {klass.data?.name ?? t("assignments.classFilterLoading")}
-            <button
-              type="button"
-              aria-label={t("assignments.clearClassFilter")}
-              className="hover:bg-accent -mr-1 rounded-sm p-0.5"
-              onClick={() =>
-                setParams(
-                  (current) => {
-                    const out = new URLSearchParams(current);
-                    out.delete("classId");
-                    out.delete("page");
-                    return out;
-                  },
-                  { replace: true },
-                )
-              }
-            >
-              <X className="size-3" aria-hidden="true" />
-            </button>
-          </Badge>
-        )}
+          scroll
+          onChange={(value) => setFilter("status", value === "open" ? null : value)}
+          options={TABS.map((value) => ({
+            value,
+            label: t(`assignments.list.tab_${value}`),
+            count: data?.facets[value],
+          }))}
+        />
+        <div className="flex flex-[1_1_260px] justify-end gap-2">
+          <SearchInput
+            className={SEARCH}
+            value={query}
+            onChange={(value) => setFilter("q", value)}
+            placeholder={t("assignments.list.search")}
+          />
+          <FacetFilter
+            label={t("assignments.list.classFacet")}
+            title={t("assignments.list.classFacetTitle")}
+            options={(classes.data?.items ?? []).map((klass) => ({
+              value: klass.id,
+              label: klass.name,
+            }))}
+            selected={classIds}
+            onChange={(next) => setFilter("classId", next)}
+          />
+        </div>
       </div>
 
-      <BulkActions
-        selected={[...bulk.selected.values()]}
-        name={(item) => item.testTitle}
-        actions={[
-          {
-            label: t("common.bulkDelete"),
-            description: t("common.deleteAssignmentsBody"),
-            run: (item) => deleteAssignment(item.id),
-          },
-        ]}
-        onRemoved={bulk.remove}
-        onClear={bulk.clear}
-        onSettled={invalidate}
-      />
-      <QueryStates
-        query={assignments}
-        skeleton={<ListSkeleton />}
-        failed={t("assignments.loadFailed")}
-      >
-        {(data) =>
-          items.length === 0 ? (
-            <EmptyState
-              action={
-                <Button
-                  size="sm"
-                  onClick={() => void navigate("/teacher/assignments/new")}
-                >
-                  {t("assignments.new")}
-                </Button>
-              }
-            >
-              {t(emptyKey(classId !== undefined, tab))}
-            </EmptyState>
-          ) : (
-            <>
-              <Card className="gap-0 overflow-hidden py-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10">
-                        <BulkSelectAll items={items} selection={bulk} />
-                      </TableHead>
-                      <TableHead className="w-[34%]">{t("assignments.test")}</TableHead>
-                      <TableHead>{t("assignments.targets")}</TableHead>
-                      <TableHead>{t("assignments.window")}</TableHead>
-                      <TableHead>{t("assignments.statusColumn")}</TableHead>
-                      <TableHead className="text-right">
-                        {t("assignments.progress")}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t("assignments.flagged")}
-                      </TableHead>
-                      <TableHead className="w-10">
-                        <span className="sr-only">{t("common.actions")}</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((assignment) => (
-                      <Row
-                        key={assignment.id}
-                        assignment={assignment}
-                        selection={
-                          <BulkSelectRow
-                            item={assignment}
-                            name={assignment.testTitle}
-                            selection={bulk}
-                          />
-                        }
-                        deleteAction={
-                          ["draft", "closed"].includes(statusAt(assignment, now)) ? (
-                            <DeleteItemButton
-                              name={assignment.testTitle}
-                              onDelete={() => deleteAssignment(assignment.id)}
-                              onDeleted={invalidate}
-                            />
-                          ) : null
-                        }
-                        locale={locale}
-                        now={now}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
+      {selecting ? (
+        <AssignmentsBulkBar
+          selected={selected}
+          write={write}
+          grading={grading}
+          onExtend={() => setExtending(selected)}
+          onRemoved={bulk.remove}
+          onClear={bulk.clear}
+          onSettled={invalidate}
+        />
+      ) : null}
 
-              {data && (
-                <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
-              )}
-            </>
-          )
+      {assignments.isError ? (
+        <LoadError error={assignments.error} onRetry={() => void assignments.refetch()}>
+          {t("assignments.loadFailed")}
+        </LoadError>
+      ) : null}
+      {data === undefined ? (
+        assignments.isPending && <ListSkeleton />
+      ) : (
+        <DataTable
+          label={t("assignments.list.table")}
+          columns={columns}
+          rows={data.items}
+          rowSize={{ minHeight: 60 }}
+          rowHref={(assignment) => `/teacher/assignments/${assignment.id}`}
+          {...selectionProps}
+          menu={(assignment) => (
+            <AssignmentMenuItems
+              assignment={assignment}
+              now={now}
+              write={write}
+              onAct={act}
+            />
+          )}
+          card={(assignment) => (
+            <AssignmentCard assignment={assignment} tab={tab} now={now} />
+          )}
+          empty={
+            <span className="flex flex-col items-center gap-3">
+              {t("assignments.list.empty")}
+              {newAssignment}
+            </span>
+          }
+          footer={
+            <Pager
+              page={data.page}
+              pageSize={data.pageSize}
+              total={data.total}
+              noun={(count) => t("assignments.list.noun", { count })}
+            />
+          }
+        />
+      )}
+
+      <ExtendAssignmentsDialog
+        items={extending}
+        when={extendingWhen}
+        open={extending.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setExtending([]);
+        }}
+        onExtended={() => void invalidate()}
+      />
+      <DuplicateAssignmentDialog
+        assignment={acting?.kind === "duplicate" ? acting.assignment : null}
+        open={acting?.kind === "duplicate"}
+        onOpenChange={(open) => {
+          if (!open) setActing(null);
+        }}
+        onDuplicated={(draft) => {
+          void invalidate();
+          toast(t("assignments.list.duplicated"), {
+            action: {
+              label: t("assignments.list.open"),
+              onClick: () => void navigate(`/teacher/assignments/${draft.id}`),
+            },
+          });
+        }}
+      />
+      {acting?.kind === "close" ? (
+        <CloseEarlyDialog
+          assignment={acting.assignment}
+          open
+          pending={close.isPending}
+          failed={close.isError}
+          onOpenChange={(open) => {
+            if (!open) {
+              setActing(null);
+              close.reset();
+            }
+          }}
+          onConfirm={() => close.mutate(acting.assignment)}
+        />
+      ) : null}
+      <ConfirmDialog
+        open={acting?.kind === "delete"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActing(null);
+            remove.reset();
+          }
+        }}
+        icon={Trash2}
+        title={t("assignments.list.deleteTitle")}
+        description={t("assignments.list.deleteBody", {
+          title: acting?.assignment.testTitle ?? "",
+        })}
+        confirmLabel={t("assignments.list.delete")}
+        destructive
+        pending={remove.isPending}
+        error={
+          remove.isError
+            ? failure(remove.error, t("assignments.list.deleteFailed"))
+            : null
         }
-      </QueryStates>
+        onConfirm={() => {
+          if (acting?.kind === "delete") remove.mutate(acting.assignment);
+        }}
+      />
     </div>
   );
-}
-
-function Row({
-  selection,
-  deleteAction,
-  assignment,
-  locale,
-  now,
-}: Readonly<{
-  selection: ReactNode;
-  deleteAction: ReactNode;
-  assignment: Assignment;
-  locale: Locale;
-  now: Date;
-}>) {
-  const { t } = useTranslation();
-  const status = statusAt(assignment, now);
-  const submitted = assignment.submittedCount ?? 0;
-  const total = assignment.targetCount ?? 0;
-  const flagged = assignment.flaggedCount ?? 0;
-  const href = `/teacher/assignments/${assignment.id}`;
-
-  return (
-    <TableRow>
-      <TableCell>{selection}</TableCell>
-      <TableCell>
-        <Link to={href} className="truncate font-medium hover:underline">
-          {assignment.testTitle}
-        </Link>
-        <span className="text-muted-foreground ml-2 text-xs tabular-nums">
-          {t("tests.versionNumber", { n: assignment.testVersion })}
-        </span>
-      </TableCell>
-      <TableCell className="text-muted-foreground">
-        {t("assignments.targetSummary", {
-          classes: assignment.targets.classes.length,
-          students: assignment.targets.students.length,
-        })}
-      </TableCell>
-      <TableCell className="text-muted-foreground text-xs">
-        {t("assignments.windowValue", {
-          opens: formatDateTime(assignment.window.opensAt, locale),
-          closes: formatDateTime(assignment.window.closesAt, locale),
-        })}
-      </TableCell>
-      <TableCell>
-        <StatusBadge kind="assignment" status={status} />
-      </TableCell>
-      <TableCell className="text-right tabular-nums">
-        {t("assignments.progressValue", { submitted, total })}
-      </TableCell>
-      <TableCell className="text-right">
-        {flagged === 0 ? (
-          <span className="text-muted-foreground">—</span>
-        ) : (
-          <span className="text-warning-ink inline-flex items-center gap-1 tabular-nums">
-            <Flag className="size-3.5" aria-hidden="true" />
-            {flagged}
-          </span>
-        )}
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-1">
-          {deleteAction}
-          <RowMenu>
-            <DropdownMenuItem asChild>
-              <Link to={href}>
-                <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
-                {t("assignments.rowOpen")}
-              </Link>
-            </DropdownMenuItem>
-            {status === "draft" || status === "scheduled" ? (
-              <DropdownMenuItem asChild>
-                <Link to={`${href}/edit`}>
-                  <Pencil className="text-muted-foreground" aria-hidden="true" />
-                  {t("assignments.detail.edit")}
-                </Link>
-              </DropdownMenuItem>
-            ) : null}
-          </RowMenu>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function emptyKey(forClass: boolean, tab: string): string {
-  if (tab !== "all") return "assignments.noneWithStatus";
-  return forClass ? "assignments.emptyForClass" : "assignments.empty";
 }
