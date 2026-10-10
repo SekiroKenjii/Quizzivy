@@ -23,7 +23,6 @@ const STUDENT = {
   id: "018f0000-0000-7000-8000-0000000000e9",
   email: "an@example.com",
   fullName: "Nguyễn Văn An",
-  role: "student",
   hasPassword: false,
   linkedProviders: ["google"],
   mustChangePassword: false,

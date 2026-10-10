@@ -164,7 +164,6 @@ export function review(over: { essayScore?: number | null } = {}): Review {
       id: STUDENT_ID,
       email: "minh@example.com",
       fullName: "Nguyễn Đức Minh",
-      role: "student",
       hasPassword: true,
       linkedProviders: [],
       mustChangePassword: false,

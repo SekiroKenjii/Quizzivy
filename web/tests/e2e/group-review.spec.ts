@@ -54,15 +54,13 @@ function result(): AttemptResult {
 }
 
 function review(): AttemptReview {
-  const { id, email, fullName, role, hasPassword, mustChangePassword, createdAt } =
-    studentUser;
+  const { id, email, fullName, hasPassword, mustChangePassword, createdAt } = studentUser;
   return {
     attempt: { ...attempt, score: { earned: 1, total: 2, pendingManual: 1 } },
     student: {
       id,
       email,
       fullName,
-      role,
       hasPassword,
       linkedProviders: [],
       mustChangePassword,

@@ -52,7 +52,6 @@ export const adminUser = {
   id: "019535d9-3df7-79fb-b466-fa907fa17f9f",
   email: "thuong@example.com",
   fullName: "Thuong",
-  role: "admin" as const,
   hasPassword: true,
   linkedProviders: [] as string[],
   mustChangePassword: false,
@@ -88,7 +87,6 @@ export const studentUser = {
   id: "019535d9-3df7-79fb-b466-fa907fa17f9e",
   email: "hocvien@example.com",
   fullName: "Nguyễn Văn An",
-  role: "student" as const,
   permissions: ["learning.take_tests"],
   workspaces: ["app"],
 };

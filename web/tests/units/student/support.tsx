@@ -15,7 +15,6 @@ export const STUDENT = {
   id: "018f0000-0000-7000-8000-0000000000a2",
   email: "an@example.com",
   fullName: "Nguyễn Văn An",
-  role: "student" as const,
   hasPassword: true,
   linkedProviders: [],
   mustChangePassword: false,
