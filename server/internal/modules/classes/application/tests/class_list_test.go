@@ -236,3 +236,29 @@ func TestEveryTeacherReadOfAClassCarriesItsAverage(t *testing.T) {
 		t.Error("a score source that fails must fail the read, not show a class with no average")
 	}
 }
+
+func TestReadingActiveCodesInBulkAppliesTheScopeItself(t *testing.T) {
+	w := newCodeWorld(t)
+	repo := repositories.NewPostgres(db.NewContext(w.pool))
+	ids := make([]string, 0, len(w.classes))
+	for _, id := range w.classes {
+		ids = append(ids, id)
+	}
+	for who, c := range map[string]struct {
+		scope access.Scope
+		want  int
+	}{
+		"the class's teacher": {access.Scope{UserID: w.teacher}, 4},
+		"scope.all":           {everyone, 4},
+		"another teacher":     {access.Scope{UserID: w.other}, 0},
+		"no one":              {access.Scope{}, 0},
+	} {
+		got, err := repo.ActiveCodes(context.Background(), c.scope, ids)
+		if err != nil {
+			t.Fatalf("%s: %v", who, err)
+		}
+		if len(got) != c.want {
+			t.Errorf("%s: %d codes read, want %d: a class with no code, and a class the scope does not reach, are absent", who, len(got), c.want)
+		}
+	}
+}
