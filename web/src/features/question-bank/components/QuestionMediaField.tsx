@@ -243,7 +243,7 @@ function DropZone({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 rounded-[8px] px-3 text-[13px] in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] in-data-[scale=deck]:text-[13px]"
+          className="h-8 rounded-[8px] border border-transparent px-3 text-[13px] in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] in-data-[scale=deck]:text-[13px]"
           onClick={onLibrary}
         >
           <Library aria-hidden="true" className="size-3.5" />
@@ -362,7 +362,7 @@ function AttachedCard({
               src={asset.url}
               label={asset.originalFilename}
               durationMs={asset.durationMs}
-              size="sm"
+              size="row"
               {...retry}
             />
           </div>
@@ -405,7 +405,7 @@ function ImageDetails({
   return (
     <div className="flex flex-col gap-2 border-t p-3">
       {brokenFor === asset.url ? (
-        <div className="bg-muted text-muted-fg flex h-37.5 flex-col items-center justify-center gap-1.5 rounded-lg">
+        <div className="bg-muted text-muted-fg flex h-37.5 flex-col items-center justify-center gap-1.5 rounded-[8px]">
           <ImageIcon aria-hidden="true" className="size-6" />
           <span className="text-xs">{asset.originalFilename}</span>
         </div>
@@ -413,7 +413,7 @@ function ImageDetails({
         <img
           src={asset.url}
           alt={value.mediaAlt ?? asset.originalFilename}
-          className="bg-muted h-55 w-full rounded-lg object-contain"
+          className="bg-muted h-55 w-full rounded-[8px] object-contain"
           onLoad={(event) =>
             onLoaded(
               event.currentTarget.naturalWidth,
@@ -432,7 +432,7 @@ function ImageDetails({
         aria-label={t("questionEditor.questionMedia.altLabel")}
         aria-describedby={help}
         placeholder={t("questionEditor.questionMedia.altPlaceholder")}
-        className="bg-background h-8.5 rounded-lg in-data-[scale=deck]:h-8.5"
+        className="bg-background h-8.5 rounded-[8px] in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:rounded-[8px]"
         onChange={(event) =>
           onChange({
             ...value,

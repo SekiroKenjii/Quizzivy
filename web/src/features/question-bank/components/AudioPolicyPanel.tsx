@@ -99,7 +99,7 @@ export function AudioPolicyPanel({
           rows={2}
           value={transcript}
           placeholder={t("questionEditor.questionMedia.transcriptPlaceholder")}
-          className="bg-background mt-1.5 min-h-0 resize-y rounded-lg px-2.5 py-2 leading-normal"
+          className="bg-background mt-1.5 min-h-0 resize-y rounded-[8px] px-2.5 py-2 leading-normal in-data-[scale=deck]:rounded-[8px]"
           onChange={(event) => onTranscriptChange(event.target.value)}
         />
       </div>

@@ -178,6 +178,8 @@ describe("the question media block", () => {
 
     const name = screen.getByText("unit5-listening.mp3");
     expect(name.parentElement).toHaveTextContent("1:50 · 2.3 MB");
+    const play = screen.getByRole("button", { name: "Phát" });
+    expect(play.parentElement).toHaveTextContent("0:00 / 1:50");
     expect(
       screen.getByRole("button", { name: "Thay media của câu hỏi này" }),
     ).toBeVisible();
