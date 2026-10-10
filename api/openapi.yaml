@@ -537,6 +537,7 @@ components:
         - MEDIA_UNREADABLE
         - MEDIA_KIND_MISMATCH
         - MEDIA_QUOTA_EXCEEDED
+        - IMAGE_DIMENSIONS
         # Word imports
         - IMPORT_CONFLICT
         - IMPORT_QUOTA_EXCEEDED
@@ -1337,7 +1338,15 @@ components:
         email: { type: string, format: email, maxLength: 254 }
         fullName: { type: string, minLength: 1, maxLength: 200 }
         displayName: { type: string, minLength: 1, maxLength: 80 }
-        avatarUrl: { type: string, format: uri, maxLength: 2048 }
+        avatarUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: |
+            The caller's profile photo as a presigned `GET`, valid 24 hours and
+            minted again on every response that carries it. Absent when the
+            caller has no photo. Set and cleared by `setAvatar` and
+            `deleteAvatar`; the stored key never leaves the server.
         phone: { type: string, pattern: '^[0-9+ ]{6,20}$' }
         locale: { type: string, enum: [vi, en] }
         timeZone: { type: string, minLength: 1, maxLength: 64 }
@@ -9068,6 +9077,85 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Maintenance' }
+
+  /me/avatar:
+    put:
+      operationId: setAvatar
+      x-permission: self
+      tags: [me]
+      summary: Set your profile photo
+      description: |
+        Replaces the caller's photo. The file is a PNG or a JPEG of at most
+        2 MiB, and each side is between 200 and 2048 pixels. The server stores
+        a 256 x 256 PNG made from the centred square of the upload, so the
+        original file, its metadata (EXIF, ICC, comments) and its name are
+        never kept. The response is the whole `CurrentUser`, whose `avatarUrl`
+        names the new photo; the previous one is deleted.
+
+        Checked in this order, each before the next costs anything: the size,
+        the type from the first bytes (the part's `Content-Type` and the file's
+        extension are never read), the image header, the dimensions and the
+        memory the image would need, and only then the decode. At most two
+        images are decoded at a time across the server. The caller may set a
+        photo ten times an hour.
+      x-max-body-bytes: 2097152
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+            # Deliberately no `encoding.file.contentType`: the type is decided
+            # by sniffing the bytes, as for `uploadMedia`.
+      responses:
+        '200':
+          description: Stored. The whole persisted caller, with the new `avatarUrl`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413':
+          description: '`MEDIA_TOO_LARGE` — the upload is over 2 MiB.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: |
+            `MEDIA_TYPE_UNSUPPORTED` (not a PNG or a JPEG), `MEDIA_UNREADABLE`
+            (sniffed correctly but the header or the pixels cannot be read) or
+            `IMAGE_DIMENSIONS` (a side under 200 or over 2048 pixels, or an
+            image that would need more memory to decode than the server
+            allows). Nothing was stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501':
+          description: Object storage is not configured, so no photo can be kept.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503': { $ref: '#/components/responses/Maintenance' }
+    delete:
+      operationId: deleteAvatar
+      x-permission: self
+      tags: [me]
+      summary: Remove your profile photo
+      description: |
+        Clears the caller's photo and deletes its object, best effort. A caller
+        with no photo gets the same answer. The response is the whole
+        `CurrentUser`, without `avatarUrl`.
+      responses:
+        '200':
+          description: Cleared. The whole persisted caller.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/Maintenance' }
 
