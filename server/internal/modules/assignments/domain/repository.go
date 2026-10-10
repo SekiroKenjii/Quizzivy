@@ -28,4 +28,14 @@ type Repository interface {
 	DeleteOverride(ctx context.Context, req Request, studentID string, now time.Time) error
 	ForStudent(ctx context.Context, studentID string, now time.Time) (StudentSections, error)
 	StudentDetail(ctx context.Context, id, studentID string) (StudentDetail, error)
+	// ClosesMoved reads, for a published assignment whose own close was just
+	// moved, every enabled student it is addressed to whose close the move
+	// changed: the ones without an override, and those whose override closes
+	// before the assignment's new close. A student whose override closes at
+	// or after it keeps the close they had.
+	ClosesMoved(ctx context.Context, assignmentID string) (Extension, error)
+	// ClosesGranted reads, for a published assignment, those of studentIDs it
+	// is addressed to, enabled, whose override closes after the assignment's
+	// own close: the students an override gave time the assignment does not.
+	ClosesGranted(ctx context.Context, assignmentID string, studentIDs []string) (Extension, error)
 }

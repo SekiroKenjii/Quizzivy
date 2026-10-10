@@ -1,8 +1,10 @@
 package application
 
 import (
+	"log/slog"
 	"quizzivy/internal/modules/assignments/application/command"
 	"quizzivy/internal/modules/assignments/application/internal/support"
+	"quizzivy/internal/modules/assignments/application/ports"
 	"quizzivy/internal/modules/assignments/application/query"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/shared/cqrs"
@@ -13,6 +15,15 @@ type Application struct {
 	Commands Commands
 	Queries  Queries
 	service  *support.Service
+}
+
+// WithNotifier supplies the notifier that tells students their close was
+// moved, and the logger a failed notification is written to. Without a
+// notifier the commands move closes and tell nobody.
+func (a *Application) WithNotifier(notifier ports.Notifier, logger *slog.Logger) *Application {
+	a.service.Notifier = notifier
+	a.service.Logger = logger
+	return a
 }
 
 type Commands struct {

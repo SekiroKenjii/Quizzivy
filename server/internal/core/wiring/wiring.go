@@ -82,7 +82,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Questions:     questionsTransport(questionsApp, mediaApp),
 			Media:         mediaTransport(mediaApp),
 			Tests:         testsTransport(testsApp, mediaApp),
-			Assignments:   assignments(dbx),
+			Assignments:   assignments(dbx, notificationsApp.Commands.Notify, logger),
 			Attempts:      attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 			Availability:  availabilityTransport,
 			Notifications: notificationsTransport(notificationsApp, logger),
