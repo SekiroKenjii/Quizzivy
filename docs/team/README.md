@@ -134,8 +134,42 @@ Repository state:        working directory, branch, base revision
   "worktree"`), and git operations on a shared checkout are serialized. Worktrees do not
   isolate the database server, MinIO, or the ports 5173, 5175, 4173 and 8080: each test run
   uses its own database, and the Tech Lead schedules the browser and the dev servers.
-- **Concurrency.** At most four sub-agents run at once (70 §3, "Machine"). With five
-  specialists, the Tech Lead schedules which four.
+- **Concurrency.** At most five sub-agents run at once, reviews and verifications included
+  (the user, 2026-10-10; ledger T-3). Two instances of one role run only in separate
+  worktrees and on separate ports (T-10).
+- **The heavy lock.** Full suites (`test:unit`, `test:integration`, Playwright, the Go
+  integration and e2e tiers) and `vite build` run under one machine-wide lock, so five agents
+  do not starve a four-core box:
+
+  ```
+  flock -o /tmp/quizzivy-heavy.lock <command>
+  ( flock -o 9; <command> ) 9>/tmp/quizzivy-heavy.lock   # where the sandbox refuses the first form
+  ```
+
+  Both forms take the same lock. `-o` closes the lock in the child, so a server started by a
+  locked command never holds it; still, never start a server under the lock. Take it once per
+  suite, not once per agent session. An agent that finds no documented lock asks the Tech Lead
+  rather than inventing one. A timeout under load is not a finding: rerun it once under the
+  lock, and CI on the pushed head decides.
+- **Local gates (G-2).** Before a hand-back or a push, an agent runs the fast checks on its
+  changed scope only:
+  - `pnpm typecheck`;
+  - `eslint --cache` and `prettier --check` on the changed files;
+  - `vitest run --changed origin/<integration branch>` plus the tests it added;
+  - `go test` of the packages it touched, with `-tags integration` or `-tags e2e` where those
+    packages carry them;
+  - `make gen-check` when the contract changed;
+  - the canaries at the branch point and the head in a high-risk area;
+  - `pnpm e2e:live` only when copy a live spec reads changes, or the task is about the API and
+    the browser meeting.
+
+  After merging the integration branch into a branch, it always runs `pnpm typecheck` (and
+  `go build ./...` for server changes) before pushing (T-20). CI is the authority for the full
+  suites, and the Tech Lead merges only on green CI. Small runs (one test file, `--changed`, a
+  few files through eslint or prettier, one Go package) take no lock. The engineer spot-checks
+  the deck at 1280 light and dark and at 360, and the tester runs the full matrix once, at
+  verification. Hand-backs are short: the head, a gates table, findings and open questions; the
+  narrative goes in the PR body draft.
 - `git add` takes explicit paths only. Never `-A` in a shared checkout.
 
 ## Findings

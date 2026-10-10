@@ -226,6 +226,15 @@ Credentials are the compose defaults: Postgres superuser `postgres`/`postgres`,
   `TEST_WORD_CONVERTER_IMAGE` unset they skip and the packages still read `ok`,
   so a green local run says nothing about them. Only CI covers them.
 - **`tsc --noEmit`** checks no files; use `pnpm typecheck`.
+- **`pkill -f` or `pgrep -f` with a pattern from your own command line** matches the
+  shell running it and kills it. Find a server by its port instead
+  (`ss -ltnp 'sport = :8080'`) and stop that PID.
+- **Signing in again for every browser script.** Sign-in is limited to 20 per hour per
+  email, and reusing a stored session's refresh cookie in a second context rotates it and
+  trips reuse detection. Sign in once and keep one browser context per run; restarting your
+  own API clears the limiter.
+- **Imports' `Text*` integration tests** need `TEST_TEXT_IMPORT_*` set locally (five
+  tests); CI provides them.
 
 ## Differences from CI
 
