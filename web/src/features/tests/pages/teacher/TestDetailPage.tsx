@@ -666,7 +666,7 @@ function PublishDialog({
 }>) {
   const { t } = useTranslation();
   const publish = useMutation({
-    mutationFn: (note: string) => publishTest(test.id, note.trim() || undefined),
+    mutationFn: (note: string) => publishTest(test.id, note),
     onSuccess: async (version) => {
       notify.success(t("tests.detail.publish.done", { n: version.version }));
       await onPublished();
