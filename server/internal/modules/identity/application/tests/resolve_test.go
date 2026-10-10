@@ -163,8 +163,11 @@ func TestBranch3AJoinCodeCreatesAndEnrols(t *testing.T) {
 	if result.Session.AccessToken == "" {
 		t.Error("no session was issued to the new member")
 	}
-	if result.Session.User.Role != "student" {
-		t.Errorf("role = %s, want student", result.Session.User.Role)
+	var builtin string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT r.builtin_key FROM app.users u JOIN app.roles r ON r.id = u.role_id WHERE u.id = $1::uuid`,
+		result.Session.User.ID).Scan(&builtin); err != nil || builtin != "student" {
+		t.Errorf("the new member's role = %q (%v), want student", builtin, err)
 	}
 	// Google-only, per §6.3: there is no password to set.
 	if result.Session.User.HasPassword() {

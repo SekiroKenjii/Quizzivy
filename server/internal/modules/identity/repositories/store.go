@@ -21,8 +21,6 @@ func NewUsers(dbx db.Context) *Users { return &Users{Repository: db.NewRepositor
 
 const userProjection = `
 	SELECT u.id::text, u.email, u.full_name,
-	       CASE WHEN EXISTS (SELECT 1 FROM app.student_like_roles s WHERE s.id = u.role_id)
-	            THEN 'student' ELSE 'admin' END,
 	       u.password_hash, u.must_change_password, u.disabled_at, u.created_at, u.session_epoch,
 	       u.display_name, u.avatar_key, u.phone, u.locale, u.time_zone, u.preferences,
 	       coalesce(array_agg(i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}')
@@ -32,7 +30,7 @@ const userProjection = `
 func scanUser(row pgx.Row) (domain.User, error) {
 	var u domain.User
 	err := row.Scan(
-		&u.ID, &u.Email, &u.FullName, &u.Role, &u.PasswordHash,
+		&u.ID, &u.Email, &u.FullName, &u.PasswordHash,
 		&u.MustChangePassword, &u.DisabledAt, &u.CreatedAt, &u.SessionEpoch,
 		&u.DisplayName, &u.AvatarKey, &u.Phone, &u.Locale, &u.TimeZone, &u.Preferences, &u.LinkedProviders,
 	)

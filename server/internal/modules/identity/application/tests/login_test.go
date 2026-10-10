@@ -120,9 +120,6 @@ func TestCorrectPasswordSucceeds(t *testing.T) {
 	if session.User.ID != id {
 		t.Errorf("user id = %s, want %s", session.User.ID, id)
 	}
-	if session.User.Role != "admin" {
-		t.Errorf("role = %s, want admin", session.User.Role)
-	}
 	if session.AccessToken == "" || session.RefreshToken == "" {
 		t.Error("session is missing a token")
 	}

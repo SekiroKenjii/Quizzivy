@@ -69,7 +69,7 @@ func reviewWith(t *testing.T, account identitydomain.Account) (reviewedSitter, s
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
 	}
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,19 +97,9 @@ func reviewWith(t *testing.T, account identitydomain.Account) (reviewedSitter, s
 func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 	sitter, title := reviewWith(t, identitydomain.Account{
 		ID: "01935000-0000-7000-8000-0000000000a2", Email: "an@example.com", FullName: "Nguyễn Văn An",
-		Role: "student", HasPassword: true, CreatedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		HasPassword: true, CreatedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
 	})
-	if sitter.FullName != "Nguyễn Văn An" || sitter.Role != "student" || title != "Unit 5" {
+	if sitter.FullName != "Nguyễn Văn An" || title != "Unit 5" {
 		t.Errorf("sitter = %+v, title = %q", sitter, title)
-	}
-}
-
-func TestAReviewNamesAStaffSitterByTheirOwnRole(t *testing.T) {
-	sitter, _ := reviewWith(t, identitydomain.Account{
-		ID: "01935000-0000-7000-8000-0000000000a3", Email: "admin@example.com", FullName: "Quản trị",
-		Role: "admin", HasPassword: true, CreatedAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
-	})
-	if sitter.Role != "admin" {
-		t.Errorf("role = %q, want admin", sitter.Role)
 	}
 }

@@ -137,7 +137,6 @@ func toCurrentUser(u domain.User, permissions access.Set) openapi.CurrentUser {
 		Locale:             (*openapi.CurrentUserLocale)(u.Locale),
 		TimeZone:           u.TimeZone,
 		Preferences:        &prefs,
-		Role:               openapi.Role(u.Role),
 		HasPassword:        u.HasPassword(),
 		LinkedProviders:    providers,
 		MustChangePassword: u.MustChangePassword,

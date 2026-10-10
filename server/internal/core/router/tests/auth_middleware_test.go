@@ -112,7 +112,7 @@ func TestRejectedCredentialsAllLookTheSame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expiredToken, err := expired.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
+	expiredToken, err := expired.Issue("01935000-0000-7000-8000-0000000000a1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestRejectedCredentialsAllLookTheSame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	foreignToken, err := foreign.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
+	foreignToken, err := foreign.Issue("01935000-0000-7000-8000-0000000000a1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestRejectedCredentialsAllLookTheSame(t *testing.T) {
 func TestALowercaseBearerSchemeIsAccepted(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := newAuthTestRouter(t, issuer)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

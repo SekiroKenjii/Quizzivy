@@ -169,8 +169,8 @@ func (l *ladder) accepted(t *testing.T, label, target string) {
 	if err := l.assign(ctx, assignmentsdomain.Request{ActorID: l.a}, target); err != nil {
 		t.Errorf("%s: A assigning them individually: %v", label, err)
 	}
-	if account, err := l.app.Queries.StudentAccount.Handle(ctx, query.StudentAccount{ID: target}); err != nil || account.Role != "student" {
-		t.Errorf("%s: their account reads as %q (%v), want student", label, account.Role, err)
+	if account, err := l.app.Queries.StudentAccount.Handle(ctx, query.StudentAccount{ID: target}); err != nil || account.ID != target {
+		t.Errorf("%s: their account reads as %+v (%v)", label, account, err)
 	}
 
 	root := domain.WriteRequest{ActorID: l.root, All: true, Grants: everything}
@@ -206,7 +206,7 @@ func TestAnAdminWhoTakesTestsIsNeverAStudentTarget(t *testing.T) {
 	if _, err := l.app.Queries.GetStudent.Handle(context.Background(), query.GetStudent{ID: pupil, Scope: access.Scope{UserID: l.a}}); err != nil {
 		t.Fatalf("a student who joined by the same code is not A's: %v", err)
 	}
-	if account, err := l.app.Queries.StudentAccount.Handle(context.Background(), query.StudentAccount{ID: taker}); err != nil || account.ID != taker || account.Role != "admin" {
+	if account, err := l.app.Queries.StudentAccount.Handle(context.Background(), query.StudentAccount{ID: taker}); err != nil || account.ID != taker {
 		t.Errorf("the account of an attempt's sitter who is an Admin: %+v (%v)", account, err)
 	}
 	l.refused(t, "the Admin who takes tests", taker)

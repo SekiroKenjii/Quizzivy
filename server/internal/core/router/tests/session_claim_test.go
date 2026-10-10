@@ -10,7 +10,7 @@ const readAttemptPath = "/app/attempts/019535d9-3df7-79fb-b466-fa907fa17f9e"
 func TestAMalformedSessionParameterIsNamed(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := roleRouter(t, issuer, rolePrincipals())
-	student, err := issuer.Issue(studentUser, "student", 0)
+	student, err := issuer.Issue(studentUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
