@@ -1,64 +1,57 @@
+import { useState } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
 import { expect, it } from "vitest";
-import QuestionBankPage from "@/features/question-bank/pages/teacher/QuestionBankPage";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { QuestionUsageRow } from "@/features/question-bank/components/QuestionUsageRow";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 
+const question = {
+  level: null,
+  skill: null,
+  id: "018f0000-0000-7000-8000-0000000000b1",
+  type: "single_choice",
+  prompt: "Linked question",
+  points: 1,
+  tags: [],
+  usedInTests: 1,
+  createdAt: "2026-01-01T00:00:00Z",
+  updatedAt: "2026-01-01T00:00:00Z",
+};
+
+function ExpandableRow() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Table>
+      <TableBody>
+        <TableRow>
+          <TableCell>
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={`question-usage-${question.id}`}
+              onClick={() => setOpen((value) => !value)}
+            >
+              1 đề
+            </button>
+          </TableCell>
+        </TableRow>
+        {open ? (
+          <QuestionUsageRow questionId={question.id} prompt={question.prompt} />
+        ) : null}
+      </TableBody>
+    </Table>
+  );
+}
+
 it("loads attached tests on expansion and renders links in a nested table", async () => {
-  const question = {
-    level: null,
-    skill: null,
-    id: "018f0000-0000-7000-8000-0000000000b1",
-    type: "single_choice",
-    prompt: "Linked question",
-    points: 1,
-    tags: [],
-    usedInTests: 1,
-    createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: "2026-01-01T00:00:00Z",
-  };
   const testId = "018f0000-0000-7000-8000-0000000000a1";
   let details = 0;
   server.use(
-    http.get("http://localhost:8080/teacher/questions", () =>
-      contractJson("/teacher/questions", "get", 200, {
-        items: [question],
-        page: 1,
-        pageSize: 20,
-        total: 1,
-        bankTotal: 1,
-        tags: [],
-        facets: {
-          levels: {
-            pre_a1: 0,
-            a1: 0,
-            a2: 0,
-            b1: 0,
-            b2: 0,
-            c1: 0,
-            c2: 0,
-          },
-          skills: {
-            grammar: 0,
-            vocabulary: 0,
-            reading: 0,
-            listening: 0,
-            writing: 0,
-            speaking: 0,
-          },
-          all: 1,
-          single_choice: 1,
-          multiple_choice: 0,
-          true_false: 0,
-          fill_blank: 0,
-          short_answer: 0,
-        },
-      }),
-    ),
     http.get(`http://localhost:8080/teacher/questions/${question.id}`, () => {
       details += 1;
       return contractJson("/teacher/questions/{id}", "get", 200, {
@@ -69,7 +62,7 @@ it("loads attached tests on expansion and renders links in a nested table", asyn
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/teacher/question-bank", element: <QuestionBankPage /> }],
+    [{ path: "/teacher/question-bank", element: <ExpandableRow /> }],
     { initialEntries: ["/teacher/question-bank"] },
   );
   render(

@@ -21,6 +21,7 @@ type Repository interface {
 	Get(ctx context.Context, scope access.Scope, id string) (Assignment, error)
 	Create(ctx context.Context, req Request, in WriteInput) (Assignment, error)
 	Update(ctx context.Context, req Request, in WriteInput) (Assignment, error)
+	Duplicate(ctx context.Context, req Request, classIDs []string, now time.Time) (Assignment, error)
 	Reopen(ctx context.Context, req Request, closesAt time.Time, reason string, now time.Time) (Assignment, error)
 	Extend(ctx context.Context, req Request, minutes int, notify bool, now time.Time) (Assignment, error)
 	SetOverrides(ctx context.Context, req Request, in OverrideInput) ([]StudentOverride, error)

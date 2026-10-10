@@ -31,6 +31,7 @@ type Assignment struct {
 	StudentNote         *string
 	SubmittedCount      int
 	TargetCount         int
+	QuestionCount       int
 	FlaggedCount        int
 	PendingGradingCount int
 	PendingManualCount  int
