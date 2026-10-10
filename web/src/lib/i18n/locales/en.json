@@ -3439,7 +3439,11 @@
       "doneTitle": "Draft created: {{title}}",
       "doneBody": "{{questions}} · {{points}} points. It is not published yet.",
       "doneBodyPlain": "It is not published yet.",
-      "openBuilder": "Open in test builder"
+      "openBuilder": "Open in test builder",
+      "goToQuestion": "Go to question {{label}}",
+      "pointsNone": "No questions yet",
+      "cancelled": "This import was cancelled, so no draft can be created from it.",
+      "failed": "This import couldn't be processed, so no draft can be created from it."
     }
   },
   "controls": {

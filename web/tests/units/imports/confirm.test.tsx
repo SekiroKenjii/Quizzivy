@@ -107,6 +107,14 @@ function open(): ImportReview {
         code: "MISSING_ANSWER",
         severity: "blocking",
         target: "q2",
+        field: "answer",
+      }),
+      finding({
+        id: "f-points",
+        code: "SCORING_DEFAULTED",
+        severity: "informational",
+        field: "points",
+        count: 3,
       }),
     ],
     {
@@ -173,6 +181,19 @@ async function renderConfirm() {
   return { user: userEvent.setup({ advanceTimers: vi.advanceTimersByTime }), router };
 }
 
+function renderBare() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createMemoryRouter(
+    [{ path: "/teacher/imports/:id/confirm", element: <ImportConfirmPage /> }],
+    { initialEntries: [`/teacher/imports/${IMPORT_ID}/confirm`] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+}
+
 function row(label: string): HTMLElement {
   const term = screen.getByText(label, { selector: "dt span" });
   return term.closest<HTMLElement>("div")!;
@@ -216,7 +237,9 @@ describe("the summary", () => {
     );
 
     const points = row("Điểm");
-    expect(within(points).getByText("Chưa xác nhận")).toHaveClass("text-danger-ink");
+    expect(within(points).getByText("Chưa xác nhận")).not.toHaveClass(
+      "text-danger-ink",
+    );
     expect(
       within(points).getByText("1 điểm mỗi câu theo mặc định"),
     ).toBeInTheDocument();
@@ -236,8 +259,110 @@ describe("the summary", () => {
       `/teacher/imports/${IMPORT_ID}/review?filter=all`,
     );
 
-    expect(screen.getByRole("button", { name: "Tạo bản nháp đề" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Tạo bản nháp đề" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(screen.getByText("Hãy xử lý thêm 1 mục trước.")).toBeInTheDocument();
+  });
+
+  it("reads a gap that does not block in normal ink, linked to the question that has it", async () => {
+    current = ready({
+      draft: {
+        ...ready().draft,
+        sections: [
+          section([
+            question({ id: "q1", label: "1" }),
+            question({
+              id: "q2",
+              label: "2",
+              type: "short_answer",
+              options: [],
+              answer: { state: "unknown", optionIds: [], evidence: [] },
+            }),
+          ]),
+        ],
+      },
+      summary: summary({
+        questions: 2,
+        included: 2,
+        answersKnown: 1,
+        answersMissing: 1,
+        blocking: 0,
+      }),
+    });
+    await renderConfirm();
+    const answers = row("Đáp án đã đặt");
+    expect(within(answers).getByText("1 trên 2")).not.toHaveClass("text-danger-ink");
+    expect(within(answers).getByRole("link", { name: "Xem câu 2" })).toHaveAttribute(
+      "href",
+      `/teacher/imports/${IMPORT_ID}/review?question=q2`,
+    );
+    expect(within(answers).queryByRole("link", { name: "Sửa" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Tạo bản nháp đề" })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
+  });
+
+  it("names no passage for a group whose members are all excluded", async () => {
+    const base = open();
+    const [first, second] = base.draft.sections;
+    const group = second!.items[0]!.group!;
+    current = {
+      ...base,
+      draft: {
+        ...base.draft,
+        sections: [
+          first!,
+          {
+            ...second!,
+            items: [
+              {
+                group: {
+                  ...group,
+                  questions: group.questions.map((member) => ({
+                    ...member,
+                    excluded: { reason: "Bỏ đoạn này" },
+                  })),
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    await renderConfirm();
+    expect(within(row("Phần và nhóm câu")).queryByText(/giữ đoạn văn/)).toBeNull();
+  });
+
+  it("says there is nothing to score when no question is included", async () => {
+    current = review(
+      [section([question({ id: "q1", label: "1", excluded: { reason: "Trùng" } })])],
+      [],
+      {
+        summary: summary({ questions: 1, included: 0, excluded: 1, totalPoints: "0" }),
+      },
+    );
+    await renderConfirm();
+    const points = row("Điểm");
+    expect(within(points).getByText("Chưa có câu nào")).toBeInTheDocument();
+    expect(within(points).queryByText(/khác nhau|Tổng/)).toBeNull();
+    expect(within(points).queryByRole("link")).toBeNull();
+  });
+
+  it("keeps an unavailable Create draft test focusable, says why, and does nothing on a click", async () => {
+    current = open();
+    onCommit(() => committed());
+    const { user } = await renderConfirm();
+    const button = screen.getByRole("button", { name: "Tạo bản nháp đề" });
+    expect(button).not.toBeDisabled();
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    expect(button).toHaveAccessibleDescription("Hãy xử lý thêm 1 mục trước.");
+    button.focus();
+    expect(button).toHaveFocus();
+    await user.click(button);
+    expect(commits).toEqual([]);
   });
 
   it("names points the teacher set and offers the draft once nothing is open", async () => {
@@ -252,13 +377,44 @@ describe("the summary", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not offer the draft for an import that is no longer under review", async () => {
+  it("says a cancelled import cannot become a draft, and links back to it", async () => {
     value = wordImport({ status: "cancelled", draftRevision: 3 });
     await renderConfirm();
-    expect(screen.getByRole("button", { name: "Tạo bản nháp đề" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Tạo bản nháp đề" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(
-      screen.getByText(/Lần nhập này không còn ở bước rà soát/),
+      screen.getByText("Lần nhập này đã bị huỷ nên không thể tạo bản nháp từ đó."),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Xem lần nhập" })).toHaveAttribute(
+      "href",
+      `/teacher/imports/${IMPORT_ID}`,
+    );
+  });
+
+  it("says a failed import cannot become a draft, rather than that it is still processing", async () => {
+    value = wordImport({ status: "failed" });
+    server.use(
+      http.get(`${BASE}/teacher/imports/:id/review`, () =>
+        contractJson(
+          "/teacher/imports/{id}/review",
+          "get",
+          409,
+          errorBody("IMPORT_NOT_PROCESSED", "Lần nhập chưa được xử lý."),
+        ),
+      ),
+    );
+    renderBare();
+    expect(
+      await screen.findByText(
+        "Lần nhập này xử lý không thành công nên không thể tạo bản nháp từ đó.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Xem lần nhập" })).toHaveAttribute(
+      "href",
+      `/teacher/imports/${IMPORT_ID}`,
+    );
   });
 });
 
@@ -348,17 +504,19 @@ describe("creating the draft", () => {
     await user.click(screen.getByRole("button", { name: "Tạo bản nháp đề" }));
     await waitFor(() => expect(commits).toHaveLength(1));
     const pending = screen.getByRole("button", { name: "Đang tạo bản nháp…" });
-    expect(pending).toBeDisabled();
+    expect(pending).toHaveAttribute("aria-disabled", "true");
+    expect(pending, "focus stays on the button while it works").toHaveFocus();
     await user.click(pending);
 
     gate.resolve();
-    expect(
-      await screen.findByText("Đã tạo bản nháp: Đề thi học kỳ 1"),
-    ).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", {
+      name: "Đã tạo bản nháp: Đề thi học kỳ 1",
+    });
+    await waitFor(() => expect(heading).toHaveFocus());
     expect(commits).toHaveLength(1);
   });
 
-  it("re-reads a review another tab changed, and commits the newer revision as a new request", async () => {
+  it("re-reads a review another tab saved since (STALE_WRITE), and commits the newer revision as a new request", async () => {
     onCommit((attempt) => {
       if (attempt > 1) return committed();
       current = ready({ revision: 2 });
@@ -366,7 +524,7 @@ describe("creating the draft", () => {
         "/teacher/imports/{id}/commit",
         "post",
         409,
-        errorBody("IMPORT_CONFLICT", "Bản rà soát đã thay đổi ở nơi khác."),
+        errorBody("STALE_WRITE", "Bản rà soát đã thay đổi ở nơi khác."),
       );
     });
     const { user } = await renderConfirm();
@@ -378,7 +536,7 @@ describe("creating the draft", () => {
     );
     await waitFor(() => expect(reviewReads).toBeGreaterThan(reads));
     const button = screen.getByRole("button", { name: "Tạo bản nháp đề" });
-    await waitFor(() => expect(button).toBeEnabled());
+    await waitFor(() => expect(button).toHaveAttribute("aria-disabled", "false"));
     await user.click(button);
 
     expect(
@@ -386,6 +544,35 @@ describe("creating the draft", () => {
     ).toBeInTheDocument();
     expect(commits.map((commit) => commit.draftRevision)).toEqual([1, 2]);
     expect(commits[1]!.requestId).not.toBe(commits[0]!.requestId);
+  });
+
+  it("re-reads an import committed elsewhere (IMPORT_CONFLICT) and shows its draft", async () => {
+    let reads = 0;
+    server.use(
+      http.get(`${BASE}/teacher/imports/:id`, () => {
+        reads += 1;
+        return contractJson(
+          "/teacher/imports/{id}",
+          "get",
+          200,
+          reads > 1 ? wordImport({ status: "committed", testId: TEST_ID }) : value,
+        );
+      }),
+    );
+    onCommit(() =>
+      contractJson(
+        "/teacher/imports/{id}/commit",
+        "post",
+        409,
+        errorBody("IMPORT_CONFLICT", "Lần nhập đã tạo đề ở nơi khác."),
+      ),
+    );
+    const { user } = await renderConfirm();
+    await user.click(screen.getByRole("button", { name: "Tạo bản nháp đề" }));
+    expect(
+      await screen.findByText("Đã tạo bản nháp: Đề thi học kỳ 1"),
+    ).toBeInTheDocument();
+    expect(commits).toHaveLength(1);
   });
 
   it("shows the draft already created for a committed import", async () => {
@@ -456,5 +643,28 @@ describe("an import the page cannot show", () => {
         "Bản rà soát của lượt nhập này đã được xoá theo chính sách lưu trữ.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("offers no way back to a review that retention removed", async () => {
+    value = wordImport({
+      status: "committed",
+      testId: TEST_ID,
+      filesRemovedAt: "2026-10-26T00:00:00Z",
+    });
+    server.use(
+      http.get(`${BASE}/teacher/imports/:id/review`, () =>
+        contractJson(
+          "/teacher/imports/{id}/review",
+          "get",
+          410,
+          errorBody("IMPORT_FILES_REMOVED", "Bản rà soát đã được xoá."),
+        ),
+      ),
+    );
+    renderBare();
+    expect(
+      await screen.findByText("Đã tạo bản nháp: Đề thi học kỳ 1"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Quay lại rà soát" })).toBeNull();
   });
 });

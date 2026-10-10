@@ -7,6 +7,7 @@ import type { SaveImportReview } from "@/features/imports/api";
 import { BASE, IMPORT_ID, question, review, section, summary } from "./fixtures";
 import {
   baseline,
+  cardHeader,
   isOpen,
   renderReview,
   serveReview,
@@ -132,5 +133,20 @@ describe("a newer processing result", () => {
     await waitFor(() =>
       expect(screen.queryByText(/Có kết quả xử lý mới hơn/)).toBeNull(),
     );
+  });
+});
+
+describe("arriving from Preview and create for one question", () => {
+  it("opens that question's card and focuses it", async () => {
+    serveReview(baseline(), state);
+    await renderReview("?question=q2");
+    expect(isOpen("q2")).toBe(true);
+    await waitFor(() => expect(cardHeader("q2")).toHaveFocus());
+  });
+
+  it("falls back to the first open finding for a question it does not have", async () => {
+    serveReview(baseline(), state);
+    await renderReview("?question=missing");
+    expect(isOpen("q1")).toBe(true);
   });
 });

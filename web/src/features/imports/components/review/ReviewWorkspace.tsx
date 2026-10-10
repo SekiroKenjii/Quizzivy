@@ -170,7 +170,8 @@ function noop() {}
  * read-only on a phone and whenever the import is not under review, the
  * draft changed elsewhere, processing finished after the page opened, or a
  * reprocess is under way. Opened with `?filter=`, it starts on that filter's
- * first open finding and focuses it, once, at mount. "Preview & finish" goes
+ * first open finding and focuses it, once, at mount; with `?question=`, on
+ * that question's card, focused. "Preview & finish" goes
  * to the import's "Preview and create" page.
  */
 export function ReviewWorkspace({
@@ -208,12 +209,21 @@ export function ReviewWorkspace({
     : "all";
 
   const structure = useMemo(() => structureOf(origin.draft.sections), [origin]);
+  const [asked] = useState(() => {
+    const question = params.get("question");
+    return question !== null && structure.sourceRefs.has(question) ? question : null;
+  });
   const [jump] = useState(() =>
-    requestedFilter === null ? null : firstOpenIn(origin, filter, structure),
+    requestedFilter === null || asked !== null
+      ? null
+      : firstOpenIn(origin, filter, structure),
   );
-  const [selectedId, setSelectedId] = useState<string | null>(() =>
-    jump === null ? firstSelection(origin, structure) : selectionFor(jump, structure),
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    if (asked !== null) return asked;
+    return jump === null
+      ? firstSelection(origin, structure)
+      : selectionFor(jump, structure);
+  });
   const [section, setSection] = useState("all");
   const [sourceRole, setSourceRole] = useState<ImportSourceRole>("exam");
   const [focus, setFocus] = useState<SourceFocus>(() => ({
@@ -227,7 +237,9 @@ export function ReviewWorkspace({
   const [findingTarget, setFindingTarget] = useState<Target | null>(() =>
     jump === null ? null : { id: jump.id, focus: true, nonce: 0 },
   );
-  const [examTarget, setExamTarget] = useState<Target | null>(null);
+  const [examTarget, setExamTarget] = useState<Target | null>(() =>
+    asked === null ? null : { id: asked, focus: true, nonce: 0 },
+  );
   const [view, setView] = useState<ReviewPane>("exam");
   const [leaveFailed, setLeaveFailed] = useState(false);
   const [adopting, setAdopting] = useState(false);

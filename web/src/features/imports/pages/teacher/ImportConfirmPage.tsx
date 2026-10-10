@@ -14,11 +14,13 @@ import {
   getWordImport,
   getWordImportReview,
   type ImportReview,
+  type ImportStatus,
   type WordImport,
 } from "../../api";
 import { CommittedCard } from "../../components/confirm/CommittedCard";
 import { ConfirmPreview } from "../../components/confirm/ConfirmPreview";
 import { ConfirmSummary } from "../../components/confirm/ConfirmSummary";
+import { statusLine } from "../../components/confirm/statusLine";
 import { useImportCommit } from "../../useImportCommit";
 
 /**
@@ -81,7 +83,11 @@ export default function ImportConfirmPage() {
   if (data) return <ConfirmWorkspace value={value.data} review={data} />;
   if (value.data.status === "committed" && value.data.testId !== undefined)
     return (
-      <ConfirmFrame id={id} review={null}>
+      <ConfirmFrame
+        id={id}
+        review={null}
+        back={value.data.filesRemovedAt === undefined}
+      >
         <CommittedCard
           testId={value.data.testId}
           title={value.data.title}
@@ -92,6 +98,7 @@ export default function ImportConfirmPage() {
   return (
     <ConfirmUnavailable
       id={id}
+      status={value.data.status}
       removed={value.data.filesRemovedAt !== undefined}
       error={review.error}
       onRetry={() => void review.refetch()}
@@ -101,16 +108,30 @@ export default function ImportConfirmPage() {
 
 function ConfirmUnavailable({
   id,
+  status,
   removed,
   error,
   onRetry,
 }: Readonly<{
   id: string;
+  status: ImportStatus;
   removed: boolean;
   error: Error | null;
   onRetry: () => void;
 }>) {
   const { t } = useTranslation();
+  if (!removed && (status === "cancelled" || status === "failed"))
+    return (
+      <EmptyState
+        action={
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/teacher/imports/${id}`}>{t("imports.review.viewImport")}</Link>
+          </Button>
+        }
+      >
+        {statusLine(status, t)}
+      </EmptyState>
+    );
   if (removed || (error instanceof ApiError && error.code === "IMPORT_FILES_REMOVED"))
     return (
       <EmptyState
@@ -159,18 +180,19 @@ function ConfirmWorkspace({
   const committed = value.status === "committed" ? value.testId : undefined;
   const testId = state.phase === "done" ? state.result.testId : committed;
   return (
-    <ConfirmFrame id={value.id} review={review}>
+    <ConfirmFrame id={value.id} review={review} back>
       {testId !== undefined ? (
         <CommittedCard
           testId={testId}
           title={review.draft.title}
           summary={review.summary}
+          focus={state.phase === "done"}
         />
       ) : (
         <ConfirmSummary
           importId={value.id}
           review={review}
-          underReview={value.status === "needs_review"}
+          status={value.status}
           state={state}
           onCommit={() => void commit()}
         />
@@ -182,8 +204,14 @@ function ConfirmWorkspace({
 function ConfirmFrame({
   id,
   review,
+  back,
   children,
-}: Readonly<{ id: string; review: ImportReview | null; children: ReactNode }>) {
+}: Readonly<{
+  id: string;
+  review: ImportReview | null;
+  back: boolean;
+  children: ReactNode;
+}>) {
   const { t } = useTranslation();
   return (
     <div className="@container/confirm flex min-w-0 flex-col gap-4">
@@ -191,12 +219,14 @@ function ConfirmFrame({
         title={t("imports.confirm.title")}
         description={t("imports.confirm.body")}
         actions={
-          <Button asChild variant="outline" className="text-ui h-9">
-            <Link to={`/teacher/imports/${id}/review`}>
-              <ArrowLeft aria-hidden="true" />
-              {t("imports.confirm.backToReview")}
-            </Link>
-          </Button>
+          back ? (
+            <Button asChild variant="outline" className="text-ui h-9">
+              <Link to={`/teacher/imports/${id}/review`}>
+                <ArrowLeft aria-hidden="true" />
+                {t("imports.confirm.backToReview")}
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
       {review === null ? (

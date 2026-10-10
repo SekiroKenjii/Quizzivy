@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { ArrowRight, Check } from "lucide-react";
@@ -10,19 +11,26 @@ import type { ImportReviewSummary } from "../../api";
  * CommittedCard says the import's draft test exists: its title, what it
  * holds when the review is still at hand (`summary`), and the way on to the
  * test builder or back to the imports. It is a status, so a screen reader
- * hears it when it replaces the summary.
+ * hears it when it replaces the summary; `focus` moves focus to its heading
+ * when it appears, for the draft the teacher has just created.
  */
 export function CommittedCard({
   testId,
   title,
   summary,
+  focus = false,
 }: Readonly<{
   testId: string;
   title: string;
   summary: ImportReviewSummary | null;
+  focus?: boolean;
 }>) {
   const { t } = useTranslation();
   const locale = useLocale();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (focus) heading.current?.focus();
+  }, [focus]);
   return (
     <section
       role="status"
@@ -32,9 +40,13 @@ export function CommittedCard({
         <Check aria-hidden="true" className="size-5" />
       </span>
       <div>
-        <p className="text-title m-0 font-semibold [overflow-wrap:anywhere]">
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          className="text-title m-0 font-semibold [overflow-wrap:anywhere] outline-none"
+        >
           {t("imports.confirm.doneTitle", { title: nfc(title) })}
-        </p>
+        </h2>
         <p className="text-muted-fg m-0 mt-0.5 text-sm leading-normal">
           {summary === null
             ? t("imports.confirm.doneBodyPlain")

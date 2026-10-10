@@ -3439,7 +3439,11 @@
       "doneTitle": "Đã tạo bản nháp: {{title}}",
       "doneBody": "{{questions}} · {{points}} điểm. Đề chưa được phát hành.",
       "doneBodyPlain": "Đề chưa được phát hành.",
-      "openBuilder": "Mở trong trình soạn đề"
+      "openBuilder": "Mở trong trình soạn đề",
+      "goToQuestion": "Xem câu {{label}}",
+      "pointsNone": "Chưa có câu nào",
+      "cancelled": "Lần nhập này đã bị huỷ nên không thể tạo bản nháp từ đó.",
+      "failed": "Lần nhập này xử lý không thành công nên không thể tạo bản nháp từ đó."
     }
   },
   "controls": {
