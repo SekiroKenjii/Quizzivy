@@ -958,13 +958,13 @@
       "description": "Chọn câu hỏi để thêm vào {{section}}.",
       "descriptionAny": "Chọn câu hỏi để thêm vào đề.",
       "list": "Câu hỏi",
-      "pickOne": "Chọn ít nhất một câu",
       "search": "Tìm câu hỏi, loại hoặc trình độ",
       "add_one": "Thêm {{count}} câu hỏi",
       "add_other": "Thêm {{count}} câu hỏi",
       "addNone": "Thêm câu hỏi",
       "usedIn_one": "dùng trong {{count}} đề",
-      "usedIn_other": "dùng trong {{count}} đề"
+      "usedIn_other": "dùng trong {{count}} đề",
+      "inTest": "Đã có trong đề"
     }
   },
   "bank": {

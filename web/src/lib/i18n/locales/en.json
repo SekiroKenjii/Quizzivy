@@ -958,13 +958,13 @@
       "description": "Pick questions to add to {{section}}.",
       "descriptionAny": "Pick questions to add to this test.",
       "list": "Questions",
-      "pickOne": "Pick at least one",
       "search": "Search questions, types or levels",
       "add_one": "Add {{count}} question",
       "add_other": "Add {{count}} questions",
       "addNone": "Add questions",
       "usedIn_one": "used in {{count}} test",
-      "usedIn_other": "used in {{count}} tests"
+      "usedIn_other": "used in {{count}} tests",
+      "inTest": "In this test"
     }
   },
   "bank": {
