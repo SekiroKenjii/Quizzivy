@@ -115,15 +115,32 @@ function renderBuilder() {
 }
 
 describe("a question save the server refuses", () => {
-  it("says it was not saved and keeps the editor up", async () => {
+  it("says it was not saved, with the server's reason, and keeps the editor up", async () => {
     const user = renderBuilder();
-    await user.click(await screen.findByRole("button", { name: "Thêm lựa chọn" }));
+    const option = await screen.findByRole("textbox", { name: "Lựa chọn B" });
+    await user.type(option, " to");
     await vi.advanceTimersByTimeAsync(2_000);
 
     await waitFor(() => expect(patches).toBe(1));
     expect(await screen.findByText("Chưa lưu được")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Lựa chọn C" })).toBeInTheDocument();
+    expect(screen.getByText("Dữ liệu câu hỏi không hợp lệ.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Lựa chọn B" })).toHaveValue(
+      "have gone to",
+    );
     await vi.advanceTimersByTimeAsync(5_000);
     expect(patches).toBe(1);
+  });
+});
+
+describe("a question the form schema refuses", () => {
+  it("is not sent, and the label says what to fix", async () => {
+    const user = renderBuilder();
+    await user.click(await screen.findByRole("button", { name: "Thêm lựa chọn" }));
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    expect(await screen.findByText("Còn lựa chọn để trống.")).toBeInTheDocument();
+    expect(screen.getByText("Chưa lưu được")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Lựa chọn C" })).toBeInTheDocument();
+    expect(patches).toBe(0);
   });
 });

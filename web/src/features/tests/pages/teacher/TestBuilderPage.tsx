@@ -32,7 +32,10 @@ import {
   toFormValues,
   updateQuestion,
 } from "@/features/question-bank/api";
-import type { QuestionValues } from "@/features/question-bank/questionSchema";
+import {
+  questionSchema,
+  type QuestionValues,
+} from "@/features/question-bank/questionSchema";
 import type { MediaAsset } from "@/features/media/api";
 import {
   getTest,
@@ -1124,11 +1127,21 @@ function QuestionForm({
   settingsTriggerRef: RefObject<HTMLButtonElement | null>;
   onSettingsOpenChange: (open: boolean) => void;
 }>) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
+  const refuse = useCallback(
+    (next: QuestionValues) => {
+      const parsed = questionSchema.safeParse(next);
+      const issue = parsed.success ? undefined : parsed.error.issues[0];
+      return issue ? t(issue.message) : null;
+    },
+    [t],
+  );
 
   const autosave = useAutosave<QuestionValues>({
+    refuse,
     save: async (next) => {
       await queryClient.cancelQueries({ queryKey: ["admin-question", questionId] });
       const saved = await updateQuestion(questionId, next);
