@@ -153,12 +153,27 @@ const teacherTree: RouteObject = {
         },
         {
           path: "question-bank/groups",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "groups.bankTitle" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/question-groups/pages/teacher/GroupsListPage"),
           ),
         },
         {
           path: "question-bank/groups/:id",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "groups.bankTitle", to: "/teacher/question-bank/groups" },
+              { key: "groups.one" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/question-groups/pages/teacher/GroupEditorPage"),
           ),

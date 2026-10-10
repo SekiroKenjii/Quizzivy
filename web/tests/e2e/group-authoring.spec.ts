@@ -193,7 +193,10 @@ test("offline edits recover after reload and flush before leaving without resett
   await material.click();
   await page.keyboard.press("Control+a");
   await page.keyboard.insertText("Nội dung mới có dấu tiếng Việt.");
-  await page.getByRole("button", { name: "Quay lại", exact: true }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Nhóm câu hỏi", exact: true })
+    .click();
   await page.getByRole("button", { name: "Lưu và rời trang", exact: true }).click();
   await expect(page).toHaveURL(/question-bank\/groups$/);
   expect(state.stored.bundle.group.title).toBe("Bản nháp riêng");
@@ -237,12 +240,12 @@ test("material editing and question switching preserve text at narrow widths", a
   await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).click();
   const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
   await prompt.click();
-  await expect(prompt).toHaveValue("");
+  await expect(prompt).toHaveText("");
   await prompt.fill("Câu hỏi đầu tiên");
   await page.getByRole("button", { name: "Bài đọc", exact: true }).click();
   await expect(material).toHaveText("Nội dung dùng chung");
   await page.getByRole("button", { name: "1 Câu hỏi đầu tiên", exact: true }).click();
-  await expect(prompt).toHaveValue("Câu hỏi đầu tiên");
+  await expect(prompt).toHaveText("Câu hỏi đầu tiên");
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
   await expect(page.getByText("Đã lưu trên máy chủ", { exact: true })).toBeVisible();
   expect(state.stored.bundle.questions[0]!.input.prompt).toBe("Câu hỏi đầu tiên");
