@@ -28,6 +28,7 @@ function test(id: string, title: string, status: Status, over: object = {}) {
     description: null,
     status,
     currentVersion: status === "draft" ? 0 : 3,
+    nextVersion: status === "draft" ? 1 : 4,
     totalPoints: 30,
     questionCount: 24,
     audioCount: 0,
@@ -193,7 +194,7 @@ describe("a card on the tests list", () => {
     ).toEqual(["Nhân bản", "Lưu trữ"]);
   });
 
-  it("lets a published test be assigned from its menu", async () => {
+  it("leaves assigning a published test to its detail", async () => {
     const user = renderList();
     await screen.findByRole("link", { name: "Unit 5" });
 
@@ -204,10 +205,7 @@ describe("a card on the tests list", () => {
       within(menu)
         .getAllByRole("menuitem")
         .map((item) => item.textContent?.trim()),
-    ).toEqual(["Giao cho lớp", "Nhân bản", "Lưu trữ"]);
-    expect(
-      within(menu).getByRole("menuitem", { name: "Giao cho lớp" }),
-    ).toHaveAttribute("href", `/teacher/assignments/new?test=${PUBLISHED_ID}`);
+    ).toEqual(["Nhân bản", "Lưu trữ"]);
   });
 
   it("offers Restore, Duplicate and Delete for an archived test, and deletes after confirming", async () => {

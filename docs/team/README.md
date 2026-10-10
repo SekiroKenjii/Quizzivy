@@ -195,7 +195,19 @@ Repository state:        working directory, branch, base revision
   the name, and prints their URLs; `down <name>` stops them and drops the database. It never
   runs under the heavy lock. Postgres and MinIO must already be up; `docs/team/environment.md`
   has the details. Tell the Tech Lead before keeping more than one running.
-- `git add` takes explicit paths only. Never `-A` in a shared checkout.
+- **Commits (T-28).** `git add` takes explicit paths only: never `-A`, `.` or `commit -a`.
+  Before every commit, `git status` and `git diff --cached --stat` must list only the files
+  meant. To take commits someone else pushed to your branch, commit your own work first,
+  then `git fetch origin <branch>` and `git merge --ff-only origin/<branch>`, so the working
+  tree moves with the branch; never move a branch with `reset --soft`, `update-ref` or
+  `branch -f` under an older working tree. Before every push, `git diff --stat
+  origin/work/redesign-r4...HEAD` lists only the task's files. A commit made from a stale
+  tree once reverted 49 files and passed every gate (INC-1).
+- **Sign-ins on a live stack (T-32).** Log in once per role at the start, save the
+  Playwright `storageState` and reuse it, so the sign-in limiter (10 a minute, 20 an hour
+  per email) never stops a check.
+- **Design-gap numbers (T-30).** When several lanes add `gaps.md` rows at once, the Tech
+  Lead gives each lane a block of numbers in its brief.
 
 ## Findings
 

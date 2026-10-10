@@ -255,6 +255,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's signed-in devices
+         * @description Every live session of the caller, one row per sign-in, and no one
+         *     else's. The session of the request's refresh cookie comes first with
+         *     `current: true`; the others follow by `lastUsedAt`, newest first, then
+         *     by `familyId`. At most 100 rows: a caller with more sees the newest
+         *     ones, and "sign out the others" still ends them all.
+         *
+         *     The calling session is identified by the refresh cookie, which reaches
+         *     this endpoint because it is scoped `Path=/auth`. Without a cookie that
+         *     names a live session of the caller, the list is still returned and no
+         *     row is current.
+         *
+         *     **Leak review.** Each row holds a handle, a label built from a closed
+         *     list of names, a city and a country code, and a time, all of the
+         *     caller's own session. A row holds no IP address, no raw user agent, no
+         *     token or hash and no expiry. The location is the approximate place of
+         *     the last sign-in or refresh, which the caller can already see on their
+         *     own device. Responses are `no-store`.
+         */
+        get: operations["listSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/revoke-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out every other device
+         * @description Revokes every live session of the caller except the calling one, and
+         *     only when there is one to revoke also moves the caller's session epoch
+         *     and forgets the cached principal, so the access tokens of the sessions
+         *     that ended stop working at once on the server that took the request
+         *     and within 10 seconds on any other (§5). The epoch is the caller's,
+         *     so the caller's own access token is refused on its next request as
+         *     well; the client's single-flight refresh replaces it and the calling
+         *     session keeps its place. With nothing to revoke nothing is written, the
+         *     epoch does not move and `revoked` is 0.
+         *
+         *     The calling session is identified by the refresh cookie. When the
+         *     request carries none that names a live session of the caller, the
+         *     answer is `401 UNAUTHORIZED` and nothing is written: the server cannot
+         *     tell the caller's session from the others, and a holder of an access
+         *     token alone is not enough to sign an account out everywhere.
+         *
+         *     Limited to 5 a minute and 30 an hour per signed-in user.
+         */
+        post: operations["revokeOtherSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/{familyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Sign out one device
+         * @description Revokes one live session of the caller, moves the caller's session
+         *     epoch and forgets the cached principal in the same command, so the
+         *     access tokens of every session of the caller are refused on their next
+         *     request, at once on the server that took the request and within 10
+         *     seconds on any other (§5). The sessions that were not revoked refresh
+         *     and carry on; the revoked one cannot refresh.
+         *
+         *     The id of another user's session, of one that is revoked or expired and
+         *     of one that never existed answer alike: `404 NOT_FOUND`. The calling
+         *     session is refused with `409 SESSION_IS_CURRENT`; signing out of it is
+         *     `POST /auth/logout`.
+         *
+         *     The calling session is identified by the refresh cookie. When the
+         *     request carries none that names a live session of the caller, the
+         *     answer is `401 UNAUTHORIZED` and nothing is written.
+         *
+         *     Limited to 10 a minute and 60 an hour per signed-in user.
+         */
+        delete: operations["revokeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/question-groups": {
         parameters: {
             query?: never;
@@ -2551,6 +2659,49 @@ export interface paths {
         patch: operations["updatePreferences"];
         trace?: never;
     };
+    "/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your profile photo
+         * @description Replaces the caller's photo. The file is a PNG or a JPEG of at most
+         *     2 MiB, and each side is between 200 and 2048 pixels. The server stores
+         *     a 256 x 256 PNG made from the centred square of the upload, so the
+         *     original file, its metadata (EXIF, ICC, comments) and its name are
+         *     never kept. The response is the whole `CurrentUser`, whose `avatarUrl`
+         *     names the new photo; the previous one is deleted.
+         *
+         *     Checked in this order, each before the next costs anything: the size,
+         *     the type from the first bytes (the part's `Content-Type` and the file's
+         *     extension are never read), the image header, the dimensions and the
+         *     memory the image would need, and only then the decode. At most two
+         *     images are decoded at a time across the server. The caller may set a
+         *     photo ten times an hour.
+         *
+         *     The file may be exactly 2 MiB; the request may carry 16 KiB more than
+         *     that for the multipart framing, so a file of 2 MiB and one byte is
+         *     refused by the size check with `MEDIA_TOO_LARGE`, and a request far
+         *     beyond it is cut off before the handler with the same answer.
+         */
+        put: operations["setAvatar"];
+        post?: never;
+        /**
+         * Remove your profile photo
+         * @description Clears the caller's photo and deletes its object, best effort. A caller
+         *     with no photo gets the same answer. The response is the whole
+         *     `CurrentUser`, without `avatarUrl`.
+         */
+        delete: operations["deleteAvatar"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/summary": {
         parameters: {
             query?: never;
@@ -2792,7 +2943,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -3327,7 +3478,13 @@ export interface components {
             email: string;
             fullName: string;
             displayName?: string;
-            /** Format: uri */
+            /**
+             * Format: uri
+             * @description The caller's profile photo as a presigned `GET`, valid 24 hours and
+             *     minted again on every response that carries it. Absent when the
+             *     caller has no photo. Set and cleared by `setAvatar` and
+             *     `deleteAvatar`.
+             */
             avatarUrl?: string;
             phone?: string;
             /** @enum {string} */
@@ -3725,6 +3882,39 @@ export interface components {
             /** @description Seconds. */
             expiresIn: number;
             user: components["schemas"]["CurrentUser"];
+        };
+        /**
+         * @description One sign-in of the caller that is still live: a refresh-token family
+         *     that is neither revoked nor expired (§5.2). It is the caller's own and
+         *     nobody else's. It carries no IP address, no raw user agent and nothing
+         *     that could be presented as a credential.
+         *
+         *     `device` is computed from the user agent when the list is read and is
+         *     made only of names from a closed list, "Mac · Chrome", "Mac" or
+         *     "Chrome", never of any part of the header itself. It is null, and
+         *     `deviceKind` is `unknown`, when neither the system nor the browser is
+         *     recognised; the client words that case in the reader's language.
+         *     `deviceKind` picks the icon. An iPad that asks for desktop sites sends
+         *     a Mac user agent and reads as one.
+         *
+         *     `location` is "City, CC", the place of the request that last signed in
+         *     or refreshed this session, taken from the edge's location headers and
+         *     only where the server trusts them. It is null otherwise. `lastUsedAt`
+         *     is that same moment, so it is at most one access-token lifetime old.
+         */
+        Session: {
+            familyId: components["schemas"]["Uuid"];
+            device: string | null;
+            /** @enum {string} */
+            deviceKind: "computer" | "phone" | "tablet" | "unknown";
+            location: string | null;
+            lastUsedAt: components["schemas"]["Timestamp"];
+            /**
+             * @description True for the session the request's refresh cookie belongs to. False
+             *     for every session when the request carries no cookie that names a
+             *     live session of the caller.
+             */
+            current: boolean;
         };
         Class: {
             id: components["schemas"]["Uuid"];
@@ -4427,6 +4617,17 @@ export interface components {
             status: components["schemas"]["TestStatus"];
             /** @description 0 while never published. A `published` test always has ≥ 1. */
             currentVersion: number;
+            /**
+             * @description Read-only: the server computes it and a client never sends it. The
+             *     number the next publish of this test will take: one more than
+             *     the highest version ever published, whether or not that version
+             *     still exists, so it is 1 for a test never published. Deleting the
+             *     newest version does not lower it, and the publish and this field
+             *     read the same count. It is not `currentVersion + 1` and not the
+             *     highest listed version + 1, and a client that names the version
+             *     about to be published reads it from here.
+             */
+            nextVersion: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
             /** @description Draft questions with their own audio or a shared group recording, counted once per question. Backs A-03's headphone badge. */
@@ -6101,6 +6302,81 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    listSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The live sessions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Session"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    revokeOtherSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The other sessions are revoked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description How many sessions this call ended. */
+                        revoked: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The `familyId` of a session `listSessions` returned. */
+                familyId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description `SESSION_IS_CURRENT` — the session is the one making the request. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listQuestionGroups: {
@@ -10288,6 +10564,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Maintenance"];
+        };
+    };
+    setAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Stored. The whole persisted caller, with the new `avatarUrl`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description `MEDIA_TOO_LARGE` — the upload is over 2 MiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TYPE_UNSUPPORTED` (not a PNG or a JPEG), `MEDIA_UNREADABLE`
+             *     (sniffed correctly but the header or the pixels cannot be read) or
+             *     `IMAGE_DIMENSIONS` (a side under 200 or over 2048 pixels, an
+             *     image that would need more memory to decode than the server
+             *     allows, or a JPEG of more than 32 scans, which a decoder that
+             *     cannot be cancelled would spend minutes on). Nothing was stored.
+             */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Object storage is not configured, so no photo can be kept. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            503: components["responses"]["Maintenance"];
+        };
+    };
+    deleteAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleared. The whole persisted caller. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
                 };
             };
             401: components["responses"]["Unauthorized"];

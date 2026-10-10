@@ -39,6 +39,7 @@ test("a publication finding opens the owned member editor without trying the sta
     description: null,
     status: "draft",
     currentVersion: 0,
+    nextVersion: 1,
     totalPoints: 1,
     questionCount: 1,
     audioCount: 0,
