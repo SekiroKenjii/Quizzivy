@@ -2146,7 +2146,8 @@
       "page_hide": "Closed the page",
       "tab_visible": "Returned to the tab",
       "window_focus": "Returned to the window",
-      "auto_submit": "Submitted after exceeding the focus-loss limit"
+      "auto_submit": "Submitted after exceeding the focus-loss limit",
+      "submitted": "Submitted"
     },
     "ongoing": "— ongoing",
     "stillOpen": "· still open",
@@ -2162,7 +2163,14 @@
     },
     "noteTitle": "Your note",
     "noteHint": "Only you can read this. Never shown to the student.",
-    "notePlaceholder": "For example: spoke with Hân; she reported a power outage at 10:04."
+    "notePlaceholder": "For example: spoke with Hân; she reported a power outage at 10:04.",
+    "autosaved": "Answers autosaved",
+    "autosavedWhen": "while answering",
+    "span": {
+      "seconds": "{{n}} s",
+      "minutes": "{{n}} min",
+      "minutesSeconds": "{{m}} min {{s}} s"
+    }
   },
   "splitPane": {
     "hint": "Drag to resize · double-click to reset"

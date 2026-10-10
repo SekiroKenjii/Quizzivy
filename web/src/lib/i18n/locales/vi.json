@@ -2146,7 +2146,8 @@
       "page_hide": "Đóng trang",
       "tab_visible": "Quay lại tab",
       "window_focus": "Quay lại cửa sổ",
-      "auto_submit": "Tự nộp vì vượt giới hạn rời trang"
+      "auto_submit": "Tự nộp vì vượt giới hạn rời trang",
+      "submitted": "Nộp bài"
     },
     "ongoing": "— đang tiếp diễn",
     "stillOpen": "· đang mở",
@@ -2162,7 +2163,14 @@
     },
     "noteTitle": "Ghi chú của bạn",
     "noteHint": "Chỉ bạn đọc được. Không hiện cho học viên.",
-    "notePlaceholder": "Ví dụ: đã hỏi Hân, em nói mất điện lúc 10:04."
+    "notePlaceholder": "Ví dụ: đã hỏi Hân, em nói mất điện lúc 10:04.",
+    "autosaved": "Câu trả lời được lưu tự động",
+    "autosavedWhen": "trong lúc làm bài",
+    "span": {
+      "seconds": "{{n}} giây",
+      "minutes": "{{n}} phút",
+      "minutesSeconds": "{{m}} phút {{s}} giây"
+    }
   },
   "splitPane": {
     "hint": "Kéo để đổi độ rộng · bấm đúp để đặt lại"

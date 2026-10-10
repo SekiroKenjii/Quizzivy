@@ -17,6 +17,7 @@ import {
 } from "@/components/shared/ListState";
 import { useCan, useWorkspace } from "@/features/auth/permissions";
 import { givenName } from "@/features/assignments/studentTime";
+import { FLAGGED } from "@/features/integrity/tones";
 import { createTest } from "@/features/tests/api";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -24,6 +25,7 @@ import { useMinute } from "@/hooks/useTick";
 import { useAuthStore } from "@/stores/auth";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useDisplayTimeZone, formatRelative } from "@/lib/i18n/datetime";
+import { cn } from "@/lib/utils";
 import {
   getDashboard,
   listAssignments,
@@ -311,7 +313,7 @@ function DashboardKpis({ data }: Readonly<{ data: Dashboard }>) {
         figure={{
           label: t("dashboard.home.flagged"),
           icon: Flag,
-          tone: "danger",
+          tone: FLAGGED.tone,
           value: String(data.flaggedAttempts),
           hint: t("dashboard.home.flaggedHint"),
         }}
@@ -522,7 +524,7 @@ function RecentActivity({ data }: Readonly<{ data: Dashboard }>) {
             <span className="text-muted-fg mt-px flex flex-wrap items-center gap-1.5 text-xs">
               <time dateTime={event.at}>{formatRelative(event.at, locale)}</time>
               {event.flagged && (
-                <span className="text-danger-ink inline-flex items-center gap-0.75">
+                <span className={cn(FLAGGED.ink, "inline-flex items-center gap-0.75")}>
                   <Flag aria-hidden="true" className="size-3" />
                   {t("dashboard.home.activityFlag")}
                 </span>

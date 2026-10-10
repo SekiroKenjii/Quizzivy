@@ -199,6 +199,15 @@ describe("the Rules step", () => {
     await user.click(screen.getByRole("switch", { name: "Điểm của mình" }));
     expect(reads().queryByText(/Bạn sẽ xem được điểm/)).toBeNull();
   });
+
+  it("keeps the honest limits beside the integrity rules", () => {
+    renderWizard("/teacher/assignments/new?step=4");
+    expect(
+      screen.getByText(
+        "Trình duyệt không thể ngăn gian lận. Các quy định này ghi lại điều đã xảy ra để bạn tự quyết định.",
+      ),
+    ).toBeVisible();
+  });
 });
 
 describe("assigning", () => {

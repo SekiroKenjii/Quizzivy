@@ -52,7 +52,7 @@ describe("phone roster flag and focus information", () => {
       const { row } = board(3);
       const label = `${i18n.t("status.attention.flagged")} · ${i18n.t("assignmentDetail.focusCount", { count: 3 })}`;
       const flag = screen.getByLabelText(label);
-      expect(flag).toHaveTextContent(/^3$/);
+      expect(flag).toHaveTextContent(/^3×$/);
       expect(flag.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
       expect(flag).toHaveClass("shrink-0", "whitespace-nowrap");
       expect(
