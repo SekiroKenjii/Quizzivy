@@ -767,6 +767,24 @@
       "manual": "Chấm tay. Mỗi câu trả lời được đưa vào hàng chờ chấm.",
       "anyAccepted": "Câu trả lời đúng khi khớp với một đáp án được chấp nhận.",
       "exactlyTicked": "Học viên phải chọn đúng các lựa chọn đã đánh dấu."
+    },
+    "gapAnswers": {
+      "label": "Đáp án được chấp nhận",
+      "hint": "cho từng ô trống trong đề bài.",
+      "caseIgnored": "Chữ hoa và khoảng trắng thừa không được tính.",
+      "group": "Ô trống {{label}}",
+      "inputFor": "Đáp án được chấp nhận cho ô {{label}}",
+      "placeholderFirst": "Nhập một đáp án được chấp nhận rồi nhấn Enter",
+      "placeholderMore": "Thêm một đáp án được chấp nhận khác",
+      "removeAnswer": "Bỏ đáp án {{value}}",
+      "matchCase": "Phân biệt hoa thường",
+      "matchCaseFor": "Phân biệt hoa thường cho ô {{label}}",
+      "empty": "Hãy thêm ít nhất một đáp án được chấp nhận cho ô {{label}}.",
+      "noGapsTitle": "Đề bài chưa có ô trống nào",
+      "noGapsText": "Đặt con trỏ vào chỗ học viên điền đáp án, rồi thêm một ô trống.",
+      "insertGap": "Thêm ô trống",
+      "removedGroup": "Ô trống {{label}} đã bỏ",
+      "removeOrphan": "Xoá đáp án của ô {{label}}"
     }
   },
   "builder": {

@@ -1,4 +1,7 @@
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
+import type { Editor } from "@tiptap/react";
+import { insertGap } from "@/components/shared/content/editor/gapCommands";
+import { nextBlankOrdinal } from "@/features/question-bank/blankContent";
 import { BlankPromptField } from "./BlankPromptField";
 import { AnswerArea } from "./AnswerArea";
 import { useTranslation } from "react-i18next";
@@ -59,6 +62,7 @@ export function QuestionEditor({
   onAssetChange,
 }: Readonly<QuestionEditorProps>) {
   const { t } = useTranslation();
+  const [promptEditor, setPromptEditor] = useState<Editor | null>(null);
   const isAudio = asset?.kind === "audio";
   const locked = typeLocked(value);
 
@@ -103,7 +107,11 @@ export function QuestionEditor({
         )}
         <div>
           {value.type === "fill_blank" ? (
-            <BlankPromptField value={value} onChange={onChange} />
+            <BlankPromptField
+              value={value}
+              onChange={onChange}
+              onEditor={setPromptEditor}
+            />
           ) : (
             <QuestionProseField
               id="question-prompt"
@@ -119,7 +127,16 @@ export function QuestionEditor({
           )}
         </div>
 
-        <AnswerArea value={value} onChange={onChange} />
+        <AnswerArea
+          value={value}
+          onChange={onChange}
+          onInsertGap={
+            promptEditor
+              ? () =>
+                  insertGap(promptEditor, () => String(nextBlankOrdinal(value.blanks)))
+              : undefined
+          }
+        />
 
         <div>
           <QuestionProseField
