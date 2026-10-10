@@ -34,6 +34,8 @@ var (
 	ErrUnsupported = errors.New("imagesafe: not a png or a jpeg")
 	ErrUnreadable  = errors.New("imagesafe: image cannot be read")
 	ErrDimensions  = errors.New("imagesafe: sides are out of range, or the image needs too much memory or time to decode")
+
+	ErrDecoderPanic = errors.New("imagesafe: decoder panic")
 )
 
 // Limits bounds what Square accepts and what it makes. MaxDecodedBytes and
@@ -152,8 +154,8 @@ func inspect(data []byte, kind string, lim Limits) (header, error) {
 
 func decode(data []byte, kind string, head header) (img image.Image, err error) {
 	defer func() {
-		if recover() != nil {
-			img, err = nil, ErrUnreadable
+		if r := recover(); r != nil {
+			img, err = nil, fmt.Errorf("%w: %w: %v", ErrUnreadable, ErrDecoderPanic, r)
 		}
 	}()
 	reader := bytes.NewReader(data)

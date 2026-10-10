@@ -48,7 +48,7 @@ func attachAvatars(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 	if err != nil {
 		return err
 	}
-	app.SetAvatars(objects, adapters.Photos{Processor: images}, logger)
+	app.SetAvatars(objects, adapters.Photos{Processor: images, Log: logger}, logger)
 	logger.Info("profile photos enabled", "bucket", cfg.S3Bucket, "decode_slots", photoDecodeSlots)
 	return nil
 }
