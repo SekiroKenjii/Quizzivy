@@ -957,20 +957,13 @@
     "duplicateFailed": "Could not duplicate the question."
   },
   "tests": {
-    "summary": "{{count}} tests · {{drafts}} drafts",
     "new": "New test",
     "untitled": "Untitled test",
     "statusFilter": "Filter by status",
     "all": "All",
-    "searchPlaceholder": "Search by title",
+    "searchPlaceholder": "Search tests",
     "title": "Title",
-    "status": "Status",
-    "questions": "Questions",
-    "points": "Points",
-    "version": "Version",
-    "updated": "Updated",
     "versionNumber": "v{{n}}",
-    "actions": "Actions",
     "actionsFor": "Actions for {{title}}",
     "edit": "Edit",
     "duplicate": "Duplicate",
@@ -994,17 +987,13 @@
     "detailFailed": "Could not load the test.",
     "previewNote": "This is what a student receives. Editing the draft does not change the published version.",
     "summarySoFar": "{{count}} tests loaded",
-    "audioCount": "{{count}} listening questions",
     "tagFilter": "Tags",
-    "tagFilterCount": "Tags · {{count}}",
     "archiveConfirmTitle": "Archive {{title}}?",
-    "archiveConfirmBody": "The test leaves the list and can no longer be assigned. Existing assignments and students' work stay as they are.",
+    "archiveConfirmBody": "The test leaves Published and Drafts and can no longer be assigned. It stays under All, where you can restore it. Existing assignments and students' work stay as they are.",
     "archived": "Test archived",
     "restore": "Restore",
-    "restoreHint": "Restoring returns the test as a draft.",
     "restored": "Test restored",
     "restoreFailed": "Could not restore the test.",
-    "archiveTab": "Archived",
     "defaultVersion": "Default",
     "versionActionSaved": "Version updated.",
     "versionActions": {
@@ -1018,7 +1007,33 @@
       "delete": "Only versions without assignment or attempt references can be deleted. This cannot be undone."
     },
     "importWord": "Import from Word/PDF",
-    "importHistory": "Import history"
+    "importHistory": "Imports",
+    "description": "Build once, assign to any class.",
+    "pasteTest": "Paste a test",
+    "draftsTab": "Drafts",
+    "edited": "Edited {{when}}",
+    "questionCount_one": "{{count}} question",
+    "questionCount_other": "{{count}} questions",
+    "pointCount_one": "{{points}} point",
+    "pointCount_other": "{{points}} points",
+    "assigned": {
+      "live_one": "{{count}} live",
+      "live_other": "{{count}} live",
+      "scheduled": "Scheduled",
+      "closed_one": "{{count}} closed",
+      "closed_other": "{{count}} closed",
+      "none": "Not assigned"
+    },
+    "skills": "Skills",
+    "clearFilters": "Clear filters",
+    "skill": {
+      "grammar": "Grammar",
+      "vocabulary": "Vocabulary",
+      "reading": "Reading",
+      "listening": "Listening",
+      "writing": "Writing",
+      "speaking": "Speaking"
+    }
   },
   "preview": {
     "questionNumber": "Question {{n}}",
@@ -1277,7 +1292,7 @@
     },
     "summaryTitle": "Summary",
     "progressValue": "{{submitted}}/{{total}}",
-    "windowValue": "{{opens}} → {{closes}}",
+    "windowValue": "{{opens}} – {{closes}}",
     "latestVersion": "latest: v{{version}}",
     "saveDraft": "Save draft",
     "needTargets": "Choose a class or student before assigning.",
@@ -1832,7 +1847,7 @@
     "strip": {
       "totalAway": "Total time away",
       "openNotSummed": "excluding the open one",
-      "episodes": "Times away ≥3s",
+      "episodes": "Times away 3s+",
       "oneOpen": "1 open",
       "pastes": "Pastes",
       "resumes": "Resumes",
@@ -2028,7 +2043,7 @@
     "gradedBadge": "Graded",
     "save": "Save",
     "pointsFor": "Points for {{who}}",
-    "keys": "↓ next student · 0 – {{max}} to score · ⌘⏎ save and go to the next question",
+    "keys": "<down/> next student · 0 – {{max}} to score · {{modifier}}+Enter save and go to the next question",
     "notManual": "This question is graded automatically.",
     "empty": "No paper has answered this question yet.",
     "loadFailed": "Could not load the answers."
@@ -2899,7 +2914,7 @@
     "tagSuggestions": "Tag suggestions",
     "createTag": "Create “{{tag}}”",
     "newTag": "New tag",
-    "tagKeys": "↑ ↓ to move · Enter to add · Esc to close"
+    "tagKeys": "<up/> <down/> to move · Enter to add · Esc to close"
   },
   "toast": {
     "region": "Notifications",
@@ -3037,5 +3052,11 @@
   "trueFalse": {
     "true": "True",
     "false": "False"
+  },
+  "keyGlyph": {
+    "command": "Command",
+    "enter": "Enter",
+    "up": "Up arrow",
+    "down": "Down arrow"
   }
 }

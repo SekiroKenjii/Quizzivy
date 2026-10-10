@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
+import { KeyGlyph } from "@/components/shared/KeyGlyph";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { MarqueeText } from "@/components/shared/MarqueeText";
@@ -559,7 +560,7 @@ export function OutlineTree({
   );
 }
 
-const KEY = { enter: "↵", escape: "esc" } as const;
+const KEY = { escape: "esc" } as const;
 
 function SectionHeader({
   children,
@@ -840,7 +841,10 @@ function SectionTitleInput({
         }}
       />
       <p className="text-muted-foreground mt-1.5 flex items-center gap-1 text-xs">
-        <Kbd>{KEY.enter}</Kbd> {t("builder.renameCommit")} · <Kbd>{KEY.escape}</Kbd>{" "}
+        <Kbd>
+          <KeyGlyph name="enter" />
+        </Kbd>{" "}
+        {t("builder.renameCommit")} · <Kbd>{KEY.escape}</Kbd>{" "}
         {t("builder.renameDiscard")}
       </p>
     </div>

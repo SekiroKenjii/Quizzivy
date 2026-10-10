@@ -38,6 +38,7 @@ const question = z.object({
   promptContent: questionPromptContentSchema.nullish(),
   explanationContent: questionContentSchema.nullish(),
   mediaAssetId: z.uuid().nullish(),
+  mediaAlt: z.string().nullish(),
   audio: policy.nullish(),
   transcript: z.string().nullish(),
   explanation: z.string().nullish(),

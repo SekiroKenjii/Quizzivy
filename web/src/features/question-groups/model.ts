@@ -40,6 +40,7 @@ export function memberValues(input: GroupQuestionInput): QuestionValues {
     promptContent: input.promptContent ?? null,
     explanationContent: input.explanationContent ?? null,
     mediaAssetId: input.mediaAssetId ?? null,
+    mediaAlt: input.mediaAlt ?? null,
     audio: input.audio ?? null,
     transcript: input.transcript ?? null,
     explanation: input.explanation ?? null,

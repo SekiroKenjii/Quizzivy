@@ -2,6 +2,7 @@ import { withinContentBudget } from "../budget";
 import type { JSONContent } from "@tiptap/core";
 import type { Node as EditorDocument } from "@tiptap/pm/model";
 import { z } from "zod";
+import { nfc } from "@/lib/nfc";
 import type {
   ContentBlock,
   ContentCell,
@@ -159,7 +160,7 @@ function readInline(input: unknown, budget: { nodes: number }): ContentInline {
       marks.push(markType.parse(mark.type));
     }
   }
-  const text = { type: "text" as const, text: node.text, marks };
+  const text = { type: "text" as const, text: nfc(node.text), marks };
   return href ? { type: "link", href, content: [text] } : text;
 }
 
@@ -244,8 +245,8 @@ function readBlock(
       if (children.length) throw new Error("schema");
       const attrs = assetAttrs.parse(node.attrs);
       return node.type === "contentImage"
-        ? { type: "image", assetId: attrs.assetId, alt: attrs.label }
-        : { type: "audio", assetId: attrs.assetId, label: attrs.label };
+        ? { type: "image", assetId: attrs.assetId, alt: nfc(attrs.label) }
+        : { type: "audio", assetId: attrs.assetId, label: nfc(attrs.label) };
     }
     default:
       throw new Error("schema");

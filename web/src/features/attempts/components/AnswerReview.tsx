@@ -3,6 +3,7 @@ import { OptionText } from "@/components/shared/content/OptionText";
 import { useTranslation } from "react-i18next";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import type { Answer } from "@/features/take-test/api";
+import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
 import type { AdminQuestion, ReviewAnswer } from "../api";
 import { OPTION, optionKey } from "./answerStyles";
@@ -81,7 +82,7 @@ function Body({
             {shortAnswerPresentation?.label ?? t("review.studentAnswer")}
           </p>
           {given !== null && "value" in given && String(given.value).trim() !== "" ? (
-            <p className={shortAnswerStyle.answer}>{String(given.value)}</p>
+            <p className={shortAnswerStyle.answer}>{nfc(String(given.value))}</p>
           ) : (
             <p className="text-muted-foreground text-sm">{t("review.unanswered")}</p>
           )}
@@ -103,7 +104,7 @@ function Body({
                       {t("review.unanswered")}
                     </span>
                   ) : (
-                    <span>{typed}</span>
+                    <span>{nfc(typed)}</span>
                   )}
                   <p className="text-muted-foreground mt-1 text-xs">
                     {t("review.accepted", {

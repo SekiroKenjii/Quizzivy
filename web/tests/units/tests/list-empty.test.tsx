@@ -74,11 +74,11 @@ function renderList() {
 }
 
 describe("the tests list with nothing in it", () => {
-  it("says the bank is empty rather than showing a table with no rows", async () => {
+  it("says there are no tests rather than showing an empty grid", async () => {
     renderList();
 
     expect(await screen.findByText("Chưa có đề thi nào.")).toBeInTheDocument();
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Đề thi" })).toBeNull();
   });
 
   it("offers the create action twice, and the page header's comes first", async () => {
@@ -115,8 +115,14 @@ describe("the tests list with nothing in it", () => {
     const user = renderList();
     await screen.findByText("Chưa có đề thi nào.");
 
-    await user.click(screen.getByRole("tab", { name: /^Đã phát hành/ }));
+    await user.click(screen.getByRole("button", { name: /^Đã phát hành/ }));
 
     expect(await screen.findByText("Không có đề thi nào khớp.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Xoá bộ lọc" }));
+    expect(await screen.findByText("Chưa có đề thi nào.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Tất cả/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });

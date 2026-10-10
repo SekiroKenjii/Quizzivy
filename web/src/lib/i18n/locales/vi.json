@@ -957,20 +957,13 @@
     "duplicateFailed": "Không nhân bản được câu hỏi."
   },
   "tests": {
-    "summary": "{{count}} đề · {{drafts}} bản nháp",
     "new": "Đề thi mới",
     "untitled": "Đề thi chưa đặt tên",
     "statusFilter": "Lọc theo trạng thái",
     "all": "Tất cả",
     "searchPlaceholder": "Tìm theo tên đề",
     "title": "Tên đề",
-    "status": "Trạng thái",
-    "questions": "Câu",
-    "points": "Điểm",
-    "version": "Phiên bản",
-    "updated": "Cập nhật",
     "versionNumber": "v{{n}}",
-    "actions": "Thao tác",
     "actionsFor": "Thao tác với {{title}}",
     "edit": "Sửa",
     "duplicate": "Nhân bản",
@@ -994,17 +987,13 @@
     "detailFailed": "Không tải được đề thi.",
     "previewNote": "Đây là nội dung học viên nhận được. Sửa bản nháp không làm thay đổi bản đã phát hành.",
     "summarySoFar": "{{count}} đề đã tải",
-    "audioCount": "{{count}} câu nghe",
     "tagFilter": "Thẻ",
-    "tagFilterCount": "Thẻ · {{count}}",
     "archiveConfirmTitle": "Lưu trữ đề {{title}}?",
-    "archiveConfirmBody": "Đề rời khỏi danh sách và không giao được nữa. Bài giao đã có và bài làm của học viên vẫn giữ nguyên.",
+    "archiveConfirmBody": "Đề rời khỏi mục Đã phát hành và Bản nháp, và không giao được nữa. Đề vẫn nằm trong mục Tất cả để bạn khôi phục khi cần. Bài giao đã có và bài làm của học viên vẫn giữ nguyên.",
     "archived": "Đã lưu trữ đề",
     "restore": "Khôi phục",
-    "restoreHint": "Khôi phục đưa đề về trạng thái nháp.",
     "restored": "Đã khôi phục đề",
     "restoreFailed": "Không khôi phục được đề.",
-    "archiveTab": "Lưu trữ",
     "defaultVersion": "Mặc định",
     "versionActionSaved": "Đã cập nhật phiên bản.",
     "versionActions": {
@@ -1018,7 +1007,33 @@
       "delete": "Chỉ xoá được phiên bản chưa được bài giao hoặc bài làm sử dụng. Không thể hoàn tác."
     },
     "importWord": "Nhập đề từ Word/PDF",
-    "importHistory": "Lịch sử nhập"
+    "importHistory": "Lịch sử nhập",
+    "description": "Soạn một lần, giao cho mọi lớp.",
+    "pasteTest": "Dán đề",
+    "draftsTab": "Bản nháp",
+    "edited": "Sửa {{when}}",
+    "questionCount_one": "{{count}} câu hỏi",
+    "questionCount_other": "{{count}} câu hỏi",
+    "pointCount_one": "{{points}} điểm",
+    "pointCount_other": "{{points}} điểm",
+    "assigned": {
+      "live_one": "{{count}} đang mở",
+      "live_other": "{{count}} đang mở",
+      "scheduled": "Đã lên lịch",
+      "closed_one": "{{count}} đã đóng",
+      "closed_other": "{{count}} đã đóng",
+      "none": "Chưa giao"
+    },
+    "skills": "Kỹ năng",
+    "clearFilters": "Xoá bộ lọc",
+    "skill": {
+      "grammar": "Ngữ pháp",
+      "vocabulary": "Từ vựng",
+      "reading": "Đọc",
+      "listening": "Nghe",
+      "writing": "Viết",
+      "speaking": "Nói"
+    }
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
@@ -1277,7 +1292,7 @@
     },
     "summaryTitle": "Tóm tắt",
     "progressValue": "{{submitted}}/{{total}}",
-    "windowValue": "{{opens}} → {{closes}}",
+    "windowValue": "{{opens}} – {{closes}}",
     "latestVersion": "mới nhất: bản v{{version}}",
     "saveDraft": "Lưu nháp",
     "needTargets": "Chọn lớp hoặc học viên trước khi giao.",
@@ -1832,7 +1847,7 @@
     "strip": {
       "totalAway": "Tổng thời gian rời trang",
       "openNotSummed": "chưa tính lần đang mở",
-      "episodes": "Số lần rời ≥3 giây",
+      "episodes": "Số lần rời từ 3 giây",
       "oneOpen": "1 đang mở",
       "pastes": "Lần dán",
       "resumes": "Vào lại bài",
@@ -2028,7 +2043,7 @@
     "gradedBadge": "Đã chấm",
     "save": "Lưu",
     "pointsFor": "Điểm cho {{who}}",
-    "keys": "↓ học viên tiếp theo · 0 – {{max}} chấm điểm · ⌘⏎ lưu và sang câu sau",
+    "keys": "<down/> học viên tiếp theo · 0 – {{max}} chấm điểm · {{modifier}}+Enter lưu và sang câu sau",
     "notManual": "Câu này được chấm tự động.",
     "empty": "Chưa có bài nào nộp câu này.",
     "loadFailed": "Không tải được câu trả lời."
@@ -2899,7 +2914,7 @@
     "tagSuggestions": "Gợi ý thẻ",
     "createTag": "Tạo “{{tag}}”",
     "newTag": "Thẻ mới",
-    "tagKeys": "↑ ↓ để di chuyển · Enter để thêm · Esc để đóng"
+    "tagKeys": "<up/> <down/> để di chuyển · Enter để thêm · Esc để đóng"
   },
   "toast": {
     "region": "Thông báo",
@@ -3037,5 +3052,11 @@
   "trueFalse": {
     "true": "Đúng",
     "false": "Sai"
+  },
+  "keyGlyph": {
+    "command": "Command",
+    "enter": "Enter",
+    "up": "Mũi tên lên",
+    "down": "Mũi tên xuống"
   }
 }
