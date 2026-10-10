@@ -7,8 +7,16 @@ import { cn } from "@/lib/utils";
 export function MarqueeText({
   text,
   minSeconds = 8,
+  gapPx,
+  maskPx,
   className,
-}: Readonly<{ text: string; minSeconds?: number; className?: string }>) {
+}: Readonly<{
+  text: string;
+  minSeconds?: number;
+  gapPx?: number;
+  maskPx?: number;
+  className?: string;
+}>) {
   const box = useRef<HTMLSpanElement>(null);
   const measure = useRef<HTMLSpanElement>(null);
   const [overflows, setOverflows] = useState(false);
@@ -36,6 +44,13 @@ export function MarqueeText({
     <span
       ref={box}
       title={overflows ? text : undefined}
+      style={
+        moving && maskPx !== undefined
+          ? {
+              maskImage: `linear-gradient(90deg, transparent, var(--foreground) ${maskPx}px, var(--foreground) calc(100% - ${maskPx}px), transparent)`,
+            }
+          : undefined
+      }
       className={cn(
         "qz-marquee relative block min-w-0 overflow-hidden whitespace-nowrap",
         moving ? "qz-marquee-masked" : "text-ellipsis",
@@ -56,7 +71,11 @@ export function MarqueeText({
           style={{ animationDuration: `${seconds}s` }}
         >
           <span>{text}</span>
-          <span aria-hidden="true" className="pl-8">
+          <span
+            aria-hidden="true"
+            className={gapPx === undefined ? "pl-8" : undefined}
+            style={gapPx === undefined ? undefined : { paddingLeft: gapPx }}
+          >
             {text}
           </span>
         </span>

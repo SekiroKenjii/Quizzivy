@@ -94,9 +94,13 @@ async function renderBuilder() {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(await screen.findByRole("button", { name: "Tên đề thi" }));
+  const title = screen.getByRole<HTMLInputElement>("textbox", { name: "Tên đề thi" });
+  title.setSelectionRange(title.value.length, title.value.length);
   return {
-    user: userEvent.setup({ advanceTimers: vi.advanceTimersByTime }),
-    title: await screen.findByLabelText("Tên đề thi"),
+    user,
+    title,
   };
 }
 
@@ -127,13 +131,19 @@ describe("the builder's autosave", () => {
     expect(patches[1]?.title).toBe("Unit 5ab");
   });
 
-  it("says when it saved, in words rather than a spinner", async () => {
+  it("says Saved from load and after a save, without a time, as the deck does", async () => {
     const { user, title } = await renderBuilder();
+    expect(screen.getByText("Đã lưu")).toHaveAttribute("data-state", "idle");
 
     await user.type(title, "a");
+    expect(screen.getByText("Chưa lưu")).toHaveAttribute("data-state", "dirty");
     await vi.advanceTimersByTimeAsync(1500);
 
-    expect(await screen.findByText(/Đã lưu \d\d:\d\d/)).toBeInTheDocument();
+    await waitFor(() => expect(patches).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.getByText("Đã lưu")).toHaveAttribute("data-state", "saved"),
+    );
+    expect(screen.queryByText(/\d\d:\d\d/)).toBeNull();
   });
 
   it("surfaces a stale write as 'open somewhere else', and stops saving", async () => {

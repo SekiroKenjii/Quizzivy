@@ -373,6 +373,6 @@ test("builder flushes rich prose before switching and preview retains the saved 
   ).toHaveValue("Câu thứ hai");
   await page.getByRole("button", { name: /Câu thứ nhất đã sửa/ }).click();
   await expect(prompt).toContainText("đã sửa");
-  await page.getByRole("button", { name: "Xem như học viên", exact: true }).click();
+  await page.getByRole("button", { name: "Xem trước", exact: true }).click();
   await expect(page.getByRole("dialog").locator("u")).toContainText("Câu thứ nhất");
 });

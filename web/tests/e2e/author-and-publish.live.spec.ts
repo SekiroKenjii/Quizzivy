@@ -62,9 +62,16 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
 
   const title = `E2E 1a — ${Date.now()}`;
-  await page.getByLabel("Tên đề thi").fill(title);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).fill(title);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần" }).click();
-  await expect(page.getByText("Phần 1")).toBeVisible();
+  const sectionName = page.getByRole("textbox", { name: "Tên phần", exact: true });
+  await expect(sectionName).toBeFocused();
+  await sectionName.press("Enter");
+  await expect(
+    page.getByRole("button", { name: /^Phần 1 \d+ · [\d.,]+đ$/ }),
+  ).toBeVisible();
 
   // ------------------------------------------------------- single_choice
   await addQuestion(page, "Một đáp án", "They ___ to the museum last weekend.");
@@ -91,6 +98,9 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
 
   // ------------------------------------------ audio, with a real upload
   await addQuestion(page, "Một đáp án", "Người phụ nữ đề nghị làm gì?");
+  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Cài đặt câu hỏi", exact: true });
+  await expect(settings).toBeVisible();
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
 
   await expect(async () => {
@@ -117,10 +127,15 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
     page.getByRole("switch", { name: "Hiện lời thoại sau khi nộp" }),
   ).toBeChecked();
 
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
+
   await setOptions(page, ["Gọi lại sau", "Đổi lịch hẹn"]);
 
   // --------------------------------------------------------------- publish
-  await expect(page.getByText(/Đã lưu \d\d:\d\d/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
+    timeout: 15_000,
+  });
   await page.getByRole("button", { name: "Phát hành" }).click();
 
   // Publishing lands on the detail page, previewing the version just written.

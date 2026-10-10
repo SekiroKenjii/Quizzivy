@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+
 import {
   ChevronDown,
   ChevronRight,
@@ -15,10 +15,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { GroupBundle } from "@/features/question-groups/api";
 
+/** OutlineGroupRow keeps a shared-context unit’s members together while selecting, moving or removing it. */
 export function OutlineGroupRow({
   id,
   group,
   numbering,
+  drop,
   selected,
   selectedQuestionId,
   onSelect,
@@ -28,6 +30,7 @@ export function OutlineGroupRow({
   id: string;
   group: GroupBundle | undefined;
   numbering: Map<string, number>;
+  drop?: "before" | "after" | undefined;
   selected: boolean;
   selectedQuestionId: string | null;
   onSelect: (questionId?: string) => void;
@@ -36,8 +39,10 @@ export function OutlineGroupRow({
 }>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(true);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: `group:${id}` });
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
+    id: `group:${id}`,
+    transition: null,
+  });
   const title = group?.group.title || t("groups.newGroup");
   const questions = new Map(
     group?.questions.map((question) => [question.id, question.input]),
@@ -47,9 +52,18 @@ export function OutlineGroupRow({
     <div
       ref={setNodeRef}
       data-outline-group={id}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("rounded-md border", isDragging && "opacity-60")}
+      className={cn("relative rounded-md border", isDragging && "opacity-40")}
     >
+      {drop ? (
+        <span
+          aria-hidden="true"
+          data-outline-drop={drop}
+          className={cn(
+            "bg-primary pointer-events-none absolute inset-x-0 h-0.5",
+            drop === "before" ? "top-0" : "bottom-0",
+          )}
+        />
+      ) : null}
       <div
         className={cn(
           "flex items-center gap-1 p-1",

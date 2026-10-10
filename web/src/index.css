@@ -371,7 +371,7 @@
 
 .qz-marquee:hover .qz-marquee-track,
 .qz-marquee:focus-within .qz-marquee-track,
-:focus-visible .qz-marquee-track {
+:is(button, a[href], [role="button"], [role="link"]):focus-visible .qz-marquee-track {
   animation-play-state: paused;
 }
 

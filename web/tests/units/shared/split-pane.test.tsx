@@ -135,6 +135,23 @@ describe("SplitPane", () => {
     expect(fireEvent.keyDown(handle, { key: "a" })).toBe(true);
     expect(write).toHaveBeenCalledTimes(4);
   });
+  it("reports the rendered width and the real ceiling from the first paint", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 600,
+      left: 0,
+      right: 600,
+      top: 0,
+      bottom: 480,
+      height: 480,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    render(<SplitPane {...PIXELS} first="first" second="second" />);
+    const handle = screen.getByRole("separator");
+    expect(handle).toHaveAttribute("aria-valuemax", "226");
+    expect(handle).toHaveAttribute("aria-valuenow", "226");
+  });
   it("uses the measured pixel ceiling on keys and on a drag", () => {
     const { container } = render(
       <SplitPane {...PIXELS} first="first" second="second" />,

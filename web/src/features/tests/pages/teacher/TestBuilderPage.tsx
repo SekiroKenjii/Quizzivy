@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 import type { RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useBlocker, useNavigate, useParams } from "react-router";
@@ -19,6 +20,10 @@ import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MarqueeText } from "@/components/shared/MarqueeText";
+import { SplitPane } from "@/components/shared/SplitPane";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
 import { PageAsideSlot } from "@/layouts/slots";
 import {
@@ -116,6 +121,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(test.title);
+  const wide = useMediaQuery("(min-width: 768px)");
+  const room = useContentWidthAtLeast(594);
+  const split = wide && room;
   const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
   const [sections, setSections] = useState<OutlineSection[]>(() =>
     editableOutline(test),
@@ -143,7 +151,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   );
   const [violations, setViolations] = useState<PublishViolation[] | null>(null);
   const [picking, setPicking] = useState(false);
+  const pickerOpener = useRef<HTMLElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [creating, setCreating] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
@@ -284,6 +294,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         id: questionId,
         prompt: result.data.prompt,
         points: result.data.points,
+        type: result.data.type,
         hasAudio: result.data.media?.kind === "audio",
         problem: publishProblem(result.data, t) ?? problemFor(violations, questionId),
       });
@@ -659,6 +670,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     return (
       <QuestionPane
         settingsOpen={settingsOpen}
+        settingsTriggerRef={settingsTriggerRef}
         onSettingsOpenChange={setSettingsOpen}
         key={selectedId}
         questionId={selectedId}
@@ -674,66 +686,76 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   return (
     <fieldset
       disabled={creating || publishing}
-      className="-m-6 flex h-[calc(100svh-3.5rem)] min-w-0 flex-col overflow-hidden"
+      data-scale="deck"
+      className="flex min-w-0 flex-col gap-3.5"
     >
-      <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("common.back")}
-          onClick={() => void navigate("/teacher/tests")}
-        >
-          <ArrowLeft aria-hidden="true" />
-        </Button>
-        <Input
-          disabled={creating}
-          value={title}
-          aria-label={t("builder.titleLabel")}
-          className="h-8 w-96 min-w-32 border-transparent font-medium shadow-none"
-          onChange={(event) => updateTitle(event.target.value)}
-        />
-        <StatusBadge kind="test" status={test.status} />
-        <AutosaveStatusLabel
-          status={saveStatus}
-          onRetry={() => {
-            outline.retry();
-            retryQuestion.current?.();
-          }}
-        />
-        {selectedId === null || selectedGroupId ? null : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="lg:hidden"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <SlidersHorizontal aria-hidden="true" />
-            <span className="hidden sm:inline">{t("questionEditor.settings")}</span>
-          </Button>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-[1_1_320px] items-center gap-2.5">
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
+            aria-label={t("common.back")}
+            title={t("common.back")}
+            onClick={() => void navigate("/teacher/tests")}
+          >
+            <ArrowLeft aria-hidden="true" />
+          </Button>
+          <BuilderTitle title={title} onChange={updateTitle} />
+          <StatusBadge
+            kind="test"
+            status={test.status}
+            className={
+              test.status === "draft"
+                ? "border-border text-muted-fg h-5.5 shrink-0 rounded-full bg-transparent px-2 text-xs leading-[18px] font-medium in-data-[scale=deck]:px-2"
+                : "shrink-0"
+            }
+          />
+          <AutosaveStatusLabel
+            status={saveStatus}
+            deck
+            onRetry={() => {
+              outline.retry();
+              retryQuestion.current?.();
+            }}
+          />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {selectedId === null || selectedGroupId ? null : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              ref={settingsTriggerRef}
+              aria-label={t("questionEditor.settings")}
+              title={t("questionEditor.settings")}
+              onClick={() => setSettingsOpen(true)}
+            >
+              <SlidersHorizontal aria-hidden="true" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
             className="text-muted-foreground"
             aria-label={t("builder.versions")}
+            title={t("builder.versions")}
             onClick={() => void navigate(`/teacher/tests/${test.id}#versions`)}
           >
             <History aria-hidden="true" />
-            <span className="hidden lg:inline">{t("builder.versions")}</span>
           </Button>
           <Button
             variant="outline"
-            size="sm"
-            aria-label={t("builder.previewAsStudent")}
+            size="md"
+            className="shadow-card h-9"
             onClick={() => void openPreview()}
           >
             <Eye aria-hidden="true" />
-            <span className="hidden lg:inline">{t("builder.previewAsStudent")}</span>
+            {t("builder.preview")}
           </Button>
           <Button
-            size="sm"
+            size="md"
+            className="h-9"
             disabled={publishing || stale}
             onClick={() => void onPublish()}
           >
@@ -765,43 +787,63 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         </p>
       )}
 
-      <div data-columns className="flex min-h-0 flex-1 overflow-hidden">
-        <fieldset disabled={creating} className="contents">
-          <Suspense
-            fallback={<div className="w-72 shrink-0 border-r" aria-hidden="true" />}
-          >
-            <OutlineTree
-              sections={sections}
-              groups={groups}
-              selectedGroupId={selectedGroupId}
-              onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
-              onCreateGroup={() => void insertGroup().catch(() => undefined)}
-              onRemoveGroup={(id) => setRemoving({ groupId: id })}
-              onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
-              questions={byId}
-              selectedId={selectedId}
-              creating={creating}
-              onSelect={(questionId) => void selectQuestion(questionId)}
-              onChange={updateOutline}
-              onCreateQuestion={() => void onCreateQuestion()}
-              onPickFromBank={() => setPicking(true)}
-              onAddSection={onAddSection}
-            />
-          </Suspense>
-        </fieldset>
-
-        <div data-resize-middle className="min-w-0 flex-1 overflow-y-auto p-6">
-          <PageAsideSlot.Provider value={asideSlot}>
-            {activeEditor()}
-          </PageAsideSlot.Provider>
-        </div>
-        {/* A-04 puts the settings column under the builder's own bar. */}
-        <div ref={setAsideSlot} className="contents" />
-      </div>
+      <SplitPane
+        label={t("builder.outlineWidth")}
+        unit="px"
+        defaultSize={300}
+        min={220}
+        max={Number.MAX_SAFE_INTEGER}
+        minSecond={360}
+        storageKey="quizzivy.builder.outline"
+        split={split}
+        className="items-stretch gap-y-3.5"
+        firstClassName="self-start"
+        secondClassName="flex min-w-0 items-start"
+        first={
+          <fieldset disabled={creating} className="contents">
+            <Suspense fallback={<ListSkeleton rows={5} />}>
+              <OutlineTree
+                sections={sections}
+                groups={groups}
+                selectedGroupId={selectedGroupId}
+                onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
+                onCreateGroup={() => void insertGroup().catch(() => undefined)}
+                onRemoveGroup={(id) => setRemoving({ groupId: id })}
+                onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
+                questions={byId}
+                selectedId={selectedId}
+                creating={creating}
+                onSelect={(questionId) => void selectQuestion(questionId)}
+                onChange={updateOutline}
+                onCreateQuestion={() => void onCreateQuestion()}
+                onPickFromBank={(opener) => {
+                  pickerOpener.current = opener;
+                  setPicking(true);
+                }}
+                onAddSection={onAddSection}
+              />
+            </Suspense>
+          </fieldset>
+        }
+        second={
+          <div data-columns className="flex min-w-0 flex-1 items-start">
+            <div
+              data-resize-middle
+              className="bg-card shadow-card min-w-0 flex-1 rounded-xl border p-4"
+            >
+              <PageAsideSlot.Provider value={asideSlot}>
+                {activeEditor()}
+              </PageAsideSlot.Provider>
+            </div>
+            <div ref={setAsideSlot} className="contents" />
+          </div>
+        }
+      />
 
       <QuestionPickerDialog
         open={picking}
         excluded={new Set(questionIds)}
+        returnFocus={pickerOpener}
         onOpenChange={setPicking}
         onPick={appendQuestion}
         onPickGroup={() => {
@@ -935,11 +977,72 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   );
 }
 
-/**
- * The builder edits the BANK copy of a question, which is what §7's snapshot
- * model expects: published versions hold their own copy, so a bank edit never
- * reaches a test someone is already sitting.
- */
+function BuilderTitle({
+  title,
+  onChange,
+}: Readonly<{ title: string; onChange: (value: string) => void }>) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
+  useEffect(() => {
+    if (editing) {
+      input.current?.focus();
+      input.current?.select();
+    } else if (returnFocus.current) {
+      returnFocus.current = false;
+      trigger.current?.focus();
+    }
+  }, [editing]);
+  return (
+    <div
+      className={cn(
+        "min-w-16 flex-[0_1_auto]",
+        !editing &&
+          "group/builder-title hover:bg-hover hover:border-border -ml-2 rounded-[8px] border border-transparent transition-[background-color,border-color] duration-150 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none",
+      )}
+    >
+      {editing ? (
+        <Input
+          ref={input}
+          value={title}
+          aria-label={t("builder.titleLabel")}
+          className="text-stat h-9 w-full px-2 py-0 leading-[34px] font-semibold tracking-[-0.02em]"
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={() => {
+            const next = title.trim() || t("tests.untitled");
+            if (next !== title) onChange(next);
+            setEditing(false);
+          }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key !== "Enter" && event.key !== "Escape") return;
+            event.preventDefault();
+            returnFocus.current = true;
+            event.currentTarget.blur();
+          }}
+        />
+      ) : (
+        <button
+          ref={trigger}
+          type="button"
+          aria-label={t("builder.titleLabel")}
+          className="text-stat relative block h-[34px] w-full min-w-0 rounded-[7px] py-0 pr-[calc(0.5rem+0.21em)] pl-2 text-left leading-[34px] font-semibold tracking-[-0.02em]"
+          onClick={() => setEditing(true)}
+        >
+          <MarqueeText
+            text={title || t("tests.untitled")}
+            gapPx={48}
+            maskPx={16}
+            className="group-focus-within/builder-title:[&_.qz-marquee-track]:[animation-play-state:paused]! group-hover/builder-title:[&_.qz-marquee-track]:[animation-play-state:paused]!"
+          />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function QuestionPane({
   questionId,
   clearStarterPrompt,
@@ -948,6 +1051,7 @@ function QuestionPane({
   onStatus,
   contextLabel,
   settingsOpen,
+  settingsTriggerRef,
   onSettingsOpenChange,
 }: Readonly<{
   questionId: string;
@@ -957,6 +1061,7 @@ function QuestionPane({
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
   settingsOpen: boolean;
+  settingsTriggerRef: RefObject<HTMLButtonElement | null>;
   onSettingsOpenChange: (open: boolean) => void;
 }>) {
   const { t } = useTranslation();
@@ -990,6 +1095,7 @@ function QuestionPane({
       onStatus={onStatus}
       contextLabel={contextLabel}
       settingsOpen={settingsOpen}
+      settingsTriggerRef={settingsTriggerRef}
       onSettingsOpenChange={onSettingsOpenChange}
     />
   );
@@ -1004,6 +1110,7 @@ function QuestionForm({
   onStatus,
   contextLabel,
   settingsOpen,
+  settingsTriggerRef,
   onSettingsOpenChange,
 }: Readonly<{
   questionId: string;
@@ -1014,6 +1121,7 @@ function QuestionForm({
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
   settingsOpen: boolean;
+  settingsTriggerRef: RefObject<HTMLButtonElement | null>;
   onSettingsOpenChange: (open: boolean) => void;
 }>) {
   const queryClient = useQueryClient();
@@ -1052,6 +1160,8 @@ function QuestionForm({
         contextLabel={contextLabel}
         settings={{
           hideBelow: "lg",
+          always: true,
+          triggerRef: settingsTriggerRef,
           open: settingsOpen,
           onOpenChange: onSettingsOpenChange,
         }}
