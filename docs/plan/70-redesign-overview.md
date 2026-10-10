@@ -54,17 +54,17 @@ Decided by Thuong on 2026-10-10 for the AI assistant the design team's v2 export
 | R3 | v0.9.0 | Student console and the take-test engine | `73-r3.md` |
 | R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10. By default carried inside v0.10.0 as T-R4.49 (2026-10-08; `73-r3.md`, "Migration numbers") | `73-r3.md` |
 | R4 | v0.10.0 | Teacher workspace | `74-r4.md` |
-| D4 | v0.11.0 (pending Thuong, `74d` Q29; v0.10.1 otherwise) | Deck update: the fourth export (2026-10-04) and v2 (2026-10-10). The take-test engine, the builder's shared content and the three previews, rebuilt to it; the AI assistant (D19 to D22); the four R4 screens v2 redraws | `74d-d4-deck-update.md` |
-| R5 | v0.12.0 (v0.11.0 if D4 stays a patch) | Admin console and email; the AI credits page on D4's operations | `75-r5.md` |
-| R6 | v0.13.0 (v0.12.0) | Question types and scoring | `76-r6.md` |
-| R7 | v0.14.0 (v0.13.0) | Collaboration: sharing, messages, email notifications | `77-r7.md` |
-| R8 | v0.15.0 (v0.14.0) | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
-| R9 | v0.16.0 (v0.15.0) | Insights: gradebook, reports, student grades | `79-r9.md` |
-| R10 | v0.17.0 (v0.16.0) | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
+| D4 | v0.11.0 (decided 2026-10-10, `74d` Q29) | Deck update: the fourth export (2026-10-04) and v2 (2026-10-10). The take-test engine, the builder's shared content and the three previews, rebuilt to it; the AI assistant (D19 to D22); the four R4 screens v2 redraws | `74d-d4-deck-update.md` |
+| R5 | v0.12.0 | Admin console and email; the AI credits page on D4's operations | `75-r5.md` |
+| R6 | v0.13.0 | Question types and scoring | `76-r6.md` |
+| R7 | v0.14.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
+| R8 | v0.15.0 | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
+| R9 | v0.16.0 | Insights: gradebook, reports, student grades | `79-r9.md` |
+| R10 | v0.17.0 | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
 | R11 | v1.0.0 | Landing, leads, and v1.0 hardening | `81-r11.md` |
 
-The release files `75-r5.md` to `80-r10.md` keep their first-planned version in their titles until
-Thuong answers Q29; D4's own release task (T-D4.18) corrects them with the answer.
+The release files `75-r5.md` to `80-r10.md` still carry their first-planned version in their
+titles; D4's release task (T-D4.18) corrects them to the versions above (Q29, decided 2026-10-10).
 
 **Ordering rules.**
 
@@ -89,8 +89,8 @@ Thuong answers Q29; D4's own release task (T-D4.18) corrects them with the answe
     as it stands. The v2 export of 2026-10-10, which carries the fourth export, is imported by
     D4's first task, after v0.10.0, and no R4 task is amended to it while R4 is in flight. The
     AI assistant ships inside D4 (D22); the Admin "AI credits" page, which needs R5's console,
-    is R5's T-R5.35 on operations D4 ships, unless Thuong pulls the console's shell forward
-    (`74d` Q28).
+    is R5's T-R5.35 on operations D4 ships (`74d` Q28, decided 2026-10-10); until then the
+    owner uses `cmd/maintenance ai-credits`.
 
 ## 3. How the work is run
 
@@ -405,9 +405,12 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
   starts after the deck draws DG-04; if DG-04 is still open at T-R11.14, v1.0 ships with
   Assistant hidden from role pickers and class staff on the post-1.0 list. Thuong confirms the
   fallback.
-- **The AI assistant's open questions (D19 to D22; `74d` Q28 to Q35).** The Admin page's home
-  before R5, D4's version, the default allowance (20,000 credits), the pool's single rule, a
-  variant as a new draft test, the per-teacher "Let AI read student answers" switch on by
-  default, disabled-with-reason buttons, and what students and parents read about cloud
-  processing (the import page's sentence in D4, the privacy notice in R11, a Test intro sentence
-  in Thuong's words). Each has its default in `74d`; the last is the one that waits.
+- **The AI assistant's questions (D19 to D22; `74d` Q28 to Q35).** Thuong answered Q28 to Q34
+  on 2026-10-10 as recommended: the Admin page waits for R5 and D4 ships its operations and a
+  maintenance command; D4 is v0.11.0; the default allowance is 20,000 credits; the pool's rule
+  has one value; a variant is a new draft test and the clean-up merges nothing; "Let AI read
+  student answers" is a per-teacher switch on by default; paused or exhausted buttons are visible
+  and disabled with the reason. **Still open (Q35):** the student-facing sentence on the Test
+  intro about cloud processing, which waits for Thuong's wording, and the provider account's
+  data-retention setting, which he confirms. The import page's sentence (D4) and the privacy
+  notice (R11) are decided.
