@@ -18,6 +18,7 @@ interface PublishDialogProps {
   problems: readonly PublishProblem[];
   violations: PublishViolation[] | null;
   warnings?: readonly { questionId: string; message: string }[];
+  groupCount?: number;
   location?: (violation: PublishViolation) => string | null;
   onOpenChange: (open: boolean) => void;
   onGoTo: (questionId: string) => void;
@@ -31,8 +32,9 @@ interface PublishDialogProps {
  * question until the server answers, and the server's violations after a
  * refused publish; each row that names a question or a section has "Fix it",
  * which closes the dialog and goes there. While any check fails, Publish
- * refuses with an alert instead of sending. Missing explanations are listed
- * and never block.
+ * refuses with an alert instead of sending. A test holding shared-context
+ * groups also lists that every group has a title, which the contract
+ * requires. Missing explanations are listed and never block.
  */
 export function PublishDialog({
   open,
@@ -41,6 +43,7 @@ export function PublishDialog({
   problems,
   violations,
   warnings = [],
+  groupCount = 0,
   location,
   onOpenChange,
   onGoTo,
@@ -80,13 +83,17 @@ export function PublishDialog({
           { icon: CircleCheck, tone: "success", text: t("builder.checkAnswers") },
           { icon: CircleCheck, tone: "success", text: t("builder.checkPoints") },
         ];
+    const titled: FormInfoRow[] =
+      groupCount > 0
+        ? [{ icon: CircleCheck, tone: "success", text: t("builder.checkGroups") }]
+        : [];
     const notes: FormInfoRow[] = warnings.map((warning) => ({
       icon: Info,
       tone: "info",
       text: warning.message,
       action: { label: fix, onAction: () => onGoTo(warning.questionId) },
     }));
-    return [...checks, ...passed, ...notes];
+    return [...checks, ...passed, ...titled, ...notes];
   }
 
   return (

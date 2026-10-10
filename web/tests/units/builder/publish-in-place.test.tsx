@@ -6,6 +6,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
 import { Toaster, toast } from "@/components/ui/sonner";
 import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
+import { PublishDialog } from "@/features/tests/components/PublishDialog";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -192,6 +193,9 @@ describe("publishing from the builder", () => {
     const dialog = await screen.findByRole("dialog", { name: "Phát hành đề thi?" });
     expect(within(dialog).getByText("Mọi câu hỏi đều có đáp án đúng")).toBeVisible();
     expect(within(dialog).getByText("Mọi câu hỏi đều có điểm")).toBeVisible();
+    expect(
+      within(dialog).queryByText("Mọi nhóm đều có tiêu đề hoặc hướng dẫn"),
+    ).toBeNull();
     await user.type(within(dialog).getByLabelText(/Ghi chú thay đổi/), "  Bản đầu  ");
     await user.click(within(dialog).getByRole("button", { name: "Phát hành" }));
 
@@ -204,7 +208,7 @@ describe("publishing from the builder", () => {
 
     await user.click(screen.getByRole("button", { name: "Giao bài" }));
     expect(router.state.location.pathname).toBe("/teacher/assignments/new");
-    expect(router.state.location.search).toBe(`?testId=${TEST_ID}`);
+    expect(router.state.location.search).toBe(`?test=${TEST_ID}`);
   });
 
   it("saves an edit made after publishing without a STALE_WRITE", async () => {
@@ -268,5 +272,28 @@ describe("publishing from the builder", () => {
     expect(await within(dialog).findByText(/Chưa có đáp án đúng\./)).toBeVisible();
     expect(within(dialog).getByRole("button", { name: "Sửa" })).toBeVisible();
     expect(publishes).toHaveLength(0);
+  });
+});
+
+describe("Publish test? with shared-context groups", () => {
+  it("lists that every group has a title once the test holds a group", () => {
+    render(
+      <PublishDialog
+        open
+        pending={false}
+        error={null}
+        problems={[]}
+        violations={null}
+        groupCount={2}
+        onOpenChange={vi.fn()}
+        onGoTo={vi.fn()}
+        onPublish={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Phát hành đề thi?" });
+    expect(within(dialog).getByText("Mọi câu hỏi đều có đáp án đúng")).toBeVisible();
+    expect(
+      within(dialog).getByText("Mọi nhóm đều có tiêu đề hoặc hướng dẫn"),
+    ).toBeVisible();
   });
 });

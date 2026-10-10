@@ -451,7 +451,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       notify.success(t("builder.publishDone"), {
         action: {
           label: t("builder.assign"),
-          onClick: () => void navigate(`/teacher/assignments/new?testId=${test.id}`),
+          onClick: () => void navigate(`/teacher/assignments/new?test=${test.id}`),
         },
       });
     } catch (cause) {
@@ -977,6 +977,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             : [];
         })}
         violations={violations}
+        groupCount={groupIds.length}
         warnings={loaded.flatMap((result) =>
           result.data && !result.data.explanation?.trim()
             ? [
