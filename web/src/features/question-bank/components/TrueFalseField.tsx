@@ -30,7 +30,10 @@ export function TrueFalseField({
   ];
   return (
     <div className="flex flex-col gap-2.5">
-      <p id={heading} className="text-[12.5px] font-medium">
+      <p
+        id={heading}
+        className="text-[12.5px] font-medium in-data-[field-size=page]:text-[13px] in-data-[field-size=page]:leading-[19.5px]"
+      >
         {t("questionEditor.trueFalseLabel")}{" "}
         <span className="text-muted-fg font-normal">
           · {t("questionEditor.trueFalseHint")}

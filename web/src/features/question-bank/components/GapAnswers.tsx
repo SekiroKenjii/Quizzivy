@@ -54,7 +54,7 @@ export function GapAnswers({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[12.5px] font-medium">
+      <p className="text-[12.5px] font-medium in-data-[field-size=page]:text-[13px] in-data-[field-size=page]:leading-[19.5px]">
         {t("questionEditor.gapAnswers.label")}{" "}
         <span className="text-muted-fg font-normal">
           · {t("questionEditor.gapAnswers.hint")}

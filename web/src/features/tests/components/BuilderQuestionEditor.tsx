@@ -1,8 +1,5 @@
-import { useState } from "react";
-import type { Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, Copy, FolderInput, Trash2 } from "lucide-react";
-import { insertGap } from "@/components/shared/content/editor/gapCommands";
 import { RowMenu } from "@/components/shared/RowMenu";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,11 +14,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import type { MediaAsset } from "@/features/media/api";
-import { nextBlankOrdinal } from "@/features/question-bank/blankContent";
-import { AnswerArea } from "@/features/question-bank/components/AnswerArea";
-import { BlankPromptField } from "@/features/question-bank/components/BlankPromptField";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
-import { QuestionProseField } from "@/features/question-bank/components/QuestionProseField";
+import {
+  ExplanationField,
+  QuestionPromptAnswers,
+} from "@/features/question-bank/components/QuestionPromptAnswers";
 import { QUESTION_TYPE_ICONS } from "@/features/question-bank/components/questionTypeIcons";
 import { TagsField } from "@/features/question-bank/components/TagsField";
 import type {
@@ -69,8 +66,6 @@ export function BuilderQuestionEditor({
   onRefresh?: (() => void) | undefined;
 }>) {
   const { t } = useTranslation();
-  const [promptEditor, setPromptEditor] = useState<Editor | null>(null);
-  const placeholder = t("builder.editor.promptPlaceholder");
   return (
     <div className="flex min-w-0 flex-col">
       <div className="flex min-w-0 items-center gap-2.5 border-b px-4 py-3">
@@ -117,37 +112,10 @@ export function BuilderQuestionEditor({
       ) : null}
 
       <div className="flex min-w-0 flex-col gap-4.5 px-4 py-4.5">
-        {value.type === "fill_blank" ? (
-          <BlankPromptField
-            value={value}
-            onChange={onChange}
-            onEditor={setPromptEditor}
-            placeholder={placeholder}
-          />
-        ) : (
-          <QuestionProseField
-            id="question-prompt"
-            text={value.prompt}
-            content={value.promptContent}
-            label={t("questionEditor.prompt")}
-            prompt
-            clearOnFocus={clearPromptOnFocus}
-            placeholder={placeholder}
-            onChange={(prompt, promptContent) =>
-              onChange({ ...value, prompt, promptContent })
-            }
-          />
-        )}
-
-        <AnswerArea
+        <QuestionPromptAnswers
           value={value}
+          clearPromptOnFocus={clearPromptOnFocus}
           onChange={onChange}
-          onInsertGap={
-            promptEditor
-              ? () =>
-                  insertGap(promptEditor, () => String(nextBlankOrdinal(value.blanks)))
-              : undefined
-          }
         />
 
         <QuestionMediaField
@@ -163,17 +131,7 @@ export function BuilderQuestionEditor({
             {t("builder.editor.moreOptions")}
           </summary>
           <div className="mt-3 flex flex-col gap-3.5">
-            <QuestionProseField
-              id="question-explanation"
-              text={value.explanation ?? ""}
-              content={value.explanationContent}
-              label={t("questionEditor.explanation")}
-              hint={t("questionEditor.explanationHint")}
-              placeholder={t("builder.editor.explanationPlaceholder")}
-              onChange={(explanation, explanationContent) =>
-                onChange({ ...value, explanation, explanationContent })
-              }
-            />
+            <ExplanationField value={value} onChange={onChange} />
             <TagsField
               tags={value.tags}
               onChange={(tags) => onChange({ ...value, tags })}
