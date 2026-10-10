@@ -1,4 +1,6 @@
 import type { TFunction } from "i18next";
+import { audioLength } from "@/lib/i18n/datetime";
+import type { MediaKind } from "./api";
 
 /** Binary units, matching what an operating system shows for the same file. */
 export function formatBytes(bytes: number): string {
@@ -38,4 +40,25 @@ export function formatOverLimit(bytes: number, limit: number, locale: string): s
 /** playLimitLabel names a default play limit as the card and the upload dialog say it; 0 is unlimited. */
 export function playLimitLabel(plays: number, t: TFunction): string {
   return plays === 0 ? t("media.playsUnlimited") : t("media.plays", { count: plays });
+}
+
+/**
+ * assetMeta is a file's line as the picker and the question's media card show
+ * it: "{m:ss} · {size}" for audio, "{w} × {h} · {size}" for an image whose
+ * size is known, and the size alone otherwise.
+ */
+export function assetMeta(
+  asset: Readonly<{
+    kind: MediaKind;
+    bytes: number;
+    durationMs?: number | null | undefined;
+    width?: number | null | undefined;
+    height?: number | null | undefined;
+  }>,
+  t: TFunction,
+): string {
+  const size = formatBytes(asset.bytes);
+  if (asset.kind === "audio") return `${audioLength(asset.durationMs)} · ${size}`;
+  if (asset.width == null || asset.height == null) return size;
+  return `${t("media.dimensions", { width: asset.width, height: asset.height })} · ${size}`;
 }
