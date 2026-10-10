@@ -16,6 +16,15 @@ test("teacher settings keep an unsaved profile between sections and fit at every
   await stubApi(page, {
     ...sessionAs(adminUser),
     "GET /auth/sessions": { body: { items: [thisDevice] } },
+    "GET /me/notification-preferences": {
+      body: [
+        "attempt.submitted",
+        "attempt.flagged",
+        "assignment.closing",
+        "assignment.due_soon",
+        "result.ready",
+      ].map((event) => ({ event, inApp: true, email: false })),
+    },
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/teacher/settings");
@@ -36,6 +45,14 @@ test("teacher settings keep an unsaved profile between sections and fit at every
   await expect(
     page.getByRole("heading", { name: "Thiết bị đã đăng nhập" }),
   ).toBeVisible();
+  await nav.getByRole("link", { name: "Thông báo" }).click();
+  await expect(page).toHaveURL(/settings\/notifications$/);
+  await expect(
+    page.getByRole("switch", { name: "Học viên nộp bài trong ứng dụng" }),
+  ).toBeVisible();
+  await nav.getByRole("link", { name: "Mặc định khi giao bài" }).click();
+  await expect(page).toHaveURL(/settings\/defaults$/);
+  await page.getByRole("button", { name: "60 phút" }).click();
   await nav.getByRole("link", { name: "Giao diện" }).click();
   await expect(page).toHaveURL(/settings\/appearance$/);
   await expect(page.getByRole("switch", { name: "Bảng thu gọn" })).toBeVisible();
@@ -54,5 +71,10 @@ test("teacher settings keep an unsaved profile between sections and fit at every
   }
   await expect(page.getByRole("textbox", { name: "Họ và tên" })).toHaveValue(
     "Tên chưa lưu",
+  );
+  await nav.getByRole("link", { name: "Mặc định khi giao bài" }).click();
+  await expect(page.getByRole("button", { name: "60 phút" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
   );
 });

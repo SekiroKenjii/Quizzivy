@@ -110,6 +110,8 @@ test("a teacher's settings open on the Profile, among the deck's sections", asyn
   await expect(nav.getByRole("link")).toHaveText([
     "Hồ sơ",
     "Đăng nhập & bảo mật",
+    "Thông báo",
+    "Mặc định khi giao bài",
     "Giao diện",
     "Tài liệu API",
   ]);

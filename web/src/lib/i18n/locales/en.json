@@ -566,7 +566,9 @@
       "profile": "Profile",
       "security": "Sign-in & security",
       "appearance": "Appearance",
-      "api": "API reference"
+      "api": "API reference",
+      "notifications": "Notifications",
+      "defaults": "Assignment defaults"
     },
     "preferenceSaving": "Saving preference…",
     "preferenceSaved": "Preference saved.",
@@ -644,6 +646,39 @@
       },
       "compact": "Compact tables",
       "compactHint": "Show more rows with less spacing"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "hint": "Choose where each update reaches you.",
+      "update": "Update",
+      "inApp": "In app",
+      "inAppFor": "{{update}} in app",
+      "loadFailed": "Your notification settings could not be loaded.",
+      "events": {
+        "submitted": "A student submits",
+        "submittedHint": "Grouped every 15 minutes",
+        "flagged": "An attempt is flagged",
+        "flaggedHint": "Focus lost more than allowed",
+        "closing": "An assignment is about to close",
+        "closingHint": "1 hour before, with who has not submitted"
+      }
+    },
+    "defaults": {
+      "title": "Assignment defaults",
+      "hint": "Pre-filled every time you assign a test. You can still change them per assignment.",
+      "duration": "Time limit",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "rules": {
+        "shuffle": "Shuffle questions",
+        "shuffleHint": "Each student gets a different order",
+        "score": "Show score after submitting",
+        "scoreHint": "Open answers stay pending until graded",
+        "copy": "Block copy and paste",
+        "copyHint": "Stops copying questions or pasting answers",
+        "fullscreen": "Require fullscreen",
+        "fullscreenHint": "Asks the student to return if they leave"
+      }
     }
   },
   "media": {

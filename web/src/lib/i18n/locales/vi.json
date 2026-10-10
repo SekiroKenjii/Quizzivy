@@ -566,7 +566,9 @@
       "profile": "Hồ sơ",
       "security": "Đăng nhập & bảo mật",
       "appearance": "Giao diện",
-      "api": "Tài liệu API"
+      "api": "Tài liệu API",
+      "notifications": "Thông báo",
+      "defaults": "Mặc định khi giao bài"
     },
     "preferenceSaving": "Đang lưu tùy chọn…",
     "preferenceSaved": "Đã lưu tùy chọn.",
@@ -644,6 +646,39 @@
       },
       "compact": "Bảng thu gọn",
       "compactHint": "Hiện nhiều dòng hơn với khoảng cách hẹp hơn"
+    },
+    "notifications": {
+      "title": "Thông báo",
+      "hint": "Chọn nơi mỗi cập nhật đến với bạn.",
+      "update": "Cập nhật",
+      "inApp": "Trong ứng dụng",
+      "inAppFor": "{{update}} trong ứng dụng",
+      "loadFailed": "Không tải được cài đặt thông báo.",
+      "events": {
+        "submitted": "Học viên nộp bài",
+        "submittedHint": "Gộp lại mỗi 15 phút",
+        "flagged": "Một lượt làm bài bị gắn cờ",
+        "flaggedHint": "Rời khỏi bài quá số lần cho phép",
+        "closing": "Bài giao sắp đóng",
+        "closingHint": "Trước 1 giờ, kèm những ai chưa nộp"
+      }
+    },
+    "defaults": {
+      "title": "Mặc định khi giao bài",
+      "hint": "Điền sẵn mỗi khi bạn giao đề. Bạn vẫn đổi được cho từng bài giao.",
+      "duration": "Thời gian làm bài",
+      "minutes_one": "{{count}} phút",
+      "minutes_other": "{{count}} phút",
+      "rules": {
+        "shuffle": "Xáo trộn câu hỏi",
+        "shuffleHint": "Mỗi học viên nhận một thứ tự khác",
+        "score": "Hiện điểm sau khi nộp",
+        "scoreHint": "Câu tự luận chờ đến khi được chấm",
+        "copy": "Chặn sao chép và dán",
+        "copyHint": "Không cho chép câu hỏi hay dán câu trả lời",
+        "fullscreen": "Bắt buộc toàn màn hình",
+        "fullscreenHint": "Nhắc học viên quay lại nếu rời đi"
+      }
     }
   },
   "media": {
