@@ -2,7 +2,7 @@
 // that derives its status, as SQL, so every list, filter and count of
 // assignments by status agrees whichever module asks, and the one that finds
 // the moment it stops taking attempts, as SQL and in Go, with the window a
-// student's override changes.
+// student's override changes and the join that reads that override.
 package schedule
 
 // DerivedStatus is the status of an assignment as a SQL expression over a row
