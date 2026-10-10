@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.73 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.74 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.73**
+
+R4, the starter questions (T-R4.31b, T-R4.34):
+
+- §7.1 The builder's and the group composer's starter prompt is created as rich text, so a new
+  question in either opens in Rich text; while its text is still the starter it opens empty
+  under the placeholder, and the starter stays stored until the first edit.
 
 **Changes since v0.72**
 
@@ -222,7 +230,7 @@ R4, the content editor's Rich text and Markdown modes (T-R4.64, DG-110):
   an opt-in behind `VITE_RICH_QUESTION_EDITOR`, which is removed. A field opens
   in the form it is stored in, and a field with no text opens as rich text;
   the builder's and the group composer's starter prompt was stored as Markdown
-  until T-R4.31b and T-R4.34 created it as rich text (see v0.71).
+  until T-R4.31b and T-R4.34 created it as rich text (see v0.74).
   "Switch to Markdown" and "Apply conversion" are the only ways the stored form
   changes, each behind its confirmation; Markdown is refused while a
   fill-in-the-blank prompt holds a gap. Markdown gains GitHub's tables and
