@@ -31,18 +31,21 @@ function referencingTests(cause: unknown): ReferencingTest[] | null {
 
 /**
  * QuestionEditorMenu is the "…" of a saved question in the Question editor:
- * Add to test, Duplicate, and Delete question. Duplicate opens the new copy
- * through `onOpen`, so an unsaved edit still meets the page's guard. Delete
+ * Add to test, Duplicate, and Delete question. Duplicate first passes
+ * through `confirmLeave`, which runs it at once or only once the teacher has
+ * agreed to leave an unsaved edit, then opens the copy through `onOpen`. Delete
  * asks first, saying no test uses the question; a question still in a draft
  * test cannot be deleted, so Delete instead names those tests (as does a
  * refusal from the server). A deleted question leaves through `onDeleted`.
  */
 export function QuestionEditorMenu({
   question,
+  confirmLeave,
   onOpen,
   onDeleted,
 }: Readonly<{
   question: AdminQuestion;
+  confirmLeave: (proceed: () => void) => void;
   onOpen: (id: string) => void;
   onDeleted: () => void;
 }>) {
@@ -109,7 +112,7 @@ export function QuestionEditorMenu({
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={duplicate.isPending}
-            onSelect={() => duplicate.mutate()}
+            onSelect={() => confirmLeave(() => duplicate.mutate())}
           >
             <Copy aria-hidden="true" />
             {t("bank.duplicate")}

@@ -138,6 +138,7 @@ function Editor({
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const leaving = useRef(false);
+  const [leaveThen, setLeaveThen] = useState<(() => void) | null>(null);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -184,6 +185,11 @@ function Editor({
     save.mutate(parsed.data);
   }
 
+  function confirmLeave(proceed: () => void) {
+    if (dirty) setLeaveThen(() => proceed);
+    else proceed();
+  }
+
   function leaveFor(to: string) {
     leaving.current = true;
     void navigate(to);
@@ -212,7 +218,8 @@ function Editor({
             {question === null ? null : (
               <QuestionEditorMenu
                 question={question}
-                onOpen={(copy) => void navigate(`${BANK}/${copy}`)}
+                confirmLeave={confirmLeave}
+                onOpen={(copy) => leaveFor(`${BANK}/${copy}`)}
                 onDeleted={() => leaveFor(BANK)}
               />
             )}
@@ -265,9 +272,11 @@ function Editor({
       </div>
 
       <ConfirmDialog
-        open={blocker.state === "blocked"}
+        open={blocker.state === "blocked" || leaveThen !== null}
         onOpenChange={(open) => {
-          if (!open && blocker.state === "blocked") blocker.reset();
+          if (open) return;
+          setLeaveThen(null);
+          if (blocker.state === "blocked") blocker.reset();
         }}
         title={t("questionEditor.leaveTitle")}
         description={t("questionEditor.leaveBody")}
@@ -275,7 +284,10 @@ function Editor({
         cancelLabel={t("questionEditor.stay")}
         destructive
         onConfirm={() => {
-          if (blocker.state === "blocked") blocker.proceed();
+          if (leaveThen !== null) {
+            setLeaveThen(null);
+            leaveThen();
+          } else if (blocker.state === "blocked") blocker.proceed();
         }}
       />
     </DeckScale>

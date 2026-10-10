@@ -246,6 +246,31 @@ describe("the Question editor's … menu", () => {
     );
     expect(duplicates).toBe(1);
   });
+
+  it("asks before duplicating over an unsaved change, and sends nothing on Stay", async () => {
+    const { user, router } = renderPage();
+    await loaded();
+    await user.type(screen.getByRole("spinbutton", { name: "Điểm" }), "5");
+
+    await user.click(screen.getByRole("button", { name: "Thao tác khác" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Nhân bản" }));
+    let dialog = await screen.findByRole("dialog", { name: "Rời đi mà không lưu?" });
+    expect(duplicates).toBe(0);
+    await user.click(within(dialog).getByRole("button", { name: "Ở lại" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(duplicates).toBe(0);
+    expect(router.state.location.pathname).toBe(`/teacher/question-bank/${ID}`);
+
+    await user.click(screen.getByRole("button", { name: "Thao tác khác" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Nhân bản" }));
+    dialog = await screen.findByRole("dialog", { name: "Rời đi mà không lưu?" });
+    await user.click(within(dialog).getByRole("button", { name: "Rời đi" }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/teacher/question-bank/${COPY}`),
+    );
+    expect(duplicates).toBe(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 });
 
 describe("the Question editor's unsaved-change guard", () => {
