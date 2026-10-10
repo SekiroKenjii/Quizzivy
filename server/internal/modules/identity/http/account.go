@@ -34,7 +34,7 @@ func (h Identity) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserRe
 		return nil, err
 	}
 
-	return openapi.GetCurrentUser200JSONResponse(toCurrentUser(user, principal.Access.Permissions)), nil
+	return openapi.GetCurrentUser200JSONResponse(h.currentUser(ctx, user, principal.Access.Permissions)), nil
 }
 
 // UpdateCurrentUser applies the caller's supplied profile fields.
@@ -56,7 +56,7 @@ func (h Identity) UpdateCurrentUser(ctx context.Context, request openapi.UpdateC
 	meta := httpx.RequestMetaFromContext(ctx)
 	user, err := h.app.Commands.UpdateProfile.Handle(ctx, command.UpdateProfile{UserID: principal.UserID, Patch: patch, IP: meta.IP, UserAgent: meta.UserAgent})
 	if err == nil {
-		return openapi.UpdateCurrentUser200JSONResponse(toCurrentUser(user, principal.Access.Permissions)), nil
+		return openapi.UpdateCurrentUser200JSONResponse(h.currentUser(ctx, user, principal.Access.Permissions)), nil
 	}
 	if errors.Is(err, domain.ErrAccountDisabled) || errors.Is(err, domain.ErrUserNotFound) {
 		return openapi.UpdateCurrentUser401JSONResponse{UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx))}, nil

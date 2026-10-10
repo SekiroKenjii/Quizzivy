@@ -6,6 +6,16 @@ import (
 
 var ErrUserNotFound = errors.New("user not found")
 
+// The reasons a profile photo is refused, in the order they are checked. None
+// of them stored anything.
+var (
+	ErrAvatarTooLarge     = errors.New("avatar is over the size limit")
+	ErrAvatarUnsupported  = errors.New("avatar is not a png or a jpeg")
+	ErrAvatarUnreadable   = errors.New("avatar cannot be read as an image")
+	ErrAvatarDimensions   = errors.New("avatar sides are out of range")
+	ErrAvatarsUnavailable = errors.New("profile photos are not configured")
+)
+
 var (
 	ErrDisplayNameInvalid  = errors.New("display name is invalid")
 	ErrPhoneInvalid        = errors.New("phone is invalid")
@@ -50,6 +60,18 @@ var ErrRefreshRejected = errors.New("refresh rejected")
 var ErrRefreshReused = errors.New("refresh token reused")
 
 var ErrRefreshTokenNotFound = errors.New("refresh token not found")
+
+// ErrSessionNotFound means the caller has no live session with that id: it is
+// unknown, another user's, revoked or expired, and the four read alike.
+var ErrSessionNotFound = errors.New("session not found")
+
+// ErrSessionIsCurrent means the session to end is the one making the request.
+var ErrSessionIsCurrent = errors.New("session is the current one")
+
+// ErrNoCurrentSession means the request carried no refresh cookie that names
+// a live session of the caller, so the caller's own session cannot be told
+// from the others and nothing is revoked.
+var ErrNoCurrentSession = errors.New("no current session")
 
 var (
 	ErrLastLoginMethod           = errors.New("google is the account's only login method")
