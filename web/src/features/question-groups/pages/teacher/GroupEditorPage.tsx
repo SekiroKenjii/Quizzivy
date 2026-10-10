@@ -58,6 +58,7 @@ function Editor({
   const [assets, setAssets] = useState(stored.assets);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
+  const previewTrigger = useRef<HTMLButtonElement>(null);
   const [copying, setCopying] = useState(false);
   const leaving = useRef(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
@@ -135,7 +136,11 @@ function Editor({
         back={{ to: "/teacher/question-bank/groups", label: t("groups.bankTitle") }}
         actions={
           <>
-            <Button variant="outline" onClick={() => setPreview(true)}>
+            <Button
+              ref={previewTrigger}
+              variant="outline"
+              onClick={() => setPreview(true)}
+            >
               {t("builder.previewAsStudent")}
             </Button>
             <Button
@@ -170,14 +175,14 @@ function Editor({
               : "")}
         </Callout>
       ) : null}
-      {preview ? (
-        <GroupPreviewDialog
-          bundle={editor.bundle}
-          assets={assets}
-          onClose={() => setPreview(false)}
-          onRefresh={refresh}
-        />
-      ) : null}
+      <GroupPreviewDialog
+        open={preview}
+        bundle={editor.bundle}
+        assets={assets}
+        returnFocus={previewTrigger}
+        onClose={() => setPreview(false)}
+        onRefresh={refresh}
+      />
       <fieldset disabled={stored.archivedAt !== null || copying} className="min-w-0">
         {stored.archivedAt === null ? (
           <GroupComposer
