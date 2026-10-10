@@ -1,5 +1,5 @@
 import { act } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -196,11 +196,33 @@ describe("Add from question bank", () => {
 const PREVIEW = BANK.slice(0, 3);
 
 describe("Student preview", () => {
-  it("steps through the questions with Previous and Next, from the one being edited", async () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function layOut() {
+    const original = HTMLElement.prototype.getBoundingClientRect;
     const scrolled: Element[] = [];
     Element.prototype.scrollIntoView = function (this: Element) {
       scrolled.push(this);
     };
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        const scroller = this.closest<HTMLElement>(".overflow-y-auto");
+        if (this === scroller) return DOMRect.fromRect({ y: 50, height: 500 });
+        if (this.tagName === "LI" && this.parentElement?.tagName === "OL" && scroller) {
+          const index = [...this.parentElement.children].indexOf(this);
+          return DOMRect.fromRect({
+            y: 50 + 400 * index - scroller.scrollTop,
+            height: 380,
+          });
+        }
+        return original.call(this);
+      },
+    );
+    return scrolled;
+  }
+
+  it("steps through the questions with Previous and Next, from the one being edited", async () => {
+    const scrolled = layOut();
     render(
       <QueryClientProvider client={new QueryClient()}>
         <DraftPreviewDialog
@@ -213,22 +235,26 @@ describe("Student preview", () => {
     );
     const user = userEvent.setup();
     const dialog = await screen.findByRole("dialog", { name: "Xem như học viên" });
+    const body = dialog.querySelector<HTMLElement>(".overflow-y-auto")!;
     expect(
       within(dialog).getByText(
         "Những gì học viên thấy. Câu trả lời ở đây không được lưu.",
       ),
     ).toBeVisible();
     expect(within(dialog).getByRole("status")).toHaveTextContent("Câu 2 / 3");
-    await waitFor(() => expect(scrolled.at(-1)).toHaveTextContent("Câu số 2"));
+    await waitFor(() => expect(body.scrollTop).toBe(400));
 
     await user.click(within(dialog).getByRole("button", { name: "Câu tiếp" }));
     expect(within(dialog).getByRole("status")).toHaveTextContent("Câu 3 / 3");
-    expect(scrolled.at(-1)).toHaveTextContent("Câu số 3");
+    expect(body.scrollTop).toBe(800);
     expect(within(dialog).getByRole("button", { name: "Câu tiếp" })).toBeDisabled();
 
     await user.click(within(dialog).getByRole("button", { name: "Câu trước" }));
     await user.click(within(dialog).getByRole("button", { name: "Câu trước" }));
     expect(within(dialog).getByRole("status")).toHaveTextContent("Câu 1 / 3");
+    expect(body.scrollTop).toBe(0);
     expect(within(dialog).getByRole("button", { name: "Câu trước" })).toBeDisabled();
+    expect(scrolled).toEqual([]);
+    expect(dialog.scrollTop).toBe(0);
   });
 });

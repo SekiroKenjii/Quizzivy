@@ -22,8 +22,9 @@ type StudentQuestion = components["schemas"]["StudentQuestion"];
  * DraftPreviewDialog is the builder's "Student preview" for a draft: the
  * outline's questions in the shape a student receives, with the key
  * stripped, drawn by the engine's readers through `StudentPreview`. Previous
- * and Next step through the questions, scrolling each into view with its
- * passage above it, and it opens on `startAt`, the question being edited.
+ * and Next step through the questions, scrolling the body alone so that
+ * each sits at its top with its passage above it, and it opens on `startAt`,
+ * the question being edited.
  */
 export function DraftPreviewDialog({
   open,
@@ -116,8 +117,13 @@ function Pages({
   const [index, setIndex] = useState(start);
   const total = questions.length;
   useLayoutEffect(() => {
-    const item = body.current?.querySelector("ol")?.children[index];
-    if (item instanceof HTMLElement) item.scrollIntoView?.({ block: "start" });
+    const scroller = body.current;
+    const item = scroller?.querySelector("ol")?.children[index];
+    if (!scroller || !(item instanceof HTMLElement)) return;
+    const offset =
+      item.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    const padding = Number.parseFloat(getComputedStyle(scroller).paddingTop) || 0;
+    scroller.scrollTop += offset - padding;
   }, [index]);
   return (
     <>
@@ -128,9 +134,9 @@ function Pages({
           <StudentPreviewPane questions={questions} groups={groups} />
         )}
       </DialogShellBody>
-      <DialogShellFooter className="items-center justify-between">
+      <DialogShellFooter className="flex-nowrap items-center justify-between">
         {total > 0 ? (
-          <span className="flex items-center gap-2">
+          <span className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -138,9 +144,14 @@ function Pages({
               onClick={() => setIndex(index - 1)}
             >
               <ChevronLeft aria-hidden="true" />
-              {t("builder.previewPrevious")}
+              <span className="max-[519px]:sr-only">
+                {t("builder.previewPrevious")}
+              </span>
             </Button>
-            <span role="status" className="text-muted-fg text-sm tabular-nums">
+            <span
+              role="status"
+              className="text-muted-fg text-sm whitespace-nowrap tabular-nums"
+            >
               {t("builder.previewPosition", { n: index + 1, total })}
             </span>
             <Button
@@ -149,7 +160,7 @@ function Pages({
               disabled={index >= total - 1}
               onClick={() => setIndex(index + 1)}
             >
-              {t("builder.previewNext")}
+              <span className="max-[519px]:sr-only">{t("builder.previewNext")}</span>
               <ChevronRight aria-hidden="true" />
             </Button>
           </span>
