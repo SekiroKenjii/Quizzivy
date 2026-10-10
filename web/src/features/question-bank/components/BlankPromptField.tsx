@@ -32,10 +32,12 @@ export function BlankPromptField({
   value,
   onChange,
   onEditor,
+  placeholder,
 }: Readonly<{
   value: QuestionValues;
   onChange: (value: QuestionValues) => void;
   onEditor?: ((editor: Editor | null) => void) | undefined;
+  placeholder?: string | undefined;
 }>) {
   const { t } = useTranslation();
   const header = useRef<HTMLDivElement>(null);
@@ -96,6 +98,7 @@ export function BlankPromptField({
               }}
               onChange={onChange}
               onEditor={onEditor}
+              placeholder={placeholder}
             />
           </Suspense>
         </>
@@ -108,6 +111,7 @@ export function BlankPromptField({
           onChange={(prompt) => onChange({ ...value, prompt })}
           minHeight={96}
           fontSize={15}
+          placeholder={placeholder}
           previewPlugins={PREVIEW_PLUGINS}
           focusOnMount={moved}
           replacement={

@@ -91,8 +91,13 @@ export function previewTest(id: string, version?: number, signal?: AbortSignal) 
   );
 }
 
-export function publishTest(id: string) {
-  return api("post", "/teacher/tests/{id}/publish", { path: { id } });
+/** publishTest snapshots the draft as a new version, with the teacher's optional change note. */
+export function publishTest(id: string, changeNote = "") {
+  const note = changeNote.trim();
+  return api("post", "/teacher/tests/{id}/publish", {
+    path: { id },
+    body: { changeNote: note === "" ? null : note },
+  });
 }
 
 export function toOutlineDraft(test: Test): Omit<OutlineDraft, "expectedUpdatedAt"> {
