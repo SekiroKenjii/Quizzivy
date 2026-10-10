@@ -257,6 +257,56 @@ describe("a card on the tests list", () => {
   });
 });
 
+describe("the tests list's selection", () => {
+  it("offers Select all on this page once a card is ticked, and selects every card", async () => {
+    const user = renderList();
+    await screen.findByRole("link", { name: "Unit 5" });
+    expect(
+      screen.queryByRole("button", { name: "Chọn tất cả trên trang này" }),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("checkbox", { name: "Chọn Unit 5" }));
+    await user.click(
+      screen.getByRole("button", { name: "Chọn tất cả trên trang này" }),
+    );
+
+    for (const title of ["Listening practice 03", "Unit 5", "Old mock"])
+      expect(screen.getByRole("checkbox", { name: `Chọn ${title}` })).toBeChecked();
+    expect(screen.getByText("Đã chọn 3")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Chọn tất cả trên trang này" }),
+    ).toBeNull();
+  });
+
+  it("keeps a selection across tabs and says how many selected tests are not shown", async () => {
+    const user = renderList();
+    await screen.findByRole("link", { name: "Unit 5" });
+    await user.click(screen.getByRole("checkbox", { name: "Chọn Unit 5" }));
+    await user.click(
+      screen.getByRole("checkbox", { name: "Chọn Listening practice 03" }),
+    );
+    expect(screen.getByText("Đã chọn 2")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Bản nháp/ }));
+    await waitFor(() =>
+      expect(screen.queryByRole("link", { name: "Unit 5" })).toBeNull(),
+    );
+
+    expect(screen.getByText("Đã chọn 2 · 1 không hiển thị")).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Chọn Listening practice 03" }),
+    ).toBeChecked();
+    expect(
+      screen.queryByRole("button", { name: "Chọn tất cả trên trang này" }),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /^Tất cả/ }));
+    await screen.findByRole("link", { name: "Unit 5" });
+    expect(screen.getByRole("checkbox", { name: "Chọn Unit 5" })).toBeChecked();
+    expect(screen.getByText("Đã chọn 2")).toBeInTheDocument();
+  });
+});
+
 describe("the tests list's tabs and search", () => {
   it("has All, Published and Drafts with their counts, and no Archived tab", async () => {
     renderList();

@@ -18,5 +18,10 @@ type FinishHandler struct {
 }
 
 func (r FinishHandler) Handle(ctx context.Context, cmd Finish) (domain.Attempt, error) {
-	return r.Repo.Finish(ctx, cmd.Scope, cmd.AttemptID)
+	graded, err := r.Repo.Finish(ctx, cmd.Scope, cmd.AttemptID)
+	if err != nil {
+		return graded, err
+	}
+	r.Announcer.Announce(ctx, domain.Milestones{AttemptID: graded.ID, Graded: true})
+	return graded, nil
 }

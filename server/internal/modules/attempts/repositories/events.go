@@ -12,8 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Flush appends a batch of client events.
-func (s *Postgres) Flush(ctx context.Context, in domain.FlushInput, now time.Time) error {
+// Flush appends a batch of client events. The milestones say that the
+// integrity policy flagged the paper because of them.
+func (s *Postgres) Flush(ctx context.Context, in domain.FlushInput, now time.Time) (domain.Milestones, error) {
 	var (
 		studentID  string
 		beaconHash []byte
@@ -25,16 +26,20 @@ func (s *Postgres) Flush(ctx context.Context, in domain.FlushInput, now time.Tim
 		  FROM app.attempts WHERE id = $1::uuid`, in.AttemptID).
 		Scan(&studentID, &beaconHash, &deadlineAt, &versionID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.ErrForbidden
+		return domain.Milestones{}, domain.ErrForbidden
 	}
 	if err != nil {
-		return fmt.Errorf("attempts: read attempt for flush: %w", err)
+		return domain.Milestones{}, fmt.Errorf("attempts: read attempt for flush: %w", err)
 	}
 
 	if err := authorizeFlush(in, studentID, beaconHash, deadlineAt, now); err != nil {
-		return err
+		return domain.Milestones{}, err
 	}
-	return insertEvents(ctx, s.Conn(), in.AttemptID, in.SessionID, in.Events, versionID)
+	flagged, err := insertEvents(ctx, s.Conn(), in.AttemptID, in.SessionID, in.Events, versionID)
+	if err != nil {
+		return domain.Milestones{}, err
+	}
+	return domain.Milestones{AttemptID: in.AttemptID, Flagged: flagged}, nil
 }
 
 func authorizeFlush(in domain.FlushInput, studentID string, beaconHash []byte, deadlineAt, now time.Time) error {

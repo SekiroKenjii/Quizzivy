@@ -37,6 +37,7 @@ async function setup(page: Page) {
           questionCount: 3,
           audioCount: 2,
           manualCount: 0,
+          skills: [],
           assignmentCount: 0,
           changeNote: null,
           publishedAt: "2026-09-24T00:00:00Z",

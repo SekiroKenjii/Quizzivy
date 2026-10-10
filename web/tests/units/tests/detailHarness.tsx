@@ -60,6 +60,7 @@ export function versionFixture(
     version: n,
     totalPoints: n + 1,
     questionCount: n,
+    skills: [],
     audioCount: 0,
     manualCount: 0,
     assignmentCount: 0,

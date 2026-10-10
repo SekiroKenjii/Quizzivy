@@ -18,7 +18,7 @@ type ResultHandler struct {
 }
 
 func (s ResultHandler) Handle(ctx context.Context, q Result) (domain.Result, error) {
-	if err := s.Store.ExpireIfDue(ctx, q.AttemptID, s.Now()); err != nil {
+	if err := s.Expire(ctx, q.AttemptID); err != nil {
 		return domain.Result{}, err
 	}
 	a, err := s.Store.ByID(ctx, q.AttemptID, q.StudentID)

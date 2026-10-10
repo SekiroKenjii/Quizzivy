@@ -50,7 +50,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	previousKeyID, rotating := keys.PreviousID()
 	logger.Info("join code keys", "current_key_id", keys.CurrentID(), "previous_key_id", previousKeyID, "rotating", rotating)
-	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify)
+	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify, logger)
 	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember)
 	if err != nil {
 		return Assembly{}, err
@@ -70,7 +70,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	questionsApp, questionsRepo := questions(dbx, mediaApp)
 	testsApp := tests(dbx, questionsRepo, mediaRepo, mediaApp)
-	attemptsApp := attempts(dbx).WithGroupContexts(testsApp.Queries.GroupContexts).WithZones(adapters.ProfileZone{Query: identityApp.Queries.EffectiveZone})
+	attemptsApp := attempts(dbx, notificationsApp.Commands.Notify, logger).WithGroupContexts(testsApp.Queries.GroupContexts).WithZones(adapters.ProfileZone{Query: identityApp.Queries.EffectiveZone})
 	availabilityApp, availabilityTransport := availability(dbx, logger)
 
 	return Assembly{
@@ -82,10 +82,10 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Questions:     questionsTransport(questionsApp, mediaApp),
 			Media:         mediaTransport(mediaApp),
 			Tests:         testsTransport(testsApp, mediaApp),
-			Assignments:   assignments(dbx),
+			Assignments:   assignments(dbx, notificationsApp.Commands.Notify, logger),
 			Attempts:      attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 			Availability:  availabilityTransport,
-			Notifications: notificationsTransport(notificationsApp),
+			Notifications: notificationsTransport(notificationsApp, logger),
 		},
 		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},

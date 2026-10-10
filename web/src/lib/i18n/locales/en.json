@@ -235,6 +235,7 @@
       "opensToday": "Opens today at {{time}}",
       "opensOn": "Opens {{when}}",
       "opensHint": "You can start once it opens.",
+      "opensNotify": "We will notify you when it opens.",
       "notOpen": "This test is not open right now.",
       "notFound": "This test was not found, or it was not assigned to you.",
       "startTitle": "Start now?",
@@ -1062,6 +1063,8 @@
       "writing": "Writing",
       "speaking": "Speaking"
     },
+    "selectPage": "Select all on this page",
+    "selectedNotShown": "{{count}} selected · {{notShown}} not shown",
     "detail": {
       "crumb": "Test details",
       "meta": "{{questions}} · {{points}} · {{assigned}}",
