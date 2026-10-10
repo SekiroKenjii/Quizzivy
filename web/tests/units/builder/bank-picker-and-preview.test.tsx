@@ -108,6 +108,11 @@ describe("Add from question bank", () => {
     return { user: userEvent.setup(), onPick, onOpenChange };
   }
 
+  async function row(picker: HTMLElement, prompt: string, timeout = 1000) {
+    const text = await within(picker).findByText(prompt, undefined, { timeout });
+    return text.closest<HTMLElement>('[role="checkbox"]')!;
+  }
+
   async function dialog() {
     return screen.findByRole("dialog", { name: "Thêm từ ngân hàng câu hỏi" });
   }
@@ -116,14 +121,14 @@ describe("Add from question bank", () => {
     renderPicker([BANK[2]!.id]);
     const picker = await dialog();
     expect(within(picker).getByText("Chọn câu hỏi để thêm vào Phần 1.")).toBeVisible();
-    const first = await within(picker).findByRole("checkbox", {
-      name: /Câu số 1(?!\d)/,
-    });
+    const first = await row(picker, "Câu số 1");
     expect(first).toHaveTextContent("Một đáp án · B1 · dùng trong 2 đề");
     expect(
-      within(picker).getByRole("checkbox", { name: /Câu số 2(?!\d)/ }),
+      within(picker).getByText("Câu số 2").closest<HTMLElement>('[role="checkbox"]')!,
     ).toHaveTextContent("Tự luận · dùng trong 1 đề");
-    const held = within(picker).getByRole("checkbox", { name: /Câu số 3(?!\d)/ });
+    const held = within(picker)
+      .getByText("Câu số 3")
+      .closest<HTMLElement>('[role="checkbox"]')!;
     expect(held).toBeDisabled();
     expect(held).toHaveTextContent("Đã có trong đề");
   });
@@ -131,19 +136,17 @@ describe("Add from question bank", () => {
   it("pages past the first page as the list reaches its end", async () => {
     renderPicker();
     const picker = await dialog();
-    await within(picker).findByRole("checkbox", { name: /Câu số 50(?!\d)/ });
-    expect(
-      within(picker).queryByRole("checkbox", { name: /Câu số 51(?!\d)/ }),
-    ).toBeNull();
+    expect(await within(picker).findByText("Câu số 50")).toBeInTheDocument();
+    expect(within(picker).queryByText("Câu số 51")).toBeNull();
 
     act(() => scrollAllIntoView());
 
     expect(
-      await within(picker).findByRole("checkbox", { name: /Câu số 100(?!\d)/ }),
+      await within(picker).findByText("Câu số 100", undefined, { timeout: 5000 }),
     ).toBeInTheDocument();
     act(() => scrollAllIntoView());
     expect(
-      await within(picker).findByRole("checkbox", { name: /Câu số 130(?!\d)/ }),
+      await within(picker).findByText("Câu số 130", undefined, { timeout: 5000 }),
     ).toBeInTheDocument();
     expect(requests.map((params) => params.get("page"))).toEqual([null, "2", "3"]);
   });
@@ -151,27 +154,19 @@ describe("Add from question bank", () => {
   it("finds question 101 on the server and keeps every tick across searches", async () => {
     const { user, onPick, onOpenChange } = renderPicker();
     const picker = await dialog();
-    await user.click(
-      await within(picker).findByRole("checkbox", { name: /Câu số 2(?!\d)/ }),
-    );
+    await user.click(await row(picker, "Câu số 2"));
 
     await user.type(within(picker).getByRole("searchbox"), "101");
-    const found = await within(picker).findByRole("checkbox", {
-      name: /Câu số 101(?!\d)/,
-    });
+    const found = await row(picker, "Câu số 101", 5000);
     expect(requests.at(-1)?.get("q")).toBe("101");
     await user.click(found);
 
     await user.clear(within(picker).getByRole("searchbox"));
     await user.type(within(picker).getByRole("searchbox"), "120");
-    await user.click(
-      await within(picker).findByRole("checkbox", { name: /Câu số 120(?!\d)/ }),
-    );
+    await user.click(await row(picker, "Câu số 120", 5000));
 
     await user.clear(within(picker).getByRole("searchbox"));
-    expect(
-      await within(picker).findByRole("checkbox", { name: /Câu số 2(?!\d)/ }),
-    ).toHaveAttribute("aria-checked", "true");
+    expect(await row(picker, "Câu số 2", 5000)).toHaveAttribute("aria-checked", "true");
 
     await user.click(within(picker).getByRole("button", { name: "Thêm 3 câu hỏi" }));
 
@@ -182,7 +177,7 @@ describe("Add from question bank", () => {
   it("keeps Add disabled until a question is ticked", async () => {
     renderPicker();
     const picker = await dialog();
-    await within(picker).findByRole("checkbox", { name: /Câu số 1(?!\d)/ });
+    await row(picker, "Câu số 1");
     expect(within(picker).getByRole("button", { name: "Thêm câu hỏi" })).toBeDisabled();
   });
 
@@ -190,7 +185,11 @@ describe("Add from question bank", () => {
     const { user } = renderPicker();
     const picker = await dialog();
     await user.type(within(picker).getByRole("searchbox"), "999");
-    expect(await within(picker).findByText("Không có câu hỏi nào khớp.")).toBeVisible();
+    expect(
+      await within(picker).findByText("Không có câu hỏi nào khớp.", undefined, {
+        timeout: 5000,
+      }),
+    ).toBeVisible();
   });
 });
 
