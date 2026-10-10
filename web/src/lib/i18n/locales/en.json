@@ -792,6 +792,7 @@
     "saved": "Saved {{time}}",
     "saving": "Saving…",
     "saveFailed": "Not saved",
+    "saveFailedHint": "Your changes are still on screen. Try saving again.",
     "stale": "This test is open somewhere else",
     "staleBody": "Somewhere else saved a change after you opened this page. Reload to see the latest — unsaved changes here will be lost.",
     "reload": "Reload",
