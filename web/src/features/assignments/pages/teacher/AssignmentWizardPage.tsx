@@ -1,27 +1,38 @@
-import { useId, useRef, useState, type SetStateAction } from "react";
+import { useRef, useState, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useBeforeUnload,
   useBlocker,
   useNavigate,
+  useParams,
   useSearchParams,
 } from "react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { TFunction } from "i18next";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { Button } from "@/components/ui/button";
-import { createAssignment } from "@/features/assignments/api";
+import {
+  createAssignment,
+  getAssignment,
+  updateAssignment,
+  type Assignment,
+} from "@/features/assignments/api";
 import {
   WizardStepper,
   type WizardStep,
 } from "@/features/assignments/components/WizardStepper";
+import { RulesStep } from "@/features/assignments/components/wizard/RulesStep";
+import { ScheduleStep } from "@/features/assignments/components/wizard/ScheduleStep";
 import { StudentsStep } from "@/features/assignments/components/wizard/StudentsStep";
 import { TestStep } from "@/features/assignments/components/wizard/TestStep";
+import { WizardAside } from "@/features/assignments/components/wizard/WizardAside";
 import type { Token } from "@/features/assignments/components/TokenField";
 import {
   draftBody,
+  draftOf,
   emptyDraft,
+  windowInstant,
   type AssignmentDraft,
 } from "@/features/assignments/draft";
 import {
@@ -29,40 +40,120 @@ import {
   usePickFromQuery,
 } from "@/features/assignments/usePreselect";
 import { useTargetRoster } from "@/features/assignments/useTargetRoster";
+import {
+  firstGap,
+  stepValues,
+  type RulesPatch,
+} from "@/features/assignments/wizardValues";
+import { listVersions } from "@/features/tests/api";
 import { PageHead } from "@/layouts/shell/PageHead";
 import type { Locale } from "@/lib/i18n";
-import { dayDate, fromDateTimeInput } from "@/lib/i18n/datetime";
 import { failureMessage } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
+import { useAuthStore } from "@/stores/auth";
 
 const STEP_KEYS = ["test", "students", "schedule", "rules"] as const;
-const LAST_OPEN_STEP = 1;
+const LAST_STEP = STEP_KEYS.length - 1;
 
 /**
- * AssignmentWizardPage is the deck's New assignment: a stepper over Test,
- * Students, Schedule and Rules, the open step in `?step=`, a test preselected
- * by `?test=` and a class by `?class=`. Save draft sends every field of the
- * draft, the defaults included, and opens the Drafts tab. Leaving with
- * unsaved choices asks first.
+ * AssignmentWizardPage is the deck's New assignment, and the same wizard
+ * for `/teacher/assignments/:id/edit`: a stepper over Test, Students,
+ * Schedule and Rules with the open step in `?step=`, and the summary aside.
+ * A new assignment starts from the teacher's stored defaults, with a test
+ * preselected by `?test=` and a class by `?class=`.
  */
 export default function AssignmentWizardPage() {
+  const { id } = useParams<{ id: string }>();
+  return id === undefined ? <NewAssignment /> : <EditAssignment id={id} />;
+}
+
+function NewAssignment() {
+  const defaults = useAuthStore((s) => s.user?.preferences?.assignmentDefaults);
+  const [params] = useSearchParams();
+  return (
+    <Wizard
+      makeInitial={() => emptyDraft(new Date(), defaults ?? {})}
+      testId={params.get("test") ?? params.get("testId")}
+      classId={params.get("class") ?? params.get("classId")}
+    />
+  );
+}
+
+function EditAssignment({ id }: Readonly<{ id: string }>) {
+  const { t } = useTranslation();
+  const existing = useQuery({
+    queryKey: ["admin-assignment", id],
+    queryFn: ({ signal }) => getAssignment(id, signal),
+  });
+  const testId = existing.data?.testId;
+  const versions = useQuery({
+    queryKey: ["admin-test-versions", testId],
+    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
+    enabled: testId !== undefined,
+  });
+  if (existing.data && versions.data) {
+    const stored = existing.data;
+    const items = versions.data.items;
+    return (
+      <Wizard
+        key={stored.id}
+        existing={stored}
+        makeInitial={() => draftOf(stored, items)}
+        testId={null}
+        classId={null}
+      />
+    );
+  }
+  if (!existing.isError && !versions.isError)
+    return (
+      <div data-scale="deck">
+        <ListSkeleton rows={8} />
+      </div>
+    );
+  return (
+    <div data-scale="deck">
+      <LoadError
+        error={existing.error ?? versions.error}
+        onRetry={() => {
+          void existing.refetch();
+          void versions.refetch();
+        }}
+      >
+        {t("assignments.detail.loadFailed")}
+      </LoadError>
+    </div>
+  );
+}
+
+function Wizard({
+  existing,
+  makeInitial,
+  testId,
+  classId,
+}: Readonly<{
+  existing?: Assignment;
+  makeInitial: () => AssignmentDraft;
+  testId: string | null;
+  classId: string | null;
+}>) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const [draft, setDraft] = useState<AssignmentDraft>(() => emptyDraft());
+  const [draft, setDraft] = useState<AssignmentDraft>(makeInitial);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const leaving = useRef(false);
   const saving = useRef(false);
-  const laterId = useId();
+  const published = existing !== undefined && existing.publishedAt !== null;
 
-  usePickFromQuery(params.get("test") ?? params.get("testId"), setDraft);
-  useClassFromQuery(params.get("class") ?? params.get("classId"), setDraft);
+  usePickFromQuery(testId, setDraft);
+  useClassFromQuery(classId, setDraft);
   const roster = useTargetRoster(
     draft.classes.map((klass) => klass.id),
     draft.students.map((student) => student.id),
   );
+  const students = roster.data?.total ?? null;
 
   const step = stepIndex(params.get("step"));
   const open = (index: number) => {
@@ -78,20 +169,43 @@ export default function AssignmentWizardPage() {
     setDirty(true);
     setError(null);
   };
+  const editRules = (patch: RulesPatch) =>
+    edit((current) => ({
+      ...current,
+      ...patch,
+      review: { ...current.review, ...patch.review },
+      integrity: { ...current.integrity, ...patch.integrity },
+    }));
 
   const save = useMutation({
-    mutationFn: (body: AssignmentDraft) =>
-      createAssignment({ draft: true, ...draftBody(body) }),
-    onSuccess: async () => {
+    mutationFn: ({ asDraft, body }: { asDraft: boolean; body: AssignmentDraft }) => {
+      const input = { draft: asDraft, ...draftBody(body) };
+      return existing === undefined
+        ? createAssignment(input)
+        : updateAssignment(existing.id, input);
+    },
+    onSuccess: async (saved, { asDraft, body }) => {
       leaving.current = true;
       await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-assignment", saved.id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-      notify.success(t("assignments.wizard.savedDraft"));
-      void navigate("/teacher/assignments?status=draft");
+      if (asDraft) {
+        notify.success(t("assignments.wizard.savedDraft"));
+        void navigate("/teacher/assignments?status=draft");
+      } else if (published) {
+        notify.success(t("assignments.wizard.saved"));
+        void navigate(`/teacher/assignments/${saved.id}`);
+      } else if (windowInstant(body.opensAt).getTime() > Date.now()) {
+        notify.success(t("assignments.wizard.assigned"));
+        void navigate("/teacher/assignments?status=scheduled");
+      } else {
+        notify.success(t("assignments.wizard.assignedOpen"));
+        void navigate("/teacher/assignments?status=open");
+      }
     },
-    onError: (cause) => {
+    onError: (cause, { asDraft }) => {
       saving.current = false;
-      setError(failureMessage(cause, t("assignments.wizard.saveFailed")));
+      setError(failureMessage(cause, t(failedKey(asDraft, existing !== undefined))));
     },
   });
   const saveDraft = () => {
@@ -101,7 +215,18 @@ export default function AssignmentWizardPage() {
       return;
     }
     saving.current = true;
-    save.mutate(draft);
+    save.mutate({ asDraft: true, body: draft });
+  };
+  const assign = () => {
+    if (saving.current) return;
+    const gap = firstGap(draft);
+    if (gap !== null) {
+      open(gap.step);
+      setError(t(gap.key));
+      return;
+    }
+    saving.current = true;
+    save.mutate({ asDraft: false, body: draft });
   };
 
   const blocker = useBlocker(
@@ -119,14 +244,17 @@ export default function AssignmentWizardPage() {
   const steps: WizardStep[] = STEP_KEYS.map((key, index) => ({
     label: t(`assignments.wizard.steps.${key}`),
     value: values[index] ?? "",
-    disabled: index > LAST_OPEN_STEP,
   }));
 
   return (
     <div data-scale="deck" className="flex min-w-0 flex-col gap-4.5">
       <PageHead
-        title={t("assignments.new")}
-        description={t("assignments.wizard.description")}
+        title={existing === undefined ? t("assignments.new") : t("assignments.edit")}
+        description={
+          published
+            ? t("assignments.wizard.editDescription")
+            : t("assignments.wizard.description")
+        }
       />
       <WizardStepper steps={steps} current={step} onOpen={open} />
       <div className="flex flex-wrap items-start gap-3.5">
@@ -151,11 +279,18 @@ export default function AssignmentWizardPage() {
                       : [...current.classes, token],
                   }))
                 }
-                onStudentsChange={(students) =>
-                  edit((current) => ({ ...current, students }))
+                onStudentsChange={(picked) =>
+                  edit((current) => ({ ...current, students: picked }))
                 }
               />
             )}
+            {step === 2 && (
+              <ScheduleStep
+                draft={draft}
+                onChange={(patch) => edit((current) => ({ ...current, ...patch }))}
+              />
+            )}
+            {step === 3 && <RulesStep draft={draft} onChange={editRules} />}
           </div>
           <div className="border-border flex flex-col gap-2 border-t px-4.5 py-3">
             {error !== null && (
@@ -169,42 +304,51 @@ export default function AssignmentWizardPage() {
                 variant="outline"
                 size="md"
                 onClick={() => {
-                  if (step === 0) void navigate("/teacher/assignments");
+                  if (step === 0) void navigate(cancelTo(existing));
                   else open(step - 1);
                 }}
               >
                 {step === 0 ? t("common.cancel") : t("common.back")}
               </Button>
               <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="md"
-                  disabled={save.isPending}
-                  onClick={saveDraft}
-                >
-                  {t("assignments.saveDraft")}
-                </Button>
-                <Button
-                  type="button"
-                  size="md"
-                  className="px-4"
-                  disabled={step >= LAST_OPEN_STEP}
-                  aria-describedby={step >= LAST_OPEN_STEP ? laterId : undefined}
-                  onClick={() => open(step + 1)}
-                >
-                  {t("assignments.wizard.continue")}
-                  <ArrowRight aria-hidden="true" />
-                </Button>
+                {!published && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="md"
+                    disabled={save.isPending}
+                    onClick={saveDraft}
+                  >
+                    {t("assignments.saveDraft")}
+                  </Button>
+                )}
+                {step < LAST_STEP ? (
+                  <Button
+                    type="button"
+                    size="md"
+                    className="px-4"
+                    onClick={() => open(step + 1)}
+                  >
+                    {t("assignments.wizard.continue")}
+                    <ArrowRight aria-hidden="true" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="md"
+                    className="px-4"
+                    disabled={save.isPending}
+                    onClick={assign}
+                  >
+                    {finalLabel(t, published, students)}
+                    <ArrowRight aria-hidden="true" />
+                  </Button>
+                )}
               </span>
             </div>
-            {step >= LAST_OPEN_STEP && (
-              <p id={laterId} className="text-muted-fg text-meta text-right">
-                {t("assignments.wizard.laterSteps")}
-              </p>
-            )}
           </div>
         </section>
+        <WizardAside draft={draft} students={students} />
       </div>
       <ConfirmDialog
         open={blocker.state === "blocked"}
@@ -227,32 +371,26 @@ export default function AssignmentWizardPage() {
 function stepIndex(raw: string | null): number {
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 1) return 0;
-  return Math.min(n - 1, LAST_OPEN_STEP);
+  return Math.min(n - 1, LAST_STEP);
 }
 
-function stepValues(draft: AssignmentDraft, t: TFunction, locale: Locale): string[] {
-  const targets = [
-    ...draft.classes.map((klass) => klass.label),
-    ...(draft.students.length > 0
-      ? [t("assignments.wizard.value.individuals", { count: draft.students.length })]
-      : []),
-  ];
-  const leaving = draft.integrity.maxFocusLoss;
-  const rules = [
-    draft.integrity.requireFullscreen && t("assignments.wizard.value.fullscreen"),
-    draft.integrity.blockCopyPaste && t("assignments.wizard.value.noCopy"),
-    leaving === -1 && t("assignments.wizard.value.noLeaving"),
-    leaving > 0 && t("assignments.wizard.value.leavingAllowed", { count: leaving }),
-    draft.review.showScore && t("assignments.wizard.value.scoreShown"),
-  ].filter((part): part is string => typeof part === "string");
-  return [
-    draft.picked?.testTitle ?? t("assignments.wizard.value.noTest"),
-    targets.length > 0 ? targets.join(", ") : t("assignments.wizard.value.noOne"),
-    t("assignments.wizard.value.schedule", {
-      opens: dayDate(fromDateTimeInput(draft.opensAt), locale),
-      closes: dayDate(fromDateTimeInput(draft.closesAt), locale),
-      minutes: draft.durationMinutes,
-    }),
-    rules.length > 0 ? rules.join(" · ") : t("assignments.wizard.value.defaultRules"),
-  ];
+function cancelTo(existing: Assignment | undefined): string {
+  return existing === undefined
+    ? "/teacher/assignments"
+    : `/teacher/assignments/${existing.id}`;
+}
+
+function failedKey(asDraft: boolean, editing: boolean): string {
+  if (asDraft) return "assignments.wizard.saveFailed";
+  return editing ? "assignments.updateFailed" : "assignments.createFailed";
+}
+
+function finalLabel(
+  t: ReturnType<typeof useTranslation>["t"],
+  published: boolean,
+  students: number | null,
+): string {
+  if (published) return t("assignments.saveChanges");
+  if (students === null || students === 0) return t("assignments.assign");
+  return t("assignments.wizard.assignTo", { count: students });
 }
