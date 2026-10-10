@@ -10,17 +10,19 @@ import { NotificationsPanel, type NotificationAudience } from "./NotificationsPa
 
 const FRAME: Record<
   NotificationAudience,
-  { button: string; icon: string; dot: string }
+  { button: string; icon: string; dot: string; alignOffset: number }
 > = {
   teacher: {
     button: "size-8.5 rounded-md",
     icon: "size-[1.0625rem]",
     dot: "top-1.75 right-2",
+    alignOffset: 0,
   },
   student: {
     button: "size-9 rounded-md",
     icon: "size-4.5",
     dot: "top-2 right-2.25",
+    alignOffset: -44,
   },
 };
 
@@ -69,9 +71,11 @@ const BellButton = forwardRef<HTMLButtonElement, BellButtonProps>(function BellB
 /**
  * NotificationBell is the shell's bell: a 7px dot while `unread` is above
  * zero, and the notifications of `audience`'s kinds in a 340px popover from
- * 768px or the shared 380px sheet, the whole width of a phone, below it. Both return focus to the bell when they
- * close, except after a row sends the reader to another page, whose shell
- * then takes focus. `canGrade` is the reader's reach of Grading.
+ * 768px, which on the student's bar ends at the bar's edge as drawn, or the
+ * shared 380px sheet, the whole width of a phone, below it. Both return
+ * focus to the bell when they close, except after a row sends the reader to
+ * another page, whose shell then takes focus. `canGrade` is the reader's
+ * reach of Grading.
  */
 export function NotificationBell({
   audience,
@@ -132,6 +136,7 @@ export function NotificationBell({
       </PopoverTrigger>
       <PopoverContent
         align="end"
+        alignOffset={FRAME[audience].alignOffset}
         sideOffset={8}
         aria-label={t("notifications.bell.title")}
         onCloseAutoFocus={(event) => {
