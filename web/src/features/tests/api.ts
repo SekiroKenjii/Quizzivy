@@ -6,6 +6,8 @@ export type TestSection = components["schemas"]["TestSection"];
 export type TestStatus = components["schemas"]["TestStatus"];
 export type TestVersion = components["schemas"]["TestVersion"];
 export type PublishViolation = components["schemas"]["PublishValidationError"];
+export type TestVersionDiff = components["schemas"]["TestVersionDiff"];
+export type DiffChange = components["schemas"]["DiffChange"];
 
 /** What autosave sends: the whole outline, guarded by the version it read. */
 export interface OutlineDraft {
@@ -98,6 +100,26 @@ export function publishTest(id: string, changeNote = "") {
     path: { id },
     body: { changeNote: note === "" ? null : note },
   });
+}
+
+/** VersionAgainst names the paper a version is compared with: the one before it, the draft, or another version. */
+export type VersionAgainst = "previous" | "draft" | number;
+
+/** getVersionDiff lists what changed between a version and the paper `against` names. */
+export function getVersionDiff(
+  id: string,
+  version: number,
+  against: VersionAgainst,
+  signal?: AbortSignal,
+) {
+  const query = { against: String(against) };
+  return api(
+    "get",
+    "/teacher/tests/{id}/versions/{version}/diff",
+    signal
+      ? { path: { id, version }, query, signal }
+      : { path: { id, version }, query },
+  );
 }
 
 export function toOutlineDraft(test: Test): Omit<OutlineDraft, "expectedUpdatedAt"> {

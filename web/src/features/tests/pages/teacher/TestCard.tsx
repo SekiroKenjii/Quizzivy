@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { Link } from "react-router";
 import {
   Archive,
@@ -23,6 +22,7 @@ import {
 import { BulkSelectRow, type BulkSelection } from "@/components/shared/BulkSelection";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { Test, TestStatus } from "@/features/tests/api";
+import { assignedLabel } from "@/features/tests/testFacts";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 
@@ -54,9 +54,9 @@ const ICON_BUTTON =
  * and when it was last edited, the title, the skills its questions practise,
  * and a footer with its questions, points and assignments. The whole card
  * opens the test's detail. Above that link sit the selection checkbox, the
- * Duplicate button and the "…" menu (Duplicate and Archive, with Assign to a
- * class first for a published test; Restore, Duplicate and Delete for an
- * archived one). `duplicated` marks a test just
+ * Duplicate button and the "…" menu (Duplicate and Archive; Restore,
+ * Duplicate and Delete for an archived one). Assigning starts from the
+ * test's detail. `duplicated` marks a test just
  * duplicated or just made by duplicating; `duplicating` disables Duplicate.
  */
 export function TestCard({
@@ -168,14 +168,6 @@ function Fact({
   );
 }
 
-function assignedLabel(test: Test, t: TFunction): string {
-  const { live, scheduled, closed } = test.assignments;
-  if (live > 0) return t("tests.assigned.live", { count: live });
-  if (scheduled > 0) return t("tests.assigned.scheduled");
-  if (closed > 0) return t("tests.assigned.closed", { count: closed });
-  return t("tests.assigned.none");
-}
-
 function CardMenu({
   test,
   onDuplicate,
@@ -202,14 +194,6 @@ function CardMenu({
           <DropdownMenuItem onSelect={() => onRestore(test)}>
             <RotateCw aria-hidden="true" />
             {t("tests.restore")}
-          </DropdownMenuItem>
-        ) : null}
-        {test.status === "published" ? (
-          <DropdownMenuItem asChild>
-            <Link to={`/teacher/assignments/new?test=${test.id}`}>
-              <Send aria-hidden="true" />
-              {t("tests.assignToClass")}
-            </Link>
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem onSelect={() => onDuplicate(test)}>
