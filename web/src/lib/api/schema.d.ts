@@ -4705,6 +4705,7 @@ export interface components {
             /** @description Papers with an answer that says something to this question. */
             answered: number;
             /**
+             * Format: double
              * @description Papers that earned the question's full points, over the papers that
              *     have a mark for it. A question left unanswered counts against it; a
              *     manually marked answer the teacher has not marked yet counts for
