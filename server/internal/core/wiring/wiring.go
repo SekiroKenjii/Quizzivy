@@ -19,6 +19,7 @@ import (
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/platform/imagesafe"
 )
 
 // Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity and notifications applications the background jobs drive.
@@ -56,6 +57,9 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		return Assembly{}, err
 	}
 	identityApp.SetPrincipals(principals)
+	if err := attachAvatars(ctx, cfg, logger, identityApp, imagesafe.New(imagesafe.NewGate(photoDecodeSlots))); err != nil {
+		return Assembly{}, err
+	}
 	docs, err := identitytoken.NewDocsIssuer(cfg.JWTSigningKey)
 	if err != nil {
 		return Assembly{}, err

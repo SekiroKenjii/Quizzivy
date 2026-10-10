@@ -1,6 +1,7 @@
 package application
 
 import (
+	"log/slog"
 	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/application/internal/support"
 	"quizzivy/internal/modules/identity/application/model"
@@ -29,6 +30,13 @@ func (a *Application) SetGoogle(p ports.GoogleProvider, enroller ports.SelfEnrol
 	a.service.SetGoogle(p, enroller)
 }
 
+// SetAvatars attaches profile photos: the object store that keeps them and the
+// processor that makes them from an upload. Without both, setAvatar answers
+// 501 and no avatarUrl is signed; deleteAvatar still clears the key.
+func (a *Application) SetAvatars(store ports.ObjectStore, photos ports.PhotoProcessor, logger *slog.Logger) {
+	a.service.SetAvatars(store, photos, logger)
+}
+
 // SetPrincipals attaches the access module's principal cache, so a disable or
 // a password reset takes effect on this machine's next request, and a new
 // session shows the user the permissions their role holds. Without it,
@@ -40,6 +48,8 @@ func (a *Application) SetPrincipals(p ports.Principals) {
 
 type Commands struct {
 	DeleteStudent        cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
+	RemoveAvatar         cqrs.CommandHandler[command.RemoveAvatar, domain.User]
+	SetAvatar            cqrs.CommandHandler[command.SetAvatar, domain.User]
 	ChangePassword       cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
 	CreateStudent        cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
 	GoogleSignIn         cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
@@ -58,6 +68,7 @@ type Commands struct {
 }
 
 type Queries struct {
+	AvatarURL      cqrs.QueryHandler[query.AvatarURL, string]
 	CurrentUser    cqrs.QueryHandler[query.CurrentUser, domain.User]
 	EffectiveZone  cqrs.QueryHandler[query.EffectiveZone, string]
 	GetStudent     cqrs.QueryHandler[query.GetStudent, domain.Student]
@@ -73,6 +84,8 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 	return &Application{
 		Commands: Commands{
 			DeleteStudent:        command.DeleteStudentHandler{Students: students},
+			RemoveAvatar:         command.RemoveAvatarHandler{Service: service},
+			SetAvatar:            command.SetAvatarHandler{Service: service},
 			ChangePassword:       command.ChangePasswordHandler{Service: service},
 			CreateStudent:        command.CreateStudentHandler{Students: students},
 			GoogleSignIn:         command.GoogleSignInHandler{Service: service},
@@ -90,6 +103,7 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 			UpdateStudent:        command.UpdateStudentHandler{Students: students},
 		},
 		Queries: Queries{
+			AvatarURL:      query.AvatarURLHandler{Service: service},
 			CurrentUser:    query.CurrentUserHandler{Service: service},
 			EffectiveZone:  query.EffectiveZoneHandler{Service: service},
 			GetStudent:     query.GetStudentHandler{Students: students},

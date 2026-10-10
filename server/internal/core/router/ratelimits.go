@@ -51,6 +51,7 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("DELETE /auth/sessions/{familyId}", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("POST /auth/sessions/revoke-others", ratelimit.PerMinute(5), ratelimit.PerHour(30))
 	perActor("GET /teacher/assignments/results.csv", ratelimit.PerMinute(10), ratelimit.PerHour(60))
+	perActor("PUT /me/avatar", ratelimit.PerHour(10))
 	return reg
 }
 

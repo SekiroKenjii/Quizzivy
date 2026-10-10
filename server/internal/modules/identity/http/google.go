@@ -74,7 +74,7 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 	var response openapi.GoogleAuth200JSONResponse
 	response.Body.AccessToken = result.Session.AccessToken
 	response.Body.ExpiresIn = result.Session.ExpiresIn
-	response.Body.User = toCurrentUser(result.Session.User, result.Session.Permissions)
+	response.Body.User = h.currentUser(ctx, result.Session.User, result.Session.Permissions)
 
 	response.Headers.SetCookie = httpapi.Ptr(refreshCookie(
 		result.Session.RefreshToken, h.refreshTTL, h.cookieSecure).String())
@@ -106,7 +106,7 @@ func (h Identity) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequ
 	})
 	switch {
 	case err == nil:
-		return openapi.LinkGoogle200JSONResponse(toCurrentUser(user, principal.Access.Permissions)), nil
+		return openapi.LinkGoogle200JSONResponse(h.currentUser(ctx, user, principal.Access.Permissions)), nil
 	case errors.Is(err, domain.ErrIdentityAlreadyLinked),
 		errors.Is(err, domain.ErrEmailBelongsToAnotherUser):
 		return openapi.LinkGoogle409JSONResponse(httpapi.Error(ctx, openapi.IDENTITYALREADYLINKED,

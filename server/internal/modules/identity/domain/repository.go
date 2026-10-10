@@ -25,6 +25,7 @@ type Users interface {
 	DeleteExpired(ctx context.Context, before time.Time) (int64, error)
 	ChangePassword(ctx context.Context, in ChangePasswordRecord) error
 	UpdateProfile(ctx context.Context, in ProfileRecord) (User, error)
+	SetAvatar(ctx context.Context, in AvatarRecord) (AvatarWrite, error)
 	UpdatePreferences(ctx context.Context, in PreferencesRecord) (Preferences, error)
 	EffectiveZone(ctx context.Context, userID string) (string, error)
 }

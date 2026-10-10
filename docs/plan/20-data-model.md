@@ -2488,8 +2488,9 @@ and no sort, and that the count uses `notifications_unread_idx`.
 the application stores the trimmed value. Phone accepts 6–20 digits, spaces
 and plus signs. Locale is `vi` or `en`. A non-null time zone has 1–64
 characters; the application additionally validates it with `time.LoadLocation`.
-`avatar_key` reserves the storage reference for T-R4.8; this migration does
-not add a photo operation. Down drops the five columns and their checks.
+`avatar_key` holds the storage key of the photo (`avatars/{userId}/{uuid}.png`),
+written and cleared by T-R4.8 (`PUT` and `DELETE /me/avatar`) with an audit row each;
+this migration adds no photo operation and T-R4.8 adds no column. Down drops the five columns and their checks.
 
 `00086_add_users_preferences.sql` adds `preferences jsonb NOT NULL DEFAULT
 '{}'`. Named checks require an object and at most 8192 bytes of normalized
