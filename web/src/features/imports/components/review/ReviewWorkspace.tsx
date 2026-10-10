@@ -8,32 +8,39 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { useBlocker, useNavigate, useSearchParams } from "react-router";
+import { useBlocker, useSearchParams } from "react-router";
 import { useMutation, useQueries } from "@tanstack/react-query";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Segmented } from "@/components/ui/segmented";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { SideColumn } from "@/components/shared/SideColumn";
-import { AutosaveStatusLabel } from "@/features/tests/components/AutosaveStatusLabel";
+import { SplitPane } from "@/components/shared/SplitPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { failureMessage } from "@/lib/api/errors";
+import { notify } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import {
   adoptWordImportReprocessed,
   type ImportDraftQuestion,
   type ImportDraftSection,
   type ImportFinding,
   type ImportReview,
+  type ImportSource,
   type ImportSourceRef,
   type ImportSourceRole,
   type WordImport,
 } from "../../api";
-import { useImportAvailability } from "../../availability";
-import { blockKey, blockOwners, draftPositions, questionPlaces } from "../../draft";
 import {
+  blockKey,
+  blockOwners,
+  draftPositions,
+  exclude,
+  questionPlaces,
+  setPoints,
+} from "../../draft";
+import {
+  FINDING_FILTERS,
   findingRank,
   isFindingFilter,
+  isOpenIn,
   isUnresolved,
   matchesFilter,
   orderFindings,
@@ -41,18 +48,29 @@ import {
   type FindingAnchor,
   type FindingFilter,
 } from "../../findings";
+import { useImportAvailability } from "../../availability";
 import { sourceViewQuery } from "../../queries";
 import { isActiveStatus, reprocessOutcome } from "../../status";
 import { useImportCommit } from "../../useImportCommit";
 import { useReprocess } from "../../useReprocess";
 import { useReviewSession } from "../../useReviewSession";
-import { ExamPane, type ExamPaneHandlers } from "./ExamPane";
+import {
+  ExamPane,
+  WHOLE_TEST,
+  type ExamPaneHandlers,
+  type WholeTestFact,
+} from "./ExamPane";
 import { QuestionEditor } from "./QuestionEditor";
-import { PhoneNotice, ReviewBanners } from "./ReviewBanners";
+import { ExcludeDialog, PointsDialog } from "./ReviewDialogs";
+import { PhoneNote, ReviewBanners } from "./ReviewBanners";
 import { ReviewSummaryDialog } from "./ReviewSummaryDialog";
-import { SourcePane, type SourceFocus } from "./SourcePane";
+import { ReviewToolbar, type ReviewPane } from "./ReviewToolbar";
+import { ReviewTopBar } from "./ReviewTopBar";
+import { SourcePane, type BlockTag, type SourceFocus } from "./SourcePane";
 
 const NONE: readonly ImportFinding[] = [];
+
+const TWO_PANES = 980;
 
 interface Structure {
   sourceRefs: Map<string, ImportSourceRef[]>;
@@ -100,12 +118,17 @@ function questionFor(finding: ImportFinding, structure: Structure): string | nul
   return structure.groupFirst.get(target) ?? null;
 }
 
+function isGlobal(finding: ImportFinding, structure: Structure): boolean {
+  return finding.target === undefined || !structure.positions.has(finding.target);
+}
+
 function firstSelection(review: ImportReview, structure: Structure): string | null {
   const ordered = orderFindings(
     review.findings.filter((finding) => isUnresolved(finding)),
     structure.positions,
   );
   for (const finding of ordered) {
+    if (isGlobal(finding, structure)) return WHOLE_TEST;
     const questionId = questionFor(finding, structure);
     if (questionId !== null) return questionId;
   }
@@ -123,12 +146,13 @@ function nextTarget(id: string, focus: boolean) {
 function noop() {}
 
 /**
- * ReviewWorkspace is the linked review of one import: the source and the
- * reconstructed exam side by side, finding navigation above them, and the
- * summary that creates the draft test. It edits a copy of `initial` taken at
- * mount and is read-only whenever the import is not under review, the draft
- * changed elsewhere, processing finished after the page opened, or a commit
- * or reprocess is under way.
+ * ReviewWorkspace is the linked review of one import in the deck's card: the
+ * top bar, the toolbar of sections, filters and the navigator, and the source
+ * and the reconstructed test side by side from 980px of content width, one
+ * at a time below it. It edits a copy of `initial` taken at mount and is
+ * read-only on a phone and whenever the import is not under review, the
+ * draft changed elsewhere, processing finished after the page opened, or a
+ * commit or reprocess is under way.
  */
 export function ReviewWorkspace({
   value,
@@ -142,7 +166,6 @@ export function ReviewWorkspace({
   onAdopted: (adopted: ImportReview) => void;
 }>) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const importId = value.id;
   const [origin] = useState(initial);
   const locked = useRef(false);
@@ -159,9 +182,10 @@ export function ReviewWorkspace({
     pending: reprocessPending,
     error: reprocessError,
   } = useReprocess(importId, flush);
-  const processing = useImportAvailability() !== "reviewOnly";
-  const wide = useMediaQuery("(min-width: 1280px)");
-  const phone = useMediaQuery("(max-width: 767px)");
+  const processingOn = useImportAvailability() !== "reviewOnly";
+  const phone = !useMediaQuery("(min-width: 768px)");
+  const roomy = useContentWidthAtLeast(TWO_PANES);
+  const wide = roomy && !phone;
   const [params, setParams] = useSearchParams();
   const requestedFilter = params.get("filter");
   const filter: FindingFilter = isFindingFilter(requestedFilter)
@@ -172,6 +196,7 @@ export function ReviewWorkspace({
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     firstSelection(origin, structure),
   );
+  const [section, setSection] = useState("all");
   const [sourceRole, setSourceRole] = useState<ImportSourceRole>("exam");
   const [focus, setFocus] = useState<SourceFocus>(() => ({
     refs: selectedId === null ? [] : (structure.sourceRefs.get(selectedId) ?? []),
@@ -181,11 +206,15 @@ export function ReviewWorkspace({
   const [anchor, setAnchor] = useState<FindingAnchor | null>(null);
   const [findingTarget, setFindingTarget] = useState<Target | null>(null);
   const [examTarget, setExamTarget] = useState<Target | null>(null);
-  const [view, setView] = useState<"source" | "exam">("exam");
+  const [view, setView] = useState<ReviewPane>("exam");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [leaveFailed, setLeaveFailed] = useState(false);
   const [adopting, setAdopting] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
+  const [excluding, setExcluding] = useState<string | null>(null);
+  const excludeReturn = useRef<HTMLElement | null>(null);
+  const [pointsOpen, setPointsOpen] = useState(false);
+  const [phoneNote, setPhoneNote] = useState(true);
   const finishButton = useRef<HTMLButtonElement>(null);
   const afterSummary = useRef<string | null>(null);
   const examScroller = useRef<HTMLDivElement>(null);
@@ -203,6 +232,7 @@ export function ReviewWorkspace({
   const finished =
     isActiveStatus(openedWhile) && underReview && reprocessOutcome(value) === null;
   const readOnly =
+    phone ||
     stale ||
     committed ||
     finished ||
@@ -245,64 +275,94 @@ export function ReviewWorkspace({
   const grouped = useMemo(() => {
     const byTarget = new Map<string, ImportFinding[]>();
     const global: ImportFinding[] = [];
-    const informational: ImportFinding[] = [];
     for (const finding of findings) {
-      if (finding.severity === "informational") informational.push(finding);
-      else if (finding.target !== undefined && structure.positions.has(finding.target))
-        byTarget.set(finding.target, [
-          ...(byTarget.get(finding.target) ?? []),
+      if (isGlobal(finding, structure)) global.push(finding);
+      else
+        byTarget.set(finding.target ?? "", [
+          ...(byTarget.get(finding.target ?? "") ?? []),
           finding,
         ]);
-      else global.push(finding);
     }
-    return { byTarget, global, informational };
+    return { byTarget, global };
   }, [findings, structure]);
+  const sectionOf = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const place of questionPlaces(working.sections))
+      out.set(place.question.id, place.sectionId);
+    return out;
+  }, [working.sections]);
+  const inSection = useCallback(
+    (finding: ImportFinding) => {
+      if (section === "all") return true;
+      const questionId = questionFor(finding, structure);
+      if (questionId === null) return finding.target === section;
+      return sectionOf.get(questionId) === section;
+    },
+    [section, sectionOf, structure],
+  );
   const navigable = useMemo(
     () =>
       orderFindings(
-        findings.filter((finding) => matchesFilter(finding, filter)),
+        findings.filter((finding) => isOpenIn(finding, filter) && inSection(finding)),
         structure.positions,
       ),
-    [findings, filter, structure],
+    [findings, filter, inSection, structure],
   );
   const visible = useMemo(() => {
     if (filter === "all") return null;
     const ids = new Set<string>();
-    for (const finding of navigable) {
+    for (const finding of findings) {
+      if (!matchesFilter(finding, filter)) continue;
+      if (isGlobal(finding, structure)) ids.add(WHOLE_TEST);
       const target = finding.target;
       if (target === undefined) continue;
       if (structure.sourceRefs.has(target)) ids.add(target);
       for (const member of structure.groupMembers.get(target) ?? []) ids.add(member);
     }
     return ids;
-  }, [filter, navigable, structure]);
+  }, [filter, findings, structure]);
   const counts = useMemo(
+    () =>
+      Object.fromEntries(
+        FINDING_FILTERS.map((name) => [
+          name,
+          name === "all"
+            ? findings.length
+            : findings.filter((finding) => matchesFilter(finding, name)).length,
+        ]),
+      ) as Record<FindingFilter, number>,
+    [findings],
+  );
+  const open = useMemo(
     () => ({
-      all: findings.filter((finding) => matchesFilter(finding, "all")).length,
-      blocking: findings.filter((finding) => matchesFilter(finding, "blocking")).length,
-      review: findings.filter((finding) => matchesFilter(finding, "review")).length,
+      blocking: findings.filter((finding) => finding.severity === "blocking").length,
+      review: findings.filter(
+        (finding) => finding.severity === "review_required" && isUnresolved(finding),
+      ).length,
     }),
     [findings],
   );
+  const places = useMemo(() => questionPlaces(working.sections), [working.sections]);
   const included = useMemo(
-    () =>
-      questionPlaces(working.sections).filter(
-        (place) => place.question.excluded === undefined,
-      ).length,
-    [working.sections],
+    () => places.filter((place) => place.question.excluded === undefined),
+    [places],
+  );
+  const labels = useMemo(
+    () => new Map(places.map((place) => [place.question.id, place.question])),
+    [places],
   );
   const contexts = useMemo(() => {
     const out = new Map<string, string>();
-    for (const section of working.sections) {
-      for (const item of section.items) {
-        if (item.question) out.set(item.question.id, section.title);
+    for (const current of working.sections) {
+      for (const item of current.items) {
+        if (item.question) out.set(item.question.id, current.title);
         const group = item.group;
         if (group)
           for (const question of group.questions)
             out.set(
               question.id,
               t("imports.review.contextGroup", {
-                section: section.title,
+                section: current.title,
                 group: group.label ?? "",
               }),
             );
@@ -318,6 +378,35 @@ export function ReviewWorkspace({
         ),
       ),
     [selectedId, structure],
+  );
+  const unassigned = useMemo(
+    () =>
+      new Set(
+        findings
+          .filter((finding) => finding.code === "UNASSIGNED_SOURCE_TEXT")
+          .flatMap((finding) =>
+            finding.evidence.map((ref) => blockKey(ref.sourceId, ref.blockId)),
+          ),
+      ),
+    [findings],
+  );
+  const tagOf = useCallback(
+    (key: string): BlockTag | undefined => {
+      const owner = structure.owners.get(key);
+      const question = owner === undefined ? undefined : labels.get(owner);
+      if (question !== undefined)
+        return {
+          label:
+            question.excluded === undefined
+              ? t("imports.source.questionTag", { label: question.label })
+              : t("imports.review.excludedBadge"),
+          tone: "muted",
+        };
+      return unassigned.has(key)
+        ? { label: t("imports.source.notAssigned"), tone: "warning" }
+        : undefined;
+    },
+    [labels, structure, t, unassigned],
   );
 
   const viewed = useQueries({
@@ -349,7 +438,7 @@ export function ReviewWorkspace({
   );
 
   const showView = useCallback(
-    (next: "source" | "exam") => {
+    (next: ReviewPane) => {
       if (wide || next === view) return;
       if (next === "source" && examScroller.current)
         examScrollTop.current = examScroller.current.scrollTop;
@@ -378,14 +467,15 @@ export function ReviewWorkspace({
     [locate],
   );
   const selectFromExam = useCallback(
-    (questionId: string) => {
-      setSelectedId(questionId);
-      setExamTarget(nextTarget(questionId, true));
-      const refs = structure.sourceRefs.get(questionId) ?? [];
+    (id: string) => {
+      setSelectedId(id);
+      setExamTarget(nextTarget(id, true));
+      const refs = structure.sourceRefs.get(id) ?? [];
       if (refs.length > 0) locate(refs, false);
     },
     [locate, structure],
   );
+  const closeCard = useCallback(() => setSelectedId(null), []);
   const selectFromSource = useCallback(
     (questionId: string) => {
       setSelectedId(questionId);
@@ -400,6 +490,7 @@ export function ReviewWorkspace({
       setAnchor({ id: finding.id, at: findingRank(finding, structure.positions) });
       const questionId = questionFor(finding, structure);
       if (questionId !== null) setSelectedId(questionId);
+      else if (isGlobal(finding, structure)) setSelectedId(WHOLE_TEST);
       let refs: readonly ImportSourceRef[] = finding.evidence;
       if (refs.length === 0 && questionId !== null)
         refs = structure.sourceRefs.get(questionId) ?? [];
@@ -456,15 +547,30 @@ export function ReviewWorkspace({
     (paper: number) => void reprocess(paper),
     [reprocess],
   );
-  const onReprocess = processing ? reprocessWith : undefined;
+  const onReprocess = processingOn ? reprocessWith : undefined;
+  const openPoints = useCallback(() => setPointsOpen(true), []);
+  const askExclude = useCallback((questionId: string, returnTo: HTMLElement | null) => {
+    excludeReturn.current = returnTo;
+    setExcluding(questionId);
+  }, []);
   const handlers = useMemo<ExamPaneHandlers>(
     () => ({
       onSelect: selectFromExam,
+      onClose: closeCard,
       onAcknowledge: readOnly ? noop : acknowledge,
       onLocate: showInSource,
       onReprocess,
+      onPoints: openPoints,
     }),
-    [acknowledge, onReprocess, readOnly, selectFromExam, showInSource],
+    [
+      acknowledge,
+      closeCard,
+      onReprocess,
+      openPoints,
+      readOnly,
+      selectFromExam,
+      showInSource,
+    ],
   );
   const editor = (question: ImportDraftQuestion) => (
     <QuestionEditor
@@ -479,6 +585,7 @@ export function ReviewWorkspace({
       onAcknowledge={handlers.onAcknowledge}
       onLocate={showInSource}
       onReprocess={onReprocess}
+      onExclude={askExclude}
     />
   );
 
@@ -520,7 +627,7 @@ export function ReviewWorkspace({
     setSummaryOpen(false);
     setFilter(next);
     const first = orderFindings(
-      findings.filter((finding) => matchesFilter(finding, next)),
+      findings.filter((finding) => isOpenIn(finding, next)),
       structure.positions,
     )[0];
     if (!first) return;
@@ -538,39 +645,9 @@ export function ReviewWorkspace({
     target?.focus();
   };
 
-  const leaveDialog = (
-    <ConfirmDialog
-      open={blocker.state === "blocked"}
-      onOpenChange={(open) => {
-        if (open) return;
-        setLeaveFailed(false);
-        blocker.reset?.();
-      }}
-      title={t("imports.review.leaveTitle")}
-      description={leaveDescription(stale, leaveFailed, t)}
-      confirmLabel={t("imports.review.leaveAnyway")}
-      cancelLabel={t("imports.review.stay")}
-      destructive
-      disabled={!leaveFailed}
-      onConfirm={() => {
-        setLeaveFailed(false);
-        blocker.proceed?.();
-      }}
-    />
-  );
-
-  if (phone)
-    return (
-      <>
-        <PhoneNotice
-          title={working.title}
-          importId={importId}
-          blocking={counts.blocking}
-          review={counts.review}
-        />
-        {leaveDialog}
-      </>
-    );
+  const excluded = excluding === null ? undefined : labels.get(excluding);
+  const facts = wholeTestFacts(value, working.sections, included.length, t);
+  const firstPoints = included[0]?.question.points ?? "1";
 
   const sourcePane = (
     <SourcePane
@@ -582,53 +659,60 @@ export function ReviewWorkspace({
       onRoleChange={setSourceRole}
       focus={focus}
       owners={structure.owners}
+      tagOf={tagOf}
       selectedBlocks={selectedBlocks}
       onSelect={selectFromSource}
     />
   );
+  const examPane = (
+    <div
+      ref={examScroller}
+      data-resize-middle
+      className={
+        wide
+          ? "bg-sidebar min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-10"
+          : "bg-sidebar min-h-0 flex-1 overflow-y-auto p-3"
+      }
+    >
+      <ExamPane
+        sections={working.sections}
+        section={section}
+        selectedId={selectedId}
+        findingsByTarget={grouped.byTarget}
+        globalFindings={grouped.global}
+        currentFindingId={currentFindingId}
+        visible={visible}
+        readOnly={readOnly}
+        facts={facts}
+        allDone={underReview && !readOnly && open.blocking + open.review === 0}
+        onFinish={openSummary}
+        handlers={handlers}
+        editor={editor}
+      />
+    </div>
+  );
 
   return (
-    <div className="-m-6 flex h-[calc(100svh-3.5rem)] min-w-0 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-3 border-b px-4 py-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("imports.review.back")}
-          onClick={() => void navigate(`/teacher/imports/${importId}`)}
-        >
-          <ArrowLeft aria-hidden="true" />
-        </Button>
-        <Input
-          value={working.title}
-          maxLength={200}
-          disabled={readOnly}
-          aria-label={t("imports.review.titleLabel")}
-          className="h-8 w-80 min-w-32 border-transparent font-medium shadow-none"
-          onChange={(event) => setTitle(event.target.value)}
-        />
-        <span className="text-muted-foreground text-xs tabular-nums">
-          {t("imports.review.counts", {
-            questions: included,
-            sections: working.sections.length,
-          })}
-        </span>
-        <AutosaveStatusLabel
-          status={status}
-          onRetry={retry}
-          staleLabel={t("imports.review.staleLabel")}
-        />
-        <div className="ml-auto">
-          <Button
-            ref={finishButton}
-            size="sm"
-            disabled={!underReview && commitState.phase !== "done"}
-            onClick={openSummary}
-          >
-            {t("imports.review.finish")}
-          </Button>
-        </div>
-      </div>
-
+    <div className="bg-card shadow-card flex h-[calc(100svh-8rem)] min-h-140 min-w-0 flex-col overflow-hidden rounded-xl border">
+      <ReviewTopBar
+        title={working.title}
+        readOnly={readOnly}
+        onTitle={setTitle}
+        counts={{
+          questions: included.length,
+          answers: included.filter((place) => place.question.answer.state === "known")
+            .length,
+          sections: working.sections.length,
+        }}
+        status={status}
+        staleLabel={t("imports.review.staleLabel")}
+        onRetry={retry}
+        blocking={open.blocking}
+        review={open.review}
+        finishRef={finishButton}
+        finishDisabled={!underReview && commitState.phase !== "done"}
+        onFinish={openSummary}
+      />
       <ReviewBanners
         value={value}
         stale={stale}
@@ -645,109 +729,60 @@ export function ReviewWorkspace({
         }}
       />
       {reprocessError === null ? null : (
-        <p role="alert" className="border-b px-4 py-2 text-sm">
+        <p role="alert" className="m-0 border-b px-4 py-2 text-sm">
           {reprocessError}
         </p>
       )}
-
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2">
-        <Segmented
-          label={t("imports.review.filterLabel")}
-          value={filter}
-          options={[
-            {
-              value: "all",
-              label: t("imports.review.filterAll", { count: counts.all }),
-            },
-            {
-              value: "blocking",
-              label: t("imports.review.filterBlocking", { count: counts.blocking }),
-            },
-            {
-              value: "review",
-              label: t("imports.review.filterReview", { count: counts.review }),
-            },
-          ]}
-          onChange={(next) => setFilter(isFindingFilter(next) ? next : "all")}
-        />
-        <Button
-          variant="outline"
-          size="xs"
-          disabled={navigable.length === 0}
-          onClick={() => step(-1)}
-        >
-          <ChevronLeft aria-hidden="true" />
-          {t("imports.review.previousFinding")}
-        </Button>
-        <span
-          role="status"
-          aria-live="polite"
-          className="text-muted-foreground text-xs tabular-nums"
-        >
-          {positionLabel(index, navigable.length, t)}
-        </span>
-        <Button
-          variant="outline"
-          size="xs"
-          disabled={navigable.length === 0}
-          onClick={() => step(1)}
-        >
-          {t("imports.review.nextFinding")}
-          <ChevronRight aria-hidden="true" />
-        </Button>
-        {wide ? null : (
-          <Segmented
-            className="ml-auto"
-            label={t("imports.review.viewLabel")}
-            value={view}
-            options={[
-              { value: "source", label: t("imports.review.viewSource") },
-              { value: "exam", label: t("imports.review.viewExam") },
-            ]}
-            onChange={(next) => showView(next === "source" ? "source" : "exam")}
-          />
-        )}
-      </div>
-
-      <div data-columns className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-        {wide ? (
-          <SideColumn
-            column="importSource"
-            side="left"
-            aria-label={t("imports.source.title")}
-            className="border-r"
-          >
-            {sourcePane}
-          </SideColumn>
-        ) : (
+      <ReviewToolbar
+        sections={working.sections.map((current) => ({
+          id: current.id,
+          title: current.title,
+        }))}
+        section={section}
+        onSection={setSection}
+        filter={filter}
+        counts={counts}
+        onFilter={setFilter}
+        narrow={!wide}
+        pane={view}
+        onPane={showView}
+        position={positionLabel(index, navigable.length, t)}
+        canStep={navigable.length > 0}
+        onStep={step}
+      />
+      {phone && phoneNote ? <PhoneNote onDismiss={() => setPhoneNote(false)} /> : null}
+      <SplitPane
+        label={t("imports.review.resizePanes")}
+        unit="percent"
+        defaultSize={42}
+        min={30}
+        max={65}
+        step={2}
+        storageKey="quizzivy.importReview.split"
+        handle="line"
+        split={wide}
+        className="flex-1"
+        firstClassName={cn("flex", !wide && view !== "source" && "hidden")}
+        secondClassName={cn("flex", !wide && view === "source" && "hidden")}
+        first={
           <section
             aria-label={t("imports.source.title")}
-            hidden={view !== "source"}
-            className="min-w-0 flex-1"
+            hidden={!wide && view !== "source"}
+            className="flex min-w-0 flex-1 flex-col"
           >
             {sourcePane}
           </section>
-        )}
-        <div
-          ref={examScroller}
-          data-resize-middle
-          hidden={!wide && view === "source"}
-          className="min-w-0 flex-1 overflow-y-auto p-6"
-        >
-          <ExamPane
-            sections={working.sections}
-            selectedId={selectedId}
-            findingsByTarget={grouped.byTarget}
-            globalFindings={grouped.global}
-            informational={grouped.informational}
-            currentFindingId={currentFindingId}
-            visible={visible}
-            readOnly={readOnly}
-            handlers={handlers}
-            editor={editor}
-          />
-        </div>
-      </div>
+        }
+        second={
+          <section
+            aria-label={t("imports.review.testPane")}
+            hidden={!wide && view === "source"}
+            className="flex min-w-0 flex-1 flex-col"
+          >
+            {examPane}
+          </section>
+        }
+      />
 
       <ReviewSummaryDialog
         open={summaryOpen}
@@ -761,9 +796,40 @@ export function ReviewWorkspace({
         onShowFilter={showFilter}
         onCloseAutoFocus={restoreAfterSummary}
       />
+      <ExcludeDialog
+        label={excluded?.label ?? ""}
+        open={excluding !== null && !readOnly}
+        returnFocus={excludeReturn}
+        onOpenChange={(next) => {
+          if (!next) setExcluding(null);
+        }}
+        onExclude={(reason) => {
+          const questionId = excluding;
+          setExcluding(null);
+          if (questionId === null) return;
+          editQuestion(questionId, (current) => exclude(current, reason));
+          notify.success(
+            t("imports.review.excludedToast", { label: excluded?.label ?? "" }),
+          );
+        }}
+      />
+      <PointsDialog
+        sections={working.sections}
+        initialPoints={firstPoints}
+        open={pointsOpen && !readOnly}
+        onOpenChange={setPointsOpen}
+        onApply={(points) => {
+          setPointsOpen(false);
+          for (const place of included)
+            editQuestion(place.question.id, (current) => setPoints(current, points));
+          notify.success(
+            t("imports.review.pointsSet", { points, count: included.length }),
+          );
+        }}
+      />
       <ConfirmDialog
         open={adopting}
-        onOpenChange={(open) => !adopt.isPending && setAdopting(open)}
+        onOpenChange={(next) => !adopt.isPending && setAdopting(next)}
         title={t("imports.review.adoptTitle")}
         description={t("imports.review.adoptBody")}
         confirmLabel={t("imports.review.adoptConfirm")}
@@ -789,15 +855,69 @@ export function ReviewWorkspace({
           onReload();
         }}
       />
-      {leaveDialog}
+      <ConfirmDialog
+        open={blocker.state === "blocked"}
+        onOpenChange={(next) => {
+          if (next) return;
+          setLeaveFailed(false);
+          blocker.reset?.();
+        }}
+        title={t("imports.review.leaveTitle")}
+        description={leaveDescription(stale, leaveFailed, t)}
+        confirmLabel={t("imports.review.leaveAnyway")}
+        cancelLabel={t("imports.review.stay")}
+        destructive
+        disabled={!leaveFailed}
+        onConfirm={() => {
+          setLeaveFailed(false);
+          blocker.proceed?.();
+        }}
+      />
     </div>
   );
 }
 
+function sourceName(source: ImportSource | undefined, t: TFunction): string {
+  if (source === undefined) return t("imports.review.factNone");
+  return source.format === "text" ? t("imports.detail.pastedText") : source.filename;
+}
+
+function wholeTestFacts(
+  value: WordImport,
+  sections: readonly ImportDraftSection[],
+  questions: number,
+  t: TFunction,
+): WholeTestFact[] {
+  const exam = value.sources.find((source) => source.role === "exam");
+  const key = value.sources.find((source) => source.role === "answer_key");
+  const groups = sections.reduce(
+    (count, current) => count + current.items.filter((item) => item.group).length,
+    0,
+  );
+  return [
+    {
+      label: t("imports.review.factExam"),
+      value: sourceName(exam, t),
+    },
+    {
+      label: t("imports.review.factKey"),
+      value: sourceName(key, t),
+    },
+    {
+      label: t("imports.review.factQuestions"),
+      value: t("imports.review.factQuestionsValue", {
+        questions: t("imports.review.questionsCount", { count: questions }),
+        sections: t("imports.review.sectionsCount", { count: sections.length }),
+        groups: t("imports.review.groupsCount", { count: groups }),
+      }),
+    },
+  ];
+}
+
 function positionLabel(index: number, total: number, t: TFunction): string {
   if (total === 0) return t("imports.review.noFindings");
-  if (index === -1) return t("imports.review.findingCount", { count: total });
-  return t("imports.review.findingPosition", { current: index + 1, total });
+  if (index === -1) return t("imports.review.openTotal", { count: total });
+  return t("imports.review.openPosition", { current: index + 1, total });
 }
 
 function leaveDescription(stale: boolean, failed: boolean, t: TFunction): string {
