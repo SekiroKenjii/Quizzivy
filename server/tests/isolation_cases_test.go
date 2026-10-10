@@ -432,5 +432,7 @@ func isolationCases() map[string]isoCase {
 		"getNotificationPreferences":    {},
 		"updateNotificationPreferences": {},
 		"updatePreferences":             {},
+		"setAvatar":                     {format: "avatar"},
+		"deleteAvatar":                  {},
 	}
 }

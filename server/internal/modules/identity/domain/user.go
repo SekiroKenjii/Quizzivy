@@ -15,6 +15,7 @@ type User struct {
 	Email              string
 	FullName           string
 	DisplayName        *string
+	AvatarKey          *string
 	Phone              *string
 	Locale             *string
 	TimeZone           *string

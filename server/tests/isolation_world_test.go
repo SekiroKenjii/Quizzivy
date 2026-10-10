@@ -133,6 +133,21 @@ func tinyPNG(t *testing.T) []byte {
 	return b.Bytes()
 }
 
+func avatarPNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 300, 300))
+	for y := 0; y < 300; y++ {
+		for x := 0; x < 300; x++ {
+			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 120, A: 255})
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
+}
+
 func tinyDocx(t *testing.T) []byte {
 	t.Helper()
 	var b bytes.Buffer
