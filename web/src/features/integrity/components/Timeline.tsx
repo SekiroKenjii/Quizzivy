@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
@@ -30,16 +31,22 @@ import {
   timelineRows,
   type TimelineFilter,
 } from "../timeline";
+import { TIMELINE_DOT, timelineMark, type TimelineMark } from "../tones";
 
 const FILTERS: TimelineFilter[] = ["all", "away", "audio", "network"];
 
-/** Timeline presents neutral paired events, preserving the full review by default and omitting its autosave note in compact mode. */
+/**
+ * Timeline presents an attempt's paired events: the full review by default,
+ * or in compact mode the deck's dotted list, from the start to the submission,
+ * without the note card.
+ */
 export function Timeline({
   attemptId,
   questions,
   live,
   note,
   onViewPaper,
+  submittedAt = null,
   presentation = "full",
 }: Readonly<{
   attemptId: string;
@@ -49,6 +56,8 @@ export function Timeline({
   /** G-05's private note as last saved; the card autosaves from here. */
   note: string | null;
   onViewPaper: () => void;
+  /** When the compact list ends with "Submitted"; null while there is nothing handed in. */
+  submittedAt?: string | null;
   presentation?: "full" | "compact";
 }>) {
   useDisplayTimeZone();
@@ -93,41 +102,40 @@ export function Timeline({
           {t("assignmentDetail.sheet.timeline")}
         </h2>
         <ol className="text-sm">
-          <li className="flex gap-3 pb-3.5">
-            <span
-              aria-hidden="true"
-              className="bg-info mt-1.25 size-2.5 shrink-0 rounded-full"
-            />
-            <div>
-              {t("timeline.kind.started")}
-              <p className="text-muted-fg text-xs tabular-nums">
-                {clockTime(data.startedAt)}
-              </p>
-            </div>
-          </li>
+          <CompactRow mark="start" when={clockTime(data.startedAt)}>
+            {t("timeline.kind.started")}
+          </CompactRow>
+          {rows.length === 0 && (
+            <CompactRow mark="autosave" when={t("timeline.autosavedWhen")}>
+              {t("timeline.autosaved")}
+            </CompactRow>
+          )}
           {rows.map(({ event, ongoing, playNo }) => (
-            <li key={event.id} className="flex gap-3 pb-3.5">
-              <span
-                aria-hidden="true"
-                className="bg-muted-fg mt-1.25 size-2.5 shrink-0 rounded-full"
+            <CompactRow
+              key={event.id}
+              mark={timelineMark(event.kind)}
+              when={
+                event.questionId && numberOf.has(event.questionId)
+                  ? `${clockTime(event.occurredAt)} · ${t("timeline.columns.question")} ${numberOf.get(event.questionId)}`
+                  : clockTime(event.occurredAt)
+              }
+            >
+              <EventLabel
+                event={event}
+                playNo={playNo}
+                ongoing={ongoing}
+                questions={questions}
               />
-              <div className="min-w-0 flex-1">
-                <EventLabel
-                  event={event}
-                  playNo={playNo}
-                  ongoing={ongoing}
-                  questions={questions}
-                />
-                <p className="text-muted-fg text-xs tabular-nums">
-                  {clockTime(event.occurredAt)} ·{" "}
-                  <DurationCell event={event} ongoing={ongoing} />
-                  {event.questionId && numberOf.has(event.questionId)
-                    ? ` · ${t("timeline.columns.question")} ${numberOf.get(event.questionId)}`
-                    : ""}
-                </p>
-              </div>
-            </li>
+              {!ongoing && event.durationMs != null && (
+                <> · {spokenSpan(event.durationMs, t)}</>
+              )}
+            </CompactRow>
           ))}
+          {submittedAt !== null && (
+            <CompactRow mark="submitted" when={clockTime(submittedAt)}>
+              {t("timeline.kind.submitted")}
+            </CompactRow>
+          )}
         </ol>
         <details className="text-muted-fg text-xs">
           <summary className="cursor-pointer">{t("timeline.help.title")}</summary>
@@ -345,6 +353,37 @@ function EventLabel({
       )}
     </>
   );
+}
+
+function CompactRow({
+  mark,
+  when,
+  children,
+}: Readonly<{ mark: TimelineMark; when: string; children: React.ReactNode }>) {
+  return (
+    <li className="flex gap-3 pb-3.5">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "ring-card mt-1.25 size-2.5 shrink-0 rounded-full ring-3",
+          TIMELINE_DOT[mark],
+        )}
+      />
+      <div className="min-w-0 flex-1">
+        {children}
+        <p className="text-muted-fg text-xs tabular-nums">{when}</p>
+      </div>
+    </li>
+  );
+}
+
+function spokenSpan(ms: number, t: TFunction): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  if (minutes === 0) return t("timeline.span.seconds", { n: seconds });
+  if (seconds === 0) return t("timeline.span.minutes", { n: minutes });
+  return t("timeline.span.minutesSeconds", { m: minutes, s: seconds });
 }
 
 function Strip({

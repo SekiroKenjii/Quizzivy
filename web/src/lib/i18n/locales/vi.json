@@ -1838,6 +1838,12 @@
       "awayHint": "Rời bài ngắn hơn mức này thì không tính",
       "seconds": "{{count}} giây",
       "honesty": "Trình duyệt không thể ngăn gian lận. Các quy định này ghi lại điều đã xảy ra để bạn tự quyết định.",
+      "limits": {
+        "title": "Hệ thống thấy được gì và không thấy gì",
+        "detects": "Hệ thống chỉ phát hiện khi tab làm bài này bị rời đi: học viên chuyển sang tab khác, cửa sổ khác hoặc thoát toàn màn hình.",
+        "cannotSee": "Nó không thấy thiết bị thứ hai, chiếc điện thoại đặt cạnh máy tính, người ngồi trong phòng hay tờ giấy in sẵn.",
+        "conversation": "Các tín hiệu này là thông tin để trò chuyện với học viên, không phải bằng chứng."
+      },
       "note": "Lời nhắn cho học viên (không bắt buộc)",
       "noteHint": "Hiện trên trang giới thiệu bài làm.",
       "noteCount": "{{count}}/500",
@@ -2340,7 +2346,8 @@
       "page_hide": "Đóng trang",
       "tab_visible": "Quay lại tab",
       "window_focus": "Quay lại cửa sổ",
-      "auto_submit": "Tự nộp vì vượt giới hạn rời trang"
+      "auto_submit": "Tự nộp vì vượt giới hạn rời trang",
+      "submitted": "Nộp bài"
     },
     "ongoing": "— đang tiếp diễn",
     "stillOpen": "· đang mở",
@@ -2356,7 +2363,14 @@
     },
     "noteTitle": "Ghi chú của bạn",
     "noteHint": "Chỉ bạn đọc được. Không hiện cho học viên.",
-    "notePlaceholder": "Ví dụ: đã hỏi Hân, em nói mất điện lúc 10:04."
+    "notePlaceholder": "Ví dụ: đã hỏi Hân, em nói mất điện lúc 10:04.",
+    "autosaved": "Câu trả lời được lưu tự động",
+    "autosavedWhen": "trong lúc làm bài",
+    "span": {
+      "seconds": "{{n}} giây",
+      "minutes": "{{n}} phút",
+      "minutesSeconds": "{{m}} phút {{s}} giây"
+    }
   },
   "splitPane": {
     "hint": "Kéo để đổi độ rộng · bấm đúp để đặt lại"

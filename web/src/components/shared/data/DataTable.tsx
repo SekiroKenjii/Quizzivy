@@ -261,7 +261,7 @@ function BodyRow<T extends Item>({
       className={cn(
         "text-ui hover:bg-muted grid items-center gap-3 border-t leading-normal",
         opens && "cursor-pointer",
-        tone === "danger" && "bg-danger-soft",
+        tone === "danger" && "bg-danger-soft hover:bg-danger-soft",
         tone === "selected" && "bg-muted",
       )}
       style={{
