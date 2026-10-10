@@ -260,6 +260,14 @@ const teacherTree: RouteObject = {
         },
         {
           path: "attempts/:id",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
+              { key: "assignmentDetail.title" },
+              { key: "review.title" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/attempts/pages/teacher/AttemptReviewPage"),
           ),
