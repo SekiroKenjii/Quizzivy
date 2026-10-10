@@ -200,6 +200,28 @@ describe("the Question editor's frame", () => {
       "/teacher/question-bank",
     );
   });
+
+  it("says a malformed address is not found rather than offering a Retry that cannot work", async () => {
+    server.use(
+      http.get(`${BASE}/teacher/questions/:id`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "VALIDATION_FAILED",
+              message: "id phải là một UUID.",
+              requestId: "018f0000-0000-7000-8000-0000000000f5",
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    renderPage("/teacher/question-bank/khong-phai-uuid");
+    expect(
+      await screen.findByText("Không tìm thấy câu hỏi này. Có thể nó đã bị xoá."),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
+  });
 });
 
 describe("the Question editor's … menu", () => {

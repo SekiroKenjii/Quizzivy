@@ -53,7 +53,8 @@ const GROUP_LABEL =
 /**
  * QuestionEditorPage is the bank's Question editor at
  * /teacher/question-bank/new and /teacher/question-bank/:id, with its
- * loading skeleton, its not-found state and its load error.
+ * loading skeleton, its not-found state (for a 404, and for the 400 an address
+ * that is not an id gets) and its load error.
  */
 export default function QuestionEditorPage() {
   const { t } = useTranslation();
@@ -66,7 +67,10 @@ export default function QuestionEditorPage() {
 
   if (id !== undefined && existing.isPending) return <EditorSkeleton />;
   if (existing.isError) {
-    if (existing.error instanceof ApiError && existing.error.status === 404)
+    if (
+      existing.error instanceof ApiError &&
+      (existing.error.status === 404 || existing.error.status === 400)
+    )
       return (
         <DeckScale className="mx-auto w-full max-w-[720px] min-w-0">
           <EmptyState
