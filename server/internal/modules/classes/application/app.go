@@ -1,6 +1,7 @@
 package application
 
 import (
+	"log/slog"
 	"quizzivy/internal/modules/classes/application/command"
 	"quizzivy/internal/modules/classes/application/internal/support"
 	"quizzivy/internal/modules/classes/application/ports"
@@ -24,9 +25,18 @@ func (a *Application) SetClock(now func() time.Time) {
 }
 
 // WithNotifier supplies the notifier RotateLegacyJoinCodes tells each teacher
-// through. Without one the command rotates and tells nobody.
+// through, and the enrolments tell a class's teacher of a join by code. Without
+// one the commands rotate and enrol and tell nobody.
 func (a *Application) WithNotifier(notifier ports.Notifier) *Application {
+	a.enrolment.Notifier = notifier
 	a.Commands.RotateLegacyJoinCodes = command.RotateLegacyJoinCodesHandler{Enrolment: a.enrolment, Notifier: notifier}
+	return a
+}
+
+// WithLogger supplies the logger a failed notification of a join is written
+// to. Without one it is not logged.
+func (a *Application) WithLogger(logger *slog.Logger) *Application {
+	a.enrolment.Logger = logger
 	return a
 }
 

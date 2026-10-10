@@ -33,6 +33,11 @@ type EnrolResult struct {
 	UserID        string
 	AlreadyMember bool
 	Class         EnrolledClass
+	// StudentName is the joiner's full name and TeacherID the class's
+	// teacher. Both are read in the enrolment's transaction, for the
+	// notification that follows it.
+	StudentName string
+	TeacherID   string
 }
 
 // EnrolledClass is the §7 Class shape the join endpoints return.

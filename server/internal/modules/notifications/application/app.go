@@ -24,6 +24,7 @@ func (a *Application) SetClock(now func() time.Time) {
 
 type Commands struct {
 	Notify            cqrs.CommandHandler[command.Notify, cqrs.Nothing]
+	MaterialiseDue    cqrs.CommandHandler[command.MaterialiseDue, int]
 	MarkRead          cqrs.CommandHandler[command.MarkRead, cqrs.Nothing]
 	MarkAllRead       cqrs.CommandHandler[command.MarkAllRead, cqrs.Nothing]
 	UpdatePreferences cqrs.CommandHandler[command.UpdatePreferences, []domain.Preference]
@@ -41,6 +42,7 @@ func New(repo domain.Repository) *Application {
 	return &Application{
 		Commands: Commands{
 			Notify:            command.NotifyHandler{Service: service},
+			MaterialiseDue:    command.MaterialiseDueHandler{Service: service},
 			MarkRead:          command.MarkReadHandler{Service: service},
 			MarkAllRead:       command.MarkAllReadHandler{Service: service},
 			UpdatePreferences: command.UpdatePreferencesHandler{Service: service},
