@@ -2368,7 +2368,7 @@
       "clear": "Xoá hết",
       "kind": "Văn bản thuần · đánh dấu đáp án bằng * hoặc “Đáp án:”",
       "clipboardEmpty": "Bộ nhớ tạm đang trống",
-      "clipboardBlocked": "Trình duyệt đã chặn bộ nhớ tạm. Hãy bấm vào ô và nhấn Ctrl+V (⌘V trên Mac).",
+      "clipboardBlocked": "Trình duyệt đã chặn bộ nhớ tạm. Hãy bấm vào ô và nhấn Ctrl+V (Cmd+V trên Mac).",
       "found": "Đã tìm thấy",
       "sections": "Phần",
       "questions": "Câu hỏi",

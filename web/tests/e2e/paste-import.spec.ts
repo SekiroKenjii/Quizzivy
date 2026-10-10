@@ -139,13 +139,15 @@ test("a refused clipboard says how to paste by hand", async ({ page, context }) 
   await cdp.send("Browser.setPermission", {
     permission: { name: "clipboard-read" },
     setting: "denied",
-    browserContextId: targetInfo.browserContextId,
+    ...(targetInfo.browserContextId === undefined
+      ? {}
+      : { browserContextId: targetInfo.browserContextId }),
   });
   await page.goto("/teacher/imports/new?source=paste");
   await page.getByRole("button", { name: "Dán từ bộ nhớ tạm" }).click();
   await expect(
     page.getByText(
-      "Trình duyệt đã chặn bộ nhớ tạm. Hãy bấm vào ô và nhấn Ctrl+V (⌘V trên Mac).",
+      "Trình duyệt đã chặn bộ nhớ tạm. Hãy bấm vào ô và nhấn Ctrl+V (Cmd+V trên Mac).",
     ),
   ).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Nội dung đề" })).toHaveValue("");

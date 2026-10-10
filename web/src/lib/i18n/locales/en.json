@@ -2368,7 +2368,7 @@
       "clear": "Clear",
       "kind": "Plain text · mark answers with * or “Answer:”",
       "clipboardEmpty": "The clipboard is empty",
-      "clipboardBlocked": "Your browser blocked the clipboard. Click in the box and press Ctrl+V (⌘V on Mac).",
+      "clipboardBlocked": "Your browser blocked the clipboard. Click in the box and press Ctrl+V (Cmd+V on Mac).",
       "found": "Found so far",
       "sections": "Sections",
       "questions": "Questions",

@@ -351,7 +351,7 @@ describe("the clipboard and clear actions", () => {
     await user.click(screen.getByRole("button", { name: "Dán từ bộ nhớ tạm" }));
     await waitFor(() =>
       expect(notify.warning).toHaveBeenCalledWith(
-        "Trình duyệt đã chặn bộ nhớ tạm. Hãy bấm vào ô và nhấn Ctrl+V (⌘V trên Mac).",
+        "Trình duyệt đã chặn bộ nhớ tạm. Hãy bấm vào ô và nhấn Ctrl+V (Cmd+V trên Mac).",
       ),
     );
   });
