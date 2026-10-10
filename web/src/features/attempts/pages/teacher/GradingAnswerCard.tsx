@@ -1,0 +1,322 @@
+import { Avatar } from "@/components/ui/avatar";
+import { givenName } from "@/features/assignments/studentTime";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { AnswerReview } from "../../components/AnswerReview";
+import { ReviewGroup } from "@/features/media/components/ReviewGroup";
+import type { GradingQueueItem } from "../../api";
+import type { GradingDraft } from "./useGradingQueue";
+import { scoreOptions } from "./gradingRecovery";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
+
+/** GradingAnswerCard preserves the frozen answer and local comment while each chosen score saves immediately; when a save settles with focus lost to the page, it puts focus back on the card's score. */
+export function GradingAnswerCard({
+  item,
+  draft,
+  busy,
+  finishReady,
+  position,
+  total,
+  onScore,
+  onComment,
+  onPrevious,
+  onNext,
+  onRetryMaterial,
+  onReview,
+}: Readonly<{
+  item: GradingQueueItem;
+  draft: GradingDraft | undefined;
+  busy: boolean;
+  finishReady: boolean;
+  position: number;
+  total: number;
+  onScore: (points: number) => void;
+  onComment: (comment: string) => void;
+  onPrevious: () => void;
+  onNext: (numericIntent?: boolean) => void;
+  onRetryMaterial: () => void;
+  onReview: (event: MouseEvent<HTMLAnchorElement>) => void;
+}>) {
+  const { t } = useTranslation();
+  const points = draft?.points ?? item.score;
+  const [number, setNumber] = useState(String(points ?? ""));
+  const [shownPoints, setShownPoints] = useState(points);
+  if (points !== shownPoints) {
+    setShownPoints(points);
+    setNumber(String(points ?? ""));
+  }
+  const numeric = useRef<HTMLInputElement>(null);
+  const [numericNext, setNumericNext] = useState(false);
+  const card = useRef<HTMLElement>(null);
+  const wasBusy = useRef(busy);
+  useEffect(() => {
+    const settled = wasBusy.current && !busy;
+    wasBusy.current = busy;
+    if (
+      !settled ||
+      (document.activeElement && document.activeElement !== document.body)
+    )
+      return;
+    const root = card.current;
+    const target =
+      root?.querySelector<HTMLElement>('[data-score][aria-pressed="true"]') ??
+      root?.querySelector<HTMLElement>("[data-score]") ??
+      root;
+    target?.focus();
+  }, [busy]);
+  const validNumber =
+    number.trim() !== "" &&
+    Number.isFinite(Number(number)) &&
+    Number(number) >= 0 &&
+    Number(number) <= item.points;
+  const comment = draft?.comment ?? item.comment ?? "";
+  const choices = scoreOptions(item.points);
+  const group = item.sharedContext?.groups.find((entry) =>
+    entry.questionIds.includes(item.questionId),
+  );
+  const snippets = item.points === 1 ? "short" : "essay";
+  return (
+    <section
+      ref={card}
+      tabIndex={-1}
+      className="bg-card shadow-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border outline-none"
+      aria-label={t("grading.answerCard")}
+    >
+      <div className="space-y-4.5 px-5 py-4.5">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Avatar name={item.studentName} className="size-8.5" />
+            <div className="min-w-0">
+              <p className="text-[14px] leading-[21px] font-semibold">
+                {item.studentName}
+              </p>
+              <p className="text-muted-foreground text-[12.5px]">
+                {item.assignmentTitle}
+              </p>
+            </div>
+          </div>
+          <span className="text-muted-foreground text-[12.5px]">
+            <span className="mr-2 inline-block rounded-full border px-2.25 py-0.25">
+              {t(`questionEditor.type.${item.type}`, { defaultValue: item.type })}
+            </span>
+            {t("grading.questionPoints", { n: item.questionNumber, max: item.points })}
+          </span>
+        </div>
+        {group && item.sharedContext && (
+          <ReviewGroup
+            group={group}
+            transcripts={item.sharedContext.transcripts}
+            {...(item.sharedContext.audioPlays
+              ? { plays: item.sharedContext.audioPlays }
+              : {})}
+            numbers={new Map([[item.questionId, item.questionNumber]])}
+            onRetry={onRetryMaterial}
+          />
+        )}
+        <div>
+          <p className="text-muted-foreground mb-1.5 text-xs leading-[18px] font-medium">
+            {t("grading.prompt")}
+          </p>
+          <div
+            className={cn(
+              "[&>div>div:first-child]:text-[15px] [&>div>div:first-child]:leading-[1.6] [&>div>div:first-child]:[text-wrap:pretty]",
+              item.type === "short_answer" &&
+                "[&>div>div:last-child]:bg-muted [&>div>div:last-child]:rounded-[10px] [&>div>div:last-child]:border-0",
+            )}
+          >
+            <AnswerReview
+              question={item}
+              answer={{ answer: item.answer, manualScore: points }}
+              shortAnswerPresentation={{ label: t("grading.studentAnswer") }}
+            />
+          </div>
+        </div>
+        {item.blanks && item.blanks.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-muted-foreground text-xs">
+              {t("grading.accepted")}
+            </span>
+            {item.blanks.flatMap((blank) =>
+              blank.acceptedAnswers.map((answer) => (
+                <span
+                  key={`${blank.id}:${answer}`}
+                  className="bg-success-soft text-success-ink rounded-md px-2 py-0.5 text-xs"
+                >
+                  {answer}
+                </span>
+              )),
+            )}
+          </div>
+        )}
+        {item.sampleAnswer && (
+          <div className="bg-info-soft text-info-ink rounded-lg p-3">
+            <h3 className="text-xs font-medium">{t("review.sampleAnswer")}</h3>
+            <p className="mt-1 text-sm whitespace-pre-wrap">{item.sampleAnswer}</p>
+          </div>
+        )}
+        <fieldset disabled={busy} className="space-y-2">
+          <legend className="text-muted-foreground mb-2 text-xs leading-[18px] font-medium">
+            {t("grading.scoreLabel")}
+          </legend>
+          {choices.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {choices.map((value, index) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant={points === value ? "default" : "outline"}
+                  aria-pressed={points === value}
+                  aria-label={t("grading.score", { count: value })}
+                  data-score={value}
+                  className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums in-data-[scale=deck]:gap-2 in-data-[scale=deck]:text-[15px]"
+                  onClick={() => onScore(value)}
+                >
+                  {value}
+                  <kbd
+                    aria-hidden="true"
+                    className="rounded border border-current px-1 font-sans text-[10.5px] font-medium opacity-60"
+                  >
+                    {index + 1}
+                  </kbd>
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <label className="block space-y-2 text-sm">
+              <span>{t("grading.numberScore", { max: item.points })}</span>
+              <Input
+                ref={numeric}
+                type="number"
+                min={0}
+                max={item.points}
+                step={0.5}
+                value={number}
+                onChange={(event) => setNumber(event.target.value)}
+                onBlur={() => {
+                  if (
+                    number.trim() &&
+                    Number(number) >= 0 &&
+                    Number(number) <= item.points
+                  )
+                    onScore(Number(number));
+                }}
+                aria-invalid={
+                  number.trim() !== "" &&
+                  (!Number.isFinite(Number(number)) ||
+                    Number(number) < 0 ||
+                    Number(number) > item.points)
+                }
+              />
+            </label>
+          )}
+        </fieldset>
+        <fieldset disabled={busy} className="space-y-2">
+          <label
+            htmlFor="grading-comment"
+            className="text-muted-foreground block w-full text-xs leading-[18px] font-medium"
+          >
+            {t("grading.comment")}
+          </label>
+          <Textarea
+            id="grading-comment"
+            rows={2}
+            value={comment}
+            placeholder={t("grading.commentPlaceholder")}
+            onChange={(event) => onComment(event.target.value)}
+            className="bg-background min-h-16 resize-y rounded-[9px] px-3 py-2.5 text-[14px]! leading-[1.5]"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {[0, 1, 2, 3].map((index) => {
+              const text = t(`grading.snippets.${snippets}.${index}`);
+              return (
+                <Button
+                  key={index}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-muted-foreground bg-card! hover:border-ring hover:bg-card! hover:text-foreground h-auto! rounded-full! px-2.5 py-0.75 text-[12.5px]! leading-[normal] font-normal shadow-none"
+                  onClick={() => onComment(`${comment.trim()} ${text}.`.trim())}
+                >
+                  {text}
+                </Button>
+              );
+            })}
+          </div>
+        </fieldset>
+      </div>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2.5 border-t px-5 py-3">
+        <span className="text-muted-foreground text-[12.5px]">
+          {t("grading.position", {
+            i: position,
+            n: total,
+            name: givenName(item.studentName),
+          })}
+          <span className="ml-2.5 hidden items-center gap-1 min-[768px]:inline-flex">
+            <kbd className="rounded border px-1.25 font-sans text-[11px]">
+              {t("grading.previousKey")}
+            </kbd>{" "}
+            <kbd className="rounded border px-1.25 font-sans text-[11px]">
+              {t("grading.nextKey")}
+            </kbd>{" "}
+            {t("grading.toMove")}
+          </span>
+        </span>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="ghost" size="icon">
+            <Link
+              to={`/teacher/attempts/${item.attemptId}`}
+              aria-disabled={busy}
+              aria-label={t("grading.openReview")}
+              title={t("grading.openReview")}
+              onClick={onReview}
+            >
+              <FileText aria-hidden="true" />
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="md"
+            disabled={busy || position <= 1}
+            onClick={onPrevious}
+          >
+            <ArrowLeft aria-hidden="true" />
+            {t("takeTest.previous")}
+          </Button>
+          <Button
+            size="md"
+            className="px-4"
+            disabled={busy && !numericNext}
+            onPointerDown={(event) => {
+              if (
+                event.button === 0 &&
+                !busy &&
+                !finishReady &&
+                choices.length === 0 &&
+                document.activeElement === numeric.current &&
+                validNumber
+              )
+                setNumericNext(true);
+            }}
+            onPointerCancel={() => setNumericNext(false)}
+            onPointerLeave={(event) => {
+              if (event.buttons) setNumericNext(false);
+            }}
+            onBlur={() => setNumericNext(false)}
+            onClick={() => {
+              setNumericNext(false);
+              onNext(numericNext);
+            }}
+          >
+            {t(finishReady ? "review.finish" : "grading.saveNext")}
+            <ArrowRight aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}

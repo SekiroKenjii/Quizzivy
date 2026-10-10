@@ -191,9 +191,8 @@ const teacherTree: RouteObject = {
         },
         {
           path: "grading",
-          lazy: page(
-            () => import("@/features/attempts/pages/teacher/GradingQueuePage"),
-          ),
+          handle: { crumb: [{ key: "teacherShell.nav.grading" }], width: 1320 },
+          lazy: page(() => import("@/features/attempts/pages/teacher/GradingPage")),
         },
         {
           path: "students",

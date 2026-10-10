@@ -8,16 +8,22 @@ import type { AdminQuestion, ReviewAnswer } from "../api";
 import { OPTION, optionKey } from "./answerStyles";
 import type { TFunction } from "i18next";
 
-/**
- * A question as the teacher reads it after the fact: the prompt, the
- * student's answer against the key, and the audio if there was any (G-03).
- */
+type ReviewQuestion = Pick<
+  AdminQuestion,
+  "type" | "prompt" | "promptContent" | "media" | "options" | "blanks"
+>;
+
+type ShortAnswerPresentation = Readonly<{ label: string }>;
+
+/** AnswerReview preserves full-review defaults and optionally presents a short answer with grading metrics and its supplied label. */
 export function AnswerReview({
   question,
   answer,
+  shortAnswerPresentation,
 }: Readonly<{
-  question: AdminQuestion;
+  question: ReviewQuestion;
   answer: ReviewAnswer | undefined;
+  shortAnswerPresentation?: ShortAnswerPresentation;
 }>) {
   const given = answer?.answer ?? null;
   return (
@@ -37,7 +43,11 @@ export function AnswerReview({
           preload="metadata"
         />
       )}
-      <Body question={question} given={given} />
+      <Body
+        question={question}
+        given={given}
+        shortAnswerPresentation={shortAnswerPresentation}
+      />
     </div>
   );
 }
@@ -45,19 +55,33 @@ export function AnswerReview({
 function Body({
   question,
   given,
-}: Readonly<{ question: AdminQuestion; given: Answer | null }>) {
+  shortAnswerPresentation,
+}: Readonly<{
+  question: ReviewQuestion;
+  given: Answer | null;
+  shortAnswerPresentation: ShortAnswerPresentation | undefined;
+}>) {
   const { t } = useTranslation();
+  const shortAnswerStyle = shortAnswerPresentation
+    ? {
+        panel: "bg-muted rounded-[10px] px-4 py-3.5",
+        label: "text-muted-foreground mb-1.5 text-xs leading-[1.5] font-medium",
+        answer: "text-[16px] leading-[1.65] [text-wrap:pretty] whitespace-pre-wrap",
+      }
+    : {
+        panel: "rounded-md border p-4",
+        label: "text-muted-foreground mb-2 text-xs",
+        answer: "text-base leading-relaxed whitespace-pre-wrap",
+      };
   switch (question.type) {
     case "short_answer":
       return (
-        <div className="rounded-md border p-4">
-          <p className="text-muted-foreground mb-2 text-xs">
-            {t("review.studentAnswer")}
+        <div className={shortAnswerStyle.panel}>
+          <p className={shortAnswerStyle.label}>
+            {shortAnswerPresentation?.label ?? t("review.studentAnswer")}
           </p>
           {given !== null && "value" in given && String(given.value).trim() !== "" ? (
-            <p className="text-base leading-relaxed whitespace-pre-wrap">
-              {String(given.value)}
-            </p>
+            <p className={shortAnswerStyle.answer}>{String(given.value)}</p>
           ) : (
             <p className="text-muted-foreground text-sm">{t("review.unanswered")}</p>
           )}
@@ -130,7 +154,6 @@ function Body({
   }
 }
 
-/** grading.normalise's rule: whitespace and case forgiven per the blank, the answer not. */
 function matches(typed: string, accepted: string[], caseSensitive: boolean): boolean {
   const fold = (s: string) => {
     const collapsed = s.normalize("NFC").trim().split(/\s+/).join(" ");
