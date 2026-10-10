@@ -2574,6 +2574,11 @@ export interface paths {
          *     memory the image would need, and only then the decode. At most two
          *     images are decoded at a time across the server. The caller may set a
          *     photo ten times an hour.
+         *
+         *     The file may be exactly 2 MiB; the request may carry 16 KiB more than
+         *     that for the multipart framing, so a file of 2 MiB and one byte is
+         *     refused by the size check with `MEDIA_TOO_LARGE`, and a request far
+         *     beyond it is cut off before the handler with the same answer.
          */
         put: operations["setAvatar"];
         post?: never;
@@ -10377,9 +10382,10 @@ export interface operations {
             /**
              * @description `MEDIA_TYPE_UNSUPPORTED` (not a PNG or a JPEG), `MEDIA_UNREADABLE`
              *     (sniffed correctly but the header or the pixels cannot be read) or
-             *     `IMAGE_DIMENSIONS` (a side under 200 or over 2048 pixels, or an
+             *     `IMAGE_DIMENSIONS` (a side under 200 or over 2048 pixels, an
              *     image that would need more memory to decode than the server
-             *     allows). Nothing was stored.
+             *     allows, or a JPEG of more than 32 scans, which a decoder that
+             *     cannot be cancelled would spend minutes on). Nothing was stored.
              */
             415: {
                 headers: {
