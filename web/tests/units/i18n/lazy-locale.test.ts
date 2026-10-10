@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import i18n, { setLocale } from "@/lib/i18n";
+import i18n, { chosenLocale, setLocale } from "@/lib/i18n";
 import en from "@/lib/i18n/locales/en.json";
 
 beforeEach(async () => {
@@ -41,6 +41,24 @@ describe("the English strings", () => {
     expect(i18n.language).toBe("vi");
     expect(document.documentElement.lang).toBe("vi");
     expect(localStorage.getItem("quizzivy.locale")).toBe("vi");
+  });
+
+  it("count as the choice while they load, before the screen changes", async () => {
+    const switching = setLocale("en");
+
+    expect(chosenLocale()).toBe("en");
+    expect(i18n.language).toBe("vi");
+
+    await switching;
+    expect(chosenLocale()).toBe("en");
+  });
+
+  it("leave the choice to a direct change of language", async () => {
+    await setLocale("en");
+
+    await i18n.changeLanguage("vi");
+
+    expect(chosenLocale()).toBe("vi");
   });
 
   it("switch at once once loaded", async () => {
