@@ -3,7 +3,13 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 
-/** MarqueeText reads text once, exposes cut titles in full, and scrolls overflow with hover/focus pauses or a reduced-motion ellipsis. */
+/**
+ * MarqueeText reads text once, exposes cut titles in full, and scrolls
+ * overflow with hover/focus pauses or a reduced-motion ellipsis. Its in-flow
+ * content is one copy of the text whether it scrolls or not, so a host that
+ * sizes it by its content gives it the same width in both states and the
+ * overflow check cannot flip it back and forth.
+ */
 export function MarqueeText({
   text,
   minSeconds = 8,
@@ -66,19 +72,24 @@ export function MarqueeText({
         {text}
       </span>
       {moving ? (
-        <span
-          className="qz-marquee-track inline-flex"
-          style={{ animationDuration: `${seconds}s` }}
-        >
-          <span>{text}</span>
-          <span
-            aria-hidden="true"
-            className={gapPx === undefined ? "pl-8" : undefined}
-            style={gapPx === undefined ? undefined : { paddingLeft: gapPx }}
-          >
+        <>
+          <span data-slot="marquee-sizer" aria-hidden="true" className="invisible">
             {text}
           </span>
-        </span>
+          <span
+            className="qz-marquee-track absolute top-0 left-0 inline-flex w-max"
+            style={{ animationDuration: `${seconds}s` }}
+          >
+            <span>{text}</span>
+            <span
+              aria-hidden="true"
+              className={gapPx === undefined ? "pl-8" : undefined}
+              style={gapPx === undefined ? undefined : { paddingLeft: gapPx }}
+            >
+              {text}
+            </span>
+          </span>
+        </>
       ) : (
         <span>{text}</span>
       )}
