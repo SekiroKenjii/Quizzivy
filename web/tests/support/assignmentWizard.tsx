@@ -118,7 +118,7 @@ const TESTS = [
   publishedTest(OTHER_TEST_ID, "Mock B", ["grammar"]),
 ];
 export const VERSIONS: Record<string, ReturnType<typeof version>> = {
-  [TEST_ID]: version(VERSION_ID, 2),
+  [TEST_ID]: version(VERSION_ID, 2, ["listening"]),
   [OTHER_TEST_ID]: version(OTHER_VERSION_ID, 0),
 };
 export const CLASSES = [

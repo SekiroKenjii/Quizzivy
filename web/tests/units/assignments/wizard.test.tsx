@@ -44,7 +44,9 @@ describe("the new assignment wizard", () => {
     expect(buttons[0]).toHaveTextContent("Chưa chọn đề");
     expect(buttons[3]).toHaveTextContent("Chặn sao chép/dán · Hiện điểm");
     const row = await screen.findByRole("radio", { name: /Unit 5 Reading/ });
-    await waitFor(() => expect(row).toHaveTextContent("24 câu · 2 câu cần chấm tay"));
+    await waitFor(() =>
+      expect(row).toHaveTextContent("Nghe · 24 câu · 2 câu cần chấm tay"),
+    );
     expect(row, "the draft's skills do not describe the version").not.toHaveTextContent(
       "Đọc",
     );
