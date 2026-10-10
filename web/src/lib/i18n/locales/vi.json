@@ -1619,7 +1619,8 @@
         "days_other": "{{count}} ngày",
         "perAttempt": "{{count}} câu mỗi lượt",
         "reads": "Học viên sẽ đọc",
-        "estimate": "Khoảng {{total}} câu trả lời cần chấm tay ({{questions}} × {{students}}).",
+        "estimate_one": "Khoảng {{count}} câu trả lời cần chấm tay ({{questions}} × {{students}}).",
+        "estimate_other": "Khoảng {{count}} câu trả lời cần chấm tay ({{questions}} × {{students}}).",
         "auto": "Mọi câu đều được chấm tự động. Không có câu nào phải chấm tay."
       },
       "assignTo_one": "Giao cho {{count}} học viên",

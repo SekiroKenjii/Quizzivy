@@ -54,6 +54,7 @@ import { useAuthStore } from "@/stores/auth";
 
 const STEP_KEYS = ["test", "students", "schedule", "rules"] as const;
 const LAST_STEP = STEP_KEYS.length - 1;
+const WINDOW_GAP = "assignments.wizard.windowInvalid";
 
 /**
  * AssignmentWizardPage is the deck's New assignment, and the same wizard
@@ -222,7 +223,7 @@ function Wizard({
     const gap = firstGap(draft);
     if (gap !== null) {
       open(gap.step);
-      setError(t(gap.key));
+      setError(gap.key === WINDOW_GAP ? null : t(gap.key));
       return;
     }
     saving.current = true;

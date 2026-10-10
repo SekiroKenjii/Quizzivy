@@ -19,7 +19,7 @@ import {
   requests,
   stored,
 } from "@tests/support/assignmentWizard";
-import "@/lib/i18n";
+import i18n from "@/lib/i18n";
 
 beforeEach(installWizardServer);
 afterEach(() => useAuthStore.setState({ user: null }));
@@ -346,5 +346,72 @@ describe("editing in the wizard", () => {
     await user.click(await screen.findByRole("button", { name: "Lưu nháp" }));
     await waitFor(() => expect(router.state.location.search).toBe("?status=draft"));
     expect(requests.patched[0]).toMatchObject({ draft: true });
+  });
+
+  it("announces a window that closes before it opens once, beside the field", async () => {
+    server.use(
+      http.get(`${BASE}/teacher/assignments/${CREATED}`, () =>
+        contractJson("/teacher/assignments/{id}", "get", 200, {
+          ...stored({
+            testVersionId: VERSIONS[TEST_ID]!.id,
+            targets: { classIds: [CLASS_A], studentIds: [] },
+            window: {
+              opensAt: "2099-09-03T14:00:00Z",
+              closesAt: "2099-09-01T01:00:00Z",
+            },
+            durationMinutes: 60,
+            maxAttempts: 1,
+            shuffleQuestions: false,
+            shuffleOptions: false,
+            review: {
+              showScore: true,
+              showCorrectAnswers: false,
+              showExplanations: false,
+              release: "on_submit",
+              showClassAverage: false,
+            },
+            integrity: {
+              requireFullscreen: false,
+              blockCopyPaste: false,
+              maxFocusLoss: 0,
+              onLimitExceeded: "flag",
+              minAwayMs: 0,
+            },
+            studentNote: null,
+            draft: true,
+          }),
+          publishedAt: null,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    const router = renderWizard(`/teacher/assignments/${CREATED}/edit?step=4`);
+    await user.click(await screen.findByRole("button", { name: /^Giao/ }));
+
+    await waitFor(() => expect(router.state.location.search).toBe("?step=3"));
+    expect(
+      screen
+        .getAllByRole("alert")
+        .filter((alert) => alert.textContent === "Giờ đóng phải sau giờ mở."),
+    ).toHaveLength(1);
+    expect(requests.patched).toEqual([]);
+  });
+});
+
+describe("the grading estimate", () => {
+  it("counts one answer in the singular", () => {
+    const estimate = (count: number) =>
+      i18n.t("assignments.wizard.aside.estimate", {
+        lng: "en",
+        count,
+        questions: "1 question",
+        students: "1 student",
+      });
+    expect(estimate(1)).toBe(
+      "About 1 answer to grade by hand (1 question × 1 student).",
+    );
+    expect(estimate(4)).toBe(
+      "About 4 answers to grade by hand (1 question × 1 student).",
+    );
   });
 });

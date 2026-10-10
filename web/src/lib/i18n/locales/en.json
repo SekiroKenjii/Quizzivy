@@ -1619,7 +1619,8 @@
         "days_other": "{{count}} days",
         "perAttempt": "{{count}} per attempt",
         "reads": "What students will read",
-        "estimate": "About {{total}} answers to grade by hand ({{questions}} × {{students}}).",
+        "estimate_one": "About {{count}} answer to grade by hand ({{questions}} × {{students}}).",
+        "estimate_other": "About {{count}} answers to grade by hand ({{questions}} × {{students}}).",
         "auto": "Everything is marked automatically. Nothing to grade by hand."
       },
       "assignTo_one": "Assign to {{count}} student",

@@ -73,7 +73,7 @@ export function WizardAside({
           <span>
             {manual > 0
               ? t("assignments.wizard.aside.estimate", {
-                  total: manual * (students ?? 0),
+                  count: manual * (students ?? 0),
                   questions: t("assignments.wizard.questions", { count: manual }),
                   students: t("assignments.wizard.classStudents", {
                     count: students ?? 0,
