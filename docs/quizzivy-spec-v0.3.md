@@ -1,7 +1,19 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.65 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.66 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.65**
+
+Characters the brand font draws (FONT-1, DG-141):
+
+- §12 Typography: the italic faces are loaded for every upright weight. Every character
+  the UI draws is in the loaded font faces; a symbol the font lacks (arrows, ⌘, ⏎, ⇧, ≤,
+  ≥) is an icon, or a character it has, such as the en dash for a range.
+  `font-coverage.test.ts` holds the source and the locales to it.
+- §12 Typography: content is shown in NFC. Be Vietnam Pro's subsets lack the combining
+  circumflex, breve and horn, so decomposed Vietnamese would draw in a fallback font. The
+  content editors compose what they write.
 
 **Changes since v0.64**
 
@@ -1822,7 +1834,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
 - **Primary action: the deck's charcoal `--primary` with `--primary-fg`.** Not blue, not purple, not indigo. The lime `--accent-c` (with its soft and ink tones) marks progress, counts and current states, never a primary button.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
-- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700; the CSP allows no font host). The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
+- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
 - **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows, until R4 rebuilds them. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
 - **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the count button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
