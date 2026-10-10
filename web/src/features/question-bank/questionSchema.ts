@@ -92,6 +92,7 @@ export const questionSchema = z
       .string()
       .refine((text) => text.trim().length > 0, "questionEditor.errors.promptRequired"),
     mediaAssetId: z.uuid().nullable(),
+    mediaAlt: z.string().nullable().default(null),
     audio: audioPolicySchema.nullable(),
     transcript: z.string().nullable(),
     options: z.array(optionSchema).max(MAX_OPTIONS, "questionEditor.errors.maxOptions"),
@@ -255,6 +256,7 @@ export function emptyQuestion(): QuestionValues {
     skill: null,
     prompt: "",
     mediaAssetId: null,
+    mediaAlt: null,
     audio: null,
     transcript: null,
     options: [

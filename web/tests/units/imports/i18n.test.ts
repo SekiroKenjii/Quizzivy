@@ -107,6 +107,7 @@ const expanded = Object.entries(TEMPLATED).flatMap(([prefix, suffixes]) =>
 const entryPoints = [
   "tests.importWord",
   "tests.importHistory",
+  "tests.pasteTest",
   "layout.resize.importSource",
 ];
 
