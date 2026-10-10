@@ -373,6 +373,91 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
     : request();
 }
 
+/** DownloadedFile is a file an endpoint answered with, and the name it gave it. */
+export interface DownloadedFile {
+  blob: Blob;
+  filename: string | null;
+}
+
+function percentDecoded(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
+function dispositionParameters(disposition: string): Map<string, string> {
+  const parameters = new Map<string, string>();
+  for (const part of disposition.split(";").slice(1)) {
+    const at = part.indexOf("=");
+    if (at > 0)
+      parameters.set(part.slice(0, at).trim().toLowerCase(), part.slice(at + 1).trim());
+  }
+  return parameters;
+}
+
+function attachmentName(disposition: string | null): string | null {
+  if (disposition === null) return null;
+  const parameters = dispositionParameters(disposition);
+  const extended = parameters.get("filename*");
+  const decoded =
+    extended === undefined
+      ? null
+      : percentDecoded(extended.slice(extended.lastIndexOf("'") + 1));
+  if (decoded) return decoded;
+  const plain = parameters.get("filename");
+  if (!plain) return null;
+  return plain.length > 1 && plain.startsWith('"') && plain.endsWith('"')
+    ? plain.slice(1, -1)
+    : plain;
+}
+
+/**
+ * downloadFile GETs a file the contract answers with something other than
+ * JSON, such as a CSV, sharing this module's token and single-flight refresh.
+ * Like `api`, it loses the session over a 401 only when the store still holds
+ * the token that request was sent with, and it throws a refusal's error
+ * envelope as an ApiError. The file's name is the response's
+ * `Content-Disposition` name, `filename*` (RFC 6266) before `filename`, or
+ * null when it names none.
+ */
+export async function downloadFile(
+  path: keyof paths,
+  query?: Record<string, unknown>,
+): Promise<DownloadedFile> {
+  const url = buildUrl(path, undefined, query);
+  const lease = authStore.captureActor();
+  const send = (token: string | null) =>
+    fetch(url, {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        Accept: "*/*",
+        "Accept-Language": language(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+  let sentWith = authStore.getAccessToken();
+  let response = await send(sentWith);
+  if (response.status === 401) {
+    sentWith = await tokenAfterRefresh(lease, sentWith, () => toApiError(response));
+    response = await send(sentWith);
+    if (response.status === 401) {
+      loseSession(sentWith, lease);
+      throw await toApiError(response);
+    }
+  }
+  if (!response.ok) throw noticed(await toApiError(response), lease);
+  const blob = await response.blob();
+  assertActor(lease);
+  return {
+    blob,
+    filename: attachmentName(response.headers.get("Content-Disposition")),
+  };
+}
+
 /**
  * UploadOptions are an upload's progress and cancellation, which fetch cannot
  * report, and its method, which is POST unless `method` says PUT.
