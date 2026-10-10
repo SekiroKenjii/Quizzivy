@@ -41,13 +41,11 @@ function question(n: number, overrides: Partial<AdminQuestion> = {}): AdminQuest
 }
 
 /** A bank larger than one page and larger than the contract's largest page. */
-const BANK = Array.from({ length: 130 }, (_, index) =>
-  index === 0
-    ? question(1, { type: "single_choice", level: "b1", usedInTests: 2, options: [] })
-    : index === 1
-      ? question(2, { usedInTests: 1 })
-      : question(index + 1),
-);
+const BANK = [
+  question(1, { type: "single_choice", level: "b1", usedInTests: 2, options: [] }),
+  question(2, { usedInTests: 1 }),
+  ...Array.from({ length: 128 }, (_, index) => question(index + 3)),
+];
 let requests: URLSearchParams[] = [];
 
 beforeEach(() => {
