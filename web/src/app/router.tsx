@@ -129,6 +129,15 @@ const teacherTree: RouteObject = {
             },
             {
               path: ":id/review",
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "tests.importHistory", to: "/teacher/imports" },
+                  { key: "imports.review.crumb" },
+                ],
+                width: "full",
+                sidebar: "collapsed",
+              },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/ImportReviewPage"),
               ),
@@ -144,24 +153,53 @@ const teacherTree: RouteObject = {
         },
         {
           path: "question-bank/groups",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "groups.bankTitle" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/question-groups/pages/teacher/GroupsListPage"),
           ),
         },
         {
           path: "question-bank/groups/:id",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "groups.bankTitle", to: "/teacher/question-bank/groups" },
+              { key: "groups.one" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/question-groups/pages/teacher/GroupEditorPage"),
           ),
         },
         {
           path: "question-bank/new",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "questionEditor.newTitle" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
           ),
         },
         {
           path: "question-bank/:id",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "questionEditor.editTitle" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
           ),

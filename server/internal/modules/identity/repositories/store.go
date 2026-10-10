@@ -24,7 +24,7 @@ const userProjection = `
 	       CASE WHEN EXISTS (SELECT 1 FROM app.student_like_roles s WHERE s.id = u.role_id)
 	            THEN 'student' ELSE 'admin' END,
 	       u.password_hash, u.must_change_password, u.disabled_at, u.created_at, u.session_epoch,
-	       u.display_name, u.phone, u.locale, u.time_zone, u.preferences,
+	       u.display_name, u.avatar_key, u.phone, u.locale, u.time_zone, u.preferences,
 	       coalesce(array_agg(i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}')
 	  FROM app.users u
 	  LEFT JOIN app.user_identities i ON i.user_id = u.id`
@@ -34,7 +34,7 @@ func scanUser(row pgx.Row) (domain.User, error) {
 	err := row.Scan(
 		&u.ID, &u.Email, &u.FullName, &u.Role, &u.PasswordHash,
 		&u.MustChangePassword, &u.DisabledAt, &u.CreatedAt, &u.SessionEpoch,
-		&u.DisplayName, &u.Phone, &u.Locale, &u.TimeZone, &u.Preferences, &u.LinkedProviders,
+		&u.DisplayName, &u.AvatarKey, &u.Phone, &u.Locale, &u.TimeZone, &u.Preferences, &u.LinkedProviders,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, domain.ErrUserNotFound
@@ -160,10 +160,10 @@ func (s *Users) CreateRefreshToken(ctx context.Context, in domain.RefreshTokenRe
 
 	const q = `
 		INSERT INTO app.refresh_tokens
-		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip, geo_label)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	if _, err := tx.Exec(ctx, q,
-		in.UserID, in.FamilyID, in.TokenHash, in.IssuedAt, in.ExpiresAt, in.UserAgent, in.IP); err != nil {
+		in.UserID, in.FamilyID, in.TokenHash, in.IssuedAt, in.ExpiresAt, in.UserAgent, in.IP, in.GeoLabel); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

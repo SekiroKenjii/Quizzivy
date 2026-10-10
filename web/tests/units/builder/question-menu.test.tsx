@@ -60,6 +60,7 @@ function testBody(sections: Section[]): components["schemas"]["Test"] {
     description: null,
     status: "draft",
     currentVersion: 0,
+    nextVersion: 1,
     totalPoints: 2,
     questionCount: 2,
     audioCount: 0,

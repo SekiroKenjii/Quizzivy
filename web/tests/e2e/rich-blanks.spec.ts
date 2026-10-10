@@ -4,10 +4,10 @@ import type { components } from "../../src/lib/api/schema";
 
 const ID = "018f0000-0000-7000-8000-0000000000b1";
 
-/** promptTools is the formatting toolbar of "Nội dung câu hỏi", which another editor on the page does not share. */
+/** promptTools is the formatting toolbar of "Câu hỏi", which another editor on the page does not share. */
 function promptTools(page: Page) {
   return page.getByRole("toolbar", {
-    name: "Thanh định dạng: Nội dung câu hỏi",
+    name: "Thanh định dạng: Câu hỏi",
     exact: true,
   });
 }
@@ -63,7 +63,7 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   await page.setViewportSize({ width: 768, height: 900 });
   await page.goto(`/teacher/question-bank/${ID}`);
   const modes = page.getByRole("group", {
-    name: "Chế độ soạn: Nội dung câu hỏi",
+    name: "Chế độ soạn: Câu hỏi",
     exact: true,
   });
   await modes.getByRole("button", { name: "Văn bản định dạng", exact: true }).click();
@@ -72,7 +72,7 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   await expect(
     modes.getByRole("button", { name: "Markdown", exact: true }),
   ).toBeDisabled();
-  const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  const prompt = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
   await expect(prompt.locator(".content-gap")).toHaveText(["2", "1"]);
   await prompt.locator("p").first().click();
   await page.keyboard.press("Control+End");

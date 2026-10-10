@@ -33,7 +33,7 @@ export function ProseModeHeader({
   return (
     <div className="mb-1.5 flex flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <span className="text-[12.5px] font-medium">
+        <span className="text-[12.5px] font-medium in-data-[field-size=page]:text-[13px] in-data-[field-size=page]:leading-[19.5px]">
           <label htmlFor={id}>{label}</label>
           {hint && (
             <>

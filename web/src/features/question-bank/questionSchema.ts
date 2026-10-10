@@ -135,6 +135,47 @@ export function issueKey(error: z.ZodError, fallback: string): string {
   return message?.startsWith("questionEditor.") ? message : fallback;
 }
 
+const CHOICE_TYPES = new Set<string>([
+  "single_choice",
+  "multiple_choice",
+  "true_false",
+]);
+
+function deckBlocker(values: QuestionValues): string | null {
+  const errors = "questionEditor.errors";
+  if (values.prompt.trim() === "") return `${errors}.promptRequired`;
+  if (!Number.isFinite(values.points) || values.points <= 0)
+    return "questionEditor.pointsError";
+  if (values.type === "fill_blank") {
+    if (values.blanks.length === 0) return `${errors}.blankRequired`;
+    const unanswered = values.blanks.some(
+      (blank) => !blank.acceptedAnswers.some((answer) => answer.trim() !== ""),
+    );
+    if (unanswered) return `${errors}.answerRequired`;
+  }
+  if (CHOICE_TYPES.has(values.type)) {
+    if (values.options.length < 2) return `${errors}.twoOptions`;
+    if (values.options.some((option) => option.text.trim() === ""))
+      return `${errors}.optionRequired`;
+    if (!values.options.some((option) => option.isCorrect))
+      return `${errors}.correctRequired`;
+  }
+  return null;
+}
+
+/**
+ * blockingIssue is the translation key of what stops `values` from saving, or
+ * null when they parse. The deck's seven checks come first, in its order: the
+ * question, the points, a blank, an answer per blank, two options, every
+ * option filled, a correct answer. Any other failed rule follows as the
+ * parse's first translated issue, else as fallback.
+ */
+export function blockingIssue(values: QuestionValues, fallback: string): string | null {
+  const parsed = questionSchema.safeParse(values);
+  if (parsed.success) return null;
+  return deckBlocker(values) ?? issueKey(parsed.error, fallback);
+}
+
 export type QuestionType = QuestionValues["type"];
 
 function validateStructure(

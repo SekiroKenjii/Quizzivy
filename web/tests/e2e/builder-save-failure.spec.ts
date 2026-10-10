@@ -15,6 +15,7 @@ const draft: components["schemas"]["Test"] = {
   description: null,
   status: "draft",
   currentVersion: 0,
+  nextVersion: 1,
   totalPoints: 1,
   questionCount: 1,
   audioCount: 0,
@@ -127,7 +128,7 @@ test("a blank option is not sent, and the label says what to fix", async ({ page
   const run = await openBuilder(page, 1280);
 
   await page.getByRole("button", { name: "Thêm lựa chọn", exact: true }).click();
-  await expect(page.getByText("Còn lựa chọn để trống.")).toBeVisible({
+  await expect(page.getByText("Hãy điền mọi lựa chọn.")).toBeVisible({
     timeout: 5_000,
   });
   await expect(page.getByText("Chưa lưu được", { exact: true })).toBeVisible();

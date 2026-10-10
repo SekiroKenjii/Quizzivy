@@ -22,6 +22,7 @@ const test = {
   description: null,
   status: "draft" as const,
   currentVersion: 0,
+  nextVersion: 1,
   totalPoints: 1,
   questionCount: 1,
   audioCount: 0,
@@ -138,7 +139,7 @@ describe("a question the form schema refuses", () => {
     await user.click(await screen.findByRole("button", { name: "Thêm lựa chọn" }));
     await vi.advanceTimersByTimeAsync(2_000);
 
-    expect(await screen.findByText("Còn lựa chọn để trống.")).toBeInTheDocument();
+    expect(await screen.findByText("Hãy điền mọi lựa chọn.")).toBeInTheDocument();
     expect(screen.getByText("Chưa lưu được")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Lựa chọn C" })).toBeInTheDocument();
     expect(patches).toBe(0);
