@@ -64,6 +64,16 @@ function RowStatus({
   );
 }
 
+function ExtendedTo({ row, zone }: Readonly<{ row: MonitorRow; zone: string }>) {
+  const { t } = useTranslation();
+  if (row.extendedTo == null) return null;
+  return (
+    <span className="text-info-ink text-xs whitespace-nowrap">
+      {t("assignmentDetail.extendedTo", { when: compactMoment(row.extendedTo, zone) })}
+    </span>
+  );
+}
+
 /** Monitor renders the full assignment read as a filtered, paginated roster with authorized sheet and intervention actions. */
 export function Monitor({
   assignment,
@@ -118,6 +128,7 @@ export function Monitor({
               {(!visible.has("status") || (!visible.has("focus") && row.flagged)) && (
                 <span className="flex min-w-0 items-center gap-1 text-xs leading-4">
                   {!visible.has("status") && <RowStatus row={row} compact />}
+                  {!visible.has("status") && <ExtendedTo row={row} zone={zone} />}
                   {row.flagged && !visible.has("focus") && (
                     <span
                       role="img"
@@ -144,7 +155,12 @@ export function Monitor({
         header: t("monitor.state"),
         track: "130px",
         showFrom: 560,
-        cell: (row) => <RowStatus row={row} />,
+        cell: (row) => (
+          <span className="flex min-w-0 flex-col items-start gap-0.5">
+            <RowStatus row={row} />
+            <ExtendedTo row={row} zone={zone} />
+          </span>
+        ),
       },
       {
         id: "score",

@@ -6,12 +6,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { Assignment } from "@/features/assignments/api";
 import { formatMoment, formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 
-/** G-09's "Đóng sớm" confirm: restates S-04's promise and asks for one tick. */
+/**
+ * CloseEarlyDialog is "Close early": the deck's title and button, and the
+ * true promise that students mid-test keep their time (DG-161), with one tick
+ * to confirm. `keepTime` counts the students whose own extension reaches past
+ * now; they keep it, and none draws no sentence.
+ */
 export function CloseEarlyDialog({
   assignment,
   open,
   pending,
   failed,
+  keepTime,
   onOpenChange,
   onConfirm,
 }: Readonly<{
@@ -19,6 +25,7 @@ export function CloseEarlyDialog({
   open: boolean;
   pending: boolean;
   failed: boolean;
+  keepTime: number;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }>) {
@@ -33,7 +40,7 @@ export function CloseEarlyDialog({
         if (!next) setUnderstood(false);
         onOpenChange(next);
       }}
-      title={t("assignments.detail.closeNowTitle")}
+      title={t("assignments.detail.closeNowTitle", { title: assignment.testTitle })}
       description={t("assignments.detail.closeNowBody", {
         now: formatTime(new Date()),
         planned: formatMoment(assignment.window.closesAt),
@@ -53,6 +60,8 @@ export function CloseEarlyDialog({
           {t("assignments.detail.closeNowNote", {
             minutes: assignment.durationMinutes,
           })}
+          {keepTime > 0 &&
+            ` ${t("assignments.detail.closeNowKeepTime", { count: keepTime })}`}
         </p>
       </div>
       <label className="flex items-start gap-2 text-sm">

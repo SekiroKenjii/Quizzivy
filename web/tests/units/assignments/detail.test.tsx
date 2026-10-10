@@ -161,17 +161,27 @@ describe("the assignment detail", () => {
         "24 câu · 30 điểm · 4 câu nghe · 2 câu chấm tay · bản v3",
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("IELTS Foundation")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("Phạm Gia Hân")[0]).toBeInTheDocument();
-    expect(
-      screen.getByText("1 học viên đã có trong lớp nên chỉ tính một lần."),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "IELTS Foundation" })).toBeInTheDocument();
+    expect(screen.getByText("+2 học viên lẻ")).toBeInTheDocument();
     expect(screen.getByText("2 lượt · lấy điểm cao nhất")).toBeInTheDocument();
     expect(
       screen.getByText("Cho phép 2 lần, quá thì đánh dấu để xem lại"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Có, trong từng phần")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Xem đề" })).toHaveAttribute(
+    expect(screen.getByText(/^Đảo câu hỏi trong từng phần/)).toBeInTheDocument();
+    for (const title of [
+      "Đề và thời gian",
+      "Thời gian mở",
+      "Tính toàn vẹn",
+      "Kết quả",
+      "Lời nhắn cho học viên",
+    ])
+      expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
+  });
+
+  it("keeps the pinned version's facts on the Questions tab", async () => {
+    serve(assignment({ status: "scheduled", window: scheduledWindow }));
+    renderDetail("questions");
+    expect(await screen.findByRole("link", { name: "Xem đề" })).toHaveAttribute(
       "href",
       `/teacher/tests/${TEST_ID}`,
     );
@@ -183,10 +193,12 @@ describe("the assignment detail", () => {
 
     expect(await screen.findByText("Bản nháp")).toBeInTheDocument();
     expect(screen.getByText(/Học viên chưa thấy bài này/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Chỉnh sửa" })).toHaveAttribute(
+    await user.click(screen.getByRole("button", { name: "Thao tác khác" }));
+    expect(await screen.findByRole("menuitem", { name: "Chỉnh sửa" })).toHaveAttribute(
       "href",
       `/teacher/assignments/${ID}/edit`,
     );
+    await user.keyboard("{Escape}");
 
     await user.click(screen.getByRole("button", { name: "Giao bài" }));
     await waitFor(() => expect(patches).toHaveLength(1));
@@ -216,15 +228,16 @@ describe("the assignment detail", () => {
     expect(await screen.findByText("Chưa chọn lớp hay học viên.")).toBeInTheDocument();
   });
 
-  it("scheduled: preserves Edit and never sends closeNow before the opening window", async () => {
+  it("scheduled: Edit settings opens the Settings tab and never sends closeNow before the opening window", async () => {
     serve(assignment({ status: "scheduled", window: scheduledWindow }));
     const user = renderDetail();
-    await user.click(await screen.findByRole("button", { name: "Thao tác" }));
-    expect(await screen.findByRole("menuitem", { name: "Chỉnh sửa" })).toHaveAttribute(
-      "href",
-      `/teacher/assignments/${ID}/edit`,
-    );
+    await user.click(await screen.findByRole("button", { name: "Thao tác khác" }));
     expect(screen.queryByRole("menuitem", { name: "Đóng sớm" })).toBeNull();
+    await user.click(await screen.findByRole("menuitem", { name: "Sửa cài đặt" }));
+    expect(await screen.findByRole("tab", { name: "Cài đặt" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(patches).toEqual([]);
   });
 
@@ -232,9 +245,11 @@ describe("the assignment detail", () => {
     serve(assignment());
     const user = renderDetail();
 
-    await user.click(await screen.findByRole("button", { name: "Thao tác" }));
+    await user.click(await screen.findByRole("button", { name: "Thao tác khác" }));
     await user.click(await screen.findByRole("menuitem", { name: "Đóng sớm" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("dialog", {
+      name: /^Đóng .* ngay\?$/,
+    });
     const confirm = within(dialog).getByRole("button", { name: "Đóng ngay" });
     expect(confirm).toBeDisabled();
     expect(patches).toHaveLength(0);
@@ -255,7 +270,7 @@ describe("the assignment detail", () => {
       `/teacher/classes/${CLASS_ID}`,
     );
     expect(screen.getByText("+2 học viên lẻ")).toBeInTheDocument();
-    expect(screen.getByText("· 19 học viên")).toBeInTheDocument();
+    expect(screen.getByText("19 học viên")).toBeInTheDocument();
   });
 
   it("closed: derives numbers from the actual full roster and preserves students without inviting an edit", async () => {

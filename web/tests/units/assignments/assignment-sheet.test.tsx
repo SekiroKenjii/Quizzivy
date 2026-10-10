@@ -213,9 +213,11 @@ describe("actual assignment detail permission and identity gates", () => {
         .getByRole("heading", { level: 1, hidden: true })
         .closest<HTMLElement>('[data-slot="page-head"]')!;
       expect(
-        within(header).queryByRole("button", { name: "Thao tác", hidden: true }) !==
-          null,
-      ).toBe(write);
+        within(header).queryByRole("button", {
+          name: "Thao tác khác",
+          hidden: true,
+        }) !== null,
+      ).toBe(write || permissions.some((key) => key === "teaching.attempts.intervene"));
       expect(requests.notes).toEqual([]);
     },
   );

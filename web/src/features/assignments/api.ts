@@ -90,3 +90,23 @@ export async function continueAttempt(assignmentId: string, attemptId: string) {
 export function deleteAssignment(id: string) {
   return api("delete", "/teacher/assignments/{id}", { path: { id } });
 }
+
+export type ItemAnalysis = components["schemas"]["ItemAnalysis"];
+export type StudentOverrideInput = components["schemas"]["StudentOverrideInput"];
+
+/** getItemAnalysis is how often students got each question of the assignment's version wrong, hardest first. */
+export function getItemAnalysis(id: string, signal?: AbortSignal) {
+  return api(
+    "get",
+    "/teacher/assignments/{id}/item-analysis",
+    signal ? { path: { id }, signal } : { path: { id } },
+  );
+}
+
+/** setStudentOverrides gives the named students an override, or changes theirs, with the reason. */
+export function setStudentOverrides(id: string, body: StudentOverrideInput) {
+  return api("put", "/teacher/assignments/{id}/student-overrides", {
+    path: { id },
+    body,
+  });
+}

@@ -1601,7 +1601,7 @@
       "no": "Không",
       "review": "Học viên xem gì sau khi nộp",
       "reuseHint": "Đã tắt xem đáp án đúng, nên đề này dùng lại được cho lớp khác.",
-      "closeNowTitle": "Đóng bài giao ngay?",
+      "closeNowTitle": "Đóng {{title}} ngay?",
       "closeNowBody": "Đóng lúc {{now}} hôm nay thay vì {{planned}}. Học viên chưa bắt đầu sẽ không vào được nữa.",
       "closeNowNote": "Học viên đang làm vẫn được làm hết {{minutes}} phút của mình.",
       "closeNowAck": "Tôi hiểu học viên đang làm vẫn được làm hết giờ",
@@ -1611,7 +1611,9 @@
       "reopenMenuHint": "Bước sau sẽ hỏi lý do. Ai còn lượt làm đều được vào lại.",
       "extraStudents": "+{{count}} học viên lẻ",
       "reviewAfterClose": "Bài đã đóng. Học viên xem kết quả theo các quyền ở trên; bài chờ chấm sẽ cập nhật khi giáo viên hoàn tất.",
-      "reviewWhileOpen": "Học viên được xem đáp án đúng sau khi nộp, kể cả khi bài vẫn đang mở."
+      "reviewWhileOpen": "Học viên được xem đáp án đúng sau khi nộp, kể cả khi bài vẫn đang mở.",
+      "closeNowKeepTime_one": "{{count}} học viên được gia hạn riêng vẫn giữ thời gian của mình.",
+      "closeNowKeepTime_other": "{{count}} học viên được gia hạn riêng vẫn giữ thời gian của mình."
     },
     "panel": {
       "title": "Bảng học viên",
@@ -3534,6 +3536,80 @@
       "leaveFailed": "Chưa lưu được ghi chú. Hãy thử lại hoặc bỏ thay đổi để tiếp tục.",
       "discardLeave": "Bỏ thay đổi và tiếp tục",
       "stay": "Ở lại"
+    },
+    "extendedTo": "Gia hạn đến {{when}}",
+    "moreActions": "Thao tác khác",
+    "editSettings": "Sửa cài đặt",
+    "reason": "Lý do",
+    "analysis": {
+      "title": "Câu hỏi theo mức độ khó",
+      "intro": "Các câu hỏi xếp theo mức độ học viên làm sai nhiều nhất.",
+      "number": "C{{n}}",
+      "correct": "{{n}}% đúng",
+      "noMarks": "Chưa có bài chấm cho câu này",
+      "noPrompt": "(Câu hỏi không có chữ)",
+      "empty": "Chưa có bài nộp nào.",
+      "noPermission": "Cần quyền chấm bài để xem học viên làm sai câu nào.",
+      "loadFailed": "Không tải được thống kê câu hỏi."
+    },
+    "settings": {
+      "shown": "Hiện",
+      "hidden": "Ẩn",
+      "locked": "Bị khóa khi học viên đang làm bài",
+      "lockedPill": "Đã khóa",
+      "edit": "Sửa",
+      "editLabel": "Sửa {{group}}",
+      "editTitle": "Sửa {{group}}",
+      "save": "Lưu thay đổi",
+      "saved": "Đã lưu {{group}}. Học viên thấy thay đổi ngay.",
+      "timing": {
+        "title": "Đề và thời gian",
+        "hint": "Học viên làm đề nào và trong bao lâu",
+        "timerSub": "Đồng hồ chạy khi học viên bấm Bắt đầu",
+        "questionsShuffled": "Đảo câu hỏi trong từng phần",
+        "questionsInOrder": "Câu hỏi theo thứ tự",
+        "optionsShuffled": "đảo phương án",
+        "optionsInOrder": "phương án theo thứ tự"
+      },
+      "window": {
+        "title": "Thời gian mở",
+        "hint": "Khi nào học viên có thể bắt đầu",
+        "closesSub": "Bài đang làm được nộp tự động khi đến giờ đóng",
+        "closedEarly": "Đóng sớm; dự kiến đóng {{planned}}",
+        "assignedTo": "Giao cho",
+        "noClasses": "Chưa giao cho lớp nào",
+        "students_one": "{{count}} học viên",
+        "students_other": "{{count}} học viên",
+        "namedStudents_one": "Giữ nguyên {{count}} học viên được giao riêng.",
+        "namedStudents_other": "Giữ nguyên {{count}} học viên được giao riêng."
+      },
+      "integrity": {
+        "title": "Tính toàn vẹn",
+        "hint": "Xử lý khi học viên rời bài"
+      },
+      "results": {
+        "title": "Kết quả",
+        "hint": "Học viên thấy gì sau khi nộp bài"
+      },
+      "note": {
+        "title": "Lời nhắn cho học viên",
+        "hint": "Hiện trên trang giới thiệu bài",
+        "label": "Lời nhắn",
+        "none": "Không có lời nhắn"
+      }
+    },
+    "reopenStudent": {
+      "title": "Mở lại cho một học viên",
+      "description": "Mở lại bài cho một học viên, với thời gian làm riêng.",
+      "oneMore": "{{name}} đã dùng hết lượt làm, nên sẽ được thêm một lượt.",
+      "canContinue": "{{name}} vẫn còn lượt làm, nên có thể tiếp tục mà không cần thêm lượt.",
+      "student": "Học viên",
+      "until": "Mở đến ngày",
+      "untilTime": "Giờ đóng",
+      "untilPast": "Chọn một thời điểm sau bây giờ.",
+      "submit": "Mở lại",
+      "done": "Đã mở lại cho {{name}}",
+      "failed": "Không mở lại được cho học viên này."
     }
   },
   "markdownEditor": {
