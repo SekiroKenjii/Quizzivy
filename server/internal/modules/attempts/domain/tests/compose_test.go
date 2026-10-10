@@ -67,7 +67,7 @@ func TestOtherAnswersAreReturnedByteForByte(t *testing.T) {
 }
 
 func TestADecomposedAnswerWrittenWithEscapesIsStillComposed(t *testing.T) {
-	answer := domain.Answer{QuestionID: "q", Payload: []byte(`{"type":"text","value":"Hè nọi"}`)}
+	answer := domain.Answer{QuestionID: "q", Payload: []byte(`{"type":"text","value":"He\` + `u0300 no\` + `u0323i"}`)}
 	got := decoded(t, answer.Composed())["value"]
 	if got != norm.NFC.String("Hè nọi") {
 		t.Fatalf("value=%q", got)

@@ -100,7 +100,7 @@ func TestNormalizeComposesTheMarkdownOfALegacyDocument(t *testing.T) {
 }
 
 func TestNormalizeReturnsAComposedDocumentUnchangedByteForByte(t *testing.T) {
-	raw := `{ "format" : "semantic_v1", "blocks" : [ {"type":"paragraph","content":[{"marks":[],"type":"text","text":"a & b < c à"}]} ] }`
+	raw := `{ "format" : "semantic_v1", "blocks" : [ {"type":"paragraph","content":[{"marks":[],"type":"text","text":"a \` + `u0026 b < c \` + `u00e0"}]} ] }`
 	d := rich(t, raw)
 	got, err := content.Normalize(d)
 	if err != nil {
