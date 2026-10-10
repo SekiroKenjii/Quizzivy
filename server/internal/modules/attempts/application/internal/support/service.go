@@ -22,6 +22,18 @@ type Service struct {
 	NewSessionID func() string
 	NewSeed      func() (int64, error)
 	NewBeacon    func() (string, []byte, error)
+	Announcer    *Announcer
+}
+
+// Expire closes the attempt if its time has run out, and tells whom the
+// closed paper concerns when it did.
+func (s *Service) Expire(ctx context.Context, attemptID string) error {
+	reached, err := s.Store.ExpireIfDue(ctx, attemptID, s.Now())
+	if err != nil {
+		return err
+	}
+	s.Announcer.Announce(ctx, reached)
+	return nil
 }
 
 // ExpireDue closes every attempt on the assignment whose time has run out, so
@@ -32,7 +44,7 @@ func (s *Service) ExpireDue(ctx context.Context, scope access.Scope, assignmentI
 		return err
 	}
 	for _, id := range ids {
-		if err := s.Store.ExpireIfDue(ctx, id, s.Now()); err != nil {
+		if err := s.Expire(ctx, id); err != nil {
 			return err
 		}
 	}
@@ -93,7 +105,7 @@ func (s *Service) ResumeIfLive(ctx context.Context, assignmentID, studentID, res
 	}
 
 	if s.Now().After(live.DeadlineAt) {
-		if err := s.Store.ExpireIfDue(ctx, live.ID, s.Now()); err != nil {
+		if err := s.Expire(ctx, live.ID); err != nil {
 			return domain.Session{}, false, err
 		}
 		return domain.Session{}, false, nil

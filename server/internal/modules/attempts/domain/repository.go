@@ -30,10 +30,10 @@ type Repository interface {
 	ReleasedGroupTranscripts(ctx context.Context, versionID string) (map[string]string, error)
 	RecordGroupPlay(ctx context.Context, in GroupPlayInput, now time.Time) (GroupPlays, error)
 	RecordPlay(ctx context.Context, attemptID, studentID, questionID string, now time.Time) (Plays, error)
-	Save(ctx context.Context, in SaveInput, now time.Time) (SaveResult, error)
-	Flush(ctx context.Context, in FlushInput, now time.Time) error
-	Submit(ctx context.Context, attemptID, studentID string, reason Reason, now time.Time) (AttemptRecord, error)
-	ExpireIfDue(ctx context.Context, attemptID string, now time.Time) error
+	Save(ctx context.Context, in SaveInput, now time.Time) (SaveResult, Milestones, error)
+	Flush(ctx context.Context, in FlushInput, now time.Time) (Milestones, error)
+	Submit(ctx context.Context, attemptID, studentID string, reason Reason, now time.Time) (AttemptRecord, Milestones, error)
+	ExpireIfDue(ctx context.Context, attemptID string, now time.Time) (Milestones, error)
 	DueAttempts(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) ([]string, error)
 	LoadResult(ctx context.Context, a AttemptRecord, now time.Time) (Result, error)
 	Monitor(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) (Monitor, error)
@@ -41,6 +41,7 @@ type Repository interface {
 	Void(ctx context.Context, req Request, attemptID, reason string, now time.Time) (Attempt, error)
 	Reset(ctx context.Context, req Request, attemptID, reason string, now time.Time) (Attempt, error)
 	Flag(ctx context.Context, req Request, attemptID string, flagged bool, reason string, now time.Time) (Attempt, error)
+	Briefings
 }
 
 // ReviewRepository is the teacher's side of a paper: reading it with the
