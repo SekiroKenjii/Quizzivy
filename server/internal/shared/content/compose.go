@@ -3,12 +3,23 @@ package content
 import (
 	"bytes"
 	"encoding/json"
+	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 )
 
 // NFC returns s in Unicode Normalization Form C, the form the brand font draws.
 func NFC(s string) string { return norm.NFC.String(s) }
+
+// NFCWithin returns s composed, or s as it is when composing would take it from within limit characters to over it, for a
+// text that comes from elsewhere (a provider's profile) and so cannot be sent back to be corrected. A limit of zero means none.
+func NFCWithin(s string, limit int) string {
+	composed := NFC(s)
+	if limit > 0 && utf8.RuneCountInString(composed) > limit {
+		return s
+	}
+	return composed
+}
 
 // NFCPtr returns a pointer to the composed text of *s, or nil for nil.
 func NFCPtr(s *string) *string {

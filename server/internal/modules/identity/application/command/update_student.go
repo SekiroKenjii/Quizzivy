@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/identity/application/internal/support"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/shared/content"
 )
 
 type UpdateStudent struct {
@@ -17,6 +18,11 @@ type UpdateStudentHandler struct {
 
 func (s UpdateStudentHandler) Handle(ctx context.Context, cmd UpdateStudent) (domain.Student, error) {
 	if err := s.MayActOn(ctx, cmd.Request, cmd.Input.ID, cmd.Input.Disabled != nil); err != nil {
+		return domain.Student{}, err
+	}
+	var c content.Composer
+	cmd.Input.FullName = c.Optional("fullName", cmd.Input.FullName, domain.MaxFullNameLength)
+	if err := c.Err(); err != nil {
 		return domain.Student{}, err
 	}
 	cmd.Input.Now = s.Now()

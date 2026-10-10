@@ -9,9 +9,14 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/validation"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+func msgStudentInvalid(ctx context.Context) string {
+	return httpx.Text(ctx, "Dữ liệu học viên không hợp lệ.", "The student data is not valid.")
+}
 
 func msgStudentNotFound(ctx context.Context) string {
 	return httpx.Text(ctx, "Không tìm thấy học viên.", "The student was not found.")
@@ -109,8 +114,12 @@ func (h Identity) CreateStudent(ctx context.Context, request openapi.CreateStude
 		ClassIDs: classIDs,
 	}})
 	student, temporary := createStudentResult.Student, createStudentResult.TemporaryPassword
+	var invalid *validation.Error
 	switch {
 	case err == nil:
+	case errors.As(err, &invalid):
+		return openapi.CreateStudent400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.Invalid(ctx, msgStudentInvalid(ctx), invalid))}, nil
 	case errors.Is(err, domain.ErrClassNotFound):
 		return openapi.CreateStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy lớp học.", "The class was not found.")))}, nil
@@ -148,8 +157,12 @@ func (h Identity) UpdateStudent(ctx context.Context, request openapi.UpdateStude
 	}
 
 	student, err := h.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: req, Input: in})
+	var invalid *validation.Error
 	switch {
 	case err == nil:
+	case errors.As(err, &invalid):
+		return openapi.UpdateStudent400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.Invalid(ctx, msgStudentInvalid(ctx), invalid))}, nil
 	case errors.Is(err, domain.ErrStudentNotFound):
 		return openapi.UpdateStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgStudentNotFound(ctx)))}, nil

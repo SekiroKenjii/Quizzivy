@@ -221,3 +221,20 @@ func TestComposerRefusesAValueComposingLeavesOverItsLimit(t *testing.T) {
 		t.Fatalf("fields=%v", names)
 	}
 }
+
+func TestNFCWithinComposesUnlessComposingWouldTakeTheTextOverItsLimit(t *testing.T) {
+	if got := content.NFCWithin(decomposed("Nguyễn Văn Á"), 200); got != "Nguyễn Văn Á" {
+		t.Fatalf("got %q", got)
+	}
+	if got := content.NFCWithin(decomposed("Nguyễn Văn Á"), 0); got != "Nguyễn Văn Á" {
+		t.Fatalf("a limit of zero means none: %q", got)
+	}
+	atLimit := strings.Repeat("क़", 101)
+	if got := content.NFCWithin(atLimit, 200); got != atLimit {
+		t.Fatal("a text composing would take over its limit must come back as it was")
+	}
+	within := strings.Repeat("क़", 100)
+	if got := content.NFCWithin(within, 200); got != strings.Repeat(norm.NFC.String("क़"), 100) {
+		t.Fatal("a text that composes within its limit was left alone")
+	}
+}

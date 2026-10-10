@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/classes/application/internal/support"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/opt"
 )
 
@@ -23,9 +24,11 @@ func (s EnrolNewMemberHandler) Handle(ctx context.Context, cmd EnrolNewMember) (
 	if !ok {
 		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
 	}
+	member := cmd.Member
+	member.FullName = content.NFCWithin(member.FullName, domain.MaxMemberName)
 	result, err := s.Repo.Enrol(ctx, domain.EnrolInput{
 		Code:      code,
-		NewMember: &cmd.Member,
+		NewMember: &member,
 		Now:       s.Now(),
 		IP:        opt.String(cmd.Meta.IP),
 		UserAgent: opt.String(cmd.Meta.UserAgent),
