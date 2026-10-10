@@ -1,7 +1,28 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.74 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.75 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.74**
+
+Composed text on the server (F-37, FONT-1):
+
+- §12 Typography: the server stores the text a person types composed to NFC, so "stored as
+  typed" (v0.67) no longer holds for it. A write composes the plain fields (titles,
+  descriptions, names, notes, reasons, tags, accepted answers, transcripts, alt text, file
+  names), the `text`, `label` and `alt` of a prose document and the Markdown of a legacy one,
+  and the text a student types in a text or fill-in answer when it is saved. A document and
+  the plain text kept beside it are composed together, so the text still equals the
+  document's projection. Emails, passwords, tokens, join codes, ids, links and the published
+  versions are never composed. NFC shortens Vietnamese, but a few scripts grow when composed:
+  a value that composing leaves over its limit is answered as any other invalid value, 400
+  `VALIDATION_FAILED` naming the field (422 `group_content` for a group, 422
+  `VALIDATION_FAILED` at an import commit), never as a server error; a name or a file name that comes from a
+  provider or a file is kept as it came, and a student's save is never refused over it.
+- §13 Migration 00103 composes the rows written before, in the same plain fields, without moving
+  `updated_at`. It leaves the published versions, a student's saved answers and every prose
+  document, with the plain text beside it, as they are: those are composed when next saved.
+  A view still composes what it draws, because those rows can stay decomposed.
 
 **Changes since v0.73**
 
@@ -1998,7 +2019,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
 - **Primary action: the deck's charcoal `--primary` with `--primary-fg`.** Not blue, not purple, not indigo. The lime `--accent-c` (with its soft and ink tones) marks progress, counts and current states, never a primary button.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
-- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC: the rich content editor composes what it writes, and other text is composed where it is drawn. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
+- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC: the server composes the text a person types before it stores it, the rich content editor composes what it writes, and a view composes what it draws, because a row saved before the server did can still be decomposed. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
 - **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows, until R4 rebuilds them. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
 - **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the count button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
