@@ -5,7 +5,6 @@ package application_test
 import (
 	"context"
 	"errors"
-	"quizzivy/internal/core/adapters"
 	assignmentsdomain "quizzivy/internal/modules/assignments/domain"
 	assignmentsrepo "quizzivy/internal/modules/assignments/repositories"
 	"quizzivy/internal/modules/attempts/application"
@@ -22,23 +21,21 @@ import (
 )
 
 type pausedGuard struct {
-	inner   repositories.StartGuard
 	reached chan struct{}
 	release chan struct{}
 	once    sync.Once
 }
 
 func newPausedGuard() *pausedGuard {
-	return &pausedGuard{inner: adapters.AttemptStartGuard{}, reached: make(chan struct{}), release: make(chan struct{})}
+	return &pausedGuard{reached: make(chan struct{}), release: make(chan struct{})}
 }
 
-func (g *pausedGuard) GuardAttemptStart(ctx context.Context, tx pgx.Tx, now, deadline time.Time) (*domain.MaintenanceWindow, error) {
-	window, err := g.inner.GuardAttemptStart(ctx, tx, now, deadline)
+func (g *pausedGuard) GuardAttemptStart(context.Context, pgx.Tx, time.Time, time.Time) (*domain.MaintenanceWindow, error) {
 	g.once.Do(func() {
 		close(g.reached)
 		<-g.release
 	})
-	return window, err
+	return nil, nil
 }
 
 func heldDownByTheClose() worldOpts {
