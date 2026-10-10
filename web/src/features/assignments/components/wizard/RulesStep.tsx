@@ -231,10 +231,20 @@ export function RulesStep({
             }
           />
         </RuleRow>
-        <p className="bg-sidebar text-muted-fg text-meta flex gap-2 px-3.5 py-2.5 leading-normal">
+        <div className="bg-sidebar text-muted-fg text-meta flex gap-2 px-3.5 py-2.5 leading-normal">
           <Info aria-hidden="true" className="mt-0.5 size-3.5 flex-none" />
-          {t("assignments.wizard.honesty")}
-        </p>
+          <div className="min-w-0 flex-1">
+            <p>{t("assignments.wizard.honesty")}</p>
+            <details className="mt-1.5">
+              <summary className="text-fg w-fit cursor-pointer rounded-sm font-medium">
+                {t("assignments.wizard.limits.title")}
+              </summary>
+              <p className="mt-1.5">{t("assignments.wizard.limits.detects")}</p>
+              <p className="mt-1.5">{t("assignments.wizard.limits.cannotSee")}</p>
+              <p className="mt-1.5">{t("assignments.wizard.limits.conversation")}</p>
+            </details>
+          </div>
+        </div>
       </RuleGroup>
       <div className="flex flex-col gap-1.5">
         <label htmlFor={noteId} className="text-ui font-medium">

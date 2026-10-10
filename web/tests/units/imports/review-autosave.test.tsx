@@ -61,7 +61,12 @@ describe("the review's autosave", () => {
     expect(state.puts[0]!.expectedRevision).toBe(1);
     expect(state.puts[1]!.expectedRevision).toBe(2);
     expect(state.puts[1]!.title).toBe("Đề thi học kỳ 1AB");
-    expect(await screen.findByText(/Đã lưu \d\d:\d\d/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("Đã lưu").closest("[data-state]")).toHaveAttribute(
+        "data-state",
+        "saved",
+      ),
+    );
   });
 
   it("stops on a stale write, says so, and offers a reload instead of overwriting", async () => {
@@ -152,10 +157,17 @@ describe("the review's autosave", () => {
     await user.type(screen.getByLabelText("Tên đề"), "A");
     await vi.advanceTimersByTimeAsync(1500);
 
-    expect(await screen.findByText("Chưa lưu được")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Chưa lưu được thay đổi gần nhất"),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Thử lại" }));
     await waitFor(() => expect(state.puts).toHaveLength(2));
     expect(state.puts[1]!.title).toBe("Đề thi học kỳ 1A");
-    expect(await screen.findByText(/Đã lưu \d\d:\d\d/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("Đã lưu").closest("[data-state]")).toHaveAttribute(
+        "data-state",
+        "saved",
+      ),
+    );
   });
 });

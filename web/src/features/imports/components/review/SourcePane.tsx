@@ -2,6 +2,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -9,13 +10,17 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import { Segmented } from "@/components/ui/segmented";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, failureMessage } from "@/lib/api/errors";
+import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import type { ContentMark } from "@/components/shared/content/model";
 import {
+  downloadImportSource,
   type ImportSource,
   type ImportSourceBlock,
   type ImportSourceRef,
@@ -32,6 +37,12 @@ export interface SourceFocus {
   refs: readonly ImportSourceRef[];
   nonce: number;
   take: boolean;
+}
+
+/** BlockTag is the chip a source block carries: the question it became, or what it is. */
+export interface BlockTag {
+  label: string;
+  tone: "muted" | "warning";
 }
 
 type Range = { start: number; end: number };
@@ -85,20 +96,13 @@ function marked(piece: Piece, colouredLabel: string, colouredNote: string): Reac
   }
   if (piece.colored)
     node = (
-      <span
-        className="border-muted-foreground border-b border-dashed"
-        title={colouredLabel}
-      >
+      <span className="border-muted-fg border-b border-dashed" title={colouredLabel}>
         {node}
         <span className="sr-only">{colouredNote}</span>
       </span>
     );
   if (piece.highlighted)
-    node = (
-      <mark className="bg-foreground/10 text-foreground ring-foreground/40 rounded-sm ring-1">
-        {node}
-      </mark>
-    );
+    node = <mark className="bg-brand-soft text-fg rounded-sm">{node}</mark>;
   return node;
 }
 
@@ -129,10 +133,16 @@ function rowsOf(blocks: readonly ImportSourceBlock[]): ImportSourceBlock[][] {
     .map(([, cells]) => [...cells].sort((a, b) => (a.column ?? 0) - (b.column ?? 0)));
 }
 
+const TAG_TONE: Record<BlockTag["tone"], string> = {
+  muted: "bg-muted text-muted-fg",
+  warning: "bg-warning-soft text-warning-ink",
+};
+
 const BlockView = memo(function BlockView({
   block,
   ranges,
   owner,
+  tag,
   active,
   tabbable,
   onSelect,
@@ -142,6 +152,7 @@ const BlockView = memo(function BlockView({
   block: ImportSourceBlock;
   ranges: readonly Range[];
   owner: string | undefined;
+  tag: BlockTag | undefined;
   active: boolean;
   tabbable: boolean;
   onSelect: (questionId: string) => void;
@@ -154,15 +165,32 @@ const BlockView = memo(function BlockView({
       {marked(piece, t("imports.source.colored"), t("imports.source.coloredNote"))}
     </span>
   ));
+  const chip =
+    tag === undefined ? null : (
+      <span
+        className={cn(
+          "text-2xs inline-flex h-5 flex-none items-center rounded-[6px] px-1.75 font-medium whitespace-nowrap",
+          TAG_TONE[tag.tone],
+        )}
+      >
+        {tag.label}
+      </span>
+    );
   const className = cn(
-    "block w-full rounded-sm px-1.5 py-1 text-left text-sm leading-relaxed whitespace-pre-wrap break-words transition-colors duration-150",
-    active && "bg-secondary",
+    "flex w-full items-start gap-2.5 rounded-[7px] px-2 py-1.5 text-left transition-colors duration-150",
+    active && "bg-brand-soft ring-brand ring-1 ring-inset",
+  );
+  const text = (
+    <span className="text-ui min-w-0 flex-1 leading-[1.6] break-words whitespace-pre-wrap">
+      {content}
+    </span>
   );
   if (owner === undefined)
     return (
-      <p data-block-id={block.id} className={cn(className, "text-muted-foreground")}>
-        {content}
-      </p>
+      <div data-block-id={block.id} className={cn(className, "text-muted-fg")}>
+        {text}
+        {chip}
+      </div>
     );
   return (
     <button
@@ -173,21 +201,142 @@ const BlockView = memo(function BlockView({
       onClick={() => onSelect(owner)}
       onKeyDown={(event) => onRove(event, block.id)}
       onFocus={() => onFocusBlock(block.id)}
-      className={cn(className, "hover:bg-secondary/60")}
+      className={cn(className, "cursor-pointer", !active && "hover:bg-hover")}
     >
-      {content}
+      {text}
+      {chip}
     </button>
   );
 });
 
 const NO_RANGES: readonly Range[] = [];
 
+function isPasted(source: ImportSource | undefined): boolean {
+  return source?.format === "text";
+}
+
+function noteOf(
+  source: ImportSource | undefined,
+  role: ImportSourceRole,
+  t: TFunction,
+): string {
+  if (isPasted(source)) return t("imports.source.notePasted");
+  const name = source?.filename ?? "";
+  return role === "exam"
+    ? t("imports.source.noteExam", { name })
+    : t("imports.source.noteKey", { name });
+}
+
+function SourceHeader({
+  importId,
+  sources,
+  role,
+  removed,
+  onRoleChange,
+}: Readonly<{
+  importId: string;
+  sources: readonly ImportSource[];
+  role: ImportSourceRole;
+  removed: boolean;
+  onRoleChange: (role: ImportSourceRole) => void;
+}>) {
+  const { t } = useTranslation();
+  const client = useQueryClient();
+  const pageNote = useId();
+  const [downloading, setDownloading] = useState(false);
+  const exam = sources.find((source) => source.role === "exam");
+  const key = sources.find((source) => source.role === "answer_key");
+  const current = role === "answer_key" ? key : exam;
+  const pasted = isPasted(current);
+
+  const download = async () => {
+    if (current === undefined) return;
+    setDownloading(true);
+    try {
+      const link = await downloadImportSource(importId, current.id);
+      window.location.assign(link.url);
+    } catch (cause) {
+      notify.error(failureMessage(cause, t("imports.sources.downloadFailed")));
+      if (cause instanceof ApiError && cause.code === "IMPORT_FILES_REMOVED")
+        void client.invalidateQueries({ queryKey: ["word-import", importId] });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex flex-none flex-wrap items-center gap-2 border-b px-3 py-2">
+        <Segmented
+          size="xs"
+          label={t("imports.source.which")}
+          value={role}
+          options={[
+            {
+              value: "exam",
+              label: isPasted(exam)
+                ? t("imports.detail.pastedText")
+                : t("imports.role.exam"),
+            },
+            ...(key === undefined
+              ? []
+              : [{ value: "answer_key", label: t("imports.role.answer_key") }]),
+          ]}
+          onChange={(value) =>
+            onRoleChange(value === "answer_key" ? "answer_key" : "exam")
+          }
+        />
+        <Segmented
+          size="xs"
+          label={t("imports.source.viewLabel")}
+          value="text"
+          options={
+            pasted
+              ? [{ value: "text", label: t("imports.source.asPasted") }]
+              : [
+                  { value: "text", label: t("imports.source.extractedView") },
+                  {
+                    value: "page",
+                    label: t("imports.source.pageView"),
+                    disabled: true,
+                    describedBy: pageNote,
+                  },
+                ]
+          }
+          onChange={() => undefined}
+        />
+        <span id={pageNote} hidden>
+          {t("imports.source.pageViewLater")}
+        </span>
+        <span className="flex-1" />
+        <button
+          type="button"
+          aria-label={t("imports.source.download")}
+          title={t("imports.source.download")}
+          disabled={current === undefined || removed || downloading}
+          onClick={() => void download()}
+          className="text-muted-fg hover:bg-hover hover:text-fg grid size-7.5 cursor-pointer place-items-center rounded-[7px] disabled:cursor-default disabled:opacity-45"
+        >
+          <Download aria-hidden="true" className="size-3.75" />
+        </button>
+      </div>
+      <p className="text-muted-fg text-caption m-0 flex-none border-b px-3.5 py-1.5 [overflow-wrap:anywhere]">
+        {noteOf(current, role, t)}
+      </p>
+    </>
+  );
+}
+
 /**
  * SourcePane shows the extracted text of one source with its marks, tables as
- * rows, and each block linked to the question it became. The blocks share one
- * tab stop and are moved between with the arrow keys. The pane scrolls to the
- * focused block when `focus.nonce` changes or the pane becomes `visible`, and
- * moves keyboard focus there once per nonce when `focus.take` is set.
+ * rows, each block linked to the question it became and tagged by `tagOf`.
+ * Its header switches between the exam and an answer key when there is one,
+ * and downloads the original. A pasted exam is named "Pasted text" and read
+ * "As pasted", never by its stored filename; a file's "Page view" is offered
+ * but off until there is a rendering of it. The blocks share one tab stop
+ * and are moved between with the arrow keys. The pane scrolls to the focused
+ * block when `focus.nonce` changes or the pane becomes `visible`, and moves
+ * keyboard focus there once per nonce when `focus.take` is set.
  */
 export function SourcePane({
   importId,
@@ -198,6 +347,7 @@ export function SourcePane({
   onRoleChange,
   focus,
   owners,
+  tagOf,
   selectedBlocks,
   onSelect,
 }: Readonly<{
@@ -209,6 +359,7 @@ export function SourcePane({
   onRoleChange: (role: ImportSourceRole) => void;
   focus: SourceFocus;
   owners: ReadonlyMap<string, string>;
+  tagOf: (key: string) => BlockTag | undefined;
   selectedBlocks: ReadonlySet<string>;
   onSelect: (questionId: string) => void;
 }>) {
@@ -216,7 +367,6 @@ export function SourcePane({
   const scroller = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const focused = useRef(0);
-  const hasKey = sources.some((source) => source.role === "answer_key");
   const view = useQuery(sourceViewQuery(importId, role, sourceRevision));
   const removed =
     view.error instanceof ApiError && view.error.code === "IMPORT_FILES_REMOVED";
@@ -288,52 +438,43 @@ export function SourcePane({
     else heading.current?.focus({ preventScroll: true });
   }, [focus.nonce, focus.take, target, visible]);
 
-  const renderBlock = (block: ImportSourceBlock) => (
-    <BlockView
-      key={block.id}
-      block={block}
-      ranges={ranges.get(block.id) ?? NO_RANGES}
-      owner={owners.get(blockKey(sourceId ?? "", block.id))}
-      active={
-        selectedBlocks.has(blockKey(sourceId ?? "", block.id)) || ranges.has(block.id)
-      }
-      tabbable={block.id === tabStop}
-      onSelect={onSelect}
-      onRove={rove}
-      onFocusBlock={setRoving}
-    />
-  );
+  const renderBlock = (block: ImportSourceBlock) => {
+    const blockAt = blockKey(sourceId ?? "", block.id);
+    return (
+      <BlockView
+        key={block.id}
+        block={block}
+        ranges={ranges.get(block.id) ?? NO_RANGES}
+        owner={owners.get(blockAt)}
+        tag={tagOf(blockAt)}
+        active={selectedBlocks.has(blockAt) || ranges.has(block.id)}
+        tabbable={block.id === tabStop}
+        onSelect={onSelect}
+        onRove={rove}
+        onFocusBlock={setRoving}
+      />
+    );
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2">
-        <h2 ref={heading} tabIndex={-1} className="text-sm font-medium outline-none">
-          {t("imports.source.title")}
-        </h2>
-        {hasKey ? (
-          <Segmented
-            className="ml-auto"
-            label={t("imports.source.which")}
-            value={role}
-            options={[
-              { value: "exam", label: t("imports.role.exam") },
-              { value: "answer_key", label: t("imports.role.answer_key") },
-            ]}
-            onChange={(value) =>
-              onRoleChange(value === "answer_key" ? "answer_key" : "exam")
-            }
-          />
-        ) : null}
-      </div>
-      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-        {view.data === undefined ? null : (
-          <p className="text-muted-foreground mb-2 px-1.5 text-xs break-all">
-            {t("imports.source.extracted", { name: view.data.filename })}
-          </p>
-        )}
+      <h2 ref={heading} tabIndex={-1} className="sr-only">
+        {t("imports.source.title")}
+      </h2>
+      <SourceHeader
+        importId={importId}
+        sources={sources}
+        role={role}
+        removed={removed}
+        onRoleChange={onRoleChange}
+      />
+      <div
+        ref={scroller}
+        className="bg-card min-h-0 flex-1 overflow-y-auto px-3 py-2.5"
+      >
         {view.isPending ? <ListSkeleton rows={8} /> : null}
         {removed ? (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-fg text-sm">
             {t("imports.retention.sourceRemoved")}
           </p>
         ) : null}
@@ -346,9 +487,9 @@ export function SourcePane({
           </LoadError>
         ) : null}
         {view.data !== undefined && view.data.blocks.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{t("imports.source.empty")}</p>
+          <p className="text-muted-fg text-sm">{t("imports.source.empty")}</p>
         ) : null}
-        <div className="max-w-prose space-y-0.5">
+        <div className="mx-auto flex max-w-160 flex-col gap-0.5">
           {segments.map((segment) =>
             segment.kind === "block" ? (
               renderBlock(segment.block)

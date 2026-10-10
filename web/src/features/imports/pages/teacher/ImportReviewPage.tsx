@@ -5,11 +5,18 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
+import { useCrumbs } from "@/layouts/shell/crumbs";
 import { ApiError } from "@/lib/api/errors";
+import { nfc } from "@/lib/nfc";
 import { getWordImport, getWordImportReview } from "../../api";
 import { ReviewWorkspace } from "../../components/review/ReviewWorkspace";
 import { IMPORT_POLL_MS, isActiveStatus } from "../../status";
 
+/**
+ * ImportReviewPage is the route of an import's review: it loads the import
+ * and its review, names the import in the breadcrumb, and mounts the
+ * workspace on a review read since the page opened, or says why it cannot.
+ */
 export default function ImportReviewPage() {
   const { id = "" } = useParams();
   const client = useQueryClient();
@@ -46,6 +53,7 @@ function ReviewRoute({ id, onReload }: Readonly<{ id: string; onReload: () => vo
     queryFn: ({ signal }) => getWordImportReview(id, signal),
     refetchOnMount: "always",
   });
+  useCrumbs(value.data ? [{ label: nfc(value.data.title) }] : null);
   const updates = () =>
     client.getQueryState(["word-import-review", id])?.dataUpdateCount ?? 0;
   const [cachedUpdates] = useState(updates);

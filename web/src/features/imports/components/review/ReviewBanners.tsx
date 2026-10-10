@@ -1,11 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import { Monitor, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { WordImport } from "../../api";
 import { isActiveStatus } from "../../status";
 import { ReprocessNotice } from "../ReprocessNotice";
 
-const BAR = "flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-2";
+const BAR = "flex flex-none flex-wrap items-center gap-3 border-b px-4 py-2";
+const BAR_BUTTON = "ml-auto h-8 rounded-lg px-3 text-sm shadow-none";
 
 /**
  * ReviewBanners are the review's state notices: a stale draft, processing that
@@ -39,31 +41,26 @@ export function ReviewBanners({
   return (
     <>
       {stale ? (
-        <div role="alert" className={BAR}>
-          <p className="text-sm">{t("imports.review.staleBody")}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={onReloadStale}
-          >
+        <div role="alert" className={`${BAR} bg-danger-soft`}>
+          <p className="m-0 text-sm">{t("imports.review.staleBody")}</p>
+          <Button variant="outline" className={BAR_BUTTON} onClick={onReloadStale}>
             {t("imports.review.reload")}
           </Button>
         </div>
       ) : null}
       {finished ? (
-        <div role="status" className={BAR}>
-          <p className="text-sm">{t("imports.review.finishedBody")}</p>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={onReload}>
+        <div role="status" className={`${BAR} bg-info-soft`}>
+          <p className="m-0 text-sm">{t("imports.review.finishedBody")}</p>
+          <Button variant="outline" className={BAR_BUTTON} onClick={onReload}>
             {t("imports.review.reload")}
           </Button>
         </div>
       ) : null}
       {committed ? (
-        <div role="status" className={BAR}>
-          <p className="text-sm">{t("imports.review.committedBanner")}</p>
+        <div role="status" className={`${BAR} bg-success-soft`}>
+          <p className="m-0 text-sm">{t("imports.review.committedBanner")}</p>
           {testId === null ? null : (
-            <Button asChild variant="outline" size="sm" className="ml-auto">
+            <Button asChild variant="outline" className={BAR_BUTTON}>
               <Link to={`/teacher/tests/${testId}/edit`}>
                 {t("imports.detail.openBuilder")}
               </Link>
@@ -72,9 +69,9 @@ export function ReviewBanners({
         </div>
       ) : null}
       {!committed && value.status !== "needs_review" ? (
-        <div role="status" className={BAR}>
-          <p className="text-sm">{t(`imports.review.readOnly.${value.status}`)}</p>
-          <Button asChild variant="outline" size="sm" className="ml-auto">
+        <div role="status" className={`${BAR} bg-muted`}>
+          <p className="m-0 text-sm">{t(`imports.review.readOnly.${value.status}`)}</p>
+          <Button asChild variant="outline" className={BAR_BUTTON}>
             <Link to={`/teacher/imports/${value.id}`}>
               {isActiveStatus(value.status)
                 ? t("imports.review.viewProgress")
@@ -83,11 +80,14 @@ export function ReviewBanners({
           </Button>
         </div>
       ) : null}
-      <ReprocessNotice value={value} className="shrink-0 border-b px-4 py-2 text-sm" />
+      <ReprocessNotice
+        value={value}
+        className="m-0 flex-none border-b px-4 py-2 text-sm"
+      />
       {reprocessed ? (
-        <div role="status" className={BAR}>
-          <p className="text-sm">{t("imports.review.reprocessed")}</p>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={onAdopt}>
+        <div role="status" className={`${BAR} bg-info-soft`}>
+          <p className="m-0 text-sm">{t("imports.review.reprocessed")}</p>
+          <Button variant="outline" className={BAR_BUTTON} onClick={onAdopt}>
             {t("imports.review.adopt")}
           </Button>
         </div>
@@ -96,24 +96,27 @@ export function ReviewBanners({
   );
 }
 
-/** PhoneNotice stands in for the review below 768px: the open counts and where to continue. */
-export function PhoneNotice({
-  title,
-  importId,
-  blocking,
-  review,
-}: Readonly<{ title: string; importId: string; blocking: number; review: number }>) {
+/**
+ * PhoneNote is the deck's dismissible band on a phone: the review is read
+ * here, and edited on a larger screen.
+ */
+export function PhoneNote({ onDismiss }: Readonly<{ onDismiss: () => void }>) {
   const { t } = useTranslation();
   return (
-    <div className="space-y-3 rounded-lg border p-5" role="status">
-      <h1 className="text-lg font-semibold break-words">{title}</h1>
-      <p className="text-sm">{t("imports.review.phoneCounts", { blocking, review })}</p>
-      <p className="text-muted-foreground text-sm">
-        {t("imports.review.phoneGuidance")}
-      </p>
-      <Button asChild variant="outline" size="sm">
-        <Link to={`/teacher/imports/${importId}`}>{t("imports.review.back")}</Link>
-      </Button>
+    <div
+      role="note"
+      className="bg-info-soft text-info-ink text-meta flex flex-none items-start gap-2.5 px-4 py-2.5 leading-normal"
+    >
+      <Monitor aria-hidden="true" className="mt-px size-3.75 flex-none" />
+      <span className="min-w-0 flex-1">{t("imports.review.phoneNote")}</span>
+      <button
+        type="button"
+        aria-label={t("display.dismiss")}
+        onClick={onDismiss}
+        className="grid size-6 flex-none cursor-pointer place-items-center rounded-md"
+      >
+        <X aria-hidden="true" className="size-3.5" />
+      </button>
     </div>
   );
 }
