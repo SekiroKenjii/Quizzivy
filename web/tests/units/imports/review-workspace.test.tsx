@@ -576,7 +576,7 @@ describe("the review's data", () => {
     expect(screen.queryByDisplayValue("Bản cũ trước khi xử lý lại")).toBeNull();
   });
 
-  it("offers a retry inside the summary when the last save failed", async () => {
+  it("keeps a failed save on the review until the teacher retries it, then opens Preview and create", async () => {
     let fail = true;
     server.use(
       http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
@@ -609,11 +609,21 @@ describe("the review's data", () => {
     await user.click(
       screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
     );
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/Chưa lưu được thay đổi/)).toBeInTheDocument();
-    expect(within(dialog).queryByText(/Đang lưu/)).toBeNull();
-    await user.click(within(dialog).getByRole("button", { name: "Thử lại" }));
-    await waitFor(() => expect(state.puts.length).toBeGreaterThanOrEqual(2));
+    const dialog = await screen.findByRole("dialog", { name: "Rời trang rà soát?" });
+    await user.click(within(dialog).getByRole("button", { name: "Ở lại" }));
+    await user.click(screen.getByRole("button", { name: "Thử lại" }));
+    await waitFor(() => expect(state.puts).toHaveLength(2));
+    await waitFor(() =>
+      expect(screen.getByText("Đã lưu").closest("[data-state]")).toHaveAttribute(
+        "data-state",
+        "saved",
+      ),
+    );
+
+    await user.click(
+      screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
+    );
+    expect(await screen.findByText("confirm page")).toBeInTheDocument();
   });
 });
 
