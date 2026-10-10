@@ -39,7 +39,10 @@ const TEACHER_TREE = [
   ],
   ["/teacher/media", "features/media/pages/teacher/MediaPage"],
   ["/teacher/assignments", "features/assignments/pages/teacher/AssignmentsListPage"],
-  ["/teacher/assignments/new", "features/assignments/pages/teacher/AssignmentFormPage"],
+  [
+    "/teacher/assignments/new",
+    "features/assignments/pages/teacher/AssignmentWizardPage",
+  ],
   [
     "/teacher/assignments/:id",
     "features/assignments/pages/teacher/AssignmentDetailPage",

@@ -22,7 +22,7 @@ function member(id: string) {
 }
 beforeEach(() => vi.clearAllMocks());
 
-it("unions all membership pages and individual selections, excluding disabled students", async () => {
+it("unions all membership pages and individual selections, excluding disabled students, and says which classes already include an individual pick", async () => {
   vi.mocked(fetchMembers).mockImplementation(async (id, params) => ({
     items:
       id === "class-a" ? [member(params?.page === 2 ? "Bình" : "An")] : [member("An")],
@@ -52,7 +52,12 @@ it("unions all membership pages and individual selections, excluding disabled st
     },
   );
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
-  expect(result.current.data).toEqual({ total: 3, overlaps: ["An"] });
+  expect(result.current.data).toEqual({
+    total: 3,
+    fromClasses: 2,
+    overlaps: ["An"],
+    classesOf: { An: ["class-a", "class-b"] },
+  });
   expect(fetchMembers).toHaveBeenCalledTimes(3);
   client.clear();
 });
