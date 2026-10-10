@@ -8,7 +8,7 @@ import { server } from "@tests/support/server";
 import { ATTEMPT_ID, BASE, review } from "../attempts/fixtures";
 import "@/lib/i18n";
 
-it("compact teacher timeline keeps neutral paired durations without the full-review autosave note", async () => {
+it("compact teacher timeline marks only leaving in danger, with its duration, and leaves out the note card", async () => {
   const sessionId = "018f0000-0000-7000-8000-00000000ab01";
   const startedAt = "2026-09-04T02:10:00Z";
   server.use(
@@ -61,16 +61,18 @@ it("compact teacher timeline keeps neutral paired durations without the full-rev
     </QueryClientProvider>,
   );
   const region = await screen.findByRole("region", { name: "Diễn biến bài làm" });
-  expect(within(region).getAllByRole("listitem")).toHaveLength(3);
-  expect(within(region).getByText("1:12")).toBeInTheDocument();
-  expect(within(region).getByText("— đang tiếp diễn")).toBeInTheDocument();
-  expect(within(region).getByText("Mất kết nối")).toBeInTheDocument();
+  const items = within(region).getAllByRole("listitem");
+  expect(items).toHaveLength(3);
+  expect(items[1]).toHaveTextContent("Chuyển sang cửa sổ khác · 1 phút 12 giây");
+  expect(items[2]).toHaveTextContent("Mất kết nối · đang mở");
   expect(screen.queryByRole("table")).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(screen.queryByText("full note must not appear")).toBeNull();
-  expect(
-    [...container.querySelectorAll("*")]
-      .flatMap((node) => [...node.classList])
-      .filter((token) => /^(bg|text|border|ring)-(danger|destructive)/.test(token)),
-  ).toEqual([]);
+  const dangerIn = (node: Element) =>
+    [node, ...node.querySelectorAll("*")]
+      .flatMap((each) => [...each.classList])
+      .filter((token) => /^(bg|text|border|ring)-(danger|destructive)/.test(token));
+  expect(dangerIn(items[1]!)).toEqual(["bg-danger"]);
+  expect(dangerIn(items[2]!)).toEqual([]);
+  expect(dangerIn(container)).toEqual(["bg-danger"]);
 });

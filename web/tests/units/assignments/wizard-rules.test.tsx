@@ -199,6 +199,27 @@ describe("the Rules step", () => {
     await user.click(screen.getByRole("switch", { name: "Điểm của mình" }));
     expect(reads().queryByText(/Bạn sẽ xem được điểm/)).toBeNull();
   });
+
+  it("keeps the honest limits beside the integrity rules", () => {
+    renderWizard("/teacher/assignments/new?step=4");
+    expect(
+      screen.getByText(
+        "Trình duyệt không thể ngăn gian lận. Các quy định này ghi lại điều đã xảy ra để bạn tự quyết định.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("holds spec §10.5's full limits in a disclosure that starts closed", async () => {
+    const user = userEvent.setup();
+    renderWizard("/teacher/assignments/new?step=4");
+    const summary = screen.getByText("Hệ thống thấy được gì và không thấy gì");
+    const details = summary.closest("details")!;
+    expect(details).not.toHaveAttribute("open");
+    await user.click(summary);
+    expect(details).toHaveAttribute("open");
+    expect(within(details).getByText(/thiết bị thứ hai/)).toBeVisible();
+    expect(within(details).getByText(/không phải bằng chứng/)).toBeVisible();
+  });
 });
 
 describe("assigning", () => {
