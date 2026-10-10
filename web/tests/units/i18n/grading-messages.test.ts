@@ -8,6 +8,10 @@ import en from "@/lib/i18n/locales/en.json";
 
 const expected = {
   vi: {
+    leaveTitle: "Rời trang khi nhận xét chưa lưu?",
+    leaveBody: "Nhận xét bạn đang viết cho câu trả lời này chưa được lưu.",
+    saveAndLeave: "Lưu và rời đi",
+    stay: "Ở lại",
     queueRow: "{{name}} · {{assignment}} · {{remaining}}",
     candidate: "Xem bài của {{name}}: {{title}}",
     pickFirstKeys: "Chọn điểm trước (phím 1–{{n}}).",
@@ -79,6 +83,10 @@ const expected = {
     },
   },
   en: {
+    leaveTitle: "Leave with an unsaved comment?",
+    leaveBody: "The comment you are writing for this answer has not been saved.",
+    saveAndLeave: "Save and leave",
+    stay: "Stay",
     queueRow: "{{name}} · {{assignment}} · {{remaining}}",
     candidate: "Review {{name}}: {{title}}",
     pickFirstKeys: "Pick a score first (keys 1–{{n}}).",
