@@ -7,6 +7,9 @@ import { BASE, finding, question, review, section } from "./fixtures";
 import {
   KEY_EVIDENCE,
   baseline,
+  card,
+  cardHeader,
+  isOpen,
   renderReview,
   serveReview,
   type ReviewServer,
@@ -25,8 +28,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function editorFor(label: string) {
-  return screen.getByRole("region", { name: `Câu ${label}` });
+function editorFor(id: string) {
+  expect(isOpen(id), `card ${id} is open`).toBe(true);
+  return card(id);
 }
 
 function savedQuestion(index: number, id: string) {
@@ -37,7 +41,7 @@ function savedQuestion(index: number, id: string) {
 describe("resolving findings in the review", () => {
   it("opens on the first question that needs a decision, with its source text linked", async () => {
     await renderReview();
-    expect(screen.getByRole("heading", { name: "Câu 1" })).toBeInTheDocument();
+    expect(isOpen("q1")).toBe(true);
     const block = await screen.findByRole("button", { name: /to school yesterday/ });
     expect(block).toHaveAttribute("aria-pressed", "true");
     expect(
@@ -51,21 +55,18 @@ describe("resolving findings in the review", () => {
     await user.click(
       await screen.findByRole("button", { name: /Which colour is the sky/ }),
     );
-    expect(screen.getByRole("heading", { name: "Câu 2" })).toBeInTheDocument();
+    expect(isOpen("q2")).toBe(true);
 
     await user.click(screen.getByRole("button", { name: "Đáp án" }));
-    await user.click(await screen.findByRole("button", { name: "1. B" }));
-    expect(
-      screen.getByRole("heading", { name: "Câu 1" }),
-      "a key line opens the question it answers",
-    ).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /1\. B/ }));
+    expect(isOpen("q1"), "a key line opens the question it answers").toBe(true);
   });
 
   it("settles a conflicting key on the chosen value and records it as the teacher's", async () => {
     const { user } = await renderReview();
-    const editor = editorFor("1");
+    const editor = editorFor("q1");
     await user.click(
-      within(editor).getByRole("button", { name: "Dùng giá trị này: B" }),
+      within(editor).getByRole("radio", { name: "Dùng giá trị này: B" }),
     );
 
     expect(
@@ -88,8 +89,8 @@ describe("resolving findings in the review", () => {
 
   it("offers acknowledgement only for a review item, never for a blocker", async () => {
     const { user } = await renderReview();
-    await user.click(screen.getByRole("button", { name: "Câu 2" }));
-    const editor = editorFor("2");
+    await user.click(cardHeader("q2"));
+    const editor = editorFor("q2");
 
     const blocker = editor.querySelector<HTMLElement>("#finding-f-missing")!;
     const review = editor.querySelector<HTMLElement>("#finding-f-irregular")!;
@@ -105,48 +106,51 @@ describe("resolving findings in the review", () => {
       within(review).getByRole("button", { name: "Xác nhận đã kiểm tra" }),
     );
     expect(within(review).getByText("Đã xác nhận")).toBeInTheDocument();
-    expect(
-      within(review).getByRole("button", { name: "Bỏ xác nhận" }),
-    ).toBeInTheDocument();
+    expect(within(review).getByRole("button", { name: "Đổi lại" })).toBeInTheDocument();
 
     await vi.advanceTimersByTimeAsync(1500);
     await waitFor(() => expect(state.puts).toHaveLength(1));
     expect(state.puts[0]!.acknowledged).toEqual(["f-irregular"]);
   });
 
-  it("walks findings with Previous and Next, and narrows them with the filter", async () => {
+  it("walks the open items with Previous and Next, and narrows them with the filter", async () => {
     const { user } = await renderReview();
-    const next = screen.getByRole("button", { name: "Mục tiếp theo" });
-    const previous = screen.getByRole("button", { name: "Mục trước" });
+    const next = screen.getByRole("button", { name: "Tiếp" });
+    const previous = screen.getByRole("button", { name: "Mục trước cần rà soát" });
+    expect(screen.getByText("3 mục còn mở")).toBeInTheDocument();
 
     await user.click(next);
-    expect(screen.getByRole("heading", { name: "Câu 1" })).toBeInTheDocument();
-    expect(screen.getByText("Mục 1/3")).toBeInTheDocument();
+    expect(isOpen("q1")).toBe(true);
+    expect(screen.getByText("1 / 3 mục còn mở")).toBeInTheDocument();
     await waitFor(() => expect(document.activeElement?.id).toBe("finding-f-conflict"));
 
     await user.click(next);
-    expect(screen.getByRole("heading", { name: "Câu 2" })).toBeInTheDocument();
-    expect(screen.getByText("Mục 2/3")).toBeInTheDocument();
+    expect(isOpen("q2")).toBe(true);
+    expect(screen.getByText("2 / 3 mục còn mở")).toBeInTheDocument();
     await waitFor(() => expect(document.activeElement?.id).toBe("finding-f-missing"));
 
     await user.click(previous);
-    expect(screen.getByRole("heading", { name: "Câu 1" })).toBeInTheDocument();
+    expect(isOpen("q1")).toBe(true);
 
-    await user.click(screen.getByRole("button", { name: "Cần xác nhận (1)" }));
+    await user.click(screen.getByRole("button", { name: "Cần xác nhận 1" }));
     await user.click(next);
-    expect(screen.getByRole("heading", { name: "Câu 2" })).toBeInTheDocument();
-    expect(screen.getByText("Mục 1/1")).toBeInTheDocument();
+    expect(isOpen("q2")).toBe(true);
+    expect(screen.getByText("1 / 1 mục còn mở")).toBeInTheDocument();
     expect(
-      screen.queryByRole("article", { name: "Câu 1" }),
+      document.querySelector('[data-card="q1"]'),
       "a question outside the filter is not listed",
     ).toBeNull();
   });
 
-  it("keeps processing notes out of the navigation, in an optional details panel", async () => {
+  it("keeps processing notes out of the navigation, in the whole-test card and under Info", async () => {
     const { user } = await renderReview();
     expect(screen.queryByText("2 câu đang dùng điểm mặc định")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Chi tiết xử lý (1)" }));
+    await user.click(cardHeader("whole-test"));
     expect(screen.getByText("2 câu đang dùng điểm mặc định")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Thông tin 1" }));
+    expect(document.querySelector('[data-card="q1"]')).toBeNull();
+    expect(screen.getByText("1 mục còn mở")).toBeInTheDocument();
   });
 
   it("offers the answer key's paper numbers when the key holds several", async () => {
@@ -169,10 +173,10 @@ describe("resolving findings in the review", () => {
     await renderReview();
     const notice = document.getElementById("finding-f-paper")!;
     expect(
-      within(notice).getByRole("button", { name: "Đề số 101" }),
+      within(notice).getByRole("radio", { name: "Đề số 101" }),
     ).toBeInTheDocument();
     expect(
-      within(notice).getByRole("button", { name: "Đề số 102" }),
+      within(notice).getByRole("radio", { name: "Đề số 102" }),
     ).toBeInTheDocument();
     expect(
       within(notice).getByRole("button", { name: "Xử lý lại với mã đề này" }),

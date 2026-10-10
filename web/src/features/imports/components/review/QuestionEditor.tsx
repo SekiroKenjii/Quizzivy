@@ -1,15 +1,7 @@
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
+import { lazy, Suspense, useId, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Plus, Trash2 } from "lucide-react";
+import { CircleSlash, Ellipsis, FileSearch, Plus, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,15 +16,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ContentView } from "@/components/shared/content/ContentView";
 import type { SemanticContent } from "@/components/shared/content/model";
 import { isOptionContent } from "@/components/shared/content/optionContent";
 import { isQuestionContent } from "@/components/shared/content/questionContent";
+import { cn } from "@/lib/utils";
 import type {
   ImportDraftBlank,
   ImportDraftQuestion,
-  ImportFieldOrigins,
   ImportFinding,
   ImportKeyValue,
   ImportSourceRef,
@@ -46,7 +44,6 @@ import {
   dropsAnswerData,
   EDITABLE_TYPES,
   exceedsBlankLimit,
-  exclude,
   BLANK_LIMIT,
   pickCandidate,
   removeOption,
@@ -61,7 +58,7 @@ import {
   type QuestionType,
   type TrueFalseText,
 } from "../../draft";
-import { FindingNotice } from "./FindingNotice";
+import { FINDING_ACTION, FindingNotice } from "./FindingNotice";
 import { Provenance } from "./Provenance";
 
 const ContentEditor = lazy(() =>
@@ -71,21 +68,20 @@ const ContentEditor = lazy(() =>
 );
 
 type Edit = (update: (question: ImportDraftQuestion) => ImportDraftQuestion) => void;
-type Editing = { kind: "prompt" } | { kind: "option"; optionId: string } | null;
 
-const FIELDS: readonly (keyof ImportFieldOrigins)[] = [
-  "type",
-  "prompt",
-  "options",
-  "answer",
-  "points",
-];
+const SMALL_BUTTON =
+  "h-7 rounded-[7px] px-2.25 text-xs font-medium shadow-none in-data-[scale=deck]:h-7 in-data-[scale=deck]:px-2.25 in-data-[scale=deck]:text-xs";
 
 /**
- * QuestionEditor edits the selected question of the review. At most one rich
- * editor is mounted, for the field the teacher opened, and every field it
- * changes is marked teacher-entered. While `readOnly`, nothing can be changed
- * and any open rich editor is closed; locating and provenance still work.
+ * QuestionEditor is the body of the open question card: where it was printed
+ * with "Show in source" and its actions (Exclude or Restore), the exclusion
+ * and its reason, its findings with their resolutions, and its fields. The
+ * "Question" field is the content editor, mounted only here, since one card
+ * is open at a time. While `readOnly`, and for an excluded question, every
+ * field is its read view; locating and the provenance chips still work.
+ * `onExclude` names the element the exclusion dialog returns focus to: the
+ * card's actions button when the menu asked, since its item unmounts, or
+ * null when a button that stays asked.
  */
 export function QuestionEditor({
   question,
@@ -98,6 +94,7 @@ export function QuestionEditor({
   onAcknowledge,
   onLocate,
   onReprocess,
+  onExclude,
 }: Readonly<{
   question: ImportDraftQuestion;
   context: string;
@@ -109,21 +106,18 @@ export function QuestionEditor({
   onAcknowledge: (findingId: string, on: boolean) => void;
   onLocate: (refs: readonly ImportSourceRef[]) => void;
   onReprocess?: ((paper: number) => void) | undefined;
+  onExclude: (questionId: string, returnTo: HTMLElement | null) => void;
 }>) {
   const { t } = useTranslation();
-  const headingId = useId();
-  const [opened, setEditing] = useState<Editing>(null);
-  const [provenance, setProvenance] = useState(false);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
   const [pendingType, setPendingType] = useState<QuestionType | null>(null);
   const typeTrigger = useRef<HTMLButtonElement>(null);
   const excluded = question.excluded !== undefined;
-  const editing = readOnly || excluded ? null : opened;
-  const [tooManyGaps, setTooManyGaps] = useState(false);
+  const locked = readOnly || excluded;
   const trueFalse: TrueFalseText = {
     truth: t("imports.review.trueOption"),
     falsity: t("imports.review.falseOption"),
   };
-  const editingPrompt = editing?.kind === "prompt";
 
   const requestType = (type: QuestionType) => {
     if (dropsAnswerData(question, changeType(question, type, trueFalse)))
@@ -132,160 +126,102 @@ export function QuestionEditor({
   };
 
   return (
-    <section
-      data-question-id={question.id}
-      aria-labelledby={headingId}
-      tabIndex={-1}
-      className="ring-ring/30 bg-card space-y-5 rounded-lg border p-5 shadow-sm ring-2 outline-none"
-    >
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 id={headingId} className="text-base font-semibold">
-            {t("imports.review.questionLabel", { label: question.label })}
-          </h3>
-          <span className="text-muted-foreground text-xs">{context}</span>
-          <div className="ml-auto flex items-center gap-1">
-            {question.source.length > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                onClick={() => onLocate(question.source)}
-              >
-                {t("imports.review.showInSource")}
-              </Button>
-            ) : null}
+    <div className="flex min-w-0 flex-col gap-3.5 border-t px-3.5 pt-1 pb-4">
+      <div className="flex flex-wrap items-center gap-2 pt-2">
+        <span className="text-muted-fg min-w-0 flex-[1_1_200px] text-xs">
+          {t("imports.review.printedAs", { label: question.label, context })}
+        </span>
+        {question.source.length > 0 ? (
+          <Button
+            type="button"
+            variant="outline"
+            className={SMALL_BUTTON}
+            onClick={() => onLocate(question.source)}
+          >
+            <FileSearch aria-hidden="true" className="size-3.25" />
+            {t("imports.review.showInSource")}
+          </Button>
+        ) : null}
+        <QuestionMenu
+          question={question}
+          disabled={readOnly}
+          triggerRef={menuTrigger}
+          onExclude={() => onExclude(question.id, menuTrigger.current)}
+          onRestore={() => onEdit(restore)}
+        />
+      </div>
+
+      {excluded ? (
+        <div className="bg-muted flex flex-wrap items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm">
+          <CircleSlash
+            aria-hidden="true"
+            className="text-muted-fg size-3.75 flex-none"
+          />
+          <span className="min-w-0 flex-[1_1_200px] [overflow-wrap:anywhere]">
+            {t("imports.review.excludedBecause", {
+              reason: question.excluded?.reason ?? "",
+            })}
+          </span>
+          {readOnly ? null : (
             <Button
               type="button"
-              variant="ghost"
-              size="xs"
-              aria-expanded={provenance}
-              onClick={() => setProvenance((open) => !open)}
+              variant="outline"
+              className={SMALL_BUTTON}
+              onClick={() => onEdit(restore)}
             >
-              {t("imports.review.provenance")}
+              {t("imports.review.restore")}
             </Button>
-          </div>
-        </div>
-        {provenance ? (
-          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 rounded-md border p-3 text-xs">
-            {FIELDS.map((field) => (
-              <div key={field} className="contents">
-                <dt className="text-muted-foreground">{t(`imports.field.${field}`)}</dt>
-                <dd>
-                  <Provenance origin={question.origins[field]} />
-                </dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
-      </header>
-
-      {findings.length > 0 ? (
-        <div className="space-y-2">
-          {findings.map((finding) => (
-            <FindingNotice
-              key={finding.id}
-              finding={finding}
-              current={finding.id === currentFindingId}
-              readOnly={readOnly}
-              onAcknowledge={onAcknowledge}
-              onLocate={onLocate}
-              onReprocess={onReprocess}
-            >
-              {finding.code === "CONFLICTING_ANSWER_KEYS" ||
-              finding.code === "UNUSABLE_ANSWER_KEY" ? (
-                <Candidates
-                  question={question}
-                  readOnly={readOnly}
-                  roleOf={roleOf}
-                  onLocate={onLocate}
-                  onPick={(candidate) =>
-                    onEdit((current) => pickCandidate(current, candidate) ?? current)
-                  }
-                />
-              ) : null}
-            </FindingNotice>
-          ))}
+          )}
         </div>
       ) : null}
 
-      <ExclusionControl
-        question={question}
-        readOnly={readOnly}
-        onExclude={(reason) => onEdit((current) => exclude(current, reason))}
-        onRestore={() => onEdit(restore)}
-      />
+      {findings.map((finding) => (
+        <FindingNotice
+          key={finding.id}
+          finding={finding}
+          current={finding.id === currentFindingId}
+          readOnly={readOnly}
+          onAcknowledge={onAcknowledge}
+          onLocate={onLocate}
+          onReprocess={onReprocess}
+          actions={
+            locked ? null : (
+              <FindingExclude
+                finding={finding}
+                onExclude={() => onExclude(question.id, null)}
+              />
+            )
+          }
+        >
+          {finding.code === "CONFLICTING_ANSWER_KEYS" ||
+          finding.code === "UNUSABLE_ANSWER_KEY" ? (
+            <Candidates
+              question={question}
+              readOnly={locked}
+              roleOf={roleOf}
+              onLocate={onLocate}
+              onPick={(candidate) =>
+                onEdit((current) => pickCandidate(current, candidate) ?? current)
+              }
+            />
+          ) : null}
+        </FindingNotice>
+      ))}
 
       <fieldset
-        disabled={excluded || readOnly}
-        className="space-y-5 disabled:opacity-60"
+        disabled={locked}
+        className="m-0 flex min-w-0 flex-col gap-3.5 border-0 p-0"
       >
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-2.5">
           <TypeField
             question={question}
             triggerRef={typeTrigger}
             onChange={requestType}
           />
-          <PointsField question={question} onEdit={onEdit} />
+          <PointsField key={question.id} question={question} onEdit={onEdit} />
         </div>
-
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium">{t("imports.field.prompt")}</span>
-            <Provenance origin={question.origins.prompt} />
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              className="ml-auto"
-              aria-expanded={editingPrompt}
-              disabled={question.prompt.format !== "semantic_v1"}
-              onClick={() => {
-                setTooManyGaps(false);
-                setEditing(editingPrompt ? null : { kind: "prompt" });
-              }}
-            >
-              {editingPrompt
-                ? t("imports.review.doneEditing")
-                : t("imports.review.editPrompt")}
-            </Button>
-          </div>
-          {editingPrompt && question.prompt.format === "semantic_v1" ? (
-            <RichField
-              key={`${question.id}:prompt`}
-              document={question.prompt}
-              label={t("imports.review.promptEditorLabel", { label: question.label })}
-              profile={
-                question.type === "fill_blank" || !isQuestionContent(question.prompt)
-                  ? "prompt"
-                  : "question"
-              }
-              onChange={(document) => {
-                const over =
-                  question.type === "fill_blank" && exceedsBlankLimit(document);
-                setTooManyGaps(over);
-                if (!over) onEdit((current) => setPrompt(current, document));
-              }}
-            />
-          ) : (
-            <ContentView
-              document={question.prompt}
-              className="rounded-md border p-3 text-sm"
-            />
-          )}
-          {editingPrompt && tooManyGaps ? (
-            <p role="alert" className="text-destructive text-xs">
-              {t("imports.review.blankLimit", { max: BLANK_LIMIT })}
-            </p>
-          ) : null}
-        </div>
-
-        <AnswerFields
-          question={question}
-          editing={editing}
-          onEditing={setEditing}
-          onEdit={onEdit}
-        />
+        <PromptField question={question} editable={!locked} onEdit={onEdit} />
+        <AnswerFields question={question} locked={locked} onEdit={onEdit} />
       </fieldset>
 
       <ConfirmDialog
@@ -304,7 +240,157 @@ export function QuestionEditor({
           if (type !== null) onEdit((current) => changeType(current, type, trueFalse));
         }}
       />
-    </section>
+    </div>
+  );
+}
+
+function FindingExclude({
+  finding,
+  onExclude,
+}: Readonly<{ finding: ImportFinding; onExclude: () => void }>) {
+  const { t } = useTranslation();
+  if (finding.code === "UNSUPPORTED_INTERACTION")
+    return (
+      <Button
+        type="button"
+        className={cn(FINDING_ACTION, "bg-primary text-primary-fg")}
+        onClick={onExclude}
+      >
+        <CircleSlash aria-hidden="true" className="size-3.25" />
+        {t("imports.review.excludeWithReason")}
+      </Button>
+    );
+  if (finding.code === "MISSING_ANSWER")
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        className={FINDING_ACTION}
+        onClick={onExclude}
+      >
+        <CircleSlash aria-hidden="true" className="size-3.25" />
+        {t("imports.review.excludeQuestion")}
+      </Button>
+    );
+  return null;
+}
+
+function QuestionMenu({
+  question,
+  disabled,
+  triggerRef,
+  onExclude,
+  onRestore,
+}: Readonly<{
+  question: ImportDraftQuestion;
+  disabled: boolean;
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  onExclude: () => void;
+  onRestore: () => void;
+}>) {
+  const { t } = useTranslation();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={disabled}>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label={t("imports.review.questionActions", { label: question.label })}
+          className="bg-card hover:bg-muted data-[state=open]:bg-muted grid size-7 flex-none cursor-pointer place-items-center rounded-[7px] border disabled:cursor-default disabled:opacity-45"
+        >
+          <Ellipsis aria-hidden="true" className="size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        {question.excluded === undefined ? (
+          <DropdownMenuItem variant="destructive" onSelect={onExclude}>
+            <CircleSlash aria-hidden="true" />
+            {t("imports.review.excludeMenu")}
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onSelect={onRestore}>
+            <Undo2 aria-hidden="true" />
+            {t("imports.review.restoreQuestion")}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function FieldLabel({
+  htmlFor,
+  id,
+  label,
+  origin,
+}: Readonly<{
+  htmlFor?: string;
+  id?: string;
+  label: string;
+  origin: ImportDraftQuestion["origins"]["type"];
+}>) {
+  return (
+    <span className="text-meta flex flex-wrap items-center gap-1.5 font-medium">
+      {htmlFor === undefined ? (
+        <span id={id}>{label}</span>
+      ) : (
+        <Label htmlFor={htmlFor} className="text-meta font-medium">
+          {label}
+        </Label>
+      )}
+      <Provenance origin={origin} />
+    </span>
+  );
+}
+
+function PromptField({
+  question,
+  editable,
+  onEdit,
+}: Readonly<{ question: ImportDraftQuestion; editable: boolean; onEdit: Edit }>) {
+  const { t } = useTranslation();
+  const labelId = useId();
+  const [tooManyGaps, setTooManyGaps] = useState(false);
+  const live = editable && question.prompt.format === "semantic_v1";
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <FieldLabel
+        id={labelId}
+        label={t("imports.field.prompt")}
+        origin={question.origins.prompt}
+      />
+      {live && question.prompt.format === "semantic_v1" ? (
+        <RichField
+          key={`${question.id}:prompt`}
+          document={question.prompt}
+          label={t("imports.review.promptEditorLabel", { label: question.label })}
+          placeholder={t("imports.review.promptPlaceholder")}
+          profile={
+            question.type === "fill_blank" || !isQuestionContent(question.prompt)
+              ? "prompt"
+              : "question"
+          }
+          onChange={(document) => {
+            const over = question.type === "fill_blank" && exceedsBlankLimit(document);
+            setTooManyGaps(over);
+            if (!over) onEdit((current) => setPrompt(current, document));
+          }}
+        />
+      ) : (
+        <div
+          role="group"
+          aria-labelledby={labelId}
+          className="bg-card rounded-[10px] border px-4 py-3"
+        >
+          <ContentView document={question.prompt} className="text-base" />
+        </div>
+      )}
+      {live && tooManyGaps ? (
+        <p role="alert" className="text-danger-ink m-0 text-xs">
+          {t("imports.review.blankLimit", { max: BLANK_LIMIT })}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -312,26 +398,43 @@ function RichField({
   document,
   label,
   profile,
+  placeholder,
   onChange,
 }: Readonly<{
   document: SemanticContent;
   label: string;
   profile: "question" | "prompt" | "option";
+  placeholder?: string;
   onChange: (document: SemanticContent) => void;
 }>) {
   const { t } = useTranslation();
   return (
     <Suspense
       fallback={
-        <Skeleton className="h-32 w-full" aria-label={t("contentEditor.loading")} />
+        <Skeleton
+          className="h-32 w-full rounded-[10px]"
+          aria-label={t("contentEditor.loading")}
+        />
       }
     >
-      <ContentEditor
-        initialContent={document}
-        label={label}
-        profile={profile}
-        onChange={onChange}
-      />
+      {profile === "option" ? (
+        <ContentEditor
+          initialContent={document}
+          label={label}
+          profile={profile}
+          onChange={onChange}
+        />
+      ) : (
+        <ContentEditor
+          initialContent={document}
+          label={label}
+          profile={profile}
+          minHeight={64}
+          fontSize={14}
+          placeholder={placeholder}
+          onChange={onChange}
+        />
+      )}
     </Suspense>
   );
 }
@@ -348,11 +451,12 @@ function TypeField({
   const { t } = useTranslation();
   const id = useId();
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-2">
-        <Label htmlFor={id}>{t("imports.field.type")}</Label>
-        <Provenance origin={question.origins.type} />
-      </div>
+    <div className="flex flex-col gap-1.5">
+      <FieldLabel
+        htmlFor={id}
+        label={t("imports.field.type")}
+        origin={question.origins.type}
+      />
       <Select
         value={question.type}
         onValueChange={(value) => onChange(value as QuestionType)}
@@ -389,11 +493,12 @@ function PointsField({
   const normalize = (value: string) => value.trim().replace(",", ".");
   const invalid = !validPoints(normalize(text));
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-2">
-        <Label htmlFor={id}>{t("imports.field.points")}</Label>
-        <Provenance origin={question.origins.points} />
-      </div>
+    <div className="flex flex-col gap-1.5">
+      <FieldLabel
+        htmlFor={id}
+        label={t("imports.field.points")}
+        origin={question.origins.points}
+      />
       <Input
         id={id}
         inputMode="decimal"
@@ -407,7 +512,7 @@ function PointsField({
         }}
       />
       {invalid ? (
-        <p role="alert" className="text-destructive text-xs">
+        <p role="alert" className="text-danger-ink m-0 text-xs">
           {t("imports.review.pointsInvalid")}
         </p>
       ) : null}
@@ -415,145 +520,19 @@ function PointsField({
   );
 }
 
-type FocusTarget = "reason" | "toggle" | "restore";
-
-function ExclusionControl({
-  question,
-  readOnly,
-  onExclude,
-  onRestore,
-}: Readonly<{
-  question: ImportDraftQuestion;
-  readOnly: boolean;
-  onExclude: (reason: string) => void;
-  onRestore: () => void;
-}>) {
-  const { t } = useTranslation();
-  const id = useId();
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
-  const reasonField = useRef<HTMLTextAreaElement>(null);
-  const toggle = useRef<HTMLButtonElement>(null);
-  const restoreButton = useRef<HTMLButtonElement>(null);
-  const focusNext = useRef<FocusTarget | null>(null);
-
-  useEffect(() => {
-    const target = focusNext.current;
-    if (target === null) return;
-    focusNext.current = null;
-    if (target === "reason") reasonField.current?.focus();
-    else if (target === "restore") restoreButton.current?.focus();
-    else toggle.current?.focus();
-  });
-
-  if (question.excluded !== undefined)
-    return (
-      <div className="bg-muted/40 flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm">
-        <p className="min-w-0 flex-1">
-          {t("imports.review.excludedBecause", { reason: question.excluded.reason })}
-        </p>
-        <Button
-          ref={restoreButton}
-          type="button"
-          variant="outline"
-          size="xs"
-          disabled={readOnly}
-          onClick={() => {
-            focusNext.current = "toggle";
-            onRestore();
-          }}
-        >
-          {t("imports.review.restore")}
-        </Button>
-      </div>
-    );
-  if (!open)
-    return (
-      <div className="flex justify-end">
-        <Button
-          ref={toggle}
-          type="button"
-          variant="ghost"
-          size="xs"
-          disabled={readOnly}
-          onClick={() => {
-            focusNext.current = "reason";
-            setOpen(true);
-          }}
-        >
-          {t("imports.review.exclude")}
-        </Button>
-      </div>
-    );
-  return (
-    <div className="space-y-2 rounded-md border p-3">
-      <Label htmlFor={id}>{t("imports.review.excludeReason")}</Label>
-      <Textarea
-        ref={reasonField}
-        id={id}
-        value={reason}
-        maxLength={500}
-        disabled={readOnly}
-        className="min-h-16"
-        onChange={(event) => setReason(event.target.value)}
-      />
-      <p className="text-muted-foreground text-xs">{t("imports.review.excludeHint")}</p>
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          onClick={() => {
-            focusNext.current = "toggle";
-            setOpen(false);
-          }}
-        >
-          {t("common.cancel")}
-        </Button>
-        <Button
-          type="button"
-          size="xs"
-          disabled={readOnly || reason.trim() === ""}
-          onClick={() => {
-            focusNext.current = "restore";
-            onExclude(reason.trim());
-            setOpen(false);
-            setReason("");
-          }}
-        >
-          {t("imports.review.excludeConfirm")}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function AnswerFields({
   question,
-  editing,
-  onEditing,
+  locked,
   onEdit,
-}: Readonly<{
-  question: ImportDraftQuestion;
-  editing: Editing;
-  onEditing: (next: Editing) => void;
-  onEdit: Edit;
-}>) {
+}: Readonly<{ question: ImportDraftQuestion; locked: boolean; onEdit: Edit }>) {
   const { t } = useTranslation();
   if (question.type === "unsupported")
-    return <p className="text-sm">{t("imports.review.unsupportedHelp")}</p>;
+    return <p className="m-0 text-sm">{t("imports.review.unsupportedHelp")}</p>;
   if (question.type === "fill_blank")
     return <BlanksField question={question} onEdit={onEdit} />;
   if (question.type === "short_answer")
     return <SampleField question={question} onEdit={onEdit} />;
-  return (
-    <OptionsField
-      question={question}
-      editing={editing}
-      onEditing={onEditing}
-      onEdit={onEdit}
-    />
-  );
+  return <OptionsField question={question} locked={locked} onEdit={onEdit} />;
 }
 
 function answerGap(question: ImportDraftQuestion, t: TFunction): string {
@@ -579,58 +558,63 @@ function markedKeys(
 
 function OptionsField({
   question,
-  editing,
-  onEditing,
+  locked,
   onEdit,
-}: Readonly<{
-  question: ImportDraftQuestion;
-  editing: Editing;
-  onEditing: (next: Editing) => void;
-  onEdit: Edit;
-}>) {
+}: Readonly<{ question: ImportDraftQuestion; locked: boolean; onEdit: Edit }>) {
   const { t } = useTranslation();
+  const [editing, setEditing] = useState<string | null>(null);
   const multiple = question.type === "multiple_choice";
   const fixed = question.type === "true_false";
   const keys = new Set(question.answer.optionIds);
+  const open = locked ? null : editing;
   const toggle = (optionId: string, on: boolean) =>
     onEdit((current) => setCorrectOptions(current, markedKeys(current, optionId, on)));
   return (
-    <fieldset className="space-y-2">
-      <legend className="flex w-full flex-wrap items-center gap-2 text-sm font-medium">
+    <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
+      <legend className="text-meta mb-1.5 flex w-full flex-wrap items-center gap-1.5 p-0 font-medium">
         <span>{t("imports.field.options")}</span>
         <Provenance origin={question.origins.options} />
-        <span className="text-muted-foreground ml-auto text-xs font-normal">
+        <span className="text-muted-fg font-normal">
           {multiple
             ? t("imports.review.markManyHint")
             : t("imports.review.markOneHint")}
         </span>
       </legend>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-muted-foreground">{t("imports.field.answer")}</span>
+      <div className="text-meta flex flex-wrap items-center gap-2">
+        <span className="text-muted-fg">{t("imports.field.answer")}</span>
         <Provenance origin={question.origins.answer} />
         {question.answer.state === "known" ? null : (
-          <span className="text-muted-foreground">{answerGap(question, t)}</span>
+          <span className="text-muted-fg">{answerGap(question, t)}</span>
         )}
       </div>
-      <ul className="space-y-2">
+      <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {question.options.map((option) => {
-          const open = editing?.kind === "option" && editing.optionId === option.id;
+          const opened = open === option.id;
           const editable = isOptionContent(option.content);
+          const correct = keys.has(option.id);
           return (
-            <li key={option.id} className="flex items-start gap-2.5">
-              <input
-                type={multiple ? "checkbox" : "radio"}
-                name={`correct-${question.id}`}
-                checked={keys.has(option.id)}
-                onChange={(event) => toggle(option.id, event.target.checked)}
-                aria-label={t("imports.review.markCorrect", { label: option.label })}
-                className="border-input accent-foreground mt-2.5 size-4 shrink-0"
-              />
-              <span className="text-muted-foreground mt-2 w-5 shrink-0 text-sm font-medium">
+            <li
+              key={option.id}
+              className={cn(
+                "flex items-start gap-2 rounded-[9px] border py-1 pr-2 pl-1",
+                correct ? "border-success bg-success-soft" : "bg-card",
+              )}
+            >
+              <span className="grid size-7.5 flex-none place-items-center">
+                <input
+                  type={multiple ? "checkbox" : "radio"}
+                  name={`correct-${question.id}`}
+                  checked={correct}
+                  onChange={(event) => toggle(option.id, event.target.checked)}
+                  aria-label={t("imports.review.markCorrect", { label: option.label })}
+                  className="accent-success size-4"
+                />
+              </span>
+              <span className="text-muted-fg text-meta mt-1.5 w-3.5 flex-none font-semibold">
                 {option.label}
               </span>
-              <div className="min-w-0 flex-1">
-                {open && option.content.format === "semantic_v1" && editable ? (
+              <div className="min-w-0 flex-1 py-0.5">
+                {opened && option.content.format === "semantic_v1" && editable ? (
                   <RichField
                     key={`${question.id}:${option.id}`}
                     document={option.content}
@@ -645,29 +629,28 @@ function OptionsField({
                     }
                   />
                 ) : (
-                  <ContentView
-                    document={option.content}
-                    className="rounded-md border px-3 py-2 text-sm"
-                  />
+                  <ContentView document={option.content} className="py-1 text-base" />
                 )}
               </div>
+              {correct ? (
+                <span className="text-success-ink text-caption mt-1.5 font-semibold whitespace-nowrap">
+                  {t("imports.review.correct")}
+                </span>
+              ) : null}
               <Button
                 type="button"
                 variant="ghost"
-                size="xs"
-                className="mt-1"
-                aria-expanded={open}
+                className={cn(SMALL_BUTTON, "mt-0.5")}
+                aria-expanded={opened}
                 aria-label={
-                  open
+                  opened
                     ? t("imports.review.doneOptionNamed", { label: option.label })
                     : t("imports.review.editOptionNamed", { label: option.label })
                 }
                 disabled={!editable}
-                onClick={() =>
-                  onEditing(open ? null : { kind: "option", optionId: option.id })
-                }
+                onClick={() => setEditing(opened ? null : option.id)}
               >
-                {open
+                {opened
                   ? t("imports.review.doneEditing")
                   : t("imports.review.editOption")}
               </Button>
@@ -676,6 +659,7 @@ function OptionsField({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
+                  className="mt-0.5"
                   aria-label={t("imports.review.removeOptionNamed", {
                     label: option.label,
                   })}
@@ -689,16 +673,17 @@ function OptionsField({
         })}
       </ul>
       {fixed || question.options.length >= 8 ? null : (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground"
-          onClick={() => onEdit(addOption)}
-        >
-          <Plus aria-hidden="true" />
-          {t("imports.review.addOption")}
-        </Button>
+        <div>
+          <Button
+            type="button"
+            variant="ghost"
+            className={cn(SMALL_BUTTON, "text-muted-fg")}
+            onClick={() => onEdit(addOption)}
+          >
+            <Plus aria-hidden="true" className="size-3.25" />
+            {t("imports.review.addOption")}
+          </Button>
+        </div>
       )}
     </fieldset>
   );
@@ -719,13 +704,13 @@ function BlanksField({
       ),
     );
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-        <span>{t("imports.field.blanks")}</span>
+    <div className="flex flex-col gap-2">
+      <span className="text-meta flex flex-wrap items-center gap-1.5 font-medium">
+        {t("imports.field.blanks")}
         <Provenance origin={question.origins.answer} />
-      </div>
+      </span>
       {question.blanks.length === 0 ? (
-        <p className="text-muted-foreground text-sm">{t("imports.review.noBlanks")}</p>
+        <p className="text-muted-fg m-0 text-sm">{t("imports.review.noBlanks")}</p>
       ) : null}
       {question.blanks.map((blank, index) => (
         <BlankField
@@ -765,8 +750,10 @@ function BlankField({
     (entered.length > ACCEPTED_LIMITS.count ||
       entered.some((line) => Array.from(line).length > ACCEPTED_LIMITS.length));
   return (
-    <div className="space-y-2 rounded-md border p-3">
-      <Label htmlFor={id}>{t("imports.review.blankLabel", { label })}</Label>
+    <div className="bg-card flex flex-col gap-2 rounded-[10px] border p-3">
+      <Label htmlFor={id} className="text-meta font-medium">
+        {t("imports.review.blankLabel", { label })}
+      </Label>
       <Textarea
         id={id}
         value={shown}
@@ -779,7 +766,7 @@ function BlankField({
         }}
       />
       {clipped ? (
-        <p role="alert" className="text-destructive text-xs">
+        <p role="alert" className="text-danger-ink m-0 text-xs">
           {t("imports.review.acceptedLimit", {
             count: ACCEPTED_LIMITS.count,
             length: ACCEPTED_LIMITS.length,
@@ -805,11 +792,12 @@ function SampleField({
   const { t } = useTranslation();
   const id = useId();
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-2">
-        <Label htmlFor={id}>{t("imports.field.sample")}</Label>
-        <Provenance origin={question.origins.answer} />
-      </div>
+    <div className="flex flex-col gap-1.5">
+      <FieldLabel
+        htmlFor={id}
+        label={t("imports.field.sample")}
+        origin={question.origins.answer}
+      />
       <Textarea
         id={id}
         value={question.answer.text ?? ""}
@@ -819,7 +807,7 @@ function SampleField({
           onEdit((current) => setSample(current, event.target.value))
         }
       />
-      <p className="text-muted-foreground text-xs">{t("imports.review.sampleHint")}</p>
+      <p className="text-muted-fg m-0 text-xs">{t("imports.review.sampleHint")}</p>
     </div>
   );
 }
@@ -838,10 +826,15 @@ function Candidates({
   onPick: (candidate: ImportKeyValue) => void;
 }>) {
   const { t } = useTranslation();
+  const name = useId();
   const candidates = question.answer.candidates ?? [];
   if (candidates.length === 0) return null;
   return (
-    <ul className="space-y-1.5 pt-1" aria-label={t("imports.review.candidates")}>
+    <div
+      role="radiogroup"
+      aria-label={t("imports.review.candidates")}
+      className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-2"
+    >
       {candidates.map((candidate) => {
         const usable = pickCandidate(question, candidate) !== null;
         const roles = [
@@ -852,48 +845,45 @@ function Candidates({
           ),
         ];
         return (
-          <li
+          <div
             key={candidate.value}
-            className="flex flex-wrap items-center gap-2 rounded-md border px-2.5 py-1.5"
+            className="bg-card flex flex-col gap-1.5 rounded-[9px] border-[1.5px] px-3 py-2.5"
           >
-            <span className="font-medium">{candidate.value}</span>
-            {roles.length > 0 ? (
-              <span className="text-muted-foreground text-xs">
-                {roles.map((role) => t(`imports.role.${role}`)).join(" · ")}
-              </span>
-            ) : null}
-            <span className="ml-auto flex items-center gap-1.5">
-              {candidate.evidence.length > 0 ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => onLocate(candidate.evidence)}
-                >
-                  {t("imports.review.showEvidence")}
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
+            <label className="flex cursor-pointer items-start gap-2.5 has-disabled:cursor-default">
+              <input
+                type="radio"
+                name={name}
+                checked={false}
                 disabled={readOnly || !usable}
                 aria-label={t("imports.review.useCandidateNamed", {
                   value: candidate.value,
                 })}
-                onClick={() => onPick(candidate)}
+                onChange={() => onPick(candidate)}
+                className="accent-primary mt-0.5 size-4 flex-none"
+              />
+              <span className="min-w-0">
+                <span className="text-ui block font-semibold [overflow-wrap:anywhere]">
+                  {candidate.value}
+                </span>
+                <span className="text-muted-fg block text-xs leading-[1.45]">
+                  {usable
+                    ? roles.map((role) => t(`imports.role.${role}`)).join(" · ")
+                    : t("imports.review.candidateUnusable")}
+                </span>
+              </span>
+            </label>
+            {candidate.evidence.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => onLocate(candidate.evidence)}
+                className="text-fg ml-6.5 cursor-pointer self-start rounded-sm text-xs underline underline-offset-2"
               >
-                {t("imports.review.useCandidate")}
-              </Button>
-            </span>
-            {usable ? null : (
-              <p className="text-muted-foreground w-full text-xs">
-                {t("imports.review.candidateUnusable")}
-              </p>
-            )}
-          </li>
+                {t("imports.review.viewInSource")}
+              </button>
+            ) : null}
+          </div>
         );
       })}
-    </ul>
+    </div>
   );
 }
