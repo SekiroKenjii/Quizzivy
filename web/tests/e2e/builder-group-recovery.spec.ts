@@ -100,6 +100,9 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
     .getByRole("button", { name: "Rời đi", exact: true })
     .click();
   await expect(page).toHaveURL(/\/teacher\/tests$/);
+  await expect(
+    page.getByRole("link", { name: "Đề phục hồi", exact: true }),
+  ).toBeVisible();
   expect(stored.bundle.group.title).toBe("Nhóm trên máy chủ");
   await page.goBack();
   await page.getByRole("button", { name: "Khôi phục bản nháp", exact: true }).click();
