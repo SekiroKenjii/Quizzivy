@@ -7,7 +7,7 @@ test("group graph and uploaded material round-trip through the real API, then co
   test.setTimeout(120_000);
   await signInAsAdmin(page);
   await page.goto("/teacher/question-bank/groups");
-  await page.getByRole("button", { name: "Nhóm mới", exact: true }).click();
+  await page.getByRole("button", { name: "Nhóm mới", exact: true }).first().click();
   await expect(page).toHaveURL(/\/question-bank\/groups\/[0-9a-f-]+$/);
   const originalPath = new URL(page.url()).pathname;
   const title = `Nhóm bài đọc ${Date.now()}`;
