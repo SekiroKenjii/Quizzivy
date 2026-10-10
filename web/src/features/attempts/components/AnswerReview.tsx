@@ -119,9 +119,7 @@ function Body({
       );
     }
     default: {
-      const chosen = new Set(
-        given !== null && "optionIds" in given ? given.optionIds : [],
-      );
+      const chosen = chosenOptions(question, given);
       return (
         <div className="space-y-2">
           {(question.options ?? []).map((option, index) => {
@@ -153,6 +151,18 @@ function Body({
       );
     }
   }
+}
+
+const TRUE_ORDINAL = 0;
+const FALSE_ORDINAL = 1;
+
+function chosenOptions(question: ReviewQuestion, given: Answer | null): Set<string> {
+  if (given === null) return new Set();
+  if ("optionIds" in given) return new Set(given.optionIds);
+  if (question.type !== "true_false" || given.type !== "true_false") return new Set();
+  const ordinal = given.value ? TRUE_ORDINAL : FALSE_ORDINAL;
+  const option = question.options?.find((item) => item.ordinal === ordinal);
+  return new Set(option === undefined ? [] : [option.id]);
 }
 
 function matches(typed: string, accepted: string[], caseSensitive: boolean): boolean {
