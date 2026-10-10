@@ -1,6 +1,13 @@
 import { useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
@@ -105,6 +112,58 @@ describe("the outline's deck states", () => {
 
     expect(screen.queryByRole("textbox", { name: "Tên phần" })).toBeNull();
     expect(changed.mock.lastCall![0].at(-1).title).toBe("Nghe");
+  });
+
+  it("holds a rename blurred by a touch until the click that follows it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const picked = vi.fn();
+      function Harness() {
+        const [sections, setSections] = useState(start);
+        return (
+          <OutlineTree
+            sections={sections}
+            questions={questions}
+            selectedId="q1"
+            creating={false}
+            onSelect={vi.fn()}
+            onCreateQuestion={vi.fn()}
+            onPickFromBank={picked}
+            onAddSection={() =>
+              setSections((current) => [
+                ...current,
+                {
+                  id: null,
+                  clientId: "client-new",
+                  title: "Phần 2",
+                  instructions: null,
+                  questionIds: [],
+                },
+              ])
+            }
+            onChange={setSections}
+          />
+        );
+      }
+      render(<Harness />);
+      fireEvent.click(screen.getByRole("button", { name: "Thêm phần" }));
+      const name = screen.getByRole("textbox", { name: "Tên phần" });
+      expect(name).toHaveFocus();
+      const bank = screen.getByRole("button", { name: "Từ ngân hàng câu hỏi" });
+
+      fireEvent.pointerDown(bank, { pointerType: "touch" });
+      fireEvent.pointerUp(bank, { pointerType: "touch" });
+      act(() => bank.focus());
+      expect(screen.getByRole("textbox", { name: "Tên phần" })).toBeInTheDocument();
+      fireEvent.click(bank);
+
+      expect(picked).toHaveBeenCalledOnce();
+      expect(screen.queryByRole("textbox", { name: "Tên phần" })).toBeNull();
+      await act(() => vi.runOnlyPendingTimersAsync());
+      expect(picked).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("commits a rename at once when the field loses focus to the keyboard", async () => {

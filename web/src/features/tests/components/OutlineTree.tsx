@@ -140,7 +140,12 @@ export function OutlineTree({
   }
   const keyFor = (section: OutlineSection, index: number): string =>
     section.clientId ?? section.id ?? clientKeys[index] ?? `new-${index}`;
-  const [renaming, setRenaming] = useState<number | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameNew, setRenameNew] = useState<number | null>(null);
+  if (renameNew !== null && sections.length > renameNew) {
+    setRenameNew(null);
+    setRenaming(keyFor(sections[renameNew]!, renameNew));
+  }
   const [instructing, setInstructing] = useState<number | null>(null);
   const instructionsOpener = useRef<HTMLElement | null>(null);
   const openInstructions = (sectionIndex: number, opener: HTMLElement | null) => {
@@ -248,9 +253,10 @@ export function OutlineTree({
     onChange(moveUnit(sections, from, to));
   }
 
-  function rename(index: number, title: string | null) {
+  function rename(key: string, title: string | null) {
     setRenaming(null);
-    if (title === null || title === sections[index]?.title) return;
+    const index = sections.findIndex((section, i) => keyFor(section, i) === key);
+    if (index < 0 || title === null || title === sections[index]!.title) return;
     onChange(sections.map((s, i) => (i === index ? { ...s, title } : s)));
   }
 
@@ -369,12 +375,12 @@ export function OutlineTree({
                         : t("common.loading")
                     }
                     open={open}
-                    renaming={renaming === sectionIndex}
+                    renaming={renaming === key}
                     first={sectionIndex === 0}
                     last={sectionIndex === sections.length - 1}
                     onToggle={() => setCollapsed((current) => toggle(current, key))}
-                    onStartRename={() => setRenaming(sectionIndex)}
-                    onRenamed={(next) => rename(sectionIndex, next)}
+                    onStartRename={() => setRenaming(key)}
+                    onRenamed={(next) => rename(key, next)}
                     onInstructions={(opener) => openInstructions(sectionIndex, opener)}
                     onMove={(direction) => move(sectionIndex, direction)}
                     onRemove={() => {
@@ -519,7 +525,7 @@ export function OutlineTree({
           className="text-muted-foreground w-full justify-start gap-2 px-2.5 in-data-[scale=deck]:h-8 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5"
           onClick={() => {
             onAddSection();
-            setRenaming(sections.length);
+            setRenameNew(sections.length);
           }}
         >
           <Plus aria-hidden="true" />
@@ -643,7 +649,7 @@ function SectionHeader({
           className={cn(
             "group/section relative flex items-center gap-0.5 rounded-[7px] py-0.5 pr-1 pl-0.5 transition-colors duration-120 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none",
             dropInto
-              ? "bg-accent-soft"
+              ? "bg-brand-soft"
               : "hover:bg-hover has-data-[state=open]:bg-hover",
           )}
         >
@@ -739,7 +745,7 @@ function EmptySectionDrop({
       ref={setNodeRef}
       className={cn(
         "text-muted-foreground mx-1 mt-0.5 mb-1 flex min-h-11 items-center rounded-[7px] border border-dashed px-2.5 text-xs",
-        isOver && "bg-accent-soft border-foreground",
+        isOver && "bg-brand-soft border-foreground",
       )}
     >
       {t("builder.sectionDropHint")}
@@ -760,25 +766,37 @@ function SectionTitleInput({
   const settled = useRef(false);
   const pressing = useRef(false);
   const deferred = useRef<(() => void) | null>(null);
+  const done = useRef(onDone);
+
+  useEffect(() => {
+    done.current = onDone;
+  });
 
   useEffect(() => {
     field.current?.focus();
     field.current?.select();
+    let timer: number | undefined;
     const press = () => {
       pressing.current = true;
     };
     const release = () => {
+      window.clearTimeout(timer);
       pressing.current = false;
       const commit = deferred.current;
       deferred.current = null;
       commit?.();
     };
+    const releaseSoon = () => {
+      timer = window.setTimeout(release, 0);
+    };
     document.addEventListener("pointerdown", press, true);
-    window.addEventListener("pointerup", release);
+    window.addEventListener("pointerup", releaseSoon);
+    window.addEventListener("click", release, true);
     window.addEventListener("pointercancel", release);
     return () => {
       document.removeEventListener("pointerdown", press, true);
-      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointerup", releaseSoon);
+      window.removeEventListener("click", release, true);
       window.removeEventListener("pointercancel", release);
       release();
     };
@@ -787,7 +805,7 @@ function SectionTitleInput({
   function finish(next: string | null) {
     if (settled.current) return;
     settled.current = true;
-    onDone(next);
+    done.current(next);
   }
 
   function blur() {

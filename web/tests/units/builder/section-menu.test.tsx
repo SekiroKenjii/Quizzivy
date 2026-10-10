@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   OutlineTree,
@@ -369,4 +369,47 @@ describe("removing a section from a builder that owns groups", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
+});
+
+it("renames the section it started on even when the outline reorders during the press", async () => {
+  const onChange = vi.fn();
+  let setOutline: (next: OutlineSection[]) => void = () => {};
+  function Harness() {
+    const [value, setValue] = useState(sections());
+    setOutline = setValue;
+    return (
+      <OutlineTree
+        sections={value}
+        questions={questions}
+        selectedId="q1"
+        creating={false}
+        onCreateQuestion={vi.fn()}
+        onPickFromBank={vi.fn()}
+        onAddSection={vi.fn()}
+        onSelect={vi.fn()}
+        onChange={(next) => {
+          onChange(next);
+          setValue(next);
+        }}
+      />
+    );
+  }
+  render(<Harness />);
+  const user = userEvent.setup();
+  await user.dblClick(screen.getByRole("button", { name: /^Nghe 1 · / }));
+  const name = screen.getByRole("textbox", { name: "Tên phần" });
+  await user.clear(name);
+  await user.type(name, "Nghe hiểu");
+  const bank = screen.getByRole("button", { name: "Từ ngân hàng câu hỏi" });
+
+  await user.pointer({ keys: "[MouseLeft>]", target: bank });
+  const [first, second, third] = sections();
+  act(() => setOutline([second!, first!, third!]));
+  await user.pointer({ keys: "[/MouseLeft]", target: bank });
+
+  expect(titles(onChange.mock.lastCall![0] as OutlineSection[])).toEqual([
+    "Nghe hiểu",
+    "Ngữ pháp",
+    "Viết",
+  ]);
 });
