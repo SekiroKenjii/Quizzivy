@@ -104,6 +104,35 @@ function groupColumns(
   ];
 }
 
+function EmptyGroups({
+  search,
+  status,
+  creating,
+  onCreate,
+}: Readonly<{
+  search: string;
+  status: "active" | "archived";
+  creating: boolean;
+  onCreate: () => void;
+}>) {
+  const { t } = useTranslation();
+  if (search !== "") return <>{t("groups.empty")}</>;
+  if (status === "archived") return <>{t("groups.noneArchived")}</>;
+  return (
+    <span>
+      {t("groups.none")}{" "}
+      <button
+        type="button"
+        disabled={creating}
+        className="text-fg cursor-pointer underline underline-offset-2 disabled:cursor-default disabled:opacity-60"
+        onClick={onCreate}
+      >
+        {t("groups.create")}
+      </button>
+    </span>
+  );
+}
+
 /**
  * GroupsListPage is the bank's question groups (DG-68): a search, Active or
  * Archived, a table whose row opens the group's editor, duplicate, archive,
@@ -234,7 +263,7 @@ export default function GroupsListPage() {
             ? [
                 {
                   label: t("common.archive"),
-                  description: t("groups.archiveBody"),
+                  description: t("groups.archiveBody", { count: selection.length }),
                   icon: Archive,
                   run: (group: GroupSummary) => archiveGroup(group, true),
                 },
@@ -244,13 +273,13 @@ export default function GroupsListPage() {
             ? [
                 {
                   label: t("common.restore"),
-                  description: t("groups.restoreBody"),
+                  description: t("groups.restoreBody", { count: selection.length }),
                   icon: Undo2,
                   run: (group: GroupSummary) => archiveGroup(group, false),
                 },
                 {
                   label: t("common.deletePermanently"),
-                  description: t("groups.deleteBody"),
+                  description: t("groups.deleteBody", { count: selection.length }),
                   icon: Trash2,
                   run: (group: GroupSummary) => deleteGroup(group.id, group.revision),
                 },
@@ -274,7 +303,19 @@ export default function GroupsListPage() {
           rowHref={(group) => `/teacher/question-bank/groups/${group.id}`}
           selection={bulk}
           rowName={(group) => group.title}
-          empty={data.items.length === 0 ? t("groups.empty") : null}
+          empty={
+            data.items.length === 0 ? (
+              <EmptyGroups
+                search={search}
+                status={status}
+                creating={create.isPending}
+                onCreate={() => {
+                  setError(null);
+                  create.mutate();
+                }}
+              />
+            ) : null
+          }
           menu={(group) => (
             <>
               <DropdownMenuItem
@@ -322,7 +363,9 @@ export default function GroupsListPage() {
           if (!open && !mutate.isPending) setAction(null);
         }}
         title={t(ACTION_LABELS[action?.kind ?? "archive"].title)}
-        description={t(ACTION_LABELS[action?.kind ?? "archive"].description)}
+        description={t(ACTION_LABELS[action?.kind ?? "archive"].description, {
+          count: 1,
+        })}
         confirmLabel={t("common.confirm")}
         destructive={action?.kind === "delete"}
         pending={mutate.isPending}
