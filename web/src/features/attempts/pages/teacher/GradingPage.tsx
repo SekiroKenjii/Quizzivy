@@ -75,6 +75,10 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
     if (focusHeading) heading.current?.focus();
   }, [focusHeading]);
   const departing = useRef(false);
+  const locationKey = location.key;
+  useEffect(() => {
+    departing.current = false;
+  }, [locationKey]);
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       !departing.current &&
@@ -94,6 +98,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
     const next = new URLSearchParams(location.search);
     if (value) next.set(key, value);
     else next.delete(key);
+    if (next.toString() === new URLSearchParams(location.search).toString()) return;
     void model.leave(() => {
       departing.current = true;
       void navigate(

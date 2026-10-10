@@ -444,3 +444,25 @@ it("moves with J and K under Caps Lock as with j and k", async () => {
   await user.keyboard("K");
   expect(await screen.findByText("Nam câu 1")).toBeVisible();
 });
+
+it("still guards a comment after the pressed mode button is clicked again", async () => {
+  serve(byStudent());
+  const { user, router } = mountRouted("/teacher/grading");
+  expect(await screen.findByText("Nam câu 1")).toBeVisible();
+  const pressed = screen.getByRole("button", { name: "Theo học viên" });
+  expect(pressed).toHaveAttribute("aria-pressed", "true");
+  await user.click(pressed);
+  await waitFor(() => expect(pressed).toBeEnabled());
+  await user.click(screen.getByRole("button", { name: "Chấm 1 điểm" }));
+  await waitFor(() => expect(grades).toHaveLength(1));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Chấm 1 điểm" })).toBeEnabled(),
+  );
+  await user.type(screen.getByLabelText(/^Nhận xét/), "Đúng ý");
+
+  await act(() => router.navigate("/teacher/classes"));
+  expect(
+    await screen.findByRole("dialog", { name: "Rời trang khi nhận xét chưa lưu?" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Trang lớp học")).toBeNull();
+});
