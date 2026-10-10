@@ -111,6 +111,8 @@ describe("the builder where a third column does not fit", () => {
     await user.click(trigger);
     const sheet = await screen.findByRole("dialog", {}, { timeout: 5000 });
     expect(within(sheet).getByLabelText("Điểm")).toHaveValue(5);
+    expect(within(sheet).queryByText("Media của câu hỏi")).toBeNull();
+    expect(screen.getByText("Media của câu hỏi")).toBeInTheDocument();
   });
 
   it("keeps the settings out of the layout while they live in the sheet", async () => {

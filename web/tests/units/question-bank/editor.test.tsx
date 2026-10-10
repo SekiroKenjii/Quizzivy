@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
@@ -24,6 +24,29 @@ const AUDIO: MediaAsset = {
   createdAt: "2026-01-01T00:00:00Z",
   url: "https://example.test/unit5-listening-2.mp3",
 };
+
+function stubDuration(seconds: number) {
+  Object.defineProperty(HTMLMediaElement.prototype, "duration", {
+    configurable: true,
+    get: () => seconds,
+  });
+  Object.defineProperty(HTMLMediaElement.prototype, "src", {
+    configurable: true,
+    set(this: HTMLMediaElement) {
+      setTimeout(() => this.onloadedmetadata?.(new Event("loadedmetadata")), 0);
+    },
+  });
+}
+
+function dropOnWindow(file: File) {
+  const event = new Event("drop", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", {
+    value: { types: ["Files"], files: [file] },
+  });
+  act(() => {
+    window.dispatchEvent(event);
+  });
+}
 
 /**
  * §7's five types, one test each, driven through the real controlled component
@@ -187,16 +210,18 @@ describe("the question editor, per question type", () => {
     );
     const user = renderEditor();
 
-    expect(screen.queryByLabelText("Số lần được nghe")).toBeNull();
+    expect(screen.queryByRole("radiogroup", { name: "Số lần nghe" })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Chọn từ thư viện" }));
+    await user.click(screen.getByRole("button", { name: "Từ Media" }));
     await user.click(
       await screen.findByRole("button", { name: /unit5-listening-2\.mp3/ }),
     );
+    await user.click(screen.getByRole("button", { name: "Đính kèm" }));
 
     // §11.1: 2 plays, no seek, transcript after submit.
-    expect(await screen.findByLabelText("Số lần được nghe")).toHaveTextContent("2 lần");
-    expect(screen.getByRole("switch", { name: "Cho tua" })).not.toBeChecked();
+    const plays = await screen.findByRole("radiogroup", { name: "Số lần nghe" });
+    expect(within(plays).getByRole("radio", { name: "Hai lần" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Cho tua tới" })).not.toBeChecked();
     expect(
       screen.getByRole("switch", { name: "Hiện lời thoại sau khi nộp" }),
     ).toBeChecked();
@@ -236,7 +261,11 @@ describe("the question editor, per question type", () => {
             nextCursor: null,
           }),
         ),
+        http.post("http://localhost:8080/teacher/media", () =>
+          contractJson("/teacher/media", "post", 201, AUDIO),
+        ),
       );
+      stubDuration(30);
       const seen: QuestionValues[] = [];
       function Harness() {
         const [value, setValue] = useState<QuestionValues>({
@@ -267,11 +296,11 @@ describe("the question editor, per question type", () => {
       const user = userEvent.setup();
 
       if (change === "removed") {
-        await user.click(screen.getByRole("button", { name: "Gỡ" }));
+        await user.click(screen.getByRole("button", { name: "Gỡ media" }));
       } else {
-        await user.click(screen.getByRole("button", { name: "Chọn từ thư viện" }));
-        await user.click(
-          await screen.findByRole("button", { name: /unit5-listening-2\.mp3/ }),
+        dropOnWindow(new File([new Uint8Array(64)], "unit5-listening-2.mp3"));
+        await waitFor(() =>
+          expect(seen.at(-1)).toMatchObject({ mediaAssetId: AUDIO.id }),
         );
       }
 
