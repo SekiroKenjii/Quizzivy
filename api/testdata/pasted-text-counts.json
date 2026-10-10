@@ -368,5 +368,45 @@
     "answered": 0,
     "missing": [1, 2, 2, 3],
     "duplicates": [2]
+  },
+  {
+    "name": "page-example",
+    "text": "Part 1. Choose the best answer.\n1. She ___ in Hanoi since 2019.\nA. lives\nB. has lived *\nC. lived\n\nPart 2. True, False or Not given.\n2. Parks are cheaper than roads.\nAnswer: Not given\n\nPart 3. Write ONE word in each gap.\n3. We have lived here ___ 2015.\n4. She has worked here ___ three years.\n\nAnswer key: 3-since 4-for",
+    "sections": 3,
+    "questions": 4,
+    "answered": 4,
+    "missing": []
+  },
+  {
+    "name": "decimal-line",
+    "text": "Part 1. Choose the best answer.\n1. First?\nA. alpha\nB. beta *\n2.5 points for this part\n2. Second?\nA. one *\nB. two",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "single-pair-key-ignored",
+    "text": "1. First?\nA. alpha\nB. beta\nC. gamma\nAnswer key: 1-B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": [1]
+  },
+  {
+    "name": "jump-over-twenty",
+    "text": "1. First?\nA. alpha *\nB. beta\n25. Not a question, a note.\n2. Second?",
+    "sections": 1,
+    "questions": 2,
+    "answered": 1,
+    "missing": [2]
+  },
+  {
+    "name": "part-of-is-text",
+    "text": "1. First?\nA. alpha *\nB. beta\nPart of the score comes from speaking.\n2. Second?\nA. one\nB. two *",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
   }
 ]
