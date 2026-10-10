@@ -408,5 +408,558 @@
     "questions": 2,
     "answered": 2,
     "missing": []
+  },
+  {
+    "name": "vi-nfc",
+    "text": "Đề kiểm tra Tiếng Anh lớp 9 – Học kỳ 1\n\nPhần I. Chọn đáp án đúng.\nCâu 1. She ___ in Hanoi since 2019.\nA. lives\nB. has lived *\nC. lived\nD. is living\nCâu 2. Hà Nội là thủ đô của nước nào?\nA. Lào\nB. Việt Nam *\nC. Thái Lan\nCâu 3: Chọn từ đồng nghĩa với \"big\".\nA. large *\nB. tiny\nC. small\n\nPhần II. Đúng hay sai?\nCâu 4. Trái đất quay quanh mặt trời.\nĐáp án: Đúng\nCâu 5. Mặt trăng là một ngôi sao.\nĐáp án: Sai\n\nPhần III. Điền từ.\nCâu 6. We have lived here ___ 2015.\nCâu 7. She has worked here ___ three years.\n\nĐáp án: 6-since 7-for\n",
+    "sections": 3,
+    "questions": 7,
+    "answered": 7,
+    "missing": []
+  },
+  {
+    "name": "vi-nfd",
+    "text": "Đề kiểm tra Tiếng Anh lớp 9 – Học kỳ 1\n\nPhần I. Chọn đáp án đúng.\nCâu 1. She ___ in Hanoi since 2019.\nA. lives\nB. has lived *\nC. lived\nD. is living\nCâu 2. Hà Nội là thủ đô của nước nào?\nA. Lào\nB. Việt Nam *\nC. Thái Lan\nCâu 3: Chọn từ đồng nghĩa với \"big\".\nA. large *\nB. tiny\nC. small\n\nPhần II. Đúng hay sai?\nCâu 4. Trái đất quay quanh mặt trời.\nĐáp án: Đúng\nCâu 5. Mặt trăng là một ngôi sao.\nĐáp án: Sai\n\nPhần III. Điền từ.\nCâu 6. We have lived here ___ 2015.\nCâu 7. She has worked here ___ three years.\n\nĐáp án: 6-since 7-for\n",
+    "sections": 3,
+    "questions": 7,
+    "answered": 7,
+    "missing": []
+  },
+  {
+    "name": "vi-crlf-bom",
+    "text": "﻿Đề kiểm tra Tiếng Anh lớp 9 – Học kỳ 1\r\n\r\nPhần I. Chọn đáp án đúng.\r\nCâu 1. She ___ in Hanoi since 2019.\r\nA. lives\r\nB. has lived *\r\nC. lived\r\nD. is living\r\nCâu 2. Hà Nội là thủ đô của nước nào?\r\nA. Lào\r\nB. Việt Nam *\r\nC. Thái Lan\r\nCâu 3: Chọn từ đồng nghĩa với \"big\".\r\nA. large *\r\nB. tiny\r\nC. small\r\n\r\nPhần II. Đúng hay sai?\r\nCâu 4. Trái đất quay quanh mặt trời.\r\nĐáp án: Đúng\r\nCâu 5. Mặt trăng là một ngôi sao.\r\nĐáp án: Sai\r\n\r\nPhần III. Điền từ.\r\nCâu 6. We have lived here ___ 2015.\r\nCâu 7. She has worked here ___ three years.\r\n\r\nĐáp án: 6-since 7-for\r\n",
+    "sections": 3,
+    "questions": 7,
+    "answered": 7,
+    "missing": []
+  },
+  {
+    "name": "english-simple",
+    "text": "Quiz\n\n1. Capital of France?\nA. Paris *\nB. Rome\n\n2. 2+2?\nA. 3\nB. 4 *\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "no-answers",
+    "text": "1. First?\nA. a\nB. b\n2. Second?\nA. a\nB. b\n3. Third\n",
+    "sections": 1,
+    "questions": 3,
+    "answered": 0,
+    "missing": [1, 2, 3]
+  },
+  {
+    "name": "inline-options",
+    "text": "1. Pick one. A. red B. blue C. green\nAnswer: B\n2. Pick two. A. x B. y\nAnswer: A\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "sub-labels",
+    "text": "1. Read the text and answer.\na) What is it?\nb) Who wrote it?\n2. Next question\nAnswer: x\n",
+    "sections": 2,
+    "questions": 2,
+    "answered": 1,
+    "missing": [1]
+  },
+  {
+    "name": "roman-dot",
+    "text": "I. Grammar\n1. Q one\nA. a *\nB. b\nII. Reading\n2. Q two\nA. a\nB. b *\n",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "roman-bare",
+    "text": "I\n1. Q one\nA. a *\nB. b\nII\n2. Q two\nA. a\nB. b *\n",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "part-words",
+    "text": "Part 1\n1. Q\nA. a *\nB. b\nPart 2\n2. Q\nA. a\nB. b *\nSection 3\n3. Q\nA. a *\nB. b\n",
+    "sections": 3,
+    "questions": 3,
+    "answered": 3,
+    "missing": []
+  },
+  {
+    "name": "section-no-number",
+    "text": "Section A: Listening\n1. Q\nA. a *\nB. b\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "question-points",
+    "text": "Question 1 (2 points)\nWhat is it?\nA. a *\nB. b\nQuestion 2 (3 points)\nWhy?\nA. a\nB. b *\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "key-conflict",
+    "text": "1. Q\nA. a *\nB. b\nAnswer: B\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": []
+  },
+  {
+    "name": "key-after-global",
+    "text": "1. Q\nA. a\nB. b\n2. Q\nA. a\nB. b\nAnswer key: 1-A 2-B\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "key-space-sep",
+    "text": "1. Q\nA. a\nB. b\n2. Q\nA. a\nB. b\nKey: 1 A, 2 B\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 0,
+    "missing": [1]
+  },
+  {
+    "name": "key-dot-sep",
+    "text": "1. Q\nA. a\nB. b\n2. Q\nA. a\nB. b\nAnswers: 1.A 2.B\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "key-heading-lines",
+    "text": "1. Q\nA. a\nB. b\n2. Q\nA. a\nB. b\n\nĐáp án\n1. A\n2. B\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "key-heading-colon-lines",
+    "text": "1. Q\nA. a\nB. b\n2. Q\nA. a\nB. b\n\nAnswer key:\n1 - A\n2 - B\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 0,
+    "missing": [1, 2]
+  },
+  {
+    "name": "text-before",
+    "text": "Instructions: read carefully.\nTime: 45 minutes\n\n1. Q\nA. a *\nB. b\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "numbered-instructions",
+    "text": "Instructions:\n1. Read carefully.\n2. Write neatly.\n\n1. Q\nA. a *\nB. b\n",
+    "sections": 3,
+    "questions": 3,
+    "answered": 1,
+    "missing": [1, 2]
+  },
+  {
+    "name": "lowercase-options",
+    "text": "1. Q\na. red *\nb. blue\nc. green\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "star-middle",
+    "text": "1. Q\nA. red\nB. *blue\nC. green\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "tabs",
+    "text": "1.\tQ one\nA.\tred *\nB.\tblue\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "fullwidth",
+    "text": "１. Q one\nA. red *\nB. blue\n",
+    "sections": 0,
+    "questions": 0,
+    "answered": 0,
+    "missing": []
+  },
+  {
+    "name": "nbsp",
+    "text": "1. Q one\nA. red *\nB. blue\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "tf",
+    "text": "1. Statement one.\nAnswer: True\n2. Statement two.\nAnswer: False\n3. Statement three.\nAnswer: Not given\n",
+    "sections": 1,
+    "questions": 3,
+    "answered": 3,
+    "missing": []
+  },
+  {
+    "name": "fill-gaps",
+    "text": "1. She ___ here.\nAnswer: lives\n2. He ___ there.\nAnswer: lived\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "long-gap",
+    "text": "1. Number ... of ... gaps ____ here\nAnswer: x\n2. Next\nAnswer: y\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "numbers-in-text",
+    "text": "1. In 2019 she moved.\nA. 2018\nB. 2019 *\n2. Cost is 2.5 dollars.\nA. 2.5 *\nB. 3\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "dup-numbers",
+    "text": "1. Q\nA. a *\nB. b\n2. Q\nA. a *\nB. b\n2. Q again\nA. a *\nB. b\n3. Q\nA. a *\nB. b\n",
+    "sections": 1,
+    "questions": 3,
+    "answered": 3,
+    "missing": [],
+    "duplicates": [2]
+  },
+  {
+    "name": "restart-in-part",
+    "text": "Part 1\n1. Q\nA. a *\nB. b\nPart 2\n1. Q\nA. a *\nB. b\n",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "many",
+    "text": "1. Question 1\nA. a *\nB. b\n\n2. Question 2\nA. a *\nB. b\n\n3. Question 3\nA. a *\nB. b\n\n4. Question 4\nA. a *\nB. b\n\n5. Question 5\nA. a *\nB. b\n\n6. Question 6\nA. a *\nB. b\n\n7. Question 7\nA. a *\nB. b\n\n8. Question 8\nA. a *\nB. b\n\n9. Question 9\nA. a *\nB. b\n\n10. Question 10\nA. a *\nB. b\n\n11. Question 11\nA. a *\nB. b\n\n12. Question 12\nA. a *\nB. b\n\n13. Question 13\nA. a *\nB. b\n\n14. Question 14\nA. a *\nB. b\n\n15. Question 15\nA. a *\nB. b\n\n16. Question 16\nA. a *\nB. b\n\n17. Question 17\nA. a *\nB. b\n\n18. Question 18\nA. a *\nB. b\n\n19. Question 19\nA. a *\nB. b\n\n20. Question 20\nA. a *\nB. b\n\n21. Question 21\nA. a *\nB. b\n\n22. Question 22\nA. a *\nB. b\n\n23. Question 23\nA. a *\nB. b\n\n24. Question 24\nA. a *\nB. b\n\n25. Question 25\nA. a *\nB. b\n\n26. Question 26\nA. a *\nB. b\n\n27. Question 27\nA. a *\nB. b\n\n28. Question 28\nA. a *\nB. b\n\n29. Question 29\nA. a *\nB. b\n\n30. Question 30\nA. a *\nB. b\n",
+    "sections": 1,
+    "questions": 30,
+    "answered": 30,
+    "missing": []
+  },
+  {
+    "name": "missing-many",
+    "text": "1. Question 1\nA. a\nB. b\n\n2. Question 2\nA. a\nB. b\n\n3. Question 3\nA. a\nB. b\n\n4. Question 4\nA. a\nB. b\n\n5. Question 5\nA. a\nB. b\n\n6. Question 6\nA. a\nB. b\n\n7. Question 7\nA. a\nB. b\n\n8. Question 8\nA. a\nB. b\n\n9. Question 9\nA. a\nB. b\n\n10. Question 10\nA. a\nB. b\n",
+    "sections": 1,
+    "questions": 10,
+    "answered": 0,
+    "missing": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  },
+  {
+    "name": "cau-no-dot",
+    "text": "Câu 1 Chọn đáp án\nA. a *\nB. b\nCâu 2 Chọn tiếp\nA. a\nB. b *\n",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "cau-lower",
+    "text": "câu 1. một\nA. a *\nB. b\ncâu 2. hai\nA. a\nB. b *\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "bai-roman",
+    "text": "Bài 1. Điền từ\n1. ___ is\nĐáp án: x\nBài 2. Chọn\n2. Q\nA. a *\nB. b\n",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "answer-inline-same-line",
+    "text": "1. Q one? Answer: A\nA. a\nB. b\n2. Q two? Đáp án: B\nA. a\nB. b\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "blank-only-options",
+    "text": "1. Q\nA.\nB.\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": [1]
+  },
+  {
+    "name": "title-only",
+    "text": "Just a title\n",
+    "sections": 0,
+    "questions": 0,
+    "answered": 0,
+    "missing": []
+  },
+  {
+    "name": "paren-labels",
+    "text": "1) Q one\nA) a *\nB) b\n2) Q two\nA) a\nB) b *\n",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "star-after-text",
+    "text": "1. Q one\nA. a (*)\nB. b\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": [1]
+  },
+  {
+    "name": "multi-correct",
+    "text": "1. Pick all\nA. a *\nB. b *\nC. c\n",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "sub-label-group",
+    "text": "1. Read the passage.\nThe passage is short.\n1.1 First?\nAnswer: apple\n1.2 Second?\n2. Next\nAnswer key: 1.2-cat 2-dog",
+    "sections": 2,
+    "questions": 3,
+    "answered": 3,
+    "missing": []
+  },
+  {
+    "name": "awaiting-first-question",
+    "text": "Part 1. Choose the best answer.\n5. Q five\nA. a *\nB. b",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "sub-label-gap-is-text",
+    "text": "1. Read the text.\n1.1 ____ is here.",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": [1]
+  },
+  {
+    "name": "instruction-question-leaves-group",
+    "text": "Choose the best answer.\n1. Q\nA. a *\nB. b\n2. Write the word.\n3. Q three\nAnswer: x",
+    "sections": 3,
+    "questions": 3,
+    "answered": 2,
+    "missing": [2]
+  },
+  {
+    "name": "roman-skip-with-instruction",
+    "text": "I. Grammar\n1. Q\nA. a *\nB. b\nIII. Choose the word\n2. Q\nA. a\nB. b *",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "roman-before-option-is-not-heading",
+    "text": "1. Q\nA. a *\nB. b\nI. A. x",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "explicit-part-keeps-instructions",
+    "text": "Part 1\nChoose A.\n1. Q\nA. a *\nB. b\nWrite B.\n2. Q\nAnswer: x",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "passages-split-parts",
+    "text": "1. Story one\n1.1 Q\nAnswer: apple\n2. Story two\n2.1 Q\nAnswer: pear",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "paper-stops-at-another",
+    "text": "Đề số 1\n1. Q\nA. a *\nB. b\nĐề số 2\n1. Q\nA. a\nB. b *",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "key-for-exam-paper",
+    "text": "Test 1\n1. Q\nA. a\nB. b\nAnswer key:\nTest 1\n1. A\nTest 2\n1. B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "option-letter-inside-word",
+    "text": "1. Visit the USA. Then choose A. yes B. no Answer: yes",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "option-digit-guard",
+    "text": "1. Q\nA.1 x\nAnswer: x",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "instruction-opens-part",
+    "text": "1. Q\nA. a *\nB. b\nChoose the word.\n2. Q\nA. a\nB. b *",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "soft-wrapped-passage",
+    "text": "Read the text.\nTom went to the\nFind the cat.\n1. Q\nA. a *\nB. b\nFind the cat.\n2. Q\nA. a\nB. b *",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "lowercase-is-not-instruction",
+    "text": "1. Q\nA. a *\nB. b\nchoose the word.\n2. Q\nA. a\nB. b *",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "key-entry-needs-label",
+    "text": "1. Q\nA. a\nB. b\nAnswer key:\n1: A",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": [1]
+  },
+  {
+    "name": "key-entries-on-one-line",
+    "text": "1. Q\nA. a\nB. b\n2. Q\nA. a\nB. b\nAnswer key:\n1. A 2. B",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "key-entry-continues",
+    "text": "1. Q\nA. a\nB. b\nAnswer key:\n1. A\nsee page 2",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": []
+  },
+  {
+    "name": "key-ambiguous-label",
+    "text": "Part 1\n1. Q\nA. a\nB. b\nPart 2\n1. Q\nA. a\nB. b\nAnswer key:\n1. A",
+    "sections": 2,
+    "questions": 2,
+    "answered": 0,
+    "missing": []
+  },
+  {
+    "name": "key-by-roman-section",
+    "text": "Part 1\n1. Q\nA. a\nB. b\nPart 2\n1. Q\nA. a\nB. b\nAnswer key:\nI. 1. A\nII. 1. B",
+    "sections": 2,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "letters-outside-options",
+    "text": "1. Q\nA. a\nB. b\nAnswer: A, C",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": []
+  },
+  {
+    "name": "answer-by-option-text",
+    "text": "1. Q\nA. apple\nB. pear\nAnswer: pear",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
+  },
+  {
+    "name": "true-false-words",
+    "text": "1. Sky is blue.\nAnswer: True\n2. Grass is red.\nAnswer: False\nAnswer key: 1-T 2-F",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "true-false-part",
+    "text": "1. Sky is blue.\nAnswer: T\n2. Grass is red.\nAnswer: F",
+    "sections": 1,
+    "questions": 2,
+    "answered": 2,
+    "missing": []
+  },
+  {
+    "name": "letter-without-options",
+    "text": "1. Which one?\nAnswer: B",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": []
+  },
+  {
+    "name": "two-gaps-one-answer",
+    "text": "1. We have lived here ___ 2015 and ___ years.\nAnswer: since",
+    "sections": 1,
+    "questions": 1,
+    "answered": 0,
+    "missing": []
+  },
+  {
+    "name": "rewrite-part-has-no-blanks",
+    "text": "Part 1. Rewrite the sentences.\n1. I ___ go ___ home.\nAnswer: will",
+    "sections": 1,
+    "questions": 1,
+    "answered": 1,
+    "missing": []
   }
 ]

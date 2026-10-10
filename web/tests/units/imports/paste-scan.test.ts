@@ -73,6 +73,12 @@ describe("the pasted title", () => {
     },
   );
 
+  it("is empty for an instruction or a roman heading, as the server's title is", () => {
+    expect(pastedTitle("Choose the best answer.\n1. First?")).toBe("");
+    expect(pastedTitle("I. Grammar\n1. First?")).toBe("");
+    expect(pastedTitle("II\n1. First?")).toBe("");
+  });
+
   it("is empty for an option and for a line over 120 characters", () => {
     expect(pastedTitle("A. alpha\n1. First?")).toBe("");
     expect(pastedTitle(`${"x".repeat(121)}\n1. First?`)).toBe("");
