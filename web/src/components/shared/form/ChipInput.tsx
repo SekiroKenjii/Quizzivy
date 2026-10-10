@@ -105,7 +105,8 @@ export function ChipBox({
  * field; Backspace in the empty input removes the last value. An entry is
  * trimmed and put in NFC, and one that is `same` as a value already there is
  * not added: by default the two are compared lower-cased, so accents count.
- * `label` names the input. `tone` and `size` pick the chip (`md` is the
+ * `label` names the input and `describedBy` is its `aria-describedby`, for a
+ * message the host draws. `tone` and `size` pick the chip (`md` is the
  * builder's 24px, `sm` the 22px of a framed field).
  */
 export function ChipInput({
@@ -119,6 +120,7 @@ export function ChipInput({
   frame = true,
   commaAdds = true,
   invalid = false,
+  describedBy,
   same = sameIgnoringCase,
 }: Readonly<{
   label: string;
@@ -131,6 +133,7 @@ export function ChipInput({
   frame?: boolean | undefined;
   commaAdds?: boolean | undefined;
   invalid?: boolean | undefined;
+  describedBy?: string | undefined;
   same?: ChipSame | undefined;
 }>) {
   const input = useRef<HTMLInputElement>(null);
@@ -154,6 +157,7 @@ export function ChipInput({
         autoComplete="off"
         aria-label={label}
         aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         placeholder={placeholder}
         value={entry.draft}
         className={cn(

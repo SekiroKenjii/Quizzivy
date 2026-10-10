@@ -1,4 +1,5 @@
 import { BlanksEditor } from "./BlanksEditor";
+import { GapAnswers } from "./GapAnswers";
 import { GradingNote } from "./GradingNote";
 import { OptionsEditor } from "./OptionsEditor";
 import { SampleAnswerField } from "./SampleAnswerField";
@@ -8,20 +9,24 @@ import type { QuestionValues } from "../questionSchema";
 /**
  * AnswerArea is the block a question's type answers with, then its grading
  * note. It holds no state: every block reads and writes `value`, so swapping
- * questions or types loses nothing. `onInsertGap` is the prompt's own gap
- * command, for the fill-in-the-blank block's empty state.
+ * questions or types loses nothing. A fill-in-the-blank prompt answers with
+ * GapAnswers while it is rich text: stored as rich content, or open in the
+ * rich editor, which is when the host passes `onInsertGap`, the prompt's own
+ * gap command for GapAnswers' empty card. A prompt in Markdown keeps
+ * BlanksEditor.
  */
 export function AnswerArea({
   value,
   onChange,
+  onInsertGap,
 }: Readonly<{
   value: QuestionValues;
   onChange: (value: QuestionValues) => void;
-  onInsertGap?: () => void;
+  onInsertGap?: (() => void) | undefined;
 }>) {
   return (
     <div data-answer-area="" className="flex flex-col gap-2.5">
-      <AnswerBlock value={value} onChange={onChange} />
+      <AnswerBlock value={value} onChange={onChange} onInsertGap={onInsertGap} />
       <GradingNote type={value.type} />
     </div>
   );
@@ -30,7 +35,12 @@ export function AnswerArea({
 function AnswerBlock({
   value,
   onChange,
-}: Readonly<{ value: QuestionValues; onChange: (value: QuestionValues) => void }>) {
+  onInsertGap,
+}: Readonly<{
+  value: QuestionValues;
+  onChange: (value: QuestionValues) => void;
+  onInsertGap?: (() => void) | undefined;
+}>) {
   switch (value.type) {
     case "single_choice":
     case "multiple_choice":
@@ -50,10 +60,16 @@ function AnswerBlock({
         />
       );
     case "fill_blank":
-      return (
+      return value.promptContent != null || onInsertGap ? (
+        <GapAnswers
+          content={value.promptContent ?? null}
+          blanks={value.blanks}
+          onChange={(blanks) => onChange({ ...value, blanks })}
+          onInsertGap={onInsertGap}
+        />
+      ) : (
         <BlanksEditor
           prompt={value.prompt}
-          content={value.promptContent}
           blanks={value.blanks}
           onChange={(blanks) => onChange({ ...value, blanks })}
         />
