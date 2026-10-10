@@ -17,6 +17,10 @@ type SubmitHandler struct {
 }
 
 func (s SubmitHandler) Handle(ctx context.Context, cmd Submit) (domain.Attempt, error) {
-	closed, err := s.Store.Submit(ctx, cmd.AttemptID, cmd.StudentID, cmd.Reason, s.Now())
-	return closed.Attempt, err
+	closed, reached, err := s.Store.Submit(ctx, cmd.AttemptID, cmd.StudentID, cmd.Reason, s.Now())
+	if err != nil {
+		return closed.Attempt, err
+	}
+	s.Announcer.Announce(ctx, reached)
+	return closed.Attempt, nil
 }

@@ -1,6 +1,9 @@
 package application
 
 import (
+	"log/slog"
+	"time"
+
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/internal/support"
 	"quizzivy/internal/modules/attempts/application/ports"
@@ -22,6 +25,21 @@ type Application struct {
 func (a *Application) WithGroupContexts(groups ports.GroupContexts) *Application {
 	a.service.Groups = groups
 	a.review.Groups = groups
+	return a
+}
+
+// WithNotifier supplies the notifier that tells a paper's teachers when it is
+// handed in or flagged, and its student when it is graded. Without one the
+// application tells nobody.
+func (a *Application) WithNotifier(notifier ports.Notifier, logger *slog.Logger) *Application {
+	announcer := &support.Announcer{
+		Notifier: notifier,
+		Briefs:   a.service.Store,
+		Logger:   logger,
+		Now:      func() time.Time { return a.service.Now() },
+	}
+	a.service.Announcer = announcer
+	a.review.Announcer = announcer
 	return a
 }
 

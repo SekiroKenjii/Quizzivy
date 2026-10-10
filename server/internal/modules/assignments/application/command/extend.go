@@ -8,7 +8,8 @@ import (
 )
 
 // Extend moves the close of an assignment that has not closed later by
-// Minutes, for everyone.
+// Minutes, for everyone. When Notify is set, the students whose close it
+// moved are told of their new one once it has committed.
 type Extend struct {
 	Request domain.Request
 	Minutes int
@@ -21,5 +22,12 @@ type ExtendHandler struct {
 }
 
 func (s ExtendHandler) Handle(ctx context.Context, cmd Extend) (domain.Assignment, error) {
-	return s.Repo.Extend(ctx, cmd.Request, cmd.Minutes, cmd.Notify, cmd.Now)
+	extended, err := s.Repo.Extend(ctx, cmd.Request, cmd.Minutes, cmd.Notify, cmd.Now)
+	if err != nil {
+		return extended, err
+	}
+	if cmd.Notify {
+		s.TellMoved(ctx, extended.ID)
+	}
+	return extended, nil
 }

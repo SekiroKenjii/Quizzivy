@@ -33,6 +33,11 @@ const versionColumns = `v.id::text,
 		            ON vq.test_version_section_id = vs.id
 		         WHERE vs.test_version_id = v.id
 		           AND vq.type = 'short_answer'),
+		       (SELECT coalesce(array_agg(DISTINCT vq.skill ORDER BY vq.skill) FILTER (WHERE vq.skill IS NOT NULL), '{}'::text[])
+		          FROM app.test_version_sections vs
+		          JOIN app.test_version_questions vq
+		            ON vq.test_version_section_id = vs.id
+		         WHERE vs.test_version_id = v.id),
 		       v.published_at,
 		       u.full_name,
 		       ` + versionAssignmentCount + `,
@@ -42,7 +47,7 @@ const versionColumns = `v.id::text,
 
 func scanVersion(row pgx.Row) (domain.Version, error) {
 	var v domain.Version
-	err := row.Scan(&v.ID, &v.Version, &v.TotalPoints, &v.QuestionCount, &v.AudioCount, &v.ManualCount,
+	err := row.Scan(&v.ID, &v.Version, &v.TotalPoints, &v.QuestionCount, &v.AudioCount, &v.ManualCount, &v.Skills,
 		&v.PublishedAt, &v.PublishedBy, &v.AssignmentCount, &v.ChangeNote)
 	return v, err
 }
