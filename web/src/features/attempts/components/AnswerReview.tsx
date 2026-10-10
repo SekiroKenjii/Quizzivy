@@ -112,7 +112,11 @@ function Body({
               >
                 <span className={OPTION.key}>{optionKey(index)}</span>
                 <span className="text-sm">
-                  <OptionText text={option.text} content={option.content} />
+                  <OptionText
+                    text={option.text}
+                    content={option.content}
+                    type={question.type}
+                  />
                 </span>
                 <span className="text-muted-foreground ml-auto self-center text-xs">
                   {optionNote(picked, option.isCorrect, t)}

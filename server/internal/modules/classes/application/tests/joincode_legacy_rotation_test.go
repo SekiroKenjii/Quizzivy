@@ -13,11 +13,13 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -312,31 +314,135 @@ func ownConnection(t *testing.T, settings ...string) (*pgxpool.Pool, int) {
 	return pool, pid
 }
 
-func holding(t *testing.T, pool *pgxpool.Pool, statement string, args ...any) (release func(), pid int) {
+type heldTx struct {
+	t    *testing.T
+	tx   pgx.Tx
+	pid  int
+	done bool
+}
+
+func newHeldTx(t *testing.T, pool *pgxpool.Pool, statement string, args ...any) *heldTx {
 	t.Helper()
 	ctx := context.Background()
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin the holder: %v", err)
 	}
-	released := false
-	release = func() {
-		if released {
-			return
-		}
-		released = true
-		if err := tx.Rollback(context.Background()); err != nil {
-			t.Errorf("release the holder: %v", err)
-		}
-	}
-	t.Cleanup(release)
+	h := &heldTx{t: t, tx: tx}
+	t.Cleanup(h.rollback)
 	if _, err := tx.Exec(ctx, statement, args...); err != nil {
 		t.Fatalf("take the lock to hold: %v", err)
 	}
-	if err := tx.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&pid); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&h.pid); err != nil {
 		t.Fatalf("read the holder's backend: %v", err)
 	}
+	return h
+}
+
+func (h *heldTx) rollback() {
+	if h.done {
+		return
+	}
+	h.done = true
+	if err := h.tx.Rollback(context.Background()); err != nil {
+		h.t.Errorf("release the holder: %v", err)
+	}
+}
+
+func (h *heldTx) commit() error {
+	h.done = true
+	return h.tx.Commit(context.Background())
+}
+
+func holding(t *testing.T, pool *pgxpool.Pool, statement string, args ...any) (release func(), pid int) {
+	t.Helper()
+	h := newHeldTx(t, pool, statement, args...)
+	return h.rollback, h.pid
+}
+
+func queuedForAdvisoryKey(t *testing.T, pool *pgxpool.Pool, key int) (release func(), pid int) {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin the queued holder: %v", err)
+	}
+	if err := tx.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&pid); err != nil {
+		t.Fatalf("read the queued holder's backend: %v", err)
+	}
+	requested := make(chan error, 1)
+	go func() {
+		_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(73819, $1)`, key)
+		requested <- err
+	}()
+	var once sync.Once
+	release = func() {
+		once.Do(func() {
+			var err error
+			select {
+			case err = <-requested:
+			default:
+				if _, cancelErr := pool.Exec(ctx, `SELECT pg_cancel_backend($1)`, pid); cancelErr != nil {
+					t.Errorf("cancel the queued holder: %v", cancelErr)
+				}
+				err = <-requested
+			}
+			var pg *pgconn.PgError
+			canceled := errors.As(err, &pg) && pg.Code == pgerrcode.QueryCanceled
+			if err != nil && !canceled {
+				t.Errorf("the queued holder's request for the advisory key: %v", err)
+			}
+			if err := tx.Rollback(ctx); err != nil {
+				t.Errorf("release the queued holder: %v", err)
+			}
+		})
+	}
+	t.Cleanup(release)
 	return release, pid
+}
+
+func writeClassThenCommit(h *heldTx, classID string) <-chan error {
+	done := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if _, err := h.tx.Exec(ctx, `UPDATE app.classes SET name = name WHERE id = $1`, classID); err != nil {
+			done <- err
+			return
+		}
+		done <- h.commit()
+	}()
+	return done
+}
+
+func deadlockTimeout(t *testing.T, pool *pgxpool.Pool) time.Duration {
+	t.Helper()
+	var ms int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT setting::int FROM pg_settings WHERE name = 'deadlock_timeout'`).Scan(&ms); err != nil {
+		t.Fatalf("read deadlock_timeout: %v", err)
+	}
+	return time.Duration(ms) * time.Millisecond
+}
+
+func waitUntilWaitedFor(t *testing.T, pool *pgxpool.Pool, pid int, wait time.Duration, what string) {
+	t.Helper()
+	deadline := time.Now().Add(wait + 10*time.Second)
+	for {
+		var waited bool
+		if err := pool.QueryRow(context.Background(),
+			`SELECT clock_timestamp() - query_start >= $2 * interval '1 millisecond' FROM pg_stat_activity WHERE pid = $1`,
+			pid, float64(wait.Milliseconds())).Scan(&waited); err != nil {
+			t.Fatalf("time %s: %v", what, err)
+		}
+		if waited {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s never waited %v", what, wait)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 func waitUntilBlocked(t *testing.T, pool *pgxpool.Pool, waiter, blocker int, what string) {
@@ -1073,56 +1179,86 @@ func TestAStudentRedeemingTheOldCodeAndTheRotationNeverLeaveALegacyCode(t *testi
 		}
 	})
 
+	t.Run("a redemption holding the code row never deadlocks a rotation holding the class row", func(t *testing.T) {
+		classID, _, old := legacyClassRow(t, pool)
+		legacy := activeRow(t, pool, classID)
+		m := newMember(t)
+		dropUser(t, pool, m.Email)
+		jobPool, jobPid := ownConnection(t)
+		studentPool, studentPid := ownConnection(t)
+		release, gate := holding(t, pool, `
+			INSERT INTO app.users (email, full_name, role_id)
+			VALUES ($1, 'Giữ chỗ', (SELECT id FROM app.roles WHERE builtin_key = 'student'))`, m.Email)
+
+		type enrolment struct {
+			result domain.EnrolResult
+			err    error
+		}
+		enrol := make(chan enrolment, 1)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			result, err := withKeys(studentPool, joinKeys).Commands.EnrolNewMember.Handle(ctx, command.EnrolNewMember{Member: m, Code: old})
+			enrol <- enrolment{result, err}
+		}()
+		waitUntilBlocked(t, pool, studentPid, gate, "the redemption, holding the code row, on its new account's email")
+
+		type attempt struct {
+			wrote bool
+			err   error
+		}
+		in := sealedInput(t, classID)
+		rotated := make(chan attempt, 1)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			wrote, err := repositories.NewPostgres(db.NewContext(jobPool)).RotateLegacyCode(ctx, in)
+			rotated <- attempt{wrote, err}
+		}()
+		waitUntilBlocked(t, pool, jobPid, studentPid, "the rotation, holding the class row, on the code row")
+		release()
+
+		joined := finished(t, "the redemption", enrol)
+		got := finished(t, "the rotation", rotated)
+		if got.err != nil || !got.wrote {
+			t.Fatalf("the rotation's only attempt answered %v (%v), want the code replaced with no deadlock to retry", got.wrote, got.err)
+		}
+		if joined.err != nil || joined.result.Outcome != domain.PreviewOK {
+			t.Fatalf("the redemption answered %+v (%v), want the student enrolled", joined.result, joined.err)
+		}
+		onlySealedCode(t, pool, classID)
+		if through := joinedThrough(t, pool, classID, joined.result.UserID); through != legacy.id {
+			t.Errorf("the student joined through %s, want the legacy row %s", through, legacy.id)
+		}
+	})
+
 	t.Run("a deadlock the rotation loses is retried in the same run", func(t *testing.T) {
-		const rounds = 3
-		for round := 1; ; round++ {
-			classID, _, old := legacyClassRow(t, pool)
-			legacy := activeRow(t, pool, classID)
-			m := newMember(t)
-			dropUser(t, pool, m.Email)
-			jobPool, jobPid := ownConnection(t)
-			studentPool, studentPid := ownConnection(t)
-			release, gate := holding(t, pool, `
-				INSERT INTO app.users (email, full_name, role_id)
-				VALUES ($1, 'Giữ chỗ', (SELECT id FROM app.roles WHERE builtin_key = 'student'))`, m.Email)
+		classID, _, _ := legacyClassRow(t, pool)
+		jobPool, jobPid := ownConnection(t)
+		writer := newHeldTx(t, pool,
+			`SELECT 1 FROM app.class_join_codes WHERE class_id = $1 AND revoked_at IS NULL FOR UPDATE`, classID)
 
-			type enrolment struct {
-				result domain.EnrolResult
-				err    error
-			}
-			enrol := make(chan enrolment, 1)
-			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				defer cancel()
-				result, err := withKeys(studentPool, joinKeys).Commands.EnrolNewMember.Handle(ctx, command.EnrolNewMember{Member: m, Code: old})
-				enrol <- enrolment{result, err}
-			}()
-			waitUntilBlocked(t, pool, studentPid, gate, "the redemption, holding the code row, on its new account's email")
-			job := startRotation(rotationOver(jobPool, nil, classID))
-			waitUntilBlocked(t, pool, jobPid, studentPid, "the rotation, holding the class row, on the code row")
-			release()
+		job := startRotation(rotationOver(jobPool, nil, classID))
+		waitUntilBlocked(t, pool, jobPid, writer.pid, "the rotation, holding the class row, on the code row")
+		settle := min(50*time.Millisecond, deadlockTimeout(t, pool)/2)
+		waitUntilWaitedFor(t, pool, jobPid, settle, "the rotation, on the code row")
+		releaseKey, keeperPid := queuedForAdvisoryKey(t, pool, 41)
+		waitUntilBlocked(t, pool, keeperPid, jobPid, "a holder queued for advisory key 41 behind the rotation")
+		written := writeClassThenCommit(writer, classID)
 
-			joined := finished(t, "the redemption", enrol)
-			got := finished(t, "the rotation", job)
-			if got.err != nil || got.run != (domain.LegacyRotation{Found: 1, Rotated: 1}) {
-				t.Fatalf("round %d: the rotation answered %+v (%v), want the class rotated and none failed", round, got.run, got.err)
-			}
-			onlySealedCode(t, pool, classID)
+		waitUntilBlocked(t, pool, jobPid, keeperPid, "the rotation's retry, on advisory key 41")
+		if err := finished(t, "the writer", written); err != nil {
+			t.Fatalf("the writer, which held the code row and waited for the class row the rotation lost: %v", err)
+		}
+		releaseKey()
 
-			var pg *pgconn.PgError
-			if errors.As(joined.err, &pg) && pg.Code == pgerrcode.DeadlockDetected {
-				if round == rounds {
-					t.Fatalf("in %d rounds the database always chose the redemption as the deadlock victim, so the rotation's retry is unproven", rounds)
-				}
-				continue
-			}
-			if joined.err != nil || joined.result.Outcome != domain.PreviewOK {
-				t.Fatalf("round %d: the redemption answered %+v (%v), want the student enrolled", round, joined.result, joined.err)
-			}
-			if through := joinedThrough(t, pool, classID, joined.result.UserID); through != legacy.id {
-				t.Errorf("round %d: the student joined through %s, want the legacy row %s", round, through, legacy.id)
-			}
-			return
+		got := finished(t, "the rotation", job)
+		if got.err != nil || got.run != (domain.LegacyRotation{Found: 1, Rotated: 1}) {
+			t.Fatalf("the rotation answered %+v (%v), want the class rotated by its retry and none failed", got.run, got.err)
+		}
+		onlySealedCode(t, pool, classID)
+		if n := rotationAudits(t, pool, classID); n != 1 {
+			t.Errorf("the class holds %d rotation audit rows, want one", n)
 		}
 	})
 }
