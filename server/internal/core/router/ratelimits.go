@@ -48,6 +48,7 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("POST /teacher/classes/{id}/join-code", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("GET /teacher/classes/{id}/join-code", ratelimit.PerMinute(60), ratelimit.PerHour(600))
 	perActor("POST /admin/docs-session", ratelimit.PerMinute(5), ratelimit.PerHour(30))
+	perActor("GET /teacher/assignments/results.csv", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	return reg
 }
 

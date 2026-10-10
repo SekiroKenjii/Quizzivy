@@ -100,7 +100,11 @@ func newReachWorld(t *testing.T) *reachWorld {
 
 func (w *reachWorld) listed(t *testing.T, scope access.Scope, classID *string) []string {
 	t.Helper()
-	return w.listedIn(t, domain.ListInput{Scope: scope, ClassID: classID})
+	var classIDs []string
+	if classID != nil {
+		classIDs = []string{*classID}
+	}
+	return w.listedIn(t, domain.ListInput{Scope: scope, ClassIDs: classIDs})
 }
 
 func (w *reachWorld) listedIn(t *testing.T, in domain.ListInput) []string {
@@ -157,7 +161,7 @@ func TestEachTeacherListsTheAssignmentsTheyReach(t *testing.T) {
 		if got := w.listed(t, b, &classID); len(got) != 0 {
 			t.Errorf("B filtering by %s lists %v", label, got)
 		}
-		facets, err := w.store.Facets(context.Background(), domain.ListInput{Scope: b, ClassID: &classID})
+		facets, err := w.store.Facets(context.Background(), domain.ListInput{Scope: b, ClassIDs: []string{classID}})
 		if err != nil || facets.All != 0 {
 			t.Errorf("B's facets for %s: %d (%v)", label, facets.All, err)
 		}
@@ -186,7 +190,7 @@ func TestTheAdminsListHoldsOnlyTheAssignmentsTheAdminReaches(t *testing.T) {
 		"a missing class": {uuid.NewString(), []string{}},
 	} {
 		in := listed
-		in.ClassID = &c.classID
+		in.ClassIDs = []string{c.classID}
 		if got := w.listedIn(t, in); !slices.Equal(got, c.want) {
 			t.Errorf("the Admin filtering by %s lists %v, want %v: the Admin's own on that class and no teacher's", label, got, c.want)
 		}
