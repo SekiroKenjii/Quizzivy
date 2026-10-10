@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
+import { nfc } from "@/lib/nfc";
 import { ContentView, type AssetRenderer } from "./ContentView";
 import { ContentImage } from "./ContentImage";
 
@@ -65,7 +66,7 @@ export function GroupMaterials({
             aria-label={material.title}
           >
             {material.title !== omitTitle && (
-              <h4 className="text-sm font-medium">{material.title}</h4>
+              <h4 className="text-sm font-medium">{nfc(material.title)}</h4>
             )}
             <ContentView
               document={material.content}
@@ -75,7 +76,7 @@ export function GroupMaterials({
                 return binding ? (
                   renderGap(binding, gap.label)
                 ) : (
-                  <span className="content-gap">{gap.label}</span>
+                  <span className="content-gap">{nfc(gap.label)}</span>
                 );
               }}
             />

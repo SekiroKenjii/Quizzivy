@@ -64,11 +64,15 @@ var rulesQuery = `
 // the time limit and the attempts they have under their own override, when
 // they have one.
 func (s *Postgres) Rules(ctx context.Context, assignmentID, studentID string) (domain.Rules, error) {
+	return readRules(ctx, s.Conn(), assignmentID, studentID, "")
+}
+
+func readRules(ctx context.Context, q db.Querier, assignmentID, studentID, lock string) (domain.Rules, error) {
 	var (
 		r  domain.Rules
 		oc schedule.OverrideColumns
 	)
-	err := s.QueryRow(ctx, rulesQuery, assignmentID, studentID).Scan(
+	err := q.QueryRow(ctx, rulesQuery+lock, assignmentID, studentID).Scan(
 		&r.TestVersionID, &r.OpensAt, &r.ClosesAt, &r.ClosedAt, &r.PublishedAt,
 		&r.DurationMinutes, &r.MaxAttempts, &r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Integrity.RequireFullscreen, &r.Integrity.BlockCopyPaste,
@@ -140,37 +144,85 @@ func (s *Postgres) Tally(ctx context.Context, assignmentID, studentID string) (d
 	return t, nil
 }
 
-func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.AttemptRecord, error) {
-	var out domain.AttemptRecord
+// Create starts an attempt under the rules as they stand when it commits, and
+// returns them with the attempt. The maintenance check goes first, because it
+// takes the windows lock that every writer of a window takes before it locks
+// the assignment. The transaction then reads the student's rules again with the
+// assignment row share-locked: a writer of the window, or of the student's
+// override, holds that row until it commits and recomputes the attempts in
+// progress, so this attempt either sees the committed window or is inserted
+// before the writer reads the attempts. The deadline stored comes from that
+// read; the caller's is only where the first maintenance check looks.
+func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.AttemptRecord, domain.Rules, error) {
+	var (
+		out   domain.AttemptRecord
+		rules domain.Rules
+	)
 	err := s.InTx(ctx, "attempts: create", func(tx pgx.Tx) error {
-		window, err := s.guard.GuardAttemptStart(ctx, tx, in.StartedAt, in.DeadlineAt)
-		if err != nil {
-			return fmt.Errorf("attempts: check maintenance: %w", err)
+		var deadline time.Time
+		var err error
+		if rules, deadline, err = s.committedRules(ctx, tx, in); err != nil {
+			return err
 		}
-		if window != nil {
-			return &domain.MaintenanceScheduledError{Window: *window}
-		}
-		q := `
-			INSERT INTO app.attempts
-			  (assignment_id, test_version_id, student_id, attempt_no, session_id,
-			   shuffle_seed, beacon_token_hash, started_at, deadline_at)
-			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8, $9)
-			RETURNING ` + attemptColumns
-		out, err = scanAttempt(tx.QueryRow(ctx, q,
-			in.AssignmentID, in.TestVersionID, in.StudentID, in.AttemptNo, in.SessionID,
-			in.Seed, in.BeaconHash, in.StartedAt, in.DeadlineAt))
-		if db.IsUniqueViolation(err, "") {
-			return domain.ErrRaceLost
-		}
-		if err != nil {
-			return fmt.Errorf("attempts: create: %w", err)
-		}
-		return nil
+		out, err = insertAttempt(ctx, tx, in, rules.TestVersionID, deadline)
+		return err
 	})
 	if err != nil {
-		return domain.AttemptRecord{}, err
+		return domain.AttemptRecord{}, domain.Rules{}, err
+	}
+	return out, rules, nil
+}
+
+func (s *Postgres) committedRules(ctx context.Context, tx pgx.Tx, in domain.CreateInput) (domain.Rules, time.Time, error) {
+	if err := s.guardStart(ctx, tx, in.StartedAt, in.ExpectedDeadlineAt); err != nil {
+		return domain.Rules{}, time.Time{}, err
+	}
+	rules, err := readRules(ctx, tx, in.AssignmentID, in.StudentID, " FOR SHARE OF a")
+	if err != nil {
+		return domain.Rules{}, time.Time{}, err
+	}
+	if !rules.Targeted {
+		return domain.Rules{}, time.Time{}, domain.ErrForbidden
+	}
+	if err := rules.CanStartAt(in.StartedAt); err != nil {
+		return domain.Rules{}, time.Time{}, err
+	}
+	deadline := rules.Deadline(in.StartedAt)
+	if deadline.After(in.ExpectedDeadlineAt) {
+		if err := s.guardStart(ctx, tx, in.StartedAt, deadline); err != nil {
+			return domain.Rules{}, time.Time{}, err
+		}
+	}
+	return rules, deadline, nil
+}
+
+func insertAttempt(ctx context.Context, tx pgx.Tx, in domain.CreateInput, versionID string, deadline time.Time) (domain.AttemptRecord, error) {
+	out, err := scanAttempt(tx.QueryRow(ctx, `
+		INSERT INTO app.attempts
+		  (assignment_id, test_version_id, student_id, attempt_no, session_id,
+		   shuffle_seed, beacon_token_hash, started_at, deadline_at)
+		VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8, $9)
+		RETURNING `+attemptColumns,
+		in.AssignmentID, versionID, in.StudentID, in.AttemptNo, in.SessionID,
+		in.Seed, in.BeaconHash, in.StartedAt, deadline))
+	if db.IsUniqueViolation(err, "") {
+		return domain.AttemptRecord{}, domain.ErrRaceLost
+	}
+	if err != nil {
+		return domain.AttemptRecord{}, fmt.Errorf("attempts: create: %w", err)
 	}
 	return out, nil
+}
+
+func (s *Postgres) guardStart(ctx context.Context, tx pgx.Tx, now, deadline time.Time) error {
+	window, err := s.guard.GuardAttemptStart(ctx, tx, now, deadline)
+	if err != nil {
+		return fmt.Errorf("attempts: check maintenance: %w", err)
+	}
+	if window != nil {
+		return &domain.MaintenanceScheduledError{Window: *window}
+	}
+	return nil
 }
 
 // Resume hands the attempt to a new tab and records why, in one transaction:

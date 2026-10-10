@@ -6,6 +6,7 @@ import {
   type ContentInline,
   type ContentMark,
 } from "../model";
+import { nfc } from "@/lib/nfc";
 import { isQuestionContent, type QuestionContent } from "../questionContent";
 import { gfmSubset } from "../markdownGfm";
 
@@ -102,7 +103,7 @@ export function markdownToQuestionContent(markdown: string): QuestionContent | n
   )
     return null;
   try {
-    const root = parser.parse(markdown);
+    const root = parser.parse(nfc(markdown));
     const content = {
       format: "semantic_v1",
       blocks: root.children.length

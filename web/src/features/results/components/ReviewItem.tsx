@@ -18,6 +18,7 @@ import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { blankInputs } from "@/features/take-test/components/blankInputs";
 import { QuestionImage } from "@/features/take-test/components/QuestionImage";
 import type { Locale } from "@/lib/i18n";
+import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
 import type { AttemptResult, ResultQuestion } from "../api";
 import {
@@ -121,7 +122,7 @@ function GivenText({ answer, type }: Readonly<{ answer: Given; type: string }>) 
     case "options":
       return <Options options={answer} type={type} />;
     case "text":
-      return <span className="whitespace-pre-wrap">{answer.text}</span>;
+      return <span className="whitespace-pre-wrap">{nfc(answer.text)}</span>;
     case "boolean":
       return <>{t(answer.value ? "result.true" : "result.false")}</>;
     case "blanks":

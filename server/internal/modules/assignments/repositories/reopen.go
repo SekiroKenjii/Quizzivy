@@ -22,7 +22,9 @@ import (
 // database's clock like the list, and the audit row is written from the
 // UPDATE's own OLD/NEW so the values recorded are the values changed (§13.4).
 // Only an assignment the actor reaches qualifies; another teacher's answers
-// ErrNotFound.
+// ErrNotFound. The attempts in progress move with it, in the same
+// transaction: the maintenance-windows lock, then the assignment row, then
+// the attempt rows.
 func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time.Time, reason string, now time.Time) (domain.Assignment, error) {
 	reason = strings.TrimSpace(reason)
 	if reason == "" {
@@ -38,6 +40,9 @@ func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := schedule.LockWindows(ctx, tx); err != nil {
+		return domain.Assignment{}, err
+	}
 	var reopened string
 	err = tx.QueryRow(ctx, `
 		WITH updated AS (
@@ -63,6 +68,9 @@ func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time
 	}
 	if err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: reopen: %w", err)
+	}
+	if _, err := schedule.RecomputeDeadlines(ctx, tx, recomputeFor(req, nil, "assignment_reopened", now)); err != nil {
+		return domain.Assignment{}, err
 	}
 
 	saved, err := s.get(ctx, tx, req.Scope(), req.ID, false)

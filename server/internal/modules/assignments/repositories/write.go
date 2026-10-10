@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/schedule"
 	"quizzivy/internal/shared/visibility"
 	"time"
 
@@ -106,7 +107,10 @@ func versionStillFree(ctx context.Context, tx pgx.Tx, assignmentID, next, curren
 	return nil
 }
 
-// Update rewrites an assignment the actor reaches. A new version must belong
+// Update rewrites an assignment the actor reaches, and lengthens the deadline
+// of each attempt in progress that its window now lets run longer, in the
+// same transaction: the maintenance-windows lock, then the assignment row,
+// then the attempt rows. A new version must belong
 // to a test the actor owns; the version already assigned needs no such check,
 // so a teacher reaching the assignment through a class can still close it. The
 // targets are replaced within the actor's reach: classes and students the
@@ -122,6 +126,9 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := schedule.LockWindows(ctx, tx); err != nil {
+		return domain.Assignment{}, err
+	}
 	current, err := lockForUpdate(ctx, tx, req.Scope(), req.ID)
 	if err != nil {
 		return domain.Assignment{}, err
@@ -175,6 +182,9 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		IP:          opt.String(req.IP),
 		UserAgent:   opt.String(req.UserAgent),
 	}); err != nil {
+		return domain.Assignment{}, err
+	}
+	if _, err := schedule.RecomputeDeadlines(ctx, tx, recomputeFor(req, nil, "assignment_updated", in.Now)); err != nil {
 		return domain.Assignment{}, err
 	}
 

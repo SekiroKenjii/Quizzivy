@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.66 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.68 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.65**
+**Changes since v0.67**
 
 R4, duplicate, item analysis and the results export (T-R4.13):
 
@@ -34,6 +34,53 @@ R4, duplicate, item analysis and the results export (T-R4.13):
   the caller reaches, ignoring accents) and `classId` more than once (any of the classes),
   and its facets follow both. Every assignment carries `questionCount`.
 
+**Changes since v0.66**
+
+Characters the brand font draws (FONT-1, DG-141):
+
+- §12 Typography: the italic faces are loaded for every upright weight. Every character
+  the UI draws is in the loaded font faces; a symbol the font lacks (arrows, ⌘, ⏎, ⇧, ≤,
+  ≥) is an icon, or a character it has, such as the en dash for a range.
+  `font-coverage.test.ts` holds the source and the locales to it.
+- §12 Typography: content is shown in NFC. Be Vietnam Pro's subsets lack the combining
+  circumflex, breve and horn, so decomposed Vietnamese would draw in a fallback font. The
+  rich content editor composes what it writes; a plain field, the Markdown source and a
+  student's answer are stored as typed and composed where they are drawn (F-37 proposes
+  composing stored text on the server).
+
+**Changes since v0.65**
+
+R4, extensions and per-student overrides, second half (T-R4.12b):
+
+- §13 An attempt in progress follows a change to its window. `POST
+  /teacher/assignments/:id/extend`, `PATCH /teacher/assignments/:id` (a later close),
+  `POST /teacher/assignments/:id/reopen` and `PUT
+  /teacher/assignments/:id/student-overrides` set the deadline of each attempt in
+  progress to the earlier of its start plus its student's time limit and its student's
+  close, in the transaction that changed the window, and only where that is later than
+  the deadline it has. A deadline never moves earlier: removing an override (`DELETE`),
+  setting a shorter time limit or a shorter close, and closing early leave a running
+  attempt where it is, and so does an attempt whose deadline has already passed (judged on
+  the database's clock), which is over whether or not it has been swept and is not revived.
+  Each attempt moved is audited as `attempt.extended` with the old and new deadline and the
+  cause. An override moves only the attempts of the students it
+  names.
+- §13 An attempt starts under the window as it stands when it commits. A start that is
+  racing an extension stores the extended deadline, or is itself lengthened by the
+  extension, whichever commits first; it is never left on the close it read before.
+- §15 `closesAt` of an override must be ahead of the database's clock, not the API
+  server's.
+- §15 `MonitorRow.extendedTo` carries the time a student's own override closes when that
+  is later than the assignment's effective close, and is absent otherwise. An override
+  that closes sooner than the assignment says nothing. Closing an assignment early does
+  not take an override away: a student whose override reaches past the close stays open.
+- §13.9 The maintenance window's extension also moves the close of each student override of
+  a published assignment that falls inside the window, by the window's length, and writes
+  an `assignment.override_extended` audit entry per override. The operator's role needs
+  `SELECT, UPDATE (closes_at)` on `assignment_student_overrides` (release checklist).
+  `extendAssignment` and the two override writes take the same advisory lock (73819, 40)
+  shared, as a start does.
+
 **Changes since v0.64**
 
 R4, extensions and per-student overrides, first half (T-R4.12a):
@@ -58,7 +105,7 @@ R4, extensions and per-student overrides, first half (T-R4.12a):
   reads open to a student whose override is still ahead. A result released `after_close`
   is withheld until that student's own close; the class average still waits for the
   assignment's. Nothing in a student's payload says an override exists or why.
-- An attempt already in progress keeps its deadline until T-R4.12b recomputes it.
+- An attempt already in progress kept its deadline in this version; v0.66 (T-R4.12b) recomputes it.
 
 **Changes since v0.63**
 
@@ -1853,7 +1900,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
 - **Primary action: the deck's charcoal `--primary` with `--primary-fg`.** Not blue, not purple, not indigo. The lime `--accent-c` (with its soft and ink tones) marks progress, counts and current states, never a primary button.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
-- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700; the CSP allows no font host). The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
+- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC: the rich content editor composes what it writes, and other text is composed where it is drawn. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
 - **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows, until R4 rebuilds them. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
 - **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the count button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
@@ -2259,9 +2306,9 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 
 - A window runs at most 12 hours, and windows that are not cancelled may not overlap (an exclusion constraint).
 - The app role only reads the table. The operator schedules, cancels and ends windows through `cmd/maintenance`.
-- Scheduling extends by the window's length every in-progress attempt that would still be running when it starts, and every published, open assignment that would close inside it. Every extension is audited as System.
+- Scheduling extends by the window's length every in-progress attempt that would still be running when it starts, every published, open assignment that would close inside it, and every student override of a published assignment that would close inside it. Every extension is audited as System.
 - The API reads the table into a snapshot at most every 30 s, and only while requests arrive. During an active window it answers 503 (§15), and it refuses an attempt start that would run into a window.
-- A start and a schedule take the same advisory lock (73819, 40), so a new attempt is either refused or extended.
+- A start and a schedule take the same advisory lock (73819, 40), so a new attempt is either refused or extended. So do every other writer of an assignment's window or overrides: the teacher's extension, the assignment update, the reopening and the two override writes (shared, as a start does), so none of them runs between a window's scheduling and its extensions.
 
 ---
 

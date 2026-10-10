@@ -1,7 +1,8 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Plus, Tag } from "lucide-react";
 
+import { KeyGlyph } from "@/components/shared/KeyGlyph";
 import { cn } from "@/lib/utils";
 
 import { CHIP_INPUT, ChipBox } from "./ChipInput";
@@ -192,7 +193,13 @@ export function TagCombobox({
             })}
           </div>
           <p className="text-muted-fg text-caption mt-0.75 border-t px-2 pt-1.5 pb-1 leading-normal">
-            {t("controls.tagKeys")}
+            <Trans
+              i18nKey="controls.tagKeys"
+              components={{
+                up: <KeyGlyph name="up" />,
+                down: <KeyGlyph name="down" />,
+              }}
+            />
           </p>
         </div>
       )}

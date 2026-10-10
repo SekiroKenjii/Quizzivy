@@ -146,7 +146,7 @@ func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 func (s *Postgres) ForStudent(ctx context.Context, studentID string, now time.Time) (domain.StudentSections, error) {
 	rows, err := s.Query(ctx, studentCardColumns+studentCardFrom+`
 	 WHERE a.published_at IS NOT NULL AND `+targeted+`
-	 ORDER BY greatest(a.closes_at, o.closes_at) ASC, a.id DESC`, studentID)
+	 ORDER BY `+schedule.CloseOf("o")+` ASC, a.id DESC`, studentID)
 	if err != nil {
 		return domain.StudentSections{}, fmt.Errorf("assignments: list for student: %w", err)
 	}

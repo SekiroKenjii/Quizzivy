@@ -17,7 +17,7 @@ type Repository interface {
 	RulesFor(ctx context.Context, assignmentID, studentID string) (Rules, error)
 	Live(ctx context.Context, assignmentID, studentID string) (AttemptRecord, error)
 	Tally(ctx context.Context, assignmentID, studentID string) (Tally, error)
-	Create(ctx context.Context, in CreateInput) (AttemptRecord, error)
+	Create(ctx context.Context, in CreateInput) (AttemptRecord, Rules, error)
 	Resume(ctx context.Context, in ResumeInput) (AttemptRecord, bool, error)
 	ByID(ctx context.Context, attemptID, studentID string) (AttemptRecord, error)
 	Rebeacon(ctx context.Context, attemptID string, hash []byte) error

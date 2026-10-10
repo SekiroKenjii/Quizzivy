@@ -108,16 +108,7 @@ func (s *Service) ResumeIfLive(ctx context.Context, assignmentID, studentID, res
 }
 
 func (s *Service) CanStart(r domain.Rules) error {
-	now := s.Now()
-	switch {
-	case r.PublishedAt == nil:
-		return domain.ErrNotFound
-	case now.Before(r.OpensAt), !now.Before(r.ClosesAt):
-		return domain.ErrAssignmentClosed
-	case r.ClosedAt != nil && !now.Before(*r.ClosedAt):
-		return domain.ErrAssignmentClosed
-	}
-	return nil
+	return r.CanStartAt(s.Now())
 }
 
 func (s *Service) Create(ctx context.Context, assignmentID, studentID string, attemptNo int, r domain.Rules) (domain.Session, error) {
@@ -131,21 +122,20 @@ func (s *Service) Create(ctx context.Context, assignmentID, studentID string, at
 	}
 	now := s.Now()
 
-	created, err := s.Store.Create(ctx, domain.CreateInput{
-		AssignmentID:  assignmentID,
-		TestVersionID: r.TestVersionID,
-		StudentID:     studentID,
-		AttemptNo:     attemptNo,
-		SessionID:     s.NewSessionID(),
-		Seed:          seed,
-		BeaconHash:    hash,
-		StartedAt:     now,
-		DeadlineAt:    r.Deadline(now),
+	created, committed, err := s.Store.Create(ctx, domain.CreateInput{
+		AssignmentID:       assignmentID,
+		StudentID:          studentID,
+		AttemptNo:          attemptNo,
+		SessionID:          s.NewSessionID(),
+		Seed:               seed,
+		BeaconHash:         hash,
+		StartedAt:          now,
+		ExpectedDeadlineAt: r.Deadline(now),
 	})
 	if err != nil {
 		return domain.Session{}, err
 	}
-	return s.Session(ctx, created, beacon, r)
+	return s.Session(ctx, created, beacon, committed)
 }
 
 func (s *Service) Resume(ctx context.Context, live domain.AttemptRecord, r domain.Rules) (domain.Session, error) {
