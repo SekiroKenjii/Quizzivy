@@ -8,6 +8,7 @@ import ImportReviewPage from "@/features/imports/pages/teacher/ImportReviewPage"
 import type { SaveImportReview } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { contentWidth } from "@tests/support/contentWidth";
 import {
   BASE,
   IMPORT_ID,
@@ -15,16 +16,24 @@ import {
   deferred,
   errorBody,
   run,
+  source,
   wordImport,
 } from "./fixtures";
 import {
   baseline,
+  card,
+  cardHeader,
+  isOpen,
   renderReview,
   savedFrom,
   serveReview,
   type ReviewServer,
 } from "./reviewHarness";
 import "@/lib/i18n";
+
+Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
+Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+document.elementFromPoint ??= () => null;
 
 let state: ReviewServer;
 
@@ -67,19 +76,15 @@ function atWidth(initial: number) {
   };
 }
 
-async function showInSource(user: ReturnType<typeof userEvent.setup>, label: string) {
-  await user.click(screen.getByRole("button", { name: label }));
-  await user.click(
-    within(screen.getByRole("region", { name: label })).getByRole("button", {
-      name: "Xem trong tài liệu",
-    }),
-  );
+async function showInSource(user: ReturnType<typeof userEvent.setup>, id: string) {
+  if (!isOpen(id)) await user.click(cardHeader(id));
+  await user.click(within(card(id)).getByRole("button", { name: "Xem trong nguồn" }));
 }
 
 describe("moving through findings", () => {
-  it("counts the findings before one is chosen", async () => {
+  it("counts the open findings before one is chosen", async () => {
     await renderReview();
-    expect(screen.getByText("3 mục")).toBeInTheDocument();
+    expect(screen.getByText("3 mục còn mở")).toBeInTheDocument();
   });
 
   it("continues from a resolved finding instead of going back to the first", async () => {
@@ -95,15 +100,15 @@ describe("moving through findings", () => {
       }),
     );
     const { user } = await renderReview();
-    const next = screen.getByRole("button", { name: "Mục tiếp theo" });
+    const next = screen.getByRole("button", { name: "Tiếp" });
     await user.click(next);
     await user.click(next);
-    expect(screen.getByText("Mục 2/3")).toBeInTheDocument();
+    expect(screen.getByText("2 / 3 mục còn mở")).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: "Lựa chọn A là đáp án đúng" }));
     await vi.advanceTimersByTimeAsync(1500);
     await waitFor(() => expect(state.puts).toHaveLength(1));
-    expect(await screen.findByText("2 mục")).toBeInTheDocument();
+    expect(await screen.findByText("2 mục còn mở")).toBeInTheDocument();
 
     await user.click(next);
     await waitFor(() => expect(document.activeElement?.id).toBe("finding-f-irregular"));
@@ -111,14 +116,13 @@ describe("moving through findings", () => {
 });
 
 describe("keyboard focus", () => {
-  it("moves focus into the editor of a question chosen from its card", async () => {
+  it("opens the card chosen from its header and closes the one before", async () => {
     const { user } = await renderReview();
-    await user.click(screen.getByRole("button", { name: "Câu 2" }));
-    await waitFor(() =>
-      expect(document.activeElement).toBe(
-        screen.getByRole("region", { name: "Câu 2" }),
-      ),
-    );
+    expect(isOpen("q1")).toBe(true);
+    await user.click(cardHeader("q2"));
+    expect(isOpen("q2")).toBe(true);
+    expect(isOpen("q1")).toBe(false);
+    expect(cardHeader("q2")).toHaveFocus();
   });
 
   it("gives the source blocks one tab stop and moves between them with the arrow keys", async () => {
@@ -134,54 +138,41 @@ describe("keyboard focus", () => {
     expect(second).toHaveAttribute("tabindex", "0");
     expect(first).toHaveAttribute("tabindex", "-1");
     await user.keyboard("{Enter}");
-    expect(screen.getByRole("heading", { name: "Câu 2" })).toBeInTheDocument();
+    expect(isOpen("q2")).toBe(true);
   });
 
-  it("keeps the review's state when a narrow screen switches to the source and back", async () => {
-    vi.stubGlobal(
-      "matchMedia",
-      (query: string) =>
-        ({
-          matches: query.includes("min-width") && !query.includes("1280"),
-          media: query,
-          onchange: null,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          addListener: () => {},
-          removeListener: () => {},
-          dispatchEvent: () => false,
-        }) as MediaQueryList,
-    );
+  it("keeps the review's state when a narrow workspace switches to the source and back", async () => {
+    contentWidth(900);
     const { user } = await renderReview();
-    await user.click(screen.getByRole("button", { name: "Loại khỏi đề" }));
-    await user.type(screen.getByLabelText("Lý do loại câu này"), "Trùng câu 5");
-    await user.click(screen.getByRole("button", { name: "Tài liệu nguồn" }));
-    expect(
-      screen.getByRole("region", { name: "Câu 1", hidden: true }),
-    ).not.toBeVisible();
+    const prompt = await screen.findByRole("textbox", { name: "Nội dung câu 1" });
+    await user.type(prompt, " nhé");
+    await user.click(screen.getByRole("button", { name: "Nguồn" }));
+    expect(prompt).not.toBeVisible();
+    expect(screen.getByRole("region", { name: "Tài liệu nguồn" })).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Đề đã dựng" }));
-    expect(screen.getByLabelText("Lý do loại câu này")).toHaveValue("Trùng câu 5");
+    await user.click(screen.getByRole("button", { name: "Đề" }));
+    expect(isOpen("q1")).toBe(true);
+    expect(screen.getByRole("textbox", { name: "Nội dung câu 1" })).toHaveTextContent(
+      /nhé/,
+    );
   });
 });
 
 describe("moving between the exam and its source", () => {
-  it("moves focus with the view when a narrow screen switches between them", async () => {
-    atWidth(1024);
+  it("moves focus with the view when a narrow workspace switches between them", async () => {
+    contentWidth(900);
     const { user } = await renderReview();
-    await showInSource(user, "Câu 2");
+    await showInSource(user, "q2");
     const block = screen.getByRole("button", { name: /Which colour is the sky/ });
     await waitFor(() => expect(block).toHaveFocus());
 
     await user.keyboard("{Enter}");
-    await waitFor(() =>
-      expect(screen.getByRole("region", { name: "Câu 2" })).toHaveFocus(),
-    );
+    await waitFor(() => expect(cardHeader("q2")).toHaveFocus());
     expect(block).not.toBeVisible();
   });
 
-  it("scrolls the source to the chosen question once a narrow screen shows it", async () => {
-    atWidth(1024);
+  it("scrolls the source to the chosen question once a narrow workspace shows it", async () => {
+    contentWidth(900);
     const scrolled: Element[] = [];
     vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(function record(
       this: Element,
@@ -189,18 +180,18 @@ describe("moving between the exam and its source", () => {
       scrolled.push(this);
     });
     const { user } = await renderReview();
-    await user.click(screen.getByRole("button", { name: "Câu 2" }));
+    await user.click(cardHeader("q2"));
     const block = screen.getByRole("button", {
       name: /Which colour is the sky/,
       hidden: true,
     });
     scrolled.length = 0;
 
-    await user.click(screen.getByRole("button", { name: "Tài liệu nguồn" }));
+    await user.click(screen.getByRole("button", { name: "Nguồn" }));
     await waitFor(() => expect(scrolled).toContain(block));
   });
 
-  it("leaves the exam's scroll position alone on a wide screen", async () => {
+  it("leaves the exam's scroll position alone on a wide workspace", async () => {
     const { user } = await renderReview();
     const scroller = document.querySelector<HTMLElement>("[data-resize-middle]")!;
     const writes: number[] = [];
@@ -209,10 +200,10 @@ describe("moving between the exam and its source", () => {
       get: () => 0,
       set: (value: number) => writes.push(value),
     });
-    await showInSource(user, "Câu 2");
+    await showInSource(user, "q2");
     await user.click(screen.getByRole("button", { name: /Which colour is the sky/ }));
 
-    expect(screen.getByRole("region", { name: "Câu 2" })).toBeVisible();
+    expect(isOpen("q2")).toBe(true);
     expect(writes).toEqual([]);
   });
 
@@ -224,13 +215,15 @@ describe("moving between the exam and its source", () => {
         return new Response(null, { status: 503 });
       }),
     );
-    const { user } = await renderReview();
+    const { user, router } = await renderReview();
     await user.type(screen.getByLabelText("Tên đề"), "A");
     await vi.advanceTimersByTimeAsync(1500);
     await waitFor(() => expect(state.puts).toHaveLength(1));
 
     resize(500);
-    await user.click(await screen.findByRole("link", { name: "Về trang lần nhập" }));
+    await act(async () => {
+      void router.navigate(`/teacher/imports/${IMPORT_ID}`);
+    });
     const dialog = await screen.findByRole("dialog", { name: "Rời trang rà soát?" });
     expect(within(dialog).getByText(/Chưa lưu được thay đổi/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Rời trang" }));
@@ -238,25 +231,117 @@ describe("moving between the exam and its source", () => {
   });
 });
 
-describe("excluding a question", () => {
-  it("closes the question's open editor", async () => {
+describe("editing a question", () => {
+  it("edits the open card's prompt in place and saves it", async () => {
     const { user } = await renderReview();
-    const q1 = screen.getByRole("region", { name: "Câu 1" });
-    await user.click(within(q1).getByRole("button", { name: "Sửa nội dung" }));
-    expect(within(q1).getByRole("button", { name: "Xong" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    const prompt = await within(card("q1")).findByRole("textbox", {
+      name: "Nội dung câu 1",
+    });
+    await user.type(prompt, " nhé");
+    await vi.advanceTimersByTimeAsync(1500);
+    await waitFor(() => expect(state.puts).toHaveLength(1));
+    const saved = state.puts[0]!.sections[0]!.items[0]!.question!;
+    expect(JSON.stringify(saved.prompt)).toContain("nhé");
+  });
 
-    await user.click(within(q1).getByRole("button", { name: "Loại khỏi đề" }));
-    await user.type(within(q1).getByLabelText("Lý do loại câu này"), "Trùng câu 5");
-    await user.click(within(q1).getByRole("button", { name: "Loại câu này" }));
+  it("offers only exclusion in the question's menu", async () => {
+    const { user } = await renderReview();
+    await user.click(screen.getByRole("button", { name: "Thao tác với câu 1" }));
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual(["Loại khỏi đề…"]);
+  });
 
-    expect(within(q1).queryByRole("button", { name: "Xong" })).toBeNull();
-    expect(within(q1).getByRole("button", { name: "Sửa nội dung" })).toHaveAttribute(
-      "aria-expanded",
-      "false",
+  it("excludes with a reason, then shows the question read-only with a way back", async () => {
+    const { user } = await renderReview();
+    await user.click(screen.getByRole("button", { name: "Thao tác với câu 1" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Loại khỏi đề…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Loại câu 1?" });
+    await user.type(within(dialog).getByLabelText("Lý do"), "Trùng câu 5");
+    await user.click(within(dialog).getByRole("button", { name: "Loại" }));
+
+    const q1 = card("q1");
+    expect(within(q1).getByText("Đã loại khỏi đề: Trùng câu 5")).toBeInTheDocument();
+    expect(within(q1).queryByRole("textbox", { name: "Nội dung câu 1" })).toBeNull();
+    expect(within(q1).getByRole("group", { name: /Nội dung câu hỏi/ })).toBeVisible();
+
+    await user.click(within(q1).getByRole("button", { name: "Đưa lại vào đề" }));
+    expect(within(q1).queryByText(/Đã loại khỏi đề/)).toBeNull();
+    expect(
+      await within(q1).findByRole("textbox", { name: "Nội dung câu 1" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("a pasted import", () => {
+  const pasted = source("exam", {
+    format: "text",
+    characters: 120,
+    filename: "stored-original.txt",
+  });
+
+  beforeEach(() => {
+    server.use(
+      http.get(`${BASE}/teacher/imports/:id`, () =>
+        contractJson(
+          "/teacher/imports/{id}",
+          "get",
+          200,
+          wordImport({ sources: [pasted] }),
+        ),
+      ),
     );
+  });
+
+  it("names the pasted text as such and never shows the stored file name", async () => {
+    await renderReview();
+    const which = screen.getByRole("group", { name: "Chọn tài liệu" });
+    expect(
+      within(which)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Văn bản đã dán"]);
+    const view = screen.getByRole("group", { name: "Cách hiển thị" });
+    expect(
+      within(view)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Như đã dán"]);
+    expect(screen.getByText(/^Văn bản như bạn đã dán/)).toBeInTheDocument();
+    expect(screen.queryByText(/stored-original/)).toBeNull();
+  });
+
+  it("downloads the pasted source by its id", async () => {
+    let requested = "";
+    server.use(
+      http.get(
+        `${BASE}/teacher/imports/:id/sources/:sourceId/download`,
+        ({ params }) => {
+          requested = String(params.sourceId);
+          return contractJson(
+            "/teacher/imports/{id}/sources/{sourceId}/download",
+            "get",
+            410,
+            errorBody("IMPORT_FILES_REMOVED", "Bản gốc đã được xoá."),
+          );
+        },
+      ),
+    );
+    const { user } = await renderReview();
+    await user.click(screen.getByRole("button", { name: "Tải bản gốc" }));
+    await waitFor(() => expect(requested).toBe(pasted.id));
+  });
+});
+
+describe("a phone", () => {
+  it("shows the review read-only with a note that says where to edit", async () => {
+    atWidth(500);
+    await renderReview();
+    expect(screen.getByRole("note")).toHaveTextContent(/Trên điện thoại/);
+    const q1 = card("q1");
+    expect(within(q1).queryByRole("textbox", { name: "Nội dung câu 1" })).toBeNull();
+    expect(within(q1).getByRole("group", { name: /Nội dung câu hỏi/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Thao tác với câu 1" })).toBeDisabled();
+    expect(screen.getByLabelText("Tên đề")).toBeDisabled();
   });
 });
 
@@ -279,16 +364,15 @@ describe("a review that cannot be edited", () => {
     const { user } = await renderReview();
     expect(screen.getByText(/Phần rà soát giờ chỉ để xem/)).toBeInTheDocument();
     expect(screen.getByLabelText("Tên đề")).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Câu 2" }));
-    const editor = screen.getByRole("region", { name: "Câu 2" });
+    await user.click(cardHeader("q2"));
+    const q2 = card("q2");
     expect(
-      within(editor).queryByRole("button", { name: "Xác nhận đã kiểm tra" }),
+      within(q2).queryByRole("button", { name: "Xác nhận đã kiểm tra" }),
     ).toBeNull();
-    expect(
-      within(editor).getByRole("button", { name: "Nguồn gốc dữ liệu" }),
-    ).toBeEnabled();
+    expect(within(q2).queryByRole("textbox", { name: "Nội dung câu 2" })).toBeNull();
+    expect(within(q2).getByRole("button", { name: "Xem trong nguồn" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Đáp án" }));
-    expect(await screen.findByRole("button", { name: "1. B" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: /^1\. B/ })).toBeEnabled();
   });
 
   it("stops saving and refreshes the import when it left review elsewhere", async () => {
@@ -479,10 +563,12 @@ describe("the review's data", () => {
     const { user } = await renderReview();
     await user.type(screen.getByLabelText("Tên đề"), "A");
     await vi.advanceTimersByTimeAsync(1500);
-    await screen.findAllByText("Bản rà soát gửi lên không hợp lệ.");
+    await waitFor(() =>
+      expect(screen.getByText("Chưa lưu được thay đổi gần nhất")).toBeInTheDocument(),
+    );
 
     await user.click(
-      screen.getByRole("button", { name: "Xem tóm tắt & tạo bản nháp" }),
+      screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
     );
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/Chưa lưu được thay đổi/)).toBeInTheDocument();
@@ -534,7 +620,7 @@ function renderWithDetail() {
 async function choosePaper(user: ReturnType<typeof userEvent.setup>) {
   const notice = await screen.findByText("Tệp đáp án có nhiều mã đề");
   const box = notice.closest<HTMLElement>("[id^='finding-']")!;
-  await user.click(within(box).getByRole("button", { name: "Đề số 2" }));
+  await user.click(within(box).getByRole("radio", { name: "Đề số 2" }));
   await user.click(
     within(box).getByRole("button", { name: "Xử lý lại với mã đề này" }),
   );

@@ -58,7 +58,7 @@ describe("creating the draft test from a review", () => {
     serveReview(baseline(), state);
     const { user } = await renderReview();
     await user.click(
-      screen.getByRole("button", { name: "Xem tóm tắt & tạo bản nháp" }),
+      screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
     );
     const dialog = await screen.findByRole("dialog");
 
@@ -70,18 +70,18 @@ describe("creating the draft test from a review", () => {
     );
 
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByRole("button", { name: "Cần xử lý (2)" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Cần xử lý 2" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText("Mục 1/2")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2 mục còn mở")).toBeInTheDocument();
     await waitFor(() => expect(document.activeElement?.id).toBe("finding-f-conflict"));
   });
 
   it("returns focus to the summary button when the summary closes", async () => {
     serveReview(baseline(), state);
     const { user } = await renderReview();
-    const open = screen.getByRole("button", { name: "Xem tóm tắt & tạo bản nháp" });
+    const open = screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!;
     await user.click(open);
     await screen.findByRole("dialog");
     await user.keyboard("{Escape}");
@@ -103,7 +103,7 @@ describe("creating the draft test from a review", () => {
     );
     const { user } = await renderReview();
     await user.click(
-      screen.getByRole("button", { name: "Xem tóm tắt & tạo bản nháp" }),
+      screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
     );
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Tạo bản nháp đề" }));
@@ -137,7 +137,7 @@ describe("creating the draft test from a review", () => {
     );
     const { user } = await renderReview();
     await user.click(
-      screen.getByRole("button", { name: "Xem tóm tắt & tạo bản nháp" }),
+      screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
     );
     const dialog = await screen.findByRole("dialog");
     const commit = within(dialog).getByRole("button", { name: "Tạo bản nháp đề" });

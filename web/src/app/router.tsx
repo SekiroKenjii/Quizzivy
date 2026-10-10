@@ -122,6 +122,15 @@ const teacherTree: RouteObject = {
             },
             {
               path: ":id/review",
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "tests.importHistory", to: "/teacher/imports" },
+                  { key: "imports.review.crumb" },
+                ],
+                width: "full",
+                sidebar: "collapsed",
+              },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/ImportReviewPage"),
               ),

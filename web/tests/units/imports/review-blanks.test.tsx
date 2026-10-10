@@ -76,7 +76,7 @@ describe("a fill-blank question's accepted answers", () => {
   it("shows a picked value in the answers field and keeps it when the teacher adds another", async () => {
     const { user } = await renderReview();
     await user.click(
-      screen.getByRole("button", { name: "Dùng giá trị này: went / walked" }),
+      screen.getByRole("radio", { name: "Dùng giá trị này: went / walked" }),
     );
     const field = screen.getByLabelText("Đáp án chấp nhận cho chỗ trống 1");
     expect(field).toHaveValue("went\nwalked");
