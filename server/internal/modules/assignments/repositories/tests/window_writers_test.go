@@ -236,13 +236,18 @@ func TestEveryWriterOfAnAssignmentsWindowWaitsForTheMaintenanceLock(t *testing.T
 		if !waitingOnTheAdvisoryLock(t, pool, application) {
 			t.Errorf("%s never waited for the maintenance-windows lock that window-schedule holds exclusively", writer.name)
 		}
+		early := false
 		select {
 		case err := <-finished:
 			t.Errorf("%s finished (%v) while the maintenance-windows lock was held exclusively", writer.name, err)
+			early = true
 		default:
 		}
 		if err := holder.Commit(ctx); err != nil {
 			t.Fatal(err)
+		}
+		if early {
+			continue
 		}
 		select {
 		case err := <-finished:

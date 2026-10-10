@@ -2087,7 +2087,7 @@ media owner, described under the table.
 |---|---|---|
 | 10 | Word imports (W-10a, W-13b) | Upload quota reservation |
 | 11 | Word imports (W-11a) | Run capacity allocation and renewal |
-| 40 | Maintenance windows (T-R1.12, T-R1.13, T-R4.12b) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions. `extendAssignment`, `setStudentOverrides` and `deleteStudentOverride` take it shared too, before they lock the assignment row (`schedule.LockWindows`), so none of them runs between a window's scheduling and its extensions, and none can wait on a row that `window-schedule` holds while it waits on theirs |
+| 40 | Maintenance windows (T-R1.12, T-R1.13, T-R4.12b) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions. `extendAssignment`, `updateAssignment`, `reopenAssignment`, `setStudentOverrides` and `deleteStudentOverride` take it shared too, before they lock the assignment row (`schedule.LockWindows`), so none of them runs between a window's scheduling and its extensions, and none can wait on a row that `window-schedule` holds while it waits on theirs |
 | 41 | Legacy join-code rotation (T-R4.22) | Each class's rotation across API machines |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
 
@@ -2670,10 +2670,12 @@ its Go twin; `attempts.Rules`, `attempts.RulesFor`, `LoadResult` and the student
 and intro all read through them. An override's `closes_at` never closes a student
 sooner: the close is `greatest(least(closed_at, closes_at), o.closes_at)`.
 
-**Moving the deadlines in progress (12b).** `extendAssignment` and `setStudentOverrides` end by
-calling `schedule.RecomputeDeadlines` in the transaction that changed the window;
-`deleteStudentOverride` takes the same two locks and recomputes nothing, because removing an
-override can only shorten a student's window and a deadline never moves earlier. The recompute sets `deadline_at` of each `in_progress` attempt to `least(started_at +
+**Moving the deadlines in progress (12b).** `extendAssignment`, `updateAssignment`,
+`reopenAssignment` and `setStudentOverrides` end by calling `schedule.RecomputeDeadlines` in the
+transaction that changed the window; `deleteStudentOverride` takes the same two locks and
+recomputes nothing, because removing an override can only shorten a student's window and a
+deadline never moves earlier. An update or a reopening recomputes the whole assignment
+unconditionally, and a shorter close or a Close now moves nothing for the same reason. The recompute sets `deadline_at` of each `in_progress` attempt to `least(started_at +
 coalesce(o.duration_minutes, a.duration_minutes), CloseOf("o"))` where that is later than the
 deadline the attempt has, and writes one `attempt.extended` audit entry per attempt moved
 (`deadline_at` old and new, the cause, the assignment) through a data-modifying CTE. A deadline
@@ -2684,9 +2686,10 @@ runs over every attempt of the assignment for an extension.
 
 *Lock order, always:* the maintenance-windows advisory lock `(73819, 40)` shared, then the
 assignment row, then the attempt rows in id order. An attempt start takes the lock and the
-assignment row `FOR SHARE` before it inserts; the three writers above take the assignment row
-`FOR NO KEY UPDATE`, which conflicts with `FOR SHARE` and not with the `FOR KEY SHARE` an
-attempt's foreign key takes. A start therefore either commits before the writer reads the
+assignment row `FOR SHARE` before it inserts; the five writers above take the assignment row
+`FOR NO KEY UPDATE` (`updateAssignment` its long-standing `FOR UPDATE`), both of which conflict
+with `FOR SHARE`, so a start waits for them; a plain `NO KEY` lock does not conflict with the
+`FOR KEY SHARE` an attempt's foreign key takes. A start therefore either commits before the writer reads the
 attempts, and the recompute moves the attempt it inserted, or reads the rules after the writer
 committed, and computes its deadline from the new window. `window-schedule` takes the lock
 exclusively and updates assignments and attempts in one statement, so it never runs among them.

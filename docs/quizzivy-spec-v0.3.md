@@ -8,13 +8,16 @@
 R4, extensions and per-student overrides, second half (T-R4.12b):
 
 - §13 An attempt in progress follows a change to its window. `POST
-  /teacher/assignments/:id/extend` and `PUT /teacher/assignments/:id/student-overrides`
-  set the deadline of each attempt in progress to the earlier of its start plus its
-  student's time limit and its student's close, in the transaction that changed the
-  window, and only where that is later than the deadline it has. A deadline never moves
-  earlier: removing an override (`DELETE`), or setting a shorter time limit, leaves a
-  running attempt where it is. Each attempt moved is audited as `attempt.extended` with
-  the old and new deadline. An override moves only the attempts of the students it names.
+  /teacher/assignments/:id/extend`, `PATCH /teacher/assignments/:id` (a later close),
+  `POST /teacher/assignments/:id/reopen` and `PUT
+  /teacher/assignments/:id/student-overrides` set the deadline of each attempt in
+  progress to the earlier of its start plus its student's time limit and its student's
+  close, in the transaction that changed the window, and only where that is later than
+  the deadline it has. A deadline never moves earlier: removing an override (`DELETE`),
+  setting a shorter time limit or a shorter close, and closing early leave a running
+  attempt where it is. Each attempt moved is audited as `attempt.extended` with the old
+  and new deadline and the cause. An override moves only the attempts of the students it
+  names.
 - §13 An attempt starts under the window as it stands when it commits. A start that is
   racing an extension stores the extended deadline, or is itself lengthened by the
   extension, whichever commits first; it is never left on the close it read before.
@@ -2258,7 +2261,7 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - The app role only reads the table. The operator schedules, cancels and ends windows through `cmd/maintenance`.
 - Scheduling extends by the window's length every in-progress attempt that would still be running when it starts, every published, open assignment that would close inside it, and every student override of a published assignment that would close inside it. Every extension is audited as System.
 - The API reads the table into a snapshot at most every 30 s, and only while requests arrive. During an active window it answers 503 (§15), and it refuses an attempt start that would run into a window.
-- A start and a schedule take the same advisory lock (73819, 40), so a new attempt is either refused or extended. So do the teacher's extension and the two override writes (shared, as a start does), so none of them runs between a window's scheduling and its extensions.
+- A start and a schedule take the same advisory lock (73819, 40), so a new attempt is either refused or extended. So do every other writer of an assignment's window or overrides: the teacher's extension, the assignment update, the reopening and the two override writes (shared, as a start does), so none of them runs between a window's scheduling and its extensions.
 
 ---
 

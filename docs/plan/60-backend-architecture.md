@@ -83,8 +83,9 @@ the "one package per feature" layout AGENTS.md described until then.
   the maintenance-windows lock shared, and `RecomputeDeadlines` lengthens each
   live attempt's deadline to the window's, only ever later and audited, in the
   transaction that changed the window. assignments calls `LockWindows` before
-  it locks the assignment row in an extension, an override write and an
-  override delete, and `RecomputeDeadlines` after the write in the first two;
+  it locks the assignment row in an extension, an update, a reopening, an
+  override write and an override delete, and `RecomputeDeadlines` after the
+  write in all but the last;
   attempts' start takes the same lock and then the assignment row
   `FOR SHARE`, so the lock order is the same everywhere: windows, assignment,
   attempts. The kernel owns the statement because assignments writes the
