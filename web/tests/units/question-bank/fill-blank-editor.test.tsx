@@ -88,16 +88,17 @@ describe("the question editor page, on a fill_blank mismatch", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: "Điền từ" }));
-    await screen.findByRole("textbox", { name: "Nội dung câu hỏi" });
+    await screen.findByRole("textbox", { name: "Câu hỏi" });
     await user.click(
-      within(
-        screen.getByRole("group", { name: "Chế độ soạn: Nội dung câu hỏi" }),
-      ).getByRole("button", { name: "Markdown" }),
+      within(screen.getByRole("group", { name: "Chế độ soạn: Câu hỏi" })).getByRole(
+        "button",
+        { name: "Markdown" },
+      ),
     );
     await user.click(
       await screen.findByRole("button", { name: "Chuyển sang Markdown" }),
     );
-    await user.click(screen.getByLabelText("Nội dung câu hỏi"));
+    await user.click(screen.getByLabelText("Câu hỏi"));
     await user.paste("She {{1}} and {{3}}.");
     await user.click(screen.getByRole("button", { name: "Thêm chỗ trống" }));
     await user.type(
@@ -280,7 +281,7 @@ describe("the question editor page, on a new fill_blank question", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: "Điền từ" }));
-    const prompt = await screen.findByRole("textbox", { name: "Nội dung câu hỏi" });
+    const prompt = await screen.findByRole("textbox", { name: "Câu hỏi" });
     await user.click(prompt);
     await user.keyboard("She ");
     const title = await screen.findByText("Đề bài chưa có ô trống nào");

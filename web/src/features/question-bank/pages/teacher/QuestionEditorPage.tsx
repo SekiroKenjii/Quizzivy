@@ -243,11 +243,15 @@ function Editor({
       {question === null ? null : <QuestionUsageBanner question={question} />}
 
       <div className="grid items-start gap-4.5 @min-[900px]/qe:grid-cols-[minmax(0,1fr)_300px]">
-        <section aria-label={t("questionEditor.question")} className={CARD}>
+        <div className={CARD}>
           <QuestionTypeControl value={values} onChange={change} />
-          <QuestionPromptAnswers value={values} onChange={change} />
+          <QuestionPromptAnswers
+            value={values}
+            promptLabel={t("questionEditor.question")}
+            onChange={change}
+          />
           <ExplanationField value={values} onChange={change} />
-        </section>
+        </div>
         <aside aria-label={t("questionEditor.settings")} className={CARD}>
           <div className="flex flex-col gap-3">
             <p className={GROUP_LABEL}>{t("questionEditor.settingsLabel")}</p>

@@ -131,6 +131,10 @@ describe("the Question editor's frame", () => {
     expect(screen.queryByText(/Đang dùng trong|Chưa đề nào dùng/)).toBeNull();
     expect(screen.getByRole("group", { name: "Loại câu hỏi" })).toBeVisible();
     expect(
+      await screen.findByRole("textbox", { name: "Câu hỏi" }, { timeout: 5000 }),
+    ).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "Nội dung câu hỏi" })).toBeNull();
+    expect(
       screen.getByRole("complementary", { name: "Cài đặt câu hỏi" }),
     ).toBeVisible();
   });

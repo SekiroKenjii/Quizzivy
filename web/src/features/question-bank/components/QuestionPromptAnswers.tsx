@@ -14,20 +14,24 @@ import { QuestionProseField } from "./QuestionProseField";
  * (a fill-in-the-blank's with its gaps) under "Write the question students
  * will read", then the type's answers and grading note, whose "Insert gap"
  * places a gap at the prompt's caret. `clearPromptOnFocus` opens a prompt
- * that still holds the starter text empty.
+ * that still holds the starter text empty. `promptLabel` names the prompt,
+ * "Prompt" unless the page names it otherwise.
  */
 export function QuestionPromptAnswers({
   value,
   clearPromptOnFocus = false,
+  promptLabel,
   onChange,
 }: Readonly<{
   value: QuestionValues;
   clearPromptOnFocus?: boolean;
+  promptLabel?: string | undefined;
   onChange: (value: QuestionValues) => void;
 }>) {
   const { t } = useTranslation();
   const [promptEditor, setPromptEditor] = useState<Editor | null>(null);
   const placeholder = t("questionEditor.promptPlaceholder");
+  const label = promptLabel ?? t("questionEditor.prompt");
   return (
     <>
       {value.type === "fill_blank" ? (
@@ -36,13 +40,14 @@ export function QuestionPromptAnswers({
           onChange={onChange}
           onEditor={setPromptEditor}
           placeholder={placeholder}
+          label={label}
         />
       ) : (
         <QuestionProseField
           id="question-prompt"
           text={value.prompt}
           content={value.promptContent}
-          label={t("questionEditor.prompt")}
+          label={label}
           prompt
           clearOnFocus={clearPromptOnFocus}
           placeholder={placeholder}
