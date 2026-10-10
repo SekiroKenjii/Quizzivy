@@ -171,12 +171,26 @@ const teacherTree: RouteObject = {
         },
         {
           path: "question-bank/new",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "questionEditor.newTitle" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
           ),
         },
         {
           path: "question-bank/:id",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "questionEditor.editTitle" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
           ),

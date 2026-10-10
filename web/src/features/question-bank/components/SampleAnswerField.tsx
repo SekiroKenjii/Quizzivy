@@ -9,7 +9,10 @@ export function SampleAnswerField({
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor="question-sample-answer" className="text-[12.5px] font-medium">
+      <label
+        htmlFor="question-sample-answer"
+        className="text-[12.5px] font-medium in-data-[field-size=page]:text-[13px] in-data-[field-size=page]:leading-[19.5px]"
+      >
         {t("questionEditor.sampleAnswer")}
       </label>
       <p id="question-sample-answer-hint" className="text-muted-fg -mt-1 text-[12.5px]">
