@@ -185,6 +185,17 @@ async function rename(user: ReturnType<typeof userEvent.setup>, text: string) {
   await vi.advanceTimersByTimeAsync(1500);
 }
 
+async function published() {
+  expect(
+    await screen.findByText(
+      "Đã phát hành. Giờ bạn có thể giao bài.",
+      {},
+      { timeout: 3000 },
+    ),
+  ).toBeVisible();
+  expect(screen.queryByRole("dialog")).toBeNull();
+}
+
 describe("publishing from the builder", () => {
   it("publishes with the change note, stays open and says so with Assign", async () => {
     const { user, router } = await renderBuilder();
@@ -200,10 +211,7 @@ describe("publishing from the builder", () => {
     await user.click(within(dialog).getByRole("button", { name: "Phát hành" }));
 
     await waitFor(() => expect(publishes).toEqual([{ changeNote: "Bản đầu" }]));
-    expect(
-      await screen.findByText("Đã phát hành. Giờ bạn có thể giao bài."),
-    ).toBeVisible();
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await published();
     expect(router.state.location.pathname).toBe(`/teacher/tests/${TEST_ID}/edit`);
 
     await user.click(screen.getByRole("button", { name: "Giao bài" }));
@@ -218,7 +226,7 @@ describe("publishing from the builder", () => {
     const dialog = await screen.findByRole("dialog", { name: "Phát hành đề thi?" });
     await user.click(within(dialog).getByRole("button", { name: "Phát hành" }));
     await waitFor(() => expect(publishes).toHaveLength(1));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await published();
 
     await rename(user, " v2");
 
@@ -234,6 +242,7 @@ describe("publishing from the builder", () => {
     const dialog = await screen.findByRole("dialog", { name: "Phát hành đề thi?" });
     await user.click(within(dialog).getByRole("button", { name: "Phát hành" }));
     await waitFor(() => expect(publishes).toHaveLength(1));
+    await published();
 
     currentVersion = "2026-01-07T00:00:00.000000Z";
     await rename(user, " v2");
