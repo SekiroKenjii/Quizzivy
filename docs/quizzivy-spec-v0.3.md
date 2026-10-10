@@ -1,7 +1,26 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.63 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.64 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.63**
+
+R4, assignment review options, the note to students and the live lock (T-R4.11):
+
+- §13 `assignments` gains `review_release` (`on_submit` or `after_close`, default
+  `on_submit`), `review_show_class_average` (default false) and a nullable
+  `student_note` (1 to 500 characters once trimmed). Migrations 00099 and 00100; every
+  default is a constant, so nothing is rewritten.
+- §14 `Assignment.review` carries `release` and `showClassAverage`, and `Assignment`
+  carries `studentNote`. On a write the three are partial: omitted, they keep what is
+  stored, and `studentNote: null` clears the note.
+- §15 While an assignment is `open`, a PATCH that changes `testVersionId`,
+  `durationMinutes` or `maxAttempts` answers `409 ASSIGNMENT_LOCKED`; nothing else locks.
+- §9 A result released `after_close` is withheld until the assignment's effective close
+  (score, marks, answer key, explanations and the grader's comments) and carries
+  `releasesAt`. With the teacher's switch on, a released result of a closed assignment
+  carries `classAverage` once at least 3 students qualify. The Test intro draws the
+  teacher's note and says in its score sentence when the score comes.
 
 **Changes since v0.62**
 
@@ -1059,8 +1078,13 @@ interface Assignment {
   durationMinutes: number;              // server-enforced
   maxAttempts: number;
   shuffleQuestions: boolean; shuffleOptions: boolean;
-  review: { showScore: boolean; showCorrectAnswers: boolean; showExplanations: boolean };
+  review: {
+    showScore: boolean; showCorrectAnswers: boolean; showExplanations: boolean;
+    release: 'on_submit' | 'after_close';   // when a result is released; on a write, omitted keeps the stored value
+    showClassAverage: boolean;              // whether the result may carry classAverage; omitted on a write keeps the stored value
+  };
   integrity: IntegrityPolicy;
+  studentNote: string | null;           // the teacher's note on the Test intro; plain text, trimmed, at most 500 characters (counted before trimming on a write); null clears
   status: 'scheduled' | 'open' | 'closed';
 }
 
@@ -1431,9 +1455,9 @@ engine has no navigator column and no stored width. `AuthLayout` is the brand fr
 | `/login` | Auth | Password form + "Tiếp tục với Google". One message for an unknown email, a wrong password and a disabled account; a 429 shows the server's message. In a join context the subtitle names the class and a successful sign-in continues the join. |
 | `/forgot-password` | Auth | Static help (§5.4); no request. |
 | `/app` | Student | Home. A greeting for the time of day and one line about what is next. The resume card for the attempt in progress that closes soonest; "Tiếp tục làm bài" resumes it at once. Coming up: every other paper still to do, each row a link to its intro, with a pill (in progress, due today or tomorrow inside 24 hours, open now, opens …). Recent results, newest first: the score if allowed, "being graded" or "submitted", each a link to its result. No filters. Only the intro starts the clock. A student in no class with nothing assigned is offered the Join dialog (§6.2). |
-| `/app/assignments/:id` | Student | Intro: class and title, three facts (time limit, questions, attempts used of allowed), and "Trước khi bắt đầu": **the rules stated plainly**, generated from the stored policy and dates (availability, the timer, fullscreen, copy and paste, leaving, the audio plays per §11.4, what the result shows). "Bắt đầu làm bài" asks "Bắt đầu ngay?" first; "Tiếp tục làm bài" resumes at once. A test not yet open, closed or with no attempts left says so in the button's place. A start the server refuses says why above the button: `409 MAINTENANCE_SCHEDULED`, for a start that would run into a maintenance window, with the server's message. |
+| `/app/assignments/:id` | Student | Intro: class and title, three facts (time limit, questions, attempts used of allowed), and "Trước khi bắt đầu": **the rules stated plainly**, generated from the stored policy and dates (availability, the timer, fullscreen, copy and paste, leaving, the audio plays per §11.4, what the result shows). "Bắt đầu làm bài" asks "Bắt đầu ngay?" first; "Tiếp tục làm bài" resumes at once. A test not yet open, closed or with no attempts left says so in the button's place. A start the server refuses says why above the button: `409 MAINTENANCE_SCHEDULED`, for a start that would run into a maintenance window, with the server's message. When the teacher wrote a note for the students, it is drawn between "Trước khi bắt đầu" and the button: the teacher's initials, "Ghi chú từ {name}" and the text, as plain text with its line breaks; with no note nothing is drawn. The score sentence says "sau khi nộp bài" for a result released on submit and "sau khi bài đóng" for one released after the close. |
 | `/app/attempts/:id` | Focus | The engine (below). §10, §11.3. |
-| `/app/attempts/:id/result` | Student | The summary card (the score ring if allowed, the class, the title, one sentence on where grading stands), tiles, then every answer honoring `review.*`, with the transcript if `showTranscriptAfterSubmit`. While answers wait for the teacher the ring shows the score so far and the tiles say what waits. A line names what the policy hides. Filters All / Wrong / Waiting: Wrong only when scores are shown, Waiting only when something waits; an empty filter says so and offers all questions. The phone header reads "Kết quả". |
+| `/app/attempts/:id/result` | Student | The summary card (the score ring if allowed, the class, the title, one sentence on where grading stands), tiles, then every answer honoring `review.*`, with the transcript if `showTranscriptAfterSubmit`. While answers wait for the teacher the ring shows the score so far and the tiles say what waits. A line names what the policy hides. A result released after the close is withheld until then: the ring is a lock, no score, mark, answer key, explanation or grader's comment is sent, and the line and the summary say when it is released (`releasesAt`). When the server sends `classAverage`, one muted line under the summary sentence reads "Điểm trung bình của lớp: {n}%." Filters All / Wrong / Waiting: Wrong only when scores are shown, Waiting only when something waits; an empty filter says so and offers all questions. The phone header reads "Kết quả". |
 | `/app/classes` | Student | The classes joined, as cards: name, description, teacher, and "Next", the paper that comes next in that class. A card is not a link, and nothing here leaves a class. One action, "Tham gia lớp", opens the Join dialog (§6.2). |
 | `/app/settings/:section?` | Student | Profile (default: name, email read-only, language), Sign-in (password, Google) and Appearance (theme, "Chữ lớn hơn khi làm bài"), under a segmented switcher. Every section stays mounted, so a form survives a change of section or of width. The old slugs redirect: `security` to `sign-in`, `preferences` and any unknown slug to Profile. |
 
@@ -2254,6 +2278,8 @@ PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the
 POST   /teacher/media/:id/replace       multipart → {asset, repointed: {questions, groups}, left: {questions, groups}}
 DELETE /teacher/media/:id               409 if referenced by a published version
 GET    /teacher/assignments | POST | GET /:id | PATCH /:id
+                                        PATCH 409 ASSIGNMENT_LOCKED while the assignment is open and the
+                                        body changes testVersionId, durationMinutes or maxAttempts
 GET    /teacher/assignments/:id/attempts  → rows incl. integrity + audio summary
 POST   /teacher/attempts/:id/extend     {minutes,reason}
 POST   /teacher/attempts/:id/reset      {reason}
@@ -2339,6 +2365,14 @@ that ends early can still answer 400 instead of 408. Streamed uploads have
 separate handling. Every operation taking a JSON body declares the
 validator's 400 response; malformed or schema-invalid bodies are
 `400 VALIDATION_FAILED`.
+
+**The review options and the note.** `review.release` is `on_submit` or `after_close`; `review.showClassAverage` and `studentNote` are the teacher's other two choices. On `createAssignment` an omitted field takes its default (`on_submit`, false, no note); on `updateAssignment` an omitted one keeps what is stored, every other field is replaced, and `studentNote: null` clears the note. The note is trimmed by the server and stored as NULL when nothing is left; the contract counts its 500 characters before trimming. It is plain text everywhere it is drawn and is carried to a student on the assignment's detail only.
+
+**The live lock.** While the derived status is `open` (from `opensAt` up to, not including, `closesAt`, and before an early close), `updateAssignment` refuses a change to `testVersionId`, `durationMinutes` or `maxAttempts` with `409 ASSIGNMENT_LOCKED`, whether or not anyone has started; sending the stored value is not a change. The check precedes the version check, so a scheduled or closed assignment that has attempts still answers `VERSION_LOCKED` for a changed version, and its timing stays editable.
+
+**Release after the close.** The effective close of an assignment is the earlier of its early close and `closesAt`. Until `now` reaches it, a result whose assignment releases `after_close` is read as if the policy hid the score, the marks, the answer key and the explanations, and its grader's comments are not sent: the result's `review.showScore`, `showCorrectAnswers` and `showExplanations` are false, `review.release` and `review.showClassAverage` are as stored, and `releasesAt` is that close. A pending manual answer and a transcript keep their own gates. The student's assignment card shows no score before the same moment.
+
+**`classAverage`** on a result is the mean, over the students who qualify, of each one's best graded attempt as earned over total, as a percent (0 to 100, rounded to two decimals). A student qualifies when they are targeted (through a class or by name) and enabled and have a graded attempt; voided, submitted-but-ungraded and timed-out-but-ungraded attempts count for nothing. It is present only when `review.showClassAverage` is on, this result is released, the assignment has closed and at least 3 students qualify, and no student is named.
 
 **`liveAnsweredCount`** on a student's assignment card is the number of the live attempt's saved answers that say something, by the rule the engine's navigator applies (`web/src/features/take-test/answered.ts`): a choice with an option picked, a true/false with a value, a text that is not blank, and a fill-in with every blank of the frozen question filled. Blank means empty after removing the whitespace JavaScript's `trim()` removes. An answer that exists only in the browser's draft is not counted. The field is absent when there is no live attempt. The teacher's monitor applies the same rule to a row's `answeredCount`, so a saved answer the student has since cleared counts on neither screen.
 

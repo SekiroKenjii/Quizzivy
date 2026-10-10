@@ -66,11 +66,15 @@ func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttem
 			ShowScore:          result.Review.ShowScore,
 			ShowCorrectAnswers: result.Review.ShowCorrectAnswers,
 			ShowExplanations:   result.Review.ShowExplanations,
+			Release:            openapi.ReviewRelease(result.Review.Release),
+			ShowClassAverage:   result.Review.ShowClassAverage,
 		},
-		TestTitle:   result.TestTitle,
-		MaxAttempts: result.MaxAttempts,
-		Sections:    toAPISections(result.Sections),
-		Questions:   questions,
+		ReleasesAt:   result.ReleasesAt,
+		ClassAverage: result.ClassAverage,
+		TestTitle:    result.TestTitle,
+		MaxAttempts:  result.MaxAttempts,
+		Sections:     toAPISections(result.Sections),
+		Questions:    questions,
 	}, nil
 }
 

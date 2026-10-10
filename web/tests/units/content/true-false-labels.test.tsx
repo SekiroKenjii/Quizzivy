@@ -196,7 +196,13 @@ describe("the student's result for a true/false answer", () => {
       <ReviewItem
         question={question}
         number={1}
-        review={{ showScore: true, showCorrectAnswers: true, showExplanations: false }}
+        review={{
+          showScore: true,
+          showCorrectAnswers: true,
+          showExplanations: false,
+          release: "on_submit",
+          showClassAverage: false,
+        }}
         onRetry={vi.fn()}
       />,
     );

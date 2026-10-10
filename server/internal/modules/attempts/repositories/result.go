@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/schedule"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -17,74 +19,139 @@ type resultRules struct {
 	MaxAttempts int
 }
 
-func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord) (domain.Result, error) {
+// LoadResult reads a result as the student may read it at now. An assignment
+// that releases after close withholds, until its close, what the review policy
+// would hide: the score, the marks, the key, the explanations and the grader's
+// comments, none of which is selected, and it says when the withholding ends.
+func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord, now time.Time) (domain.Result, error) {
 	rules, err := s.resultRules(ctx, a.AssignmentID)
 	if err != nil {
 		return domain.Result{}, err
 	}
-	sections, err := s.Sections(ctx, a.TestVersionID)
+	readerClose := schedule.Close(rules.ClosesAt, rules.ClosedAt, nil)
+	assignmentClose := schedule.Close(rules.ClosesAt, rules.ClosedAt, nil)
+	withheld := domain.Reviews.Withheld(rules.Review.Release, now, readerClose)
+	stored := rules.Review
+	rules.Review = domain.Reviews.Effective(stored, withheld)
+	sections, paper, err := s.presentedPaper(ctx, a, rules)
 	if err != nil {
 		return domain.Result{}, err
 	}
-	base, err := s.Questions(ctx, a.TestVersionID)
+	questions, score, err := s.markedQuestions(ctx, a, paper, rules.Review, withheld)
 	if err != nil {
 		return domain.Result{}, err
 	}
-	version, err := s.DeliveryVersion(ctx, a.TestVersionID)
-	if err != nil {
-		return domain.Result{}, err
-	}
-	base, err = domain.Deal.PresentVersion(version, a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, sections, base)
-	if err != nil {
-		return domain.Result{}, err
-	}
-
-	extras, err := s.resultExtras(ctx, a.TestVersionID, rules.Review)
-	if err != nil {
-		return domain.Result{}, err
-	}
-	answers, err := s.gradedAnswers(ctx, a.ID)
-	if err != nil {
-		return domain.Result{}, err
-	}
-	plays, err := s.AudioPlays(ctx, a.ID)
-	if err != nil {
-		return domain.Result{}, err
-	}
-
 	out := domain.Result{
 		Attempt: a.Attempt, Review: rules.Review,
 		TestTitle: rules.TestTitle, MaxAttempts: rules.MaxAttempts,
-		Sections:  sections,
-		Questions: make([]domain.ResultQuestion, len(base)),
+		Sections: sections, Questions: questions, Score: score,
 	}
+	if withheld {
+		out.ReleasesAt = &readerClose
+	}
+	if out.ClassAverage, err = s.classAverageOf(ctx, a.AssignmentID, stored, withheld, !now.Before(assignmentClose)); err != nil {
+		return domain.Result{}, err
+	}
+	return out, nil
+}
+
+func (s *Postgres) presentedPaper(ctx context.Context, a domain.AttemptRecord, rules resultRules) ([]domain.Section, []domain.Question, error) {
+	sections, err := s.Sections(ctx, a.TestVersionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	base, err := s.Questions(ctx, a.TestVersionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	version, err := s.DeliveryVersion(ctx, a.TestVersionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	paper, err := domain.Deal.PresentVersion(version, a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, sections, base)
+	if err != nil {
+		return nil, nil, err
+	}
+	return sections, paper, nil
+}
+
+func (s *Postgres) markedQuestions(ctx context.Context, a domain.AttemptRecord, paper []domain.Question, review domain.ReviewPolicy, withheld bool) ([]domain.ResultQuestion, *domain.Score, error) {
+	extras, err := s.resultExtras(ctx, a.TestVersionID, review)
+	if err != nil {
+		return nil, nil, err
+	}
+	answers, err := s.gradedAnswers(ctx, a.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	plays, err := s.AudioPlays(ctx, a.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	questions := make([]domain.ResultQuestion, len(paper))
 	pending := 0
 	earned := 0.0
-	for i, q := range base {
-		rq, value := resultQuestion(q, extras, plays, answers, rules.Review.ShowScore)
+	for i, q := range paper {
+		rq, value := resultQuestion(q, extras, plays, answers, review.ShowScore, withheld)
 		switch {
 		case rq.PendingManual:
 			pending++
 		case value != nil:
 			earned += *value
 		}
-		out.Questions[i] = rq
+		questions[i] = rq
 	}
-	if rules.Review.ShowScore {
-		total, err := s.scoreTotal(ctx, a.ID)
-		if err != nil {
-			return domain.Result{}, err
-		}
-		out.Score = &domain.Score{Earned: earned, Total: total, PendingManual: pending}
+	if !review.ShowScore {
+		return questions, nil, nil
 	}
-	return out, nil
+	total, err := s.scoreTotal(ctx, a.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return questions, &domain.Score{Earned: earned, Total: total, PendingManual: pending}, nil
+}
+
+func (s *Postgres) classAverageOf(ctx context.Context, assignmentID string, stored domain.ReviewPolicy, withheld, closed bool) (*float64, error) {
+	if !stored.ShowClassAverage || withheld || !closed {
+		return nil, nil
+	}
+	var qualifying int
+	var mean *float64
+	err := s.QueryRow(ctx, `
+		WITH roster AS (
+		    SELECT m.user_id
+		      FROM app.assignment_classes ac
+		      JOIN app.class_members m ON m.class_id = ac.class_id
+		     WHERE ac.assignment_id = $1::uuid
+		    UNION
+		    SELECT ast.user_id FROM app.assignment_students ast
+		     WHERE ast.assignment_id = $1::uuid
+		), best AS (
+		    SELECT at.student_id,
+		           max(at.score_earned::float8 / at.score_total::float8) AS share
+		      FROM app.attempts at
+		      JOIN roster r ON r.user_id = at.student_id
+		      JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
+		     WHERE at.assignment_id = $1::uuid AND at.status = 'graded'
+		       AND at.score_earned IS NOT NULL AND at.score_total IS NOT NULL
+		     GROUP BY at.student_id
+		)
+		SELECT count(share), round((avg(share) * 100)::numeric, 2)::float8 FROM best`,
+		assignmentID).Scan(&qualifying, &mean)
+	if err != nil {
+		return nil, fmt.Errorf("attempts: read class average: %w", err)
+	}
+	if mean == nil || !domain.Reviews.ShowsAverage(stored, withheld, closed, qualifying) {
+		return nil, nil
+	}
+	return mean, nil
 }
 
 // resultQuestion is one line of the paper as the student may see it. The
 // second result is what the line adds to the score: nil while the answer is
 // unmarked, or while the policy hides scores altogether.
 func resultQuestion(q domain.Question, extras map[string]resultExtra, plays map[string]int,
-	answers map[string]gradedAnswer, showScore bool) (domain.ResultQuestion, *float64) {
+	answers map[string]gradedAnswer, showScore, withheld bool) (domain.ResultQuestion, *float64) {
 	rq := domain.ResultQuestion{Question: q}
 	if ex, ok := extras[q.ID]; ok {
 		rq.Explanation, rq.Transcript = ex.explanation, ex.transcript
@@ -98,7 +165,9 @@ func resultQuestion(q domain.Question, extras map[string]resultExtra, plays map[
 	ans, answered := answers[q.ID]
 	if answered {
 		rq.Answer = ans.payload
-		rq.GraderComment = ans.comment
+		if !withheld {
+			rq.GraderComment = ans.comment
+		}
 		rq.PendingManual = ans.requiresManual && ans.manual == nil
 	}
 	if rq.PendingManual || !showScore {
@@ -117,13 +186,15 @@ func (s *Postgres) resultRules(ctx context.Context, assignmentID string) (result
 	err := s.QueryRow(ctx, `
 		SELECT a.shuffle_questions, a.shuffle_options,
 		       a.review_show_score, a.review_show_correct_answers, a.review_show_explanations,
-		       a.max_attempts, t.title
+		       a.review_release, a.review_show_class_average,
+		       a.closes_at, a.closed_at, a.max_attempts, t.title
 		  FROM app.assignments a
 		  JOIN app.tests t ON t.id = a.test_id
 		 WHERE a.id = $1::uuid`, assignmentID).Scan(
 		&r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Review.ShowScore, &r.Review.ShowCorrectAnswers, &r.Review.ShowExplanations,
-		&r.MaxAttempts, &r.TestTitle)
+		&r.Review.Release, &r.Review.ShowClassAverage,
+		&r.ClosesAt, &r.ClosedAt, &r.MaxAttempts, &r.TestTitle)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return resultRules{}, domain.ErrNotFound
 	}

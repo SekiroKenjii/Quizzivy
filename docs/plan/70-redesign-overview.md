@@ -34,6 +34,16 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | D17 | Messages | Direct messages are readable by their participants only. Admins see counts, never contents. |
 | D18 | Leads | A consent checkbox and a privacy notice (Decree 13/2023); leads kept 12 months. |
 
+Decided by Thuong on 2026-10-10 for the AI assistant the design team's v2 export draws
+(`74d-d4-deck-update.md`, section G):
+
+| # | Area | Decision |
+|---|---|---|
+| D19 | AI provider | Anthropic's API for every AI feature in v2; cloud processing is approved and enabled. This replaces the spec's "cloud and private AI processing remain candidates … not enabled by default" for these features. The provider sits behind a module port (`core/adapters`, as Google and the audio probe do); with `ANTHROPIC_API_KEY` unset the AI operations answer 501 and the web shows the deck's "AI didn't respond" fallback where it draws one, never a 500. Model choice is configuration, as tiers (a fast tier and a capable tier with vision), never a model identifier in a document. |
+| D20 | AI data | Data minimisation, decided per feature: each feature sends exactly what it needs and the plan lists it. Personal identifiers never reach the provider unless a feature cannot work without them (none does), and the plan says so wherever that would happen. |
+| D21 | AI budget | The centre has $200 of API credit a month; that is the pool. Use beyond it happens only when an Admin approves extra credit, which Thuong pays for (the deck's "Add credits"). The accounting is a hard stop, never a soft warning: a credit unit mapped to the provider's token cost, metered per call from the reported usage, with per-teacher allowances under the pool. |
+| D22 | AI release | Built in D4, the release right after R4, not a release of its own; D4's lanes, tasks and version are reshaped to fit. |
+
 ## 2. The release train
 
 | Rel | Version | Name | Plan file |
@@ -44,14 +54,17 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | R3 | v0.9.0 | Student console and the take-test engine | `73-r3.md` |
 | R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10. By default carried inside v0.10.0 as T-R4.49 (2026-10-08; `73-r3.md`, "Migration numbers") | `73-r3.md` |
 | R4 | v0.10.0 | Teacher workspace | `74-r4.md` |
-| D4 | v0.10.1 | Deck update: the fourth export (2026-10-04). The take-test engine, the builder's shared content and the three previews, rebuilt to it | `74d-d4-deck-update.md` |
-| R5 | v0.11.0 | Admin console and email | `75-r5.md` |
-| R6 | v0.12.0 | Question types and scoring | `76-r6.md` |
-| R7 | v0.13.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
-| R8 | v0.14.0 | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
-| R9 | v0.15.0 | Insights: gradebook, reports, student grades | `79-r9.md` |
-| R10 | v0.16.0 | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
+| D4 | v0.11.0 (decided 2026-10-10, `74d` Q29) | Deck update: the fourth export (2026-10-04) and v2 (2026-10-10). The take-test engine, the builder's shared content and the three previews, rebuilt to it; the AI assistant (D19 to D22); the four R4 screens v2 redraws | `74d-d4-deck-update.md` |
+| R5 | v0.12.0 | Admin console and email; the AI credits page on D4's operations | `75-r5.md` |
+| R6 | v0.13.0 | Question types and scoring | `76-r6.md` |
+| R7 | v0.14.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
+| R8 | v0.15.0 | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
+| R9 | v0.16.0 | Insights: gradebook, reports, student grades | `79-r9.md` |
+| R10 | v0.17.0 | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
 | R11 | v1.0.0 | Landing, leads, and v1.0 hardening | `81-r11.md` |
+
+The release files `75-r5.md` to `80-r10.md` still carry their first-planned version in their
+titles; D4's release task (T-D4.18) corrects them to the versions above (Q29, decided 2026-10-10).
 
 **Ordering rules.**
 
@@ -73,8 +86,11 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
    Assistant from role pickers, and if DG-04 is still open at T-R11.14 class staff goes on the
    post-1.0 list (§10).
 10. D4 follows R4 and comes before R5 (Thuong, 2026-10-04). R4 builds from the deck of record
-    as it stands. The fourth export is imported by D4's first task, after v0.10.0, and no R4
-    task is amended to it while R4 is in flight.
+    as it stands. The v2 export of 2026-10-10, which carries the fourth export, is imported by
+    D4's first task, after v0.10.0, and no R4 task is amended to it while R4 is in flight. The
+    AI assistant ships inside D4 (D22); the Admin "AI credits" page, which needs R5's console,
+    is R5's T-R5.35 on operations D4 ships (`74d` Q28, decided 2026-10-10); until then the
+    owner uses `cmd/maintenance ai-credits`.
 
 ## 3. How the work is run
 
@@ -138,6 +154,13 @@ integration test asserts they are equal. Labels and defaults are the deck's
 | `system.audit.read` | View audit log | System | ✓ | | | |
 | `system.settings.write` | Change system settings | System | ✓ | | | |
 | `learning.take_tests` | Take tests and view own results | System | toggle | | | ✓ |
+| `ai.use` | Use AI features (D19 to D22; D4, T-D4.32) | Content | ✓ | ✓ | | |
+| `ai.credits.manage` | Manage AI credits (D21; D4, T-D4.32) | System | ✓ | | | |
+
+The two AI rows are not in the deck's matrix (DG+18 in `74d`, asked of the design team); they are
+drawn in the matrix's own style until then. `ai.use` gates every `/teacher/ai/*` operation and the
+import's "Read with AI"; `ai.credits.manage` gates `/admin/ai/*` (the pool, allowances, rules and
+requests). Neither is a pseudo-key: a role may hold every teaching key and no AI.
 
 - **Admin is a wildcard**: it holds every key, including the hidden ones below, except
   `learning.take_tests`, the one Admin cell the matrix may toggle (DG-51). New keys added by
@@ -382,3 +405,12 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
   starts after the deck draws DG-04; if DG-04 is still open at T-R11.14, v1.0 ships with
   Assistant hidden from role pickers and class staff on the post-1.0 list. Thuong confirms the
   fallback.
+- **The AI assistant's questions (D19 to D22; `74d` Q28 to Q35).** Thuong answered Q28 to Q34
+  on 2026-10-10 as recommended: the Admin page waits for R5 and D4 ships its operations and a
+  maintenance command; D4 is v0.11.0; the default allowance is 20,000 credits; the pool's rule
+  has one value; a variant is a new draft test and the clean-up merges nothing; "Let AI read
+  student answers" is a per-teacher switch on by default; paused or exhausted buttons are visible
+  and disabled with the reason. **Still open (Q35):** the student-facing sentence on the Test
+  intro about cloud processing, which waits for Thuong's wording, and the provider account's
+  data-retention setting, which he confirms. The import page's sentence (D4) and the privacy
+  notice (R11) are decided.
