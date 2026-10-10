@@ -1365,20 +1365,10 @@
     "activeAssignmentsHint": "Tối đa 10 bài đang mở hoặc sắp mở, theo hạn nộp gần nhất."
   },
   "assignments": {
-    "summary": "{{count}} bài giao · {{open}} đang mở",
-    "rowOpen": "Mở",
     "new": "Giao bài mới",
-    "all": "Tất cả",
-    "statusFilter": "Lọc theo trạng thái",
     "test": "Đề thi",
-    "targets": "Giao cho",
-    "window": "Cửa sổ",
     "statusColumn": "Trạng thái",
     "progress": "Đã nộp",
-    "flagged": "Đánh dấu",
-    "targetSummary": "{{classes}} lớp · {{students}} học viên lẻ",
-    "empty": "Chưa giao bài nào.",
-    "noneWithStatus": "Không có bài giao nào ở trạng thái này.",
     "loadFailed": "Không tải được danh sách bài giao.",
     "createFailed": "Không giao được bài. Vui lòng thử lại.",
     "step1": "1 · Đề thi",
@@ -1488,7 +1478,6 @@
     },
     "summaryTitle": "Tóm tắt",
     "progressValue": "{{submitted}}/{{total}}",
-    "windowValue": "{{opens}} – {{closes}}",
     "latestVersion": "mới nhất: bản v{{version}}",
     "saveDraft": "Lưu nháp",
     "needTargets": "Chọn lớp hoặc học viên trước khi giao.",
@@ -1607,9 +1596,6 @@
         "voided": "Đã huỷ"
       }
     },
-    "classFilterLoading": "Lớp…",
-    "clearClassFilter": "Bỏ lọc theo lớp",
-    "emptyForClass": "Chưa giao bài nào cho lớp này.",
     "rosterTotal": "{{count}} học viên sẽ nhận bài. Mỗi học viên chỉ tính một lần.",
     "rosterOverlap": "Đã gộp các lượt chọn trùng: {{names}}.",
     "rosterLoading": "Đang tính danh sách học viên…",

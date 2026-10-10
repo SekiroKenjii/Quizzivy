@@ -1365,20 +1365,10 @@
     "activeAssignmentsHint": "Up to 10 open or upcoming assignments, ordered by deadline."
   },
   "assignments": {
-    "summary": "{{count}} assignments · {{open}} open",
-    "rowOpen": "Open",
     "new": "New assignment",
-    "all": "All",
-    "statusFilter": "Filter by status",
     "test": "Test",
-    "targets": "Assigned to",
-    "window": "Window",
     "statusColumn": "Status",
     "progress": "Submitted",
-    "flagged": "Flagged",
-    "targetSummary": "{{classes}} classes · {{students}} individual",
-    "empty": "Nothing assigned yet.",
-    "noneWithStatus": "No assignments with this status.",
     "loadFailed": "Could not load assignments.",
     "createFailed": "Could not create the assignment. Please try again.",
     "step1": "1 · Test",
@@ -1488,7 +1478,6 @@
     },
     "summaryTitle": "Summary",
     "progressValue": "{{submitted}}/{{total}}",
-    "windowValue": "{{opens}} – {{closes}}",
     "latestVersion": "latest: v{{version}}",
     "saveDraft": "Save draft",
     "needTargets": "Choose a class or student before assigning.",
@@ -1607,9 +1596,6 @@
         "voided": "Voided"
       }
     },
-    "classFilterLoading": "Class…",
-    "clearClassFilter": "Clear the class filter",
-    "emptyForClass": "Nothing has been assigned to this class yet.",
     "rosterTotal": "{{count}} students will receive this assignment. Each student is counted once.",
     "rosterOverlap": "Counted duplicate selections once: {{names}}.",
     "rosterLoading": "Counting the selected students…",
