@@ -12,7 +12,12 @@ import {
   questionSchema,
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
-import { retype, typeLocked } from "@/features/question-bank/questionType";
+import {
+  readTrueFalse,
+  retype,
+  typeLocked,
+} from "@/features/question-bank/questionType";
+import { plainOptionContent } from "@/components/shared/content/optionContent";
 import { publishProblem } from "@/features/tests/publishProblem";
 import type { AdminQuestion } from "@/features/question-bank/api";
 import type { QuestionPromptContent } from "@/components/shared/content/questionContent";
@@ -168,18 +173,94 @@ describe("the multiple-choice options", () => {
   });
 });
 
+const TRUE_ID = "018f0000-0000-7000-8000-0000000000c1";
+const FALSE_ID = "018f0000-0000-7000-8000-0000000000c2";
+
+function stored(
+  text: string,
+  isCorrect: boolean,
+  id: string,
+  content?: boolean,
+): Option {
+  return {
+    id,
+    text,
+    isCorrect,
+    ...(content ? { content: plainOptionContent(text) } : {}),
+  };
+}
+
 describe("the true/false field", () => {
-  it("writes the canonical options, normalising a renamed legacy pair", async () => {
+  it("reads a canonical pair in order and keeps both ids through a toggle", async () => {
     const { user, seen } = renderArea({
       type: "true_false",
-      options: [option("Đúng rồi", true), option("Sai bét")],
+      options: [stored("True", true, TRUE_ID), stored("False", false, FALSE_ID)],
     });
+    expect(screen.getByRole("radio", { name: "Đúng" })).toBeChecked();
+
     await user.click(screen.getByRole("radio", { name: "Sai" }));
     expect(seen.at(-1)!.options).toEqual([
-      { id: null, text: "True", isCorrect: false },
-      { id: null, text: "False", isCorrect: true },
+      { id: TRUE_ID, text: "True", isCorrect: false },
+      { id: FALSE_ID, text: "False", isCorrect: true },
+    ]);
+    await user.click(screen.getByRole("radio", { name: "Đúng" }));
+    expect(seen.at(-1)!.options).toEqual([
+      { id: TRUE_ID, text: "True", isCorrect: true },
+      { id: FALSE_ID, text: "False", isCorrect: false },
+    ]);
+  });
+
+  it("reads an imported pair stored False first by its text, not its position", async () => {
+    const { user, seen } = renderArea({
+      type: "true_false",
+      options: [
+        stored("False", true, FALSE_ID, true),
+        stored("True", false, TRUE_ID, true),
+      ],
+    });
+    expect(screen.getByRole("radio", { name: "Sai" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Đúng" })).not.toBeChecked();
+
+    await user.click(screen.getByRole("radio", { name: "Đúng" }));
+    expect(seen.at(-1)!.options).toEqual([
+      {
+        id: TRUE_ID,
+        text: "True",
+        isCorrect: true,
+        content: plainOptionContent("True"),
+      },
+      {
+        id: FALSE_ID,
+        text: "False",
+        isCorrect: false,
+        content: plainOptionContent("False"),
+      },
+    ]);
+  });
+
+  it("takes the first of a renamed legacy pair as true and normalises the texts", async () => {
+    const { user, seen } = renderArea({
+      type: "true_false",
+      options: [stored("Đúng rồi", true, TRUE_ID), stored("Sai bét", false, FALSE_ID)],
+    });
+    expect(screen.getByRole("radio", { name: "Đúng" })).toBeChecked();
+
+    await user.click(screen.getByRole("radio", { name: "Sai" }));
+    expect(seen.at(-1)!.options).toEqual([
+      { id: TRUE_ID, text: "True", isCorrect: false },
+      { id: FALSE_ID, text: "False", isCorrect: true },
     ]);
     expect(screen.getByRole("radio", { name: "Sai" })).toBeChecked();
+  });
+
+  it("takes the option beside a lone canonical False as true", () => {
+    const answer = readTrueFalse([
+      stored("False", false, FALSE_ID),
+      stored("Đúng", true, TRUE_ID),
+    ]);
+    expect(answer.trueIsCorrect).toBe(true);
+    expect(answer.trueOption?.id).toBe(TRUE_ID);
+    expect(answer.falseOption?.id).toBe(FALSE_ID);
   });
 });
 
@@ -217,6 +298,18 @@ describe("retype", () => {
     expect(retype(retype(base, "true_false"), "single_choice").options).toEqual([
       { id: null, text: "", isCorrect: true },
       { id: null, text: "", isCorrect: false },
+    ]);
+  });
+
+  it("keeps a reversed true/false answer and its ids when the type is set again", () => {
+    const reversed: QuestionValues = {
+      ...base,
+      type: "true_false",
+      options: [stored("False", true, FALSE_ID), stored("True", false, TRUE_ID)],
+    };
+    expect(retype(reversed, "true_false").options).toEqual([
+      { id: TRUE_ID, text: "True", isCorrect: false },
+      { id: FALSE_ID, text: "False", isCorrect: true },
     ]);
   });
 

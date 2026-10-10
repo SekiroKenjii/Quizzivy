@@ -1,4 +1,6 @@
 import { questionGaps } from "@/components/shared/content/gaps";
+import { plainOptionContent } from "@/components/shared/content/optionContent";
+import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
 import type { QuestionType, QuestionValues } from "./questionSchema";
 
 type Option = QuestionValues["options"][number];
@@ -37,16 +39,64 @@ export function typeLocked(
   return value.type === "fill_blank" && value.blanks.length > 0;
 }
 
+/** TrueFalseAnswer is a true/false question's stored options read as an answer. */
+export interface TrueFalseAnswer {
+  trueIsCorrect: boolean;
+  trueOption: Option | undefined;
+  falseOption: Option | undefined;
+}
+
+/**
+ * readTrueFalse reads a true/false question's answer by its canonical text, the
+ * test trueFalseLabelKey applies, never by position: the Word import keeps a
+ * question's own order, so "False" can come first. The option stored as
+ * exactly "True" is the true one; failing that, the one beside an exact
+ * "False" is. Only when neither text is canonical, a legacy rename or an
+ * imported "Đúng" / "Sai", is the first option taken as true. With no options,
+ * "True" is correct.
+ */
+export function readTrueFalse(options: readonly Option[]): TrueFalseAnswer {
+  const keys = options.map((option) =>
+    trueFalseLabelKey("true_false", option.text, option.content ?? null),
+  );
+  const canonicalTrue = keys.indexOf("trueFalse.true");
+  const canonicalFalse = keys.indexOf("trueFalse.false");
+  let trueIndex = 0;
+  if (canonicalTrue >= 0) trueIndex = canonicalTrue;
+  else if (canonicalFalse === 0) trueIndex = 1;
+  const trueOption = options[trueIndex];
+  const falseOption = options.find((_, index) => index !== trueIndex);
+  return { trueIsCorrect: trueOption?.isCorrect ?? true, trueOption, falseOption };
+}
+
 /**
  * trueFalseOptions are a true/false question's two options in their stored,
  * canonical form: "True" first, "False" second, with `trueIsCorrect` saying
- * which one is ticked.
+ * which one is ticked. Given the options they replace, each keeps the id of
+ * the option it stands for, so the server matches it to its stored row, and
+ * one that had content gets its canonical text as plain content.
  */
-export function trueFalseOptions(trueIsCorrect: boolean): Option[] {
+export function trueFalseOptions(
+  trueIsCorrect: boolean,
+  from?: Pick<TrueFalseAnswer, "trueOption" | "falseOption">,
+): Option[] {
   return [
-    { id: null, text: "True", isCorrect: trueIsCorrect },
-    { id: null, text: "False", isCorrect: !trueIsCorrect },
+    canonicalOption("True", trueIsCorrect, from?.trueOption),
+    canonicalOption("False", !trueIsCorrect, from?.falseOption),
   ];
+}
+
+function canonicalOption(
+  text: string,
+  isCorrect: boolean,
+  source: Option | undefined,
+): Option {
+  return {
+    id: source?.id ?? null,
+    text,
+    isCorrect,
+    ...(source?.content == null ? {} : { content: plainOptionContent(text) }),
+  };
 }
 
 /**
@@ -72,8 +122,9 @@ function optionsFor(value: QuestionValues, type: QuestionType): Option[] {
       ? value.options
       : [];
   if (type === "true_false") {
-    const first = value.type === "true_false" ? value.options[0] : undefined;
-    return trueFalseOptions(first?.isCorrect ?? true);
+    if (value.type !== "true_false") return trueFalseOptions(true);
+    const answer = readTrueFalse(value.options);
+    return trueFalseOptions(answer.trueIsCorrect, answer);
   }
   if (type === "multiple_choice") return carried.length > 0 ? carried : blankOptions();
   if (type === "single_choice") {
