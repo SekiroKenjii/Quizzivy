@@ -1033,7 +1033,9 @@
       "listening": "Nghe",
       "writing": "Viết",
       "speaking": "Nói"
-    }
+    },
+    "selectPage": "Chọn tất cả trên trang này",
+    "selectedNotShown": "Đã chọn {{count}} · {{notShown}} không hiển thị"
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
