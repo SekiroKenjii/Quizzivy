@@ -13,7 +13,7 @@ rules require; it passes only when every job did what the plan asked of it.
 | Contract | `code` | `make gen-check`: lint the contract, regenerate, fail on drift |
 | Server lint | `server` | vet, staticcheck, golangci-lint, gofmt |
 | Server tests | `server` | unit, integration and end-to-end tiers, the Word converter tests; migrations up, down, up |
-| Web checks | `web` | eslint, typecheck, prettier, integration tests, build |
+| Web checks | `web` | `pnpm lint:ci`, typecheck, `pnpm format:ci`, integration tests, build (lint and format never read a cache) |
 | Web unit | `web` | the unit suite, in shards |
 | E2E | `web` | Playwright against a production build, API stubbed |
 | E2E (live API) | `code` | Playwright against the real API, Postgres and MinIO |
@@ -31,7 +31,8 @@ like.
    included or excluded; the longest rule that matches a path decides.
 2. Plan hashes the mode, blob and path of every file in a job's set. The
    workflow, `.github/actions/` and `scripts/ci/` are in every set, so a change
-   to CI itself changes every hash.
+   to CI itself changes every hash. `scripts/dev/` holds the team's local
+   scripts; no job reads it, `plan.test.mjs` fails if one does, and it is in no set.
 3. A job's last step records how it ended, as an artifact kept for 30 days:
    `ci-pass-<job>-<hash>` after a pass, `ci-fail-<job>-<hash>` after a failure,
    nothing when it was cancelled. Plan skips a job when the newest pass for its
