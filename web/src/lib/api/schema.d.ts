@@ -255,6 +255,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's signed-in devices
+         * @description Every live session of the caller, one row per sign-in, and no one
+         *     else's. The session of the request's refresh cookie comes first with
+         *     `current: true`; the others follow by `lastUsedAt`, newest first, then
+         *     by `familyId`. At most 100 rows: a caller with more sees the newest
+         *     ones, and "sign out the others" still ends them all.
+         *
+         *     The calling session is identified by the refresh cookie, which reaches
+         *     this endpoint because it is scoped `Path=/auth`. Without a cookie that
+         *     names a live session of the caller, the list is still returned and no
+         *     row is current.
+         *
+         *     **Leak review.** Each row holds a handle, a label built from a closed
+         *     list of names, a city and a country code, and a time, all of the
+         *     caller's own session. A row holds no IP address, no raw user agent, no
+         *     token or hash and no expiry. The location is the approximate place of
+         *     the last sign-in or refresh, which the caller can already see on their
+         *     own device. Responses are `no-store`.
+         */
+        get: operations["listSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/revoke-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out every other device
+         * @description Revokes every live session of the caller except the calling one, and
+         *     only when there is one to revoke also moves the caller's session epoch
+         *     and forgets the cached principal, so the access tokens of the sessions
+         *     that ended stop working at once on the server that took the request
+         *     and within 10 seconds on any other (§5). The epoch is the caller's,
+         *     so the caller's own access token is refused on its next request as
+         *     well; the client's single-flight refresh replaces it and the calling
+         *     session keeps its place. With nothing to revoke nothing is written, the
+         *     epoch does not move and `revoked` is 0.
+         *
+         *     The calling session is identified by the refresh cookie. When the
+         *     request carries none that names a live session of the caller, the
+         *     answer is `401 UNAUTHORIZED` and nothing is written: the server cannot
+         *     tell the caller's session from the others, and a holder of an access
+         *     token alone is not enough to sign an account out everywhere.
+         *
+         *     Limited to 5 a minute and 30 an hour per signed-in user.
+         */
+        post: operations["revokeOtherSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/{familyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Sign out one device
+         * @description Revokes one live session of the caller, moves the caller's session
+         *     epoch and forgets the cached principal in the same command, so the
+         *     access tokens of every session of the caller are refused on their next
+         *     request, at once on the server that took the request and within 10
+         *     seconds on any other (§5). The sessions that were not revoked refresh
+         *     and carry on; the revoked one cannot refresh.
+         *
+         *     The id of another user's session, of one that is revoked or expired and
+         *     of one that never existed answer alike: `404 NOT_FOUND`. The calling
+         *     session is refused with `409 SESSION_IS_CURRENT`; signing out of it is
+         *     `POST /auth/logout`.
+         *
+         *     The calling session is identified by the refresh cookie. When the
+         *     request carries none that names a live session of the caller, the
+         *     answer is `401 UNAUTHORIZED` and nothing is written.
+         *
+         *     Limited to 10 a minute and 60 an hour per signed-in user.
+         */
+        delete: operations["revokeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/question-groups": {
         parameters: {
             query?: never;
@@ -2792,7 +2900,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -3725,6 +3833,39 @@ export interface components {
             /** @description Seconds. */
             expiresIn: number;
             user: components["schemas"]["CurrentUser"];
+        };
+        /**
+         * @description One sign-in of the caller that is still live: a refresh-token family
+         *     that is neither revoked nor expired (§5.2). It is the caller's own and
+         *     nobody else's. It carries no IP address, no raw user agent and nothing
+         *     that could be presented as a credential.
+         *
+         *     `device` is computed from the user agent when the list is read and is
+         *     made only of names from a closed list, "Mac · Chrome", "Mac" or
+         *     "Chrome", never of any part of the header itself. It is null, and
+         *     `deviceKind` is `unknown`, when neither the system nor the browser is
+         *     recognised; the client words that case in the reader's language.
+         *     `deviceKind` picks the icon. An iPad that asks for desktop sites sends
+         *     a Mac user agent and reads as one.
+         *
+         *     `location` is "City, CC", the place of the request that last signed in
+         *     or refreshed this session, taken from the edge's location headers and
+         *     only where the server trusts them. It is null otherwise. `lastUsedAt`
+         *     is that same moment, so it is at most one access-token lifetime old.
+         */
+        Session: {
+            familyId: components["schemas"]["Uuid"];
+            device: string | null;
+            /** @enum {string} */
+            deviceKind: "computer" | "phone" | "tablet" | "unknown";
+            location: string | null;
+            lastUsedAt: components["schemas"]["Timestamp"];
+            /**
+             * @description True for the session the request's refresh cookie belongs to. False
+             *     for every session when the request carries no cookie that names a
+             *     live session of the caller.
+             */
+            current: boolean;
         };
         Class: {
             id: components["schemas"]["Uuid"];
@@ -6112,6 +6253,81 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    listSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The live sessions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Session"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    revokeOtherSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The other sessions are revoked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description How many sessions this call ended. */
+                        revoked: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The `familyId` of a session `listSessions` returned. */
+                familyId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description `SESSION_IS_CURRENT` — the session is the one making the request. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listQuestionGroups: {
