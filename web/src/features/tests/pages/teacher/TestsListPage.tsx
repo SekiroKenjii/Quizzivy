@@ -1,9 +1,4 @@
-import { useBulkSelection } from "@/hooks/useBulkSelection";
-import { BulkActions } from "@/components/shared/BulkActions";
-import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
-import { DeleteItemButton } from "@/components/shared/DeleteItemButton";
-import { useListFilters } from "@/hooks/useListFilters";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import {
@@ -12,116 +7,118 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  Archive,
-  RotateCw,
-  Copy,
-  Eye,
-  FileUp,
-  Filter,
-  Headphones,
-  History,
-  Plus,
-  Send,
-  SquarePen,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Archive, ClipboardPaste, FileUp, History, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { DeckScale } from "@/components/ui/deck-scale";
+import { Segmented } from "@/components/ui/segmented";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/sonner";
+import { BulkActions } from "@/components/shared/BulkActions";
+import { CardGrid } from "@/components/shared/CardGrid";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { DeleteItemDialog } from "@/components/shared/DeleteItemButton";
+import { EmptyState, LoadError, QueryStates } from "@/components/shared/ListState";
+import { Pager } from "@/components/shared/Pager";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { useListFilters } from "@/hooks/useListFilters";
+import { usePage } from "@/hooks/usePage";
+import { PageHead } from "@/layouts/shell/PageHead";
+import { ApiError } from "@/lib/api/errors";
+import { useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { useDebounced } from "@/lib/useDebounced";
+import { useImportAvailability } from "@/features/imports/availability";
 import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-} from "@/components/ui/dropdown-menu";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  deleteTest,
   archiveTest,
-  restoreTest,
   createTest,
+  deleteTest,
   duplicateTest,
   listTests,
+  restoreTest,
   type Test,
-  type TestStatus,
 } from "@/features/tests/api";
-import { useImportAvailability } from "@/features/imports/availability";
-import { useLocale } from "@/lib/i18n/useLocale";
-import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
-import { useDebounced } from "@/lib/useDebounced";
-import { ApiError } from "@/lib/api/errors";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { RowMenu } from "@/components/shared/RowMenu";
-import { SearchInput } from "@/components/shared/SearchInput";
-import { toast } from "@/components/ui/sonner";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { Pager } from "@/components/shared/Pager";
-import { usePage } from "@/hooks/usePage";
+import { TestCard } from "@/features/tests/pages/teacher/TestCard";
 
-const TABS: (TestStatus | "all")[] = ["all", "draft", "published", "archived"];
+const PAGE_SIZE = 24;
+const TABS = ["all", "published", "draft"] as const;
+type Tab = (typeof TABS)[number];
+const TAB_LABELS = {
+  all: "tests.all",
+  published: "status.test.published",
+  draft: "tests.draftsTab",
+} as const;
 
-/** §8's tests list, as the deck's A-03. */
-const PAGE_SIZE = 20;
+const SEARCH =
+  "[&_input]:bg-card [&_input]:border-border max-w-[280px] flex-[0_1_280px] [&_input]:h-8.5 [&_input]:pl-8.25 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
 
+const GHOST =
+  "text-muted-fg hover:bg-muted hover:text-fg dark:hover:bg-muted in-data-[scale=deck]:px-3";
+
+function toTab(value: string | null): Tab {
+  return TABS.find((tab) => tab === value) ?? "all";
+}
+
+function menuTrigger(id: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`[data-test-menu="${id}"]`);
+}
+
+function message(cause: unknown, fallback: string): string {
+  return cause instanceof ApiError ? cause.message : fallback;
+}
+
+/**
+ * TestsListPage is the teacher's tests, as the deck's Tests screen draws them:
+ * the ways to start a test (Word or PDF, paste, or from nothing), the status
+ * tabs with their counts, a search by title, and the tests as cards. Every
+ * test, archived ones included, is under All. A card can be selected for the
+ * bulk archive and delete, duplicated in place, and archived, restored or
+ * deleted from its menu.
+ */
 export default function TestsListPage() {
   useDisplayTimeZone();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const bulk = useBulkSelection<Test>();
-  const queryClient = useQueryClient();
+  const client = useQueryClient();
   const imports = useImportAvailability();
-
+  const bulk = useBulkSelection<Test>();
   const { params, setParams, setFilter } = useListFilters();
-  const requested = params.get("status");
-  const tab = TABS.find((value) => value === requested) ?? "all";
-  const setTab = (value: TestStatus | "all") =>
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      if (value === "all") next.delete("status");
-      else next.set("status", value);
-      next.delete("page");
-      return next;
-    });
+  const tab = toTab(params.get("status"));
   const query = params.get("q") ?? "";
-  const setQuery = (value: string) => setFilter("q", value);
-  const tags = params.getAll("tag");
-  const setTags = (value: readonly string[]) => setFilter("tag", value);
-  const [error, setError] = useState<string | null>(null);
-  const search = useDebounced(query, 300);
-  const locale = useLocale();
-
-  const [page] = usePage(
-    JSON.stringify({ tab, search: search.trim(), tags: [...tags] }),
-  );
+  const search = useDebounced(query.trim(), 300);
+  const [page] = usePage(JSON.stringify({ tab, search }));
   const tests = useQuery({
-    queryKey: ["admin-tests", { tab, search, tags, page }],
+    queryKey: ["admin-tests", { tab, search, page }],
     queryFn: ({ signal }) =>
       listTests(
         {
           limit: PAGE_SIZE,
           page,
           ...(tab === "all" ? {} : { status: tab }),
-          ...(tags.length > 0 ? { tag: [...tags] } : {}),
-          ...(search.trim() === "" ? {} : { q: search.trim() }),
+          ...(search === "" ? {} : { q: search }),
         },
         signal,
       ),
     placeholderData: keepPreviousData,
   });
+  const newButton = useRef<HTMLButtonElement>(null);
+  const returnTo = useRef<HTMLElement | null>(null);
+  const [archiving, setArchiving] = useState<Test | null>(null);
+  const [deleting, setDeleting] = useState<Test | null>(null);
+  const [duplicated, setDuplicated] = useState<ReadonlySet<string>>(new Set());
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-tests"] });
+  const invalidate = () => client.invalidateQueries({ queryKey: ["admin-tests"] });
+  const besideRemoved = (removed: Test): HTMLElement | null => {
+    const items = tests.data?.items ?? [];
+    const index = items.findIndex((item) => item.id === removed.id);
+    const neighbour = items[index + 1] ?? items[index - 1];
+    return (
+      (neighbour === undefined ? null : menuTrigger(neighbour.id)) ?? newButton.current
+    );
+  };
+  const fromMenu = (open: (test: Test) => void) => (test: Test) => {
+    returnTo.current = menuTrigger(test.id);
+    open(test);
+  };
 
   const create = useMutation({
     mutationFn: () => createTest(t("tests.untitled")),
@@ -129,18 +126,17 @@ export default function TestsListPage() {
       await invalidate();
       void navigate(`/teacher/tests/${test.id}/edit`);
     },
-    onError: (cause) => setError(message(cause, t("tests.createFailed"))),
+    onError: (cause) => toast(message(cause, t("tests.createFailed"))),
   });
 
-  const [duplicated, setDuplicated] = useState<ReadonlySet<string>>(new Set());
   const duplicate = useMutation({
-    mutationFn: (id: string) => duplicateTest(id),
-    onSuccess: async (test, sourceId) => {
-      setDuplicated((current) => new Set([...current, sourceId, test.id]));
+    mutationFn: (test: Test) => duplicateTest(test.id),
+    onSuccess: async (copy, source) => {
+      setDuplicated((current) => new Set([...current, source.id, copy.id]));
       await invalidate();
       toast(t("common.justDuplicated"));
     },
-    onError: (cause) => setError(message(cause, t("tests.duplicateFailed"))),
+    onError: (cause) => toast(message(cause, t("tests.duplicateFailed"))),
   });
 
   const restore = useMutation({
@@ -149,18 +145,17 @@ export default function TestsListPage() {
       await invalidate();
       toast(t("tests.restored"));
     },
-    onError: (cause) => setError(message(cause, t("tests.restoreFailed"))),
+    onError: (cause) => toast(message(cause, t("tests.restoreFailed"))),
   });
 
-  const [archiving, setArchiving] = useState<Test | null>(null);
   const archive = useMutation({
     mutationFn: (test: Test) => archiveTest(test),
     onSuccess: async (archived, test) => {
+      if (tab !== "all") returnTo.current = besideRemoved(test);
       await invalidate();
       setArchiving(null);
       toast(
         t("tests.archived"),
-        // Restoring only ever yields a draft, so undo is offered where that is the truth.
         test.status === "draft"
           ? {
               action: {
@@ -173,35 +168,86 @@ export default function TestsListPage() {
     },
     onError: (cause) => {
       setArchiving(null);
-      setError(message(cause, t("tests.archiveFailed")));
+      toast(message(cause, t("tests.archiveFailed")));
     },
   });
 
-  const items = tests.data?.items ?? [];
   const facets = tests.data?.facets;
-  const offered = [...new Set([...tags, ...(tests.data?.tags ?? [])])].sort((a, b) =>
-    a.localeCompare(b, "vi"),
-  );
+  const filtered = search !== "" || tab !== "all";
+  const clearFilters = () =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("q");
+        next.delete("status");
+        next.delete("page");
+        return next;
+      },
+      { replace: true },
+    );
+  const createNew = () => create.mutate();
+
+  const results = (data: NonNullable<typeof tests.data>) => {
+    if (data.items.length > 0)
+      return (
+        <>
+          <CardGrid
+            label={t("teacherShell.nav.tests")}
+            items={data.items}
+            itemKey={(test) => test.id}
+            min={290}
+          >
+            {(test) => (
+              <TestCard
+                test={test}
+                selection={bulk}
+                duplicated={duplicated.has(test.id)}
+                duplicating={duplicate.isPending}
+                onDuplicate={(source) => duplicate.mutate(source)}
+                onArchive={fromMenu(setArchiving)}
+                onRestore={(archived) => restore.mutate(archived)}
+                onDelete={fromMenu(setDeleting)}
+              />
+            )}
+          </CardGrid>
+          <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+        </>
+      );
+    if (filtered)
+      return (
+        <EmptyState
+          action={
+            <Button size="sm" variant="outline" onClick={clearFilters}>
+              {t("tests.clearFilters")}
+            </Button>
+          }
+        >
+          {t("tests.noMatches")}
+        </EmptyState>
+      );
+    return (
+      <EmptyState
+        action={
+          <Button size="sm" disabled={create.isPending} onClick={createNew}>
+            <Plus aria-hidden="true" />
+            {t("tests.new")}
+          </Button>
+        }
+      >
+        {t("tests.empty")}
+      </EmptyState>
+    );
+  };
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        variant="title"
-        title={t("nav.tests")}
-        subtitle={
-          facets
-            ? t("tests.summary", { count: facets.all, drafts: facets.draft })
-            : "\u00a0"
-        }
+    <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4">
+      <PageHead
+        title={t("teacherShell.nav.tests")}
+        description={t("tests.description")}
         actions={
           <>
             {imports === "reviewOnly" || imports === "on" ? (
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-              >
+              <Button asChild variant="ghost" className={GHOST}>
                 <Link to="/teacher/imports">
                   <History aria-hidden="true" />
                   {t("tests.importHistory")}
@@ -209,18 +255,22 @@ export default function TestsListPage() {
               </Button>
             ) : null}
             {imports === "on" ? (
-              <Button asChild variant="outline" size="sm">
-                <Link to="/teacher/imports/new">
-                  <FileUp aria-hidden="true" />
-                  {t("tests.importWord")}
-                </Link>
-              </Button>
+              <>
+                <Button asChild variant="outline">
+                  <Link to="/teacher/imports/new">
+                    <FileUp aria-hidden="true" />
+                    {t("tests.importWord")}
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link to="/teacher/imports/new?source=paste">
+                    <ClipboardPaste aria-hidden="true" />
+                    {t("tests.pasteTest")}
+                  </Link>
+                </Button>
+              </>
             ) : null}
-            <Button
-              size="sm"
-              disabled={create.isPending}
-              onClick={() => create.mutate()}
-            >
+            <Button ref={newButton} disabled={create.isPending} onClick={createNew}>
               <Plus aria-hidden="true" />
               {t("tests.new")}
             </Button>
@@ -228,62 +278,25 @@ export default function TestsListPage() {
         }
       />
 
-      <div className="flex items-center gap-2">
-        <Tabs value={tab} onValueChange={(next) => setTab(next as TestStatus | "all")}>
-          <TabsList aria-label={t("tests.statusFilter")}>
-            {TABS.map((value) => (
-              <TabsTrigger key={value} value={value}>
-                {t(tabLabel(value))}
-                {facets ? (
-                  <span className="text-muted-foreground ml-1 tabular-nums">
-                    {facets[value]}
-                  </span>
-                ) : null}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <Segmented
+          label={t("tests.statusFilter")}
+          scroll
+          value={tab}
+          options={TABS.map((value) => ({
+            value,
+            label: t(TAB_LABELS[value]),
+            count: facets?.[value],
+          }))}
+          onChange={(value) => setFilter("status", value === "all" ? null : value)}
+        />
         <SearchInput
-          className="ml-auto"
+          className={SEARCH}
           value={query}
-          onChange={setQuery}
+          onChange={(value) => setFilter("q", value)}
           placeholder={t("tests.searchPlaceholder")}
         />
-
-        {/* A-03's "Thẻ". */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={offered.length === 0}>
-              <Filter aria-hidden="true" />
-              {tags.length === 0
-                ? t("tests.tagFilter")
-                : t("tests.tagFilterCount", { count: tags.length })}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            {offered.map((tag) => (
-              <DropdownMenuCheckboxItem
-                key={tag}
-                checked={tags.includes(tag)}
-                onCheckedChange={() =>
-                  setTags(
-                    tags.includes(tag) ? tags.filter((x) => x !== tag) : [...tags, tag],
-                  )
-                }
-              >
-                {tag}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
-
-      {error === null ? null : (
-        <p role="alert" className="text-destructive text-sm">
-          {error}
-        </p>
-      )}
 
       <BulkActions
         selected={[...bulk.selected.values()]}
@@ -292,11 +305,13 @@ export default function TestsListPage() {
           {
             label: t("common.archiveSelected"),
             description: t("common.archiveSelectedBody"),
+            icon: Archive,
             run: archiveTest,
           },
           {
             label: t("common.deletePermanently"),
             description: t("common.deleteInactiveBody"),
+            icon: Trash2,
             run: (item) => deleteTest(item.id),
           },
         ]}
@@ -304,262 +319,65 @@ export default function TestsListPage() {
         onClear={bulk.clear}
         onSettled={invalidate}
       />
-      <QueryStates
-        query={tests}
-        skeleton={<ListSkeleton />}
-        failed={t("tests.loadFailed")}
-      >
-        {(data) =>
-          items.length === 0 ? (
-            <EmptyState
-              action={
-                <Button
-                  size="sm"
-                  disabled={create.isPending}
-                  onClick={() => create.mutate()}
-                >
-                  {t("tests.new")}
-                </Button>
-              }
-            >
-              {tab === "all" && search.trim() === "" && tags.length === 0
-                ? t("tests.empty")
-                : t("tests.noMatches")}
-            </EmptyState>
-          ) : (
-            <>
-              <Card className="gap-0 overflow-hidden py-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10">
-                        <BulkSelectAll items={items} selection={bulk} />
-                      </TableHead>
-                      <TableHead className="w-[40%]">{t("tests.title")}</TableHead>
-                      <TableHead>{t("tests.status")}</TableHead>
-                      <TableHead className="text-right">
-                        {t("tests.questions")}
-                      </TableHead>
-                      <TableHead className="text-right">{t("tests.points")}</TableHead>
-                      <TableHead>{t("tests.version")}</TableHead>
-                      <TableHead>{t("tests.updated")}</TableHead>
-                      <TableHead className="w-10">
-                        <span className="sr-only">{t("tests.actions")}</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((test) => (
-                      <TableRow key={test.id}>
-                        <TableCell>
-                          <BulkSelectRow
-                            item={test}
-                            name={test.title}
-                            selection={bulk}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {/* A-03: a draft opens the builder, anything else the read-only detail. */}
-                            <Link
-                              to={openHref(test)}
-                              className="truncate font-medium hover:underline"
-                            >
-                              {test.title}
-                            </Link>
-                            {duplicated.has(test.id) ? (
-                              <Badge variant="outline">
-                                {t("common.justDuplicated")}
-                              </Badge>
-                            ) : null}
-                            {test.audioCount > 0 ? (
-                              <Badge
-                                variant="outline"
-                                aria-label={t("tests.audioCount", {
-                                  count: test.audioCount,
-                                })}
-                              >
-                                <Headphones aria-hidden="true" width="12" height="12" />
-                                {test.audioCount}
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge kind="test" status={test.status} />
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {test.questionCount}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {test.totalPoints}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground tabular-nums">
-                          {test.currentVersion === 0
-                            ? "—"
-                            : t("tests.versionNumber", { n: test.currentVersion })}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatRelative(test.updatedAt, locale)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              aria-label={t("common.duplicateNamed", {
-                                name: test.title,
-                              })}
-                              disabled={duplicate.isPending}
-                              onClick={() => duplicate.mutate(test.id)}
-                            >
-                              <Copy aria-hidden="true" />
-                            </Button>
-                            {test.status === "archived" ? (
-                              <DeleteItemButton
-                                name={test.title}
-                                onDelete={() => deleteTest(test.id)}
-                                onDeleted={invalidate}
-                              />
-                            ) : null}
-                            <RowActions
-                              test={test}
-                              onEdit={() =>
-                                void navigate(`/teacher/tests/${test.id}/edit`)
-                              }
-                              onDuplicate={() => duplicate.mutate(test.id)}
-                              onArchive={() => setArchiving(test)}
-                              onRestore={() => restore.mutate(test)}
-                            />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-              <ConfirmDialog
-                open={archiving !== null}
-                onOpenChange={(open) => !open && setArchiving(null)}
-                title={t("tests.archiveConfirmTitle", {
-                  title: archiving?.title ?? "",
-                })}
-                description={t("tests.archiveConfirmBody")}
-                confirmLabel={t("tests.archive")}
-                destructive
-                pending={archive.isPending}
-                onConfirm={() => archiving && archive.mutate(archiving)}
-              />
 
-              {data && (
-                <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
-              )}
-            </>
-          )
-        }
-      </QueryStates>
+      {tests.data === undefined ? (
+        <QueryStates
+          query={tests}
+          skeleton={<TestsSkeleton />}
+          failed={t("tests.loadFailed")}
+        >
+          {results}
+        </QueryStates>
+      ) : (
+        <>
+          {tests.isError ? (
+            <LoadError error={tests.error} onRetry={() => void tests.refetch()}>
+              {t("tests.loadFailed")}
+            </LoadError>
+          ) : null}
+          {results(tests.data)}
+        </>
+      )}
+
+      <ConfirmDialog
+        open={archiving !== null}
+        onOpenChange={(open) => !open && setArchiving(null)}
+        title={t("tests.archiveConfirmTitle", { title: archiving?.title ?? "" })}
+        description={t("tests.archiveConfirmBody")}
+        confirmLabel={t("tests.archive")}
+        destructive
+        pending={archive.isPending}
+        returnFocus={returnTo}
+        onConfirm={() => archiving && archive.mutate(archiving)}
+      />
+      <DeleteItemDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        name={deleting?.title ?? ""}
+        returnFocus={returnTo}
+        onDelete={async () => {
+          if (deleting === null) return;
+          await deleteTest(deleting.id);
+          returnTo.current = besideRemoved(deleting);
+        }}
+        onDeleted={invalidate}
+      />
+    </DeckScale>
+  );
+}
+
+function TestsSkeleton() {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={t("common.loading")}
+      className="grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-3 focus-within:[&_[data-slot=skeleton]]:[animation-play-state:paused]! hover:[&_[data-slot=skeleton]]:[animation-play-state:paused]!"
+    >
+      {Array.from({ length: 6 }, (_, index) => (
+        <Skeleton key={index} className="h-40 rounded-xl" />
+      ))}
     </div>
   );
-}
-
-function RowActions({
-  test,
-  onEdit,
-  onDuplicate,
-  onArchive,
-  onRestore,
-}: Readonly<{
-  test: Test;
-  onEdit: () => void;
-  onDuplicate: () => void;
-  onArchive: () => void;
-  onRestore: () => void;
-}>) {
-  const { t } = useTranslation();
-
-  if (test.status === "archived") {
-    return (
-      <RowMenu className="w-60">
-        <DropdownMenuItem onSelect={onRestore}>
-          <RotateCw aria-hidden="true" />
-          {t("tests.restore")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onDuplicate}>
-          <Copy aria-hidden="true" />
-          {t("tests.duplicate")}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <p className="text-muted-foreground px-2 pt-0.5 pb-1 text-xs">
-          {t("tests.restoreHint")}
-        </p>
-      </RowMenu>
-    );
-  }
-  if (test.status === "draft") {
-    return (
-      <RowMenu>
-        <DropdownMenuItem onSelect={onEdit}>
-          <SquarePen aria-hidden="true" />
-          {t("tests.edit")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onDuplicate}>
-          <Copy aria-hidden="true" />
-          {t("tests.duplicate")}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={onArchive}>
-          <Archive aria-hidden="true" />
-          {t("tests.archive")}
-        </DropdownMenuItem>
-      </RowMenu>
-    );
-  }
-  // A-03's menu for a published row, in the deck's order.
-  return (
-    <RowMenu className="w-60">
-      <DropdownMenuItem asChild>
-        <Link to={`/teacher/tests/${test.id}`}>
-          <Eye className="text-muted-foreground" aria-hidden="true" />
-          {t("tests.preview")}
-        </Link>
-      </DropdownMenuItem>
-      <DropdownMenuItem asChild>
-        <Link to={`/teacher/assignments/new?testId=${test.id}`}>
-          <Send className="text-muted-foreground" aria-hidden="true" />
-          {t("tests.assignToClass")}
-        </Link>
-      </DropdownMenuItem>
-      <DropdownMenuItem onSelect={onDuplicate}>
-        <Copy className="text-muted-foreground" aria-hidden="true" />
-        {t("tests.duplicate")}
-      </DropdownMenuItem>
-      <DropdownMenuItem asChild>
-        <Link to={`/teacher/tests/${test.id}#versions`}>
-          <History className="text-muted-foreground" aria-hidden="true" />
-          {t("tests.versionHistory")}
-        </Link>
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem variant="destructive" onSelect={onArchive}>
-        <Archive aria-hidden="true" />
-        {t("tests.archive")}
-      </DropdownMenuItem>
-    </RowMenu>
-  );
-}
-
-function openHref(test: Test): string {
-  return test.status === "draft"
-    ? `/teacher/tests/${test.id}/edit`
-    : `/teacher/tests/${test.id}`;
-}
-
-function message(cause: unknown, fallback: string): string {
-  return cause instanceof ApiError ? cause.message : fallback;
-}
-
-function tabLabel(value: TestStatus | "all"): string {
-  if (value === "all") return "tests.all";
-  if (value === "archived") return "tests.archiveTab";
-  return `status.test.${value}`;
 }

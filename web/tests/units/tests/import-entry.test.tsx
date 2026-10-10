@@ -58,6 +58,7 @@ function renderList() {
 
 const history = () => screen.queryByRole("link", { name: "Lịch sử nhập" });
 const importWord = () => screen.queryByRole("link", { name: "Nhập đề từ Word/PDF" });
+const paste = () => screen.queryByRole("link", { name: "Dán đề" });
 
 describe("the tests list's way into Word import", () => {
   it("is absent where the server has no import storage", async () => {
@@ -74,6 +75,7 @@ describe("the tests list's way into Word import", () => {
     expect(checks).toBe(1);
     expect(history()).toBeNull();
     expect(importWord()).toBeNull();
+    expect(paste()).toBeNull();
   });
 
   it("keeps only the history where no worker processes imports", async () => {
@@ -85,6 +87,7 @@ describe("the tests list's way into Word import", () => {
       "/teacher/imports",
     );
     expect(importWord()).toBeNull();
+    expect(paste()).toBeNull();
   });
 
   it("offers both where import runs end to end", async () => {
@@ -94,6 +97,24 @@ describe("the tests list's way into Word import", () => {
     expect(
       await screen.findByRole("link", { name: "Nhập đề từ Word/PDF" }),
     ).toHaveAttribute("href", "/teacher/imports/new");
+    expect(paste()).toHaveAttribute("href", "/teacher/imports/new?source=paste");
     expect(history()).toBeInTheDocument();
+  });
+
+  it("orders the header as the deck does: Imports, Word/PDF, Paste, New test", async () => {
+    serve(true, true);
+    renderList();
+    await screen.findByRole("link", { name: "Dán đề" });
+
+    const order = [
+      history(),
+      importWord(),
+      paste(),
+      screen.getAllByRole("button", { name: "Đề thi mới" })[0],
+    ];
+    for (const [index, element] of order.slice(1).entries())
+      expect(order[index]!.compareDocumentPosition(element!)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
   });
 });
