@@ -112,7 +112,9 @@ describe("the compact timeline", () => {
     const items = within(region).getAllByRole("listitem");
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveTextContent(/^Bắt đầu làm bài/);
-    expect(items[1]).toHaveTextContent(/^Câu trả lời được lưu tự độngtrong lúc làm bài$/);
+    expect(items[1]).toHaveTextContent(
+      /^Câu trả lời được lưu tự độngtrong lúc làm bài$/,
+    );
     expect(items[2]).toHaveTextContent(/^Nộp bài/);
     expect(items.map((item) => dotOf(item)?.className)).toEqual([
       expect.stringContaining(TIMELINE_DOT.start),
