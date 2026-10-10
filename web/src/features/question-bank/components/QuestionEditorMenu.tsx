@@ -100,7 +100,7 @@ export function QuestionEditorMenu({
             variant="outline"
             size="icon"
             aria-label={t("questionEditor.more")}
-            className="bg-card shadow-card size-9 rounded-lg in-data-[scale=deck]:size-9 in-data-[scale=deck]:rounded-lg"
+            className="bg-card shadow-card size-9 rounded-[8px] in-data-[scale=deck]:size-9 in-data-[scale=deck]:rounded-[8px]"
           >
             <Ellipsis aria-hidden="true" className="size-4" />
           </Button>

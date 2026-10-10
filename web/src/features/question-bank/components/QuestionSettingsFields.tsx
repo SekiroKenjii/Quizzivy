@@ -9,7 +9,7 @@ import {
 } from "@/features/question-bank/pages/teacher/bankFilters";
 import { TagsField } from "./TagsField";
 
-const LABEL = "text-[13px] leading-4 font-medium";
+const LABEL = "text-[13px] leading-[19.5px] font-medium";
 
 /**
  * QuestionSettingsFields is the Question editor's SETTINGS group: Points,

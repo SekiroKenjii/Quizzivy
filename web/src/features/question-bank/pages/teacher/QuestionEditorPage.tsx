@@ -243,7 +243,7 @@ function Editor({
       {question === null ? null : <QuestionUsageBanner question={question} />}
 
       <div className="grid items-start gap-4.5 @min-[900px]/qe:grid-cols-[minmax(0,1fr)_300px]">
-        <div className={CARD}>
+        <div data-field-size="page" className={CARD}>
           <QuestionTypeControl value={values} onChange={change} />
           <QuestionPromptAnswers
             value={values}
