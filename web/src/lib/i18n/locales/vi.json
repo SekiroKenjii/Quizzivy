@@ -2162,6 +2162,8 @@
   },
   "review": {
     "title": "Bài làm",
+    "backToAssignment": "Về bài giao",
+    "tabsLabel": "Các phần của bài làm",
     "loadFailed": "Không tải được bài làm này.",
     "loadFailedHint": "Điểm và nhận xét đã lưu vẫn còn nguyên.",
     "tabs": {

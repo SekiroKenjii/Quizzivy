@@ -2162,6 +2162,8 @@
   },
   "review": {
     "title": "Paper",
+    "backToAssignment": "Back to the assignment",
+    "tabsLabel": "Paper sections",
     "loadFailed": "Couldn't load this paper.",
     "loadFailedHint": "Marks and comments already saved are intact.",
     "tabs": {
