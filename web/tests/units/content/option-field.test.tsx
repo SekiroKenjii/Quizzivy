@@ -15,17 +15,13 @@ test("answer selection and option text have distinct accessible names", () => {
         { id: null, text: "other", isCorrect: false },
       ]}
       multiple={false}
-      fixed={false}
       onChange={vi.fn()}
     />,
   );
-  expect(screen.getByLabelText("Lựa chọn 1", { exact: true })).toHaveAttribute(
-    "type",
-    "radio",
-  );
-  expect(screen.getByRole("textbox", { name: "Nội dung lựa chọn 1" })).toHaveValue(
-    "think",
-  );
+  expect(
+    screen.getByLabelText("Đánh dấu A là đáp án đúng", { exact: true }),
+  ).toHaveAttribute("type", "radio");
+  expect(screen.getByRole("textbox", { name: "Lựa chọn A" })).toHaveValue("think");
 });
 
 test("the pilot flag gates new formatting while existing content remains editable", () => {
@@ -33,11 +29,9 @@ test("the pilot flag gates new formatting while existing content remains editabl
   const change = vi.fn();
   const view = render(<OptionField text="plain" index={0} onChange={change} />);
   expect(
-    screen.queryByRole("button", { name: "Định dạng phương án 1" }),
+    screen.queryByRole("button", { name: "Định dạng lựa chọn A" }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole("textbox", { name: "Nội dung lựa chọn 1" })).toHaveValue(
-    "plain",
-  );
+  expect(screen.getByRole("textbox", { name: "Lựa chọn A" })).toHaveValue("plain");
   view.rerender(
     <OptionField
       text="rich"
@@ -47,7 +41,7 @@ test("the pilot flag gates new formatting while existing content remains editabl
     />,
   );
   expect(
-    screen.getByRole("button", { name: "Sửa định dạng phương án 1" }),
+    screen.getByRole("button", { name: "Sửa định dạng lựa chọn A" }),
   ).toBeEnabled();
   expect(change).not.toHaveBeenCalled();
 });
@@ -55,5 +49,5 @@ test("the pilot flag gates new formatting while existing content remains editabl
 test("pilot authoring exposes an explicitly named formatting control", () => {
   vi.stubEnv("VITE_RICH_OPTION_EDITOR", "true");
   render(<OptionField text="plain" index={0} onChange={vi.fn()} />);
-  expect(screen.getByRole("button", { name: "Định dạng phương án 1" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Định dạng lựa chọn A" })).toBeEnabled();
 });

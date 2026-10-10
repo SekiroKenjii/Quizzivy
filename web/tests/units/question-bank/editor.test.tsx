@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
@@ -93,7 +93,7 @@ describe("the question editor, per question type", () => {
     for (const box of screen.getAllByRole("checkbox")) expect(box).toBeChecked();
   });
 
-  it("true_false offers exactly True and False, with nothing to add or remove", () => {
+  it("true_false is a radio group of two cards, with nothing to add, remove or rename", () => {
     renderEditor({
       type: "true_false",
       options: [
@@ -102,10 +102,17 @@ describe("the question editor, per question type", () => {
       ],
     });
 
-    expect(screen.getByDisplayValue("True")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("False")).toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", {
+      name: "Đáp án đúng · học viên chọn một",
+    });
+    expect(within(group).getAllByRole("radio")).toHaveLength(2);
+    expect(within(group).getByRole("radio", { name: "Đúng" })).toBeChecked();
+    expect(
+      within(group).getByRole("radio", { name: "Đúng" }),
+    ).toHaveAccessibleDescription("Đáp án đúng");
+    expect(screen.queryByRole("textbox", { name: /Lựa chọn/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Thêm lựa chọn" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Xoá lựa chọn" })).toBeNull();
+    expect(screen.getByText("Chấm tự động khi học viên nộp bài.")).toBeInTheDocument();
   });
 
   it("fill_blank edits blanks rather than options", async () => {
@@ -124,12 +131,17 @@ describe("the question editor, per question type", () => {
     ).toBeInTheDocument();
   });
 
-  it("short_answer exposes a sample answer labelled as admin-only", () => {
+  it("short_answer offers an optional sample answer for graders and says it is graded by hand", () => {
     renderEditor({ type: "short_answer", options: [] });
 
-    const label = screen.getByText(/Đáp án mẫu/);
-    expect(label).toHaveTextContent("chỉ bạn nhìn thấy");
-    expect(screen.getByText(/cần bạn chấm tay/)).toBeInTheDocument();
+    const field = screen.getByRole("textbox", { name: "Đáp án mẫu" });
+    expect(field).toHaveAccessibleDescription(
+      "Không bắt buộc. Người chấm thấy đáp án này cạnh câu trả lời của từng học viên.",
+    );
+    expect(field).toHaveAttribute("placeholder", "Viết một câu trả lời mẫu");
+    expect(
+      screen.getByText("Chấm tay. Mỗi câu trả lời được đưa vào hàng chờ chấm."),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("radio")).toBeNull();
   });
 
