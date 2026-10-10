@@ -792,6 +792,7 @@
     "saved": "Đã lưu {{time}}",
     "saving": "Đang lưu…",
     "saveFailed": "Chưa lưu được",
+    "saveFailedHint": "Chỉnh sửa vẫn còn trên màn hình. Hãy thử lưu lại.",
     "stale": "Bài này đang được mở ở nơi khác",
     "staleBody": "Có nơi khác đã lưu thay đổi sau khi bạn mở trang này. Hãy tải lại để xem bản mới nhất — thay đổi chưa lưu ở đây sẽ mất.",
     "reload": "Tải lại",
