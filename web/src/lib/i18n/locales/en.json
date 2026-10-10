@@ -1083,6 +1083,131 @@
       "listening": "Listening",
       "writing": "Writing",
       "speaking": "Speaking"
+    },
+    "detail": {
+      "crumb": "Test details",
+      "meta": "{{questions}} · {{points}} · {{assigned}}",
+      "versionHistory": "Version history",
+      "openBuilder": "Open builder",
+      "assign": "Assign",
+      "loadFailed": "Could not load the test.",
+      "banner": {
+        "title": "The draft has changes that are not published.",
+        "body": "New assignments get version {{current}} until you publish the draft as version {{next}}.",
+        "review": "Review draft",
+        "publish": "Publish version {{n}}"
+      },
+      "publish": {
+        "title": "Publish the draft as version {{n}}?",
+        "bodyKept_one": "It becomes the default for new assignments. {{count}} assignment using version {{version}} keeps it.",
+        "bodyKept_other": "It becomes the default for new assignments. {{count}} assignments using version {{version}} keep it.",
+        "bodyNone": "It becomes the default for new assignments. Existing assignments keep their versions.",
+        "note": "Change note",
+        "noteHint": "Shown in the version history. Leave it empty and the history lists what changed.",
+        "notePlaceholder": "For example: fixed the answer to question 4",
+        "confirm": "Publish",
+        "done": "Published version {{n}}",
+        "blocked_one": "The draft has {{count}} problem to fix before it can be published. Open the builder to see it.",
+        "blocked_other": "The draft has {{count}} problems to fix before it can be published. Open the builder to see them.",
+        "failed": "Could not publish. Try again."
+      },
+      "preview": {
+        "title": "Student preview",
+        "current": "Version {{n}} · the default for new assignments",
+        "older": "Version {{n}} · older version. Assignments using it keep it.",
+        "nothing": "Nothing published yet",
+        "notPublished": "This test is not published yet, so students have nothing to receive. Open the builder to finish and publish it.",
+        "device": "Preview size",
+        "computer": "Computer",
+        "phone": "Phone",
+        "foot_one": "{{count}} question. Answers are hidden from students.",
+        "foot_other": "{{count}} questions. Answers are hidden from students.",
+        "failed": "Could not load the preview."
+      },
+      "compare": {
+        "toggle": "Changes from version {{n}}",
+        "failed": "Could not compare the versions.",
+        "none": "Nothing changed from version {{n}}.",
+        "kind": {
+          "added": "Added",
+          "removed": "Removed",
+          "changed": "Changed",
+          "answer": "Answer",
+          "points": "Points"
+        },
+        "mark": {
+          "added": "New",
+          "changed": "Changed"
+        },
+        "added": "Question {{n}} · “{{prompt}}”",
+        "removed": "Question {{n}} of version {{version}} · “{{prompt}}”",
+        "changed": "Question {{n}} · {{fields}}",
+        "answer": "Question {{n}} · correct answer changed from {{from}} to {{to}}",
+        "answerKey": "Question {{n}} · accepted answers changed",
+        "points": "Total changed from {{from}} to {{to}} points",
+        "field": {
+          "type": "question type",
+          "prompt": "wording",
+          "options": "options",
+          "blanks": "blanks",
+          "media": "media",
+          "points": "points",
+          "explanation": "explanation",
+          "context": "shared material",
+          "section": "section"
+        }
+      },
+      "history": {
+        "archived": "This test is archived. Restore the test before you change its default version or make a draft from one.",
+        "draft": "Draft",
+        "draftNew": "Not published · edited {{when}}",
+        "draftAhead": "Unpublished changes · edited {{when}}",
+        "edit": "Edit",
+        "version": "Version {{n}}",
+        "stats": "{{questions}} q · {{points}} pts",
+        "published": "{{when}} · {{name}}",
+        "inUse_one": "In use · {{count}} assignment",
+        "inUse_other": "In use · {{count}} assignments",
+        "notUsed": "Not used",
+        "firstVersion": "First version",
+        "summary": {
+          "added_one": "{{count}} question added",
+          "added_other": "{{count}} questions added",
+          "removed_one": "{{count}} question removed",
+          "removed_other": "{{count}} questions removed",
+          "changed_one": "{{count}} question changed",
+          "changed_other": "{{count}} questions changed",
+          "answer_one": "{{count}} answer fixed",
+          "answer_other": "{{count}} answers fixed",
+          "none": "No question changed"
+        },
+        "restore": "Restore as draft",
+        "restoreLocked": "Restore the test first",
+        "makeDefault": "Make default",
+        "delete": "Delete",
+        "deleteLocked": "Used by an assignment, so it cannot be deleted",
+        "empty": "Not published yet. Publishing freezes a version that students receive. Later edits become a new version.",
+        "failed": "Could not load the version history."
+      },
+      "restore": {
+        "title": "Restore version {{n}} as the draft?",
+        "bodyReplace": "Your unpublished draft changes are replaced by a copy of version {{n}}. Published versions and assignments do not change.",
+        "bodyCopy": "The draft becomes a copy of version {{n}}. Published versions and assignments do not change.",
+        "confirm": "Restore as draft",
+        "done": "Draft restored from version {{n}}"
+      },
+      "makeDefault": {
+        "title": "Make version {{n}} the default?",
+        "body": "New assignments will use version {{n}}. Assignments that already exist keep the version they were created with.",
+        "confirm": "Make default",
+        "done": "Version {{n}} is now the default"
+      },
+      "deleteVersion": {
+        "title": "Delete version {{n}}?",
+        "body": "It is removed permanently. No assignment uses it, and other versions are not affected.",
+        "confirm": "Delete version",
+        "done": "Version {{n}} deleted"
+      }
     }
   },
   "preview": {

@@ -1083,6 +1083,131 @@
       "listening": "Nghe",
       "writing": "Viết",
       "speaking": "Nói"
+    },
+    "detail": {
+      "crumb": "Chi tiết đề",
+      "meta": "{{questions}} · {{points}} · {{assigned}}",
+      "versionHistory": "Lịch sử phiên bản",
+      "openBuilder": "Mở trình soạn đề",
+      "assign": "Giao bài",
+      "loadFailed": "Không tải được đề thi.",
+      "banner": {
+        "title": "Bản nháp có thay đổi chưa phát hành.",
+        "body": "Bài giao mới vẫn nhận phiên bản {{current}} cho tới khi bạn phát hành bản nháp thành phiên bản {{next}}.",
+        "review": "Xem bản nháp",
+        "publish": "Phát hành phiên bản {{n}}"
+      },
+      "publish": {
+        "title": "Phát hành bản nháp thành phiên bản {{n}}?",
+        "bodyKept_one": "Phiên bản mới sẽ là mặc định cho bài giao mới. {{count}} bài giao đang dùng phiên bản {{version}} vẫn giữ phiên bản đó.",
+        "bodyKept_other": "Phiên bản mới sẽ là mặc định cho bài giao mới. {{count}} bài giao đang dùng phiên bản {{version}} vẫn giữ phiên bản đó.",
+        "bodyNone": "Phiên bản mới sẽ là mặc định cho bài giao mới. Các bài giao hiện có vẫn giữ phiên bản của mình.",
+        "note": "Ghi chú thay đổi",
+        "noteHint": "Hiện trong lịch sử phiên bản. Để trống thì lịch sử tự ghi những gì đã thay đổi.",
+        "notePlaceholder": "Ví dụ: sửa đáp án câu 4",
+        "confirm": "Phát hành",
+        "done": "Đã phát hành phiên bản {{n}}",
+        "blocked_one": "Bản nháp còn {{count}} lỗi cần sửa trước khi phát hành. Mở trình soạn đề để xem.",
+        "blocked_other": "Bản nháp còn {{count}} lỗi cần sửa trước khi phát hành. Mở trình soạn đề để xem.",
+        "failed": "Không phát hành được. Vui lòng thử lại."
+      },
+      "preview": {
+        "title": "Xem như học viên",
+        "current": "Phiên bản {{n}} · mặc định cho bài giao mới",
+        "older": "Phiên bản {{n}} · phiên bản cũ. Bài giao đang dùng vẫn giữ phiên bản này.",
+        "nothing": "Chưa phát hành phiên bản nào",
+        "notPublished": "Đề này chưa phát hành nên học viên chưa có gì để nhận. Mở trình soạn đề để hoàn thiện và phát hành.",
+        "device": "Khung xem",
+        "computer": "Máy tính",
+        "phone": "Điện thoại",
+        "foot_one": "{{count}} câu hỏi. Học viên không thấy đáp án.",
+        "foot_other": "{{count}} câu hỏi. Học viên không thấy đáp án.",
+        "failed": "Không tải được bản xem trước."
+      },
+      "compare": {
+        "toggle": "Thay đổi so với phiên bản {{n}}",
+        "failed": "Không so sánh được hai phiên bản.",
+        "none": "Không có thay đổi nào so với phiên bản {{n}}.",
+        "kind": {
+          "added": "Thêm",
+          "removed": "Bỏ",
+          "changed": "Sửa",
+          "answer": "Đáp án",
+          "points": "Điểm"
+        },
+        "mark": {
+          "added": "Mới",
+          "changed": "Đã sửa"
+        },
+        "added": "Câu {{n}} · “{{prompt}}”",
+        "removed": "Câu {{n}} của phiên bản {{version}} · “{{prompt}}”",
+        "changed": "Câu {{n}} · {{fields}}",
+        "answer": "Câu {{n}} · đáp án đúng đổi từ {{from}} sang {{to}}",
+        "answerKey": "Câu {{n}} · đáp án chấp nhận đã đổi",
+        "points": "Tổng điểm đổi từ {{from}} thành {{to}}",
+        "field": {
+          "type": "loại câu hỏi",
+          "prompt": "nội dung câu hỏi",
+          "options": "các lựa chọn",
+          "blanks": "chỗ trống",
+          "media": "tệp đính kèm",
+          "points": "điểm",
+          "explanation": "lời giải thích",
+          "context": "tài liệu dùng chung",
+          "section": "phần"
+        }
+      },
+      "history": {
+        "archived": "Đề này đã lưu trữ. Khôi phục đề trước khi đổi phiên bản mặc định hoặc tạo bản nháp từ một phiên bản.",
+        "draft": "Bản nháp",
+        "draftNew": "Chưa phát hành · sửa {{when}}",
+        "draftAhead": "Có thay đổi chưa phát hành · sửa {{when}}",
+        "edit": "Sửa",
+        "version": "Phiên bản {{n}}",
+        "stats": "{{questions}} câu · {{points}} điểm",
+        "published": "{{when}} · {{name}}",
+        "inUse_one": "Đang dùng · {{count}} bài giao",
+        "inUse_other": "Đang dùng · {{count}} bài giao",
+        "notUsed": "Chưa dùng",
+        "firstVersion": "Phiên bản đầu tiên",
+        "summary": {
+          "added_one": "Thêm {{count}} câu",
+          "added_other": "Thêm {{count}} câu",
+          "removed_one": "Bỏ {{count}} câu",
+          "removed_other": "Bỏ {{count}} câu",
+          "changed_one": "Sửa {{count}} câu",
+          "changed_other": "Sửa {{count}} câu",
+          "answer_one": "Đổi {{count}} đáp án",
+          "answer_other": "Đổi {{count}} đáp án",
+          "none": "Không đổi câu hỏi nào"
+        },
+        "restore": "Khôi phục thành bản nháp",
+        "restoreLocked": "Hãy khôi phục đề trước",
+        "makeDefault": "Đặt làm mặc định",
+        "delete": "Xoá",
+        "deleteLocked": "Đang được bài giao dùng nên không xoá được",
+        "empty": "Chưa phát hành. Phát hành sẽ chốt một phiên bản để học viên nhận. Những lần sửa sau sẽ thành phiên bản mới.",
+        "failed": "Không tải được lịch sử phiên bản."
+      },
+      "restore": {
+        "title": "Khôi phục phiên bản {{n}} thành bản nháp?",
+        "bodyReplace": "Các thay đổi chưa phát hành trong bản nháp sẽ được thay bằng bản sao của phiên bản {{n}}. Các phiên bản đã phát hành và bài giao không thay đổi.",
+        "bodyCopy": "Bản nháp sẽ thành bản sao của phiên bản {{n}}. Các phiên bản đã phát hành và bài giao không thay đổi.",
+        "confirm": "Khôi phục thành bản nháp",
+        "done": "Đã khôi phục bản nháp từ phiên bản {{n}}"
+      },
+      "makeDefault": {
+        "title": "Đặt phiên bản {{n}} làm mặc định?",
+        "body": "Bài giao mới sẽ dùng phiên bản {{n}}. Bài giao đã có vẫn giữ phiên bản lúc được tạo.",
+        "confirm": "Đặt làm mặc định",
+        "done": "Phiên bản {{n}} giờ là mặc định"
+      },
+      "deleteVersion": {
+        "title": "Xoá phiên bản {{n}}?",
+        "body": "Phiên bản sẽ bị xoá vĩnh viễn. Không bài giao nào dùng phiên bản này, và các phiên bản khác không bị ảnh hưởng.",
+        "confirm": "Xoá phiên bản",
+        "done": "Đã xoá phiên bản {{n}}"
+      }
     }
   },
   "preview": {

@@ -21,6 +21,8 @@ async function setup(page: Page) {
         totalPoints: 3,
         questionCount: 3,
         audioCount: 2,
+        assignments: { live: 0, scheduled: 0, closed: 0 },
+        unpublishedChanges: 0,
         sections: [],
         createdAt: "2026-09-24T00:00:00Z",
         updatedAt: "2026-09-24T00:00:00Z",
@@ -35,9 +37,18 @@ async function setup(page: Page) {
           questionCount: 3,
           audioCount: 2,
           manualCount: 0,
+          assignmentCount: 0,
+          changeNote: null,
           publishedAt: "2026-09-24T00:00:00Z",
           publishedBy: "Giáo viên",
         })),
+      },
+    },
+    [`GET /teacher/tests/${testID}/versions/2/diff`]: {
+      body: {
+        from: { kind: "version", version: 1, publishedAt: "2026-09-24T00:00:00Z" },
+        to: { kind: "version", version: 2, publishedAt: "2026-09-24T00:00:00Z" },
+        changes: [],
       },
     },
     [`GET /teacher/tests/${testID}/preview`]: (route) => {
@@ -72,9 +83,9 @@ for (const width of [768, 1440]) {
     await gap.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(":focus")).toContainText("Câu 3");
-    await page.getByRole("radio", { name: "Điện thoại", exact: true }).click();
+    await page.getByRole("button", { name: "Điện thoại", exact: true }).click();
     const viewport = page.locator('[data-preview-viewport="phone"]');
-    await expect(viewport).toHaveCSS("width", "320px");
+    await expect(viewport).toHaveCSS("width", "390px");
     const overflow = await viewport.evaluate(
       (element) => element.scrollWidth > element.clientWidth + 1,
     );
@@ -92,10 +103,10 @@ for (const width of [768, 1440]) {
     await page.screenshot({
       path: test.info().outputPath(`group-preview-phone-${width}.png`),
     });
-    await page.getByRole("radio", { name: "Máy tính", exact: true }).click();
+    await page.getByRole("button", { name: "Máy tính", exact: true }).click();
     await expect(page.locator('[data-preview-viewport="desktop"]')).toBeVisible();
     if (width > 1024) {
-      await page.getByRole("button", { name: /^v2/ }).click();
+      await page.getByRole("button", { name: /^Phiên bản 2/ }).click();
       await expect(
         page.getByRole("heading", { name: `${previewGroup.title} · v2` }),
       ).toBeVisible();

@@ -24,7 +24,9 @@ async function addQuestion(page: Page, prompt: string) {
 async function publish(page: Page, version: number) {
   await page.getByRole("button", { name: "Phát hành", exact: true }).click();
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/);
-  await expect(page.getByText(`Bản đang phát hành · v${version}`)).toBeVisible();
+  await expect(
+    page.getByText(`Phiên bản ${version} · mặc định cho bài giao mới`),
+  ).toBeVisible();
 }
 
 async function confirm(page: Page, label: string) {
@@ -124,11 +126,10 @@ test("admin edits persist through selection, empty-group drops and immutable ver
     .fill("Second version content");
   await publish(page, 2);
 
+  await page.setViewportSize({ width: 1440, height: 900 });
   const history = page.getByRole("complementary", { name: "Lịch sử phiên bản" });
-  const firstVersion = history
-    .getByRole("listitem")
-    .filter({ has: page.getByText("v1", { exact: true }) });
-  await firstVersion.getByRole("button", { name: /^v1/ }).click();
+  const firstVersion = history.locator('[data-version="1"]');
+  await firstVersion.getByRole("button", { name: /^Phiên bản 1/ }).click();
   await expect(page.getByText("First updated promptly", { exact: true })).toBeVisible();
   await expect(page.getByText("Second version content", { exact: true })).toBeHidden();
   await firstVersion
@@ -166,18 +167,14 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   );
 
   await page.goto(`/teacher/tests/${id}`);
-  const secondVersion = history
-    .getByRole("listitem")
-    .filter({ has: page.getByText("v2", { exact: true }) });
-  await secondVersion
-    .getByRole("button", { name: "Xoá phiên bản", exact: true })
-    .click();
+  const secondVersion = history.locator('[data-version="2"]');
+  await secondVersion.getByRole("button", { name: "Xoá", exact: true }).click();
   await confirm(page, "Xoá phiên bản");
-  await expect(history.getByText("v2", { exact: true })).toBeHidden();
+  await expect(secondVersion).toHaveCount(0);
   await firstVersion
-    .getByRole("button", { name: "Sửa từ phiên bản này", exact: true })
+    .getByRole("button", { name: "Khôi phục thành bản nháp", exact: true })
     .click();
-  await confirm(page, "Sửa từ phiên bản này");
+  await confirm(page, "Khôi phục thành bản nháp");
   await expect(page).toHaveURL(/\/edit$/);
   await page
     .getByRole("button", { name: "First updated promptly", exact: true })
@@ -209,7 +206,10 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await expect(copies).toHaveCount(2);
   await original.getByRole("link", { name: title, exact: true }).click();
   await expect(page).toHaveURL((url) => url.pathname === `/teacher/tests/${id}`);
-  await page.getByRole("button", { name: "Quay lại", exact: true }).click();
+  await page
+    .locator('[data-slot="page-head"]')
+    .getByRole("link", { name: "Đề thi", exact: true })
+    .click();
   await expect(page.getByPlaceholder("Tìm theo tên đề")).toHaveValue(title);
   await expect(copies).toHaveCount(2);
   for (const copy of await copies.all()) await copy.getByRole("checkbox").check();
