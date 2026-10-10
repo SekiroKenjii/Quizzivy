@@ -16,7 +16,7 @@ func TestAnAttemptPastItsDeadlineIsNotRevivedByAnyWriterOfTheWindow(t *testing.T
 		name string
 		run  func(t *testing.T, w *reachWorld, req domain.Request, closes time.Time, students []string) error
 	}{
-		{"Extend", func(t *testing.T, w *reachWorld, req domain.Request, _ time.Time, _ []string) error {
+		{"Extend", func(_ *testing.T, w *reachWorld, req domain.Request, _ time.Time, _ []string) error {
 			_, err := w.store.Extend(ctx, req, 120, false, time.Now())
 			return err
 		}},
@@ -24,13 +24,13 @@ func TestAnAttemptPastItsDeadlineIsNotRevivedByAnyWriterOfTheWindow(t *testing.T
 			_, err := w.store.Update(ctx, req, w.updateWindow(t, closes.Add(2*time.Hour)))
 			return err
 		}},
-		{"SetOverrides", func(t *testing.T, w *reachWorld, req domain.Request, _ time.Time, students []string) error {
+		{"SetOverrides", func(_ *testing.T, w *reachWorld, req domain.Request, _ time.Time, students []string) error {
 			_, err := w.store.SetOverrides(ctx, req, domain.OverrideInput{
 				StudentIDs: students, ClosesAt: after(2 * time.Hour), DurationMin: ptr(120), Reason: "thêm giờ", Now: time.Now(),
 			})
 			return err
 		}},
-		{"Reopen", func(t *testing.T, w *reachWorld, req domain.Request, closes time.Time, _ []string) error {
+		{"Reopen", func(_ *testing.T, w *reachWorld, req domain.Request, closes time.Time, _ []string) error {
 			if _, err := w.tx.Exec(ctx, `UPDATE app.assignments SET closed_at = now() - interval '1 minute' WHERE id = $1::uuid`, req.ID); err != nil {
 				return err
 			}
