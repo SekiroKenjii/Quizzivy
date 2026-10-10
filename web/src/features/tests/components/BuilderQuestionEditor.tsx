@@ -88,7 +88,7 @@ export function BuilderQuestionEditor({
             step={0.5}
             value={value.points}
             aria-invalid={value.points <= 0}
-            className="bg-background h-7.5 w-12 rounded-[7px] px-0.5 text-center text-[13px] in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:px-0.5 in-data-[scale=deck]:text-[13px]"
+            className="bg-background h-7.5 w-12 rounded-[7px] px-0.5 text-center in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:px-0.5 in-data-[scale=deck]:lg:text-[13px]"
             onChange={(event) =>
               onChange({ ...value, points: Number(event.target.value) })
             }
