@@ -1,32 +1,32 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { FileAudio, FileImage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  DialogShell,
+  DialogShellBody,
+  DialogShellFooter,
+  DialogShellHeader,
+} from "@/components/shared/form/DialogShell";
+import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
+import { ASSET_TEXT_LIMITS } from "@/components/shared/content/model";
+import { FileInput } from "@/features/media/components/FileInput";
 import { UploadStatus } from "@/features/media/components/UploadStatus";
 import { useMediaUpload } from "@/features/media/useMediaUpload";
-import {
-  listMedia,
-  uploadMedia,
-  type MediaAsset,
-  type MediaKind,
-} from "@/features/media/api";
-import { ACCEPT_ATTRIBUTE, MAX_IMAGE_BYTES } from "@/features/media/limits";
-import { ApiError } from "@/lib/api/errors";
-import { useLazyList } from "@/hooks/useLazyList";
-import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
+import { listMedia, type MediaAsset, type MediaKind } from "@/features/media/api";
 import { formatBytes } from "@/features/media/format";
-import { ASSET_TEXT_LIMITS } from "@/components/shared/content/model";
+import { useLazyList } from "@/hooks/useLazyList";
 
+/**
+ * MaterialAssetDialog inserts an image or a recording into a group's material:
+ * the label the student's reader announces, a file from the library, or a new
+ * upload through the shared `FileInput` and `useMediaUpload`, so both kinds get
+ * the same pre-check, progress, cancel and failure as the rest of the app.
+ */
 export function MaterialAssetDialog({
   kind,
   onClose,
@@ -44,50 +44,21 @@ export function MaterialAssetDialog({
   const [label, setLabel] = useState(
     t(kind === "image" ? "groups.image" : "groups.audio"),
   );
-  const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const controller = useRef<AbortController | null>(null);
-  const imageInput = useRef<HTMLInputElement>(null);
-  const audioInput = useRef<HTMLInputElement>(null);
-  const audioUpload = useMediaUpload({ onUploaded: setChosen });
+  const fileInput = useRef<HTMLInputElement>(null);
+  const upload = useMediaUpload({ kind, onUploaded: setChosen });
   const library = useLazyList({
     queryKey: ["admin-media", "group-picker", kind],
     fetchPage: (page, signal) => listMedia({ kind, page, limit: 20 }, signal),
   });
-  useEffect(() => () => controller.current?.abort(), []);
-
-  async function uploadImage(file: File) {
-    setError(null);
-    if (file.size > MAX_IMAGE_BYTES) {
-      setError(t("groups.imageLimit"));
-      return;
-    }
-    const abort = new AbortController();
-    controller.current = abort;
-    setUploading(true);
-    try {
-      const asset = await uploadMedia(file, { signal: abort.signal });
-      if (!abort.signal.aborted) {
-        if (asset.kind === "image") setChosen(asset);
-        else setError(t("groups.imageLimit"));
-      }
-    } catch (cause) {
-      if (!abort.signal.aborted)
-        setError(cause instanceof ApiError ? cause.message : t("groups.uploadFailed"));
-    } finally {
-      if (!abort.signal.aborted) setUploading(false);
-    }
-  }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[85svh] flex-col overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>
-            {t(kind === "image" ? "groups.insertImage" : "groups.insertAudio")}
-          </DialogTitle>
-          <DialogDescription>{t("groups.assetHint")}</DialogDescription>
-        </DialogHeader>
+    <DialogShell open onOpenChange={(open) => !open && onClose()} width={560}>
+      <DialogShellHeader
+        icon={kind === "image" ? FileImage : FileAudio}
+        title={t(kind === "image" ? "groups.insertImage" : "groups.insertAudio")}
+        description={t("groups.assetHint")}
+      />
+      <DialogShellBody>
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="group-asset-label">
@@ -124,7 +95,7 @@ export function MaterialAssetDialog({
                 </Alert>
               ) : null}
               {!library.isPending && !library.isError && library.items.length === 0 ? (
-                <p className="text-muted-foreground text-sm">{t("media.empty")}</p>
+                <p className="text-muted-fg text-sm">{t("media.empty")}</p>
               ) : null}
               {library.items.map((asset) => (
                 <Button
@@ -148,57 +119,30 @@ export function MaterialAssetDialog({
           <Field>
             <Button
               variant="outline"
-              disabled={uploading}
-              onClick={() =>
-                kind === "audio"
-                  ? audioInput.current?.click()
-                  : imageInput.current?.click()
-              }
+              disabled={upload.busy}
+              onClick={() => fileInput.current?.click()}
             >
-              {uploading ? t("common.saving") : t("groups.uploadAsset")}
+              {upload.busy ? t("common.saving") : t("groups.uploadAsset")}
             </Button>
-            {kind === "audio" ? (
-              <>
-                <input
-                  ref={audioInput}
-                  type="file"
-                  accept={ACCEPT_ATTRIBUTE}
-                  className="sr-only"
-                  aria-label={t("media.chooseFile")}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    if (file) void audioUpload.start(file);
-                  }}
-                />
-                <UploadStatus
-                  state={audioUpload.state}
-                  onCancel={audioUpload.cancel}
-                  onRetry={() => audioInput.current?.click()}
-                />
-              </>
-            ) : (
-              <>
-                <input
-                  ref={imageInput}
-                  type="file"
-                  accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  aria-label={t("groups.uploadAsset")}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    if (file) void uploadImage(file);
-                  }}
-                />
-                <FieldDescription>{t("groups.imageLimit")}</FieldDescription>
-              </>
+            <FileInput
+              inputRef={fileInput}
+              kind={kind}
+              onFile={(file) => void upload.start(file)}
+            />
+            <UploadStatus
+              state={upload.state}
+              kind={kind}
+              onCancel={upload.cancel}
+              onRetry={() => fileInput.current?.click()}
+            />
+            {kind === "image" && (
+              <FieldDescription>{t("groups.imageLimit")}</FieldDescription>
             )}
           </Field>
         </FieldGroup>
-        {error || insertError ? (
+        {insertError ? (
           <Alert>
-            <AlertDescription>{error ?? insertError}</AlertDescription>
+            <AlertDescription>{insertError}</AlertDescription>
           </Alert>
         ) : null}
         {chosen ? (
@@ -206,18 +150,18 @@ export function MaterialAssetDialog({
             {t("groups.selectedAsset", { name: chosen.originalFilename })}
           </p>
         ) : null}
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
-            {t("common.cancel")}
-          </Button>
-          <Button
-            disabled={!chosen || !label.trim() || uploading}
-            onClick={() => chosen && onInsert(chosen, label.trim())}
-          >
-            {t("groups.insertAsset")}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </DialogShellBody>
+      <DialogShellFooter>
+        <Button variant="outline" onClick={onClose}>
+          {t("common.cancel")}
+        </Button>
+        <Button
+          disabled={!chosen || !label.trim() || upload.busy}
+          onClick={() => chosen && onInsert(chosen, label.trim())}
+        >
+          {t("groups.insertAsset")}
+        </Button>
+      </DialogShellFooter>
+    </DialogShell>
   );
 }

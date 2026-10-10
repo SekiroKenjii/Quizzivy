@@ -15,6 +15,7 @@ test("a publication finding opens the owned member editor without trying the sta
   const sectionId = crypto.randomUUID();
   const question = newGroupQuestion(i18n.t);
   question.input.prompt = "Câu trong nhóm";
+  question.input.promptContent = null;
   const bundle = emptyGroup("Bài đọc chung");
   bundle.group.members = [{ questionId: question.id, optionOrder: "shuffle" }];
   bundle.questions = [question];
