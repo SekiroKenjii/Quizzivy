@@ -41,6 +41,7 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
     description: null,
     status: "draft",
     currentVersion: 0,
+    nextVersion: 1,
     totalPoints: 0,
     questionCount: 0,
     audioCount: 0,

@@ -26,6 +26,7 @@ const created = {
   description: null,
   status: "draft" as const,
   currentVersion: 0,
+  nextVersion: 1,
   totalPoints: 1,
   questionCount: 0,
   audioCount: 0,

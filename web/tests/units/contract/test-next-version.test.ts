@@ -6,7 +6,10 @@ import { loadSpec } from "@tests/support/openapi";
 const spec = loadSpec();
 const ajv = new Ajv({ strict: false });
 addFormats(ajv);
-const test = ajv.compile({ $ref: "#/components/schemas/Test", components: spec.components });
+const test = ajv.compile({
+  $ref: "#/components/schemas/Test",
+  components: spec.components,
+});
 
 const published = {
   id: "019535d9-3df7-79fb-b466-fa907fa17f9e",
