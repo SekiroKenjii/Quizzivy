@@ -4,11 +4,8 @@ import { AnswerArea } from "./AnswerArea";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { PageAside } from "@/components/shared/PageAside";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MediaAsset } from "@/features/media/api";
-import { DEFAULT_AUDIO_POLICY } from "@/features/question-bank/audioPolicy";
-import { AudioPolicyPanel } from "@/features/question-bank/components/AudioPolicyPanel";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
 import { QuestionProseField } from "@/features/question-bank/components/QuestionProseField";
 import { TagsField } from "@/features/question-bank/components/TagsField";
@@ -44,9 +41,9 @@ interface QuestionEditorProps {
 
 /**
  * QuestionEditor is §7's five question types in one controlled editor: the
- * prompt, the type's answer block with its grading note, and the explanation in
- * the middle column; points, tags and media in the settings rail, which a host
- * can present in its dialog instead.
+ * prompt, the type's answer block with its grading note, the question's media
+ * and the explanation in the middle column; points and tags in the settings
+ * rail, which a host can present in its dialog instead.
  */
 export function QuestionEditor({
   value,
@@ -59,7 +56,6 @@ export function QuestionEditor({
   onAssetChange,
 }: Readonly<QuestionEditorProps>) {
   const { t } = useTranslation();
-  const isAudio = asset?.kind === "audio";
   const locked = typeLocked(value);
 
   function switchType(type: QuestionType) {
@@ -120,6 +116,14 @@ export function QuestionEditor({
         </div>
 
         <AnswerArea value={value} onChange={onChange} />
+
+        <QuestionMediaField
+          value={value}
+          asset={asset}
+          onChange={onChange}
+          onAssetChange={onAssetChange}
+          onRefresh={onRefresh}
+        />
 
         <div>
           <QuestionProseField
@@ -184,38 +188,6 @@ export function QuestionEditor({
               onChange={(tags) => onChange({ ...value, tags })}
             />
           </div>
-        </div>
-
-        <Separator />
-
-        <div>
-          <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
-            {t("questionEditor.media")}
-          </p>
-          <QuestionMediaField
-            value={asset}
-            {...(onRefresh ? { onRefresh } : {})}
-            onChange={(next) => {
-              onAssetChange(next);
-              onChange({
-                ...value,
-                mediaAssetId: next?.id ?? null,
-                mediaAlt: null,
-                audio:
-                  next?.kind === "audio" ? (value.audio ?? DEFAULT_AUDIO_POLICY) : null,
-                transcript: next?.kind === "audio" ? value.transcript : null,
-              });
-            }}
-          />
-
-          {isAudio && value.audio ? (
-            <AudioPolicyPanel
-              policy={value.audio}
-              transcript={value.transcript ?? ""}
-              onPolicyChange={(audio) => onChange({ ...value, audio })}
-              onTranscriptChange={(transcript) => onChange({ ...value, transcript })}
-            />
-          ) : null}
         </div>
       </PageAside>
     </>

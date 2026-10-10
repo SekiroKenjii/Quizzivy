@@ -655,7 +655,21 @@
     "emptyHint": "Tải lên tệp nghe hoặc hình ảnh để dùng trong câu hỏi.",
     "noMatches": "Không có tệp nào khớp.",
     "clearFilters": "Xoá bộ lọc",
-    "dropToUpload": "Thả tệp vào đây để tải lên"
+    "dropToUpload": "Thả tệp vào đây để tải lên",
+    "picker": {
+      "title": "Chọn từ Media",
+      "description": "Các tệp bạn đã tải lên.",
+      "kind": "Loại tệp",
+      "all": "Tất cả",
+      "images": "Hình ảnh",
+      "audio": "Âm thanh",
+      "search": "Tìm tệp",
+      "noMatch": "Không có tệp nào khớp.",
+      "emptyLibrary": "Chưa có tệp nào. Tải tệp mới lên để bắt đầu.",
+      "uploadNew": "Tải tệp mới",
+      "attach": "Đính kèm",
+      "notUsedYet": "Chưa dùng"
+    }
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",
@@ -767,6 +781,39 @@
       "manual": "Chấm tay. Mỗi câu trả lời được đưa vào hàng chờ chấm.",
       "anyAccepted": "Câu trả lời đúng khi khớp với một đáp án được chấp nhận.",
       "exactlyTicked": "Học viên phải chọn đúng các lựa chọn đã đánh dấu."
+    },
+    "questionMedia": {
+      "label": "Media của câu hỏi",
+      "hint": "âm thanh hoặc hình ảnh hiện phía trên đề bài",
+      "drop": "Thả tệp âm thanh hoặc hình ảnh vào đây",
+      "limits": "Âm thanh: MP3 hoặc M4A, tối đa 50 MB và 5 phút · Hình ảnh: JPG, PNG hoặc WebP, tối đa 10 MB",
+      "choose": "Chọn tệp",
+      "fromMedia": "Từ Media",
+      "replace": "Thay",
+      "replaceLabel": "Thay media của câu hỏi này",
+      "remove": "Gỡ media",
+      "checkingLength": "{{size}} · đang kiểm tra độ dài…",
+      "plays": "Số lần nghe",
+      "once": "Một lần",
+      "twice": "Hai lần",
+      "unlimited": "Không giới hạn",
+      "playsCount_one": "{{count}} lần",
+      "playsCount_other": "{{count}} lần",
+      "allowSeek": "Cho tua tới",
+      "showTranscript": "Hiện lời thoại sau khi nộp",
+      "transcript": "Lời thoại",
+      "optional": "Không bắt buộc",
+      "transcriptPlaceholder": "Dán lời thoại của đoạn âm thanh",
+      "altLabel": "Văn bản thay thế",
+      "altPlaceholder": "Văn bản thay thế: mô tả hình ảnh cho trình đọc màn hình",
+      "altHelp": "Học viên dùng trình đọc màn hình sẽ nghe câu này thay cho hình ảnh.",
+      "chooseKind": "Hãy chọn tệp âm thanh hoặc hình ảnh",
+      "notMedia": "{{name}} không phải tệp MP3, M4A, JPG, PNG hoặc WebP.",
+      "imageTooBig": "Hình ảnh tối đa 10 MB",
+      "audioTooBig": "Âm thanh tối đa 50 MB",
+      "audioTooLong": "Âm thanh dài tối đa 5 phút",
+      "unreadable": "Không đọc được tệp",
+      "saved": "Đã lưu vào Media · {{name}}"
     }
   },
   "builder": {
