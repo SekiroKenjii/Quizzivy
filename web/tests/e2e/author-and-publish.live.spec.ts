@@ -100,9 +100,6 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
 
   // ------------------------------------------ audio, with a real upload
   await addQuestion(page, "Một đáp án", "Người phụ nữ đề nghị làm gì?");
-  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
-  const settings = page.getByRole("dialog", { name: "Cài đặt câu hỏi", exact: true });
-  await expect(settings).toBeVisible();
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
 
   await expect(async () => {
@@ -112,25 +109,26 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
     if (await rejected.isVisible()) {
       throw new Error(`upload rejected: ${await rejected.innerText()}`);
     }
-    await expect(page.getByRole("button", { name: "Gỡ", exact: true })).toBeVisible({
-      timeout: 1_000,
-    });
+    await expect(
+      page.getByRole("button", { name: "Gỡ media", exact: true }),
+    ).toBeVisible({ timeout: 1_000 });
   }).toPass({ timeout: 60_000 });
-  await expect(page.getByText("unit5-listening.mp3")).toBeVisible();
+  await expect(page.getByText("unit5-listening.mp3", { exact: true })).toBeVisible();
 
   // The server sniffed the bytes and measured the duration.
   await expect(page.getByText(/0:10 · /)).toBeVisible();
   await expect(page.getByText("0:00 / 0:10")).toBeVisible();
 
   // §11.1's defaults arrive with the asset, visibly.
-  await expect(page.getByLabel("Số lần được nghe")).toHaveText("2 lần");
-  await expect(page.getByRole("switch", { name: "Cho tua" })).not.toBeChecked();
+  await expect(
+    page
+      .getByRole("radiogroup", { name: "Số lần nghe" })
+      .getByRole("radio", { name: "Hai lần" }),
+  ).toBeChecked();
+  await expect(page.getByRole("switch", { name: "Cho tua tới" })).not.toBeChecked();
   await expect(
     page.getByRole("switch", { name: "Hiện lời thoại sau khi nộp" }),
   ).toBeChecked();
-
-  await page.keyboard.press("Escape");
-  await expect(settings).toBeHidden();
 
   await setOptions(page, ["Gọi lại sau", "Đổi lịch hẹn"]);
 

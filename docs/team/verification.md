@@ -56,9 +56,9 @@ Run from the repository root; `web` commands as `pnpm --dir web ...`.
 | 5 | Go end-to-end | `make test-api-e2e` (`-tags e2e ./tests/...`, isolation suite included) | end-to-end | Postgres 18 with `CREATEDB`, MinIO | PR, V, Rel | CI; tester |
 | 6 | Import converter tests | the step in `ci.yml` "Import converter tests" (needs `docker/word-converter` image id) | integration | Docker daemon | PR; Rel if Docker exists | CI |
 | 7 | Migrations up/down/up | `make migrate-redo`; CI runs `goose up`, `reset`, `up` on a throwaway DB | integration | disposable DB | PR (when a migration changed), V, Rel | CI; tester |
-| 8 | Web lint | `pnpm lint` | static | | PR, V, Rel | CI; tester |
+| 8 | Web lint | `pnpm lint:ci` (no cache) | static | | PR, V, Rel | CI; tester |
 | 9 | Typecheck | `pnpm typecheck`, never `tsc --noEmit` (it checks zero files) | static | | PR, V, Rel | CI; tester |
-| 10 | Format | `pnpm format:check` | static | | PR, V, Rel | CI; tester |
+| 10 | Format | `pnpm format:ci` (no cache) | static | | PR, V, Rel | CI; tester |
 | 11 | Web unit | `pnpm test:unit` (CI shards 2) | unit | | PR, V, Rel | CI; tester |
 | 12 | Web integration | `pnpm test:integration` (includes `router-chunks.test.ts`, a real build) | integration | | PR, V, Rel | CI; tester |
 | 13 | Build | `pnpm build` | build | | PR, V, Rel | CI; tester |

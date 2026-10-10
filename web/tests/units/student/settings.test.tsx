@@ -15,6 +15,7 @@ import StudentLayout from "@/layouts/StudentLayout";
 import StudentSettingsPage from "@/features/auth/pages/StudentSettingsPage";
 import type { User } from "@/features/auth/api";
 import i18n, { setLocale } from "@/lib/i18n";
+import en from "@/lib/i18n/locales/en.json";
 import { readLargerTestText, writeLargerTestText } from "@/lib/testText";
 import { readThemePreference, writeThemePreference } from "@/lib/theme";
 import { notify } from "@/lib/toast";
@@ -704,6 +705,41 @@ describe("profile", () => {
     expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
     await waitFor(() => expect(useAuthStore.getState().user?.locale).toBe("en"));
     expect(patches).toEqual([{ locale: "en" }]);
+  });
+});
+
+describe("the language select", () => {
+  it("shows a language whose strings are still loading, so picking Vietnamese back wins", async () => {
+    server.use(
+      http.patch(`${BASE}/auth/me`, async ({ request }) => {
+        const patch = (await request.json()) as { locale: "vi" | "en" };
+        return contractJson("/auth/me", "patch", 200, account(patch));
+      }),
+    );
+    i18n.removeResourceBundle("en", "translation");
+    const user = userEvent.setup();
+    open();
+    const trigger = await screen.findByRole("combobox", { name: "Ngôn ngữ" });
+
+    let english = Promise.resolve();
+    act(() => {
+      english = setLocale("en");
+    });
+
+    expect(i18n.language).toBe("vi");
+    expect(trigger).toHaveTextContent("English");
+
+    await user.click(trigger);
+    await user.click(
+      within(await screen.findByRole("listbox")).getByRole("option", {
+        name: "Tiếng Việt",
+      }),
+    );
+    await english;
+
+    expect(i18n.language).toBe("vi");
+    expect(localStorage.getItem("quizzivy.locale")).toBe("vi");
+    i18n.addResourceBundle("en", "translation", en, true, true);
   });
 });
 
