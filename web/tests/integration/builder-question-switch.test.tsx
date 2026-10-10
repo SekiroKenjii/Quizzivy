@@ -9,6 +9,10 @@ import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
 
+Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
+Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+document.elementFromPoint ??= () => null;
+
 const BASE = "http://localhost:8080";
 const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 const QUESTION_ID = "018f0000-0000-7000-8000-0000000000b1";
@@ -167,4 +171,73 @@ it("keeps the edited question open when its final save fails", async () => {
   expect(screen.getByLabelText("Nội dung câu hỏi")).toHaveValue(
     `${question.prompt} Unsaved`,
   );
+});
+
+it("opens a rich prompt's next question with its own content and mode, and keeps the edit", async () => {
+  const rich = (text: string) => ({
+    format: "semantic_v1" as const,
+    blocks: [
+      {
+        type: "paragraph" as const,
+        content: [{ type: "text" as const, text, marks: [] }],
+      },
+    ],
+  });
+  let savedContent = rich(question.prompt);
+  server.use(
+    http.get(`${BASE}/teacher/questions/:id`, ({ params }) =>
+      contractJson("/teacher/questions/{id}", "get", 200, {
+        ...question,
+        id: String(params.id),
+        ...(params.id === SECOND
+          ? { prompt: "Second question" }
+          : { prompt: savedPrompt, promptContent: savedContent }),
+      }),
+    ),
+    http.patch(`${BASE}/teacher/questions/:id`, async ({ request }) => {
+      const body = (await request.json()) as {
+        prompt: string;
+        promptContent: typeof savedContent;
+      };
+      savedPrompt = body.prompt;
+      savedContent = body.promptContent;
+      return contractJson("/teacher/questions/{id}", "patch", 200, {
+        ...question,
+        prompt: savedPrompt,
+        promptContent: savedContent,
+      });
+    }),
+  );
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createMemoryRouter(
+    [{ path: "/teacher/tests/:id/edit", element: <TestBuilderPage /> }],
+    { initialEntries: [`/teacher/tests/${TEST_ID}/edit`] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  const user = userEvent.setup();
+  const editor = await waitFor(() => {
+    const node = document.getElementById("question-prompt");
+    expect(node).toHaveTextContent(question.prompt);
+    return node!;
+  });
+  await user.type(editor, "Rich ");
+  await user.click(await screen.findByRole("button", { name: "Second question" }));
+
+  expect(await screen.findByDisplayValue("Second question")).toBeVisible();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(savedPrompt).toBe(`Rich ${question.prompt}`);
+
+  await user.click(
+    await screen.findByRole("button", { name: `Rich ${question.prompt}` }),
+  );
+  await waitFor(() =>
+    expect(document.getElementById("question-prompt")).toHaveTextContent(
+      `Rich ${question.prompt}`,
+    ),
+  );
+  expect(document.getElementById("question-prompt")?.tagName).not.toBe("TEXTAREA");
 });

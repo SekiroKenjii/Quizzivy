@@ -115,27 +115,26 @@ export async function chooseOption(page: Page, text: string) {
 }
 
 /**
- * Assigns a published test to the seeded class and lands on the list.
- *
- * The wizard picks the test and the class and saves a draft; the edit form
- * then assigns it, until the wizard has its own Assign step (T-R4.27b).
+ * Assigns a published test to the seeded class through the wizard, with
+ * every other choice left at its default, and lands on the list.
  */
 export async function assignToClass(page: Page, title: string) {
-  const id = await saveDraftFromWizard(page, title);
-  await page.goto(`/teacher/assignments/${id}/edit`);
-  await page.getByRole("button", { name: "Giao bài", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/teacher/assignments/${id}$`), {
+  await pickInWizard(page, title);
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  await page.getByRole("button", { name: /^Giao (cho \d+ học viên|bài)$/ }).click();
+  await expect(page).toHaveURL(/\/teacher\/assignments\?status=(open|scheduled)$/, {
     timeout: 30_000,
   });
   await page.goto("/teacher/assignments");
 }
 
 /**
- * Picks `title` and the seeded class in the new-assignment wizard, saves a
- * draft and returns its id. `query` is the address's query string, such as
- * `?test=<id>`; a test it preselects is checked, not clicked.
+ * Opens the new-assignment wizard with `query` (such as `?test=<id>`), picks
+ * `title` unless the query preselected it, ticks the seeded class and stops
+ * on the Students step.
  */
-export async function saveDraftFromWizard(page: Page, title: string, query = "") {
+export async function pickInWizard(page: Page, title: string, query = "") {
   await page.goto(`/teacher/assignments/new${query}`);
   const test = page.getByRole("radio", { name: new RegExp(title) });
   if (query.includes("test=")) await expect(test).toBeChecked();
@@ -145,15 +144,27 @@ export async function saveDraftFromWizard(page: Page, title: string, query = "")
     .getByRole("checkbox", { name: /Tiếng Anh giao tiếp/ })
     .first()
     .click();
-  const created = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response.url().endsWith("/teacher/assignments"),
-  );
-  await page.getByRole("button", { name: "Lưu nháp", exact: true }).click();
-  const assignment = (await (await created).json()) as { id: string };
-  await expect(page).toHaveURL(/\/teacher\/assignments\?status=draft$/, {
+}
+
+/** Types `value` into the stepper named `name` and commits it with Enter. */
+export async function fillStepper(page: Page, name: string, value: string) {
+  const field = page.getByRole("spinbutton", { name });
+  await field.fill(value);
+  await field.press("Enter");
+  await expect(field).toHaveAttribute("aria-valuenow", value);
+}
+
+/**
+ * publishInBuilder publishes the open builder's draft through "Publish test?",
+ * waits for the builder to say so, and opens the test's own page.
+ */
+export async function publishInBuilder(page: Page) {
+  const id = new URL(page.url()).pathname.split("/").at(-2);
+  await page.getByRole("button", { name: "Phát hành", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Phát hành đề thi?", exact: true });
+  await dialog.getByRole("button", { name: "Phát hành", exact: true }).click();
+  await expect(page.getByText("Đã phát hành. Giờ bạn có thể giao bài.")).toBeVisible({
     timeout: 30_000,
   });
-  return assignment.id;
+  await page.goto(`/teacher/tests/${id}`);
 }

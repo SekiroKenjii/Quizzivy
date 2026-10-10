@@ -1,121 +1,137 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CircleAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { CircleAlert, CircleCheck, Info, Send } from "lucide-react";
+import { FormDialog, type FormInfoRow } from "@/components/shared/form/FormDialog";
 import type { PublishViolation } from "@/features/tests/api";
 
+/** PublishProblem is one question the builder already knows publishing would refuse. */
+export type PublishProblem = Readonly<{
+  questionId: string;
+  message: string;
+  location: string | null;
+}>;
+
 interface PublishDialogProps {
+  open: boolean;
+  pending: boolean;
+  error: string | null;
+  problems: readonly PublishProblem[];
   violations: PublishViolation[] | null;
-  onClose: () => void;
+  warnings?: readonly { questionId: string; message: string }[];
+  groupCount?: number;
+  location?: (violation: PublishViolation) => string | null;
+  onOpenChange: (open: boolean) => void;
   onGoTo: (questionId: string) => void;
   onGoToSection?: (sectionId: string) => void;
-  warnings?: { questionId: string; message: string }[];
-  location?: (violation: PublishViolation) => string | null;
+  onPublish: (changeNote: string) => void;
 }
 
 /**
- * A-05's publish gate. §8 lists rules a test can fail in several places at
- * once, and a toast cannot express five failures with locations -- so every
- * blocking issue is a line with a jump link.
+ * PublishDialog is "Publish test?": the checks, an optional change note, and
+ * Publish. The checks are the builder's own `publishProblem` for each loaded
+ * question until the server answers, and the server's violations after a
+ * refused publish; each row that names a question or a section has "Fix it",
+ * which closes the dialog and goes there. While any check fails, Publish
+ * refuses with an alert instead of sending. A test holding shared-context
+ * groups also lists that every group has a title, which the contract
+ * requires. Missing explanations are listed and never block.
  */
 export function PublishDialog({
+  open,
+  pending,
+  error,
+  problems,
   violations,
-  onClose,
+  warnings = [],
+  groupCount = 0,
+  location,
+  onOpenChange,
   onGoTo,
   onGoToSection,
-  warnings = [],
-  location,
+  onPublish,
 }: Readonly<PublishDialogProps>) {
   const { t } = useTranslation();
+  const fix = t("builder.fixIt");
+  const blocking = violations !== null ? violations.length > 0 : problems.length > 0;
+  const [attempt, setAttempt] = useState({ open, refused: false });
+  if (attempt.open !== open) setAttempt({ open, refused: false });
+
+  function rows(): FormInfoRow[] {
+    const checks: FormInfoRow[] =
+      violations !== null
+        ? violations.map((violation) => {
+            const where = location?.(violation);
+            const go = violationTarget(violation, onGoTo, onGoToSection);
+            return {
+              icon: CircleAlert,
+              tone: "danger",
+              text: where ? `${where} · ${violation.message}` : violation.message,
+              ...(go ? { action: { label: fix, onAction: go } } : {}),
+            };
+          })
+        : problems.map((problem) => ({
+            icon: CircleAlert,
+            tone: "warning",
+            text: problem.location
+              ? `${problem.location} · ${problem.message}`
+              : problem.message,
+            action: { label: fix, onAction: () => onGoTo(problem.questionId) },
+          }));
+    const passed: FormInfoRow[] = blocking
+      ? []
+      : [
+          { icon: CircleCheck, tone: "success", text: t("builder.checkAnswers") },
+          { icon: CircleCheck, tone: "success", text: t("builder.checkPoints") },
+        ];
+    const titled: FormInfoRow[] =
+      groupCount > 0
+        ? [{ icon: CircleCheck, tone: "success", text: t("builder.checkGroups") }]
+        : [];
+    const notes: FormInfoRow[] = warnings.map((warning) => ({
+      icon: Info,
+      tone: "info",
+      text: warning.message,
+      action: { label: fix, onAction: () => onGoTo(warning.questionId) },
+    }));
+    return [...checks, ...passed, ...titled, ...notes];
+  }
 
   return (
-    <Dialog open={violations !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{t("builder.publishBlockedTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("builder.publishBlockedBody", { count: violations?.length ?? 0 })}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-1.5">
-          {(violations ?? []).map((violation, index) => (
-            <div
-              key={`${violation.rule}-${violation.questionId ?? violation.sectionId ?? index}`}
-              className="flex items-start gap-2.5 rounded-md border p-2.5"
-            >
-              <CircleAlert
-                className="text-destructive mt-0.5 size-4 shrink-0"
-                aria-hidden="true"
-              />
-              <p id={messageId(index)} className="min-w-0 flex-1 text-sm">
-                {location?.(violation) && (
-                  <span className="mb-0.5 block font-medium">
-                    {location(violation)}
-                  </span>
-                )}
-                {violation.message}
-              </p>
-              {violation.questionId || (violation.sectionId && onGoToSection) ? (
-                <Button
-                  variant="outline"
-                  size="xs"
-                  aria-describedby={messageId(index)}
-                  onClick={() => {
-                    if (violation.questionId) onGoTo(violation.questionId);
-                    else if (violation.sectionId) onGoToSection?.(violation.sectionId);
-                  }}
-                >
-                  {t("builder.goToQuestion")}
-                </Button>
-              ) : null}
-            </div>
-          ))}
-        </div>
-
-        {warnings.length > 0 && (
-          <div className="space-y-2 border-t pt-3">
-            <p className="text-xs font-medium">{t("builder.publishWarnings")}</p>
-            {warnings.map((warning) => (
-              <div
-                key={warning.questionId}
-                className="text-muted-foreground flex items-center gap-2 text-sm"
-              >
-                <span className="flex-1">{warning.message}</span>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => onGoTo(warning.questionId)}
-                >
-                  {t("builder.goToQuestion")}
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" className="flex-1" onClick={onClose}>
-            {t("builder.later")}
-          </Button>
-          <Button className="flex-1" disabled>
-            {t("builder.publish")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("builder.publishTitle")}
+      description={t("builder.publishBody")}
+      icon={Send}
+      initial={{ checks: "", note: "" }}
+      fields={[
+        { kind: "info", name: "checks", label: t("builder.checks"), rows: rows() },
+        {
+          kind: "area",
+          name: "note",
+          label: t("builder.changeNote"),
+          placeholder: t("builder.changeNotePlaceholder"),
+          maxLength: 200,
+        },
+      ]}
+      submitLabel={pending ? t("builder.publishing") : t("builder.publish")}
+      pending={pending}
+      error={attempt.refused && blocking ? t("builder.fixBeforePublishing") : error}
+      onSubmit={({ note }) => {
+        if (blocking) setAttempt({ open, refused: true });
+        else onPublish(note);
+      }}
+    />
   );
 }
 
-// Every row's button reads "Đi tới"; the message beside it is what says where.
-// Linking them is what lets a screen reader announce the two together.
-function messageId(index: number): string {
-  return `publish-violation-${index}`;
+function violationTarget(
+  violation: PublishViolation,
+  onGoTo: (questionId: string) => void,
+  onGoToSection: ((sectionId: string) => void) | undefined,
+): (() => void) | null {
+  const { questionId, sectionId } = violation;
+  if (questionId) return () => onGoTo(questionId);
+  if (sectionId && onGoToSection) return () => onGoToSection(sectionId);
+  return null;
 }
