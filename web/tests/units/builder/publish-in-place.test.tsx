@@ -142,6 +142,7 @@ beforeEach(() => {
         questionCount: 1,
         audioCount: 0,
         manualCount: 0,
+        skills: [],
         publishedAt: PUBLISHED_AT,
         publishedBy: "Lan",
         assignmentCount: 0,
