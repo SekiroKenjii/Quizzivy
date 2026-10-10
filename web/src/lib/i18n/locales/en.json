@@ -252,6 +252,7 @@
       "sections": {
         "profile": "Profile",
         "signIn": "Sign-in",
+        "notifications": "Notifications",
         "appearance": "Appearance"
       },
       "nameHint": "Your teacher sees this name.",
@@ -2048,6 +2049,26 @@
       "dueSoon": "{{title}} closes at {{when}}",
       "extended": "{{title}} now closes at {{when}}",
       "resultReady": "Your result for {{title}} is ready"
+    },
+    "bell": {
+      "label": "Notifications",
+      "labelUnread_one": "Notifications, {{count}} unread",
+      "labelUnread_other": "Notifications, {{count}} unread",
+      "title": "Notifications",
+      "markAllRead": "Mark all read",
+      "empty": "You're all caught up.",
+      "failed": "Couldn't load notifications.",
+      "loadMore": "Load more",
+      "unread": "Unread",
+      "justNow": "Just now"
+    },
+    "settings": {
+      "dueSoon": "Test due soon",
+      "dueSoonHint": "The day before and 1 hour before it closes",
+      "resultReady": "Result ready",
+      "resultReadyHint": "When your teacher finishes grading",
+      "loadFailed": "Couldn't load your notification settings.",
+      "saveFailed": "Your change wasn't saved. Try again."
     }
   },
   "pagination": {

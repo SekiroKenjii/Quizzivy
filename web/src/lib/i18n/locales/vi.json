@@ -252,6 +252,7 @@
       "sections": {
         "profile": "Hồ sơ",
         "signIn": "Đăng nhập",
+        "notifications": "Thông báo",
         "appearance": "Giao diện"
       },
       "nameHint": "Giáo viên của bạn thấy tên này.",
@@ -2048,6 +2049,26 @@
       "dueSoon": "{{title}} đóng lúc {{when}}",
       "extended": "{{title}} được gia hạn đến {{when}}",
       "resultReady": "{{title}} đã có kết quả"
+    },
+    "bell": {
+      "label": "Thông báo",
+      "labelUnread_one": "Thông báo, {{count}} chưa đọc",
+      "labelUnread_other": "Thông báo, {{count}} chưa đọc",
+      "title": "Thông báo",
+      "markAllRead": "Đánh dấu đã đọc hết",
+      "empty": "Bạn đã xem hết thông báo.",
+      "failed": "Không tải được thông báo.",
+      "loadMore": "Xem thêm",
+      "unread": "Chưa đọc",
+      "justNow": "Vừa xong"
+    },
+    "settings": {
+      "dueSoon": "Bài sắp hết hạn",
+      "dueSoonHint": "Một ngày trước và 1 giờ trước khi bài đóng",
+      "resultReady": "Đã có kết quả",
+      "resultReadyHint": "Khi giáo viên chấm xong bài của bạn",
+      "loadFailed": "Không tải được cài đặt thông báo.",
+      "saveFailed": "Chưa lưu được thay đổi. Hãy thử lại."
     }
   },
   "pagination": {

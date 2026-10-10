@@ -26,7 +26,11 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useForcedLightTheme } from "@/lib/theme";
 import { useQuery } from "@tanstack/react-query";
 import { getDashboard } from "@/features/dashboard/api";
-import { NotificationsButton } from "@/features/dashboard/NotificationsButton";
+import { modules } from "@/app/modules";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
+import { useNavCounts } from "@/layouts/shell/useNavCounts";
+import { reaches } from "@/layouts/teacherNav";
+import { useAuthStore } from "@/stores/auth";
 import { BrandLockup } from "@/components/shared/Brand";
 import { SideColumn } from "@/components/shared/SideColumn";
 
@@ -89,6 +93,8 @@ export default function AdminLayout() {
   const isNarrow = useMediaQuery("(max-width: 1280px)");
   const [override, setOverride] = useState<boolean | null>(null);
   const palette = useCommandPalette();
+  const counts = useNavCounts();
+  const user = useAuthStore((state) => state.user);
 
   // A-00 puts a count beside the class-facing items.
   const summary = useQuery({
@@ -179,7 +185,13 @@ export default function AdminLayout() {
             </Button>
 
             <div className="ml-auto flex items-center gap-2">
-              <NotificationsButton />
+              {modules.notifications ? (
+                <NotificationBell
+                  audience="teacher"
+                  unread={counts?.unread ?? 0}
+                  canGrade={reaches(user, "grading")}
+                />
+              ) : null}
               <AccountMenu />
             </div>
           </div>

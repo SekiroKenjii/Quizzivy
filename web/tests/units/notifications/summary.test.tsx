@@ -96,14 +96,14 @@ describe("idle notification summary", () => {
     });
     expect(hook.result.current.unread).toBe(0);
   });
-  it("shows zero during an outstanding refresh rather than borrowing its cached success", async () => {
+  it("keeps the last count during a refresh, so the dot does not blink, and takes the new one when it answers", async () => {
     const gate = deferred<void>();
     let requests = 0;
     server.use(
       http.get(`${BASE}/me/summary`, async () => {
         requests += 1;
         if (requests > 1) await gate.promise;
-        return summaryResponse(2);
+        return summaryResponse(requests > 1 ? 3 : 2);
       }),
     );
     const setup = harness();
@@ -113,12 +113,15 @@ describe("idle notification summary", () => {
     act(() => {
       refresh = setup.client.invalidateQueries({ queryKey: notificationKeys.summary });
     });
-    await settled(() => requests === 2 && hook.result.current.unread === 0);
+    await settled(() => requests === 2);
+    expect(hook.result.current.unread).toBe(2);
+    await tick(50);
+    expect(hook.result.current.unread, "no blink while the refresh is out").toBe(2);
     gate.resolve();
     await act(async () => {
       await refresh;
     });
-    await settled(() => hook.result.current.unread === 2);
+    await settled(() => hook.result.current.unread === 3);
   });
   it("sends no request or resume poll while disabled and hides even a cached count", async () => {
     let requests = 0;

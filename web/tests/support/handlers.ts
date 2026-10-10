@@ -59,6 +59,12 @@ export const handlers = [
       ].map((event) => ({ event, inApp: true, email: false })),
     ),
   ),
+  http.get(`${BASE}/me/summary`, () =>
+    contractJson("/me/summary", "get", 200, { unreadNotifications: 0 }),
+  ),
+  http.get(`${BASE}/me/notifications`, () =>
+    contractJson("/me/notifications", "get", 200, { items: [], nextBefore: null }),
+  ),
   http.get(`${BASE}/teacher/imports/capabilities`, () =>
     contractJson("/teacher/imports/capabilities", "get", 200, {
       intakeEnabled: true,

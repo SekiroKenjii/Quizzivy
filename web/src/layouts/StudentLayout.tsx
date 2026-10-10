@@ -15,6 +15,8 @@ import { modules } from "@/app/modules";
 import { BrandMark } from "@/components/shared/Brand";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { AccountMenu } from "@/features/auth/AccountMenu";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
+import { useNotificationSummary } from "@/features/notifications/useNotificationSummary";
 import { useDueSoonCount } from "@/features/assignments/dueSoon";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
@@ -49,7 +51,8 @@ interface Destination {
  * `<main>` is the scroller. When the route changes it returns to the top and
  * takes focus, so the keyboard scrolls the new page; it does neither when a
  * page moves between its own sections.
- * A destination whose module has not shipped is absent (`app/modules`).
+ * A destination whose module has not shipped is absent (`app/modules`), and
+ * so is the bell while notifications are off; the bell polls `/me/summary`.
  */
 export default function StudentLayout() {
   const { t } = useTranslation();
@@ -58,6 +61,7 @@ export default function StudentLayout() {
   const route = matches.at(-1)?.id;
   const detail = detailOf(matches);
   const dueSoon = useDueSoonCount();
+  const { unread } = useNotificationSummary(modules.notifications);
   const [own, setTitle] = useState<string | null>(null);
   const context = useMemo(() => ({ setTitle }) satisfies DetailShell, []);
   const main = useRef<HTMLElement>(null);
@@ -141,6 +145,9 @@ export default function StudentLayout() {
           </nav>
         )}
         <div className="ml-auto flex items-center gap-1">
+          {modules.notifications ? (
+            <NotificationBell audience="student" unread={unread} />
+          ) : null}
           <AccountMenu settingsTo="/app/settings" deck />
         </div>
       </header>

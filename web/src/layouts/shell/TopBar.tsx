@@ -2,7 +2,7 @@ import {
   chooseAccountPreference,
   useAccountPreferenceStatus,
 } from "@/features/auth/accountPreferences";
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { Menu, Moon, PanelLeft, Search, Sun } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
@@ -18,7 +18,7 @@ const KEY_CAP =
 /**
  * TopBar is the teacher shell's 56px bar: the sidebar toggle, the breadcrumb
  * trail, the search button that opens the command palette, and the switch
- * between the light and dark themes. `drawer` says the sidebar is the drawer
+ * between the light and dark themes, then `bell`. `drawer` says the sidebar is the drawer
  * below 768px, where the toggle opens it; from 768px the toggle collapses and
  * expands the sidebar, and `expanded` is the state it reports either way.
  */
@@ -29,6 +29,7 @@ export function TopBar({
   toggleRef,
   trail,
   onSearch,
+  bell,
 }: Readonly<{
   drawer: boolean;
   expanded: boolean;
@@ -36,6 +37,7 @@ export function TopBar({
   toggleRef: Ref<HTMLButtonElement>;
   trail: readonly PageCrumb[];
   onSearch: () => void;
+  bell?: ReactNode;
 }>) {
   const { t } = useTranslation();
   const theme = useResolvedTheme();
@@ -91,6 +93,7 @@ export function TopBar({
         >
           <ThemeIcon className="size-[1.0625rem]" aria-hidden="true" />
         </button>
+        {bell}
       </div>
     </header>
   );

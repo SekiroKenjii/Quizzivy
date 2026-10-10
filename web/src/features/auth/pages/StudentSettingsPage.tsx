@@ -1,21 +1,30 @@
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate, useParams } from "react-router";
+import { modules } from "@/app/modules";
 import { Segmented } from "@/components/ui/segmented";
 import {
   StudentAppearanceSection,
   StudentProfileSection,
   StudentSignInSection,
 } from "@/features/auth/components/StudentSettingsSections";
+import { StudentNotificationsSection } from "@/features/notifications/components/StudentNotificationsSection";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const BASE = "/app/settings";
-const SECTIONS = [
+const ALL_SECTIONS = [
   { id: "profile", label: "student.settings.sections.profile" },
   { id: "sign-in", label: "student.settings.sections.signIn" },
+  { id: "notifications", label: "student.settings.sections.notifications" },
   { id: "appearance", label: "student.settings.sections.appearance" },
 ] as const;
 
-type SectionId = (typeof SECTIONS)[number]["id"];
+type SectionId = (typeof ALL_SECTIONS)[number]["id"];
+
+function shipped() {
+  return ALL_SECTIONS.filter(
+    (section) => section.id !== "notifications" || modules.notifications,
+  );
+}
 
 const MOVED: ReadonlyMap<string, SectionId> = new Map([
   ["security", "sign-in"],
@@ -23,7 +32,7 @@ const MOVED: ReadonlyMap<string, SectionId> = new Map([
 ]);
 
 function isSection(slug: string): slug is SectionId {
-  return SECTIONS.some((section) => section.id === slug);
+  return shipped().some((section) => section.id === slug);
 }
 
 function activeSection(slug: string | undefined): SectionId {
@@ -38,13 +47,14 @@ function pathOf(id: SectionId): string {
 
 /**
  * StudentSettingsPage is the student's Settings, as the design deck draws
- * it: a 760px column with a switcher over the Profile, Sign-in and
- * Appearance sections, each at `/app/settings/:section`, Profile also at the
- * bare path. Every section stays mounted, so what is typed in one survives a
+ * it: a 760px column with a switcher over the Profile, Sign-in,
+ * Notifications and Appearance sections, each at `/app/settings/:section`,
+ * Profile also at the bare path; Notifications is there while its module is
+ * on. Every section stays mounted, so what is typed in one survives a
  * visit to another and a resize across 768px. The slugs of the screen this
  * replaces redirect: `security` to `sign-in`, and `preferences` to Profile,
  * where the language went. Any other slug redirects to Profile, which
- * includes `notifications` until that module ships. Below 768px the shell's
+ * includes `notifications` while that module is off. Below 768px the shell's
  * header carries the title, and the page's own heading is for screen readers.
  */
 export default function StudentSettingsPage() {
@@ -69,7 +79,7 @@ export default function StudentSettingsPage() {
         label={t("settings.navigation")}
         size="lg"
         value={active}
-        options={SECTIONS.map(({ id, label }) => ({ value: id, label: t(label) }))}
+        options={shipped().map(({ id, label }) => ({ value: id, label: t(label) }))}
         onChange={(id) => {
           if (id !== active) void navigate(pathOf(id as SectionId));
         }}
@@ -81,6 +91,11 @@ export default function StudentSettingsPage() {
       <div hidden={active !== "sign-in"}>
         <StudentSignInSection />
       </div>
+      {modules.notifications ? (
+        <div hidden={active !== "notifications"}>
+          <StudentNotificationsSection />
+        </div>
+      ) : null}
       <div hidden={active !== "appearance"}>
         <StudentAppearanceSection />
       </div>

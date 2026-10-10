@@ -10,7 +10,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import StudentLayout from "@/layouts/StudentLayout";
 import StudentSettingsPage from "@/features/auth/pages/StudentSettingsPage";
 import type { User } from "@/features/auth/api";
@@ -1542,5 +1542,94 @@ describe("in English", () => {
     expect(
       screen.getByRole("switch", { name: "Larger text in tests" }),
     ).toHaveAccessibleDescription("Reading passages and questions at 18px");
+  });
+});
+
+describe("the notifications section", () => {
+  afterEach(() => {
+    flags.notifications = false;
+  });
+
+  function preferences(failSave = false) {
+    const puts: unknown[] = [];
+    server.use(
+      http.put(`${BASE}/me/notification-preferences`, async ({ request }) => {
+        const body = (await request.json()) as unknown[];
+        puts.push(body);
+        if (failSave)
+          return HttpResponse.json(failure("INTERNAL", "Máy chủ gặp lỗi."), {
+            status: 500,
+          });
+        return contractJson("/me/notification-preferences", "put", 200, body);
+      }),
+    );
+    return puts;
+  }
+
+  it("sits between Sign-in and Appearance once the module ships", async () => {
+    flags.notifications = true;
+    open("/app/settings/notifications");
+    await screen.findByRole("heading", { level: 1 });
+    expect(
+      switcher()
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Hồ sơ", "Đăng nhập", "Thông báo", "Giao diện"]);
+    const section = await screen.findByRole("region", { name: "Thông báo" });
+    expect(
+      await within(section).findByRole("switch", { name: "Bài sắp hết hạn" }),
+    ).toBeChecked();
+    expect(
+      within(section).getByRole("switch", { name: "Đã có kết quả" }),
+    ).toBeChecked();
+  });
+
+  it("turns an update off in the app and by email at once, and keeps every other row", async () => {
+    flags.notifications = true;
+    const puts = preferences();
+    const user = userEvent.setup();
+    open("/app/settings/notifications");
+    const section = await screen.findByRole("region", { name: "Thông báo" });
+    await user.click(
+      await within(section).findByRole("switch", { name: "Bài sắp hết hạn" }),
+    );
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual([
+      { event: "attempt.submitted", inApp: true, email: false },
+      { event: "attempt.flagged", inApp: true, email: false },
+      { event: "assignment.closing", inApp: true, email: false },
+      { event: "assignment.due_soon", inApp: false, email: false },
+      { event: "result.ready", inApp: true, email: false },
+    ]);
+    await waitFor(() =>
+      expect(
+        within(section).getByRole("switch", { name: "Bài sắp hết hạn" }),
+      ).not.toBeChecked(),
+    );
+  });
+
+  it("puts the saved value back and says so when the save fails", async () => {
+    flags.notifications = true;
+    preferences(true);
+    const user = userEvent.setup();
+    open("/app/settings/notifications");
+    const section = await screen.findByRole("region", { name: "Thông báo" });
+    const result = await within(section).findByRole("switch", {
+      name: "Đã có kết quả",
+    });
+    await user.click(result);
+
+    expect(await within(section).findByRole("alert")).toHaveTextContent(
+      "Chưa lưu được thay đổi. Hãy thử lại.",
+    );
+    expect(result).toBeChecked();
+  });
+
+  it("sends the notifications address to Profile while the module is off", async () => {
+    const router = open("/app/settings/notifications");
+    expect(await screen.findByRole("region", { name: "Hồ sơ" })).toBeVisible();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/app/settings"));
+    expect(screen.queryByRole("region", { name: "Thông báo" })).toBeNull();
   });
 });

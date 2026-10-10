@@ -604,3 +604,43 @@ describe("settings", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("the bell", () => {
+  afterEach(() => {
+    flags.notifications = false;
+  });
+
+  it("is absent while the notifications module is off", async () => {
+    serveStudent({});
+    shell("/app", <p>trang</p>);
+    await screen.findByRole("navigation", { name: NAV });
+    expect(screen.queryByRole("button", { name: /^Thông báo/ })).toBeNull();
+  });
+
+  it("sits before the account button with a dot while something is unread", async () => {
+    flags.notifications = true;
+    serveStudent({});
+    server.use(
+      http.get(`${BASE}/me/summary`, () =>
+        contractJson("/me/summary", "get", 200, { unreadNotifications: 2 }),
+      ),
+    );
+    shell("/app", <p>trang</p>);
+    const bell = await screen.findByRole("button", { name: "Thông báo, 2 chưa đọc" });
+    expect(bell.querySelector("[data-slot='bell-dot']")).not.toBeNull();
+    const account = screen.getByRole("button", { name: "Tài khoản của Nguyễn Văn An" });
+    expect(
+      bell.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("keeps its place on a phone, with no dot when nothing is unread", async () => {
+    viewport("phone");
+    flags.notifications = true;
+    serveStudent({});
+    shell("/app", <p>trang</p>);
+    const bell = await screen.findByRole("button", { name: "Thông báo" });
+    expect(bell.closest("header")).not.toBeNull();
+    expect(bell.querySelector("[data-slot='bell-dot']")).toBeNull();
+  });
+});

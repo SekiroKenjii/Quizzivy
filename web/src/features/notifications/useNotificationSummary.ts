@@ -5,7 +5,13 @@ import { getMySummary, notificationKeys } from "./api";
 /** SUMMARY_POLL_MS is the active reader's sixty-second notification interval. */
 export const SUMMARY_POLL_MS = 60_000;
 
-/** useNotificationSummary returns zero unless an enabled read has a known successful count, with idle-aware polling and immediate resume. */
+/**
+ * useNotificationSummary returns the unread count of `/me/summary`, polled
+ * idle-aware with an immediate read on resume. It keeps the last count while
+ * a later read is in flight, so a bell's dot does not blink on each poll, and
+ * is zero while disabled, before the first read answers, and after a read
+ * fails.
+ */
 export function useNotificationSummary(enabled = true): { unread: number } {
   const refetchInterval = useIdlePolling(SUMMARY_POLL_MS, enabled);
   const query = useQuery({
@@ -17,9 +23,6 @@ export function useNotificationSummary(enabled = true): { unread: number } {
   });
   useRefetchOnResume(query.refetch, enabled);
   return {
-    unread:
-      enabled && query.isSuccess && !query.isFetching
-        ? query.data.unreadNotifications
-        : 0,
+    unread: enabled && query.isSuccess ? query.data.unreadNotifications : 0,
   };
 }
