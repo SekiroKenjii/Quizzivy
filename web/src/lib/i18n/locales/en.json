@@ -2126,7 +2126,7 @@
     "assignment": {
       "draft": "Draft",
       "scheduled": "Scheduled",
-      "open": "Open",
+      "open": "Live",
       "closed": "Closed"
     },
     "attempt": {
