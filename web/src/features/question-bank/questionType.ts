@@ -79,10 +79,18 @@ const TRUE_WORDS: ReadonlySet<string> = new Set([
 const FALSE_WORDS: ReadonlySet<string> = new Set(["false", "f", "sai", "no", "không"]);
 
 function truthOf(text: string): boolean | null {
-  const word = text.normalize("NFC").trim().replace(/\.+$/, "").trim().toLowerCase();
+  const word = trimSpacesAndDots(text.normalize("NFC")).toLowerCase();
   if (TRUE_WORDS.has(word)) return true;
   if (FALSE_WORDS.has(word)) return false;
   return null;
+}
+
+function trimSpacesAndDots(text: string): string {
+  let start = 0;
+  let end = text.length;
+  while (start < end && (text[start] === " " || text[start] === ".")) start++;
+  while (end > start && (text[end - 1] === " " || text[end - 1] === ".")) end--;
+  return text.slice(start, end);
 }
 
 function trueSide(sides: ReadonlyArray<boolean | null>): number | null {
