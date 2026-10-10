@@ -44,7 +44,14 @@ describe("test version metadata wire boundaries", () => {
     expect(
       testVersion({
         ...version,
-        skills: ["grammar", "vocabulary", "reading", "listening", "writing", "speaking"],
+        skills: [
+          "grammar",
+          "vocabulary",
+          "reading",
+          "listening",
+          "writing",
+          "speaking",
+        ],
       }),
     ).toBe(true);
     expect(testVersion(without(version, "skills"))).toBe(false);
