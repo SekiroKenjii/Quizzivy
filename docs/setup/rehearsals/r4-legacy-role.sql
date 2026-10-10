@@ -6,13 +6,14 @@
 --   goose up (time it)
 --   psql "$BRANCH_DSN" -f docs/setup/rehearsals/r4-legacy-role.sql > after.txt
 -- Section A must print the same in both files. Section B runs only after
--- goose up; every "must be" line must print what it says. Record the timings
--- in the release PR, then delete the branch.
+-- goose up; every "must be" line must print what it says. Record the time of
+-- goose up itself in the release PR, then delete the branch. Query timing is
+-- off, so a plain diff of the two files shows section A unchanged.
 -- Read-only: nothing here writes.
 
 \set ON_ERROR_STOP on
 \pset footer off
-\timing on
+\timing off
 
 \echo '== A. Unchanged by the migration (compare before.txt with after.txt)'
 
