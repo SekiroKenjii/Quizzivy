@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   chooseOption,
   goAway,
-  saveDraftFromWizard,
+  fillStepper,
+  pickInWizard,
   signInAsAdmin,
   signInAsStudent,
   startAttempt,
@@ -137,34 +138,53 @@ test("admin edits persist through selection, empty-group drops and immutable ver
     .click();
   await confirm(page, "Đặt làm mặc định");
   await expect(firstVersion.getByText("Mặc định", { exact: true })).toBeVisible();
-  const draftId = await saveDraftFromWizard(page, title, `?test=${id}`);
-  await page.goto(`/teacher/assignments/${draftId}/edit`);
-  await expect(page.getByText(/Bài giao gắn với bản v1/)).toBeVisible();
-  await expect(page.getByLabel("Số lượt làm", { exact: true })).toHaveValue("1");
-  await page.getByLabel("Thời lượng làm bài", { exact: true }).click();
-  await expect(page.getByRole("option")).toHaveCount(4);
-  await page.getByRole("option", { name: "Nhập thời lượng khác", exact: true }).click();
-  await page.getByLabel("Thời lượng tự nhập (phút)").fill("65");
-  await page.getByLabel("Số lượt làm", { exact: true }).fill("2");
-  await page.getByLabel("Số lần rời trang cho phép", { exact: true }).click();
-  await expect(page.getByRole("option")).toHaveCount(3);
-  await page.getByRole("option", { name: "Không được phép", exact: true }).click();
-  await page.getByLabel("Khi vượt quá", { exact: true }).click();
+  await pickInWizard(page, title, `?test=${id}`);
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  const timeLimit = page.getByRole("group", { name: "Thời gian làm bài" });
+  await expect(timeLimit.getByRole("button")).toHaveCount(4);
+  await timeLimit.getByRole("button", { name: "Tuỳ chỉnh", exact: true }).click();
+  await fillStepper(page, "Thời gian làm bài", "65");
+  const attempts = page.getByRole("spinbutton", { name: "Số lượt mỗi học viên" });
+  await expect(attempts).toHaveAttribute("aria-valuenow", "1");
+  await fillStepper(page, "Số lượt mỗi học viên", "2");
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  const leaving = page.getByRole("group", { name: "Rời khỏi bài" });
+  await expect(leaving.getByRole("button")).toHaveCount(3);
+  await leaving.getByRole("button", { name: "Không được phép", exact: true }).click();
   await page
-    .getByRole("option", { name: "Tự nộp ngay, ghi nhận vi phạm", exact: true })
+    .getByRole("group", { name: "Khi vượt giới hạn" })
+    .getByRole("button", { name: "Tự nộp bài", exact: true })
     .click();
-  await expect(page.getByLabel("Khi vượt quá", { exact: true })).toBeFocused();
-  await page.getByRole("button", { name: "Giao bài", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/teacher/assignments/${draftId}$`));
-  await page.goto(`/teacher/assignments/${draftId}/edit`);
-  await expect(page.getByLabel("Thời lượng tự nhập (phút)")).toHaveValue("65");
-  await expect(page.getByLabel("Số lượt làm", { exact: true })).toHaveValue("2");
-  await expect(
-    page.getByLabel("Số lần rời trang cho phép", { exact: true }),
-  ).toHaveText("Không được phép");
-  await expect(page.getByLabel("Khi vượt quá", { exact: true })).toHaveText(
-    "Tự nộp ngay, ghi nhận vi phạm",
+  const created = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith("/teacher/assignments"),
   );
+  await page.getByRole("button", { name: /^Giao (cho \d+ học viên|bài)$/ }).click();
+  const assignment = (await (await created).json()) as {
+    id: string;
+    testVersion: number;
+  };
+  expect(assignment.testVersion, "the default version is the one assigned").toBe(1);
+  await expect(page).toHaveURL(/\/teacher\/assignments\?status=(open|scheduled)$/);
+  await page.goto(`/teacher/assignments/${assignment.id}/edit?step=3`);
+  await expect(
+    page.getByRole("spinbutton", { name: "Thời gian làm bài" }),
+  ).toHaveAttribute("aria-valuenow", "65");
+  await expect(
+    page.getByRole("spinbutton", { name: "Số lượt mỗi học viên" }),
+  ).toHaveAttribute("aria-valuenow", "2");
+  await page.goto(`/teacher/assignments/${assignment.id}/edit?step=4`);
+  await expect(
+    page
+      .getByRole("group", { name: "Rời khỏi bài" })
+      .getByRole("button", { name: "Không được phép", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page
+      .getByRole("group", { name: "Khi vượt giới hạn" })
+      .getByRole("button", { name: "Tự nộp bài", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
 
   await page.goto(`/teacher/tests/${id}`);
   const secondVersion = history.locator('[data-version="2"]');
@@ -232,7 +252,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await page.getByRole("menuitem", { name: "Đăng xuất", exact: true }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/login");
   await signInAsStudent(page);
-  await startAttempt(page, draftId);
+  await startAttempt(page, assignment.id);
   await expect(page.getByText("First updated promptly", { exact: true })).toBeVisible();
   await chooseOption(page, "Lựa chọn 1");
   await goAway(page, 3500);
