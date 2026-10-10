@@ -78,7 +78,7 @@ export function ClassAssignmentsCard({ classId }: Readonly<{ classId: string }>)
                 <EmptyState
                   action={
                     <Button variant="outline" size="sm" asChild>
-                      <Link to={`/teacher/assignments/new?classId=${classId}`}>
+                      <Link to={`/teacher/assignments/new?class=${classId}`}>
                         <ClipboardList aria-hidden="true" />
                         {t("classDetail.assignToClass")}
                       </Link>
