@@ -54,6 +54,9 @@ func (s ResetStudentsPasswordsHandler) Handle(ctx context.Context, cmd ResetStud
 	}
 feed:
 	for i := range cmd.IDs {
+		if ctx.Err() != nil {
+			break
+		}
 		select {
 		case next <- i:
 		case <-ctx.Done():
