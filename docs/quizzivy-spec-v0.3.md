@@ -1,7 +1,38 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.65 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.66 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.65**
+
+R4, duplicate, item analysis and the results export (T-R4.13):
+
+- §15 `POST /teacher/assignments/:id/duplicate` (`teaching.assignments.write`) takes
+  `{classIds}` and creates a draft that pins the same version and keeps the original's
+  time limit, attempts, shuffle flags, review options, integrity policy and note to
+  students. Its window opens now and lasts as long as the original's; it is assigned to
+  the classes named and to no student by name, and is owned by the caller. An original the
+  caller does not reach answers `404`, one whose version the caller may not assign answers
+  `409 TEST_NOT_PUBLISHED`, and a class the caller does not teach answers `400` on
+  `classIds`.
+- §15 `GET /teacher/assignments/:id/item-analysis` (`teaching.grading`) answers
+  `{handedIn, items}`: for each question of the pinned version, hardest first, how many
+  papers answered it and the share that earned its full points. The papers are, for each
+  student the caller reaches, the latest attempt that is handed in and not voided. A
+  question left unanswered counts against it, a manually marked answer not yet marked
+  counts for neither side, and a question no paper has a mark for has a null rate and
+  comes last.
+- §15 `GET /teacher/assignments/results.csv?ids=` (`teaching.grading`, 1 to 50 unique ids)
+  downloads a UTF-8 CSV with a byte-order mark: a row for every student of each assignment
+  whom the caller reaches, a student who has not started included, with the attempt the
+  monitor shows for them. Its times are in the caller's own time zone, and its headers and
+  status words follow `Accept-Language`. A cell a spreadsheet would run as a formula is
+  written with a leading `'`. An assignment the caller does not reach answers `404` for the
+  whole request, and more than 20000 rows answer `422 VALIDATION_FAILED`. A caller may
+  download 10 files a minute and 60 an hour.
+- §15 `GET /teacher/assignments` takes `q` (the test's title or the name of a target class
+  the caller reaches, ignoring accents) and `classId` more than once (any of the classes),
+  and its facets follow both. Every assignment carries `questionCount`.
 
 **Changes since v0.64**
 
@@ -2305,10 +2336,15 @@ GET    /teacher/media?kind=&unused=&q=&cursor=   rows, facets and usage against 
 PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the library row
 POST   /teacher/media/:id/replace       multipart → {asset, repointed: {questions, groups}, left: {questions, groups}}
 DELETE /teacher/media/:id               409 if referenced by a published version
-GET    /teacher/assignments | POST | GET /:id | PATCH /:id
+GET    /teacher/assignments?status=&classId=&classId=&q=&page=&limit= | POST | GET /:id | PATCH /:id
+                                        rows carry questionCount; classId repeats (any of them)
                                         PATCH 409 ASSIGNMENT_LOCKED while the assignment is open and the
                                         body changes testVersionId, durationMinutes or maxAttempts
 POST   /teacher/assignments/:id/extend  {minutes,notify?} → Assignment; 409 ASSIGNMENT_CLOSED when closed
+POST   /teacher/assignments/:id/duplicate {classIds} → 201 Assignment, a draft; 409 TEST_NOT_PUBLISHED
+GET    /teacher/assignments/:id/item-analysis → {handedIn, items:[{questionId,number,type,promptExcerpt,
+                                          answered,correctRate|null}]}, hardest first
+GET    /teacher/assignments/results.csv?ids=  → text/csv, BOM; 404 for any id not reached; 422 over 20000 rows
 GET    /teacher/assignments/:id/student-overrides   → {items}
 PUT    /teacher/assignments/:id/student-overrides   {studentIds,extendBy?|closesAt?,durationMinutes?,
                                           extraAttempts?,reason,notify?} → {items}; 422 for a student
