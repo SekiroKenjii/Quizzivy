@@ -16,20 +16,22 @@ import (
 
 // SetAvatar implements PUT /me/avatar.
 func (h Identity) SetAvatar(ctx context.Context, request openapi.SetAvatarRequestObject) (openapi.SetAvatarResponseObject, error) {
-	if h.app == nil || request.Body == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
 	if !ok {
 		return openapi.SetAvatar401JSONResponse{UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx))}, nil
 	}
+	if request.Body == nil {
+		return noImage(ctx), nil
+	}
 	part, err := firstFilePart(request.Body)
 	if overBodyLimit(err) {
 		return avatarTooLarge(ctx), nil
 	}
 	if err != nil {
-		return openapi.SetAvatar400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(httpapi.FieldError(ctx, "file",
-			httpx.Text(ctx, "Không tìm thấy ảnh trong yêu cầu tải lên.", "The upload request holds no image.")))}, nil
+		return noImage(ctx), nil
 	}
 	defer func() { _ = part.Close() }()
 
@@ -98,6 +100,11 @@ func (h Identity) avatarURL(ctx context.Context, user domain.User) string {
 		return ""
 	}
 	return url
+}
+
+func noImage(ctx context.Context) openapi.SetAvatar400JSONResponse {
+	return openapi.SetAvatar400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(httpapi.FieldError(ctx, "file",
+		httpx.Text(ctx, "Không tìm thấy ảnh trong yêu cầu tải lên.", "The upload request holds no image.")))}
 }
 
 func avatarTooLarge(ctx context.Context) openapi.SetAvatar413JSONResponse {

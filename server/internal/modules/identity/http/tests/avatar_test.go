@@ -341,3 +341,21 @@ func TestEverySuccessfulCurrentUserWirePathCarriesTheSignedUrlOfAUserWithAPhoto(
 		}
 	}
 }
+
+func TestARequestWithNoBodyAtAllAnswers400AndNotNotImplemented(t *testing.T) {
+	calls := &avatarCalls{}
+	h := identityhttp.NewIdentity(avatarApp(calls, nil, "", nil), time.Hour, false, nil)
+
+	out, err := h.SetAvatar(avatarCtx(t), openapi.SetAvatarRequestObject{})
+	if err != nil {
+		t.Fatalf("answered the error %v, want a 400 envelope", err)
+	}
+	rec := httptest.NewRecorder()
+	if err := out.VisitSetAvatarResponse(rec); err != nil {
+		t.Fatal(err)
+	}
+
+	if code, _ := envelope(t, rec); rec.Code != 400 || code != "VALIDATION_FAILED" || len(calls.set) != 0 {
+		t.Errorf("answered %d %s with %d commands", rec.Code, code, len(calls.set))
+	}
+}

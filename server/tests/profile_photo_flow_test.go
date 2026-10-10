@@ -155,6 +155,7 @@ func TestAProfilePhotoIsStoredAsASquareCleanPngAndEveryChangeDeletesTheObjectItR
 	if err := gif.Encode(&animated, image.NewPaletted(image.Rect(0, 0, 300, 300), color.Palette{color.Black}), nil); err != nil {
 		t.Fatal(err)
 	}
+	exact := padded(avatarPNG(t), 2<<20)
 	refusals := []struct {
 		name   string
 		data   []byte
@@ -164,7 +165,9 @@ func TestAProfilePhotoIsStoredAsASquareCleanPngAndEveryChangeDeletesTheObjectItR
 		{"a gif", animated.Bytes(), http.StatusUnsupportedMediaType, "MEDIA_TYPE_UNSUPPORTED"},
 		{"a png declaring 30000 x 30000", declaredBomb(), http.StatusUnsupportedMediaType, "IMAGE_DIMENSIONS"},
 		{"a png of 100 x 100", squarePNG(t, 100), http.StatusUnsupportedMediaType, "IMAGE_DIMENSIONS"},
-		{"a file over 2 MiB", bytes.Repeat([]byte{0x89}, 2<<20+1024), http.StatusRequestEntityTooLarge, "MEDIA_TOO_LARGE"},
+		{"a progressive jpeg of 33 empty scans", emptyScanJPEG(2048, 33), http.StatusUnsupportedMediaType, "IMAGE_DIMENSIONS"},
+		{"a file of 2 MiB and a byte", padded(avatarPNG(t), 2<<20+1), http.StatusRequestEntityTooLarge, "MEDIA_TOO_LARGE"},
+		{"a request far beyond the allowance", bytes.Repeat([]byte{0x89}, 3<<20), http.StatusRequestEntityTooLarge, "MEDIA_TOO_LARGE"},
 	}
 	for _, r := range refusals {
 		got := teacher.send(http.MethodPut, "/me/avatar", new(filePayload(t, "x", r.data)))
@@ -176,11 +179,17 @@ func TestAProfilePhotoIsStoredAsASquareCleanPngAndEveryChangeDeletesTheObjectItR
 		t.Error("a refused upload removed the photo")
 	}
 
-	spent := 2 + len(refusals)
+	spent, photos := 2+len(refusals), 2
+	if full := teacher.send(http.MethodPut, "/me/avatar", new(filePayload(t, "ba-ngan.png", exact))); full.status != http.StatusOK {
+		t.Fatalf("a file of exactly 2 MiB: %s, want it accepted", answer(full))
+	}
+	spent++
+	photos++
 	for ; spent < 10; spent++ {
 		if again := teacher.send(http.MethodPut, "/me/avatar", new(filePayload(t, "mat.png", avatarPNG(t)))); again.status != http.StatusOK {
 			t.Fatalf("attempt %d: %s", spent+1, answer(again))
 		}
+		photos++
 	}
 	limited := teacher.send(http.MethodPut, "/me/avatar", new(filePayload(t, "mat.png", avatarPNG(t))))
 	if limited.status != http.StatusTooManyRequests || errorCodeOf(limited) != "RATE_LIMITED" {
@@ -208,8 +217,8 @@ func TestAProfilePhotoIsStoredAsASquareCleanPngAndEveryChangeDeletesTheObjectItR
 	  FROM app.audit_log WHERE entity = 'user' AND entity_id = $1::uuid`, current["id"]).Scan(&sets, &removals); err != nil {
 		t.Fatal(err)
 	}
-	if sets != 6 || removals != 1 {
-		t.Errorf("the audit holds %d photo sets and %d removals, want 6 and 1", sets, removals)
+	if sets != photos || removals != 1 {
+		t.Errorf("the audit holds %d photo sets and %d removals, want %d and 1", sets, removals, photos)
 	}
 }
 
@@ -219,5 +228,36 @@ func squarePNG(t *testing.T, side int) []byte {
 	if err := png.Encode(&out, image.NewNRGBA(image.Rect(0, 0, side, side))); err != nil {
 		t.Fatal(err)
 	}
+	return out.Bytes()
+}
+
+func padded(data []byte, size int) []byte {
+	return append(append([]byte(nil), data...), make([]byte, size-len(data))...)
+}
+
+func emptyScanJPEG(side, scans int) []byte {
+	segment := func(marker byte, body []byte) []byte {
+		out := binary.BigEndian.AppendUint16([]byte{0xff, marker}, uint16(len(body)+2))
+		return append(out, body...)
+	}
+	var out bytes.Buffer
+	out.Write([]byte{0xff, 0xd8})
+	out.Write(segment(0xdb, append([]byte{0x00}, bytes.Repeat([]byte{1}, 64)...)))
+	frame := binary.BigEndian.AppendUint16(binary.BigEndian.AppendUint16([]byte{8}, uint16(side)), uint16(side))
+	out.Write(segment(0xc2, append(frame, 1, 1, 0x11, 0)))
+	counts := make([]byte, 16)
+	counts[0] = 1
+	out.Write(segment(0xc4, append(append([]byte{0x10}, counts...), 0xe0)))
+	blocks := ((side + 7) / 8) * ((side + 7) / 8)
+	bits := (blocks + 16383) / 16384 * 15
+	entropy := make([]byte, (bits+7)/8)
+	if spare := len(entropy)*8 - bits; spare > 0 {
+		entropy[len(entropy)-1] |= byte(1<<spare - 1)
+	}
+	for range scans {
+		out.Write(segment(0xda, []byte{1, 1, 0x00, 1, 63, 0x00}))
+		out.Write(entropy)
+	}
+	out.Write([]byte{0xff, 0xd9})
 	return out.Bytes()
 }
