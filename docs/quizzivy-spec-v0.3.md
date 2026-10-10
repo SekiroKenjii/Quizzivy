@@ -3,6 +3,18 @@
 **Version:** 0.70 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
+**Changes in the next version** (F-46; its number is set when it merges)
+
+R4, the next version number (F-46):
+
+- §7 and §15 `Test` gains a required `nextVersion`: the number the next publish takes, one more
+  than the highest version ever published, deleted or not (`tests.last_published_version + 1`),
+  so it is 1 for a test never published. Deleting the newest version, which is allowed while
+  it is not the default, does not lower it. The publish command and every read of a `Test`
+  (`getTest`, `listTests`, the answer of a write) take it from the same function, so they
+  cannot disagree. The test detail's draft banner and publish dialog name it in place of the
+  highest listed version + 1, which named 3 where the server assigned 4 (VER-30).
+
 **Changes since v0.69**
 
 R4, the skills of a published version (F-43):
@@ -1211,6 +1223,7 @@ interface Test {
   totalPoints: number;                  // server-computed
   status: 'draft' | 'published' | 'archived';
   currentVersion: number;
+  nextVersion: number;                  // server-computed: the number the next publish takes (last published + 1), whatever was deleted
   createdAt; updatedAt;
 }
 
@@ -2427,7 +2440,7 @@ GET    /teacher/dashboard?range=7d|14d|30d → Dashboard (default 14d; own teach
 GET    /teacher/summary                → TeacherSummary {liveAssignments,answersToGrade,unreadNotifications}
 GET    /teacher/tests?status=&q=&cursor=
 POST   /teacher/tests | GET /:id | PATCH /:id
-POST   /teacher/tests/:id/publish       → new version
+POST   /teacher/tests/:id/publish       → new version; its number is the `nextVersion` the test reported
 POST   /teacher/tests/:id/duplicate
 GET    /teacher/questions?type=&tag=&tagMatch=any|all&level=&skill=&q=&cursor=
 POST   /teacher/questions | PATCH /:id | DELETE /:id
