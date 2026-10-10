@@ -221,11 +221,14 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
   const latest = items?.reduce((top, item) => Math.max(top, item.version), 0) ?? 0;
   const summaries = useVersionSummaries(id, items ?? []);
 
-  const refresh = () =>
+  const refresh = (deleted?: number) =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["admin-test", id] }),
       queryClient.invalidateQueries({ queryKey: ["admin-test-versions", id] }),
-      queryClient.invalidateQueries({ queryKey: ["admin-test-preview", id] }),
+      queryClient.invalidateQueries({
+        queryKey: ["admin-test-preview", id],
+        predicate: (query) => deleted === undefined || query.queryKey[2] !== deleted,
+      }),
       queryClient.invalidateQueries({ queryKey: ["admin-tests"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-questions"] }),
     ]);
@@ -239,9 +242,16 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
     },
     onSuccess: async (_, input) => {
       setAction(null);
-      if (input.kind === "delete" && input.version === selected)
+      const deleted = input.kind === "delete" ? input.version : undefined;
+      if (deleted !== undefined && deleted === selected)
         update({ version: null, compare: null });
-      await refresh();
+      await refresh(deleted);
+      if (deleted !== undefined)
+        queryClient.removeQueries({
+          queryKey: ["admin-test-preview", id, deleted],
+          exact: true,
+          type: "inactive",
+        });
       notify.success(t(DONE[input.kind], { n: input.version }));
       if (input.kind === "draft") void navigate(`/teacher/tests/${id}/edit`);
     },
@@ -666,7 +676,7 @@ function PublishDialog({
 }>) {
   const { t } = useTranslation();
   const publish = useMutation({
-    mutationFn: (note: string) => publishTest(test.id, note),
+    mutationFn: (note: string) => publishTest(test.id, note.trim() || undefined),
     onSuccess: async (version) => {
       notify.success(t("tests.detail.publish.done", { n: version.version }));
       await onPublished();

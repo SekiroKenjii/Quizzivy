@@ -24,8 +24,7 @@ const EXPLANATION = { minHeight: 84, fontSize: 14 };
  * QuestionProseField is a prompt's or an explanation's field in the form it
  * is stored in: rich content in the rich editor, a Markdown string in the
  * Markdown editor; a field with no text opens as rich text. Only "Switch to
- * Markdown" and "Apply conversion" change the stored form. `clearOnFocus`
- * hides the builder's starter prompt in either form until it is replaced.
+ * Markdown" and "Apply conversion" change the stored form.
  */
 export function QuestionProseField({
   text,
@@ -35,7 +34,6 @@ export function QuestionProseField({
   hint,
   prompt = false,
   clearOnFocus = false,
-  placeholder,
   onChange,
 }: Readonly<{
   text: string;
@@ -45,7 +43,6 @@ export function QuestionProseField({
   hint?: string | undefined;
   prompt?: boolean;
   clearOnFocus?: boolean;
-  placeholder?: string | undefined;
   onChange: (text: string, content: QuestionContent | null) => void;
 }>) {
   const { t } = useTranslation();
@@ -93,8 +90,6 @@ export function QuestionProseField({
             {...size}
             leaving={field.step === "leaving"}
             focusOnMount={moved}
-            placeholder={placeholder}
-            starter={prompt && clearOnFocus ? t("builder.starterPrompt") : undefined}
             onCancelLeave={cancel}
             onConfirmLeave={() => {
               if (content != null && isQuestionContent(content))
@@ -114,7 +109,6 @@ export function QuestionProseField({
           onChange={(value) => onChange(value, null)}
           {...size}
           clearOnFocus={prompt && clearOnFocus}
-          placeholder={placeholder}
           focusOnMount={moved}
           replacement={
             field.step === "converting" ? (

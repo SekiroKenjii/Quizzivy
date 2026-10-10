@@ -1,4 +1,4 @@
-import { useState, type RefObject } from "react";
+import { useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AudioLines, Check, Upload } from "lucide-react";
@@ -28,8 +28,7 @@ const KIND_LABELS: Record<LibraryKind, string> = {
  * by kind with counts that follow the search, searched by name, paged as the
  * grid scrolls. One file is selected at a time; "Attach" or a double-click
  * picks it, and "Upload new" closes the dialog and hands its kind to
- * `onUploadNew`. It opens on `kind`, "all" unless the host names one, and
- * gives focus back to `returnFocus` when that is in the page. Picking
+ * `onUploadNew`. It opens on `kind`, "all" unless the host names one. Picking
  * rather than re-uploading keeps one file shared across questions (§11.1).
  */
 export function AssetLibraryDialog({
@@ -38,23 +37,16 @@ export function AssetLibraryDialog({
   onPick,
   onUploadNew,
   kind = "all",
-  returnFocus,
 }: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPick: (asset: LibraryAsset) => void;
   onUploadNew?: ((kind: LibraryKind) => void) | undefined;
   kind?: LibraryKind;
-  returnFocus?: RefObject<HTMLElement | null> | undefined;
 }>) {
   const { t } = useTranslation();
   return (
-    <DialogShell
-      open={open}
-      onOpenChange={onOpenChange}
-      width={760}
-      returnFocus={returnFocus}
-    >
+    <DialogShell open={open} onOpenChange={onOpenChange} width={760}>
       <DialogShellHeader
         title={t("media.picker.title")}
         description={t("media.picker.description")}

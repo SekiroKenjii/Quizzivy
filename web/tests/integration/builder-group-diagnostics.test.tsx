@@ -99,12 +99,9 @@ test("a publication finding opens the owned member editor without trying the sta
   await screen.findByLabelText("Tên nhóm câu hỏi", { exact: true });
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Phát hành" }));
-  const dialog = await screen.findByRole("dialog", { name: "Phát hành đề thi?" });
-  await user.click(within(dialog).getByRole("button", { name: "Phát hành" }));
-  expect(
-    await within(dialog).findByText("Câu 1 · Đọc hiểu · Chọn đáp án đúng"),
-  ).toBeVisible();
-  await user.click(within(dialog).getByRole("button", { name: "Sửa" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByText("Câu 1 · Đọc hiểu")).toBeVisible();
+  await user.click(within(dialog).getByRole("button", { name: "Đi tới" }));
   expect(await screen.findByRole("textbox", { name: "Nội dung câu hỏi" })).toHaveValue(
     "Câu trong nhóm",
   );

@@ -2,10 +2,8 @@ import type { TFunction } from "i18next";
 import type { IntegrityPolicy, ReviewPolicy } from "@/features/assignments/api";
 import type { Locale } from "@/lib/i18n";
 import {
-  APP_TIME_ZONE,
   dayDate,
   formatTime,
-  fromDateTimeInput,
   getDisplayTimeZone,
   sameAppDay,
 } from "@/lib/i18n/datetime";
@@ -149,46 +147,4 @@ export function studentRules(
   if (audio?.shared) add("audio-shared", "audio", t("assignments.rules.audioShared"));
   if (review.showScore) add("score", "score", score(review, t));
   return rules;
-}
-
-/**
- * PreviewInput is what the teacher's form holds: the policies and the window
- * as `datetime-local` values.
- */
-export interface PreviewInput {
-  readonly review: RulesInput["review"];
-  readonly integrity: IntegrityPolicy;
-  readonly opensAt: string;
-  readonly closesAt: string;
-}
-
-/**
- * previewRules is what the teacher is told students will read for `input`:
- * the student's own sentences, with the dates in the app's zone. A window
- * that is not filled in, is reversed or has already closed leaves the
- * availability sentence out.
- */
-export function previewRules(
-  input: PreviewInput,
-  t: TFunction,
-  locale: Locale,
-  now: Date,
-): Rule[] {
-  const opensAt = fromDateTimeInput(input.opensAt);
-  const closesAt = fromDateTimeInput(input.closesAt);
-  const dated =
-    closesAt.getTime() > opensAt.getTime() && closesAt.getTime() > now.getTime();
-  return studentRules(
-    {
-      review: input.review,
-      integrity: input.integrity,
-      ...(dated
-        ? { window: { opensAt, closesAt, upcoming: opensAt.getTime() > now.getTime() } }
-        : {}),
-    },
-    t,
-    locale,
-    now,
-    APP_TIME_ZONE,
-  );
 }

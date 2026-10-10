@@ -131,6 +131,25 @@ describe("the version history", () => {
     );
   });
 
+  it("requests no preview of the version it just deleted", async () => {
+    detail.test = testFixture({ currentVersion: 2 });
+    detail.versions = [versionFixture(1), versionFixture(2), versionFixture(3)];
+    const { user, router } = renderDetail(`/teacher/tests/${TEST_ID}?version=3`);
+    await screen.findByText(ADDED_PROMPT);
+    expect(detail.previewVersions).toEqual([3]);
+
+    await user.click(within(card(3)).getByRole("button", { name: "Xoá" }));
+    const dialog = await screen.findByRole("dialog", { name: "Xoá phiên bản 3?" });
+    await user.click(within(dialog).getByRole("button", { name: "Xoá phiên bản" }));
+
+    await waitFor(() =>
+      expect(history().querySelector('[data-version="3"]')).toBeNull(),
+    );
+    await waitFor(() => expect(detail.previewVersions).toContain(2));
+    expect(router.state.location.search).toBe("");
+    expect(detail.previewVersions.filter((version) => version === 3)).toHaveLength(1);
+  });
+
   it("makes an older version the default, guarded by the test's updatedAt", async () => {
     detail.test = testFixture({ currentVersion: 2 });
     detail.versions = [versionFixture(1), versionFixture(2)];
@@ -347,7 +366,7 @@ describe("publishing the draft from the detail", () => {
     expect(detail.publishBodies).toEqual([{ changeNote: "Sửa đáp án câu 1" }]);
   });
 
-  it("sends a null change note when the note is blank", async () => {
+  it("publishes without a body when the note is left empty", async () => {
     detail.test = testFixture({ unpublishedChanges: 1 });
     const { user } = renderDetail();
 
@@ -360,13 +379,9 @@ describe("publishing the draft from the detail", () => {
         "Phiên bản mới sẽ là mặc định cho bài giao mới. Các bài giao hiện có vẫn giữ phiên bản của mình.",
       ),
     ).toBeVisible();
-    await user.type(
-      within(dialog).getByRole("textbox", { name: /Ghi chú thay đổi/ }),
-      "   ",
-    );
     await user.click(within(dialog).getByRole("button", { name: "Phát hành" }));
 
-    await waitFor(() => expect(detail.publishBodies).toEqual([{ changeNote: null }]));
+    await waitFor(() => expect(detail.publishBodies).toEqual([null]));
   });
 
   it("says how many problems block publishing and keeps the dialog open", async () => {

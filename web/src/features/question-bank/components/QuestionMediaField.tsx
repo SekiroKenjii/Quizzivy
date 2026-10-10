@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type RefObject } from "react";
+import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -63,7 +63,6 @@ export function QuestionMediaField({
   const fileInput = useRef<HTMLInputElement>(null);
   const requested = useRef<MediaKind | null>(null);
   const [picking, setPicking] = useState(false);
-  const anchor = useRef<HTMLButtonElement>(null);
   const [sent, setSent] = useState<{ kind: MediaKind; asked: MediaKind | null }>({
     kind: "audio",
     asked: null,
@@ -133,14 +132,12 @@ export function QuestionMediaField({
 
       {asset === null ? (
         <DropZone
-          libraryRef={anchor}
           dragging={dragging}
           onChoose={() => pick(null)}
           onLibrary={() => setPicking(true)}
         />
       ) : (
         <AttachedCard
-          replaceRef={anchor}
           value={value}
           asset={asset}
           onChange={onChange}
@@ -173,7 +170,6 @@ export function QuestionMediaField({
       <AssetLibraryDialog
         open={picking}
         onOpenChange={setPicking}
-        returnFocus={anchor}
         onPick={attach}
         onUploadNew={(kind) => pick(kind === "all" ? null : kind)}
       />
@@ -206,16 +202,10 @@ function refusalTitle(rejection: Rejection, t: TFunction): string {
 }
 
 function DropZone({
-  libraryRef,
   dragging,
   onChoose,
   onLibrary,
-}: Readonly<{
-  libraryRef: RefObject<HTMLButtonElement | null>;
-  dragging: boolean;
-  onChoose: () => void;
-  onLibrary: () => void;
-}>) {
+}: Readonly<{ dragging: boolean; onChoose: () => void; onLibrary: () => void }>) {
   const { t } = useTranslation();
   return (
     <div
@@ -250,7 +240,6 @@ function DropZone({
           {t("questionEditor.questionMedia.choose")}
         </Button>
         <Button
-          ref={libraryRef}
           type="button"
           variant="ghost"
           size="sm"
@@ -280,12 +269,7 @@ function CheckingCard({
     >
       <FileTile kind={kind} />
       <span className="min-w-0 flex-1">
-        <span
-          title={name}
-          className="line-clamp-2 text-[13.5px] font-medium wrap-anywhere"
-        >
-          {name}
-        </span>
+        <span className="block truncate text-[13.5px] font-medium">{name}</span>
         <span className="text-muted-fg block text-xs">
           {kind === "audio"
             ? t("questionEditor.questionMedia.checkingLength", { size })
@@ -312,7 +296,6 @@ function FileTile({ kind }: Readonly<{ kind: MediaKind }>) {
 }
 
 function AttachedCard({
-  replaceRef,
   value,
   asset,
   onChange,
@@ -320,7 +303,6 @@ function AttachedCard({
   onRemove,
   onRefresh,
 }: Readonly<{
-  replaceRef: RefObject<HTMLButtonElement | null>;
   value: QuestionValues;
   asset: MediaAsset;
   onChange: (value: QuestionValues) => void;
@@ -343,10 +325,7 @@ function AttachedCard({
       <div className="flex items-center gap-3 px-3 py-2.5">
         <FileTile kind={asset.kind} />
         <span className="min-w-0 flex-1">
-          <span
-            title={asset.originalFilename}
-            className="line-clamp-2 text-[13.5px] font-medium wrap-anywhere"
-          >
+          <span className="block truncate text-[13.5px] font-medium">
             {asset.originalFilename}
           </span>
           <span className="text-muted-fg block text-xs">
@@ -354,7 +333,6 @@ function AttachedCard({
           </span>
         </span>
         <Button
-          ref={replaceRef}
           type="button"
           variant="ghost"
           size="sm"

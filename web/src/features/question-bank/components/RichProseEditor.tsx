@@ -17,9 +17,7 @@ const EMPTY: QuestionContent = {
  * RichProseEditor is a prompt's or an explanation's rich body, always live.
  * It starts from the stored content, or from an empty paragraph when the
  * field has none, and reports each valid document with its plain text.
- * While `leaving` it asks "Switch to Markdown" under its toolbar. A document
- * whose text is exactly `starter` opens empty, showing `placeholder`, and the
- * starter stays stored until the first edit.
+ * While `leaving` it asks "Switch to Markdown" under its toolbar.
  */
 export function RichProseEditor({
   content,
@@ -30,8 +28,6 @@ export function RichProseEditor({
   fontSize,
   leaving,
   focusOnMount = false,
-  placeholder,
-  starter,
   onCancelLeave,
   onConfirmLeave,
   onChange,
@@ -44,17 +40,11 @@ export function RichProseEditor({
   fontSize: number;
   leaving: boolean;
   focusOnMount?: boolean;
-  placeholder?: string | undefined;
-  starter?: string | undefined;
   onCancelLeave: () => void;
   onConfirmLeave: () => void;
   onChange: (text: string, content: QuestionContent) => void;
 }>) {
-  const [initial] = useState(() =>
-    content === null || (starter !== undefined && contentPlainText(content) === starter)
-      ? EMPTY
-      : content,
-  );
+  const [initial] = useState(() => content ?? EMPTY);
   useEffect(() => {
     if (focusOnMount) document.getElementById(id)?.focus();
   }, [focusOnMount, id]);
@@ -67,7 +57,6 @@ export function RichProseEditor({
       profile="question"
       minHeight={minHeight}
       fontSize={fontSize}
-      placeholder={placeholder}
       tools={() =>
         leaving && (
           <SwitchToMarkdown onCancel={onCancelLeave} onConfirm={onConfirmLeave} />

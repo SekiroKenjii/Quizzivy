@@ -77,7 +77,6 @@ export type MarkdownProseEditorProps = {
   minHeight: number;
   fontSize: number;
   clearOnFocus?: boolean | undefined;
-  placeholder?: string | undefined;
   previewPlugins?: Options["rehypePlugins"];
   focusOnMount?: boolean | undefined;
   replacement?: ReactNode;
@@ -99,7 +98,6 @@ export function MarkdownProseEditor({
   minHeight,
   fontSize,
   clearOnFocus = false,
-  placeholder,
   previewPlugins,
   focusOnMount = false,
   replacement,
@@ -148,7 +146,6 @@ export function MarkdownProseEditor({
         <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${view}`}>
           {view === "write" ? (
             <textarea
-              placeholder={placeholder}
               ref={field}
               id={id}
               aria-describedby={describedBy}

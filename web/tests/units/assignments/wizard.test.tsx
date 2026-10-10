@@ -1,32 +1,279 @@
-import { describe, expect, it, beforeEach } from "vitest";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { http, HttpResponse } from "msw";
+import AssignmentWizardPage from "@/features/assignments/pages/teacher/AssignmentWizardPage";
 import { draftBody, draftOf, emptyDraft } from "@/features/assignments/draft";
+import { Toaster } from "@/components/ui/sonner";
+import type { components } from "@/lib/api/schema";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import {
-  BASE,
-  CHI,
-  CLASS_A,
-  CLASS_B,
-  NOW,
-  OTHER_TEST_ID,
-  TEST_ID,
-  VERSION_ID,
-  VERSIONS,
-  installWizardServer,
-  renderWizard,
-  requests,
-  stored,
-  version,
-} from "@tests/support/assignmentWizard";
 import "@/lib/i18n";
 
-beforeEach(installWizardServer);
+const BASE = "http://localhost:8080";
+const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
+const OTHER_TEST_ID = "018f0000-0000-7000-8000-0000000000a2";
+const VERSION_ID = "018f0000-0000-7000-8000-0000000000f1";
+const OTHER_VERSION_ID = "018f0000-0000-7000-8000-0000000000f2";
+const CLASS_A = "018f0000-0000-7000-8000-0000000000c1";
+const CLASS_B = "018f0000-0000-7000-8000-0000000000c2";
+const AN = "018f0000-0000-7000-8000-0000000000e1";
+const BINH = "018f0000-0000-7000-8000-0000000000e2";
+const CHI = "018f0000-0000-7000-8000-0000000000e3";
+const CREATED = "018f0000-0000-7000-8000-0000000000d1";
+const NOW = "2026-09-01T00:00:00Z";
+
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
+type Assignment = components["schemas"]["Assignment"];
+
+function publishedTest(id: string, title: string, skills: string[]) {
+  return {
+    id,
+    title,
+    description: null,
+    status: "published",
+    currentVersion: 3,
+    totalPoints: 30,
+    questionCount: 99,
+    audioCount: 0,
+    skills,
+    assignments: { live: 0, scheduled: 0, closed: 0 },
+    unpublishedChanges: null,
+    sections: [],
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+}
+
+function version(id: string, manualCount: number) {
+  return {
+    id,
+    version: 3,
+    totalPoints: 30,
+    questionCount: 24,
+    audioCount: 0,
+    manualCount,
+    skills: [],
+    assignmentCount: 0,
+    changeNote: null,
+    publishedAt: NOW,
+    publishedBy: "Thương",
+  };
+}
+
+function klass(id: string, name: string, studentCount: number) {
+  return {
+    id,
+    name,
+    description: null,
+    studentCount,
+    openAssignmentCount: 0,
+    selfJoinEnabled: false,
+    archivedAt: null,
+    createdAt: NOW,
+  };
+}
+
+const stats = { submittedCount: 0, flaggedCount: 0, activity: { live: false } };
+
+function member(userId: string, fullName: string) {
+  return {
+    userId,
+    fullName,
+    email: `${userId}@example.com`,
+    joinedVia: "admin",
+    joinedAt: NOW,
+    joinCodeHint: null,
+    stats,
+  };
+}
+
+function student(id: string, fullName: string, classIds: string[]) {
+  return {
+    id,
+    email: `${id}@example.com`,
+    fullName,
+    hasPassword: true,
+    linkedProviders: [],
+    mustChangePassword: false,
+    createdAt: NOW,
+    disabledAt: null,
+    classes: classIds.map((classId) => ({
+      id: classId,
+      name: classId === CLASS_A ? "IELTS Foundation" : "TOEIC 600",
+      joinedVia: "admin",
+      joinedAt: NOW,
+    })),
+    stats,
+  };
+}
+
+const TESTS = [
+  publishedTest(TEST_ID, "Unit 5 Reading", ["reading"]),
+  publishedTest(OTHER_TEST_ID, "Mock B", ["grammar"]),
+];
+const VERSIONS: Record<string, ReturnType<typeof version>> = {
+  [TEST_ID]: version(VERSION_ID, 2),
+  [OTHER_TEST_ID]: version(OTHER_VERSION_ID, 0),
+};
+const CLASSES = [klass(CLASS_A, "IELTS Foundation", 2), klass(CLASS_B, "TOEIC 600", 1)];
+const MEMBERS: Record<string, ReturnType<typeof member>[]> = {
+  [CLASS_A]: [member(AN, "Nguyễn An"), member(BINH, "Trần Bình")],
+  [CLASS_B]: [member(AN, "Nguyễn An")],
+};
+const STUDENTS = [
+  student(AN, "Nguyễn An", [CLASS_A, CLASS_B]),
+  student(BINH, "Trần Bình", [CLASS_A]),
+  student(CHI, "Lê Chi", []),
+];
+
+let posted: Record<string, unknown>[] = [];
+
+beforeEach(() => {
+  posted = [];
+  server.use(
+    http.get(`${BASE}/teacher/tests`, ({ request }) => {
+      const q = new URL(request.url).searchParams.get("q") ?? "";
+      const items = TESTS.filter((test) =>
+        test.title.toLowerCase().includes(q.toLowerCase()),
+      );
+      return contractJson("/teacher/tests", "get", 200, {
+        items,
+        page: 1,
+        pageSize: 20,
+        total: items.length,
+        facets: { all: 2, draft: 0, published: 2, archived: 0 },
+        tags: [],
+      });
+    }),
+    http.get(`${BASE}/teacher/tests/:id`, ({ params }) =>
+      contractJson(
+        "/teacher/tests/{id}",
+        "get",
+        200,
+        TESTS.find((test) => test.id === params["id"]),
+      ),
+    ),
+    http.get(`${BASE}/teacher/tests/:id/versions`, ({ params }) =>
+      contractJson("/teacher/tests/{id}/versions", "get", 200, {
+        items: [VERSIONS[String(params["id"])]],
+      }),
+    ),
+    http.get(`${BASE}/teacher/classes`, () =>
+      contractJson("/teacher/classes", "get", 200, {
+        items: CLASSES,
+        page: 1,
+        pageSize: 100,
+        total: CLASSES.length,
+        facets: { all: 2, joinable: 0, archived: 0, students: 3 },
+      }),
+    ),
+    http.get(`${BASE}/teacher/classes/:id`, ({ params }) =>
+      contractJson(
+        "/teacher/classes/{id}",
+        "get",
+        200,
+        CLASSES.find((item) => item.id === params["id"]),
+      ),
+    ),
+    http.get(`${BASE}/teacher/classes/:id/members`, ({ params }) => {
+      const items = MEMBERS[String(params["id"])] ?? [];
+      return contractJson("/teacher/classes/{id}/members", "get", 200, {
+        items,
+        page: 1,
+        pageSize: 100,
+        total: items.length,
+      });
+    }),
+    http.get(`${BASE}/teacher/students`, () =>
+      contractJson("/teacher/students", "get", 200, {
+        items: STUDENTS,
+        page: 1,
+        pageSize: 100,
+        total: STUDENTS.length,
+        facets: { total: STUDENTS.length, activeLast7Days: 0 },
+      }),
+    ),
+    http.get(`${BASE}/teacher/students/:id`, ({ params }) =>
+      contractJson(
+        "/teacher/students/{id}",
+        "get",
+        200,
+        STUDENTS.find((item) => item.id === params["id"]),
+      ),
+    ),
+    http.post(`${BASE}/teacher/assignments`, async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      posted.push(body);
+      return contractJson("/teacher/assignments", "post", 201, stored(body));
+    }),
+  );
+});
+
+function stored(body: Record<string, unknown>): Assignment {
+  const input = body as unknown as components["schemas"]["AssignmentInput"];
+  return {
+    id: CREATED,
+    testId: TEST_ID,
+    testVersionId: input.testVersionId,
+    testVersion: 3,
+    testTitle: "Unit 5 Reading",
+    targets: {
+      classes: CLASSES.filter((item) => input.targets.classIds.includes(item.id)).map(
+        (item) => ({ id: item.id, name: item.name, studentCount: item.studentCount }),
+      ),
+      students: STUDENTS.filter((item) =>
+        input.targets.studentIds.includes(item.id),
+      ).map((item) => ({ id: item.id, name: item.fullName })),
+    },
+    publishedAt: null,
+    updatedAt: NOW,
+    window: { ...input.window, closedAt: null },
+    durationMinutes: input.durationMinutes,
+    maxAttempts: input.maxAttempts,
+    shuffleQuestions: input.shuffleQuestions,
+    shuffleOptions: input.shuffleOptions,
+    review: { release: "on_submit", showClassAverage: false, ...input.review },
+    studentNote: null,
+    integrity: input.integrity,
+    status: "draft",
+  };
+}
+
+function renderWizard(entry = "/teacher/assignments/new") {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createMemoryRouter(
+    [
+      { path: "/teacher/assignments/new", element: <AssignmentWizardPage /> },
+      { path: "/teacher/assignments", element: <p>assignments list</p> },
+    ],
+    { initialEntries: [entry] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+      <Toaster />
+    </QueryClientProvider>,
+  );
+  return router;
+}
 
 describe("the new assignment wizard", () => {
-  it("opens on the Test step with the deck's header, and any step can be opened", async () => {
+  it("opens on the Test step with the deck's header and a disabled Schedule and Rules", async () => {
     const router = renderWizard();
     expect(
       screen.getByRole("heading", { level: 1, name: "Giao bài mới" }),
@@ -40,24 +287,21 @@ describe("the new assignment wizard", () => {
     const buttons = within(steps).getAllByRole("button");
     expect(buttons).toHaveLength(4);
     expect(buttons[0]).toHaveAttribute("aria-current", "step");
-    for (const button of buttons) expect(button).toBeEnabled();
+    expect(buttons[2]).toBeDisabled();
+    expect(buttons[3]).toBeDisabled();
     expect(buttons[0]).toHaveTextContent("Chưa chọn đề");
     expect(buttons[3]).toHaveTextContent("Chặn sao chép/dán · Hiện điểm");
     const row = await screen.findByRole("radio", { name: /Unit 5 Reading/ });
-    await waitFor(() =>
-      expect(row).toHaveTextContent("Nghe · 24 câu · 2 câu cần chấm tay"),
-    );
+    await waitFor(() => expect(row).toHaveTextContent("24 câu · 2 câu cần chấm tay"));
     expect(row, "the draft's skills do not describe the version").not.toHaveTextContent(
       "Đọc",
     );
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Tiếp tục" }));
     expect(router.state.location.search).toBe("?step=2");
-    await user.click(buttons[3]!);
-    expect(router.state.location.search).toBe("?step=4");
-    expect(screen.getByRole("heading", { level: 2, name: "Quy định" })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Tiếp tục" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Giao bài" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Tiếp tục" })).toBeDisabled();
+    expect(
+      screen.getByText("Lịch và quy định sẽ có trong bản cập nhật tới."),
+    ).toBeVisible();
   });
 
   it("preselects the test and the class named in the URL without counting it as a change", async () => {
@@ -120,7 +364,7 @@ describe("the new assignment wizard", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Chọn một đề trước khi lưu nháp.",
     );
-    expect(requests.posted).toEqual([]);
+    expect(posted).toEqual([]);
 
     await user.click(await screen.findByRole("radio", { name: /Unit 5 Reading/ }));
     await user.click(screen.getByRole("button", { name: "Tiếp tục" }));
@@ -134,8 +378,8 @@ describe("the new assignment wizard", () => {
     expect(
       await screen.findByText("Đã lưu nháp. Học viên chưa thấy bài này."),
     ).toBeVisible();
-    expect(requests.posted).toHaveLength(1);
-    expect(requests.posted[0]).toMatchObject({
+    expect(posted).toHaveLength(1);
+    expect(posted[0]).toMatchObject({
       draft: true,
       testVersionId: VERSION_ID,
       targets: { classIds: [CLASS_B], studentIds: [] },
@@ -143,13 +387,7 @@ describe("the new assignment wizard", () => {
       maxAttempts: 1,
       shuffleQuestions: false,
       shuffleOptions: false,
-      review: {
-        showScore: true,
-        showCorrectAnswers: false,
-        showExplanations: false,
-        release: "on_submit",
-        showClassAverage: false,
-      },
+      review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
       integrity: {
         requireFullscreen: false,
         blockCopyPaste: true,
@@ -157,11 +395,8 @@ describe("the new assignment wizard", () => {
         onLimitExceeded: "flag",
         minAwayMs: 3000,
       },
-      studentNote: null,
     });
-    expect(
-      Object.keys(requests.posted[0] ?? {}).sort((a, b) => a.localeCompare(b)),
-    ).toEqual([
+    expect(Object.keys(posted[0] ?? {}).sort((a, b) => a.localeCompare(b))).toEqual([
       "draft",
       "durationMinutes",
       "integrity",
@@ -169,7 +404,6 @@ describe("the new assignment wizard", () => {
       "review",
       "shuffleOptions",
       "shuffleQuestions",
-      "studentNote",
       "targets",
       "testVersionId",
       "window",
@@ -187,7 +421,7 @@ describe("the new assignment wizard", () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe("/teacher/assignments"),
     );
-    expect(requests.posted).toHaveLength(1);
+    expect(posted).toHaveLength(1);
   });
 
   it("says when a test's versions cannot load, and retries", async () => {

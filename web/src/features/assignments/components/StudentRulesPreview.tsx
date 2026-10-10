@@ -1,15 +1,44 @@
 import { useTranslation } from "react-i18next";
-import { previewRules, type PreviewInput } from "@/features/assignments/studentRules";
+import type { IntegrityPolicy } from "@/features/assignments/api";
+import { studentRules, type RulesInput } from "@/features/assignments/studentRules";
 import type { Locale } from "@/lib/i18n";
+import { APP_TIME_ZONE, fromDateTimeInput } from "@/lib/i18n/datetime";
 
 /**
  * StudentRulesPreview is the teacher's "what students will read" panel: the
  * sentences the student's intro will show for the switches and dates on the
- * form, from the same generator (`previewRules`).
+ * form, from the same generator. A window that is not filled in, is reversed
+ * or has already closed leaves the availability sentence out.
  */
-export function StudentRulesPreview({ draft }: Readonly<{ draft: PreviewInput }>) {
+export function StudentRulesPreview({
+  draft,
+}: Readonly<{
+  draft: Readonly<{
+    review: RulesInput["review"];
+    integrity: IntegrityPolicy;
+    opensAt: string;
+    closesAt: string;
+  }>;
+}>) {
   const { t, i18n } = useTranslation();
-  const rules = previewRules(draft, t, i18n.language as Locale, new Date());
+  const now = new Date();
+  const opensAt = fromDateTimeInput(draft.opensAt);
+  const closesAt = fromDateTimeInput(draft.closesAt);
+  const dated =
+    closesAt.getTime() > opensAt.getTime() && closesAt.getTime() > now.getTime();
+  const rules = studentRules(
+    {
+      review: draft.review,
+      integrity: draft.integrity,
+      ...(dated
+        ? { window: { opensAt, closesAt, upcoming: opensAt.getTime() > now.getTime() } }
+        : {}),
+    },
+    t,
+    i18n.language as Locale,
+    now,
+    APP_TIME_ZONE,
+  );
 
   return (
     <div>

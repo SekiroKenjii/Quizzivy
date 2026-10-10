@@ -1,13 +1,11 @@
-import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  DialogShell,
-  DialogShellBody,
-  DialogShellFooter,
-  DialogShellHeader,
-} from "@/components/shared/form/DialogShell";
-import { Button } from "@/components/ui/button";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
 import type { AdminQuestion } from "@/features/question-bank/api";
 import type { components } from "@/lib/api/schema";
@@ -19,26 +17,21 @@ import { unitsOf } from "../outlineUnits";
 type StudentQuestion = components["schemas"]["StudentQuestion"];
 
 /**
- * DraftPreviewDialog is the builder's "Student preview" for a draft: the
- * outline's questions in the shape a student receives, with the key
- * stripped, drawn by the engine's readers through `StudentPreview`. Previous
- * and Next step through the questions, scrolling the body alone so that
- * each sits at its top with its passage above it, and it opens on `startAt`,
- * the question being edited.
+ * A-04's "Xem như học viên" for a draft: the outline's questions in the shape
+ * a student receives, with the key stripped, since nothing published exists
+ * to preview yet.
  */
 export function DraftPreviewDialog({
   open,
   questions,
   sections,
   groups = [],
-  startAt = null,
   onOpenChange,
 }: Readonly<{
   open: boolean;
   questions: { sectionId: string; question: AdminQuestion }[];
   sections?: OutlineSection[];
   groups?: StoredGroup[];
-  startAt?: string | null;
   onOpenChange: (open: boolean) => void;
 }>) {
   const { t } = useTranslation();
@@ -81,97 +74,19 @@ export function DraftPreviewDialog({
       ),
     ) ?? [];
   return (
-    <DialogShell open={open} onOpenChange={onOpenChange} width={720}>
-      <DialogShellHeader
-        title={t("builder.previewAsStudent")}
-        description={t("builder.previewHint")}
-      />
-      {open ? (
-        <Pages
-          questions={displayed}
-          groups={shared}
-          start={Math.max(
-            0,
-            displayed.findIndex((question) => question.id === startAt),
-          )}
-          onClose={() => onOpenChange(false)}
-        />
-      ) : null}
-    </DialogShell>
-  );
-}
-
-function Pages({
-  questions,
-  groups,
-  start,
-  onClose,
-}: Readonly<{
-  questions: StudentQuestion[];
-  groups: components["schemas"]["StudentGroup"][];
-  start: number;
-  onClose: () => void;
-}>) {
-  const { t } = useTranslation();
-  const body = useRef<HTMLDivElement>(null);
-  const [index, setIndex] = useState(start);
-  const total = questions.length;
-  useLayoutEffect(() => {
-    const scroller = body.current;
-    const item = scroller?.querySelector("ol")?.children[index];
-    if (!scroller || !(item instanceof HTMLElement)) return;
-    const offset =
-      item.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-    const padding = Number.parseFloat(getComputedStyle(scroller).paddingTop) || 0;
-    scroller.scrollTop += offset - padding;
-  }, [index]);
-  return (
-    <>
-      <DialogShellBody ref={body}>
-        {total === 0 ? (
-          <p className="text-muted-fg text-sm">{t("builder.previewEmpty")}</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85svh] max-w-3xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t("builder.previewAsStudent")}</DialogTitle>
+          <DialogDescription>{t("builder.previewHint")}</DialogDescription>
+        </DialogHeader>
+        {displayed.length === 0 ? (
+          <p className="text-muted-foreground text-sm">{t("builder.previewEmpty")}</p>
         ) : (
-          <StudentPreviewPane questions={questions} groups={groups} />
+          <StudentPreviewPane questions={displayed} groups={shared} />
         )}
-      </DialogShellBody>
-      <DialogShellFooter className="flex-nowrap items-center justify-between">
-        {total > 0 ? (
-          <span className="flex min-w-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={index === 0}
-              onClick={() => setIndex(index - 1)}
-            >
-              <ChevronLeft aria-hidden="true" />
-              <span className="max-[519px]:sr-only">
-                {t("builder.previewPrevious")}
-              </span>
-            </Button>
-            <span
-              role="status"
-              className="text-muted-fg text-sm whitespace-nowrap tabular-nums"
-            >
-              {t("builder.previewPosition", { n: index + 1, total })}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={index >= total - 1}
-              onClick={() => setIndex(index + 1)}
-            >
-              <span className="max-[519px]:sr-only">{t("builder.previewNext")}</span>
-              <ChevronRight aria-hidden="true" />
-            </Button>
-          </span>
-        ) : (
-          <span />
-        )}
-        <Button type="button" onClick={onClose}>
-          {t("common.close")}
-        </Button>
-      </DialogShellFooter>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
 

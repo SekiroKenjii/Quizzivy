@@ -93,13 +93,18 @@ export function previewTest(id: string, version?: number, signal?: AbortSignal) 
   );
 }
 
-/** publishTest snapshots the draft as a new version, with the teacher's optional change note. */
-export function publishTest(id: string, changeNote = "") {
-  const note = changeNote.trim();
-  return api("post", "/teacher/tests/{id}/publish", {
-    path: { id },
-    body: { changeNote: note === "" ? null : note },
-  });
+/**
+ * publishTest freezes the draft as a new version. `changeNote` is the
+ * teacher's note for the version history; the builder sends none.
+ */
+export function publishTest(id: string, changeNote?: string) {
+  return api(
+    "post",
+    "/teacher/tests/{id}/publish",
+    changeNote === undefined
+      ? { path: { id } }
+      : { path: { id }, body: { changeNote } },
+  );
 }
 
 /** VersionAgainst names the paper a version is compared with: the one before it, the draft, or another version. */

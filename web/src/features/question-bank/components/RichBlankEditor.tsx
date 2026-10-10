@@ -26,7 +26,6 @@ export function RichBlankEditor({
   value,
   leaving,
   focusOnMount = false,
-  placeholder,
   onCancelLeave,
   onConfirmLeave,
   onChange,
@@ -35,7 +34,6 @@ export function RichBlankEditor({
   value: QuestionValues;
   leaving: boolean;
   focusOnMount?: boolean;
-  placeholder?: string | undefined;
   onCancelLeave: () => void;
   onConfirmLeave: () => void;
   onChange: (value: QuestionValues) => void;
@@ -54,7 +52,6 @@ export function RichBlankEditor({
       profile="prompt"
       gapLabel={() => String(nextBlankOrdinal(value.blanks))}
       onEditor={onEditor}
-      placeholder={placeholder}
       tools={() =>
         leaving && (
           <SwitchToMarkdown onCancel={onCancelLeave} onConfirm={onConfirmLeave} />
