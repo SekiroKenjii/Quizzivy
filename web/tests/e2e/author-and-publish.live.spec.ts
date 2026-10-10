@@ -90,7 +90,9 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
 
   // ----------------------------------------------------------- fill_blank
   await addQuestion(page, "Điền từ", "Since 2019 she has");
-  await page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true }).press("End");
+  await page
+    .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+    .press("End");
   await page.getByRole("button", { name: "Thêm ô trống", exact: true }).last().click();
   const answer = page.getByRole("textbox", {
     name: "Đáp án được chấp nhận cho ô 1",
