@@ -1,4 +1,4 @@
-# D4 — Deck update: the fourth export and v2 (v0.11.0, pending Thuong Q29)
+# D4 — Deck update: the fourth export and v2 (v0.11.0)
 
 The phase that brings the product level with the design team's fourth export (2026-10-04,
 17:31) and with the **v2 export** built on it (`uiux/update-uiux-v2` @ `26b60795`, 2026-10-10,
@@ -92,7 +92,8 @@ wrong options, gets a score suggestion and an explanation of a class's results, 
 scanned test; every output is a suggestion the teacher accepts or edits, and nothing the AI
 returns is saved as a grade, a question or a comment by itself. The teacher sees the month's usage
 and sets AI preferences in Settings; an Admin sets allowances, adds credits and decides requests
-(through the API and `cmd/maintenance` in D4; the Admin page is R5's T-R5.35, pending Thuong Q28).
+(through the API and `cmd/maintenance` in D4; the Admin page is R5's T-R5.35: Q28, decided
+2026-10-10).
 Beside it, the four R4 screens v2 redraws (section F) and every side column sticky at 16px.
 
 **Exit criteria:** every engine frame matches the v2 import at 360, 768, 1024, 1280 and
@@ -108,8 +109,8 @@ added, `permissions.golden` changes in T-D4.32's pull request and nowhere else, 
 other criterion still passes (the key is not needed in CI); with the key set, a live smoke meters
 one generation, one score suggestion and one scanned page and reads them back from the ledger, and
 an integration test shows the pool's constraint refusing a reservation that would overspend it;
-every CI step of 70 §8 is green, `pnpm e2e:live` included; released as `v0.11.0` (pending Thuong
-Q29; `v0.10.1` otherwise).
+every CI step of 70 §8 is green, `pnpm e2e:live` included; released as `v0.11.0` (Q29, decided
+2026-10-10).
 
 **Depends on:** v0.10.0 released: tagged, and `main` merged back into `develop`. D4 uses what R4
 leaves on `develop`: the numeric form of the `viewport()` test helper (T-R4.3a), `useMediaUpload`
@@ -301,7 +302,9 @@ under "Open items".
 - **The import lands on `work/deck-d4`, not on `develop`.** The deck of record and the engine
   reach `develop` together.
 
-Taken with v2 (2026-10-10), each under "Open items" too:
+Taken with v2 (2026-10-10), each under "Open items" too. Thuong confirmed Q28 to Q34 on
+2026-10-10 ("I agree with the proposals"), so the eight below are decisions, not defaults; Q35
+stays open for two items only (the students' sentence and the provider account's retention):
 
 - **T-D4.1 imports v2, not the fourth export** (Thuong's request). v2 holds the fourth export byte
   for byte in the files it did not touch, so the fourth export's inventory stands and the v2
@@ -2465,7 +2468,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
       map gains the module and `platform/anthropic`.
 - [ ] `17-word-import.md` §8 and `18-word-import-ux.md` §4 record D19 (cloud approved; the
       admin-managed configuration is the environment and `ai_settings`; the page says what is
-      sent); 70 §10 gains the open item on Q-2's wording.
+      sent); 70 §10 keeps the open item on Q35's two remaining pieces.
 - [ ] `gaps.md`: DG+15 to DG+21 say what was built.
 
 ---
@@ -2524,9 +2527,9 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
 - [ ] `gaps.md`: DG-80's list is trimmed as T-D4.1 says; the rows DG+1 to DG+13 say what was
       built.
 
-### T-D4.18 — Release v0.11.0 (v0.10.1 if Thuong declines Q29)
+### T-D4.18 — Release v0.11.0
 **Depends on:** T-D4.1 to T-D4.16, T-D4.19 to T-D4.23, T-D4.30 to T-D4.40
-**Touches:** `web/package.json`, `docs/plan/74d-d4-deck-update.md` (the checklist), `docs/plan/70-redesign-overview.md` (§2: D4 released, and the versions of R5 to R10 if Q29 is yes), `docs/plan/75-r5.md`, release notes
+**Touches:** `web/package.json`, `docs/plan/74d-d4-deck-update.md` (the checklist), `docs/plan/70-redesign-overview.md` (§2: D4 released), `docs/plan/75-r5.md` to `docs/plan/80-r10.md` (their titles take the versions 70 §2 names, Q29), release notes
 **Size:** S
 **Done when:**
 - [ ] The release checklist below is complete, with Thuong's go before `main`
@@ -2541,7 +2544,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
 
 ## Release checklist
 
-**v0.11.0, the deck update and the AI assistant** (the version pending Thuong Q29)
+**v0.11.0, the deck update and the AI assistant** (Q29, decided 2026-10-10)
 
 - [ ] Every task is ticked on `work/deck-d4`. `develop` is merged into it, and verification is
       re-run after that merge. Then `work/deck-d4` → `develop` (`--no-ff`), and
@@ -2901,54 +2904,58 @@ time; the dialog has no "Show transcript after submitting" and no "Allow skippin
   inbox with no request form; the AI panel without Esc, a focus trap or an off, paused or failed
   state; the demo output shown as if it were a result.
 
-### v2 (2026-10-10): decisions only Thuong can make
+### v2 (2026-10-10): Thuong's decisions
+
+Asked on 2026-10-10 with the Principal's recommendations; Thuong answered the same day ("good
+catch; I agree with the proposals above"). Q28 to Q34 are **Answered 2026-10-10**, each as
+recommended; Q35 is answered for its default and stays open for two items.
 
 **Q28. Where does "AI credits" live in D4, when the Admin console is R5's?** (owner)
 - T-R4.48 deletes the old `AdminLayout`; T-R5.20 builds the new one in R5.
-- Default: D4 ships the server side in full (`/admin/ai/*` under `ai.credits.manage`: the pool,
-  the rules, the allowances, the requests) and `cmd/maintenance ai-credits` for Thuong, in the
-  manner of DG-42's maintenance windows; the page is R5's new T-R5.35, drawn against those
-  operations.
-- The other answer: pull T-R5.20 (M) into D4 and build T-R5.35 (M) there, so the Admin console
-  starts one release early with a lone System item. Cost: 2M in D4 and a one-item console for a
-  release.
+- **Answered 2026-10-10: (a).** D4 ships the server side in full (`/admin/ai/*` under
+  `ai.credits.manage`: the pool, the rules, the allowances, the requests) and `cmd/maintenance
+  ai-credits` for Thuong, in the manner of DG-42's maintenance windows; the page is R5's new
+  T-R5.35, drawn against those operations.
+- Not taken: pulling T-R5.20 (M) into D4 and building T-R5.35 (M) there (2M in D4 and a one-item
+  console for a release).
 
 **Q29. Is D4 v0.11.0?** (owner)
-- Default: yes. A release with a new module, nine operations, two permission keys and twelve
-  migrations is a minor by 70 §3's own rule; R5 to R10 move one minor each and R11 stays v1.0.0.
-- The other answer: v0.10.1 as first planned, the first minor-sized release labelled a patch.
-  Nothing in this file changes but the version strings.
+- **Answered 2026-10-10: (a), v0.11.0.** A release with a new module, nine operations, two
+  permission keys and twelve migrations is a minor by 70 §3's own rule; R5 to R10 move one minor
+  each and R11 stays v1.0.0. 70 §2 carries the new versions; the release files' titles take them
+  in T-D4.18.
+- Not taken: v0.10.1, the first minor-sized release labelled a patch.
 
 **Q30. The default per-teacher allowance.** (owner)
-- Default: 20,000 credits ($20) a month, the deck's lowest rule value; ten teachers fill the
-  pool exactly, and a month of ordinary use is about 2,300 credits a teacher (section G).
-- The other answers are the rule's other values, 50,000 (four teachers fill the pool) or 100,000.
-  Any of them is a one-row change in `ai_settings`.
+- **Answered 2026-10-10: (a), 20,000 credits** ($20) a month, the deck's lowest rule value; ten
+  teachers fill the pool exactly, and a month of ordinary use is about 2,300 credits a teacher
+  (section G). The rule still offers 50,000 and 100,000; changing the default is one row in
+  `ai_settings`.
 
-**Q31. The pool's rule.** (owner; the default follows D21)
-- Default: one value, "Pause AI for everyone"; "Add credits" is the approval (DG+15).
-- The other answer, the deck's "Allow 10% extra", contradicts D21 and is not offered.
+**Q31. The pool's rule.** (owner; follows D21)
+- **Answered 2026-10-10: the default.** One value, "Pause AI for everyone"; "Add credits" is the
+  approval (DG+15). The deck's "Allow 10% extra" contradicts D21 and is not offered.
 
 **Q32. A variant and a merge.** (owner, then design)
-- Default: a variant is a new draft test; the clean-up merges nothing (DG+16).
-- The other answers: a variant that overwrites the test's draft (discards unpublished edits), or
-  a merge operation (L, high risk: the publish snapshot and the draft lock).
+- **Answered 2026-10-10: (a).** A variant is a new draft test; the clean-up merges nothing
+  (DG+16). Not taken: a variant that overwrites the test's draft, or a merge operation (L, high
+  risk: the publish snapshot and the draft lock).
 
 **Q33. "Let AI read student answers": a per-teacher switch, on by default?** (owner)
-- The deck draws it so, and D20 is satisfied either way (no identifier leaves).
-- Default: as drawn. The other answer, off by default, hides Suggest a score and Explain results
-  until each teacher turns it on; one line changes.
+- **Answered 2026-10-10: (a), as drawn.** D20 is satisfied either way (no identifier leaves); the
+  switch gates Suggest a score and Explain results.
 
 **Q34. Paused or out of credits: visible and disabled, or hidden?** (owner)
-- Default: visible and disabled with the reason, as the deck says ("AI buttons stay visible but
-  can’t be used"); hidden only when the provider is off (DG+20).
+- **Answered 2026-10-10: (a).** Visible and disabled with the reason, as the deck says ("AI
+  buttons stay visible but can’t be used"); hidden only when the provider is off (DG+20).
 
 **Q35. What students and parents read about cloud processing.** (owner; product copy about
 minors' data)
-- Default: the import page's privacy callout says what left the system (T-D4.33), and the
-  centre's privacy notice (R11, D18) names the provider. A student-facing sentence on the Test
-  intro waits for Thuong's wording and is not built in D4. Also to confirm on the provider
-  account: the data-retention setting the organisation runs under.
+- **Answered 2026-10-10: (a) for its default.** The import page's privacy callout says what left
+  the system (T-D4.33), and the centre's privacy notice (R11, D18) names the provider.
+- **Still open, two items:** the student-facing sentence on the Test intro waits for Thuong's
+  wording and is not built in D4 until he gives it; and the provider account's data-retention
+  setting is his to confirm. 70 §10 keeps both.
 
 ### The gap rows T-D4.1 opens
 

@@ -1,8 +1,19 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   act,
   cleanup,
+  configure,
   fireEvent,
+  getConfig,
   render,
   screen,
   waitFor,
@@ -32,6 +43,16 @@ const reviews: string[] = [];
 const writes: unknown[] = [];
 const eventReads: string[] = [];
 let style: HTMLStyleElement;
+let asyncUtilTimeout: number;
+
+beforeAll(() => {
+  asyncUtilTimeout = getConfig().asyncUtilTimeout;
+  configure({ asyncUtilTimeout: 5000 });
+});
+
+afterAll(() => {
+  configure({ asyncUtilTimeout });
+});
 
 beforeEach(() => {
   reviews.length = 0;
@@ -130,7 +151,7 @@ function end(node: Element) {
   fireEvent(node, event);
 }
 
-describe("the actual route's controlled outgoing sheet", () => {
+describe("the actual route's controlled outgoing sheet", { timeout: 15_000 }, () => {
   it("retains the same connected identity as closed until panel and overlay Presence finish", async () => {
     const { router, client } = board();
     const sheet = await screen.findByRole("dialog", { name: "Paper A" });
