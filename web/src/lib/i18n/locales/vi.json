@@ -1267,15 +1267,16 @@
   },
   "palette": {
     "title": "Tìm kiếm và lệnh",
-    "placeholder": "Tìm hoặc gõ lệnh…",
+    "placeholder": "Tìm trang, đề thi, học viên…",
     "tests": "Đề thi",
     "questions": "Câu hỏi",
-    "navigate": "Điều hướng",
     "noMatches": "Không tìm thấy gì khớp.",
-    "hint": "Gõ để tìm đề thi và câu hỏi, hoặc chọn một trang bên dưới.",
     "open": "Tìm đề thi, học viên, câu hỏi…",
-    "escape": "esc",
-    "keyK": "K"
+    "escape": "Esc",
+    "keyK": "K",
+    "pages": "Trang",
+    "assignments": "Bài giao",
+    "students": "Học viên"
   },
   "dashboard": {
     "home": {
