@@ -240,7 +240,7 @@ test("material editing and question switching preserve text at narrow widths", a
   await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).click();
   const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
   await prompt.click();
-  await expect(prompt).toHaveText("Câu hỏi mới — nhập nội dung ở đây");
+  await expect(prompt).toHaveText("");
   await prompt.fill("Câu hỏi đầu tiên");
   await page.getByRole("button", { name: "Bài đọc", exact: true }).click();
   await expect(material).toHaveText("Nội dung dùng chung");

@@ -130,6 +130,8 @@ export default function GroupsListPage() {
     queryKey: [...QUERY_KEY, search, status, page, size],
     queryFn: ({ signal }) =>
       listGroups({ q: search, status, page, limit: size }, signal),
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === status ? previous : undefined,
   });
   const columns = useMemo(() => groupColumns(t, locale, recent), [t, locale, recent]);
   const refresh = () => client.invalidateQueries({ queryKey: QUERY_KEY });
