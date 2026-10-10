@@ -90,6 +90,7 @@ export function RulesStep({
         >
           <Segmented
             fill
+            className="[&>button]:justify-center"
             label={t("assignments.wizard.release")}
             value={review.release ?? "on_submit"}
             options={[
@@ -137,6 +138,7 @@ export function RulesStep({
           <span className="flex flex-col gap-2">
             <Segmented
               fill
+              className="[&>button]:justify-center"
               label={t("assignments.wizard.leaving")}
               value={mode}
               options={[
@@ -183,6 +185,7 @@ export function RulesStep({
         >
           <Segmented
             fill
+            className="[&>button]:justify-center"
             label={t("assignments.wizard.action")}
             value={integrity.onLimitExceeded}
             options={[

@@ -43,13 +43,13 @@ export function RuleText({
   return (
     <span className="min-w-0">
       {labelFor === undefined ? (
-        <span className="text-ui block leading-[1.3] font-medium">{label}</span>
+        <span className="text-ui block leading-normal font-medium">{label}</span>
       ) : (
-        <label htmlFor={labelFor} className="text-ui block leading-[1.3] font-medium">
+        <label htmlFor={labelFor} className="text-ui block leading-normal font-medium">
           {label}
         </label>
       )}
-      <span id={id} className="text-muted-fg text-meta block leading-[1.35]">
+      <span id={id} className="text-muted-fg text-meta block leading-normal">
         {hint}
       </span>
     </span>

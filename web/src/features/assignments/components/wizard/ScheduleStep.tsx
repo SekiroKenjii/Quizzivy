@@ -75,6 +75,7 @@ export function ScheduleStep({
           <span className="flex flex-col gap-2">
             <Segmented
               fill
+              className="[&>button]:justify-center"
               label={t("assignments.wizard.timeLimit")}
               value={custom ? CUSTOM : String(draft.durationMinutes)}
               options={[
