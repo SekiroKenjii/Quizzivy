@@ -875,7 +875,6 @@
     "starterOption": "Option {{n}}",
     "dirty": "Not saved",
     "bankNoMatches": "No question matches.",
-    "bankAllAdded": "Every question found is already in this test.",
     "outlineQuestionsOnly": "{{questions}} questions",
     "position": "Question {{number}} · {{section}}",
     "sectionActions": "Section actions",

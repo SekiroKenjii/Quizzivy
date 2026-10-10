@@ -875,7 +875,6 @@
     "starterOption": "Lựa chọn {{n}}",
     "dirty": "Chưa lưu",
     "bankNoMatches": "Không có câu hỏi nào khớp.",
-    "bankAllAdded": "Mọi câu hỏi tìm được đều đã có trong đề này.",
     "outlineQuestionsOnly": "{{questions}} câu",
     "position": "Câu {{number}} · {{section}}",
     "sectionActions": "Thao tác với phần",
