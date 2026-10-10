@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http, HttpResponse } from "msw";
 import TestDetailPage from "@/features/tests/pages/teacher/TestDetailPage";
+import { Toaster } from "@/components/ui/sonner";
 import type { components } from "@/lib/api/schema";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
@@ -221,7 +222,7 @@ export function serveDetail() {
   );
 }
 
-/** renderDetail mounts the detail at `path` beside stand-ins for the pages it links to. */
+/** renderDetail mounts the detail at `path` beside stand-ins for the pages it links to, under the app's Toaster. */
 export function renderDetail(path = `/teacher/tests/${TEST_ID}`) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
@@ -237,6 +238,7 @@ export function renderDetail(path = `/teacher/tests/${TEST_ID}`) {
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>,
   );
   return { user, router };

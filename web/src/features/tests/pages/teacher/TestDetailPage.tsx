@@ -252,8 +252,8 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
           exact: true,
           type: "inactive",
         });
+      if (input.kind === "draft") await navigate(`/teacher/tests/${id}/edit`);
       notify.success(t(DONE[input.kind], { n: input.version }));
-      if (input.kind === "draft") void navigate(`/teacher/tests/${id}/edit`);
     },
   });
 

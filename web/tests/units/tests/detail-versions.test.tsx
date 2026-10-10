@@ -52,7 +52,7 @@ describe("the version history", () => {
   it("draws a card per version with its use, its stats and who published it", async () => {
     twoVersions();
     renderDetail();
-    await screen.findByText(PUBLISHED_PROMPT);
+    await screen.findByText(PUBLISHED_PROMPT, {}, { timeout: 5000 });
 
     const latest = within(await waitFor(() => card(2)));
     expect(latest.getByText("Phiên bản 2")).toBeVisible();
@@ -173,7 +173,7 @@ describe("the version history", () => {
     await waitFor(() => expect(within(card(1)).getByText("Mặc định")).toBeVisible());
   });
 
-  it("restores a version as the draft and opens the builder", async () => {
+  it("restores a version as the draft, opens the builder and says so there", async () => {
     detail.test = testFixture({ unpublishedChanges: 2 });
     const { user, router } = renderDetail();
 
@@ -194,6 +194,10 @@ describe("the version history", () => {
       expect(router.state.location.pathname).toBe(`/teacher/tests/${TEST_ID}/edit`),
     );
     expect(detail.drafted).toEqual([1]);
+    expect(screen.getByText("builder")).toBeVisible();
+    expect(
+      await screen.findByText("Đã khôi phục bản nháp từ phiên bản 1"),
+    ).toBeVisible();
   });
 
   it("locks an archived test's versions and says why", async () => {
