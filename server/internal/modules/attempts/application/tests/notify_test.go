@@ -258,6 +258,30 @@ func TestAWarningPolicyAndATeachersOwnFlagTellNobody(t *testing.T) {
 	}
 }
 
+func TestAPaperTheTeacherFlaggedByHandIsNotFlaggedAgainWhenTheLimitClosesIt(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, focusLimit(1, "auto_submit"))
+	tell := &told{}
+	svc := announcing(pool, tell, nil)
+	session := startFor(t, svc, w, w.student)
+	if _, err := svc.Commands.Flag.Handle(t.Context(), command.Flag{Request: teacher(w), AttemptID: session.Attempt.ID, Flagged: true, Reason: "Nghi ngờ"}); err != nil {
+		t.Fatal(err)
+	}
+	save := domain.SaveInput{
+		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
+		Events: []domain.Event{away(1, 4000), away(2, 4000)},
+	}
+	if _, err := svc.Commands.Save.Handle(t.Context(), command.Save{Input: save}); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(tell.of(notificationsdomain.AttemptSubmitted)); got != 1 {
+		t.Errorf("the limit closed the paper and %d submission notices were sent, want 1", got)
+	}
+	if got := len(tell.of(notificationsdomain.AttemptFlagged)); got != 0 {
+		t.Errorf("a paper already flagged by hand was announced as flagged again: %d notices", got)
+	}
+}
+
 func TestAnAutoSubmittedPaperIsBothHandedInAndFlagged(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, focusLimit(1, "auto_submit"))

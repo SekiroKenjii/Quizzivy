@@ -225,10 +225,29 @@ func TestAnOverrideTellsOnlyThoseItGaveTimePastTheAssignmentsClose(t *testing.T)
 		t.Errorf("an override closing before the assignment does gave nobody time, and %+v was sent", tell.sent)
 	}
 
+	same := base
+	third := w.classmate(t, w.classA, w.a)
+	w.grant(t, app, w.a, w.mineA, domain.OverrideInput{StudentIDs: []string{third}, ClosesAt: &same, Notify: true})
+	if len(tell.sent) != 0 {
+		t.Errorf("an override closing at the assignment's own close gave nobody time, and %+v was sent", tell.sent)
+	}
+
 	later := base.Add(3 * time.Hour)
 	w.grant(t, app, w.a, w.mineA, domain.OverrideInput{StudentIDs: []string{second}, ClosesAt: &later, Notify: true})
 	if want := []string{second}; !slices.Equal(tell.users(), want) {
 		t.Errorf("told %v, want %v", tell.users(), want)
+	}
+}
+
+func TestAnOverrideThatKeepsAnEarlierCloseDoesNotTellTheStudentAgain(t *testing.T) {
+	w := newReachWorld(t)
+	tell := &told{}
+	app := w.announcing(tell, nil)
+
+	w.grant(t, app, w.a, w.mineA, domain.OverrideInput{StudentIDs: []string{w.studentA}, ExtendBy: ptr(90)})
+	w.grant(t, app, w.a, w.mineA, domain.OverrideInput{StudentIDs: []string{w.studentA}, ExtraAttempts: ptr(1), Notify: true})
+	if len(tell.sent) != 0 {
+		t.Errorf("an override of attempts, on a student whose close an earlier override had already moved, told %+v", tell.sent)
 	}
 }
 
