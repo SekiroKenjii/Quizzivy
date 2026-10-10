@@ -212,6 +212,7 @@ export function ReviewWorkspace({
   const [adopting, setAdopting] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
   const [excluding, setExcluding] = useState<string | null>(null);
+  const excludeReturn = useRef<HTMLElement | null>(null);
   const [pointsOpen, setPointsOpen] = useState(false);
   const [phoneNote, setPhoneNote] = useState(true);
   const finishButton = useRef<HTMLButtonElement>(null);
@@ -548,6 +549,10 @@ export function ReviewWorkspace({
   );
   const onReprocess = processingOn ? reprocessWith : undefined;
   const openPoints = useCallback(() => setPointsOpen(true), []);
+  const askExclude = useCallback((questionId: string, returnTo: HTMLElement | null) => {
+    excludeReturn.current = returnTo;
+    setExcluding(questionId);
+  }, []);
   const handlers = useMemo<ExamPaneHandlers>(
     () => ({
       onSelect: selectFromExam,
@@ -580,7 +585,7 @@ export function ReviewWorkspace({
       onAcknowledge={handlers.onAcknowledge}
       onLocate={showInSource}
       onReprocess={onReprocess}
-      onExclude={setExcluding}
+      onExclude={askExclude}
     />
   );
 
@@ -794,6 +799,7 @@ export function ReviewWorkspace({
       <ExcludeDialog
         label={excluded?.label ?? ""}
         open={excluding !== null && !readOnly}
+        returnFocus={excludeReturn}
         onOpenChange={(next) => {
           if (!next) setExcluding(null);
         }}

@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleSlash, Hash } from "lucide-react";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
@@ -15,16 +16,19 @@ function normalizePoints(value: string): string {
 
 /**
  * ExcludeDialog asks why a question is left out of the test; the reason is
- * required, at most 500 characters, and saved with the import.
+ * required, at most 500 characters, and saved with the import. Closing it
+ * returns focus to `returnFocus` when that is set and still on the page.
  */
 export function ExcludeDialog({
   label,
   open,
+  returnFocus,
   onOpenChange,
   onExclude,
 }: Readonly<{
   label: string;
   open: boolean;
+  returnFocus: RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
   onExclude: (reason: string) => void;
 }>) {
@@ -44,6 +48,7 @@ export function ExcludeDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
+      returnFocus={returnFocus}
       icon={CircleSlash}
       danger
       title={t("imports.review.excludeTitle", { label })}

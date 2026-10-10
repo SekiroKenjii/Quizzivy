@@ -79,6 +79,9 @@ const SMALL_BUTTON =
  * "Question" field is the content editor, mounted only here, since one card
  * is open at a time. While `readOnly`, and for an excluded question, every
  * field is its read view; locating and the provenance chips still work.
+ * `onExclude` names the element the exclusion dialog returns focus to: the
+ * card's actions button when the menu asked, since its item unmounts, or
+ * null when a button that stays asked.
  */
 export function QuestionEditor({
   question,
@@ -103,9 +106,10 @@ export function QuestionEditor({
   onAcknowledge: (findingId: string, on: boolean) => void;
   onLocate: (refs: readonly ImportSourceRef[]) => void;
   onReprocess?: ((paper: number) => void) | undefined;
-  onExclude: (questionId: string) => void;
+  onExclude: (questionId: string, returnTo: HTMLElement | null) => void;
 }>) {
   const { t } = useTranslation();
+  const menuTrigger = useRef<HTMLButtonElement>(null);
   const [pendingType, setPendingType] = useState<QuestionType | null>(null);
   const typeTrigger = useRef<HTMLButtonElement>(null);
   const excluded = question.excluded !== undefined;
@@ -141,7 +145,8 @@ export function QuestionEditor({
         <QuestionMenu
           question={question}
           disabled={readOnly}
-          onExclude={() => onExclude(question.id)}
+          triggerRef={menuTrigger}
+          onExclude={() => onExclude(question.id, menuTrigger.current)}
           onRestore={() => onEdit(restore)}
         />
       </div>
@@ -183,7 +188,7 @@ export function QuestionEditor({
             locked ? null : (
               <FindingExclude
                 finding={finding}
-                onExclude={() => onExclude(question.id)}
+                onExclude={() => onExclude(question.id, null)}
               />
             )
           }
@@ -273,11 +278,13 @@ function FindingExclude({
 function QuestionMenu({
   question,
   disabled,
+  triggerRef,
   onExclude,
   onRestore,
 }: Readonly<{
   question: ImportDraftQuestion;
   disabled: boolean;
+  triggerRef: RefObject<HTMLButtonElement | null>;
   onExclude: () => void;
   onRestore: () => void;
 }>) {
@@ -286,6 +293,7 @@ function QuestionMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
         <button
+          ref={triggerRef}
           type="button"
           aria-label={t("imports.review.questionActions", { label: question.label })}
           className="bg-card hover:bg-muted data-[state=open]:bg-muted grid size-7 flex-none cursor-pointer place-items-center rounded-[7px] border disabled:cursor-default disabled:opacity-45"

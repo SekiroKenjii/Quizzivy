@@ -251,6 +251,45 @@ describe("editing a question", () => {
     expect(items.map((item) => item.textContent)).toEqual(["Loại khỏi đề…"]);
   });
 
+  it.each([
+    ["Esc", (user: ReturnType<typeof userEvent.setup>) => user.keyboard("{Escape}")],
+    [
+      "Cancel",
+      (user: ReturnType<typeof userEvent.setup>) =>
+        user.click(screen.getByRole("button", { name: "Huỷ" })),
+    ],
+    [
+      "the close button",
+      (user: ReturnType<typeof userEvent.setup>) =>
+        user.click(screen.getByRole("button", { name: "Đóng" })),
+    ],
+  ])(
+    "returns focus to the card's actions button when the exclusion dialog closes with %s",
+    async (_how, close) => {
+      const { user } = await renderReview();
+      const actions = screen.getByRole("button", { name: "Thao tác với câu 1" });
+      await user.click(actions);
+      await user.click(await screen.findByRole("menuitem", { name: "Loại khỏi đề…" }));
+      await screen.findByRole("dialog", { name: "Loại câu 1?" });
+
+      await close(user);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await waitFor(() => expect(actions).toHaveFocus());
+    },
+  );
+
+  it("returns focus to the card's actions button after excluding from its menu", async () => {
+    const { user } = await renderReview();
+    const actions = screen.getByRole("button", { name: "Thao tác với câu 1" });
+    await user.click(actions);
+    await user.click(await screen.findByRole("menuitem", { name: "Loại khỏi đề…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Loại câu 1?" });
+    await user.type(within(dialog).getByLabelText("Lý do"), "Trùng câu 5");
+    await user.click(within(dialog).getByRole("button", { name: "Loại" }));
+
+    await waitFor(() => expect(actions).toHaveFocus());
+  });
+
   it("excludes with a reason, then shows the question read-only with a way back", async () => {
     const { user } = await renderReview();
     await user.click(screen.getByRole("button", { name: "Thao tác với câu 1" }));
