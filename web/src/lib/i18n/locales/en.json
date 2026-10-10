@@ -932,7 +932,7 @@
     "untitled": "Untitled test",
     "statusFilter": "Filter by status",
     "all": "All",
-    "searchPlaceholder": "Search by title",
+    "searchPlaceholder": "Search tests",
     "title": "Title",
     "status": "Status",
     "questions": "Questions",
@@ -988,7 +988,33 @@
       "delete": "Only versions without assignment or attempt references can be deleted. This cannot be undone."
     },
     "importWord": "Import from Word/PDF",
-    "importHistory": "Import history"
+    "importHistory": "Imports",
+    "description": "Build once, assign to any class.",
+    "pasteTest": "Paste a test",
+    "draftsTab": "Drafts",
+    "edited": "Edited {{when}}",
+    "questionCount_one": "{{count}} question",
+    "questionCount_other": "{{count}} questions",
+    "pointCount_one": "{{points}} point",
+    "pointCount_other": "{{points}} points",
+    "assigned": {
+      "live_one": "{{count}} live",
+      "live_other": "{{count}} live",
+      "scheduled": "Scheduled",
+      "closed_one": "{{count}} closed",
+      "closed_other": "{{count}} closed",
+      "none": "Not assigned"
+    },
+    "skills": "Skills",
+    "clearFilters": "Clear filters",
+    "skill": {
+      "grammar": "Grammar",
+      "vocabulary": "Vocabulary",
+      "reading": "Reading",
+      "listening": "Listening",
+      "writing": "Writing",
+      "speaking": "Speaking"
+    }
   },
   "preview": {
     "questionNumber": "Question {{n}}",

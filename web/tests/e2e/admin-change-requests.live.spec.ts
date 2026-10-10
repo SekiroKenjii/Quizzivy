@@ -199,19 +199,19 @@ test("admin edits persist through selection, empty-group drops and immutable ver
 
   await page.goto("/teacher/tests");
   await page.getByPlaceholder("Tìm theo tên đề").fill(title);
-  const original = page
-    .getByRole("row")
-    .filter({ has: page.locator(`a[href="/teacher/tests/${id}"]`) });
+  const cards = page
+    .getByRole("list", { name: "Đề thi", exact: true })
+    .getByRole("listitem");
+  const original = cards.filter({
+    has: page.locator(`a[href="/teacher/tests/${id}"]`),
+  });
   await expect(original).toBeVisible();
   await original
     .getByRole("button", { name: `Nhân bản ${title}`, exact: true })
     .click();
   await expect(page).toHaveURL(/\/teacher\/tests\?q=/);
   await expect(page.getByText("Vừa nhân bản").first()).toBeVisible();
-  const copies = page
-    .getByRole("row")
-    .filter({ hasText: title })
-    .filter({ hasText: "Bản nháp" });
+  const copies = cards.filter({ hasText: title }).filter({ hasText: "Bản nháp" });
   await expect(copies).toHaveCount(1);
   await original
     .getByRole("button", { name: `Nhân bản ${title}`, exact: true })
@@ -230,14 +230,13 @@ test("admin edits persist through selection, empty-group drops and immutable ver
     .getByRole("button", { name: "Lưu trữ các mục đã chọn", exact: true })
     .click();
   await confirm(page, "Xác nhận 2 mục");
-  await page.getByRole("tab", { name: /^Lưu trữ/ }).click();
-  await expect(page.getByRole("row").filter({ hasText: title })).toHaveCount(2);
-  await page
-    .getByRole("checkbox", { name: "Chọn tất cả mục trên trang này", exact: true })
-    .check();
+  const archived = cards.filter({ hasText: title }).filter({ hasText: "Đã lưu trữ" });
+  await expect(archived).toHaveCount(2);
+  for (const copy of await archived.all()) await copy.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Xoá vĩnh viễn", exact: true }).click();
   await confirm(page, "Xác nhận 2 mục");
-  await expect(page.getByRole("row").filter({ hasText: title })).toHaveCount(0);
+  await expect(archived).toHaveCount(0);
+  await expect(cards.filter({ hasText: title })).toHaveCount(1);
   await page.goto("/teacher/settings");
   await page.getByRole("button", { name: /^Tài khoản của/ }).click();
   await page.getByRole("menuitem", { name: "Đăng xuất", exact: true }).click();
