@@ -38,9 +38,6 @@ function anyOf(...alternatives: string[]): RegExp {
   return new RegExp(`^(?:${alternatives.join("|")})$`);
 }
 
-// Each prefix lists the suffixes that name a utility other than a colour.
-// Anything else after the prefix has to be a colour (or, for shadow, a shadow
-// size) that index.css's @theme or Tailwind itself declares.
 const NON_COLOUR: Record<string, RegExp> = {
   bg: anyOf(
     "none|auto|cover|contain|fixed|local|scroll|no-repeat|repeat",
@@ -54,9 +51,12 @@ const NON_COLOUR: Record<string, RegExp> = {
     "wrap|nowrap|balance|pretty|ellipsis|clip|shadow-.+",
   ),
   border: anyOf(
-    `[xytrblse](?:-(?:\\d+|${LINE_STYLES.join("|")}))?`,
+    "[xytrblse]",
     `\\d+|${LINE_STYLES.join("|")}`,
     "collapse|separate|spacing(?:-[xy])?-.+",
+  ),
+  ...Object.fromEntries(
+    [..."xytrblse"].map((side) => [`border-${side}`, anyOf("\\d+")]),
   ),
   ring: anyOf("\\d+", "inset"),
   "ring-offset": anyOf("\\d+"),
@@ -77,7 +77,6 @@ const NON_COLOUR: Record<string, RegExp> = {
   accent: anyOf("auto"),
 };
 
-// CSS property names and values that begin with a prefix but are not classes.
 const CSS_WORDS = new Set([
   "text-align",
   "text-decoration",
@@ -86,15 +85,12 @@ const CSS_WORDS = new Set([
   "border-box",
 ]);
 
-// Longest first, so that border-x- is read before border-, not after it.
 const PREFIXES = Object.keys(NON_COLOUR).sort((a, b) => b.length - a.length);
 
 function withoutComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[\s;{(,])\/\/.*$/gm, "$1");
 }
 
-// Collapses [..] and (..) groups, which hold arbitrary values and variant
-// arguments, so that a colon or a slash inside one does not split a word.
 function collapseGroups(text: string): string {
   let out = text;
   for (let before = ""; before !== out;) {
@@ -109,19 +105,7 @@ function utilityOf(word: string): string {
   return last.replace(/^!|!$/g, "").replace(/\/[\w.%[\]-]*$/, "");
 }
 
-/**
- * deadColourClasses reads every class-shaped word in a TypeScript source, with
- * variants, the opacity suffix and the important marker removed, and returns
- * the colour utilities that name no theme colour, no Tailwind default and no
- * non-colour utility of their prefix. Tailwind generates no CSS for such a
- * class, so it does nothing.
- *
- * The scan is a token regex over the file, not a parse: it does not know a
- * class from a string that happens to look like one, so it sees the same text
- * in a template literal, cn(...), cva(...) and clsx(...). A word with a
- * bracket or parenthesis after the prefix is an arbitrary value and is skipped.
- */
-export function deadColourClasses(text: string): string[] {
+function deadColourClasses(text: string): string[] {
   const words = collapseGroups(withoutComments(text)).split(
     /[^A-Za-z0-9_\-:/.!%@#[\]()]+/,
   );
@@ -167,6 +151,12 @@ describe("the scan reads classes the way Tailwind does", () => {
   it("leaves non-colour utilities, arbitrary values and the theme's sizes alone", () => {
     const text = `"text-sm text-meta text-[13px] text-(length:--x) border-2 border-t-0 border-dashed ring-2 ring-inset shadow-none shadow-card outline-none bg-clip-text bg-[url(/a.svg)] from-10% divide-y"`;
     expect(deadColourClasses(text)).toEqual([]);
+  });
+
+  it("reads the side of a border before its colour", () => {
+    const accepted = '"border-t-brand border-x-danger/40 border-b-0 border-s-card"';
+    expect(deadColourClasses(accepted)).toEqual([]);
+    expect(deadColourClasses('"border-l-gone"')).toEqual(["border-l-gone"]);
   });
 
   it("ignores prose in comments", () => {
