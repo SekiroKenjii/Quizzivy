@@ -607,6 +607,9 @@ describe("the result page", () => {
     );
     expect(described).toHaveAttribute("src", "https://assets.example/map-1.png");
     expect(item("Bưu điện ở đâu?")).toContainElement(described);
+    expect(described.closest("[data-slot=result-answers]")).toHaveClass(
+      "[&_img]:bg-paper",
+    );
     const prompt = screen.getByText("Bưu điện ở đâu?");
     expect(
       prompt.compareDocumentPosition(described) & Node.DOCUMENT_POSITION_FOLLOWING,
