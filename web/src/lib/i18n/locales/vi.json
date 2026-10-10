@@ -670,7 +670,7 @@
     "audioShowTranscript": "Hiện lời thoại sau khi nộp",
     "blankOrdinal": "Chỗ trống {{n}}",
     "blanks": "Chỗ trống",
-    "blanksHint": "Đánh dấu chỗ trống trong đề bài bằng {{'{{1}}'}}, {{'{{2}}'}}",
+    "blanksHint": "Đánh dấu chỗ trống trong đề bài bằng {{first}}, {{second}}",
     "caseSensitive": "Phân biệt hoa thường",
     "explanation": "Giải thích",
     "explanationHint": "— học viên xem sau khi nộp, nếu bài giao cho phép",
@@ -747,7 +747,6 @@
     "blankConversionBlocked": "Chỉ chuyển được khi mỗi ký hiệu {{n}} xuất hiện một lần và có đáp án tương ứng. Hãy kiểm tra các chỗ trống trước khi chuyển.",
     "richBlankHint": "Dùng nút Thêm ô trống trên thanh công cụ. Đáp án giữ nguyên khi di chuyển ô hoặc hoàn tác.",
     "richBlankSwitch": "Hãy bỏ các chỗ trống khỏi nội dung và xử lý đáp án còn dư trước khi đổi loại câu hỏi.",
-    "richBlankAnswersHint": "Thêm hoặc bỏ ô trong trình soạn nội dung.",
     "orphanedBlank": "Ô này đã được bỏ khỏi nội dung. Hoàn tác trong trình soạn thảo để khôi phục, hoặc xoá đáp án bên dưới trước khi lưu.",
     "removeOrphanTitle": "Xoá đáp án của ô đã bỏ?",
     "removeOrphanDescription": "Các đáp án được chấp nhận của ô này sẽ bị xoá khỏi bản nháp.",
@@ -767,6 +766,24 @@
       "manual": "Chấm tay. Mỗi câu trả lời được đưa vào hàng chờ chấm.",
       "anyAccepted": "Câu trả lời đúng khi khớp với một đáp án được chấp nhận.",
       "exactlyTicked": "Học viên phải chọn đúng các lựa chọn đã đánh dấu."
+    },
+    "gapAnswers": {
+      "label": "Đáp án được chấp nhận",
+      "hint": "cho từng ô trống trong đề bài.",
+      "caseIgnored": "Chữ hoa và khoảng trắng thừa không được tính.",
+      "group": "Ô trống {{label}}",
+      "inputFor": "Đáp án được chấp nhận cho ô {{label}}",
+      "placeholderFirst": "Nhập đáp án rồi nhấn Enter",
+      "placeholderMore": "Thêm đáp án khác",
+      "removeAnswer": "Bỏ đáp án {{value}}",
+      "matchCase": "Phân biệt hoa thường",
+      "matchCaseFor": "Phân biệt hoa thường cho ô {{label}}",
+      "empty": "Hãy thêm ít nhất một đáp án được chấp nhận cho ô {{label}}.",
+      "noGapsTitle": "Đề bài chưa có ô trống nào",
+      "noGapsText": "Đặt con trỏ vào chỗ học viên điền đáp án, rồi thêm một ô trống.",
+      "insertGap": "Thêm ô trống",
+      "removedGroup": "Ô trống {{label}} đã bỏ",
+      "removeOrphan": "Xoá đáp án của ô {{label}}"
     }
   },
   "builder": {
