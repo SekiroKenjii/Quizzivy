@@ -36,7 +36,8 @@ function referencingTests(cause: unknown): ReferencingTest[] | null {
  * agreed to leave an unsaved edit, then opens the copy through `onOpen`. Delete
  * asks first, saying no test uses the question; a question still in a draft
  * test cannot be deleted, so Delete instead names those tests (as does a
- * refusal from the server). A deleted question leaves through `onDeleted`.
+ * refusal from the server, which also refetches the question so its usage
+ * line catches up). A deleted question leaves through `onDeleted`.
  */
 export function QuestionEditorMenu({
   question,
@@ -79,6 +80,9 @@ export function QuestionEditorMenu({
       if (tests !== null) {
         setConfirming(false);
         setBlocked(tests);
+        void queryClient.invalidateQueries({
+          queryKey: ["admin-question", question.id],
+        });
         return;
       }
       setError(cause instanceof ApiError ? cause.message : t("bank.deleteFailed"));

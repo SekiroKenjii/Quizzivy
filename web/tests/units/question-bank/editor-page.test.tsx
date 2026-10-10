@@ -246,6 +246,45 @@ describe("the Question editor's … menu", () => {
     expect(deletes).toBe(1);
   });
 
+  it("refreshes the usage line when the server refuses a delete", async () => {
+    usedIn = [];
+    server.use(
+      http.delete(`${BASE}/teacher/questions/:id`, () => {
+        deletes += 1;
+        usedIn = TESTS.slice(0, 1);
+        return HttpResponse.json(
+          {
+            error: {
+              code: "QUESTION_REFERENCED",
+              message: "Câu hỏi đang được dùng.",
+              requestId: "018f0000-0000-7000-8000-0000000000f6",
+              details: { tests: TESTS.slice(0, 1) },
+            },
+          },
+          { status: 409 },
+        );
+      }),
+    );
+    const { user } = renderPage();
+    await loaded();
+    expect(screen.getByText("Chưa đề nào dùng câu hỏi này.")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Thao tác khác" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Xoá câu hỏi" }));
+    const confirm = await screen.findByRole("dialog", { name: "Xoá câu hỏi này?" });
+    await user.click(within(confirm).getByRole("button", { name: "Xoá" }));
+
+    expect(
+      await screen.findByRole("dialog", { name: "Chưa xoá được câu hỏi này" }),
+    ).toBeVisible();
+    expect(
+      await screen.findByText(
+        "Đang dùng trong 1 đề. Lưu thay đổi chỉ ảnh hưởng các đề về sau.",
+      ),
+    ).toBeInTheDocument();
+    expect(deletes).toBe(1);
+  });
+
   it("names the draft tests instead of deleting a question they still use", async () => {
     const { user } = renderPage();
     await loaded();
