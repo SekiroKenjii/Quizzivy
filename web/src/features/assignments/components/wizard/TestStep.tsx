@@ -2,9 +2,11 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RadioGroup } from "radix-ui";
+import type { TFunction } from "i18next";
 import { Search } from "lucide-react";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
+import { Button } from "@/components/ui/button";
 import type { PickedVersion } from "@/features/assignments/components/TestVersionPicker";
 import {
   listTests,
@@ -119,15 +121,29 @@ function TestRow({ test }: Readonly<{ test: Test }>) {
   const current = versions.data?.items.find(
     (version) => version.version === test.currentVersion,
   );
-  const meta = [
-    test.skills.map((skill) => t(`tests.skill.${skill}`)).join(", "),
-    current && t("assignments.wizard.questions", { count: current.questionCount }),
-    current &&
-      current.manualCount > 0 &&
-      t("assignments.wizard.manual", { count: current.manualCount }),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  if (versions.isError) {
+    return (
+      <div className="border-border flex flex-wrap items-center gap-3 rounded-[10px] border px-3.5 py-3">
+        <span className="min-w-0 flex-[1_1_200px]">
+          <span className="block text-base leading-[1.3] font-medium [overflow-wrap:anywhere]">
+            {test.title}
+          </span>
+          <span role="alert" className="text-danger text-meta block leading-[1.3]">
+            {t("assignments.wizard.versionsFailed")}
+          </span>
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void versions.refetch()}
+        >
+          {t("common.retry")}
+        </Button>
+      </div>
+    );
+  }
+  const meta = current === undefined ? "" : versionMeta(current, t);
   return (
     <RadioGroup.Item
       value={test.id}
@@ -150,4 +166,15 @@ function TestRow({ test }: Readonly<{ test: Test }>) {
       </span>
     </RadioGroup.Item>
   );
+}
+
+function versionMeta(version: TestVersion, t: TFunction): string {
+  return [
+    t("assignments.wizard.questions", { count: version.questionCount }),
+    version.manualCount > 0
+      ? t("assignments.wizard.manual", { count: version.manualCount })
+      : "",
+  ]
+    .filter((part) => part !== "")
+    .join(" · ");
 }

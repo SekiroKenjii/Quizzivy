@@ -1458,6 +1458,7 @@
       "manual_other": "{{count}} câu cần chấm tay",
       "testsNoMatch": "Không có đề đã phát hành nào khớp “{{query}}”",
       "testsFailed": "Không tải được danh sách đề.",
+      "versionsFailed": "Không tải được phiên bản hiện tại của đề này.",
       "studentsTitle": "Ai làm bài?",
       "classStudents_one": "{{count}} học viên",
       "classStudents_other": "{{count}} học viên",

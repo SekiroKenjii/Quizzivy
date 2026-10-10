@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import AssignmentWizardPage from "@/features/assignments/pages/teacher/AssignmentWizardPage";
 import { draftBody, draftOf, emptyDraft } from "@/features/assignments/draft";
 import { Toaster } from "@/components/ui/sonner";
@@ -284,8 +291,9 @@ describe("the new assignment wizard", () => {
     expect(buttons[0]).toHaveTextContent("Chưa chọn đề");
     expect(buttons[3]).toHaveTextContent("Chặn sao chép/dán · Hiện điểm");
     const row = await screen.findByRole("radio", { name: /Unit 5 Reading/ });
-    await waitFor(() =>
-      expect(row).toHaveTextContent("Đọc · 24 câu · 2 câu cần chấm tay"),
+    await waitFor(() => expect(row).toHaveTextContent("24 câu · 2 câu cần chấm tay"));
+    expect(row, "the draft's skills do not describe the version").not.toHaveTextContent(
+      "Đọc",
     );
     await userEvent.setup().click(screen.getByRole("button", { name: "Tiếp tục" }));
     expect(router.state.location.search).toBe("?step=2");
@@ -399,6 +407,48 @@ describe("the new assignment wizard", () => {
       "testVersionId",
       "window",
     ]);
+  });
+
+  it("posts one draft when Save draft is clicked twice in the same tick", async () => {
+    const router = renderWizard(`/teacher/assignments/new?test=${TEST_ID}`);
+    expect(await screen.findByRole("radio", { name: /Unit 5 Reading/ })).toBeChecked();
+    const save = screen.getByRole("button", { name: "Lưu nháp" });
+    act(() => {
+      fireEvent.click(save);
+      fireEvent.click(save);
+    });
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/teacher/assignments"),
+    );
+    expect(posted).toHaveLength(1);
+  });
+
+  it("says when a test's versions cannot load, and retries", async () => {
+    let fail = true;
+    server.use(
+      http.get(`${BASE}/teacher/tests/${OTHER_TEST_ID}/versions`, () =>
+        fail
+          ? HttpResponse.json(
+              { error: { code: "INTERNAL", message: "boom", requestId: "r1" } },
+              { status: 500 },
+            )
+          : contractJson("/teacher/tests/{id}/versions", "get", 200, {
+              items: [VERSIONS[OTHER_TEST_ID]],
+            }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWizard();
+    expect(
+      await screen.findByText("Không tải được phiên bản hiện tại của đề này."),
+    ).toBeVisible();
+    expect(screen.queryByRole("radio", { name: /Mock B/ })).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: /Unit 5 Reading/ })).toBeEnabled(),
+    );
+    fail = false;
+    await user.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(await screen.findByRole("radio", { name: /Mock B/ })).toBeEnabled();
   });
 
   it("asks before leaving with unsaved choices, and stays when told to", async () => {

@@ -1458,6 +1458,7 @@
       "manual_other": "{{count}} need manual grading",
       "testsNoMatch": "No published test matches “{{query}}”",
       "testsFailed": "Could not load the tests.",
+      "versionsFailed": "Could not load this test's current version.",
       "studentsTitle": "Who takes it?",
       "classStudents_one": "{{count}} student",
       "classStudents_other": "{{count}} students",
