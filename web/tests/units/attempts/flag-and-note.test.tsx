@@ -6,6 +6,8 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
 import AttemptReviewPage from "@/features/attempts/pages/teacher/AttemptReviewPage";
 import { Toaster } from "@/components/ui/sonner";
+import { FLAGGED } from "@/features/integrity/tones";
+import { CrumbTailContext, type PageCrumb } from "@/layouts/shell/crumbs";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -75,6 +77,49 @@ describe("G-05's mark and note", () => {
 
     await waitFor(() => expect(flags).toEqual([{ flagged: true }]));
     expect(await screen.findByText("Đã đánh dấu để xem lại")).toBeInTheDocument();
+  });
+
+  it("marks a flagged paper with the danger pill and names it in the crumb", async () => {
+    const paper = review();
+    server.use(
+      http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}`, () =>
+        contractJson("/teacher/attempts/{id}", "get", 200, {
+          ...paper,
+          attempt: {
+            ...paper.attempt,
+            integrity: { focusLossCount: 3, flagged: true },
+          },
+        }),
+      ),
+    );
+    const tails: (readonly PageCrumb[] | null)[] = [];
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const router = createMemoryRouter(
+      [{ path: "/teacher/attempts/:id", element: <AttemptReviewPage /> }],
+      { initialEntries: [`/teacher/attempts/${ATTEMPT_ID}`] },
+    );
+    render(
+      <CrumbTailContext.Provider value={(tail) => tails.push(tail)}>
+        <QueryClientProvider client={client}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </CrumbTailContext.Provider>,
+    );
+
+    const pill = await screen.findByText("Đã đánh dấu");
+    expect(pill).toHaveClass(FLAGGED.ink, FLAGGED.soft);
+    expect(screen.getByRole("button", { name: "Bỏ đánh dấu" })).toBeEnabled();
+    expect(screen.getByRole("link", { name: /Về bài giao/ })).toHaveAttribute(
+      "href",
+      `/teacher/assignments/${paper.attempt.assignmentId}`,
+    );
+    expect(tails.at(-1)).toEqual([
+      {
+        label: paper.testTitle,
+        to: `/teacher/assignments/${paper.attempt.assignmentId}`,
+      },
+      { label: paper.student.fullName },
+    ]);
   });
 
   it("keeps the private note beside the timeline and autosaves it", async () => {
