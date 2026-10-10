@@ -17,13 +17,15 @@ import (
 const WindowLockKey = 40
 
 // ScheduleReport is what window-schedule did, or would do: the window, and how
-// many running attempts and open assignments it moves by the window's length.
+// many running attempts, open assignments and per-student overrides it moves by
+// the window's length.
 type ScheduleReport struct {
 	WindowID    string    `json:"windowId,omitempty"`
 	StartsAt    time.Time `json:"startsAt"`
 	EndsAt      time.Time `json:"endsAt"`
 	Attempts    int64     `json:"attempts"`
 	Assignments int64     `json:"assignments"`
+	Overrides   int64     `json:"overrides"`
 	Applied     bool      `json:"applied"`
 }
 
@@ -50,11 +52,17 @@ const movingAttempts = `SELECT count(id) FROM app.attempts
 const movingAssignments = `SELECT count(id) FROM app.assignments
  WHERE closed_at IS NULL AND published_at IS NOT NULL AND closes_at >= $1 AND closes_at < $2`
 
+const movingOverrides = `SELECT count(*) FROM app.assignment_student_overrides o
+ JOIN app.assignments s ON s.id = o.assignment_id
+ WHERE s.published_at IS NOT NULL AND o.closes_at >= $1 AND o.closes_at < $2`
+
 // ScheduleWindow schedules a window from startsAt to endsAt, no earlier than a
 // minute ago, and in the same statement extends by its length the deadline of
-// every running attempt that would still be running when it starts and the
-// close of every published, open assignment that would close inside it.
-// Every change is audited as System, with no actor. A dry run reports the
+// every running attempt that would still be running when it starts, the close
+// of every published, open assignment that would close inside it, and the close
+// of every override on a published assignment that would close inside it, an
+// early-closed assignment's too, because that override is what keeps its
+// student in. Every change is audited as System, with no actor. A dry run reports the
 // counts and refusals and changes nothing, taking no lock. Applying holds the
 // maintenance-windows advisory lock, which the start guard takes shared, so
 // no attempt starts between the check and the write.
@@ -90,7 +98,10 @@ func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Tim
 		if err := tx.QueryRow(ctx, movingAttempts, startsAt).Scan(&out.Attempts); err != nil {
 			return out, err
 		}
-		err := tx.QueryRow(ctx, movingAssignments, startsAt, endsAt).Scan(&out.Assignments)
+		if err := tx.QueryRow(ctx, movingAssignments, startsAt, endsAt).Scan(&out.Assignments); err != nil {
+			return out, err
+		}
+		err := tx.QueryRow(ctx, movingOverrides, startsAt, endsAt).Scan(&out.Overrides)
 		return out, err
 	}
 	err = tx.QueryRow(ctx, `
@@ -111,6 +122,13 @@ func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Tim
 		   WHERE s.closed_at IS NULL AND s.published_at IS NOT NULL
 		     AND s.closes_at >= w.starts_at AND s.closes_at < w.ends_at
 		  RETURNING s.id, old.closes_at AS before, new.closes_at AS after, w.id AS window_id
+		), overrides AS (
+		  UPDATE app.assignment_student_overrides o
+		     SET closes_at = o.closes_at + w.length
+		    FROM scheduled w, app.assignments s
+		   WHERE s.id = o.assignment_id AND s.published_at IS NOT NULL
+		     AND o.closes_at >= w.starts_at AND o.closes_at < w.ends_at
+		  RETURNING o.assignment_id, o.student_id, old.closes_at AS before, new.closes_at AS after, w.id AS window_id
 		), audited AS (
 		  INSERT INTO app.audit_log (action, entity, entity_id, diff)
 		  SELECT 'attempt.extended', 'attempt', id,
@@ -123,6 +141,11 @@ func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Tim
 		           'reason', 'maintenance', 'windowId', window_id, 'databaseRole', current_user)
 		    FROM assignments
 		  UNION ALL
+		  SELECT 'assignment.override_extended', 'assignment', assignment_id,
+		         jsonb_build_object('studentId', student_id, 'closes_at', jsonb_build_object('old', before, 'new', after),
+		           'reason', 'maintenance', 'windowId', window_id, 'databaseRole', current_user)
+		    FROM overrides
+		  UNION ALL
 		  SELECT 'maintenance.scheduled', 'maintenance_window', id,
 		         jsonb_build_object('startsAt', starts_at, 'endsAt', ends_at, 'databaseRole', current_user)
 		    FROM scheduled
@@ -130,8 +153,9 @@ func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Tim
 		)
 		SELECT (SELECT id::text FROM scheduled),
 		       (SELECT count(id) FROM attempts),
-		       (SELECT count(id) FROM assignments)`, startsAt, endsAt).
-		Scan(&out.WindowID, &out.Attempts, &out.Assignments)
+		       (SELECT count(id) FROM assignments),
+		       (SELECT count(*) FROM overrides)`, startsAt, endsAt).
+		Scan(&out.WindowID, &out.Attempts, &out.Assignments, &out.Overrides)
 	if err != nil {
 		return out, readable(err)
 	}
