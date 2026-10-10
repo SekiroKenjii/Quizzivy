@@ -24,6 +24,8 @@ import {
 } from "@tanstack/react-query";
 import {
   CircleStop,
+  Clock,
+  Copy,
   ExternalLink,
   FileText,
   Pencil,
@@ -36,6 +38,7 @@ import { RowMenu } from "@/components/shared/RowMenu";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StatStrip } from "@/components/shared/stats/StatStrip";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -71,6 +74,9 @@ import { toInput } from "../../input";
 import { statusAt } from "../../status";
 import { assignmentStats, detailTab, firstPendingPaper } from "./assignmentDetail";
 import { assignmentDetailLocation } from "./assignmentDetailUrl";
+import { moment } from "./assignmentWindow";
+import { DuplicateAssignmentDialog } from "./DuplicateAssignmentDialog";
+import { ExtendAssignmentsDialog } from "./ExtendAssignmentsDialog";
 
 /** AssignmentDetailPage owns the assignment monitor and preserves authorized actions and note drafts across its URL-controlled tabs and sheet. */
 export default function AssignmentDetailPage() {
@@ -85,9 +91,7 @@ export default function AssignmentDetailPage() {
   const workspace = useWorkspace("teacher");
   const write = useCan("teaching.assignments.write");
   const client = useQueryClient();
-  const [closing, setClosing] = useState(false);
-  const [reopening, setReopening] = useState<ReopenChoice | null>(null);
-  const [reopeningStudent, setReopeningStudent] = useState(false);
+  const [dialog, setDialog] = useState<DetailDialog | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const { notes, recoveryPanel, noteFocusRequest } = useSheetDrafts();
 
@@ -147,7 +151,7 @@ export default function AssignmentDetailPage() {
       });
     },
     onSuccess: async () => {
-      setClosing(false);
+      setDialog(null);
       await refresh();
     },
   });
@@ -209,14 +213,12 @@ export default function AssignmentDetailPage() {
               now={now}
               pending={publish.isPending}
               onPublish={() => publish.mutate(a)}
-              onClose={() => setClosing(true)}
-              onReopen={setReopening}
+              onDialog={setDialog}
               onEditSettings={() =>
                 void navigate(assignmentDetailLocation(location, { tab: "settings" }), {
                   replace: true,
                 })
               }
-              onReopenStudent={() => setReopeningStudent(true)}
             />
             <GradeAction
               count={stats?.pending ?? 0}
@@ -272,16 +274,12 @@ export default function AssignmentDetailPage() {
       <StateDialogs
         a={a}
         status={status}
-        closing={closing}
-        reopening={reopening}
+        dialog={dialog}
         pending={close.isPending}
         failed={close.isError}
         rows={monitor.data?.rows ?? null}
         now={now}
-        reopeningStudent={reopeningStudent}
-        onReopeningStudent={setReopeningStudent}
-        onClosing={setClosing}
-        onReopening={setReopening}
+        onDialog={setDialog}
         onClose={() => {
           if (write && status === "open") close.mutate(a);
         }}
@@ -471,60 +469,60 @@ function useSheetDrafts() {
   return { notes, recoveryPanel, noteFocusRequest };
 }
 
+type DetailDialog =
+  | { kind: "close" | "reopenStudent" | "extend" | "duplicate" }
+  | { kind: "reopen"; choice: ReopenChoice };
+
 function StateDialogs({
   a,
   status,
-  closing,
-  reopening,
+  dialog,
   pending,
   failed,
   rows,
   now,
-  reopeningStudent,
-  onReopeningStudent,
-  onClosing,
-  onReopening,
+  onDialog,
   onClose,
   onRefresh,
 }: Readonly<{
   a: Assignment;
   status: ReturnType<typeof statusAt>;
-  closing: boolean;
-  reopening: ReopenChoice | null;
+  dialog: DetailDialog | null;
   pending: boolean;
   failed: boolean;
   rows: readonly MonitorRow[] | null;
   now: Date;
-  reopeningStudent: boolean;
-  onReopeningStudent: (value: boolean) => void;
-  onClosing: (value: boolean) => void;
-  onReopening: (value: ReopenChoice | null) => void;
+  onDialog: (value: DetailDialog | null) => void;
   onClose: () => void;
   onRefresh: () => Promise<void>;
 }>) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   const write = useCan("teaching.assignments.write");
   const intervene = useCan("teaching.attempts.intervene");
+  const kind = dialog?.kind;
+  const closeUnless = (open: boolean) => {
+    if (!open) onDialog(null);
+  };
   return (
     <>
       {write && status === "open" && (
         <CloseEarlyDialog
           assignment={a}
-          open={closing}
+          open={kind === "close"}
           pending={pending}
           failed={failed}
           keepTime={rows === null ? 0 : keepsTimeAfter(rows, now)}
-          onOpenChange={onClosing}
+          onOpenChange={(open) => onDialog(open ? { kind: "close" } : null)}
           onConfirm={onClose}
         />
       )}
-      {write && status === "closed" && reopening !== null && (
+      {write && status === "closed" && dialog?.kind === "reopen" && (
         <ReopenDialog
           assignment={a}
-          choice={reopening}
+          choice={dialog.choice}
           open
-          onOpenChange={(open) => {
-            if (!open) onReopening(null);
-          }}
+          onOpenChange={closeUnless}
           onDone={onRefresh}
         />
       )}
@@ -532,9 +530,35 @@ function StateDialogs({
         <ReopenStudentDialog
           assignment={a}
           rows={rows}
-          open={reopeningStudent}
-          onOpenChange={onReopeningStudent}
+          open={kind === "reopenStudent"}
+          onOpenChange={closeUnless}
           onDone={onRefresh}
+        />
+      )}
+      {write && (status === "scheduled" || status === "open") && (
+        <ExtendAssignmentsDialog
+          items={[a]}
+          when={moment(a.window.closesAt, now, t)}
+          audience={intervene && rows !== null ? rows : undefined}
+          open={kind === "extend"}
+          onOpenChange={closeUnless}
+          onExtended={() => void onRefresh()}
+        />
+      )}
+      {write && (
+        <DuplicateAssignmentDialog
+          assignment={a}
+          open={kind === "duplicate"}
+          onOpenChange={closeUnless}
+          onDuplicated={(draft) => {
+            void onRefresh();
+            toast(t("assignments.list.duplicated"), {
+              action: {
+                label: t("assignments.list.open"),
+                onClick: () => void navigate(`/teacher/assignments/${draft.id}`),
+              },
+            });
+          }}
         />
       )}
     </>
@@ -571,20 +595,16 @@ function WriteActions({
   now,
   pending,
   onPublish,
-  onClose,
-  onReopen,
+  onDialog,
   onEditSettings,
-  onReopenStudent,
 }: Readonly<{
   a: Assignment;
   status: ReturnType<typeof statusAt>;
   now: Date;
   pending: boolean;
   onPublish: () => void;
-  onClose: () => void;
-  onReopen: (choice: ReopenChoice) => void;
+  onDialog: (dialog: DetailDialog) => void;
   onEditSettings: () => void;
-  onReopenStudent: () => void;
 }>) {
   const { t } = useTranslation();
   const write = useCan("teaching.assignments.write");
@@ -608,8 +628,14 @@ function WriteActions({
             {t("assignmentDetail.editSettings")}
           </DropdownMenuItem>
         )}
+        {write && (
+          <DropdownMenuItem onSelect={() => onDialog({ kind: "duplicate" })}>
+            <Copy aria-hidden="true" />
+            {t("assignments.list.duplicate")}
+          </DropdownMenuItem>
+        )}
         {intervene && !draft && (
-          <DropdownMenuItem onSelect={onReopenStudent}>
+          <DropdownMenuItem onSelect={() => onDialog({ kind: "reopenStudent" })}>
             <RotateCcw aria-hidden="true" />
             {t("assignmentDetail.reopenStudent.title")}
           </DropdownMenuItem>
@@ -620,7 +646,7 @@ function WriteActions({
             <DropdownMenuItem
               variant="destructive"
               onSelect={() => {
-                if (write && status === "open") onClose();
+                if (write && status === "open") onDialog({ kind: "close" });
               }}
             >
               <CircleStop aria-hidden="true" />
@@ -629,12 +655,18 @@ function WriteActions({
           </>
         )}
       </RowMenu>
+      {write && (status === "scheduled" || status === "open") && (
+        <Button variant="outline" onClick={() => onDialog({ kind: "extend" })}>
+          <Clock aria-hidden="true" />
+          {t("assignmentDetail.extend")}
+        </Button>
+      )}
       {write && status === "closed" && (
         <ReopenMenu
           count={a.targetCount ?? 0}
           todayPossible={now.getHours() < 21}
           onChoose={(choice) => {
-            if (write && status === "closed") onReopen(choice);
+            if (write && status === "closed") onDialog({ kind: "reopen", choice });
           }}
         />
       )}

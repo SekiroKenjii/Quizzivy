@@ -14,6 +14,12 @@ import i18n from "@/lib/i18n";
 const AN = "018f0000-0000-7000-8000-0000000000e1";
 const BINH = "018f0000-0000-7000-8000-0000000000e2";
 
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 beforeEach(() => useAuthStore.getState().setSession("token", teacherUser));
 afterEach(() => void i18n.changeLanguage("vi"));
 
@@ -323,5 +329,117 @@ describe("Reopen for a student", () => {
       "aria-invalid",
       "true",
     );
+  });
+});
+
+describe("Extend deadline", () => {
+  const ROWS = [
+    detailRow(AN, "Lê Văn An", { state: "in_progress", attemptNo: 1 }),
+    detailRow(BINH, "Trần Bình"),
+  ];
+
+  async function open() {
+    const calls = serveDetail(detailAssignment(), { rows: ROWS });
+    const user = renderDetail();
+    await screen.findByText("Lê Văn An");
+    await user.click(screen.getByRole("button", { name: "Gia hạn" }));
+    const dialog = await screen.findByRole("dialog", { name: "Gia hạn" });
+    return { calls, user, dialog };
+  }
+
+  it("moves the close for everyone through extend, with no reason", async () => {
+    const { calls, user, dialog } = await open();
+    expect(
+      within(within(dialog).getByRole("group", { name: "Áp dụng cho" })).getByRole(
+        "button",
+        { name: "Mọi người" },
+      ),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(within(dialog).queryByRole("textbox", { name: /Lý do/ })).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
+    await waitFor(() => expect(calls.extensions).toHaveLength(1), { timeout: 5_000 });
+    expect(calls.extensions[0]).toEqual({ minutes: 30, notify: true });
+    expect(calls.overrides).toEqual([]);
+  });
+
+  it("gives chosen students their own later close, with the reason", async () => {
+    const { calls, user, dialog } = await open();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Học viên được chọn" }),
+    );
+    const students = within(dialog).getByRole("group", { name: "Học viên" });
+    expect(within(students).getByText("Đang làm")).toBeInTheDocument();
+    expect(within(students).getByText("Chưa bắt đầu")).toBeInTheDocument();
+    await user.click(within(students).getByRole("checkbox", { name: /Trần Bình/ }));
+    await user.click(within(dialog).getByRole("button", { name: "1 giờ" }));
+    await user.type(within(dialog).getByRole("textbox", { name: /Lý do/ }), "Ốm");
+    await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
+    await waitFor(() => expect(calls.overrides).toHaveLength(1), { timeout: 5_000 });
+    expect(calls.overrides[0]).toEqual({
+      studentIds: [BINH],
+      extendBy: 60,
+      reason: "Ốm",
+      notify: true,
+    });
+    expect(calls.extensions).toEqual([]);
+  });
+
+  it("asks for a student and a reason before extending for chosen students", async () => {
+    const { calls, user, dialog } = await open();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Học viên được chọn" }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
+    expect(within(dialog).getByText("Chọn ít nhất một học viên.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: /Lý do/ })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(calls.overrides).toEqual([]);
+    expect(calls.extensions).toEqual([]);
+  });
+
+  it("offers only everyone to a teacher who may not intervene", async () => {
+    useAuthStore.getState().setSession("token", {
+      ...teacherUser,
+      permissions: teacherUser.permissions.filter(
+        (key) => key !== "teaching.attempts.intervene",
+      ),
+    });
+    const { dialog } = await open();
+    expect(within(dialog).queryByRole("group", { name: "Áp dụng cho" })).toBeNull();
+  });
+
+  it("is not offered on a closed assignment, which is reopened instead", async () => {
+    serveDetail(
+      detailAssignment({
+        status: "closed",
+        window: {
+          opensAt: "2020-09-07T01:00:00Z",
+          closesAt: "2020-09-09T14:00:00Z",
+          closedAt: null,
+        },
+      }),
+    );
+    renderDetail();
+    expect(
+      await screen.findByRole("button", { name: "Gia hạn cho tất cả" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Gia hạn" })).toBeNull();
+  });
+});
+
+describe("Duplicate", () => {
+  it("copies the assignment as a draft for its classes and offers to open it", async () => {
+    const calls = serveDetail(detailAssignment());
+    const user = renderDetail();
+    await user.click(await screen.findByRole("button", { name: "Thao tác khác" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Nhân bản" }));
+    const dialog = await screen.findByRole("dialog", { name: "Nhân bản bài giao" });
+    await user.click(within(dialog).getByRole("button", { name: "Tạo bản nháp" }));
+    await waitFor(() => expect(calls.duplicates).toHaveLength(1), { timeout: 5_000 });
+    expect(calls.duplicates[0]).toEqual({ classIds: [DETAIL_CLASS_ID] });
+    expect(await screen.findByText("Đã tạo bản nháp.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mở" })).toBeInTheDocument();
   });
 });

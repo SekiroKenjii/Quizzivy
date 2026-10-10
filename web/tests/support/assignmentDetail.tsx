@@ -17,6 +17,8 @@ export const DETAIL_ID = "018f0000-0000-7000-8000-0000000000d1";
 export const DETAIL_TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 /** DETAIL_VERSION_ID is the assignment's pinned version. */
 export const DETAIL_VERSION_ID = "018f0000-0000-7000-8000-0000000000f1";
+/** DETAIL_DRAFT_ID is the draft a duplicate answers with. */
+export const DETAIL_DRAFT_ID = "018f0000-0000-7000-8000-0000000000d2";
 /** DETAIL_CLASS_ID is the class the assignment targets. */
 export const DETAIL_CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
 
@@ -87,8 +89,13 @@ export function detailRow(
   };
 }
 
-/** DetailCalls collects what the page sent: PATCH bodies and override bodies. */
-export type DetailCalls = { patches: unknown[]; overrides: unknown[] };
+/** DetailCalls collects what the page sent: PATCH, override, extend and duplicate bodies. */
+export type DetailCalls = {
+  patches: unknown[];
+  overrides: unknown[];
+  extensions: unknown[];
+  duplicates: unknown[];
+};
 
 /**
  * serveDetail stubs the assignment, its versions, its monitor with `rows`,
@@ -107,7 +114,12 @@ export function serveDetail(
     patchStatus?: 200 | 409;
   } = {},
 ): DetailCalls {
-  const calls: DetailCalls = { patches: [], overrides: [] };
+  const calls: DetailCalls = {
+    patches: [],
+    overrides: [],
+    extensions: [],
+    duplicates: [],
+  };
   server.use(
     http.get(`${DETAIL_API}/teacher/assignments/${DETAIL_ID}`, () =>
       contractJson("/teacher/assignments/{id}", "get", 200, a),
@@ -164,6 +176,34 @@ export function serveDetail(
           items: [],
         });
       },
+    ),
+    http.post(
+      `${DETAIL_API}/teacher/assignments/${DETAIL_ID}/extend`,
+      async ({ request }) => {
+        calls.extensions.push(await request.json());
+        return contractJson("/teacher/assignments/{id}/extend", "post", 200, a);
+      },
+    ),
+    http.post(
+      `${DETAIL_API}/teacher/assignments/${DETAIL_ID}/duplicate`,
+      async ({ request }) => {
+        calls.duplicates.push(await request.json());
+        return contractJson("/teacher/assignments/{id}/duplicate", "post", 201, {
+          ...a,
+          id: DETAIL_DRAFT_ID,
+          status: "draft",
+          publishedAt: null,
+        });
+      },
+    ),
+    http.get(`${DETAIL_API}/teacher/classes`, () =>
+      contractJson("/teacher/classes", "get", 200, {
+        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
+        items: [],
+        page: 1,
+        pageSize: 100,
+        total: 0,
+      }),
     ),
   );
   return calls;
