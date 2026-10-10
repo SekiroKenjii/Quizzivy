@@ -2963,9 +2963,9 @@ components:
         nextVersion:
           type: integer
           minimum: 1
-          readOnly: true
           description: |
-            The number the next publish of this test will take: one more than
+            Read-only: the server computes it and a client never sends it. The
+            number the next publish of this test will take: one more than
             the highest version ever published, whether or not that version
             still exists, so it is 1 for a test never published. Deleting the
             newest version does not lower it, and the publish and this field

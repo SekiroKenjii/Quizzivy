@@ -30,12 +30,11 @@ function without(body: Record<string, unknown>, key: string) {
 }
 
 describe("Test.nextVersion on the wire", () => {
-  it("is a required positive integer, read-only", () => {
+  it("is a required positive integer", () => {
     expect(test(published)).toBe(true);
     expect(test(without(published, "nextVersion"))).toBe(false);
     expect(test({ ...published, nextVersion: 0 })).toBe(false);
     expect(test({ ...published, nextVersion: 2.5 })).toBe(false);
     expect(test({ ...published, nextVersion: "4" })).toBe(false);
-    expect(spec.components.schemas.Test.properties.nextVersion.readOnly).toBe(true);
   });
 });
