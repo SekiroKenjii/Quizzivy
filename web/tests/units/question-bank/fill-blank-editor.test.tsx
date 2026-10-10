@@ -175,10 +175,7 @@ describe("the rich prompt's gap answers", () => {
     const input = screen.getByRole("textbox", {
       name: "Đáp án được chấp nhận cho ô 2",
     });
-    expect(input).toHaveAttribute(
-      "placeholder",
-      "Nhập một đáp án được chấp nhận rồi nhấn Enter",
-    );
+    expect(input).toHaveAttribute("placeholder", "Nhập đáp án rồi nhấn Enter");
 
     await user.type(input, "go{Enter}");
     await user.type(input, "went,");
@@ -195,7 +192,7 @@ describe("the rich prompt's gap answers", () => {
       "went",
       "goes",
     ]);
-    expect(input).toHaveAttribute("placeholder", "Thêm một đáp án được chấp nhận khác");
+    expect(input).toHaveAttribute("placeholder", "Thêm đáp án khác");
   });
 
   it("refuses an answer already there whatever its case, until Match case is on", async () => {

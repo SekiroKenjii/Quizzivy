@@ -158,7 +158,7 @@ function GapRow({
       >
         <span
           aria-hidden="true"
-          className="border-ring bg-muted text-muted-fg inline-flex h-6 min-w-11 flex-none items-center justify-center rounded-[6px] border-[1.5px] border-dashed px-2 text-xs font-semibold"
+          className="border-ring bg-muted text-muted-fg inline-flex h-6 min-w-11 flex-none items-center justify-center rounded-[6px] border-[1.5px] border-dashed px-2 text-xs leading-normal font-semibold"
         >
           {label}
         </span>
@@ -226,7 +226,7 @@ function NoGapsCard({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 rounded-[8px] px-3 text-[13px] font-medium"
+          className="h-8 rounded-[8px] px-3 text-[13px] font-medium in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-[13px]"
           onClick={onInsertGap}
         >
           <TextCursorInput aria-hidden="true" className="size-3.5" />
