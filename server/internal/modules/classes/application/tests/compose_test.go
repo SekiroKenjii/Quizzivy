@@ -104,12 +104,12 @@ func TestANameComposingLeavesOverItsLimitIsRefusedBeforeAnyWrite(t *testing.T) {
 
 func TestASignUpFromAProviderStoresTheFullNameComposedAndTheIdentityUntouched(t *testing.T) {
 	repo := &composingRepository{}
-	member := domain.NewMember{Email: "Hoc.Sinh@Example.com", FullName: decomposedText("Trần Thị B"), Provider: "google", ProviderUserID: "google-sub-0123"}
+	member := domain.NewMember{Email: decomposedText("Hoc.Sinh.é") + "@Example.com", FullName: decomposedText("Trần Thị B"), Provider: "google", ProviderUserID: "google-sub-0123"}
 	if _, err := newComposingApplication(repo).Commands.EnrolNewMember.Handle(context.Background(), command.EnrolNewMember{Member: member, Code: "ABCD2345"}); err != nil {
 		t.Fatal(err)
 	}
 	got := repo.enrolled.NewMember
-	if got == nil || got.FullName != "Trần Thị B" || got.Email != "Hoc.Sinh@Example.com" || got.Provider != "google" || got.ProviderUserID != "google-sub-0123" {
+	if got == nil || got.FullName != "Trần Thị B" || got.Email != decomposedText("Hoc.Sinh.é")+"@Example.com" || got.Provider != "google" || got.ProviderUserID != "google-sub-0123" {
 		t.Fatalf("enrolled=%+v", got)
 	}
 	if member.FullName != decomposedText("Trần Thị B") {

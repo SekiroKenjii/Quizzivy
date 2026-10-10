@@ -49,25 +49,25 @@ func writer() domain.WriteRequest {
 func TestACreatedStudentIsStoredWithTheNameComposedAndTheEmailAsGiven(t *testing.T) {
 	app, shelf := composingStudents()
 	_, err := app.Commands.CreateStudent.Handle(context.Background(), command.CreateStudent{Request: writer(), Input: domain.NewStudent{
-		Email: "Hoc.Sinh@Example.com", FullName: norm.NFD.String("Nguyễn Văn Á"), ClassIDs: []string{"class-id"},
+		Email: norm.NFD.String("Hoc.Sinh.é") + "@Example.com", FullName: norm.NFD.String("Nguyễn Văn Á"), ClassIDs: []string{"class-id"},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := shelf.created
-	if got.FullName != "Nguyễn Văn Á" || got.Email != "Hoc.Sinh@Example.com" || got.ClassIDs[0] != "class-id" || got.Hash == "" {
+	if got.FullName != "Nguyễn Văn Á" || got.Email != norm.NFD.String("Hoc.Sinh.é")+"@Example.com" || got.ClassIDs[0] != "class-id" || got.Hash == "" {
 		t.Fatalf("created=%+v", got)
 	}
 }
 
 func TestAnUpdatedStudentIsStoredWithTheNameComposedAndTheEmailAsGiven(t *testing.T) {
 	app, shelf := composingStudents()
-	name, email := norm.NFD.String("Trần Thị B"), "Moi@Example.com"
+	name, email := norm.NFD.String("Trần Thị B"), norm.NFD.String("Mới")+"@Example.com"
 	if _, err := app.Commands.UpdateStudent.Handle(context.Background(), command.UpdateStudent{Request: writer(), Input: domain.StudentPatch{ID: "pupil", FullName: &name, Email: &email}}); err != nil {
 		t.Fatal(err)
 	}
 	got := shelf.patched
-	if *got.FullName != "Trần Thị B" || *got.Email != "Moi@Example.com" || got.ID != "pupil" {
+	if *got.FullName != "Trần Thị B" || *got.Email != norm.NFD.String("Mới")+"@Example.com" || got.ID != "pupil" {
 		t.Fatalf("patched=%+v", got)
 	}
 }

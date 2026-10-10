@@ -16,9 +16,10 @@ Composed text on the server (F-37, FONT-1):
   document's projection. Emails, passwords, tokens, join codes, ids, links and the published
   versions are never composed. NFC shortens Vietnamese, but a few scripts grow when composed:
   a value that composing leaves over its limit is answered as any other invalid value, 400
-  `VALIDATION_FAILED` naming the field (422 `group_content` for a group, 422
-  `VALIDATION_FAILED` at an import commit), never as a server error; a name or a file name that comes from a
-  provider or a file is kept as it came, and a student's save is never refused over it.
+  `VALIDATION_FAILED` naming the field (an import commit answers a refused question the same
+  way; a group answers 422 `group_content`), never as a server error. A name or a file name
+  that comes from a provider or a file is kept as it came, and a student's save is never
+  refused over it.
 - §13 Migration 00103 composes the rows written before, in the same plain fields, without moving
   `updated_at`. It leaves the published versions, a student's saved answers and every prose
   document, with the plain text beside it, as they are: those are composed when next saved.

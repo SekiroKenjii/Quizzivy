@@ -35,6 +35,8 @@ func marshalled(t testing.TB, d content.Document) string {
 	return string(raw)
 }
 
+var linkWithMark = "https://example.com/" + norm.NFD.String("nghé") + "?q=1"
+
 const (
 	audioAsset = "01935000-0000-7000-8000-0000000000a1"
 	imageAsset = "01935000-0000-7000-8000-0000000000a2"
@@ -56,12 +58,12 @@ func semantic(text, label, alt, audio, cell, item string) string {
 	return fmt.Sprintf(`{"format":"semantic_v1","blocks":[`+
 		`{"type":"heading","level":2,"content":[{"type":"text","text":%q,"marks":["bold"]}]},`+
 		`{"type":"paragraph","content":[{"type":"text","text":%q,"marks":[]},{"type":"gap","id":"Gap-1","label":%q},`+
-		`{"type":"link","href":"https://example.com/a%%20b?q=1","content":[{"type":"text","text":%q,"marks":["italic"]}]}]},`+
+		`{"type":"link","href":%q,"content":[{"type":"text","text":%q,"marks":["italic"]}]}]},`+
 		`{"type":"image","assetId":%q,"alt":%q},`+
 		`{"type":"audio","assetId":%q,"label":%q},`+
 		`{"type":"list","ordered":true,"start":3,"items":[[{"type":"paragraph","content":[{"type":"text","text":%q,"marks":[]}]}]]},`+
 		`{"type":"table","rows":[[{"header":true,"rowSpan":1,"colSpan":1,"content":[{"type":"paragraph","content":[{"type":"text","text":%q,"marks":[]}]}]}]]}]}`,
-		text, text, label, text, imageAsset, alt, audioAsset, audio, item, cell)
+		text, text, label, linkWithMark, text, imageAsset, alt, audioAsset, audio, item, cell)
 }
 
 func TestNormalizeComposesEveryTextBearingField(t *testing.T) {
@@ -81,7 +83,7 @@ func TestNormalizeComposesEveryTextBearingField(t *testing.T) {
 	if got.PlainText() != norm.NFC.String(got.PlainText()) {
 		t.Fatalf("plain text is not composed: %q", got.PlainText())
 	}
-	if text := marshalled(t, got); text != norm.NFC.String(text) {
+	if text := strings.ReplaceAll(marshalled(t, got), linkWithMark, ""); text != norm.NFC.String(text) {
 		t.Fatalf("a field is still decomposed: %s", text)
 	}
 }
@@ -117,7 +119,7 @@ func TestNormalizeLeavesIdentitiesLinksMarksAndNumbersAlone(t *testing.T) {
 	}
 	raw := marshalled(t, got)
 	for _, kept := range []string{
-		`"href":"https://example.com/a%20b?q=1"`, `"id":"Gap-1"`, `"assetId":"` + imageAsset + `"`, `"assetId":"` + audioAsset + `"`,
+		`"href":"` + linkWithMark + `"`, `"id":"Gap-1"`, `"assetId":"` + imageAsset + `"`, `"assetId":"` + audioAsset + `"`,
 		`"marks":["bold"]`, `"marks":["italic"]`, `"level":2`, `"start":3`, `"ordered":true`, `"rowSpan":1`, `"colSpan":1`, `"header":true`,
 	} {
 		if !strings.Contains(raw, kept) {
