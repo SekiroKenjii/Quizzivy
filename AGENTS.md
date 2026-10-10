@@ -37,9 +37,11 @@ this file describe the code as it is and name the release that changes them.
   has already taken migrations 00080 to 00091 (`73-r3.md`, "Migration numbers").
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
   an old `/admin/*` bookmark redirects.
-- **The design team's fourth export (2026-10-04) is not the deck of record.**
-  R4 builds from `docs/design/deck/` as it is, and D4 imports the export after
-  v0.10.0 (`docs/plan/74d-d4-deck-update.md`).
+- **The design team's exports of 2026-10-04 (the fourth) and 2026-10-10 (v2, which
+  carries the fourth) are not the deck of record.** R4 builds from
+  `docs/design/deck/` as it is, and D4 imports v2 after v0.10.0
+  (`docs/plan/74d-d4-deck-update.md`, T-D4.1). v2 also draws the AI assistant,
+  which D4 builds under D19 to D22 (`docs/plan/70-redesign-overview.md` §1).
 
 ## Sources of truth, in order
 
