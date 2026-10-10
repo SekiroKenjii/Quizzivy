@@ -23,8 +23,8 @@ export function useCommandPalette() {
   return { open, setOpen };
 }
 
-/** What the trigger shows, so the hint matches the key that actually works. */
-export function commandKeyLabel(): string {
+/** isApplePlatform says whether this device's command modifier is ⌘ rather than Ctrl. */
+export function isApplePlatform(): boolean {
   const platform =
     typeof navigator === "undefined"
       ? ""
@@ -32,5 +32,10 @@ export function commandKeyLabel(): string {
           ?.platform ??
         navigator.platform ??
         "");
-  return /Mac|iPhone|iPad/.test(platform) ? "⌘" : "Ctrl";
+  return /Mac|iPhone|iPad/.test(platform);
+}
+
+/** commandKeyLabel names the command modifier in running text: "Cmd" on Apple devices, "Ctrl" elsewhere. */
+export function commandKeyLabel(): string {
+  return isApplePlatform() ? "Cmd" : "Ctrl";
 }

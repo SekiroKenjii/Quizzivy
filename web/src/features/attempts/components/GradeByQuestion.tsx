@@ -1,15 +1,17 @@
 import { ReviewGroup } from "@/features/media";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Eye, Minus, Plus } from "lucide-react";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
+import { KeyGlyph } from "@/components/shared/KeyGlyph";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { commandKeyLabel } from "@/features/search/useCommandPalette";
 import { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 import { gradeAttempt, listAnswersForQuestion, type QuestionAnswerRow } from "../api";
@@ -259,7 +261,11 @@ export function GradeByQuestion({
                   ))
                 )}
                 <p className="text-muted-foreground text-xs">
-                  {t("byQuestion.keys", { max: data.question.points })}
+                  <Trans
+                    i18nKey="byQuestion.keys"
+                    values={{ max: data.question.points, modifier: commandKeyLabel() }}
+                    components={{ down: <KeyGlyph name="down" /> }}
+                  />
                 </p>
               </div>
             </div>
