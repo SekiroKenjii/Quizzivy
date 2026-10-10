@@ -18,6 +18,7 @@ async function setup(page: Page) {
         title: "Đề kiểm tra ngữ liệu",
         status: "published",
         currentVersion: 1,
+        nextVersion: 2,
         totalPoints: 3,
         questionCount: 3,
         audioCount: 2,
