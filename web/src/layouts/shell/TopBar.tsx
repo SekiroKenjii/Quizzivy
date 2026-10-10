@@ -13,7 +13,7 @@ import { SIDEBAR_ID } from "@/layouts/shell/Sidebar";
 import { useResolvedTheme } from "@/lib/theme";
 
 const KEY_CAP =
-  "bg-muted text-muted-fg in-data-[scale=deck]:text-2xs h-auto min-w-0 border-b font-sans leading-3.5";
+  "bg-muted text-muted-fg in-data-[scale=deck]:text-2xs h-auto min-w-0 border-b leading-3.5";
 
 /**
  * TopBar is the teacher shell's 56px bar: the sidebar toggle, the breadcrumb
