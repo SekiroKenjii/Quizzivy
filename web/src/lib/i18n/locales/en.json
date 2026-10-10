@@ -2333,7 +2333,6 @@
     "chooseAsset": "Choose from library",
     "uploadAsset": "Upload a new file",
     "imageLimit": "PNG, JPEG or WebP, up to 10 MB.",
-    "uploadFailed": "The file could not be uploaded. Please retry.",
     "selectedAsset": "Selected: {{name}}",
     "insertAsset": "Insert into material",
     "retryAsset": "Reload material file",

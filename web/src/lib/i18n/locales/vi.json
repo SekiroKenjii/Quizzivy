@@ -2333,7 +2333,6 @@
     "chooseAsset": "Chọn trong thư viện",
     "uploadAsset": "Tải tệp mới lên",
     "imageLimit": "PNG, JPEG hoặc WebP, tối đa 10 MB.",
-    "uploadFailed": "Chưa tải được tệp. Hãy thử lại.",
     "selectedAsset": "Đã chọn: {{name}}",
     "insertAsset": "Chèn vào ngữ liệu",
     "retryAsset": "Tải lại tệp ngữ liệu",
