@@ -47,26 +47,50 @@ export interface TrueFalseAnswer {
 }
 
 /**
- * readTrueFalse reads a true/false question's answer by its canonical text, the
- * test trueFalseLabelKey applies, never by position: the Word import keeps a
- * question's own order, so "False" can come first. The option stored as
- * exactly "True" is the true one; failing that, the one beside an exact
- * "False" is. Only when neither text is canonical, a legacy rename or an
- * imported "Đúng" / "Sai", is the first option taken as true. With no options,
- * "True" is correct.
+ * readTrueFalse reads a true/false question's answer by its texts, never by
+ * position: the Word import keeps a question's own order, so "False" can come
+ * first. The canonical texts decide first, by the test trueFalseLabelKey
+ * applies: the option stored as exactly "True" is the true one, or else the
+ * one beside an exact "False". Failing that, a truth word decides, the import's
+ * set and their English and Vietnamese yes and no ("Đúng", "Sai", "T", "F",
+ * "Yes", "No", "Có", "Không", in any case). Only when no text says which is
+ * which is the first option taken as true. With no options, "True" is correct.
  */
 export function readTrueFalse(options: readonly Option[]): TrueFalseAnswer {
-  const keys = options.map((option) =>
-    trueFalseLabelKey("true_false", option.text, option.content ?? null),
-  );
-  const canonicalTrue = keys.indexOf("trueFalse.true");
-  const canonicalFalse = keys.indexOf("trueFalse.false");
-  let trueIndex = 0;
-  if (canonicalTrue >= 0) trueIndex = canonicalTrue;
-  else if (canonicalFalse === 0) trueIndex = 1;
+  const canonical = options.map((option) => {
+    const key = trueFalseLabelKey("true_false", option.text, option.content ?? null);
+    return key === null ? null : key === "trueFalse.true";
+  });
+  const trueIndex =
+    trueSide(canonical) ?? trueSide(options.map((option) => truthOf(option.text))) ?? 0;
   const trueOption = options[trueIndex];
   const falseOption = options.find((_, index) => index !== trueIndex);
   return { trueIsCorrect: trueOption?.isCorrect ?? true, trueOption, falseOption };
+}
+
+const TRUE_WORDS: ReadonlySet<string> = new Set([
+  "true",
+  "t",
+  "đúng",
+  "dung",
+  "yes",
+  "có",
+]);
+const FALSE_WORDS: ReadonlySet<string> = new Set(["false", "f", "sai", "no", "không"]);
+
+function truthOf(text: string): boolean | null {
+  const word = text.normalize("NFC").trim().replace(/\.+$/, "").trim().toLowerCase();
+  if (TRUE_WORDS.has(word)) return true;
+  if (FALSE_WORDS.has(word)) return false;
+  return null;
+}
+
+function trueSide(sides: ReadonlyArray<boolean | null>): number | null {
+  const named = sides.indexOf(true);
+  if (named >= 0) return named;
+  const other = sides.indexOf(false);
+  if (other < 0) return null;
+  return other === 0 ? 1 : 0;
 }
 
 /**
