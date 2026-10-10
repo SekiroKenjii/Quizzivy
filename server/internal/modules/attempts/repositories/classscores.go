@@ -21,15 +21,13 @@ func (s *StudentStats) ClassScores(ctx context.Context, classIDs []string) (map[
 		return out, nil
 	}
 	rows, err := s.Query(ctx, `
-		SELECT c.id::text, sum(b.earned), sum(b.total), coalesce(sum(b.pending_manual), 0)
+		SELECT c.id::text, sum(b.earned), sum(b.total), coalesce(sum(p.pending_manual), 0)
 		  FROM app.classes c
 		  JOIN LATERAL (
 		    SELECT DISTINCT ON (a.assignment_id, a.student_id)
+		           a.id,
 		           a.score_earned AS earned,
-		           coalesce(a.score_total, v.total_points) AS total,
-		           (SELECT count(*) FROM app.attempt_answers ans
-		             WHERE ans.attempt_id = a.id
-		               AND ans.requires_manual AND ans.manual_score IS NULL) AS pending_manual
+		           coalesce(a.score_total, v.total_points) AS total
 		      FROM app.assignment_classes ac
 		      JOIN app.attempts a ON a.assignment_id = ac.assignment_id
 		      JOIN app.class_members m ON m.class_id = c.id AND m.user_id = a.student_id
@@ -42,6 +40,11 @@ func (s *StudentStats) ClassScores(ctx context.Context, classIDs []string) (map[
 		              a.score_earned / nullif(coalesce(a.score_total, v.total_points), 0) DESC,
 		              a.attempt_no DESC
 		  ) b ON TRUE
+		  LEFT JOIN LATERAL (
+		    SELECT count(*) AS pending_manual
+		      FROM app.attempt_answers ans
+		     WHERE ans.attempt_id = b.id AND ans.requires_manual AND ans.manual_score IS NULL
+		  ) p ON TRUE
 		 WHERE c.id = ANY($1::uuid[])
 		 GROUP BY c.id`, classIDs)
 	if err != nil {
