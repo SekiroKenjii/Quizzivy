@@ -14,7 +14,7 @@ import (
 // as a missing one does. The student paths take no scope.
 type Repository interface {
 	Rules(ctx context.Context, assignmentID, studentID string) (Rules, error)
-	RulesFor(ctx context.Context, assignmentID string) (Rules, error)
+	RulesFor(ctx context.Context, assignmentID, studentID string) (Rules, error)
 	Live(ctx context.Context, assignmentID, studentID string) (AttemptRecord, error)
 	Tally(ctx context.Context, assignmentID, studentID string) (Tally, error)
 	Create(ctx context.Context, in CreateInput) (AttemptRecord, error)

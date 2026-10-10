@@ -11,7 +11,9 @@ import (
 // A teacher reaches the assignments visibility.AssignmentIDs gives them, or
 // every one under scope.all; another teacher's answers exactly as a missing
 // one does, and the targets it embeds name only the classes and students the
-// reader reaches.
+// reader reaches. An override is read and written only for a student the
+// teacher reaches. The student-side views are the student's own window, under
+// their override when they have one.
 type Repository interface {
 	Delete(ctx context.Context, req Request, now time.Time) error
 	List(ctx context.Context, in ListInput) ([]Assignment, paging.Page, error)
@@ -20,6 +22,10 @@ type Repository interface {
 	Create(ctx context.Context, req Request, in WriteInput) (Assignment, error)
 	Update(ctx context.Context, req Request, in WriteInput) (Assignment, error)
 	Reopen(ctx context.Context, req Request, closesAt time.Time, reason string, now time.Time) (Assignment, error)
+	Extend(ctx context.Context, req Request, minutes int, notify bool, now time.Time) (Assignment, error)
+	SetOverrides(ctx context.Context, req Request, in OverrideInput) ([]StudentOverride, error)
+	Overrides(ctx context.Context, scope access.Scope, assignmentID string) ([]StudentOverride, error)
+	DeleteOverride(ctx context.Context, req Request, studentID string, now time.Time) error
 	ForStudent(ctx context.Context, studentID string, now time.Time) (StudentSections, error)
 	StudentDetail(ctx context.Context, id, studentID string) (StudentDetail, error)
 }
