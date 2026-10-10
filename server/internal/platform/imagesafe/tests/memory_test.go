@@ -69,31 +69,88 @@ func TestTheEstimateTracksWhatTheStandardDecodersReallyAllocate(t *testing.T) {
 	paletted := image.NewPaletted(image.Rect(0, 0, side, side), color.Palette{color.Black, color.White})
 	opaque := solid(side, side, red)
 	translucent := solid(side, side, color.NRGBA{R: 1, G: 2, B: 3, A: 200})
+	decodePNG := func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }
+	transparent := pngChunk("tRNS", []byte{0, 128})
 	cases := []struct {
 		name   string
 		data   []byte
 		decode func([]byte) error
+		low    float64
 	}{
-		{"a gray png", encodePNG(t, gray), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }},
-		{"a 16-bit png", encodePNG(t, wide), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }},
-		{"a paletted png", encodePNG(t, paletted), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }},
-		{"an opaque png", encodePNG(t, opaque), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }},
-		{"a translucent png", encodePNG(t, translucent), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }},
-		{"a 4:2:0 jpeg", encodeJPEG(t, opaque), func(b []byte) error { _, err := jpeg.Decode(bytes.NewReader(b)); return err }},
-		{"a gray jpeg", encodeJPEG(t, gray), func(b []byte) error { _, err := jpeg.Decode(bytes.NewReader(b)); return err }},
+		{"an interlaced rgba png", handPNG(t, side, side, 6, 8, true), decodePNG, 0.7},
+		{"an interlaced 16-bit rgba png", handPNG(t, side, side, 6, 16, true), decodePNG, 0.7},
+		{"an interlaced gray png", handPNG(t, side, side, 0, 8, true), decodePNG, 0.7},
+		{"a gray png with a tRNS chunk", handPNG(t, side, side, 0, 8, false, transparent), decodePNG, 0},
+		{"a 16-bit gray png with a tRNS chunk", handPNG(t, side, side, 0, 16, false, transparent), decodePNG, 0},
+		{"an rgb png with a tRNS chunk", handPNG(t, side, side, 2, 8, false, pngChunk("tRNS", []byte{0, 1, 0, 2, 0, 3})), decodePNG, 0},
+		{"an interlaced gray png with a tRNS chunk", handPNG(t, side, side, 0, 8, true, transparent), decodePNG, 0.7},
+		{"a gray png", encodePNG(t, gray), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }, 0},
+		{"a 16-bit png", encodePNG(t, wide), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }, 0},
+		{"a paletted png", encodePNG(t, paletted), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }, 0},
+		{"an opaque png", encodePNG(t, opaque), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }, 0},
+		{"a translucent png", encodePNG(t, translucent), func(b []byte) error { _, err := png.Decode(bytes.NewReader(b)); return err }, 0},
+		{"a 4:2:0 jpeg", encodeJPEG(t, opaque), func(b []byte) error { _, err := jpeg.Decode(bytes.NewReader(b)); return err }, 0},
+		{"a gray jpeg", encodeJPEG(t, gray), func(b []byte) error { _, err := jpeg.Decode(bytes.NewReader(b)); return err }, 0},
 	}
 	for _, c := range cases {
 		actual := int64(decodeAllocation(t, func() error { return c.decode(c.data) }))
+		low := c.low
+		if low == 0 {
+			low = 0.8
+		}
 		for _, probe := range []struct {
 			factor float64
 			want   error
-		}{{0.8, imagesafe.ErrDimensions}, {1.6, nil}} {
+		}{{low, imagesafe.ErrDimensions}, {1.6, nil}} {
 			lim := avatarLimits
 			lim.MaxDecodedBytes = int64(float64(actual) * probe.factor)
 			_, err := imagesafe.New(imagesafe.NewGate(1)).Square(context.Background(), bytes.NewReader(c.data), lim)
 			if !errors.Is(err, probe.want) {
 				t.Errorf("%s allocated %d bytes: with a bound of %.1fx that, Square answered %v, want %v", c.name, actual, probe.factor, err, probe.want)
 			}
+		}
+	}
+}
+
+func TestAnInterlacedOrTransparentPngIsCountedAsWhatTheDecoderMakesOfIt(t *testing.T) {
+	const side = 400
+	pixels := int64(side * side)
+	transparent := pngChunk("tRNS", []byte{0, 128})
+	cases := []struct {
+		name string
+		data []byte
+		need int64
+	}{
+		{"a gray png", handPNG(t, side, side, 0, 8, false), pixels},
+		{"a gray png with tRNS, decoded as nrgba", handPNG(t, side, side, 0, 8, false, transparent), pixels * 4},
+		{"a 16-bit gray png with tRNS, decoded as nrgba64", handPNG(t, side, side, 0, 16, false, transparent), pixels * 8},
+		{"an rgba png", handPNG(t, side, side, 6, 8, false), pixels * 4},
+		{"an interlaced rgba png, the image and half of it again", handPNG(t, side, side, 6, 8, true), pixels * 4 * 3 / 2},
+		{"an interlaced 16-bit rgba png", handPNG(t, side, side, 6, 16, true), pixels * 8 * 3 / 2},
+		{"an interlaced gray png with tRNS", handPNG(t, side, side, 0, 8, true, transparent), pixels * 4 * 3 / 2},
+	}
+	for _, c := range cases {
+		for bound, want := range map[int64]error{c.need: nil, c.need - 1: imagesafe.ErrDimensions} {
+			lim := avatarLimits
+			lim.MaxDecodedBytes = bound
+			_, err := imagesafe.New(imagesafe.NewGate(1)).Square(context.Background(), bytes.NewReader(c.data), lim)
+			if !errors.Is(err, want) {
+				t.Errorf("%s needs %d bytes: under a bound of %d, Square answered %v, want %v", c.name, c.need, bound, err, want)
+			}
+		}
+	}
+}
+
+func TestNoPngOfTheLargestSizeNeedsMoreThanTheBound(t *testing.T) {
+	transparent := pngChunk("tRNS", []byte{0, 1})
+	for name, header := range map[string][]byte{
+		"an interlaced 16-bit rgba png":       headerOnlyPNG(2048, 2048, 6, 16, true),
+		"an interlaced 16-bit gray with tRNS": headerOnlyPNG(2048, 2048, 0, 16, true, transparent),
+		"an interlaced 16-bit rgb with tRNS":  headerOnlyPNG(2048, 2048, 2, 16, true, pngChunk("tRNS", make([]byte, 6))),
+		"a 16-bit rgba png":                   headerOnlyPNG(2048, 2048, 6, 16, false),
+	} {
+		if _, err := square(t, header); !errors.Is(err, imagesafe.ErrUnreadable) {
+			t.Errorf("%s answered %v, want it admitted (ErrUnreadable: the header passed and the pixels are missing)", name, err)
 		}
 	}
 }

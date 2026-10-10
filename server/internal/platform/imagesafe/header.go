@@ -2,6 +2,7 @@ package imagesafe
 
 import (
 	"bytes"
+	"encoding/binary"
 	"image"
 	"image/color"
 )
@@ -16,13 +17,57 @@ type profile struct {
 
 func profileOf(data []byte, kind string, cfg image.Config) (profile, error) {
 	if kind == kindPNG {
-		return profile{need: int64(cfg.Width) * int64(cfg.Height) * pngBytesPerPixel(cfg.ColorModel), orientation: 1}, nil
+		return profile{need: pngDecodeBytes(data, cfg), orientation: 1}, nil
 	}
 	frame, ok := scanJPEG(data)
 	if !ok {
 		return profile{orientation: 1}, ErrUnreadable
 	}
 	return profile{need: frame.decodeBytes(cfg.Width, cfg.Height), orientation: frame.orientation, scans: frame.scans}, nil
+}
+
+const (
+	pngDepthAt     = 24
+	pngColourAt    = 25
+	pngInterlaceAt = 28
+	pngFirstChunk  = 8
+	pngChunkFrame  = 12
+	pngGray        = 0
+	pngRGB         = 2
+	pngAdam7       = 1
+)
+
+func pngDecodeBytes(data []byte, cfg image.Config) int64 {
+	perPixel := pngBytesPerPixel(cfg.ColorModel)
+	if colour := data[pngColourAt]; (colour == pngGray || colour == pngRGB) && hasTransparencyChunk(data) {
+		perPixel = max(perPixel, transparentBytesPerPixel(data[pngDepthAt]))
+	}
+	need := int64(cfg.Width) * int64(cfg.Height) * perPixel
+	if data[pngInterlaceAt] == pngAdam7 {
+		need = (need*3 + 1) / 2
+	}
+	return need
+}
+
+func transparentBytesPerPixel(depth byte) int64 {
+	if depth == 16 {
+		return 8
+	}
+	return 4
+}
+
+func hasTransparencyChunk(data []byte) bool {
+	for pos := pngFirstChunk; pos+pngChunkFrame <= len(data); {
+		length := int64(binary.BigEndian.Uint32(data[pos : pos+4]))
+		switch string(data[pos+4 : pos+8]) {
+		case "tRNS":
+			return true
+		case "IDAT", "IEND":
+			return false
+		}
+		pos += int(min(length+pngChunkFrame, int64(len(data))))
+	}
+	return false
 }
 
 func pngBytesPerPixel(model color.Model) int64 {
