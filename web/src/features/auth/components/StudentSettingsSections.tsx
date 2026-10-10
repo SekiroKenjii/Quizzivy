@@ -40,6 +40,7 @@ import { profileSchema, type ProfileValues } from "@/features/auth/profileSchema
 import { api } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { useChosenLocale } from "@/lib/i18n/useLocale";
 import { passwordRules, passwordStrength } from "@/lib/password";
 import { useLargerTestText } from "@/lib/testText";
 import { useThemePreference, type ThemePreference } from "@/lib/theme";
@@ -83,7 +84,8 @@ const THEMES: readonly ThemePreference[] = ["light", "dark", "system"];
  * the teacher sees.
  */
 export function StudentProfileSection() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const chosenLocale = useChosenLocale();
   const fullName = useAuthStore((s) => s.user?.fullName);
   const email = useAuthStore((s) => s.user?.email);
   const displayName = useAuthStore((s) => s.user?.displayName);
@@ -200,7 +202,7 @@ export function StudentProfileSection() {
             {t("common.language")}
           </Label>
           <Select
-            value={i18n.language}
+            value={chosenLocale}
             disabled={preferenceStatus.phase === "saving"}
             onValueChange={(locale) =>
               void chooseAccountPreference({ locale: locale as Locale })
