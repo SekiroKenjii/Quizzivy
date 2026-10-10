@@ -246,6 +246,32 @@ If the API is ever rolled back to v0.8.0, roll Pages back to its previous
 deployment with it: the v0.9.0 result page reads `sections`, which v0.8.0 does
 not send, and a graded result would not open. Prefer a hotfix.
 
+## Rolling out v0.10.0 (R4)
+
+R2's contract steps ship inside this release (`docs/plan/74-r4.md` T-R4.49). `release_command` runs
+`migrate up` before the new version takes traffic, so v0.9.0 keeps serving while a migration
+applies, and keeps serving if the deploy stops after one.
+
+**`00105_drop_users_legacy_role.sql`** drops `users.role`, its trigger, its index and
+`app.user_role`, and the API stops naming a role (`User.role`, `CurrentUser.role`, the access
+token's claim).
+
+- Before the merge, read the machine versions: `fly status -a quizzivy-api` lists each machine with
+  its release, and `fly releases -a quizzivy-api` dates the releases. No machine may be older than
+  the release that deployed v0.8.0 (2026-10-03), in either process group, for at least seven days.
+  v0.8.0 and v0.9.0 never name the column, so they keep working on the new schema; v0.7.0 does name
+  it.
+- Rehearse on a Neon branch of production: `psql "$BRANCH_DSN" -v before=1 -f
+  docs/setup/rehearsals/r4-legacy-role.sql > before.txt`, `goose up` as `quizzivy_migrate` (time
+  it), then the script again without `-v before=1` into `after.txt`. Section A must read the same
+  in both, and every "must be" line of section B must print what it says. Delete the branch.
+- The migration holds ACCESS EXCLUSIVE on `app.users` for milliseconds and gives up after five
+  seconds (`55P03`, schema unchanged). If it does, find the long query on `app.users` and redeploy.
+- The API deploys first, so the v0.9.0 bundle meets an API whose responses carry no `role`. That
+  bundle never reads it, and a tab left open keeps working.
+- Roll forward, not back past v0.8.0: Down restores the column from what each role holds, but
+  nothing in production runs it.
+
 ## Interrupted index builds in v0.8.0 (R2)
 
 R2 (v0.8.0) builds eight indexes `CONCURRENTLY`, one per file: `00057` and
