@@ -32,7 +32,10 @@ import {
   toFormValues,
   updateQuestion,
 } from "@/features/question-bank/api";
-import type { QuestionValues } from "@/features/question-bank/questionSchema";
+import {
+  questionSchema,
+  type QuestionValues,
+} from "@/features/question-bank/questionSchema";
 import type { MediaAsset } from "@/features/media/api";
 import {
   getTest,
@@ -43,7 +46,10 @@ import {
 } from "@/features/tests/api";
 import { DraftPreviewDialog } from "@/features/tests/components/DraftPreviewDialog";
 import { PublishDialog } from "@/features/tests/components/PublishDialog";
-import { AutosaveStatusLabel } from "@/features/tests/components/AutosaveStatusLabel";
+import {
+  AutosaveFailureNote,
+  AutosaveStatusLabel,
+} from "@/features/tests/components/AutosaveStatusLabel";
 import { QuestionPickerDialog } from "@/features/tests/components/QuestionPickerDialog";
 import {
   mergeAutosave,
@@ -710,14 +716,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
                 : "shrink-0"
             }
           />
-          <AutosaveStatusLabel
-            status={saveStatus}
-            deck
-            onRetry={() => {
-              outline.retry();
-              retryQuestion.current?.();
-            }}
-          />
+          <AutosaveStatusLabel status={saveStatus} deck />
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -763,6 +762,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           </Button>
         </div>
       </div>
+
+      <AutosaveFailureNote
+        status={saveStatus}
+        onRetry={() => {
+          outline.retry();
+          retryQuestion.current?.();
+        }}
+      />
 
       {stale ? (
         <div
@@ -1124,11 +1131,21 @@ function QuestionForm({
   settingsTriggerRef: RefObject<HTMLButtonElement | null>;
   onSettingsOpenChange: (open: boolean) => void;
 }>) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
+  const refuse = useCallback(
+    (next: QuestionValues) => {
+      const parsed = questionSchema.safeParse(next);
+      const issue = parsed.success ? undefined : parsed.error.issues[0];
+      return issue ? t(issue.message) : null;
+    },
+    [t],
+  );
 
   const autosave = useAutosave<QuestionValues>({
+    refuse,
     save: async (next) => {
       await queryClient.cancelQueries({ queryKey: ["admin-question", questionId] });
       const saved = await updateQuestion(questionId, next);

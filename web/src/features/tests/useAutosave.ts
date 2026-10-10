@@ -9,7 +9,8 @@ export type AutosaveStatus =
   | { kind: "dirty" }
   | { kind: "saving" }
   | { kind: "saved"; at: Date }
-  | { kind: "failed"; message: string }
+  /** Not saved. `refused` marks a value `refuse` turned down, which a retry would only refuse again. */
+  | { kind: "failed"; message: string; refused?: boolean }
   /** The save was superseded. No further saves are attempted. */
   | { kind: "stale" };
 
@@ -17,7 +18,14 @@ interface AutosaveOptions<T> {
   save: (value: T) => Promise<void>;
   delay?: number;
   isStale?: (cause: unknown) => boolean;
+  refuse?: (value: T) => string | null;
 }
+
+/**
+ * AutosaveRefused is what `flush` throws when the pending value is one the
+ * caller's `refuse` turned down: nothing was sent, and `message` says why.
+ */
+export class AutosaveRefused extends Error {}
 
 function staleWrite(cause: unknown): boolean {
   return cause instanceof ApiError && cause.code === "STALE_WRITE";
@@ -47,12 +55,14 @@ export function mergeAutosave(statuses: AutosaveStatus[]): AutosaveStatus {
 /**
  * useAutosave is §8's 1.5s debounced autosave. A save failure that `isStale`
  * accepts, STALE_WRITE by default, marks the status stale and stops further
- * saves.
+ * saves. A value `refuse` gives a reason for is not sent: the status is
+ * failed with that reason until a later value passes.
  */
 export function useAutosave<T>({
   save,
   delay = AUTOSAVE_DELAY_MS,
   isStale = staleWrite,
+  refuse,
 }: AutosaveOptions<T>) {
   const [status, setStatus] = useState<AutosaveStatus>({ kind: "idle" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,13 +71,15 @@ export function useAutosave<T>({
   const inFlight = useRef<Promise<void> | null>(null);
   const latestSave = useRef(save);
   const latestIsStale = useRef(isStale);
+  const latestRefuse = useRef(refuse);
   const stale = useRef(false);
   const failure = useRef<unknown>(null);
 
   useEffect(() => {
     latestSave.current = save;
     latestIsStale.current = isStale;
-  }, [save, isStale]);
+    latestRefuse.current = refuse;
+  }, [save, isStale, refuse]);
 
   const run = useCallback(async function drain(): Promise<void> {
     if (inFlight.current !== null) {
@@ -78,6 +90,12 @@ export function useAutosave<T>({
     pending.current = null;
     if (value === null || stale.current) return;
 
+    const reason = latestRefuse.current?.(value) ?? null;
+    if (reason !== null) {
+      failure.current = new AutosaveRefused(reason);
+      setStatus({ kind: "failed", message: reason, refused: true });
+      return;
+    }
     failure.current = null;
     setStatus({ kind: "saving" });
     const attempt = (async () => {
