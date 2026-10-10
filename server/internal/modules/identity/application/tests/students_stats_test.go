@@ -359,7 +359,7 @@ func TestFacetsCountTheFilteredSetNotTheWholeTable(t *testing.T) {
 		t.Errorf("unfiltered total %d is not larger than the filtered %d", all.Total, narrowed.Total)
 	}
 
-	byClass, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{Scope: everyone, ClassID: w.class}})
+	byClass, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{Scope: everyone, ClassIDs: []string{w.class}}})
 	if err != nil {
 		t.Fatal(err)
 	}

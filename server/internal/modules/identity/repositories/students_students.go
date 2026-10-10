@@ -33,7 +33,7 @@ const searchCondition = `(
 	)`
 
 const classCondition = `EXISTS (SELECT 1 FROM app.class_members m JOIN app.classes c ON c.id = m.class_id
-		  WHERE m.user_id = u.id AND m.class_id = $%d::uuid%s)`
+		  WHERE m.user_id = u.id AND m.class_id = ANY($%d::uuid[])%s)`
 
 const reachedStudent = `($2::boolean OR u.id IN ` + "%s" + `)`
 
@@ -56,9 +56,13 @@ func filterStudents(in domain.StudentQuery, args []any) ([]any, []string, string
 		args = append(args, db.EscapeLike(in.Query))
 		where = append(where, fmt.Sprintf(searchCondition, len(args)))
 	}
-	if in.ClassID != "" {
-		args = append(args, in.ClassID)
+	if len(in.ClassIDs) > 0 {
+		args = append(args, in.ClassIDs)
 		where = append(where, fmt.Sprintf(classCondition, len(args), classScope))
+	}
+	if in.MustChange != nil {
+		args = append(args, *in.MustChange)
+		where = append(where, fmt.Sprintf(`u.must_change_password = $%d::boolean`, len(args)))
 	}
 	return args, where, classScope
 }
