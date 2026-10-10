@@ -41,7 +41,6 @@ func (in UpdateInput) Composed() (UpdateInput, error) {
 // the composed bundle; a document that composing makes invalid, or a member whose text composing leaves over its limit,
 // comes back as a *GroupError with the rule group_content.
 func (b GroupBundle) Composed() (GroupBundle, error) {
-	out := b
 	group := b.Group
 	group.Title = content.NFC(group.Title)
 	instructions, err := composeMaterial(group.Instructions)
@@ -49,32 +48,58 @@ func (b GroupBundle) Composed() (GroupBundle, error) {
 		return b, &GroupError{Rule: groupContent}
 	}
 	group.Instructions = instructions
-	if group.Stimuli != nil {
-		group.Stimuli = make([]GroupStimulus, len(b.Group.Stimuli))
-		for i, stimulus := range b.Group.Stimuli {
-			stimulus.Title = content.NFC(stimulus.Title)
-			if stimulus.Content, err = composeMaterial(stimulus.Content); err != nil {
-				return b, &GroupError{Rule: groupContent, StimulusID: stimulus.ID}
-			}
-			group.Stimuli[i] = stimulus
-		}
+	if group.Stimuli, err = composeStimuli(b.Group.Stimuli); err != nil {
+		return b, err
 	}
-	if group.Recordings != nil {
-		group.Recordings = make([]GroupRecording, len(b.Group.Recordings))
-		for i, recording := range b.Group.Recordings {
-			recording.Transcript = content.NFCPtr(recording.Transcript)
-			group.Recordings[i] = recording
-		}
+	group.Recordings = composeRecordings(b.Group.Recordings)
+	questions, err := composeMembers(b.Questions)
+	if err != nil {
+		return b, err
 	}
-	out.Group = group
-	if b.Questions != nil {
-		out.Questions = make([]GroupQuestion, len(b.Questions))
-		for i, question := range b.Questions {
-			if question.Input, err = question.Input.Composed(); err != nil {
-				return b, &GroupError{Rule: groupContent, QuestionID: question.ID}
-			}
-			out.Questions[i] = question
+	return GroupBundle{Group: group, Questions: questions}, nil
+}
+
+func composeStimuli(stimuli []GroupStimulus) ([]GroupStimulus, error) {
+	if stimuli == nil {
+		return nil, nil
+	}
+	out := make([]GroupStimulus, len(stimuli))
+	for i, stimulus := range stimuli {
+		stimulus.Title = content.NFC(stimulus.Title)
+		material, err := composeMaterial(stimulus.Content)
+		if err != nil {
+			return nil, &GroupError{Rule: groupContent, StimulusID: stimulus.ID}
 		}
+		stimulus.Content = material
+		out[i] = stimulus
+	}
+	return out, nil
+}
+
+func composeRecordings(recordings []GroupRecording) []GroupRecording {
+	if recordings == nil {
+		return nil
+	}
+	out := make([]GroupRecording, len(recordings))
+	for i, recording := range recordings {
+		recording.Transcript = content.NFCPtr(recording.Transcript)
+		out[i] = recording
+	}
+	return out
+}
+
+func composeMembers(members []GroupQuestion) ([]GroupQuestion, error) {
+	if members == nil {
+		return nil, nil
+	}
+	out := make([]GroupQuestion, len(members))
+	for i, member := range members {
+		input, err := member.Input.Composed()
+		if err != nil {
+			return nil, &GroupError{Rule: groupContent, QuestionID: member.ID}
+		}
+		member.Input = input
+		out[i] = member
 	}
 	return out, nil
 }

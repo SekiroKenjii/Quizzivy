@@ -28,7 +28,6 @@ type composeWorld struct {
 	conn     *sql.DB
 	composed []composedColumn
 	kept     []composedColumn
-	stamped  map[string]string
 }
 
 func nfd(s string) string { return norm.NFD.String(s) }
@@ -173,7 +172,7 @@ func seedGroup(t *testing.T, w *composeWorld, owner, audio string) {
 	w.expectComposed("group_recordings", "transcript", recording, nfd("Lời thoại chung"))
 }
 
-func seedTeaching(t *testing.T, w *composeWorld, teacher, student string) {
+func seedTeaching(t *testing.T, w *composeWorld, teacher string) {
 	t.Helper()
 	draft := w.insert(t, `INSERT INTO app.tests (title, description, created_by, owner_id) VALUES ($1, $2, $3, $3) RETURNING id::text`,
 		nfd("Đề kiểm tra"), nfd("Mô tả đề"), teacher)
@@ -313,7 +312,7 @@ func seedEverything(t *testing.T, w *composeWorld) {
 	seedBank(t, w, teacher, image, audio)
 	seedAnswers(t, w, teacher)
 	seedGroup(t, w, teacher, audio)
-	seedTeaching(t, w, teacher, student)
+	seedTeaching(t, w, teacher)
 	seedPublished(t, w, teacher, student)
 }
 
