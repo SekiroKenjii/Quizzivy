@@ -10,6 +10,7 @@ import {
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
+import { FLAGGED } from "@/features/integrity/tones";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import type {
@@ -35,7 +36,7 @@ export const KIND_LOOK: Record<
   Readonly<{ icon: LucideIcon; tone: NotificationTone }>
 > = {
   "attempt.submitted": { icon: SquarePen, tone: "warning" },
-  "attempt.flagged": { icon: Flag, tone: "danger" },
+  "attempt.flagged": { icon: Flag, tone: FLAGGED.tone },
   "assignment.closing": { icon: Clock, tone: "warning" },
   "class.joined": { icon: UserPlus, tone: "neutral" },
   "join_codes.rotated": { icon: RotateCw, tone: "info" },

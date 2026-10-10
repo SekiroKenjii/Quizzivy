@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router";
-import { Ban, Clock, Flag, RotateCw } from "lucide-react";
+import { Ban, Clock, RotateCw } from "lucide-react";
 import {
   DataTable,
   type DataColumn,
@@ -33,12 +33,14 @@ import {
 import { assignmentDetailLocation } from "@/features/assignments/pages/teacher/assignmentDetailUrl";
 import { scoreText } from "@/features/assignments/studentTime";
 import { useCan } from "@/features/auth/permissions";
+import { FLAGGED } from "@/features/integrity/tones";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { compactMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { pageRange } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import type { Monitor as MonitorData, MonitorRow } from "../api";
+import { FocusLossCell } from "./FocusLossCell";
 import { InterventionDialog, type Intervention } from "./InterventionDialog";
 
 type StudentRow = MonitorRow & { id: string };
@@ -113,16 +115,22 @@ export function Monitor({
             <Avatar name={row.fullName} className="text-2xs size-7.5" />
             <span className="min-w-0">
               <span className="block truncate font-medium">{row.fullName}</span>
-              {!visible.has("status") && (
+              {(!visible.has("status") || (!visible.has("focus") && row.flagged)) && (
                 <span className="flex min-w-0 items-center gap-1 text-xs leading-4">
-                  <RowStatus row={row} compact />
-                  {row.flagged && (
+                  {!visible.has("status") && <RowStatus row={row} compact />}
+                  {row.flagged && !visible.has("focus") && (
                     <span
-                      className="text-danger-ink inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap"
+                      role="img"
+                      className="inline-flex shrink-0 whitespace-nowrap"
                       aria-label={`${t("status.attention.flagged")} · ${row.focusLossCount == null ? "—" : t("assignmentDetail.focusCount", { count: row.focusLossCount })}`}
                     >
-                      <Flag aria-hidden="true" className="size-3" />
-                      <span aria-hidden="true">{row.focusLossCount ?? "—"}</span>
+                      <span aria-hidden="true" className="inline-flex">
+                        <FocusLossCell
+                          count={row.focusLossCount}
+                          flagged={row.flagged}
+                          compact
+                        />
+                      </span>
                     </span>
                   )}
                 </span>
@@ -187,15 +195,7 @@ export function Monitor({
         track: "100px",
         showFrom: 700,
         cell: (row) => (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 tabular-nums",
-              row.flagged ? "text-danger-ink" : "text-muted-fg",
-            )}
-          >
-            {row.flagged && <Flag aria-hidden="true" className="size-3.25" />}
-            {row.focusLossCount == null ? "—" : row.focusLossCount}
-          </span>
+          <FocusLossCell count={row.focusLossCount} flagged={row.flagged} />
         ),
       },
       {
@@ -358,5 +358,5 @@ export function Monitor({
 
 function rowTone(row: MonitorRow, selectedAttempt: string | null) {
   if (selectedAttempt !== null && row.attemptId === selectedAttempt) return "selected";
-  return row.flagged ? "danger" : undefined;
+  return row.flagged ? FLAGGED.tone : undefined;
 }
