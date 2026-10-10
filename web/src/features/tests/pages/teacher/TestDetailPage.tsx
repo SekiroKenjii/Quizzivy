@@ -218,7 +218,6 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
     items !== undefined && selected !== undefined
       ? previousOf(items, selected)
       : undefined;
-  const latest = items?.reduce((top, item) => Math.max(top, item.version), 0) ?? 0;
   const summaries = useVersionSummaries(id, items ?? []);
 
   const refresh = (deleted?: number) =>
@@ -280,7 +279,7 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
       {(test.unpublishedChanges ?? 0) > 0 && !archived ? (
         <DraftBanner
           test={test}
-          next={Math.max(latest, test.currentVersion) + 1}
+          next={test.nextVersion}
           onPublish={() => setPublishing(true)}
         />
       ) : null}
@@ -323,7 +322,7 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
       <PublishDialog
         test={test}
         open={publishing}
-        next={Math.max(latest, test.currentVersion) + 1}
+        next={test.nextVersion}
         kept={
           items?.find((item) => item.version === test.currentVersion)
             ?.assignmentCount ?? 0

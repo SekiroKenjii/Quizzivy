@@ -26,6 +26,7 @@ const test = {
   description: null,
   status: "draft" as const,
   currentVersion: 0,
+  nextVersion: 1,
   totalPoints: 1,
   questionCount: 1,
   audioCount: 0,

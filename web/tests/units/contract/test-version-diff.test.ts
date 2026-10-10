@@ -19,6 +19,7 @@ const test = {
   title: "Test",
   status: "published",
   currentVersion: 1,
+  nextVersion: 2,
   totalPoints: 10,
   questionCount: 2,
   audioCount: 0,
