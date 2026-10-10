@@ -16,6 +16,7 @@ const version = {
   questionCount: 2,
   audioCount: 0,
   manualCount: 0,
+  skills: [],
   publishedAt: "2026-01-01T00:00:00Z",
   publishedBy: "Thuong",
   assignmentCount: 0,
@@ -36,6 +37,20 @@ describe("test version metadata wire boundaries", () => {
     expect(testVersion(without(version, "changeNote"))).toBe(false);
     expect(testVersion({ ...version, assignmentCount: -1 })).toBe(false);
     expect(testVersion({ ...version, assignmentCount: null })).toBe(false);
+  });
+  it("requires skills, each one of the six question skills", () => {
+    const testVersion = shape("TestVersion");
+    expect(testVersion({ ...version, skills: ["grammar", "reading"] })).toBe(true);
+    expect(
+      testVersion({
+        ...version,
+        skills: ["grammar", "vocabulary", "reading", "listening", "writing", "speaking"],
+      }),
+    ).toBe(true);
+    expect(testVersion(without(version, "skills"))).toBe(false);
+    expect(testVersion({ ...version, skills: null })).toBe(false);
+    expect(testVersion({ ...version, skills: ["maths"] })).toBe(false);
+    expect(testVersion({ ...version, skills: [null] })).toBe(false);
   });
   it("takes testUpdatedAt as an optional timestamp, which only the publish answer carries", () => {
     const testVersion = shape("TestVersion");
