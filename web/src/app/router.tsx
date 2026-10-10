@@ -68,6 +68,13 @@ const teacherTree: RouteObject = {
         },
         {
           path: "tests/:id",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+              { key: "tests.detail.crumb" },
+            ],
+            width: 1320,
+          },
           lazy: page(() => import("@/features/tests/pages/teacher/TestDetailPage")),
         },
 
@@ -198,8 +205,15 @@ const teacherTree: RouteObject = {
         },
         {
           path: "assignments/:id/edit",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
+              { key: "assignments.edit" },
+            ],
+            width: 1080,
+          },
           lazy: page(
-            () => import("@/features/assignments/pages/teacher/AssignmentFormPage"),
+            () => import("@/features/assignments/pages/teacher/AssignmentWizardPage"),
           ),
         },
         {

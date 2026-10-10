@@ -112,55 +112,59 @@ function renderBuilder() {
   return userEvent.setup();
 }
 
-describe("builder settings without a second inline settings column", () => {
-  it("keeps standalone settings out of the wide editor and opens exactly one accessible dialog", async () => {
+/**
+ * The builder's editor pane (T-R4.31b) holds Points in its header and Tags
+ * under "More options", so there is no settings dialog or sheet at any width.
+ */
+describe("the builder's editor pane", () => {
+  it("draws the deck's header and blocks in order, with no settings dialog", async () => {
     const user = renderBuilder();
     await user.click(
       await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
     );
-    expect(screen.queryByRole("complementary", { name: "Cài đặt câu hỏi" })).toBeNull();
-    const trigger = screen.getByRole("button", { name: "Cài đặt câu hỏi" });
-    expect(trigger).toHaveAttribute("aria-label", "Cài đặt câu hỏi");
-    await user.click(trigger);
-    const dialog = await screen.findByRole("dialog", { name: "Cài đặt câu hỏi" });
-    expect(screen.getAllByRole("dialog")).toHaveLength(1);
-    expect(within(dialog).getByLabelText("Điểm")).toHaveValue(5);
-    expect(within(dialog).getByLabelText("Thẻ")).toBeInTheDocument();
-    expect(within(dialog).queryByText("Media của câu hỏi")).toBeNull();
-    expect(screen.getByText("Media của câu hỏi")).toBeInTheDocument();
+
+    expect(await screen.findByRole("heading", { name: "Câu 1" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Loại câu hỏi: Tự luận" })).toBeVisible();
+    expect(screen.getByLabelText("Điểm")).toHaveValue(5);
+    expect(screen.queryByRole("button", { name: "Cài đặt câu hỏi" })).toBeNull();
+    expect(screen.queryByRole("complementary")).toBeNull();
+
+    const order = [
+      screen.getAllByText("Nội dung câu hỏi")[0]!,
+      screen.getByText("Đáp án mẫu"),
+      screen.getByText("Media của câu hỏi"),
+      screen.getByText("Tuỳ chọn khác"),
+    ];
+    for (const [index, node] of order.entries()) {
+      const next = order[index + 1];
+      if (next)
+        expect(
+          node.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    }
+    const more = screen.getByText("Tuỳ chọn khác").closest("details")!;
+    expect(more).not.toHaveAttribute("open");
+    expect(within(more).getByLabelText("Thẻ")).toBeInTheDocument();
+    expect(within(more).getAllByText(/Giải thích/).length).toBeGreaterThan(0);
   });
-  it("returns focus to the actual Settings action after Escape", async () => {
-    display.resize(768);
+
+  it("keeps a tags draft, its focus and the points across viewport changes", async () => {
     const user = renderBuilder();
     await user.click(
       await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
     );
-    const trigger = screen.getByRole("button", { name: "Cài đặt câu hỏi" });
-    await user.click(trigger);
-    await screen.findByRole("dialog", { name: "Cài đặt câu hỏi" });
-    await user.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(trigger).toHaveFocus();
-  });
-  it("retains the open tags draft, node, focus and controlled points across viewport changes", async () => {
-    const user = renderBuilder();
-    await user.click(
-      await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
-    );
-    await user.click(screen.getByRole("button", { name: "Cài đặt câu hỏi" }));
-    const dialog = await screen.findByRole("dialog");
-    const points = within(dialog).getByLabelText("Điểm");
+    const points = await screen.findByLabelText("Điểm");
     await user.clear(points);
     await user.type(points, "4.5");
-    const tags = within(dialog).getByLabelText("Thẻ");
+    await user.click(screen.getByText("Tuỳ chọn khác"));
+    const tags = screen.getByLabelText("Thẻ");
     await user.type(tags, "partial-tag");
     for (const width of [360, 768, 1440, 1024]) {
       act(() => display.resize(width));
-      expect(screen.getByRole("dialog")).toBe(dialog);
-      expect(within(dialog).getByLabelText("Thẻ")).toBe(tags);
+      expect(screen.getByLabelText("Thẻ")).toBe(tags);
       expect(tags).toHaveValue("partial-tag");
       expect(tags).toHaveFocus();
-      expect(points).toHaveValue(4.5);
+      expect(screen.getByLabelText("Điểm")).toHaveValue(4.5);
     }
     await user.keyboard("{Enter}");
     await waitFor(
@@ -172,32 +176,51 @@ describe("builder settings without a second inline settings column", () => {
       { timeout: 4000 },
     );
     expect(patches.at(-1)?.id).toBe(QUESTION_ID);
-    await user.keyboard("{Escape}");
-    await user.click(screen.getByRole("button", { name: "Cài đặt câu hỏi" }));
-    expect(
-      within(await screen.findByRole("dialog")).getByLabelText("Điểm"),
-    ).toHaveValue(4.5);
   });
-  it("flushes the prior question and never applies its settings to the next selection", async () => {
+
+  it("flushes the prior question and never applies its points to the next selection", async () => {
     const user = renderBuilder();
     await user.click(
       await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
     );
-    await user.click(screen.getByRole("button", { name: "Cài đặt câu hỏi" }));
-    const points = within(await screen.findByRole("dialog")).getByLabelText("Điểm");
+    const points = await screen.findByLabelText("Điểm");
     await user.clear(points);
     await user.type(points, "7");
-    await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: /Câu hỏi thứ hai độc lập/ }));
-    await user.click(screen.getByRole("button", { name: "Cài đặt câu hỏi" }));
-    expect(
-      within(await screen.findByRole("dialog")).getByLabelText("Điểm"),
-    ).toHaveValue(9);
+
+    expect(await screen.findByRole("heading", { name: "Câu 2" })).toBeVisible();
+    expect(screen.getByLabelText("Điểm")).toHaveValue(9);
     expect(patches).toEqual([
       expect.objectContaining({
         id: QUESTION_ID,
         body: expect.objectContaining({ points: 7 }),
       }),
     ]);
+  });
+
+  it("changes the type from the menu, which marks the current one", async () => {
+    const user = renderBuilder();
+    await user.click(
+      await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Loại câu hỏi: Tự luận" }),
+    );
+    const menu = await screen.findByRole("menu");
+    const items = within(menu).getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "Một đáp án",
+      "Nhiều đáp án",
+      "Đúng/Sai",
+      "Điền từ",
+      "Tự luậnĐang dùng",
+    ]);
+    await user.click(within(menu).getByRole("menuitem", { name: /Một đáp án/ }));
+
+    expect(
+      await screen.findByRole("button", { name: "Loại câu hỏi: Một đáp án" }),
+    ).toBeVisible();
+    expect(screen.queryByText("Đáp án mẫu")).toBeNull();
+    expect(screen.getAllByRole("radio").length).toBeGreaterThan(0);
   });
 });

@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page, type Response } from "@playwright/test";
 import type { Monitor } from "../../src/features/attempts/api";
-import { assignToClass } from "./support/live";
+import { assignToClass, publishInBuilder } from "./support/live";
 
 /**
  * E2E 1 (§14): the teacher logs in, authors a test with one question of each
@@ -39,17 +39,16 @@ async function setOptions(page: Page, texts: string[]) {
 /** Adds one question of `type` to the open builder and fills in its answer. */
 async function addQuestion(page: Page, type: string, prompt: string) {
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
-  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
-    "Câu hỏi mới — nhập nội dung ở đây",
-  );
-  await page.getByRole("tab", { name: type }).click();
-  await expect(page.getByRole("tab", { name: type })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  const field = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  await expect(field).toHaveText("");
+  await page.getByRole("button", { name: /^Loại câu hỏi: / }).click();
+  await page.getByRole("menuitem", { name: new RegExp(`^${type}`) }).click();
+  await expect(
+    page.getByRole("button", { name: `Loại câu hỏi: ${type}`, exact: true }),
+  ).toBeVisible();
 
-  await page.getByLabel("Nội dung câu hỏi", { exact: true }).click();
-  await page.getByLabel("Nội dung câu hỏi", { exact: true }).fill(prompt);
+  await field.click();
+  await field.fill(prompt);
 }
 
 test("E2E 1: an admin authors a test with all five question types, publishes and assigns it", async ({
@@ -90,9 +89,17 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await addQuestion(page, "Đúng/Sai", "“Since” đi với thì hiện tại hoàn thành.");
 
   // ----------------------------------------------------------- fill_blank
-  await addQuestion(page, "Điền từ", "She {{1}} in Hanoi since 2019.");
-  await page.getByRole("button", { name: "Thêm chỗ trống" }).click();
-  await page.getByLabel("Đáp án được chấp nhận").fill("has lived");
+  await addQuestion(page, "Điền từ", "Since 2019 she has");
+  await page
+    .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+    .press("End");
+  await page.getByRole("button", { name: "Thêm ô trống", exact: true }).last().click();
+  const answer = page.getByRole("textbox", {
+    name: "Đáp án được chấp nhận cho ô 1",
+    exact: true,
+  });
+  await answer.fill("lived");
+  await answer.press("Enter");
 
   // --------------------------------------------------------- short_answer
   await addQuestion(page, "Tự luận", "Viết 2–3 câu tả thói quen buổi sáng của bạn.");
@@ -136,11 +143,11 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
     timeout: 15_000,
   });
-  await page.getByRole("button", { name: "Phát hành" }).click();
+  await publishInBuilder(page);
 
-  // Publishing lands on the detail page, previewing the version just written.
+  // The test's page previews the version just written.
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
-  await expect(page.getByText("Bản đang phát hành · v1")).toBeVisible();
+  await expect(page.getByText("Phiên bản 1 · mặc định cho bài giao mới")).toBeVisible();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
   // Six questions, one of each type plus the audio one, in the student payload.
@@ -148,10 +155,15 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page.getByText("Người phụ nữ đề nghị làm gì?")).toBeVisible();
 
   // And the version history records it: six questions, six points, by name.
-  const history = page.getByRole("complementary", { name: "Lịch sử phiên bản" });
-  await expect(history.getByText("v1", { exact: true })).toBeVisible();
-  await expect(history.getByText("6 · 6")).toBeVisible();
-  await expect(history.getByText(/Thuong/)).toBeVisible();
+  // At 1280 the history is the sheet the header opens.
+  await page.getByRole("button", { name: "Lịch sử phiên bản" }).click();
+  const history = page.getByRole("dialog", { name: "Lịch sử phiên bản" });
+  const versionOne = history.locator('[data-version="1"]');
+  await expect(versionOne.getByText("Mặc định", { exact: true })).toBeVisible();
+  await expect(versionOne.getByText("6 câu · 6 điểm")).toBeVisible();
+  await expect(versionOne.getByText(/Thuong/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(history).toBeHidden();
 
   // ---------------------------------------------------------------- assign
   await assignToClass(page, title);

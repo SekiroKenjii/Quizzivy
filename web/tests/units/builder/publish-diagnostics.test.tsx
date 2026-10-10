@@ -25,22 +25,32 @@ it("preserves the contract's top-level violations and offers section and questio
   );
   const question = vi.fn();
   const section = vi.fn();
+  const publish = vi.fn();
   render(
     <PublishDialog
+      open
+      pending={false}
+      error={null}
+      problems={[]}
       violations={error.violations}
-      onClose={vi.fn()}
+      onOpenChange={vi.fn()}
       onGoTo={question}
       onGoToSection={section}
+      onPublish={publish}
       warnings={[{ questionId: "q2", message: "Explanation missing" }]}
     />,
   );
   expect(screen.getByText("Empty section")).toBeVisible();
   expect(screen.getByText("No correct option")).toBeVisible();
   expect(screen.getByText("Explanation missing")).toBeVisible();
-  const buttons = screen.getAllByRole("button", { name: "Đi tới" });
+  const buttons = screen.getAllByRole("button", { name: "Sửa" });
   await userEvent.click(buttons[0]!);
   await userEvent.click(buttons[1]!);
   expect(section).toHaveBeenCalledWith("s1");
   expect(question).toHaveBeenCalledWith("q1");
-  expect(screen.getByRole("button", { name: "Phát hành" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Phát hành" }));
+  expect(
+    await screen.findByText("Hãy sửa các mục trên trước khi phát hành."),
+  ).toBeVisible();
+  expect(publish).not.toHaveBeenCalled();
 });
