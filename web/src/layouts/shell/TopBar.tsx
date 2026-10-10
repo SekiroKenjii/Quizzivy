@@ -6,7 +6,7 @@ import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { Menu, Moon, PanelLeft, Search, Sun } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
-import { commandKeyLabel } from "@/features/search/useCommandPalette";
+import { CommandKey } from "@/features/search/CommandKey";
 import { Breadcrumbs } from "@/layouts/shell/Breadcrumbs";
 import type { PageCrumb } from "@/layouts/shell/crumbs";
 import { SIDEBAR_ID } from "@/layouts/shell/Sidebar";
@@ -74,7 +74,9 @@ export function TopBar({
             {t("teacherShell.search")}
           </span>
           <span className="hidden flex-none gap-0.5 min-[768px]:flex">
-            <Kbd className={KEY_CAP}>{commandKeyLabel()}</Kbd>
+            <Kbd className={KEY_CAP}>
+              <CommandKey />
+            </Kbd>
             <Kbd className={KEY_CAP}>{t("palette.keyK")}</Kbd>
           </span>
         </button>

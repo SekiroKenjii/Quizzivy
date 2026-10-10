@@ -19,11 +19,9 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { AccountMenu } from "@/features/auth/AccountMenu";
+import { CommandKey } from "@/features/search/CommandKey";
 import { CommandPalette } from "@/features/search/CommandPalette";
-import {
-  commandKeyLabel,
-  useCommandPalette,
-} from "@/features/search/useCommandPalette";
+import { useCommandPalette } from "@/features/search/useCommandPalette";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useForcedLightTheme } from "@/lib/theme";
 import { useQuery } from "@tanstack/react-query";
@@ -173,7 +171,9 @@ export default function AdminLayout() {
               <Search aria-hidden="true" />
               {t("palette.open")}
               <span className="ml-auto flex items-center gap-0.5">
-                <Kbd>{commandKeyLabel()}</Kbd>
+                <Kbd>
+                  <CommandKey />
+                </Kbd>
                 <Kbd>{t("palette.keyK")}</Kbd>
               </span>
             </Button>

@@ -1,6 +1,7 @@
 import ReactMarkdown, { type Options } from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 
+import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
 import { gfmSubset } from "@/components/shared/content/markdownGfm";
 
@@ -29,7 +30,7 @@ export function Markdown({
         rehypePlugins={[rehypeSanitize, ...(plugins ?? [])]}
         {...(components ? { components } : {})}
       >
-        {children}
+        {nfc(children)}
       </ReactMarkdown>
     </div>
   );
