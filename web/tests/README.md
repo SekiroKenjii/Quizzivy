@@ -56,3 +56,11 @@ fails at the mock rather than inside whatever it was meant to be testing.
 the §13.5 student-payload boundary, the §6.5 public-endpoint rules, pagination,
 `operationId` uniqueness. Its helpers are unit-tested against synthetic
 documents, because a checker nobody checks is decoration.
+
+**`units/styles/tailwind-classes.test.ts`** reads every colour utility (`bg-`,
+`text-`, `border-`, `ring-`, `shadow-` and the rest) in `src/` and fails when one
+names no `--color-*` or `--shadow-*` key of `index.css`'s `@theme`, no Tailwind
+default and no non-colour utility. Tailwind generates no CSS for such a class,
+and a test that only asserts the class name passes anyway; `bg-accent-soft`
+shipped that way. A new non-colour suffix (say `border-spacing-*`) goes in the
+test's `NON_COLOUR` table.
