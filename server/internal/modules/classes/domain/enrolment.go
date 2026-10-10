@@ -45,6 +45,8 @@ type EnrolledClass struct {
 	ID              string
 	Name            string
 	Description     *string
+	ScheduleLabel   *string
+	Room            *string
 	StudentCount    int
 	SelfJoinEnabled bool
 	CreatedAt       time.Time

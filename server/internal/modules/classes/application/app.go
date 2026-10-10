@@ -40,6 +40,28 @@ func (a *Application) WithLogger(logger *slog.Logger) *Application {
 	return a
 }
 
+// WithZones supplies the reader of a user's calendar zone, which a new join
+// code's last day is counted in. Without one, or when it fails, the zone is
+// domain.DefaultZone.
+func (a *Application) WithZones(zones ports.Zones) *Application {
+	a.enrolment.Zones = zones
+	return a
+}
+
+// WithClassScores supplies the source of a class's average score. Without one
+// no class has an average.
+func (a *Application) WithClassScores(source stats.ClassSource) *Application {
+	a.service.ClassScores = source
+	return a
+}
+
+// WithAvatars supplies the signer of a teacher's profile photo for the classes
+// a student belongs to. Without one no photo is signed.
+func (a *Application) WithAvatars(avatars ports.Avatars) *Application {
+	a.service.Avatars = avatars
+	return a
+}
+
 type Commands struct {
 	Delete         cqrs.CommandHandler[command.Delete, cqrs.Nothing]
 	AddMember      cqrs.CommandHandler[command.AddMember, domain.Member]
@@ -89,7 +111,7 @@ func New(repo domain.Repository, stats stats.Source, keys domain.JoinCodeKeys) *
 			ActiveCode: query.ActiveCodeHandler{Enrolment: enrolment},
 			Facets:     query.FacetsHandler{Service: service},
 			Get:        query.GetHandler{Service: service},
-			List:       query.ListHandler{Service: service},
+			List:       query.ListHandler{Service: service, Codes: enrolment},
 			ListMine:   query.ListMineHandler{Service: service},
 			Members:    query.MembersHandler{Service: service},
 			Preview:    query.PreviewHandler{Enrolment: enrolment},

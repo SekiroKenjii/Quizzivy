@@ -48,12 +48,13 @@ const joinable = `(c.archived_at IS NULL AND c.self_join_enabled AND jc.expires_
 
 const classProjection = `
 	SELECT c.id::text, c.name, c.description, c.self_join_enabled, c.archived_at, c.created_at,
+	       c.schedule_label, c.room,
 	       -- Live members only. A disabled account cannot sign in, so counting
 	       -- it makes every assignment on this class read one short for ever.
 	       (SELECT count(*) FROM app.class_members m
 	          JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
 	         WHERE m.class_id = c.id),` + openAssignments + `,
-	       jc.code_hint, jc.expires_at, jc.max_uses, jc.uses_count
+	       jc.code_hint, jc.expires_at, jc.max_uses, jc.uses_count, jc.lookup_scheme
 	  FROM app.classes c
 	  -- The active code, if there is one. LEFT JOIN because a class with
 	  -- self-join closed has none, and that is a normal state rather than a
@@ -67,18 +68,21 @@ func scanClass(row pgx.Row) (domain.Class, error) {
 	var expires *time.Time
 	var maxUses *int
 	var uses *int
+	var scheme *domain.LookupScheme
 
 	err := row.Scan(&c.ID, &c.Name, &c.Description, &c.SelfJoinEnabled, &c.ArchivedAt, &c.CreatedAt,
-		&c.StudentCount, &c.OpenAssignmentCount, &hint, &expires, &maxUses, &uses)
+		&c.ScheduleLabel, &c.Room,
+		&c.StudentCount, &c.OpenAssignmentCount, &hint, &expires, &maxUses, &uses, &scheme)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Class{}, domain.ErrNotFound
 	}
 	if err != nil {
 		return domain.Class{}, err
 	}
-	if hint != nil && expires != nil && uses != nil {
+	if hint != nil && expires != nil && uses != nil && scheme != nil {
 		c.JoinCode = &domain.JoinCodeInfo{
 			Hint: *hint, ExpiresAt: *expires, MaxUses: maxUses, UsesCount: *uses,
+			Legacy: *scheme == domain.LookupLegacy,
 		}
 	}
 	return c, nil
@@ -181,7 +185,9 @@ func (s *Postgres) Facets(ctx context.Context, scope access.Scope, query string)
 func (s *Postgres) ListMine(ctx context.Context, userID string) ([]domain.MyClass, error) {
 	rows, err := s.Query(ctx, `
 	SELECT c.id::text, c.name, c.description, me.joined_at,
-	       (SELECT coalesce(t.display_name, t.full_name) FROM app.users t WHERE t.id = c.teacher_id)
+	       (SELECT coalesce(t.display_name, t.full_name) FROM app.users t WHERE t.id = c.teacher_id),
+	       (SELECT t.avatar_key FROM app.users t WHERE t.id = c.teacher_id),
+	       c.schedule_label, c.room
 	  FROM app.classes c
 	  JOIN app.class_members me ON me.class_id = c.id AND me.user_id = $1::uuid
 	  JOIN app.users student ON student.id = me.user_id AND student.disabled_at IS NULL
@@ -195,7 +201,8 @@ func (s *Postgres) ListMine(ctx context.Context, userID string) ([]domain.MyClas
 	var out []domain.MyClass
 	for rows.Next() {
 		var c domain.MyClass
-		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.JoinedAt, &c.TeacherName); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.JoinedAt, &c.TeacherName, &c.TeacherAvatarKey,
+			&c.ScheduleLabel, &c.Room); err != nil {
 			return nil, fmt.Errorf("list my classes: %w", err)
 		}
 		out = append(out, c)
@@ -313,6 +320,14 @@ func (s *Postgres) Update(ctx context.Context, scope access.Scope, classID strin
 		args = append(args, *in.Description)
 		sets = append(sets, fmt.Sprintf("description = $%d", len(args)))
 	}
+	if in.ScheduleLabel.Set {
+		args = append(args, in.ScheduleLabel.Value)
+		sets = append(sets, fmt.Sprintf("schedule_label = $%d", len(args)))
+	}
+	if in.Room.Set {
+		args = append(args, in.Room.Value)
+		sets = append(sets, fmt.Sprintf("room = $%d", len(args)))
+	}
 	if in.SelfJoinEnabled != nil {
 		args = append(args, *in.SelfJoinEnabled)
 		sets = append(sets, fmt.Sprintf("self_join_enabled = $%d", len(args)))
@@ -341,10 +356,10 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Cl
 
 	var id string
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO app.classes (name, description, self_join_enabled, created_at, teacher_id)
-		VALUES ($1, $2, $3, $4, $5::uuid)
+		INSERT INTO app.classes (name, description, self_join_enabled, created_at, teacher_id, schedule_label, room)
+		VALUES ($1, $2, $3, $4, $5::uuid, $6, $7)
 		RETURNING id::text`,
-		in.Name, in.Description, in.SelfJoinEnabled, in.Now, in.ActorUserID).Scan(&id); err != nil {
+		in.Name, in.Description, in.SelfJoinEnabled, in.Now, in.ActorUserID, in.ScheduleLabel, in.Room).Scan(&id); err != nil {
 		return domain.Class{}, fmt.Errorf("create class: %w", err)
 	}
 	if err := audit.Write(ctx, tx, audit.Entry{

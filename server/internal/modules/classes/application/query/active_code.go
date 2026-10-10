@@ -2,7 +2,6 @@ package query
 
 import (
 	"context"
-	"errors"
 	"quizzivy/internal/modules/classes/application/internal/support"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/shared/access"
@@ -27,17 +26,5 @@ func (s ActiveCodeHandler) Handle(ctx context.Context, q ActiveCode) (domain.Act
 	if err != nil {
 		return domain.ActiveJoinCode{}, err
 	}
-	out := domain.ActiveJoinCode{IssuedCode: stored.IssuedCode, Legacy: stored.Lookup.Scheme == domain.LookupLegacy}
-	if out.Legacy || stored.Lookup.KeyID == nil {
-		return out, nil
-	}
-	code, err := s.Keys.Open(stored.ClassID, stored.ID, *stored.Lookup.KeyID, stored.Ciphertext)
-	if errors.Is(err, domain.ErrJoinCodeKeyUnavailable) {
-		return out, nil
-	}
-	if err != nil {
-		return domain.ActiveJoinCode{}, err
-	}
-	out.Code = code
-	return out, nil
+	return s.Read(stored)
 }
