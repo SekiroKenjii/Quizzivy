@@ -138,7 +138,7 @@ export default function ClassDetailPage() {
             <Button
               size="sm"
               onClick={() =>
-                void navigate(`/teacher/assignments/new?classId=${klass.data.id}`)
+                void navigate(`/teacher/assignments/new?class=${klass.data.id}`)
               }
             >
               <ClipboardList aria-hidden="true" />

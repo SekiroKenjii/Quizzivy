@@ -40,9 +40,6 @@ async function publishListeningTest(page: Page, title: string) {
     .getByLabel("Nội dung câu hỏi", { exact: true })
     .fill("Người phụ nữ đề nghị làm gì?");
 
-  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
-  const settings = page.getByRole("dialog", { name: "Cài đặt câu hỏi", exact: true });
-  await expect(settings).toBeVisible();
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
   // The upload is a real round trip through the API and object storage, and a
   // rejection renders as an alert rather than as a slow success.
@@ -53,15 +50,16 @@ async function publishListeningTest(page: Page, title: string) {
     if (await rejected.isVisible()) {
       throw new Error(`upload rejected: ${await rejected.innerText()}`);
     }
-    await expect(page.getByRole("button", { name: "Gỡ", exact: true })).toBeVisible({
-      timeout: 1_000,
-    });
+    await expect(
+      page.getByRole("button", { name: "Gỡ media", exact: true }),
+    ).toBeVisible({ timeout: 1_000 });
   }).toPass({ timeout: 60_000 });
   // §11.1's default, and exactly the allowance this test needs.
-  await expect(page.getByLabel("Số lần được nghe")).toHaveText("2 lần");
-
-  await page.keyboard.press("Escape");
-  await expect(settings).toBeHidden();
+  await expect(
+    page
+      .getByRole("radiogroup", { name: "Số lần nghe" })
+      .getByRole("radio", { name: "Hai lần" }),
+  ).toBeChecked();
 
   for (const [index, text] of ["Gọi lại sau", "Đổi lịch hẹn"].entries()) {
     await page

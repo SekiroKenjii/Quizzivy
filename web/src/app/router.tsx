@@ -172,8 +172,15 @@ const teacherTree: RouteObject = {
         },
         {
           path: "assignments/new",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
+              { key: "assignments.new" },
+            ],
+            width: 1080,
+          },
           lazy: page(
-            () => import("@/features/assignments/pages/teacher/AssignmentFormPage"),
+            () => import("@/features/assignments/pages/teacher/AssignmentWizardPage"),
           ),
         },
         {

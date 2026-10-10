@@ -16,7 +16,7 @@ import { precheck } from "./probe";
  */
 export type UploadState =
   | { status: "idle" }
-  | { status: "checking"; name: string }
+  | { status: "checking"; name: string; bytes: number; kind: MediaKind }
   | { status: "uploading"; name: string; fraction: number }
   | { status: "error"; message: string }
   | { status: "cancelled" };
@@ -48,26 +48,30 @@ export interface MediaUpload<T> {
  * whose answer is a MediaAsset; a host that names another type passes its own.
  * A new start supersedes the one in flight, and unmounting aborts it.
  * `cancel` ends the check as well as the upload, without waiting for the
- * duration read to settle.
+ * duration read to settle. With `onRejected`, a pre-check refusal goes to it,
+ * with its worded message, and the state returns to idle, for a host that
+ * reports refusals itself.
  */
 export function useMediaUpload<T = MediaAsset>({
   onUploaded,
+  onRejected,
   kind = "audio",
   send,
 }: Readonly<{
   onUploaded: (result: T) => void;
+  onRejected?: ((rejection: Rejection, message: string) => void) | undefined;
   kind?: MediaKind;
   send?: UploadSender<T>;
 }>): MediaUpload<T> {
   const { t } = useTranslation();
   const [state, setState] = useState<UploadState>({ status: "idle" });
-  const latest = useRef({ onUploaded, kind, send });
+  const latest = useRef({ onUploaded, onRejected, kind, send });
   const run = useRef(0);
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    latest.current = { onUploaded, kind, send };
-  }, [onUploaded, kind, send]);
+    latest.current = { onUploaded, onRejected, kind, send };
+  }, [onUploaded, onRejected, kind, send]);
 
   useEffect(
     () => () => {
@@ -91,12 +95,27 @@ export function useMediaUpload<T = MediaAsset>({
 
       const abort = new AbortController();
       controller.current = abort;
-      setState({ status: "checking", name: file.name });
+      setState({
+        status: "checking",
+        name: file.name,
+        bytes: file.size,
+        kind: checkedAs,
+      });
       try {
-        const refusal = await checkFile(t, file, checkedAs, abort.signal);
+        const refusal = await checkFile(file, checkedAs, abort.signal);
         if (!current()) return;
+        if (refusal === "cancelled") {
+          setState({ status: "cancelled" });
+          return;
+        }
         if (refusal !== null) {
-          setState(refusal);
+          const message = rejectionMessage(t, refusal);
+          const rejected = latest.current.onRejected;
+          if (rejected === undefined) setState({ status: "error", message });
+          else {
+            setState({ status: "idle" });
+            rejected(refusal, message);
+          }
           return;
         }
         setState({ status: "uploading", name: file.name, fraction: 0 });
@@ -146,15 +165,13 @@ export function useMediaUpload<T = MediaAsset>({
 }
 
 async function checkFile(
-  t: TFunction,
   file: File,
   kind: MediaKind,
   signal: AbortSignal,
-): Promise<UploadState | null> {
+): Promise<Rejection | "cancelled" | null> {
   const rejection = await Promise.race([precheck(file, kind), whenAborted(signal)]);
-  if (signal.aborted) return { status: "cancelled" };
-  if (rejection === null) return null;
-  return { status: "error", message: rejectionMessage(t, rejection) };
+  if (signal.aborted) return "cancelled";
+  return rejection;
 }
 
 function uploadFailure(t: TFunction, cause: unknown): UploadState {
