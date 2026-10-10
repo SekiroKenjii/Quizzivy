@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/attempts/application/internal/support"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/content"
 )
 
 type Flag struct {
@@ -18,5 +19,5 @@ type FlagHandler struct {
 }
 
 func (s FlagHandler) Handle(ctx context.Context, cmd Flag) (domain.Attempt, error) {
-	return s.Store.Flag(ctx, cmd.Request, cmd.AttemptID, cmd.Flagged, cmd.Reason, s.Now())
+	return s.Store.Flag(ctx, cmd.Request, cmd.AttemptID, cmd.Flagged, content.NFC(cmd.Reason), s.Now())
 }

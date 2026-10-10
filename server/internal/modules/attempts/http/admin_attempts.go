@@ -14,6 +14,7 @@ import (
 	mediahttp "quizzivy/internal/modules/media/http"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/validation"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -235,6 +236,11 @@ func (h Attempts) SetAttemptNote(ctx context.Context, request openapi.SetAttempt
 		return nil, httpx.ErrNotImplemented
 	}
 	_, err := h.app.Commands.SetNote.Handle(ctx, command.SetNote{AttemptID: request.Id.String(), Note: request.Body.Note, Scope: httpapi.ScopeFromContext(ctx)})
+	var invalid *validation.Error
+	if errors.As(err, &invalid) {
+		return openapi.SetAttemptNote400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.Invalid(ctx, httpx.Text(ctx, "Ghi chú không hợp lệ.", "The note is not valid."), invalid))}, nil
+	}
 	if errors.Is(err, domain.ErrPaperNotFound) {
 		return openapi.SetAttemptNote404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgAttemptNotFound(ctx)))}, nil
