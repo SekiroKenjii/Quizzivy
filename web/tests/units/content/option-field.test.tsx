@@ -15,17 +15,13 @@ test("answer selection and option text have distinct accessible names", () => {
         { id: null, text: "other", isCorrect: false },
       ]}
       multiple={false}
-      fixed={false}
       onChange={vi.fn()}
     />,
   );
-  expect(screen.getByLabelText("Lựa chọn 1", { exact: true })).toHaveAttribute(
-    "type",
-    "radio",
-  );
-  expect(screen.getByRole("textbox", { name: "Nội dung lựa chọn 1" })).toHaveValue(
-    "think",
-  );
+  expect(
+    screen.getByLabelText("Đánh dấu A là đáp án đúng", { exact: true }),
+  ).toHaveAttribute("type", "radio");
+  expect(screen.getByRole("textbox", { name: "Lựa chọn A" })).toHaveValue("think");
 });
 
 test("the pilot flag gates new formatting while existing content remains editable", () => {

@@ -1,37 +1,25 @@
 import { BlankPromptField } from "./BlankPromptField";
-import { questionGaps } from "@/components/shared/content/gaps";
+import { AnswerArea } from "./AnswerArea";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { PageAside } from "@/components/shared/PageAside";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import type { MediaAsset } from "@/features/media/api";
 import { DEFAULT_AUDIO_POLICY } from "@/features/question-bank/audioPolicy";
 import { AudioPolicyPanel } from "@/features/question-bank/components/AudioPolicyPanel";
-import { BlanksEditor } from "@/features/question-bank/components/BlanksEditor";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
-import { OptionsEditor } from "@/features/question-bank/components/OptionsEditor";
 import { QuestionProseField } from "@/features/question-bank/components/QuestionProseField";
 import { TagsField } from "@/features/question-bank/components/TagsField";
 import type {
   QuestionType,
   QuestionValues,
 } from "@/features/question-bank/questionSchema";
-
-const TYPES: QuestionType[] = [
-  "single_choice",
-  "multiple_choice",
-  "true_false",
-  "fill_blank",
-  "short_answer",
-];
-
-const CHOICE_TYPES = new Set<QuestionType>([
-  "single_choice",
-  "multiple_choice",
-  "true_false",
-]);
+import {
+  QUESTION_TYPES,
+  retype,
+  typeLocked,
+} from "@/features/question-bank/questionType";
 
 interface QuestionEditorProps {
   value: QuestionValues;
@@ -48,9 +36,9 @@ interface QuestionEditorProps {
 }
 
 /**
- * §7's five question types in one editor, laid out as the deck's A-04: the
- * prompt and the answer in the middle column, everything about the question in
- * the settings rail.
+ * QuestionEditor is §7's five question types in one editor: the prompt, the
+ * type's answer block with its grading note, and the explanation in the middle
+ * column; points, tags and media in the settings rail.
  */
 export function QuestionEditor({
   value,
@@ -63,26 +51,12 @@ export function QuestionEditor({
   onAssetChange,
 }: Readonly<QuestionEditorProps>) {
   const { t } = useTranslation();
-  const isChoice = CHOICE_TYPES.has(value.type);
   const isAudio = asset?.kind === "audio";
-  const hasGaps =
-    value.promptContent != null && questionGaps(value.promptContent).length > 0;
-
-  const hasBlankBindings =
-    hasGaps ||
-    (value.promptContent != null &&
-      value.type === "fill_blank" &&
-      value.blanks.length > 0);
+  const locked = typeLocked(value);
 
   function switchType(type: QuestionType) {
-    if (type !== "fill_blank" && hasBlankBindings) return;
-    onChange({
-      ...value,
-      type,
-      options: defaultOptionsFor(type, value.options),
-      blanks: type === "fill_blank" ? value.blanks : [],
-      sampleAnswer: type === "short_answer" ? value.sampleAnswer : null,
-    });
+    if (type === value.type || (type !== "fill_blank" && locked)) return;
+    onChange(retype(value, type));
   }
 
   return (
@@ -101,11 +75,11 @@ export function QuestionEditor({
               className="h-auto flex-wrap justify-start"
               aria-label={t("questionEditor.typeLabel")}
             >
-              {TYPES.map((type) => (
+              {QUESTION_TYPES.map((type) => (
                 <TabsTrigger
                   key={type}
                   value={type}
-                  disabled={type !== "fill_blank" && hasBlankBindings}
+                  disabled={type !== "fill_blank" && locked}
                 >
                   {t(`questionEditor.type.${type}`)}
                 </TabsTrigger>
@@ -114,7 +88,7 @@ export function QuestionEditor({
           </Tabs>
         </div>
 
-        {hasBlankBindings && (
+        {locked && (
           <p className="text-muted-foreground text-xs">
             {t("questionEditor.richBlankSwitch")}
           </p>
@@ -137,46 +111,7 @@ export function QuestionEditor({
           )}
         </div>
 
-        {isChoice ? (
-          <OptionsEditor
-            key={value.type}
-            options={value.options}
-            multiple={value.type === "multiple_choice"}
-            fixed={value.type === "true_false"}
-            onChange={(options) => onChange({ ...value, options })}
-          />
-        ) : null}
-
-        {value.type === "fill_blank" ? (
-          <BlanksEditor
-            prompt={value.prompt}
-            content={value.promptContent}
-            blanks={value.blanks}
-            onChange={(blanks) => onChange({ ...value, blanks })}
-          />
-        ) : null}
-
-        {value.type === "short_answer" ? (
-          <div>
-            <label
-              className="mb-1.5 block text-[0.8125rem] font-medium"
-              htmlFor="question-sample-answer"
-            >
-              {t("questionEditor.sampleAnswer")}{" "}
-              <span className="text-muted-foreground font-normal">
-                {t("questionEditor.sampleAnswerHint")}
-              </span>
-            </label>
-            <Textarea
-              id="question-sample-answer"
-              value={value.sampleAnswer ?? ""}
-              className="min-h-14"
-              onChange={(event) =>
-                onChange({ ...value, sampleAnswer: event.target.value })
-              }
-            />
-          </div>
-        ) : null}
+        <AnswerArea value={value} onChange={onChange} />
 
         <div>
           <QuestionProseField
@@ -268,35 +203,7 @@ export function QuestionEditor({
             />
           ) : null}
         </div>
-
-        <Separator />
-
-        <p className="text-muted-foreground text-xs leading-relaxed">
-          {value.type === "short_answer"
-            ? t("questionEditor.manualGraded")
-            : t("questionEditor.autoGraded")}
-        </p>
       </PageAside>
     </>
   );
-}
-
-// true_false has exactly two options a teacher never renames; the other choice
-// types keep whatever was already typed so switching between them is free.
-function defaultOptionsFor(
-  type: QuestionType,
-  current: QuestionValues["options"],
-): QuestionValues["options"] {
-  if (type === "true_false") {
-    return [
-      { id: null, text: "True", isCorrect: current[0]?.isCorrect ?? true },
-      { id: null, text: "False", isCorrect: current[1]?.isCorrect ?? false },
-    ];
-  }
-  if (!CHOICE_TYPES.has(type)) return [];
-  if (current.length > 0) return current;
-  return [
-    { id: null, text: "", isCorrect: true },
-    { id: null, text: "", isCorrect: false },
-  ];
 }

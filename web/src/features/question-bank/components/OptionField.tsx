@@ -18,21 +18,29 @@ const ContentEditor = lazy(() =>
   })),
 );
 
-/** OptionField preserves plain options and opens a compact, lazily loaded formatting editor on demand. */
+/**
+ * OptionField preserves plain options and opens a compact, lazily loaded
+ * formatting editor on demand. `label` overrides the field's name, and `bare`
+ * draws the plain input without its own frame, for a row that draws one.
+ */
 export function OptionField({
   text,
   content,
   index,
+  label: name,
+  bare = false,
   onChange,
 }: Readonly<{
   text: string;
   content?: OptionContent | null;
   index: number;
+  label?: string;
+  bare?: boolean;
   onChange: (text: string, content: OptionContent | null) => void;
 }>) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  const label = t("questionEditor.optionTextLabel", { n: index + 1 });
+  const label = name ?? t("questionEditor.optionTextLabel", { n: index + 1 });
   const canFormat =
     content != null || import.meta.env.VITE_RICH_OPTION_EDITOR === "true";
   return (
@@ -84,8 +92,15 @@ export function OptionField({
           {content == null ? (
             <Input
               value={text}
-              placeholder={t("questionEditor.optionPlaceholder", { n: index + 1 })}
+              placeholder={
+                name ?? t("questionEditor.optionPlaceholder", { n: index + 1 })
+              }
               aria-label={label}
+              className={
+                bare
+                  ? "h-8 rounded-[6px] border-transparent bg-transparent px-px shadow-none in-data-[scale=deck]:h-8 in-data-[scale=deck]:bg-transparent in-data-[scale=deck]:px-px lg:text-[14px] in-data-[scale=deck]:lg:text-[14px] dark:bg-transparent dark:in-data-[scale=deck]:bg-transparent"
+                  : undefined
+              }
               onChange={(event) => onChange(event.target.value, null)}
             />
           ) : (
