@@ -1,4 +1,5 @@
 import { useState, type RefObject } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
@@ -48,6 +49,19 @@ async function resetMany(students: readonly Student[]): Promise<Outcome> {
   };
 }
 
+function refusalOf(cause: unknown, t: TFunction): string {
+  if (cause instanceof ApiError && cause.code === "STUDENT_SHARED")
+    return t("students.reset.reason.shared");
+  const seconds = cause instanceof ApiError ? cause.retryAfterSeconds : undefined;
+  if (cause instanceof ApiError && cause.isRateLimited && seconds !== undefined)
+    return seconds < 60
+      ? t("students.reset.rateLimitedSeconds", {
+          count: Math.max(1, Math.ceil(seconds)),
+        })
+      : t("students.reset.rateLimitedMinutes", { count: Math.ceil(seconds / 60) });
+  return failureMessage(cause, t("students.resetFailed"));
+}
+
 /**
  * ResetPasswordFlow resets the passwords of `students`, one or up to 40: a
  * confirmation that says what happens, then the ResetSheet with each new
@@ -55,7 +69,7 @@ async function resetMany(students: readonly Student[]): Promise<Outcome> {
  * through `resetStudentPassword`, several through the bulk operation. The
  * passwords are held only in this component's state, and dropped when the
  * sheet closes; a refusal, such as a student another teacher also reaches,
- * is shown in the confirmation.
+ * is shown in the confirmation, and a rate limit says how long to wait.
  */
 export function ResetPasswordFlow({
   students,
@@ -80,11 +94,7 @@ export function ResetPasswordFlow({
       setOutcome(one === undefined ? await resetMany(students) : await resetOne(one));
       void client.invalidateQueries({ queryKey: ["admin-students"] });
     } catch (cause) {
-      setError(
-        cause instanceof ApiError && cause.code === "STUDENT_SHARED"
-          ? t("students.reset.reason.shared")
-          : failureMessage(cause, t("students.resetFailed")),
-      );
+      setError(refusalOf(cause, t));
     } finally {
       setPending(false);
     }

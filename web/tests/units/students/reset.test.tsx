@@ -169,6 +169,32 @@ describe("resetting one student's password", () => {
     );
     expect(screen.queryByRole("dialog", { name: /Mật khẩu tạm/ })).toBeNull();
   });
+
+  it("says how long to wait when the server answers 429 with Retry-After", async () => {
+    serveStudents([AN]);
+    resetsOne(() =>
+      HttpResponse.json(
+        {
+          error: {
+            code: "RATE_LIMITED",
+            message: "Bạn thao tác quá nhanh.",
+            requestId: REQUEST_ID,
+          },
+        },
+        { status: 429, headers: { "Retry-After": "600" } },
+      ),
+    );
+    const { user } = renderStudents(teacherUser);
+
+    const menu = await menuOf(user, "Nguyễn Văn An");
+    await user.click(within(menu).getByRole("menuitem", { name: "Đặt lại mật khẩu" }));
+    const confirm = await screen.findByRole("dialog");
+    await user.click(within(confirm).getByRole("button", { name: "Đặt lại mật khẩu" }));
+
+    expect(await within(confirm).findByRole("alert")).toHaveTextContent(
+      "Bạn vừa đặt lại quá nhiều mật khẩu. Hãy thử lại sau 10 phút.",
+    );
+  });
 });
 
 describe("resetting several passwords at once", () => {
@@ -176,6 +202,34 @@ describe("resetting several passwords at once", () => {
     await rowOf("Nguyễn Văn An");
     await user.click(screen.getByRole("checkbox", { name: /Chọn tất cả/ }));
   }
+
+  it("says how many seconds to wait when the bulk reset is rate limited", async () => {
+    serveStudents([AN, BINH]);
+    server.use(
+      http.post(`${BASE}/teacher/students/reset-passwords`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "RATE_LIMITED",
+              message: "Bạn thao tác quá nhanh.",
+              requestId: REQUEST_ID,
+            },
+          },
+          { status: 429, headers: { "Retry-After": "42" } },
+        ),
+      ),
+    );
+    const { user } = renderStudents(teacherUser);
+
+    await selectAll(user);
+    await user.click(screen.getByRole("button", { name: "Đặt lại mật khẩu" }));
+    const confirm = await screen.findByRole("dialog", { name: "Đặt lại 2 mật khẩu?" });
+    await user.click(within(confirm).getByRole("button", { name: "Đặt lại 2" }));
+
+    expect(await within(confirm).findByRole("alert")).toHaveTextContent(
+      "Bạn vừa đặt lại quá nhiều mật khẩu. Hãy thử lại sau 42 giây.",
+    );
+  });
 
   it("sends one request, then lists each password and each student it did not reach, with why", async () => {
     serveStudents([AN, BINH, CUONG, DUNG, EM]);
