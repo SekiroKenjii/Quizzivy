@@ -288,6 +288,40 @@ describe("the class's head", () => {
     expect(
       screen.getByText("Lớp này không có hoặc bạn không dạy lớp này."),
     ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
+  });
+
+  it("keeps the plain heading over a load error that is not a 404, and retries", async () => {
+    let failing = true;
+    server.use(
+      http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>
+        failing
+          ? HttpResponse.json(
+              {
+                error: {
+                  code: "INTERNAL",
+                  message: "Lỗi máy chủ.",
+                  requestId: "018f0000-0000-7000-8000-0000000000f8",
+                },
+              },
+              { status: 500 },
+            )
+          : contractJson("/teacher/classes/{id}", "get", 200, stored),
+      ),
+    );
+    const { user } = renderDetail();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Lớp" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Không tìm thấy lớp" })).toBeNull();
+    expect(
+      screen.queryByText("Lớp này không có hoặc bạn không dạy lớp này."),
+    ).toBeNull();
+    failing = false;
+    await user.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(
+      await screen.findByRole("heading", { level: 1, name: klass.name }),
+    ).toBeInTheDocument();
   });
 });
 
