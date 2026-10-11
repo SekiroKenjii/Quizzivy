@@ -24,6 +24,7 @@ import {
 import { failureMessage } from "@/lib/api/errors";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
+import { focusIsLost } from "@/lib/focusIsLost";
 import { cn } from "@/lib/utils";
 import { authStore } from "@/stores/auth";
 
@@ -41,11 +42,6 @@ const QUIET = "aria-disabled:opacity-50";
 
 type Revoking = { kind: "one"; familyId: string } | { kind: "others" } | null;
 
-function focusIsLost() {
-  const active = document.activeElement;
-  return active === null || active === document.body;
-}
-
 function nextToSignOut(sessions: readonly Session[], familyId: string) {
   const others = sessions.filter((session) => !session.current);
   const at = others.findIndex((session) => session.familyId === familyId);
@@ -60,8 +56,9 @@ function nextToSignOut(sessions: readonly Session[], familyId: string) {
  * caller's own session epoch, so while one is in flight every Sign out is
  * off, and the list is read again once it settles, through the client's one
  * refresh. The buttons stay focusable meanwhile, answering `aria-disabled`.
- * When a signed-out row leaves the list, focus moves to the next row's Sign
- * out, the previous one's, or Sign out other devices. Only the server's
+ * Once a signed-out row has left the list, focus moves to the next row's
+ * Sign out, the previous one's, or Sign out other devices. A failed Sign out
+ * other devices shows its reason in the confirmation, which stays open. Only the server's
  * labels are shown: an unrecognised device reads "Unknown device", and a
  * location is shown as given (DG-164).
  */
@@ -78,19 +75,22 @@ export function DevicesSection() {
   const busy = revoking !== null;
   const othersButton = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
-  const refocus = useRef<{ neighbour: string | null } | null>(null);
+  const refocus = useRef<{ departed: string; neighbour: string | null } | null>(null);
+  const listed = sessions.data?.map((session) => session.familyId).join(" ") ?? "";
+  const listStatus = sessions.status;
 
   useEffect(() => {
-    if (busy || refocus.current === null) return;
-    const { neighbour } = refocus.current;
+    const pending = refocus.current;
+    if (pending === null) return;
+    const row = (familyId: string) =>
+      list.current?.querySelector<HTMLElement>(`[data-family-id="${familyId}"]`) ??
+      null;
+    if (row(pending.departed) !== null) return;
     refocus.current = null;
     if (!focusIsLost()) return;
-    const next =
-      neighbour === null
-        ? null
-        : list.current?.querySelector<HTMLElement>(`[data-family-id="${neighbour}"]`);
+    const next = pending.neighbour === null ? null : row(pending.neighbour);
     (next ?? othersButton.current)?.focus();
-  }, [busy]);
+  }, [listed, listStatus]);
 
   function revoke(next: Exclude<Revoking, null>, work: () => Promise<string>) {
     const lease = authStore.captureActor();
@@ -104,6 +104,7 @@ export function DevicesSection() {
           toast(done);
         },
         (cause: unknown) => {
+          refocus.current = null;
           if (!authStore.isCurrent(lease)) return;
           setError(failureMessage(cause, t("api.failed")));
         },
@@ -116,7 +117,10 @@ export function DevicesSection() {
 
   function signOutOne(familyId: string) {
     if (busy) return;
-    refocus.current = { neighbour: nextToSignOut(sessions.data ?? [], familyId) };
+    refocus.current = {
+      departed: familyId,
+      neighbour: nextToSignOut(sessions.data ?? [], familyId),
+    };
     revoke({ kind: "one", familyId }, async () => {
       await revokeSession(familyId);
       return t("settings.devices.signedOutOne");
@@ -153,7 +157,7 @@ export function DevicesSection() {
         </Button>
       }
     >
-      {error === null ? null : (
+      {error === null || confirming ? null : (
         <p role="alert" className="text-danger-ink border-b px-4.5 py-3 text-sm">
           {error}
         </p>
@@ -168,7 +172,9 @@ export function DevicesSection() {
       <ConfirmDialog
         open={confirming}
         onOpenChange={(open) => {
-          if (!busy) setConfirming(open);
+          if (busy) return;
+          setConfirming(open);
+          if (!open) setError(null);
         }}
         title={t("settings.devices.confirmTitle")}
         description={t("settings.devices.confirmBody")}
@@ -176,6 +182,7 @@ export function DevicesSection() {
         icon={LogOut}
         destructive
         pending={revoking?.kind === "others"}
+        error={confirming ? error : null}
         onConfirm={signOutOthers}
       />
     </SettingsCard>

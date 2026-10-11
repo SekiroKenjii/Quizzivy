@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -9,6 +9,7 @@ import {
   PasswordSection,
 } from "@/features/auth/components/SettingsSections";
 import { AppearanceSection } from "@/features/settings/sections/Appearance";
+import { SESSIONS_KEY } from "@/features/settings/api";
 import { DevicesSection } from "@/features/settings/sections/Devices";
 import { ProfileSection } from "@/features/settings/sections/Profile";
 import { __resetRefreshStateForTests } from "@/lib/api/client";
@@ -321,6 +322,65 @@ describe("focus in Signed-in devices", () => {
     await waitFor(async () =>
       expect(await signOutButton("Thiết bị không xác định")).toHaveFocus(),
     );
+  });
+
+  it("waits for the row to leave when the new list arrives after the buttons turn back on", async () => {
+    let revoked = false;
+    let stale = true;
+    const reply = gate();
+    server.use(
+      http.get(`${BASE}/auth/sessions`, () =>
+        contractJson("/auth/sessions", "get", 200, {
+          items:
+            revoked && !stale ? [THIS_DEVICE, UNKNOWN] : [THIS_DEVICE, PHONE, UNKNOWN],
+        }),
+      ),
+      http.delete(`${BASE}/auth/sessions/:familyId`, async () => {
+        await reply.opened;
+        revoked = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <DevicesSection />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+
+    const phone = await signOutButton("iPhone · Safari");
+    await user.click(phone);
+    reply.open();
+
+    await waitFor(() => expect(phone).not.toHaveAttribute("aria-disabled"));
+    expect(phone).toBeInTheDocument();
+    expect(phone).toHaveFocus();
+    stale = false;
+    await act(() => client.invalidateQueries({ queryKey: SESSIONS_KEY }));
+
+    await waitFor(() => expect(phone).not.toBeInTheDocument());
+    expect(await signOutButton("Thiết bị không xác định")).toHaveFocus();
+  });
+
+  it("leaves focus on Sign out when the sign-out fails", async () => {
+    server.use(
+      http.get(`${BASE}/auth/sessions`, () =>
+        contractJson("/auth/sessions", "get", 200, { items: [THIS_DEVICE, PHONE] }),
+      ),
+      http.delete(`${BASE}/auth/sessions/:familyId`, () =>
+        HttpResponse.json(null, { status: 500 }),
+      ),
+    );
+    withClient(<DevicesSection />);
+    const user = userEvent.setup();
+
+    const phone = await signOutButton("iPhone · Safari");
+    await user.click(phone);
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    await waitFor(() => expect(phone).not.toHaveAttribute("aria-disabled"));
+    expect(phone).toHaveFocus();
   });
 
   it("moves to the previous row's Sign out when the last row goes", async () => {

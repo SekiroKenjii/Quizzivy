@@ -197,6 +197,43 @@ describe("the signed-in devices", () => {
     );
   });
 
+  it("shows a failed Sign out other devices in the confirmation, which stays open", async () => {
+    listsSessions([THIS_DEVICE, PHONE]);
+    server.use(
+      http.post(`${BASE}/auth/sessions/revoke-others`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "INTERNAL",
+              message: "Không đăng xuất được.",
+              requestId: REQUEST_ID,
+            },
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderDevices();
+    const user = userEvent.setup();
+    await rows();
+
+    await user.click(
+      screen.getByRole("button", { name: "Đăng xuất các thiết bị khác" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Đăng xuất các thiết bị khác?",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Đăng xuất" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Không đăng xuất được.",
+    );
+    expect(dialog).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it.each([
     [0, "Không có thiết bị nào khác đang đăng nhập."],
     [1, "Đã đăng xuất 1 thiết bị khác"],
