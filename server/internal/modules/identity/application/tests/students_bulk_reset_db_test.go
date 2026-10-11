@@ -603,3 +603,71 @@ func TestTheAuditRowsOfOneBulkResetShareABatchIDAndNothingElseDoes(t *testing.T)
 		}
 	}
 }
+
+type commitThenCancel struct {
+	domain.Students
+	cancel context.CancelFunc
+}
+
+func (c commitThenCancel) ResetPassword(ctx context.Context, req domain.WriteRequest, id, hash string, now time.Time) error {
+	if err := c.Students.ResetPassword(ctx, req, id, hash, now); err != nil {
+		return err
+	}
+	c.cancel()
+	return fmt.Errorf("students: commit reset: %w", ctx.Err())
+}
+
+func TestAResetWhoseRequestEndedAfterTheCommitStillForgetsTheStudent(t *testing.T) {
+	w := newBulkWorld(t)
+	dbx := db.NewContext(w.pool)
+	request := func() (*application.Application, context.Context) {
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		app := application.New(nil, nil, 0, commitThenCancel{Students: repositories.NewStudents(dbx), cancel: cancel}, attemptsrepo.NewStudentStats(dbx))
+		app.SetPrincipals(w.forgets)
+		return app, ctx
+	}
+	single, bulk := w.mine[0], w.mine[1]
+	beforeSingle, beforeBulk := w.state(t, single), w.state(t, bulk)
+
+	singleApp, singleCtx := request()
+	_, err := singleApp.Commands.ResetStudentPassword.Handle(singleCtx, command.ResetStudentPassword{Request: w.requestA, ID: single})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("the single reset answered %v, want the cancellation its request ended with", err)
+	}
+	bulkApp, bulkCtx := request()
+	result, err := bulkApp.Commands.ResetStudentsPasswords.Handle(bulkCtx, command.ResetStudentsPasswords{Request: w.requestA, IDs: []string{bulk}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(result.Reset) != 0 || !errors.Is(reasonFor(result, bulk), domain.ErrResetFailed) {
+		t.Errorf("the bulk reset answered %v and %v, want its student failed, because the password could not be handed out", resetIDs(result), result.Failed)
+	}
+	for id, before := range map[string]accountState{single: beforeSingle, bulk: beforeBulk} {
+		after := w.state(t, id)
+		if after.Epoch != before.Epoch+1 || after.LiveFamilies != 0 || after.ResetAudits != before.ResetAudits+1 {
+			t.Fatalf("%s after the reset: %+v, want it committed", id, after)
+		}
+		if calls := w.forgets.of(id); len(calls) != 1 || calls[0].Epoch != after.Epoch || calls[0].ResetAudits != after.ResetAudits {
+			t.Errorf("%s was forgotten as %+v, want once, and after the commit", id, calls)
+		}
+	}
+}
+
+func TestARealDriverErrorFromAnEndedRequestIsAContextError(t *testing.T) {
+	w := newBulkWorld(t)
+	store := repositories.NewStudents(db.NewContext(w.pool))
+	before := w.state(t, w.mine[0])
+	ended, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := store.ResetPassword(ended, w.requestA, w.mine[0], "$argon2id$v=19$m=65536,t=3,p=2$c2FsdA$aGFzaA", time.Now())
+
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("a reset on an ended request answered %v, want an error that is a context.Canceled: the handlers decide to forget on it", err)
+	}
+	if after := w.state(t, w.mine[0]); after != before {
+		t.Errorf("an ended request changed the student: %+v became %+v", before, after)
+	}
+}

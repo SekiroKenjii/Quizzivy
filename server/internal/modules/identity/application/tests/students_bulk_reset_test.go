@@ -29,6 +29,7 @@ type bulkShelf struct {
 	known  map[string]domain.Student
 	refuse map[string]error
 	fail   map[string]error
+	lost   map[string]error
 	panics map[string]bool
 	delay  map[string]time.Duration
 	tried  []string
@@ -42,6 +43,7 @@ func newBulkShelf(ids ...string) *bulkShelf {
 		known:  map[string]domain.Student{},
 		refuse: map[string]error{},
 		fail:   map[string]error{},
+		lost:   map[string]error{},
 		panics: map[string]bool{},
 		delay:  map[string]time.Duration{},
 		hashes: map[string]string{},
@@ -81,7 +83,7 @@ func (b *bulkShelf) ResetPassword(_ context.Context, req domain.WriteRequest, id
 	}
 	b.done = append(b.done, id)
 	b.hashes[id] = hash
-	return nil
+	return b.lost[id]
 }
 
 func (b *bulkShelf) reset(id string) bool {
@@ -344,6 +346,82 @@ func TestASingleResetOfAStudentItWouldRefuseCostsNoHash(t *testing.T) {
 	}
 	if got := passwords.calls.Load(); got != 1 || len(shelf.writes) != 1 {
 		t.Errorf("a student who proceeds cost %d passwords and %v writes, want one of each", got, shelf.writes)
+	}
+}
+
+type forgetLog struct {
+	heldPermissions
+	mu  sync.Mutex
+	ids []string
+}
+
+func (f *forgetLog) Forget(id string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.ids = append(f.ids, id)
+}
+
+func (f *forgetLog) forgotten() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.ids)
+}
+
+func TestAResetThatMayHaveCommittedForgetsTheStudentAndOneThatCannotHaveDoesNot(t *testing.T) {
+	for name, c := range map[string]struct {
+		answer error
+		want   bool
+	}{
+		"it committed":                       {nil, true},
+		"the request was cancelled":          {fmt.Errorf("students: commit reset: %w", context.Canceled), true},
+		"the request's deadline passed":      {fmt.Errorf("students: reset password: timeout: %w", context.DeadlineExceeded), true},
+		"the student was shared":             {domain.ErrStudentShared, false},
+		"the student was gone":               {domain.ErrStudentNotFound, false},
+		"the database refused the statement": {errors.New("pq: deadlock detected"), false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			shelf := &guardedShelf{visible: map[string]bool{"pupil": true}, failed: map[string]error{"pupil": c.answer}}
+			log := &forgetLog{heldPermissions: heldPermissions{sets: map[string]access.Set{"pupil": access.NewSet(access.LearningTakeTests)}}}
+			app := application.New(nil, nil, 0, shelf, noFigures{})
+			app.SetPrincipals(log)
+			app.SetTemporaryPasswords((&passwordSource{}).make)
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			_, err := app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: teacherRequest, ID: "pupil"})
+
+			if (err == nil) != (c.answer == nil) || (c.answer != nil && !errors.Is(err, c.answer)) {
+				t.Errorf("answered %v for the reset's %v", err, c.answer)
+			}
+			if got := log.forgotten(); c.want != (len(got) == 1 && got[0] == "pupil") || len(got) > 1 {
+				t.Errorf("forgot %v, want the student forgotten exactly when %v", got, c.want)
+			}
+		})
+	}
+}
+
+func TestABulkResetForgetsEveryStudentWhoseCommitMayHaveHappened(t *testing.T) {
+	rig := newBulkRig("a", "cancelled", "late", "b", "shared", "broken")
+	rig.shelf.lost["cancelled"] = fmt.Errorf("students: commit reset: %w", context.Canceled)
+	rig.shelf.lost["late"] = fmt.Errorf("students: reset password: %w", context.DeadlineExceeded)
+	rig.shelf.fail["shared"] = domain.ErrStudentShared
+	rig.shelf.fail["broken"] = errors.New("pq: deadlock detected")
+
+	result := rig.reset(context.Background(), teacherRequest, "a", "cancelled", "late", "b", "shared", "broken")
+
+	if got, want := resetIDs(result), []string{"a", "b"}; !slices.Equal(got, want) {
+		t.Errorf("reset %v, want %v", got, want)
+	}
+	for _, id := range []string{"cancelled", "late", "broken"} {
+		if got := reasonFor(result, id); !errors.Is(got, domain.ErrResetFailed) {
+			t.Errorf("%s failed with %v, want the reset-failed reason: the password cannot be handed out", id, got)
+		}
+	}
+	if got, want := rig.principal.forgottenIDs(), []string{"a", "b", "cancelled", "late"}; !slices.Equal(got, want) {
+		t.Errorf("forgot %v, want %v: the students reset and the two whose commit the request could not read, not the refused or the faulted", got, want)
+	}
+	if len(rig.principal.early) != 0 {
+		t.Errorf("forgot %v before their reset was stored", rig.principal.early)
 	}
 }
 

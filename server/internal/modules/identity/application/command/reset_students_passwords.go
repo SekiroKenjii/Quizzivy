@@ -121,11 +121,12 @@ func (s ResetStudentsPasswordsHandler) resetOne(ctx context.Context, req domain.
 		outcome.err = s.classify(id, fmt.Errorf("make a temporary password: %w", err))
 		return outcome
 	}
-	if err := s.Repo.ResetPassword(ctx, req, id, hash, s.Now()); err != nil {
+	err = s.Repo.ResetPassword(ctx, req, id, hash, s.Now())
+	s.ForgetAfterReset(id, err)
+	if err != nil {
 		outcome.err = s.classify(id, err)
 		return outcome
 	}
-	s.Principals.Forget(id)
 	outcome.reset = domain.PasswordReset{StudentID: id, FullName: student.FullName, Email: student.Email, TemporaryPassword: password}
 	return outcome
 }
