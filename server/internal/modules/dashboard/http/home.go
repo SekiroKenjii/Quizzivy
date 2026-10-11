@@ -7,20 +7,29 @@ import (
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/dashboard/application/query"
 	"quizzivy/internal/modules/dashboard/domain"
+	notificationsdomain "quizzivy/internal/modules/notifications/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/shared/access"
 	"time"
 )
 
-func (h Dashboard) GetTeacherSummary(ctx context.Context, _ openapi.GetTeacherSummaryRequestObject) (openapi.GetTeacherSummaryResponseObject, error) {
+func (h Dashboard) GetTeacherSummary(ctx context.Context, request openapi.GetTeacherSummaryRequestObject) (openapi.GetTeacherSummaryResponseObject, error) {
 	if h.app == nil || h.app.Queries.Nav == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, _ := httpx.PrincipalFromContext(ctx)
-	out, err := h.app.Queries.Nav.Handle(ctx, query.Nav{Scope: httpapi.ScopeFromContext(ctx).Own(), CanGrade: principal.Access.Permissions.Has(access.TeachingGrading)})
+	nav := query.Nav{Scope: httpapi.ScopeFromContext(ctx).Own(), CanGrade: principal.Access.Permissions.Has(access.TeachingGrading)}
+	if request.Params.Audience != nil {
+		nav.Audience = notificationsdomain.Audience(*request.Params.Audience)
+	}
+	out, err := h.app.Queries.Nav.Handle(ctx, nav)
 	if errors.Is(err, domain.ErrNotificationsUnavailable) {
 		return nil, httpx.ErrNotImplemented
+	}
+	if errors.Is(err, notificationsdomain.ErrUnknownAudience) {
+		return openapi.GetTeacherSummary400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.FieldError(ctx, "audience", httpx.Text(ctx, "Chỉ có giao diện giáo viên và học viên.", "Only the teacher's and the student's console exist.")))}, nil
 	}
 	if err != nil {
 		return nil, err

@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/dashboard/application/query"
 	"quizzivy/internal/modules/dashboard/domain"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
+	notificationsdomain "quizzivy/internal/modules/notifications/domain"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/cqrs"
@@ -63,6 +64,42 @@ func TestNavAlwaysUsesOwnScopeAndResolvedGradingPermission(t *testing.T) {
 				t.Fatalf("nav query=%+v", got)
 			}
 		})
+	}
+}
+
+func TestNavCarriesTheAudienceTheRequestNamesAndRefusesAnUnknownOne(t *testing.T) {
+	teacher := principals()["a Teacher"]
+	var got query.Nav
+	app := &application.Application{Queries: application.Queries{Nav: cqrs.HandlerFunc[query.Nav, domain.Nav](func(_ context.Context, q query.Nav) (domain.Nav, error) {
+		got = q
+		return domain.Nav{}, nil
+	})}}
+	transport := dashboardhttp.NewDashboard(app)
+	for given, want := range map[string]notificationsdomain.Audience{"": "", "teacher": notificationsdomain.AudienceTeacher, "student": notificationsdomain.AudienceStudent} {
+		params := openapi.GetTeacherSummaryParams{}
+		if given != "" {
+			audience := openapi.NotificationAudience(given)
+			params.Audience = &audience
+		}
+		if _, err := transport.GetTeacherSummary(gated(t, teacher, "GET /teacher/summary"), openapi.GetTeacherSummaryRequestObject{Params: params}); err != nil {
+			t.Fatal(err)
+		}
+		if got.Audience != want {
+			t.Errorf("audience %q reached the query as %q, want %q", given, got.Audience, want)
+		}
+	}
+
+	refusing := &application.Application{Queries: application.Queries{Nav: cqrs.HandlerFunc[query.Nav, domain.Nav](func(context.Context, query.Nav) (domain.Nav, error) {
+		return domain.Nav{}, notificationsdomain.ErrUnknownAudience
+	})}}
+	unknown := openapi.NotificationAudience("admin")
+	out, err := dashboardhttp.NewDashboard(refusing).GetTeacherSummary(gated(t, teacher, "GET /teacher/summary"),
+		openapi.GetTeacherSummaryRequestObject{Params: openapi.GetTeacherSummaryParams{Audience: &unknown}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, refused := out.(openapi.GetTeacherSummary400JSONResponse); !refused {
+		t.Errorf("an unknown audience was answered %T, want a 400", out)
 	}
 }
 

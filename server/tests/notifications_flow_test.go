@@ -148,6 +148,77 @@ func TestASignedInUserReadsMarksAndSwitchesOnlyTheirOwnNotifications(t *testing.
 	}
 }
 
+func TestEachConsolesBellCountsListsAndClearsOnlyItsOwnKinds(t *testing.T) {
+	w := boot(t)
+	email, password := w.createStaff("teacher")
+	user := w.signedIn(email, password)
+	userID := user.me(t)
+
+	insert := func(kind, params, key string) string {
+		t.Helper()
+		var id string
+		if err := w.pool.QueryRow(context.Background(), `
+			INSERT INTO app.notifications (user_id, kind, params, dedupe_key)
+			VALUES ($1::uuid, $2, $3::jsonb, $4)
+			RETURNING id::text`, userID, kind, params, key).Scan(&id); err != nil {
+			t.Fatalf("%s: %v", kind, err)
+		}
+		return id
+	}
+	joined := insert("class.joined", `{"studentName":"Nguyễn Gia Bảo","className":"Lớp A"}`, "joined:audience")
+	submitted := insert("attempt.submitted", `{"studentName":"Lê Hoàng Nam","title":"Đề giữa kỳ"}`, "submitted:audience")
+	ready := insert("result.ready", `{"title":"Đề giữa kỳ"}`, "ready:audience")
+
+	unread := func(path string) float64 {
+		t.Helper()
+		return user.must(http.StatusOK, http.MethodGet, path, nil)["unreadNotifications"].(float64)
+	}
+	counts := map[string][3]float64{
+		"/me/summary":      {3, 2, 1},
+		"/teacher/summary": {3, 2, 1},
+	}
+	for path, want := range counts {
+		for i, query := range []string{"", "?audience=teacher", "?audience=student"} {
+			if got := unread(path + query); got != want[i] {
+				t.Errorf("GET %s%s counts %v unread, want %v", path, query, got, want[i])
+			}
+		}
+	}
+	if ids, _ := user.notifications(t, ""); len(ids) != 3 {
+		t.Errorf("the list with no audience holds %v, want all three", ids)
+	}
+	if ids, _ := user.notifications(t, "?audience=student"); !slices.Equal(ids, []string{ready}) {
+		t.Errorf("the student's list is %v, want its one row", ids)
+	}
+	if ids, _ := user.notifications(t, "?audience=teacher"); !slices.Equal(ids, []string{submitted, joined}) {
+		t.Errorf("the teacher's list is %v, want its two rows, newest first", ids)
+	}
+	if ids, next := user.notifications(t, "?audience=teacher&limit=1"); !slices.Equal(ids, []string{submitted}) || next != submitted {
+		t.Errorf("a page of one of the teacher's rows is %v with next %v", ids, next)
+	}
+
+	user.must(http.StatusNoContent, http.MethodPost, "/me/notifications/read", map[string]any{"audience": "teacher", "ids": []string{ready}})
+	if got := unread("/me/summary?audience=student"); got != 1 {
+		t.Errorf("the teacher's bell marked the student's row by id: %v unread, want 1", got)
+	}
+	user.must(http.StatusNoContent, http.MethodPost, "/me/notifications/read", map[string]any{"audience": "student"})
+	if got := unread("/me/summary?audience=student"); got != 0 {
+		t.Errorf("the student's bell has %v unread after clearing, want 0", got)
+	}
+	if got := unread("/teacher/summary?audience=teacher"); got != 2 {
+		t.Errorf("clearing the student's bell left the teacher's with %v unread, want 2", got)
+	}
+	user.must(http.StatusNoContent, http.MethodPost, "/me/notifications/read", map[string]any{"audience": "teacher"})
+	if got := unread("/me/summary"); got != 0 {
+		t.Errorf("both bells cleared leave %v unread, want 0", got)
+	}
+
+	for _, path := range []string{"/me/summary?audience=admin", "/me/notifications?audience=admin", "/teacher/summary?audience=admin"} {
+		user.must(http.StatusBadRequest, http.MethodGet, path, nil)
+	}
+	user.must(http.StatusBadRequest, http.MethodPost, "/me/notifications/read", map[string]any{"audience": "admin"})
+}
+
 func TestTheApplicationStartsItsJobsAndStops(t *testing.T) {
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {

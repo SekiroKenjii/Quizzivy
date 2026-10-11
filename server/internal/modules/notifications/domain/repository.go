@@ -17,12 +17,15 @@ type Repository interface {
 	// List returns up to q.Size() of q.UserID's notifications older than
 	// q.Before, newest first, and where the next page starts.
 	List(ctx context.Context, q ListQuery) (Page, error)
-	// MarkRead marks those of ids that are userID's and unread.
-	MarkRead(ctx context.Context, userID string, ids []string) error
-	// MarkAllRead marks every unread notification userID has.
-	MarkAllRead(ctx context.Context, userID string) error
-	// Unread counts userID's unread notifications.
-	Unread(ctx context.Context, userID string) (int, error)
+	// MarkRead marks those of ids that are userID's, unread and of audience's
+	// kinds. The empty Audience, here and in the two methods below, means
+	// every kind.
+	MarkRead(ctx context.Context, userID string, ids []string, audience Audience) error
+	// MarkAllRead marks every unread notification userID has of audience's
+	// kinds.
+	MarkAllRead(ctx context.Context, userID string, audience Audience) error
+	// Unread counts userID's unread notifications of audience's kinds.
+	Unread(ctx context.Context, userID string, audience Audience) (int, error)
 	// Preferences returns the switches userID has saved, and only those.
 	Preferences(ctx context.Context, userID string) ([]Preference, error)
 	// SavePreferences stores prefs for userID and returns them as stored.
