@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	accessdomain "quizzivy/internal/modules/access/domain"
 	"quizzivy/internal/modules/identity/application"
@@ -29,6 +32,7 @@ type bulkShelf struct {
 	panics map[string]bool
 	delay  map[string]time.Duration
 	tried  []string
+	batch  map[string]string
 	done   []string
 	hashes map[string]string
 }
@@ -41,6 +45,7 @@ func newBulkShelf(ids ...string) *bulkShelf {
 		panics: map[string]bool{},
 		delay:  map[string]time.Duration{},
 		hashes: map[string]string{},
+		batch:  map[string]string{},
 	}
 	for _, id := range ids {
 		shelf.known[id] = domain.Student{ID: id, FullName: "Học sinh " + id, Email: id + "@example.test"}
@@ -60,9 +65,10 @@ func (b *bulkShelf) CheckResettable(_ context.Context, _ domain.WriteRequest, id
 	return b.refuse[id]
 }
 
-func (b *bulkShelf) ResetPassword(_ context.Context, _ domain.WriteRequest, id, hash string, _ time.Time) error {
+func (b *bulkShelf) ResetPassword(_ context.Context, req domain.WriteRequest, id, hash string, _ time.Time) error {
 	b.mu.Lock()
 	b.tried = append(b.tried, id)
+	b.batch[id] = req.BatchID
 	b.mu.Unlock()
 	time.Sleep(b.delay[id])
 	if b.panics[id] {
@@ -338,6 +344,43 @@ func TestASingleResetOfAStudentItWouldRefuseCostsNoHash(t *testing.T) {
 	}
 	if got := passwords.calls.Load(); got != 1 || len(shelf.writes) != 1 {
 		t.Errorf("a student who proceeds cost %d passwords and %v writes, want one of each", got, shelf.writes)
+	}
+}
+
+func TestEveryStudentOfOneBulkResetIsWrittenUnderOneBatchIDAndAnotherResetUsesAnother(t *testing.T) {
+	ids := make([]string, 12)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("s%02d", i)
+	}
+	rig := newBulkRig(ids...)
+	rig.shelf.fail["s03"] = domain.ErrStudentShared
+
+	first := rig.reset(context.Background(), teacherRequest, ids...)
+	batches := maps.Clone(rig.shelf.batch)
+	second := rig.reset(context.Background(), teacherRequest, ids[:4]...)
+
+	if len(first.Reset) != 11 || len(second.Reset) != 3 {
+		t.Fatalf("reset %d and %d students, want 11 and 3", len(first.Reset), len(second.Reset))
+	}
+	if len(batches) != len(ids) {
+		t.Fatalf("%d students were written, want %d: a student the transaction refuses is still written under the batch", len(batches), len(ids))
+	}
+	one := batches[ids[0]]
+	if parsed, err := uuid.Parse(one); err != nil || parsed.Version() != 7 {
+		t.Fatalf("the batch id is %q (%v), want a version 7 uuid", one, err)
+	}
+	for id, got := range batches {
+		if got != one {
+			t.Errorf("%s was written under the batch %q, want %q: one call is one batch", id, got, one)
+		}
+	}
+	for _, id := range ids[:4] {
+		if got := rig.shelf.batch[id]; got == one || got == "" {
+			t.Errorf("%s was written under the batch %q again, want a batch of its own for the second call", id, got)
+		}
+	}
+	if teacherRequest.BatchID != "" {
+		t.Errorf("the caller's request was given the batch %q, want it left as it was", teacherRequest.BatchID)
 	}
 }
 

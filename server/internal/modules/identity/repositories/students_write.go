@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/identity/domain"
@@ -169,6 +170,10 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 // ErrStudentNotFound; a student someone else also reaches answers
 // ErrStudentShared unless the actor manages accounts.
 func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, id, hash string, now time.Time) error {
+	diff, err := batchDiff(req.BatchID)
+	if err != nil {
+		return err
+	}
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("students: begin reset: %w", err)
@@ -207,10 +212,24 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 		OccurredAt:  now,
 		IP:          opt.String(req.IP),
 		UserAgent:   opt.String(req.UserAgent),
+		Diff:        diff,
 	}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func batchDiff(batchID string) ([]byte, error) {
+	if batchID == "" {
+		return nil, nil
+	}
+	diff, err := json.Marshal(struct {
+		BatchID string `json:"batchId"`
+	}{batchID})
+	if err != nil {
+		return nil, fmt.Errorf("students: encode batch id: %w", err)
+	}
+	return diff, nil
 }
 
 // CheckResettable answers what ResetPassword would answer for the student on

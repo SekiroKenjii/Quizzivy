@@ -522,3 +522,84 @@ func TestAStudentTheTransactionWouldRefuseCostsNoHashAndChangesNothing(t *testin
 		}
 	}
 }
+
+func TestTheAuditRowsOfOneBulkResetShareABatchIDAndNothingElseDoes(t *testing.T) {
+	w := newBulkWorld(t)
+	ctx := context.Background()
+	batchOf := func(id string) (batch *string, rows int) {
+		t.Helper()
+		if err := w.pool.QueryRow(ctx, `
+			SELECT max(diff ->> 'batchId'), count(*)::int FROM app.audit_log
+			 WHERE entity_id = $1::uuid AND action = 'student.password_reset'`, id).Scan(&batch, &rows); err != nil {
+			t.Fatal(err)
+		}
+		return batch, rows
+	}
+	inBatch := func(batch string) []string {
+		t.Helper()
+		rows, err := w.pool.Query(ctx, `SELECT entity_id::text FROM app.audit_log WHERE action = 'student.password_reset' AND diff ->> 'batchId' = $1 ORDER BY 1`, batch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		var ids []string
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			ids = append(ids, id)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		return ids
+	}
+
+	first := w.resetAs(t, w.requestA, w.mine[0], w.mine[1], w.shared, w.mine[2])
+	second := w.resetAs(t, w.requestA, w.extra)
+	if _, err := w.app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: w.requestA, ID: w.mine[0]}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(first.Reset) != 3 || len(second.Reset) != 1 {
+		t.Fatalf("reset %v and %v, want three and one", resetIDs(first), resetIDs(second))
+	}
+	oneBatch, _ := batchOf(w.mine[1])
+	if oneBatch == nil {
+		t.Fatalf("the audit row of %s carries no batch id", w.mine[1])
+	}
+	if parsed, err := uuid.Parse(*oneBatch); err != nil || parsed.Version() != 7 {
+		t.Errorf("the batch id is %q (%v), want a version 7 uuid", *oneBatch, err)
+	}
+	want := resetIDs(first)
+	slices.Sort(want)
+	if got := inBatch(*oneBatch); !slices.Equal(got, want) {
+		t.Errorf("the batch holds the audit rows of %v, want exactly the students it reset, %v, and not the shared one it refused", got, want)
+	}
+	for _, r := range second.Reset {
+		other, rows := batchOf(r.StudentID)
+		if other == nil || *other == *oneBatch || rows != 1 {
+			t.Errorf("%s: batch %v in %d rows, want a batch of its own from the second call", r.StudentID, other, rows)
+		}
+	}
+	if single, rows := batchOf(w.mine[0]); rows != 2 || single == nil {
+		t.Errorf("%s has %d reset rows, want its bulk row and its single one", w.mine[0], rows)
+	}
+	var unbatched int
+	if err := w.pool.QueryRow(ctx, `SELECT count(*)::int FROM app.audit_log WHERE entity_id = $1::uuid AND action = 'student.password_reset' AND diff IS NULL`, w.mine[0]).Scan(&unbatched); err != nil {
+		t.Fatal(err)
+	}
+	if unbatched != 1 {
+		t.Errorf("%d of %s's reset rows have no diff, want the single reset's row alone", unbatched, w.mine[0])
+	}
+	var diffs string
+	if err := w.pool.QueryRow(ctx, `SELECT string_agg(diff::text, ' ') FROM app.audit_log WHERE action = 'student.password_reset' AND diff IS NOT NULL AND entity_id IN (SELECT id FROM app.users WHERE full_name LIKE '%' || $1)`, w.marker).Scan(&diffs); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range append(first.Reset, second.Reset...) {
+		if strings.Contains(diffs, r.TemporaryPassword) {
+			t.Errorf("a batch diff holds %s's temporary password", r.StudentID)
+		}
+	}
+}
