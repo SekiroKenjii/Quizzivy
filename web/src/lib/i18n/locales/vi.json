@@ -579,7 +579,7 @@
     "emailHint": "Dùng để đăng nhập",
     "phone": "Số điện thoại",
     "timeZone": "Múi giờ",
-    "saved": "Đã lưu cài đặt.",
+    "saved": "Đã lưu cài đặt",
     "photo": {
       "alt": "Ảnh hồ sơ của bạn",
       "change": "Đổi ảnh",
@@ -587,11 +587,11 @@
       "changeTitle": "Đổi ảnh",
       "limits": "PNG hoặc JPG vuông, tối thiểu 200 × 200",
       "save": "Lưu ảnh",
-      "updated": "Đã cập nhật ảnh.",
+      "updated": "Đã cập nhật ảnh",
       "removeTitle": "Gỡ ảnh của bạn?",
       "removeBody": "Học viên sẽ thấy chữ cái đầu tên bạn thay cho ảnh.",
       "removeConfirm": "Gỡ ảnh",
-      "removed": "Đã gỡ ảnh.",
+      "removed": "Đã gỡ ảnh",
       "wrongType": "Chỉ nhận ảnh PNG hoặc JPG.",
       "tooLarge": "Ảnh tối đa 2 MB."
     },
@@ -628,9 +628,9 @@
       "loadFailed": "Không tải được danh sách thiết bị.",
       "confirmTitle": "Đăng xuất các thiết bị khác?",
       "confirmBody": "Mọi phiên đăng nhập trừ phiên này sẽ kết thúc ngay.",
-      "signedOutOne": "Đã đăng xuất thiết bị.",
-      "signedOutOthersOne": "Đã đăng xuất 1 thiết bị khác.",
-      "signedOutOthersMany": "Đã đăng xuất {{count}} thiết bị khác.",
+      "signedOutOne": "Đã đăng xuất thiết bị",
+      "signedOutOthersOne": "Đã đăng xuất 1 thiết bị khác",
+      "signedOutOthersMany": "Đã đăng xuất {{count}} thiết bị khác",
       "noOthers": "Không có thiết bị nào khác đang đăng nhập."
     },
     "appearance": {

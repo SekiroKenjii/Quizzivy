@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -24,6 +24,7 @@ import {
 import { failureMessage } from "@/lib/api/errors";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
+import { cn } from "@/lib/utils";
 import { authStore } from "@/stores/auth";
 
 const KIND_ICON: Record<Session["deviceKind"], LucideIcon> = {
@@ -36,7 +37,20 @@ const KIND_ICON: Record<Session["deviceKind"], LucideIcon> = {
 const ROW = "flex items-center gap-3 border-t px-4.5 py-3 first:border-t-0";
 const SKELETON_ROWS = [0, 1, 2] as const;
 
+const QUIET = "aria-disabled:opacity-50";
+
 type Revoking = { kind: "one"; familyId: string } | { kind: "others" } | null;
+
+function focusIsLost() {
+  const active = document.activeElement;
+  return active === null || active === document.body;
+}
+
+function nextToSignOut(sessions: readonly Session[], familyId: string) {
+  const others = sessions.filter((session) => !session.current);
+  const at = others.findIndex((session) => session.familyId === familyId);
+  return (others[at + 1] ?? others[at - 1])?.familyId ?? null;
+}
 
 /**
  * DevicesSection is the Signed-in devices card of the teacher's Sign-in &
@@ -45,8 +59,11 @@ type Revoking = { kind: "one"; familyId: string } | { kind: "others" } | null;
  * and Sign out other devices behind a confirmation. A revoke moves the
  * caller's own session epoch, so while one is in flight every Sign out is
  * off, and the list is read again once it settles, through the client's one
- * refresh. Only the server's labels are shown: an unrecognised device reads
- * "Unknown device", and a location is shown as given (DG-164).
+ * refresh. The buttons stay focusable meanwhile, answering `aria-disabled`.
+ * When a signed-out row leaves the list, focus moves to the next row's Sign
+ * out, the previous one's, or Sign out other devices. Only the server's
+ * labels are shown: an unrecognised device reads "Unknown device", and a
+ * location is shown as given (DG-164).
  */
 export function DevicesSection() {
   const { t } = useTranslation();
@@ -59,6 +76,21 @@ export function DevicesSection() {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const busy = revoking !== null;
+  const othersButton = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const refocus = useRef<{ neighbour: string | null } | null>(null);
+
+  useEffect(() => {
+    if (busy || refocus.current === null) return;
+    const { neighbour } = refocus.current;
+    refocus.current = null;
+    if (!focusIsLost()) return;
+    const next =
+      neighbour === null
+        ? null
+        : list.current?.querySelector<HTMLElement>(`[data-family-id="${neighbour}"]`);
+    (next ?? othersButton.current)?.focus();
+  }, [busy]);
 
   function revoke(next: Exclude<Revoking, null>, work: () => Promise<string>) {
     const lease = authStore.captureActor();
@@ -83,6 +115,8 @@ export function DevicesSection() {
   }
 
   function signOutOne(familyId: string) {
+    if (busy) return;
+    refocus.current = { neighbour: nextToSignOut(sessions.data ?? [], familyId) };
     revoke({ kind: "one", familyId }, async () => {
       await revokeSession(familyId);
       return t("settings.devices.signedOutOne");
@@ -90,6 +124,7 @@ export function DevicesSection() {
   }
 
   function signOutOthers() {
+    if (busy) return;
     revoke({ kind: "others" }, async () => {
       const revoked = await revokeOtherSessions();
       if (revoked === 0) return t("settings.devices.noOthers");
@@ -105,11 +140,14 @@ export function DevicesSection() {
       className="overflow-hidden"
       action={
         <Button
+          ref={othersButton}
           type="button"
           variant="outline"
-          className="h-8.5"
-          disabled={busy}
-          onClick={() => setConfirming(true)}
+          className={cn("h-8.5", QUIET)}
+          aria-disabled={busy || undefined}
+          onClick={() => {
+            if (!busy) setConfirming(true);
+          }}
         >
           {t("settings.devices.signOutOthers")}
         </Button>
@@ -121,6 +159,7 @@ export function DevicesSection() {
         </p>
       )}
       <DeviceList
+        listRef={list}
         query={sessions}
         busy={busy}
         signingOut={revoking?.kind === "one" ? revoking.familyId : null}
@@ -144,11 +183,13 @@ export function DevicesSection() {
 }
 
 function DeviceList({
+  listRef,
   query,
   busy,
   signingOut,
   onSignOut,
 }: Readonly<{
+  listRef: RefObject<HTMLUListElement | null>;
   query: UseQueryResult<Session[]>;
   busy: boolean;
   signingOut: string | null;
@@ -188,7 +229,7 @@ function DeviceList({
     );
   }
   return (
-    <ul aria-label={t("settings.devices.title")}>
+    <ul ref={listRef} aria-label={t("settings.devices.title")}>
       {query.data.map((session) => (
         <DeviceRow
           key={session.familyId}
@@ -243,8 +284,12 @@ function DeviceRow({
         <Button
           type="button"
           variant="ghost"
-          className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink dark:hover:bg-danger-soft text-meta in-data-[scale=deck]:text-meta h-7.5 flex-none rounded-[7px] px-2.5 font-normal in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:px-2.5"
-          disabled={busy}
+          className={cn(
+            "text-danger-ink hover:bg-danger-soft hover:text-danger-ink dark:hover:bg-danger-soft text-meta in-data-[scale=deck]:text-meta h-7.5 flex-none rounded-[7px] px-2.5 font-normal in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:px-2.5",
+            QUIET,
+          )}
+          data-family-id={session.familyId}
+          aria-disabled={busy || undefined}
           aria-label={t("settings.devices.signOutNamed", { name })}
           onClick={() => onSignOut(session.familyId)}
         >

@@ -44,6 +44,8 @@ function Swatch({ theme }: Readonly<{ theme: ThemePreference }>) {
  * Dark or Match device, whose swatch is split rather than a gradient (DG-34),
  * and Compact tables (DG-37). Each choice applies at once and is saved to the
  * account's preferences; neither raises the DirtyBar or is undone by Discard.
+ * While a choice is saving the controls stay focusable, answer
+ * `aria-disabled` and ignore a press.
  */
 export function AppearanceSection() {
   const { t } = useTranslation();
@@ -72,12 +74,14 @@ export function AppearanceSection() {
                 key={theme}
                 type="button"
                 aria-pressed={preference === theme}
-                disabled={saving}
+                aria-disabled={saving || undefined}
                 className={cn(
-                  "bg-card flex flex-col gap-2 rounded-[10px] border p-2 text-left",
+                  "bg-card flex flex-col gap-2 rounded-[10px] border p-2 text-left aria-disabled:opacity-50",
                   preference === theme && "border-primary ring-primary ring-1",
                 )}
-                onClick={() => void chooseAccountPreference({ theme })}
+                onClick={() => {
+                  if (!saving) void chooseAccountPreference({ theme });
+                }}
               >
                 <Swatch theme={theme} />
                 <span className="px-0.5 text-sm leading-[normal] font-medium">
@@ -106,10 +110,11 @@ export function AppearanceSection() {
             checked={compact}
             aria-labelledby={compactLabel}
             aria-describedby={`${compactLabel}-hint`}
-            disabled={saving}
-            onCheckedChange={(compactTables) =>
-              void chooseAccountPreference({ compactTables })
-            }
+            aria-disabled={saving || undefined}
+            className="aria-disabled:opacity-50"
+            onCheckedChange={(compactTables) => {
+              if (!saving) void chooseAccountPreference({ compactTables });
+            }}
           />
         </div>
       </div>

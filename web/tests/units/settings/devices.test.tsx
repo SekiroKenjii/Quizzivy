@@ -143,21 +143,33 @@ describe("the signed-in devices", () => {
     expect(
       within(phone!).getByRole("button", { name: /^Đăng xuất/ }),
     ).toHaveTextContent("Đang đăng xuất…");
-    expect(within(phone!).getByRole("button", { name: /^Đăng xuất/ })).toBeDisabled();
-    expect(within(unknown!).getByRole("button", { name: /^Đăng xuất/ })).toBeDisabled();
+    expect(within(phone!).getByRole("button", { name: /^Đăng xuất/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(
+      within(unknown!).getByRole("button", { name: /^Đăng xuất/ }),
+    ).toHaveAttribute("aria-disabled", "true");
     expect(
       screen.getByRole("button", { name: "Đăng xuất các thiết bị khác" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
+    await user.click(within(unknown!).getByRole("button", { name: /^Đăng xuất/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Đăng xuất các thiết bị khác" }),
+    );
+    expect(
+      screen.queryByRole("dialog", { name: "Đăng xuất các thiết bị khác?" }),
+    ).toBeNull();
 
     reply.open();
-    expect(await screen.findByText("Đã đăng xuất thiết bị.")).toBeInTheDocument();
+    expect(await screen.findByText("Đã đăng xuất thiết bị")).toBeInTheDocument();
     await waitFor(async () => expect(await rows()).toHaveLength(2));
     expect(refreshes).toBe(1);
     expect(reads).toEqual(["Bearer token-a", "Bearer token-a", "Bearer token-b"]);
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Đăng xuất các thiết bị khác" }),
-      ).toBeEnabled(),
+      ).not.toHaveAttribute("aria-disabled"),
     );
   });
 
@@ -187,8 +199,8 @@ describe("the signed-in devices", () => {
 
   it.each([
     [0, "Không có thiết bị nào khác đang đăng nhập."],
-    [1, "Đã đăng xuất 1 thiết bị khác."],
-    [2, "Đã đăng xuất 2 thiết bị khác."],
+    [1, "Đã đăng xuất 1 thiết bị khác"],
+    [2, "Đã đăng xuất 2 thiết bị khác"],
   ])(
     "signs out the others after a confirmation and says so for %i",
     async (n, said) => {

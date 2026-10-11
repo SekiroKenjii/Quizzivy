@@ -28,7 +28,7 @@ const GRID = "grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5";
 const FIELD = "flex min-w-0 flex-col gap-1.5";
 const LABEL = "text-meta in-data-[scale=deck]:text-meta leading-normal font-medium";
 const INPUT = "bg-bg h-9.5";
-const ACTION = "h-8.5 self-start";
+const ACTION = "h-8.5 self-start aria-disabled:opacity-50";
 
 /**
  * PasswordSection is the Password card of the teacher's Sign-in & security
@@ -72,7 +72,17 @@ export function PasswordSection() {
 
   return (
     <SettingsCard title={t("settings.password")}>
-      <form onSubmit={(e) => void onSubmit(e)} className={BODY} noValidate>
+      <form
+        onSubmit={(event) => {
+          if (form.formState.isSubmitting) {
+            event.preventDefault();
+            return;
+          }
+          void onSubmit(event);
+        }}
+        className={BODY}
+        noValidate
+      >
         <div className={GRID}>
           <div className={FIELD}>
             <Label htmlFor="settings-current" className={LABEL}>
@@ -119,7 +129,10 @@ export function PasswordSection() {
           type="submit"
           variant="outline"
           className={ACTION}
-          disabled={form.formState.isSubmitting}
+          aria-disabled={form.formState.isSubmitting || undefined}
+          onClick={(event) => {
+            if (form.formState.isSubmitting) event.preventDefault();
+          }}
         >
           {form.formState.isSubmitting
             ? t("common.saving")
@@ -133,7 +146,8 @@ export function PasswordSection() {
 /**
  * GoogleSection is the Google account card the deck does not draw (DG-157):
  * whether Google is linked, what unlinking would leave, and the control that
- * links or unlinks it.
+ * links or unlinks it. Unlinking replaces Unlink with Link Google, so focus
+ * moves to the line that now reads "Not linked".
  */
 export function GoogleSection() {
   const { t } = useTranslation();
@@ -143,17 +157,28 @@ export function GoogleSection() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  const notLinkedLine = useRef<HTMLParagraphElement>(null);
+  const unlinking = useRef(false);
+
   const linked = user?.linkedProviders.includes("google") ?? false;
   const wouldLockOut = linked && !(user?.hasPassword ?? false);
+
+  useEffect(() => {
+    if (linked || !unlinking.current) return;
+    unlinking.current = false;
+    const active = document.activeElement;
+    if (active === null || active === document.body) notLinkedLine.current?.focus();
+  }, [linked]);
 
   async function unlink() {
     setError(null);
     setPending(true);
+    unlinking.current = true;
     const lease = authStore.captureActor();
     try {
       await runAccountMutation(() => api("delete", "/auth/google/link"));
-      if (!mounted.current || !authStore.isCurrent(lease)) return;
     } catch (cause) {
+      unlinking.current = false;
       if (!mounted.current || !authStore.isCurrent(lease)) return;
       setError(cause instanceof ApiError ? cause.message : t("api.failed"));
     } finally {
@@ -172,7 +197,9 @@ export function GoogleSection() {
             {t("settings.googleLinked")}
           </p>
         ) : (
-          <p className="text-muted-fg text-ui">{t("settings.googleNotLinked")}</p>
+          <p ref={notLinkedLine} tabIndex={-1} className="text-muted-fg text-ui">
+            {t("settings.googleNotLinked")}
+          </p>
         )}
         {linked ? (
           <p
@@ -196,7 +223,7 @@ export function GoogleSection() {
             variant="outline"
             aria-disabled={pending || wouldLockOut}
             aria-describedby="settings-google-explainer"
-            className={wouldLockOut ? `${ACTION} opacity-50` : ACTION}
+            className={ACTION}
             onClick={() => {
               if (pending || wouldLockOut) return;
               void unlink();
@@ -226,7 +253,14 @@ function LinkGoogleControl({
     return <p className="text-muted-fg text-ui">{t("login.googleUnavailable")}</p>;
   }
   return (
-    <Button variant="outline" className={ACTION} disabled={pending} onClick={onStart}>
+    <Button
+      variant="outline"
+      className={ACTION}
+      aria-disabled={pending || undefined}
+      onClick={() => {
+        if (!pending) onStart();
+      }}
+    >
       <GoogleMark />
       {t("settings.linkGoogle")}
     </Button>
@@ -281,8 +315,10 @@ export function ApiDocsSection() {
           type="button"
           variant="outline"
           className={ACTION}
-          disabled={pending}
-          onClick={open}
+          aria-disabled={pending || undefined}
+          onClick={() => {
+            if (!pending) open();
+          }}
         >
           {t("settings.apiDocs.open")}
         </Button>
