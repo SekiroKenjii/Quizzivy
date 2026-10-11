@@ -32,7 +32,7 @@ describe("notification cursor list", () => {
         return listResponse();
       }),
     );
-    const hook = renderHook(() => useNotificationList(), harness());
+    const hook = renderHook(() => useNotificationList("teacher"), harness());
     expect(hook.result.current.isPending).toBe(true);
     await waitFor(() => expect(hook.result.current.items).toHaveLength(20));
     expect(hook.result.current.hasMore).toBe(true);
@@ -62,7 +62,7 @@ describe("notification cursor list", () => {
         return listResponse(before ? { items: [], nextBefore: page.nextBefore } : page);
       }),
     );
-    const hook = renderHook(() => useNotificationList(), harness());
+    const hook = renderHook(() => useNotificationList("teacher"), harness());
     await waitFor(() => expect(hook.result.current.hasMore).toBe(true));
     act(() => hook.result.current.loadMore());
     await waitFor(() => expect(hook.result.current.hasMore).toBe(false));
@@ -77,7 +77,7 @@ describe("notification cursor list", () => {
         return errorResponse();
       }),
     );
-    const hook = renderHook(({ enabled }) => useNotificationList(enabled), {
+    const hook = renderHook(({ enabled }) => useNotificationList("teacher", enabled), {
       ...harness(),
       initialProps: { enabled: false },
     });
