@@ -237,6 +237,8 @@ CREATE TRIGGER classes_set_updated_at BEFORE UPDATE ON app.classes
 No index beyond the PK. There will be single-digit classes; §8's list is a seq
 scan and that is the correct plan.
 
+R4 adds `schedule_label` and `room` (T-R4.18, D-39, §41).
+
 ### `00006` (cont.) — `class_join_codes`
 
 ```sql
@@ -1362,6 +1364,7 @@ listed here matches the spec.
 | D-36 | Add `assignment_student_overrides (assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by, created_at, updated_at)` | §13.3 has no per-student accommodation, and R4 lets a teacher give one student more time, more attempts or a reopened window without touching the assignment everyone else has (T-R4.12). A separate table, not columns on `assignments`, because the rows are per student and optional: no row is the assignment as it is. A new table adds nothing the previous release reads or writes, so the rolling deploy needs no expand step (§38) |
 | D-37 | `refresh_tokens` gains a nullable `geo_label`, 1 to 80 characters | The Signed-in devices list names where a device last signed in or refreshed (T-R4.9, DG-58). A label is the edge's city and country at the request, so it is data about the request and lives beside `ip` and `user_agent` on the token row, which each rotation rewrites; a column on `users` or a table of devices would need a second writer and a second delete path. Nullable with no default, so the previous release's insert keeps working; the command stores NULL for no label, never an empty string, so the check never meets one (§39) |
 | D-38 | `00103_compose_text_nfc.sql` has a Down that does nothing, where every other file's Down undoes its Up (§13, AGENTS "Migrations") | The file changes data and no schema, and nothing records which rows were decomposed before it ran, so there is nothing to restore: NFC and NFD are the same text, a rolled-back binary reads composed text exactly as it read decomposed text, and the one row it deletes (a decomposed accepted answer whose composed twin exists) was equal to the grader's eyes, so it is not brought back. A Down that decomposed every row would be wrong, since it would also decompose what was composed before. The file says so in the Down, and up/down/up still passes because the Down leaves the schema and every row as they are (§40) |
+| D-39 | `classes` gains a nullable `schedule_label`, 1 to 120 characters, and a nullable `room`, 1 to 60 | The deck's class card and the student's class say when and where a class meets, and the model had no field for either (T-R4.18). Free text the teacher words, not a structured timetable, so one column each. Nullable with no default, so the previous release's insert keeps working; the commands trim and store NULL for a blank value, so the checks never meet an empty string (§41) |
 
 ---
 
@@ -1471,6 +1474,7 @@ the file it adds.
 | `00101_create_assignment_student_overrides.sql` | `assignment_student_overrides`, its four checks, `assignment_student_overrides_student_idx` and the `updated_at` trigger | R4 (T-R4.12), D-36 |
 | `00102_add_refresh_tokens_geo_label.sql` | `refresh_tokens.geo_label` and `refresh_tokens_geo_label_check` (1 to 80 characters), added with the column | R4 (T-R4.9), D-37 |
 | `00103_compose_text_nfc.sql` | Data only: composes to NFC the plain columns a person types, deletes a decomposed accepted answer whose composed twin exists, and keeps `updated_at` by disabling the eight named `set_updated_at` triggers for the transaction. The Down does nothing | R4 (F-37), D-38 |
+| `00104_add_classes_schedule_room.sql` | `classes.schedule_label` and `classes.room`, each with its check (1 to 120 and 1 to 60 characters), added with the column; 00103 is reserved for F-37, which merges first, and the second of the two renumbers if the order inverts | R4 (T-R4.18), D-39 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2802,3 +2806,33 @@ through pgx's `OnNotice`.
 
 **Down.** A no-op with a comment, a deliberate deviation (D-38). The file is data only and
 forward-safe.
+## 41. When and where a class meets (T-R4.18)
+
+`00104_add_classes_schedule_room.sql` adds two nullable columns. Down drops the two constraints,
+then the two columns. The number follows 00102 because 00103 is reserved for F-37, and the order
+of merging is the rule: F-37 (00103) merges before T-R4.18 (00104). If the order ever inverts, the
+second pull request renumbers its migration before it merges. goose refuses a database that has
+applied 00104 when 00103 is missing ("found 1 missing migrations"), and a deploy never passes
+`-allow-missing` to get past it.
+
+```sql
+ALTER TABLE app.classes
+  ADD COLUMN schedule_label text
+    CONSTRAINT classes_schedule_label_check
+    CHECK (char_length(schedule_label) BETWEEN 1 AND 120),
+  ADD COLUMN room text
+    CONSTRAINT classes_room_check
+    CHECK (char_length(room) BETWEEN 1 AND 60);
+```
+
+The commands trim both and store NULL for a value that is blank once trimmed, so a check never
+meets an empty string. The checks scan `classes` once while the columns are added; a nullable column
+with no default rewrites nothing. Both columns are read by the teacher's class reads, by the class a
+student joins and by the student's own classes; neither reaches an index, a log or an audit row.
+
+The class average (`Class.averageScore`) is derived, not stored. It reads the best graded attempt of
+each live member on each assignment that targets the class, through
+`attempts_student_started_idx (student_id, started_at DESC)`, `assignment_classes_class_idx` and
+`attempt_answers_pending_idx`; on 25 classes with 3,000 attempts each (75,000 attempts) the plan is an
+index scan of `attempts` with no sequential scan and takes 173 ms for the page and 6.8 ms for one class,
+so no index was added.
