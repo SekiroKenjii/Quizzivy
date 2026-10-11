@@ -27,6 +27,7 @@ import {
 } from "@/features/settings/profileFormSchema";
 import { ProfilePhoto } from "@/features/settings/sections/ProfilePhoto";
 import { timeZoneOptions } from "@/features/settings/timeZones";
+import { useUnsavedSection } from "@/features/settings/unsavedSection";
 import { failureMessage } from "@/lib/api/errors";
 import i18n, { SUPPORTED_LOCALES, chosenLocale, type Locale } from "@/lib/i18n";
 import { APP_TIME_ZONE } from "@/lib/i18n/datetime";
@@ -146,6 +147,7 @@ function ProfileForm({ user }: Readonly<{ user: User }>) {
   });
   const { reset, formState } = form;
   const dirty = formState.isDirty;
+  useUnsavedSection("profile", dirty);
   const zone = useWatch({ control: form.control, name: "timeZone" });
   const zones = useMemo(() => timeZoneOptions(t, zone, new Date()), [t, zone]);
   const languages = useMemo(

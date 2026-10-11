@@ -573,6 +573,11 @@
     "preferenceFailed": "Could not save preference.",
     "accountZoneUnsupported": "This browser does not support your account time zone. Times are temporarily shown in Vietnam time.",
     "pageHint": "Your profile, sign-in and how Quizzivy works for you.",
+    "leave": {
+      "title": "Leave Settings without saving?",
+      "confirm": "Leave",
+      "stay": "Stay"
+    },
     "profileHint": "Students see your name and photo.",
     "displayName": "Name students see",
     "displayNameHint": "Shown on tests and messages",

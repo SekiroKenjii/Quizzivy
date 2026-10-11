@@ -573,6 +573,11 @@
     "preferenceFailed": "Chưa lưu được tùy chọn.",
     "accountZoneUnsupported": "Trình duyệt này chưa hỗ trợ múi giờ của tài khoản. Thời gian tạm hiển thị theo giờ Việt Nam.",
     "pageHint": "Hồ sơ, đăng nhập và cách Quizzivy làm việc cùng bạn.",
+    "leave": {
+      "title": "Rời Cài đặt mà không lưu?",
+      "confirm": "Rời đi",
+      "stay": "Ở lại"
+    },
     "profileHint": "Học viên thấy tên và ảnh của bạn.",
     "displayName": "Tên học viên thấy",
     "displayNameHint": "Hiện trên đề thi và tin nhắn",
