@@ -95,7 +95,7 @@ export function NotificationBell({
 
   const pick = (to: string | null) => {
     if (to === null) return;
-    leaving.current = to !== pathname;
+    leaving.current = wide && to !== pathname;
     setOpen(false);
     void navigate(to);
   };

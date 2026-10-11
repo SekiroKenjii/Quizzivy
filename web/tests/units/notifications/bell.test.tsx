@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { useEffect, useRef } from "react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider, useLocation } from "react-router";
@@ -22,9 +23,18 @@ import {
 
 type Audience = "teacher" | "student";
 
-function Where() {
+function Page() {
   const { pathname } = useLocation();
-  return <p data-testid="where">{pathname}</p>;
+  const main = useRef<HTMLElement>(null);
+  const first = useRef(pathname);
+  useEffect(() => {
+    if (pathname !== first.current) main.current?.focus();
+  }, [pathname]);
+  return (
+    <main ref={main} tabIndex={-1}>
+      <p data-testid="where">{pathname}</p>
+    </main>
+  );
 }
 
 function serveList(items: Notification[], nextBefore: string | null = null) {
@@ -53,9 +63,7 @@ function renderBell(
         unread={over.unread ?? 0}
         canGrade={over.canGrade ?? true}
       />
-      <main tabIndex={-1}>
-        <Where />
-      </main>
+      <Page />
     </>
   );
   const router = createMemoryRouter([{ path: "*", element }], {
@@ -406,13 +414,33 @@ describe("closing", () => {
     },
   );
 
-  it("leaves focus to the new page after a row sends the reader there", async () => {
+  it.each(["desktop", "phone"] as const)(
+    "leaves focus to the new page after a row sends the reader there, on a %s",
+    async (width) => {
+      viewport(width);
+      const notice = of("student")[0]!;
+      serveList([notice]);
+      const { user, router } = renderBell("student");
+      await user.click(await within(await openBell(user)).findByText(textOf(notice)));
+      await waitFor(() => expect(router.state.location.pathname).not.toBe("/start"));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(screen.getByRole("main")).toHaveFocus();
+    },
+  );
+
+  it("returns focus to the bell from the popover after a row on a phone sent the reader on", async () => {
+    const width = viewport("phone");
     const notice = of("student")[0]!;
     serveList([notice]);
     const { user, router } = renderBell("student");
     await user.click(await within(await openBell(user)).findByText(textOf(notice)));
     await waitFor(() => expect(router.state.location.pathname).not.toBe("/start"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByRole("button", { name: /^Thông báo/ })).not.toHaveFocus();
+
+    act(() => width.resize("desktop"));
+    await openBell(user);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("button", { name: /^Thông báo/ })).toHaveFocus();
   });
 });
