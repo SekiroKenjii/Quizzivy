@@ -10,7 +10,7 @@ import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { assistantUser, teacherUser } from "@tests/support/fixtures";
-import "@/lib/i18n";
+import i18n, { loadLocale } from "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
 const CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
@@ -249,6 +249,16 @@ async function memberRow(name: string) {
 }
 
 describe("the class's head", () => {
+  it("counts one student in the singular", async () => {
+    await loadLocale("en");
+    const en = i18n.getFixedT("en");
+    expect(en("classDetail.studentCount", { count: 1 })).toBe("1 student");
+    expect(en("classDetail.studentCount", { count: 24 })).toBe("24 students");
+    expect(i18n.getFixedT("vi")("classDetail.studentCount", { count: 1 })).toBe(
+      "1 học viên",
+    );
+  });
+
   it("names the class with its count, and offers Add student and Assign to class", async () => {
     renderDetail();
     expect(
