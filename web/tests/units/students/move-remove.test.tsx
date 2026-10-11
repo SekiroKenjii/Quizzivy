@@ -112,10 +112,54 @@ describe("moving a student", () => {
     await chooseClass(user, CLASS_B.name);
     await user.click(within(dialog).getByRole("button", { name: "Chuyển" }));
 
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-      "Chưa chuyển được: Nguyễn Văn An.",
-    );
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("Chưa chuyển được 1 học viên:");
+    expect(alert).toHaveTextContent("Nguyễn Văn An: Lỗi.");
     expect(calls).toEqual([`add ${CLASS_B.id} ${AN.id}`]);
+  });
+
+  it("gives each student it could not move the server's own reason", async () => {
+    const BINH = student("018f0000-0000-7000-8000-0000000000e2", "Trần Thị Bình", {
+      classes: [inClass(CLASS_A)],
+    });
+    serveStudents([AN, BINH]);
+    const refusal = (status: number, code: string, message: string) =>
+      HttpResponse.json(
+        {
+          error: { code, message, requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e" },
+        },
+        { status },
+      );
+    server.use(
+      http.post(`${BASE}/teacher/classes/:id/members`, async ({ request }) => {
+        const body = (await request.json()) as { userId: string };
+        return body.userId === AN.id
+          ? refusal(403, "FORBIDDEN", "Học viên có quyền mà bạn không có.")
+          : refusal(429, "RATE_LIMITED", "Bạn thao tác quá nhanh.");
+      }),
+    );
+    const { user } = renderStudents(teacherUser);
+
+    for (const name of ["Nguyễn Văn An", "Trần Thị Bình"]) {
+      await user.click(
+        within(await rowOf(name)).getByRole("checkbox", { name: `Chọn ${name}` }),
+      );
+    }
+    await user.click(screen.getByRole("button", { name: "Chuyển lớp" }));
+    const dialog = await screen.findByRole("dialog", { name: "Chuyển 2 học viên" });
+    await chooseClass(user, CLASS_B.name);
+    await user.click(within(dialog).getByRole("button", { name: "Chuyển" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("Chưa chuyển được 2 học viên:");
+    expect(
+      within(alert)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "Nguyễn Văn An: Học viên có quyền mà bạn không có.",
+      "Trần Thị Bình: Bạn thao tác quá nhanh.",
+    ]);
   });
 });
 

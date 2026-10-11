@@ -7,9 +7,12 @@ import { toast } from "@/components/ui/sonner";
 import type { Class } from "@/features/classes/api";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
 import type { Student } from "@/features/students/api";
+import { failureMessage } from "@/lib/api/errors";
 import { classesLeftBy, moveStudent } from "@/features/students/membership";
 
 type MoveValues = { to: string; keep: boolean };
+
+type MoveFailure = { id: string; name: string; message: string };
 
 const INITIAL: MoveValues = { to: "", keep: false };
 
@@ -19,8 +22,8 @@ const INITIAL: MoveValues = { to: "", keep: false };
  * student is added to the class, then taken out of their other classes unless
  * kept; unless kept, the dialog names the classes they leave, which for an
  * Admin can be any class in the system. A student who could not be moved is
- * named in the dialog, which stays open; when every one moved it closes with
- * a toast.
+ * listed in the dialog with the server's reason, and the dialog stays open;
+ * when every one moved it closes with a toast.
  */
 export function MoveDialog({
   students,
@@ -38,7 +41,7 @@ export function MoveDialog({
   const { t } = useTranslation();
   const client = useQueryClient();
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failures, setFailures] = useState<readonly MoveFailure[]>([]);
   const one = students.length === 1 ? students[0] : undefined;
   const fields: readonly FormField<MoveValues>[] = [
     {
@@ -67,13 +70,17 @@ export function MoveDialog({
 
   async function move({ to, keep }: MoveValues) {
     setPending(true);
-    setError(null);
-    const failed: string[] = [];
+    setFailures([]);
+    const failed: MoveFailure[] = [];
     for (const student of students) {
       try {
         await moveStudent(student, to, keep);
-      } catch {
-        failed.push(student.fullName);
+      } catch (cause) {
+        failed.push({
+          id: student.id,
+          name: student.fullName,
+          message: failureMessage(cause, t("common.actionFailed")),
+        });
       }
     }
     const touched = new Set([
@@ -87,7 +94,7 @@ export function MoveDialog({
     setPending(false);
     const target = classes.find((klass) => klass.id === to)?.name ?? "";
     if (failed.length > 0) {
-      setError(t("students.move.failed", { names: failed.join(", ") }));
+      setFailures(failed);
       return;
     }
     onMoved();
@@ -104,7 +111,7 @@ export function MoveDialog({
       open={students.length > 0}
       onOpenChange={(open) => {
         if (pending) return;
-        if (!open) setError(null);
+        if (!open) setFailures([]);
         onOpenChange(open);
       }}
       title={
@@ -118,9 +125,21 @@ export function MoveDialog({
       fields={fields}
       submitLabel={t("students.move.submit")}
       pending={pending}
-      error={error}
       returnFocus={returnFocus}
       onSubmit={(values) => void move(values)}
-    />
+    >
+      {failures.length > 0 ? (
+        <div role="alert" className="text-danger-ink space-y-1 text-xs">
+          <p>{t("students.move.failed", { count: failures.length })}</p>
+          <ul className="space-y-1">
+            {failures.map((failure) => (
+              <li key={failure.id}>
+                {failure.name}: {failure.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </FormDialog>
   );
 }

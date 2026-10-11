@@ -2128,7 +2128,8 @@
       "movedOne": "{{name}} moved to {{klass}}",
       "movedMany_one": "{{count}} student moved to {{klass}}",
       "movedMany_other": "{{count}} students moved to {{klass}}",
-      "failed": "Not moved: {{names}}. Please try again."
+      "failed_one": "{{count}} student was not moved:",
+      "failed_other": "{{count}} students were not moved:"
     },
     "reset": {
       "confirmOne": "Reset password for {{name}}?",

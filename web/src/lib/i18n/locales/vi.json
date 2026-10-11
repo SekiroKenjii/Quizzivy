@@ -2128,7 +2128,8 @@
       "movedOne": "Đã chuyển {{name}} sang {{klass}}",
       "movedMany_one": "Đã chuyển {{count}} học viên sang {{klass}}",
       "movedMany_other": "Đã chuyển {{count}} học viên sang {{klass}}",
-      "failed": "Chưa chuyển được: {{names}}. Hãy thử lại."
+      "failed_one": "Chưa chuyển được {{count}} học viên:",
+      "failed_other": "Chưa chuyển được {{count}} học viên:"
     },
     "reset": {
       "confirmOne": "Đặt lại mật khẩu cho {{name}}?",
