@@ -27,7 +27,10 @@ afterEach(() => {
   useAuthStore.getState().clearSession();
 });
 
-function renderWithElsewhere() {
+function renderWithElsewhere(
+  initialEntries: string[] = ["/teacher/settings"],
+  initialIndex = 0,
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
@@ -45,7 +48,7 @@ function renderWithElsewhere() {
         ],
       },
     ],
-    { initialEntries: ["/teacher/settings"] },
+    { initialEntries, initialIndex },
   );
   render(
     <QueryClientProvider client={client}>
@@ -100,6 +103,36 @@ describe("leaving Settings with unsaved changes", () => {
 
     expect(await screen.findByRole("heading", { name: "Trang lớp học" })).toBeVisible();
     expect(router.state.location.pathname).toBe("/teacher/classes");
+  });
+
+  it("asks on Back as well, and goes back when Leave is chosen", async () => {
+    const router = renderWithElsewhere(["/teacher/classes", "/teacher/settings"], 1);
+    const user = userEvent.setup();
+
+    await user.type(nameField(), " Hoàng");
+    void router.navigate(-1);
+    const dialog = await screen.findByRole("dialog", { name: TITLE });
+    expect(router.state.location.pathname).toBe("/teacher/settings");
+    await user.click(within(dialog).getByRole("button", { name: "Rời đi" }));
+
+    expect(await screen.findByRole("heading", { name: "Trang lớp học" })).toBeVisible();
+    expect(router.state.location.pathname).toBe("/teacher/classes");
+  });
+
+  it("stays on Escape, keeping the edit", async () => {
+    const router = renderWithElsewhere();
+    const user = userEvent.setup();
+
+    await user.type(nameField(), " Hoàng");
+    await user.click(elsewhere());
+    await screen.findByRole("dialog", { name: TITLE });
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(router.state.location.pathname).toBe("/teacher/settings");
+    expect(nameField()).toHaveValue("Hoàng Thương Hoàng");
+    await user.click(elsewhere());
+    expect(await screen.findByRole("dialog", { name: TITLE })).toBeVisible();
   });
 
   it("does not ask right after a successful save", async () => {
