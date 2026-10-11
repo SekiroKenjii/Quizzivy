@@ -78,12 +78,12 @@ export function ClassCard({
       <div className="flex flex-1 flex-col gap-3.5 p-4">
         <div className="flex justify-between gap-2.5">
           <div className="min-w-0">
-            <h2 className="text-[0.9375rem] leading-[1.35] font-semibold [overflow-wrap:anywhere]">
+            <h2 className="text-md leading-tight font-semibold [overflow-wrap:anywhere]">
               <Link to={`/teacher/classes/${klass.id}`} className="hover:underline">
                 {klass.name}
               </Link>
             </h2>
-            <p className="text-muted-fg text-meta leading-normal [overflow-wrap:anywhere]">
+            <p className="text-muted-fg text-meta leading-4 [overflow-wrap:anywhere]">
               {where === "" ? t("classes.noSchedule") : where}
             </p>
           </div>
@@ -122,7 +122,7 @@ function Stat({ label, children }: Readonly<{ label: string; children: string }>
   return (
     <div className="min-w-0">
       <dt className="text-muted-fg text-xs leading-normal">{label}</dt>
-      <dd className="m-0 text-lg leading-snug font-semibold tabular-nums">
+      <dd className="text-stat-sm m-0 leading-normal font-semibold tabular-nums">
         {children}
       </dd>
     </div>
