@@ -19,5 +19,9 @@ type UpdateHandler struct {
 }
 
 func (s UpdateHandler) Handle(ctx context.Context, cmd Update) (domain.Class, error) {
-	return s.Repo.Update(ctx, cmd.Scope, cmd.ClassID, cmd.Input)
+	input, err := cmd.Input.Composed()
+	if err != nil {
+		return domain.Class{}, err
+	}
+	return s.Repo.Update(ctx, cmd.Scope, cmd.ClassID, input)
 }

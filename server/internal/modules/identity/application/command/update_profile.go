@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/identity/application/internal/support"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/opt"
 	"regexp"
 	"strings"
@@ -81,7 +82,7 @@ func normalizedDisplayName(value *string) (*string, error) {
 	if value == nil {
 		return nil, nil
 	}
-	name := strings.TrimSpace(*value)
+	name := strings.TrimSpace(content.NFC(*value))
 	if n := utf8.RuneCountInString(name); n < 1 || n > 80 {
 		return nil, domain.ErrDisplayNameInvalid
 	}
@@ -89,7 +90,7 @@ func normalizedDisplayName(value *string) (*string, error) {
 }
 
 func normalizedFullName(value string) (string, error) {
-	name := strings.TrimSpace(value)
+	name := strings.TrimSpace(content.NFC(value))
 	if name == "" {
 		return "", domain.ErrNameRequired
 	}

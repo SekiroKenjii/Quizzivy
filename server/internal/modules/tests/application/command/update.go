@@ -16,6 +16,11 @@ type UpdateHandler struct {
 }
 
 func (s UpdateHandler) Handle(ctx context.Context, cmd Update) (domain.Test, error) {
+	input, err := cmd.Input.Composed()
+	if err != nil {
+		return domain.Test{}, err
+	}
+	cmd.Input = input
 	if err := cmd.Input.Validate(); err != nil {
 		return domain.Test{}, err
 	}

@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/imports/application/ports"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/shared/actor"
+	"quizzivy/internal/shared/content"
 	"strings"
 	"time"
 	"unicode"
@@ -37,7 +38,10 @@ type UploadHandler struct {
 	Legacy    bool
 }
 
+const maxFilename = 255
+
 func (h UploadHandler) Handle(ctx context.Context, in Upload) (domain.Receipt, error) {
+	in.Filename = content.NFCWithin(in.Filename, maxFilename)
 	return h.handlePrepared(ctx, in, sourceFormat(in.Filename, h.Legacy), nil)
 }
 
