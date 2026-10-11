@@ -146,6 +146,14 @@ func TestAssignmentRefusalsSpeakTheCallersLanguage(t *testing.T) {
 			en:     "A student has already started, so the test version cannot be changed.",
 		},
 		{
+			name:   "saving a window that would open a closed assignment again",
+			serve:  updating(domain.ErrReopens),
+			status: http.StatusConflict,
+			code:   openapi.ASSIGNMENTCLOSED,
+			vi:     "Bài giao đã đóng nên không thể đổi thời gian để mở lại. Hãy mở lại bài giao và ghi lý do.",
+			en:     "The assignment has closed, so its window cannot be changed to open it again. Reopen it instead, with a reason.",
+		},
+		{
 			name:   "updating an assignment that is not there",
 			serve:  updating(domain.ErrNotFound),
 			status: http.StatusNotFound,

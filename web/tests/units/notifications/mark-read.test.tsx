@@ -49,10 +49,10 @@ describe("settled notification read mutation", () => {
       const setup = harness();
       const hook = renderHook(
         () => ({
-          list: useNotificationList(),
-          summary: useNotificationSummary(),
+          list: useNotificationList("teacher"),
+          summary: useNotificationSummary("student"),
           preferences: useNotificationPreferences(),
-          mark: useMarkNotificationsRead(),
+          mark: useMarkNotificationsRead("teacher"),
         }),
         setup,
       );
@@ -61,10 +61,12 @@ describe("settled notification read mutation", () => {
       await waitFor(() =>
         expect(hook.result.current.preferences.query.isSuccess).toBe(true),
       );
-      const originalCache = setup.client.getQueryData(notificationKeys.list);
+      const originalCache = setup.client.getQueryData(notificationKeys.list("teacher"));
       act(() => hook.result.current.mark.mutate([id(1)]));
-      await waitFor(() => expect(body).toEqual({ ids: [id(1)] }));
-      expect(setup.client.getQueryData(notificationKeys.list)).toBe(originalCache);
+      await waitFor(() => expect(body).toEqual({ audience: "teacher", ids: [id(1)] }));
+      expect(setup.client.getQueryData(notificationKeys.list("teacher"))).toBe(
+        originalCache,
+      );
       expect(hook.result.current.list.items[0]!.readAt).toBeNull();
       expect(hook.result.current.summary.unread).toBe(3);
       expect([lists, summaries, preferences]).toEqual([1, 1, 1]);
@@ -82,10 +84,10 @@ describe("settled notification read mutation", () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    const hook = renderHook(() => useMarkNotificationsRead(), harness());
+    const hook = renderHook(() => useMarkNotificationsRead("teacher"), harness());
     await act(async () => {
       await hook.result.current.mutateAsync(undefined);
     });
-    expect(body).toEqual({});
+    expect(body).toEqual({ audience: "teacher" });
   });
 });

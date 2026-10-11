@@ -230,6 +230,10 @@ func (h Assignments) UpdateAssignment(ctx context.Context, request openapi.Updat
 		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.ASSIGNMENTLOCKED,
 			httpx.Text(ctx, "Bài giao đang mở nên không thể đổi đề, thời lượng hoặc số lượt làm.",
 				"The assignment is open, so its test, duration and attempts cannot be changed."))), nil
+	case errors.Is(err, domain.ErrReopens):
+		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.ASSIGNMENTCLOSED,
+			httpx.Text(ctx, "Bài giao đã đóng nên không thể đổi thời gian để mở lại. Hãy mở lại bài giao và ghi lý do.",
+				"The assignment has closed, so its window cannot be changed to open it again. Reopen it instead, with a reason."))), nil
 	case errors.Is(err, domain.ErrVersionLocked):
 		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.VERSIONLOCKED,
 			httpx.Text(ctx, "Đã có học viên làm bài, không thể đổi phiên bản đề.",

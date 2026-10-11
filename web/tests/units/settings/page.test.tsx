@@ -33,7 +33,13 @@ describe("the teacher's Settings", () => {
       nav()
         .getAllByRole("link")
         .map((link) => link.textContent),
-    ).toEqual(["Hồ sơ", "Đăng nhập & bảo mật", "Giao diện"]);
+    ).toEqual([
+      "Hồ sơ",
+      "Đăng nhập & bảo mật",
+      "Thông báo",
+      "Mặc định khi giao bài",
+      "Giao diện",
+    ]);
     expect(nav().getByRole("link", { name: "Hồ sơ" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -49,6 +55,22 @@ describe("the teacher's Settings", () => {
       "page",
     );
     expect(screen.getByRole("button", { name: "Mở tài liệu API" })).toBeVisible();
+  });
+
+  it("lists Assignment defaults only for who may assign", async () => {
+    signIn({
+      ...teacherUser,
+      permissions: teacherUser.permissions.filter(
+        (key) => key !== "teaching.assignments.write",
+      ),
+    });
+    const { router } = renderSettings("/teacher/settings/defaults");
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/teacher/settings"),
+    );
+    expect(nav().queryByRole("link", { name: "Mặc định khi giao bài" })).toBeNull();
+    expect(nav().getByRole("link", { name: "Thông báo" })).toBeVisible();
   });
 
   it.each([

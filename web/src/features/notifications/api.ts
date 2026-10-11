@@ -16,20 +16,31 @@ export type NotificationPreference = components["schemas"]["NotificationPreferen
 /** NotificationPage is the list operation's cursor envelope. */
 export type NotificationPage =
   operations["listNotifications"]["responses"][200]["content"]["application/json"];
+/**
+ * NotificationAudience is the console a bell belongs to; with it the server
+ * counts, lists and marks only that console's kinds (DG-170).
+ */
+export type NotificationAudience = components["schemas"]["NotificationAudience"];
 /** MySummary supplies the shell's unread notification count. */
 export type MySummary = components["schemas"]["MySummary"];
 
-/** notificationKeys groups list, summary and preference caches for settled invalidation. */
+/**
+ * notificationKeys groups list, summary and preference caches for settled
+ * invalidation; the list and the summary are kept per audience, so the two
+ * consoles' bells never share an entry.
+ */
 export const notificationKeys = {
   all: ["notifications"],
-  list: ["notifications", "list"],
-  summary: ["notifications", "summary"],
+  list: (audience: NotificationAudience) =>
+    ["notifications", "list", audience] as const,
+  summary: (audience: NotificationAudience) =>
+    ["notifications", "summary", audience] as const,
   preferences: ["notifications", "preferences"],
 } as const;
 
-/** listNotifications reads a cursor page with optional bounds and cancellation. */
+/** listNotifications reads a cursor page of one audience's kinds, with optional bounds and cancellation. */
 export function listNotifications(
-  params: Readonly<{ before?: string; limit?: number }> = {},
+  params: Readonly<{ audience: NotificationAudience; before?: string; limit?: number }>,
   signal?: AbortSignal,
 ): Promise<NotificationPage> {
   return api(
@@ -39,22 +50,33 @@ export function listNotifications(
   );
 }
 
-/** markNotificationsRead marks all when ids are absent, skips an empty list, and sends larger lists sequentially in batches of at most one hundred. */
-export async function markNotificationsRead(ids?: readonly string[]): Promise<void> {
+/**
+ * markNotificationsRead marks one audience's notifications: all of them when
+ * ids are absent; otherwise it skips an empty list and sends larger lists
+ * sequentially in batches of at most one hundred, each with the audience.
+ */
+export async function markNotificationsRead(
+  audience: NotificationAudience,
+  ids?: readonly string[],
+): Promise<void> {
   if (ids === undefined) {
-    await api("post", "/me/notifications/read", { body: {} });
+    await api("post", "/me/notifications/read", { body: { audience } });
     return;
   }
   for (let start = 0; start < ids.length; start += 100) {
     await api("post", "/me/notifications/read", {
-      body: { ids: ids.slice(start, start + 100) },
+      body: { audience, ids: ids.slice(start, start + 100) },
     });
   }
 }
 
-/** getMySummary reads the caller's current unread count. */
-export function getMySummary(signal?: AbortSignal): Promise<MySummary> {
-  return api("get", "/me/summary", signal ? { query: {}, signal } : { query: {} });
+/** getMySummary reads the caller's current unread count of one audience's kinds. */
+export function getMySummary(
+  audience: NotificationAudience,
+  signal?: AbortSignal,
+): Promise<MySummary> {
+  const query = { audience };
+  return api("get", "/me/summary", signal ? { query, signal } : { query });
 }
 
 /** getNotificationPreferences reads every switch in contract order. */

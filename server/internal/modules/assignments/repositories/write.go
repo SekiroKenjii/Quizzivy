@@ -138,10 +138,7 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		return domain.Assignment{}, err
 	}
 
-	next := current.closedAt
-	if in.CloseNow && next == nil {
-		next = &in.Now
-	}
+	next := domain.Schedule.ClosedAtAfter(current.closedAt, in)
 
 	if _, err := tx.Exec(ctx, `
 		UPDATE app.assignments
@@ -211,6 +208,9 @@ func checkUpdate(ctx context.Context, tx pgx.Tx, req domain.Request, in domain.W
 	if err := requireUnlocked(current, in); err != nil {
 		return "", err
 	}
+	if err := requireStaysClosed(current, in); err != nil {
+		return "", err
+	}
 	versionReader := req.Scope()
 	if in.TestVersionID == current.versionID {
 		versionReader = anyAssignment
@@ -238,6 +238,13 @@ func requireUnlocked(current lockedRow, in domain.WriteInput) error {
 	}
 	if in.TestVersionID != current.versionID || in.DurationMin != current.durationMin || in.MaxAttempts != current.maxAttempts {
 		return domain.ErrAssignmentLocked
+	}
+	return nil
+}
+
+func requireStaysClosed(current lockedRow, in domain.WriteInput) error {
+	if domain.Schedule.Reopens(current.publishedAt, current.closedAt, current.opensAt, current.closesAt, in) {
+		return domain.ErrReopens
 	}
 	return nil
 }
