@@ -1,5 +1,6 @@
 import type { components } from "@/lib/api/schema";
 import type { AdminQuestion, QuestionType } from "@/features/question-bank/api";
+import { blanksAsGaps } from "@/features/question-bank/placeholders";
 
 /** QuestionLevel is a question's CEFR level, Pre-A1 to C2 (DG-62). */
 export type QuestionLevel = components["schemas"]["QuestionLevel"];
@@ -95,5 +96,5 @@ export function toggled<T>(values: readonly T[], value: T): readonly T[] {
 
 /** promptLine is a question's prompt on one line, with a blank's marker drawn as a gap. */
 export function promptLine(question: AdminQuestion): string {
-  return question.prompt.replace(/\{\{\d+\}\}/g, "___");
+  return blanksAsGaps(question.prompt);
 }

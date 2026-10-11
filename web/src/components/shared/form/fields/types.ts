@@ -11,7 +11,7 @@ type Keys<V, T> = { [K in keyof V & string]: V[K] extends T ? K : never }[keyof 
   string];
 type Common<V> = {
   label?: string;
-  hint?: string;
+  hint?: string | ((values: V) => string | undefined);
   required?: boolean;
   requiredText?: string;
   noOptional?: boolean;
@@ -46,7 +46,8 @@ export type FormInfoRow = Readonly<{
 }>;
 /**
  * FormField ties each field kind to a compatible key of the form's values. A
- * list's or chips' options may be a function of the current values.
+ * field's hint, and a list's or chips' options, may be a function of the
+ * current values.
  */
 export type FormField<V extends FormValues> =
   | Text<V>
