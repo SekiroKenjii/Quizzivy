@@ -5,9 +5,16 @@ import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { ProgressBar } from "@/components/shared/stats/ProgressBar";
 import { percent, thresholdTone } from "@/components/shared/stats/progress";
 import { useCan } from "@/features/auth/permissions";
+import { BLANK_GAP, blanksAsGaps } from "@/features/question-bank/placeholders";
 import { getItemAnalysis, type ItemAnalysis as Analysis } from "../api";
 
 const CARD = "bg-card shadow-card overflow-hidden rounded-xl border";
+
+const CUT_MARKER = /\{\{\d*\}?$/;
+
+function excerptLine(excerpt: string): string {
+  return blanksAsGaps(excerpt).replace(CUT_MARKER, BLANK_GAP);
+}
 
 function itemAnalysisKey(assignmentId: string) {
   return ["admin-assignment", assignmentId, "item-analysis"] as const;
@@ -86,7 +93,8 @@ function AnalysisRows({
               {t("assignmentDetail.analysis.number", { n: item.number })}
             </span>
             <span className="text-ui min-w-0 flex-[1_1_260px] [overflow-wrap:anywhere]">
-              {item.promptExcerpt || t("assignmentDetail.analysis.noPrompt")}
+              {excerptLine(item.promptExcerpt) ||
+                t("assignmentDetail.analysis.noPrompt")}
               <span className="text-muted-fg block text-xs">
                 {t(`questionEditor.type.${item.type}`, { defaultValue: item.type })}
               </span>

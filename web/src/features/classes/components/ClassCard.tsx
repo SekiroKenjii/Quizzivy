@@ -49,8 +49,10 @@ const FOOTER_BUTTON =
  * live tests and average; and a footer with the join code in full, mono,
  * with Copy join link and Show QR code. A code that cannot be read shows its
  * last four characters and, for a teacher who may change the class, New
- * code; a class without one offers Create code. An archived class's footer
- * offers Restore. `canWrite` says whether the reader may change the class;
+ * code; a class without one offers Create code. The footer stays one row:
+ * an Expired or Used up note shrinks and truncates, with its text as its
+ * title, before the buttons would wrap. An archived class's footer offers
+ * Restore. `canWrite` says whether the reader may change the class;
  * without it the card has no menu.
  */
 export function ClassCard({
@@ -78,12 +80,12 @@ export function ClassCard({
       <div className="flex flex-1 flex-col gap-3.5 p-4">
         <div className="flex justify-between gap-2.5">
           <div className="min-w-0">
-            <h2 className="text-[0.9375rem] leading-[1.35] font-semibold [overflow-wrap:anywhere]">
+            <h2 className="text-md leading-tight font-semibold [overflow-wrap:anywhere]">
               <Link to={`/teacher/classes/${klass.id}`} className="hover:underline">
                 {klass.name}
               </Link>
             </h2>
-            <p className="text-muted-fg text-meta leading-normal [overflow-wrap:anywhere]">
+            <p className="text-muted-fg text-meta leading-4 [overflow-wrap:anywhere]">
               {where === "" ? t("classes.noSchedule") : where}
             </p>
           </div>
@@ -103,7 +105,7 @@ export function ClassCard({
           </Stat>
         </dl>
       </div>
-      <div className="bg-sidebar flex min-h-12.5 flex-wrap items-center gap-2 border-t py-2.5 pr-3 pl-4">
+      <div className="bg-sidebar flex min-h-12.5 items-center gap-2 border-t py-2.5 pr-3 pl-4">
         {archived ? (
           <ArchivedFooter
             klass={klass}
@@ -122,7 +124,7 @@ function Stat({ label, children }: Readonly<{ label: string; children: string }>
   return (
     <div className="min-w-0">
       <dt className="text-muted-fg text-xs leading-normal">{label}</dt>
-      <dd className="m-0 text-lg leading-snug font-semibold tabular-nums">
+      <dd className="text-stat-sm m-0 leading-normal font-semibold tabular-nums">
         {children}
       </dd>
     </div>
@@ -188,16 +190,21 @@ function CodeFooter({
   const readable = code.code;
   return (
     <>
-      <span className="text-muted-fg text-xs">{t("classes.joinCode")}</span>
-      <span className="font-mono text-[0.84375rem] font-semibold tracking-[.08em] whitespace-nowrap">
+      <span className="text-muted-fg flex-none text-xs whitespace-nowrap">
+        {t("classes.joinCode")}
+      </span>
+      <span className="flex-none font-mono text-[0.84375rem] font-semibold tracking-[.08em] whitespace-nowrap">
         {readable ?? t("classes.maskedCode", { hint: code.hint })}
       </span>
       {state === null ? null : (
-        <span className="text-warning-ink text-xs">
+        <span
+          title={t(`classes.codeState.${state}`)}
+          className="text-warning-ink min-w-0 truncate text-xs"
+        >
           {t(`classes.codeState.${state}`)}
         </span>
       )}
-      <span className="ml-auto flex gap-0.5">
+      <span className="ml-auto flex flex-none gap-0.5">
         {readable === null && canWrite ? (
           <button
             type="button"

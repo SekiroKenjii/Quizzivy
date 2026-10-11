@@ -131,7 +131,7 @@ it("keeps the closed Extend's choice, reason and focus across account zone, lang
     "true",
   );
   expect(screen.getByRole("dialog")).toHaveTextContent(
-    "Opens again until Tomorrow, 06:00.",
+    "Opens again until tomorrow, 06:00.",
   );
   expect(document.documentElement).toHaveClass("dark");
   await user.click(screen.getByRole("button", { name: "Extend" }));

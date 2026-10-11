@@ -51,7 +51,7 @@ import { useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { AssignmentCard } from "./AssignmentCells";
 import { assignmentColumns } from "./assignmentColumns";
-import { nameOf, windowOf, type ListTab } from "./assignmentWindow";
+import { moment, nameOf, type ListTab } from "./assignmentWindow";
 import { DuplicateAssignmentDialog } from "./DuplicateAssignmentDialog";
 import { ExtendAssignmentsDialog } from "./ExtendAssignmentsDialog";
 
@@ -398,7 +398,7 @@ export default function AssignmentsListPage() {
   ) : null;
   const single = extending.length === 1 ? extending[0] : undefined;
   const extendingWhen =
-    single === undefined ? undefined : windowOf(single, "open", now, t);
+    single === undefined ? undefined : moment(single.window.closesAt, now, t, true);
   const act = (kind: ActKind, assignment: Assignment, from: Origin) => {
     setOrigin(from);
     if (kind === "extend") setExtending([assignment]);

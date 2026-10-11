@@ -174,11 +174,10 @@ export function FormDialog<V extends FormValues>({
               {shown.map((field) => {
                 const fieldId = `${id}-${field.name}`;
                 const message = state.touched ? errors[field.name] : undefined;
+                const hint =
+                  typeof field.hint === "function" ? field.hint(values) : field.hint;
                 const describedBy =
-                  [
-                    field.hint ? `${fieldId}-hint` : null,
-                    message ? `${fieldId}-error` : null,
-                  ]
+                  [hint ? `${fieldId}-hint` : null, message ? `${fieldId}-error` : null]
                     .filter(Boolean)
                     .join(" ") || undefined;
                 return (
@@ -215,12 +214,12 @@ export function FormDialog<V extends FormValues>({
                         }));
                       }}
                     />
-                    {field.hint && (
+                    {hint && (
                       <p
                         id={`${fieldId}-hint`}
                         className="text-muted-fg text-xs leading-[1.45]"
                       >
-                        {field.hint}
+                        {hint}
                       </p>
                     )}
                     {message && (
