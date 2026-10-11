@@ -19,9 +19,9 @@ func altAsset(t *testing.T, tx pgx.Tx, owner, kind string) string {
 	t.Helper()
 	var id string
 	err := tx.QueryRow(context.Background(), `INSERT INTO app.media_assets
-		(kind,storage_key,mime_type,bytes,duration_ms,original_filename,checksum_sha256,uploaded_by)
+		(kind,storage_key,mime_type,bytes,duration_ms,original_filename,checksum_sha256,uploaded_by,owner_id)
 		VALUES ($1::app.media_kind,$2,CASE WHEN $1='audio' THEN 'audio/mpeg' ELSE 'image/png' END,100,
-		CASE WHEN $1='audio' THEN 1000 ELSE NULL END,'fixture',$3,$4) RETURNING id::text`,
+		CASE WHEN $1='audio' THEN 1000 ELSE NULL END,'fixture',$3,$4,$4) RETURNING id::text`,
 		kind, kind+"/"+uuid.NewString(), make([]byte, 32), owner).Scan(&id)
 	if err != nil {
 		t.Fatal(err)

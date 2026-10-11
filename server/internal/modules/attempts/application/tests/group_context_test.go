@@ -132,8 +132,8 @@ func attemptGroupFixture(t *testing.T, tx pgx.Tx, w world) (string, string) {
         VALUES($1,$2,$3,0,'shuffle'),($1,$2,$4,1,'shuffle')`, group, section, w.choice, w.blank)
 	exec(`INSERT INTO app.test_version_units(test_version_section_id,ordinal,group_id,question_id)
         VALUES($1,0,$2,NULL),($1,1,NULL,$3),($1,2,NULL,$4)`, section, group, w.essay, w.listening)
-	if err := tx.QueryRow(ctx, `INSERT INTO app.media_assets(kind,storage_key,mime_type,bytes,duration_ms,original_filename,checksum_sha256,uploaded_by)
-        VALUES('audio',$1,'audio/mpeg',100,1000,'shared.mp3',sha256(convert_to($1,'UTF8')),$2) RETURNING id::text`, "audio/group-"+group, w.admin).Scan(&asset); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO app.media_assets(kind,storage_key,mime_type,bytes,duration_ms,original_filename,checksum_sha256,uploaded_by,owner_id)
+        VALUES('audio',$1,'audio/mpeg',100,1000,'shared.mp3',sha256(convert_to($1,'UTF8')),$2,$2) RETURNING id::text`, "audio/group-"+group, w.admin).Scan(&asset); err != nil {
 		t.Fatal(err)
 	}
 	content := json.RawMessage(`{"format":"semantic_v1","blocks":[{"type":"paragraph","content":[{"type":"text","text":"Shared passage "},{"type":"gap","id":"answer","label":"1"}]},{"type":"audio","assetId":"` + asset + `","label":"Shared recording"}]}`)

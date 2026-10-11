@@ -20,6 +20,15 @@ R4, a bell counts, lists and clears only its own console's notifications (DG-170
 - §15 An account that holds both consoles (an Admin with "Take tests") has two bells that neither
   light nor clear each other. Both bells passing `audience` is the web's part of DG-170.
 
+**Changes since v0.78**
+
+R4, ownership is validated (T-R4.49, T-R3.2):
+
+- §13.3 Migration 00106 validated the `NOT NULL` of `classes.teacher_id` and of `owner_id` on
+  `tests`, `questions`, `question_groups` and `media_assets`, and dropped the triggers and
+  functions that filled an owner for the v0.7.0 binary's inserts. An insert that omits an owner now
+  fails with `23502`. The previous binary (v0.9.0) names the owner in every insert.
+
 **Changes since v0.77**
 
 R4, the legacy role goes (T-R4.49, T-R3.1):
@@ -2403,7 +2412,7 @@ test_version_blanks / test_version_blank_answers
 
 Snapshotting into **normalized rows** rather than one `jsonb` blob keeps per-question analytics a plain SQL query later. `source_question_id` preserves the bank link without coupling to it. `media_asset_id` points at the same immutable asset — the file is never copied.
 
-**Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Until v0.9.1 (T-R3.2) the owner columns are `NOT NULL … NOT VALID`, and triggers fill them for the v0.7.0 binary's inserts. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
+**Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Migration 00106 (T-R3.2) validated the `NOT NULL` of every owner column, which R2 had added `NOT VALID`, and dropped the triggers that filled them for the v0.7.0 binary's inserts, so an insert that omits an owner fails. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
 
 **Per-student overrides** (R4). `assignment_student_overrides(assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by, created_at, updated_at)`, primary key `(assignment_id, student_id)`, both foreign keys `ON DELETE CASCADE`, `created_by` `ON DELETE SET NULL`. `closes_at` and `duration_minutes` are nullable and `extra_attempts` defaults to 0; a check requires at least one of the three to change something. A student's close is `greatest(least(closed_at, closes_at), override.closes_at)`: an override only ever lengthens, and one that reaches past an early close lifts it for that student alone. `shared/schedule` holds that rule as SQL and in Go, and the join that reads it.
 

@@ -256,21 +256,43 @@ applies, and keeps serving if the deploy stops after one.
 `app.user_role`, and the API stops naming a role (`User.role`, `CurrentUser.role`, the access
 token's claim).
 
+**`00106_validate_ownership.sql`** validates the five owner constraints (`classes.teacher_id`, and
+`owner_id` on `tests`, `questions`, `question_groups` and `media_assets`) and drops the five
+`BEFORE INSERT` fill triggers with their three functions (`docs/plan/20-data-model.md` §43).
+
 - Before the merge, read the machine versions: `fly status -a quizzivy-api` lists each machine with
   its release, and `fly releases -a quizzivy-api` dates the releases. No machine may be older than
   the release that deployed v0.8.0 (2026-10-03), in either process group, for at least seven days.
-  v0.8.0 and v0.9.0 never name the column, so they keep working on the new schema; v0.7.0 does name
-  it.
-- Rehearse on a Neon branch of production: `psql "$BRANCH_DSN" -v before=1 -f
-  docs/setup/rehearsals/r4-legacy-role.sql > before.txt`, `goose up` as `quizzivy_migrate` (time
-  it), then the script again without `-v before=1` into `after.txt`. Section A must read the same
-  in both, and every "must be" line of section B must print what it says. Delete the branch.
-- The migration holds ACCESS EXCLUSIVE on `app.users` for milliseconds and gives up after five
-  seconds (`55P03`, schema unchanged). If it does, find the long query on `app.users` and redeploy.
+  v0.8.0 and v0.9.0 never name `users.role` and name the owner in every insert, so they keep working
+  on the new schema; v0.7.0 does neither, and its inserts into the four content tables and `classes`
+  would fail.
+- Rehearse on a Neon branch of production, both scripts in one run. Before the migrations, `psql
+  "$BRANCH_DSN" -v before=1 -f docs/setup/rehearsals/r4-legacy-role.sql > legacy-before.txt` and the
+  same with `r4-ownership.sql > ownership-before.txt`; then `goose up` as `quizzivy_migrate` (time
+  each migration); then both scripts again without `-v before=1` into `legacy-after.txt` and
+  `ownership-after.txt`. In each script, section A must read the same before and after, and every
+  "must be" line of section B must print what it says. Section P of `ownership-before.txt` must
+  show 0 rows without an owner on every line. Add `-v scan=1` to the first `r4-ownership.sql` run
+  for the cost of each table's validation scan, which the PR records per table. Delete the branch.
+- 00105 holds ACCESS EXCLUSIVE on `app.users` for milliseconds. 00106's validations hold SHARE UPDATE
+  EXCLUSIVE and block neither a read nor a write; its drops hold ACCESS EXCLUSIVE on the five owner
+  tables for milliseconds, last, to commit. Each migration gives up on a lock after five seconds.
 - The API deploys first, so the v0.9.0 bundle meets an API whose responses carry no `role`. That
   bundle never reads it, and a tab left open keeps working.
-- Roll forward, not back past v0.8.0: Down restores the column from what each role holds, but
-  nothing in production runs it.
+- If a migration stops, its transaction rolled back whole: the schema, the version row and v0.9.0 are
+  as they were, and a redeploy retries it. The codes, by what to do:
+  - `55P03` (a lock did not arrive within five seconds): find the long query or open transaction on
+    `app.users` (00105) or on the five owner tables (00106) in `pg_stat_activity`, and redeploy.
+  - `40P01` (the deadlock detector ended the migration): 00106 only. A transaction of v0.9.0 that
+    touches two of the five tables in the opposite order, and is open at that moment, deadlocks with
+    the migration, and the detector ends one of the two after a second. If it ends the migration,
+    redeploy as for `55P03`. If it ends the v0.9.0 transaction instead, the migration proceeds and
+    that one request fails with a server error; repeating it works. Either way nothing else is lost.
+  - `23502` (a row without what the migration validates): the message names the table. For 00105 a
+    user has no `role_id`; for 00106 a row has no owner, which the constraint has refused since R2, so
+    someone dropped it. Set the owner from `created_by` (`uploaded_by` for media) and redeploy.
+- Roll forward, not back past v0.8.0: Down restores the column from what each role holds and the
+  triggers for a v0.7.0 that nothing in production runs, and nothing runs either in production.
 
 ## Interrupted index builds in v0.8.0 (R2)
 

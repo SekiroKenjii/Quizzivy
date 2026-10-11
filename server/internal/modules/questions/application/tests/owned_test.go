@@ -33,7 +33,7 @@ func TestOwnedQuestionsRequireTheirGroupForReadsWritesAndCopies(t *testing.T) {
 	}
 	var group, other string
 	for _, id := range []*string{&group, &other} {
-		if err := tx.QueryRow(ctx, `INSERT INTO app.question_groups (title,created_by) VALUES ('Context',$1) RETURNING id`, author).Scan(id); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO app.question_groups (title,created_by,owner_id) VALUES ('Context',$1,$1) RETURNING id`, author).Scan(id); err != nil {
 			t.Fatal(err)
 		}
 	}

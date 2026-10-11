@@ -35,8 +35,8 @@ func setup(t *testing.T) (context.Context, pgx.Tx, string, string) {
 	 ), teacher AS (
 	   INSERT INTO app.users(email,full_name,role_id) VALUES($1::text || '-teacher@example.com','Teacher',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id
 	 ), test AS (
-	   INSERT INTO app.tests(title,status,current_version,created_by)
-	   SELECT 'Maintenance fixture','published',1,id FROM teacher RETURNING id,created_by
+	   INSERT INTO app.tests(title,status,current_version,created_by,owner_id)
+	   SELECT 'Maintenance fixture','published',1,id,id FROM teacher RETURNING id,created_by
 	 ), version AS (
 	   INSERT INTO app.test_versions(test_id,version,total_points,published_by)
 	   SELECT id,1,1,created_by FROM test RETURNING id,test_id,published_by

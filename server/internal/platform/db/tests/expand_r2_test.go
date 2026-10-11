@@ -555,7 +555,7 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 		}
 	})
 
-	t.Run("each owner column is NOT VALID until R3 validates it", func(t *testing.T) {
+	t.Run("each owner column is NOT VALID until 00106 validates it", func(t *testing.T) {
 		for table, constraint := range map[string]string{
 			"tests":           "tests_owner_id_not_null",
 			"questions":       "questions_owner_id_not_null",
@@ -570,7 +570,7 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 				t.Fatalf("%s: %v", constraint, err)
 			}
 			if validated {
-				t.Errorf("%s is validated; R3 owns that step", constraint)
+				t.Errorf("%s is validated; 00106 owns that step", constraint)
 			}
 		}
 	})
