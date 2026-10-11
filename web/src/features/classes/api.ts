@@ -3,6 +3,8 @@ import { api } from "@/lib/api/client";
 import type { components, operations } from "@/lib/api/schema";
 
 export type Class = components["schemas"]["Class"];
+/** ClassListItem is a row of the teacher's class list, its join code readable. */
+export type ClassListItem = components["schemas"]["ClassListItem"];
 export type MyClass = components["schemas"]["MyClass"];
 export type ClassMember = components["schemas"]["ClassMember"];
 export type ClassFacets = components["schemas"]["ClassFacets"];
@@ -28,11 +30,11 @@ export function fetchClasses(params: ListClassesParams = {}, signal?: AbortSigna
   return api("get", "/teacher/classes", signal ? { query, signal } : { query });
 }
 
-export function createClass(body: {
-  name: string;
-  description: string | null;
-  selfJoinEnabled: boolean;
-}) {
+/** NewClass is the body `createClass` sends. */
+export type NewClass =
+  operations["createClass"]["requestBody"]["content"]["application/json"];
+
+export function createClass(body: NewClass) {
   return api("post", "/teacher/classes", { body });
 }
 
@@ -75,6 +77,8 @@ export function fetchMembers(
 export interface ClassEdit {
   name?: string;
   description?: string;
+  scheduleLabel?: string | null;
+  room?: string | null;
   selfJoinEnabled?: boolean;
   archived?: boolean;
 }
