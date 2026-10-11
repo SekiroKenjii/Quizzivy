@@ -2488,6 +2488,13 @@ transaction it rolls back and asserts that the list reads
 `notifications_user_recent_idx` alone, with the cursor as an index condition
 and no sort, and that the count uses `notifications_unread_idx`.
 
+A bell that names an audience (DG-170, spec v0.80) adds `kind = ANY($n::text[])` to the list, the count
+and both markings, where the array holds that console's kinds (`notifications/domain/audience.go`). It
+adds no column, index or migration: the list reads the same index in the same order and applies the kind
+as a filter, and the count finds the user's unread rows through `notifications_unread_idx` and reads
+their kind from the few rows it returns. The markings add the same filter to statements that already
+select by `user_id`. The plan test asserts the audience list and count as it asserts the others.
+
 ## 35. Caller profile and preferences (T-R4.7)
 
 `00085_add_users_profile_fields.sql` adds five nullable text columns to
