@@ -1345,8 +1345,8 @@ listed here matches the spec.
 | D-19 | `attempt_answers`: add `requires_manual`, `graded_by`, `graded_at` | `final_score` is VIRTUAL and unindexable, so `pendingManual` needs a real-column predicate |
 | D-20 | Add `maintenance_windows`, read-only for the app role; written only through `cmd/maintenance`, whose extensions are audited as System | §13 has no maintenance state; the API must be able to answer 503 without being able to schedule, move or cancel a window itself (T-R1.12) |
 | D-21 | Reference data the app cannot run without is written by a migration, not `seed/`: the permission catalogue (`permissions`), the four built-in `roles` and their grants (`role_permissions`) | §13.7 keeps seed data out of migrations, but a production database with no roles cannot sign anyone in; plan 70 §3 (T-R2.1) |
-| D-22 | `tests`, `questions`, `question_groups` and `media_assets` gain `owner_id` beside `created_by` / `uploaded_by`; `users` gains a nullable `created_by` | Ownership is who a row belongs to and provenance is who made it. R5's ownership transfer and R7's co-editing move the first and must not rewrite the second (T-R2.9) |
-| D-23 | `classes.teacher_id` is backfilled from the oldest active Admin, with no `classes.created_by` | `app.classes` never recorded a creator, and the oldest active Admin is who v0.7.0 shows as every class's teacher, so no teacher changes; a class's creator from R2 on is its `class.created` audit row (Thuong, 2026-09-28; T-R2.9) |
+| D-22 | `tests`, `questions`, `question_groups` and `media_assets` gain `owner_id` beside `created_by` / `uploaded_by`; `users` gains a nullable `created_by` | Ownership is who a row belongs to and provenance is who made it. R5's ownership transfer and R7's co-editing move the first and must not rewrite the second (T-R2.9). Expand half (00060 to 00063): each owner column is `NOT NULL NOT VALID`, with a fill trigger for the v0.7.0 binary. Contract half (00106, T-R4.49, §42): the constraints validated and the triggers and their functions dropped |
+| D-23 | `classes.teacher_id` is backfilled from the oldest active Admin, with no `classes.created_by` | `app.classes` never recorded a creator, and the oldest active Admin is who v0.7.0 shows as every class's teacher, so no teacher changes; a class's creator from R2 on is its `class.created` audit row (Thuong, 2026-09-28; T-R2.9). Expand half (00065): `classes_teacher_id_not_null` `NOT VALID` and the trigger `classes_fill_teacher`. Contract half (00106, §42): validated, and trigger and function dropped |
 | D-24 | Add the view `app.student_like_roles`, the one strict-student predicate: the built-in Student, or a custom role holding nothing but `learning.take_tests`; the other built-in roles are excluded by key | The Admin stores only its "Take tests" cell, so a predicate on grants alone would make it a student target; every student read and write, the legacy-role sync and the anonymiser use this one definition (plan 70 §4.3, T-R2.1) |
 | D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum, expand half: added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step until v0.9.1 (T-R3.1) drops the column and the enum | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
 | D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
@@ -1469,6 +1469,7 @@ the file it adds.
 | `00100_add_assignments_student_note.sql` | `assignments.student_note` and `assignments_student_note_check` (1 to 500 characters once trimmed of the `shared/answered` whitespace set), added with the column | R4 (T-R4.11), D-35 |
 | `00101_create_assignment_student_overrides.sql` | `assignment_student_overrides`, its four checks, `assignment_student_overrides_student_idx` and the `updated_at` trigger | R4 (T-R4.12), D-36 |
 | `00102_add_refresh_tokens_geo_label.sql` | `refresh_tokens.geo_label` and `refresh_tokens_geo_label_check` (1 to 80 characters), added with the column | R4 (T-R4.9), D-37 |
+| `00106_validate_ownership.sql` | Validates the five owner constraints; drops the five fill triggers and their three functions; `lock_timeout` 5 s | R4 (T-R4.49, T-R3.2), D-22, D-23, §42 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2235,9 +2236,9 @@ is set, as CI does.
 
 ## 31. Ownership (T-R2.9)
 
-The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). v0.9.1
-validates every constraint below and drops the fill triggers and their
-functions (73-r3.md T-R3.2).
+The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). 00106
+(73-r3.md T-R3.2, §42) validated every constraint below and dropped the fill
+triggers and their functions.
 
 - `00060`–`00063` add `owner_id uuid` to `tests`, `questions`,
   `question_groups` and `media_assets`, beside the provenance column each
@@ -2279,8 +2280,8 @@ functions (73-r3.md T-R3.2).
   EXCLUSIVE on the referencing table, which reads and foreign-key checks do
   not conflict with, so it simply waits for such a transaction to commit.
   `00064` keeps its inline reference: it references its own table.
-- The new binary names every owner itself; the triggers exist only for the
-  deploy overlap:
+- The new binary names every owner itself; the triggers existed only for the
+  deploy overlap and 00106 dropped them:
 
   | Row | Owner written |
   |---|---|
@@ -2300,11 +2301,14 @@ functions (73-r3.md T-R3.2).
   package's delete of that user would then fail one side on the foreign key.
   The shared fixture in `constraints_test.go` also runs on scratch databases
   migrated to versions before `00065`, so it names `teacher_id` only when the
-  column exists.
+  column exists. Since 00106 every fixture and seed insert into `tests`,
+  `questions`, `question_groups` and `media_assets` names `owner_id` too: a
+  fixture that omits it fails with `23502`.
 
 `platform/db/tests/expand_r2_test.go` (`TestTheOwnershipExpandKeepsTheOldBinaryWorking`)
 writes a legacy dataset at v0.7.0's schema by two authors, with an older,
-disabled Admin, and migrates. It checks that every row went to its author and
+disabled Admin, and migrates to the version before 00106, the end of the expand
+half. It checks that every row went to its author and
 the class to the oldest active Admin, with `updated_at` unmoved. It also
 checks the old binary's inserts are filled, an explicit owner is kept, an
 account's creator is optional and cleared when the creator goes, and each
@@ -2732,3 +2736,61 @@ cheap, and a nullable column with no default rewrites nothing. The label reaches
 A session is a family with an unrevoked, unexpired row. The list reads it through
 `refresh_tokens_user_live_idx (user_id) WHERE revoked_at IS NULL`, and the current session's
 lookup by `token_hash` and `refresh_tokens_family_idx`; neither needed a new index.
+
+## 42. Ownership is validated and the fill triggers go (T-R4.49, T-R3.2)
+
+The contract half of §31 (D-22, D-23). `00106_validate_ownership.sql` takes the expand half's
+scaffolding out once nothing older than v0.8.0 can still be serving. v0.8.0 and the previous
+binary, v0.9.0, name the owner in every insert: a test, a question, a group and a media asset
+carry `owner_id`, a class `teacher_id`. The `BEFORE INSERT` triggers filled it only for v0.7.0.
+The five constraints have refused a NULL owner for every new and updated row since 00060 to
+00065, so a row written meanwhile cannot make the validation fail.
+
+One transaction, `SET LOCAL lock_timeout = '5s'`, in this order:
+
+1. A `DO` block counts, for `classes.teacher_id` and `owner_id` of `tests`, `questions`,
+   `question_groups` and `media_assets`, the rows still NULL. The first table that has any stops
+   the migration with `23502`, whose message, `TABLE` and `COLUMN` name it, before anything
+   changes. Without it `VALIDATE` would stop too, naming a relation and no more.
+2. `VALIDATE CONSTRAINT` on `classes_teacher_id_not_null`, `tests_owner_id_not_null`,
+   `questions_owner_id_not_null`, `question_groups_owner_id_not_null` and
+   `media_assets_owner_id_not_null`. PG18 validates a `NOT NULL` this way, under SHARE UPDATE
+   EXCLUSIVE with one scan of the table, so reads and writes continue.
+3. `DROP TRIGGER` on `tests`, `questions` and `question_groups`, then `app.fill_owner_from_created_by()`;
+   on `media_assets`, then `app.fill_owner_from_uploaded_by()`; on `classes`, then
+   `app.classes_fill_teacher()`. A trigger goes before its function, and there is no `IF EXISTS`
+   anywhere, so a wrong name fails the migration instead of leaving an object.
+
+The locks, read from `pg_locks` after each phase on a migrated scratch database: the check holds
+ACCESS SHARE on the five tables, the validations add SHARE UPDATE EXCLUSIVE, and the drops add
+ACCESS EXCLUSIVE, all released at commit. The drops come last and touch the catalog only, so the
+window in which a table refuses a read or a write is milliseconds at any size. What can wait in
+it is a statement that arrives, or a transaction that is open, at that moment: a query already
+running on a table delays the lock request, and every later query on the table queues behind the
+request. `lock_timeout` turns a request that does not arrive within five seconds into a failed
+migration (`55P03`), which rolls everything back and leaves the schema, the version row and the
+v0.9.0 binary as they were; the release stops, and a redeploy retries. A transaction of the previous
+binary that touches two of the five tables in the opposite order to the migration, and is open at
+that millisecond, could deadlock with it; the detector ends one of the two after
+`deadlock_timeout` (1 s), and if it is the migration, the outcome is the same clean stop.
+
+The previous binary is safe on both sides of the migration. Its seven `INSERT` statements name the owner
+(`classes/repositories/postgres.go`, `media/repositories/store.go`, `questions/repositories/store.go`,
+`tests/repositories/{store,duplicate,group_create,version_draft}.go`; a grep of the `v0.9.0` tag finds
+no other `INSERT` into the five tables outside `seed/` and tests), so the triggers it never needed
+going changes nothing for it, and a rollback to it after 00106 is safe. v0.7.0 does need them: it
+inserts a test without `owner_id`, which now fails with `23502`. Roll forward, not back past v0.8.0.
+
+Down recreates the three functions and the five triggers byte for byte as 00060, 00063 and 00065
+created them (a test compares `pg_get_functiondef`, `pg_get_triggerdef`, owner and ACL before 00106
+and after Down). The constraints stay validated, because Down never weakens a valid `NOT NULL`.
+Nothing runs it in production.
+
+Tests, in `platform/db/tests/contract_r3_ownership_test.go` and `constraints_test.go`: what is gone
+and what is kept; a row without an owner, in each of the five tables, stops the migration naming
+that table and leaves everything as it was; a held lock makes it give up with `55P03`; the previous
+binary's inserts, reads and class inserts run through the migration without an error; Down restores
+the objects and a bare insert is filled again; validating blocks neither a read nor a write; an
+insert that omits an owner is refused; and the not-validated constraints in `app` equal an explicit
+list, which is empty once 00105 and 00106 have both run. A later expand step adds its constraint
+to that list and its contract step removes it, so a forgotten `NOT VALID` fails CI.

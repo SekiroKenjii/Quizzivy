@@ -35,6 +35,9 @@ this file describe the code as it is and name the release that changes them.
   owner constraints and drops their fill triggers. Until then all of them are
   in the code. By default the three now ship inside R4 as T-R4.49, because R4
   has already taken migrations 00080 to 00091 (`73-r3.md`, "Migration numbers").
+  The owner constraints are validated and their fill triggers dropped (00106,
+  T-R3.2); the legacy role and the alias are in the code until their steps
+  merge.
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
   an old `/admin/*` bookmark redirects.
 - **The design team's exports of 2026-10-04 (the fourth) and 2026-10-10 (v2, which
@@ -566,11 +569,11 @@ to these. Do not refactor them opportunistically while doing something else.
 **Access and ownership.** A write that ends someone's access revokes their
 refresh families, bumps `session_epoch` and calls `Principals.Forget` in one
 command (`docs/plan/70-redesign-overview.md` §4.2). Every insert names its
-owner itself: the `BEFORE INSERT` fill triggers exist only for the v0.7.0
-binary, and v0.9.1 (T-R3.1 to T-R3.3) drops them. A user write sets `role_id`,
-never `role`: 00056's trigger derives `role` until v0.9.1 (T-R3.1 to T-R3.3)
-drops the column. The `users_last_admin` trigger refuses any change that leaves
-no active Admin.
+owner itself, a test fixture and a seed too: the `BEFORE INSERT` fill triggers
+went with 00106 (T-R3.2), and an insert that omits an owner fails with `23502`.
+A user write sets `role_id`, never `role`: 00056's trigger derives `role` until
+v0.9.1 (T-R3.1 to T-R3.3) drops the column. The `users_last_admin` trigger
+refuses any change that leaves no active Admin.
 
 **Soft delete and the reference check are two tables, so the lock must be taken
 on both sides.** `SoftDelete` locks the row it is deleting and then counts
