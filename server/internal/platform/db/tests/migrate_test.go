@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -218,4 +219,16 @@ func TestFoundationObjectsExist(t *testing.T) {
 			t.Errorf("app.%s() is missing", fn)
 		}
 	}
+}
+
+func dropScratchDatabase(t *testing.T, admin *sql.DB, name string) {
+	t.Helper()
+	var err error
+	for attempt := 0; attempt < 20; attempt++ {
+		if _, err = admin.Exec(`DROP DATABASE IF EXISTS ` + name + ` WITH (FORCE)`); err == nil {
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Errorf("dropping %s: %v", name, err)
 }
