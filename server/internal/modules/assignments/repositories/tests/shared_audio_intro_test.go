@@ -31,8 +31,8 @@ func TestIntroUsesQuestionAndSharedAudioOnTheAssignedVersion(t *testing.T) {
 		t.Helper()
 		var id string
 		must(tx.QueryRow(ctx, `INSERT INTO app.media_assets
-		 (kind,storage_key,mime_type,bytes,duration_ms,original_filename,checksum_sha256,uploaded_by)
-		 VALUES ('audio',$1,'audio/mpeg',100,1000,'synthetic.mp3',sha256('audio'::bytea),$2) RETURNING id::text`, nonce(t), w.admin).Scan(&id))
+		 (kind,storage_key,mime_type,bytes,duration_ms,original_filename,checksum_sha256,uploaded_by,owner_id)
+		 VALUES ('audio',$1,'audio/mpeg',100,1000,'synthetic.mp3',sha256('audio'::bytea),$2,$2) RETURNING id::text`, nonce(t), w.admin).Scan(&id))
 		return id
 	}
 	firstAsset := asset()

@@ -96,8 +96,8 @@ func seed(t *testing.T, db db.Querier, opensAt, closesAt time.Time, flagged bool
 		}
 	}
 	must(db.QueryRow(ctx,
-		`INSERT INTO app.tests (title, status, current_version, created_by)
-		 VALUES ('Dashboard fixture','published',1,$1) RETURNING id::text`, author).Scan(&testID))
+		`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+		 VALUES ('Dashboard fixture','published',1,$1,$1) RETURNING id::text`, author).Scan(&testID))
 	must(db.QueryRow(ctx,
 		`INSERT INTO app.test_versions (test_id, version, total_points, published_by)
 		 VALUES ($1,1,'2.00',$2) RETURNING id::text`, testID, author).Scan(&versionID))

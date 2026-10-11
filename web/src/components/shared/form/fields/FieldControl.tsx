@@ -23,7 +23,12 @@ const TEXT = {
 const SINGLE = { select: SelectField, seg: SegField };
 const MANY = { chips: ChipsField, list: ListField };
 const DATE = { date: DateField, time: TimeField };
-/** FieldControl renders the matching typed control for one form field. */
+/**
+ * FieldControl renders the matching typed control for one form field. While
+ * `locked`, a text or multiline field, and a list's search box, turn
+ * read-only and stay focusable, since Enter in one of them may have
+ * submitted the form, and every other control is disabled.
+ */
 export function FieldControl<V extends FormValues>({
   field,
   values,
@@ -32,6 +37,7 @@ export function FieldControl<V extends FormValues>({
   invalid,
   describedBy,
   disabled,
+  locked = false,
 }: Readonly<{
   field: FormField<V>;
   values: V;
@@ -40,10 +46,19 @@ export function FieldControl<V extends FormValues>({
   invalid: boolean;
   describedBy: string | undefined;
   disabled: boolean;
+  locked?: boolean;
 }>) {
   const raw = values[field.name];
   const label = field.label ?? "";
-  const props = { id, label, invalid, describedBy, disabled, onChange };
+  const props = {
+    id,
+    label,
+    invalid,
+    describedBy,
+    disabled: disabled || locked,
+    onChange,
+  };
+  const textProps = { ...props, disabled, readOnly: locked };
   const text = typeof raw === "string" ? raw : "";
   const multiple = Array.isArray(raw) ? raw : [];
   switch (field.kind) {
@@ -54,7 +69,7 @@ export function FieldControl<V extends FormValues>({
       const Control = TEXT[field.kind];
       return (
         <Control
-          {...props}
+          {...textProps}
           placeholder={field.placeholder}
           autoComplete={field.autoComplete}
           inputMode={field.inputMode}
@@ -83,7 +98,11 @@ export function FieldControl<V extends FormValues>({
           {...props}
           options={field.options}
           {...(field.kind === "list"
-            ? { search: field.search, searchPlaceholder: field.searchPlaceholder }
+            ? {
+                search: field.search,
+                searchPlaceholder: field.searchPlaceholder,
+                readOnly: locked,
+              }
             : {})}
           value={multiple}
         />
@@ -97,7 +116,7 @@ export function FieldControl<V extends FormValues>({
     case "area":
       return (
         <AreaField
-          {...props}
+          {...textProps}
           placeholder={field.placeholder}
           maxLength={field.maxLength}
           value={text}

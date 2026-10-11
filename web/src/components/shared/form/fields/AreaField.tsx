@@ -12,14 +12,20 @@ export function AreaField({
   disabled,
   placeholder,
   maxLength,
+  readOnly,
 }: FieldControlProps<string> &
-  Readonly<{ placeholder?: string | undefined; maxLength?: number | undefined }>) {
+  Readonly<{
+    placeholder?: string | undefined;
+    maxLength?: number | undefined;
+    readOnly?: boolean | undefined;
+  }>) {
   return (
     <Textarea
       id={id}
       aria-label={label}
       value={value}
       disabled={disabled}
+      readOnly={readOnly}
       placeholder={placeholder}
       maxLength={maxLength}
       rows={3}

@@ -29,15 +29,16 @@ this file describe the code as it is and name the release that changes them.
 - **Since R2** (v0.8.0) permissions, not paths, gate the API, repositories
   scope rows to their owner, and teaching operations are under `/teacher/*`
   ("Authentication and authorization" below). The v0.7.0 `/admin/*` API paths
-  answer through an alias until v0.9.1 (T-R3.1 to T-R3.3).
+  answer through an alias until v0.9.1 (T-R3.3).
 - **v0.9.1** (T-R3.1 to T-R3.3, no earlier than 2026-10-10) removes that alias,
   drops the legacy `users.role` column with its sync trigger, and validates the
   owner constraints and drops their fill triggers. By default the three now ship
   inside R4 as T-R4.49, because R4 has already taken migrations 00080 to 00091
   (`73-r3.md`, "Migration numbers"). The legacy role is gone (00105, T-R3.1):
   no `users.role`, no `app.user_role`, no sync trigger, and no `role` in the
-  contract or in an access token. The alias (T-R3.3) and the owner constraints
-  with their fill triggers (T-R3.2) are in the code until their steps merge.
+  contract or in an access token. The owner constraints are validated and their
+  fill triggers dropped (00106, T-R3.2). Only the alias (T-R3.3) is in the code
+  until its step merges.
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
   an old `/admin/*` bookmark redirects.
 - **The design team's exports of 2026-10-04 (the fourth) and 2026-10-10 (v2, which
@@ -161,7 +162,7 @@ module:
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
 | `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application) |
 | `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`), one module's handlers behind another's port (`Media`, `MediaKinds`), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver` |
-| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.1 to T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
+| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
 | `core/jobs` | background commands (`PruneRefreshTokens`, `PruneNotifications`) |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
@@ -237,8 +238,7 @@ unit, integration and end-to-end in that order.
   declares `x-resource-list`. `TestAnotherTeachersIdsAnswerAsMissingOnes`
   fails naming an operation the table lacks, and `resource_contract_test.go`
   a uuid without a kind.
-- **The v0.7.0 `/admin/*` teaching paths answer until v0.9.1 (T-R3.1 to
-  T-R3.3).** The router
+- **The v0.7.0 `/admin/*` teaching paths answer until v0.9.1 (T-R3.3).** The router
   rewrites each to its new path (`LegacyAdminPaths`: a `/teacher/*` path, and
   `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
   `legacy_admin_path`. A new operation never joins that table.
@@ -569,10 +569,10 @@ to these. Do not refactor them opportunistically while doing something else.
 **Access and ownership.** A write that ends someone's access revokes their
 refresh families, bumps `session_epoch` and calls `Principals.Forget` in one
 command (`docs/plan/70-redesign-overview.md` §4.2). Every insert names its
-owner itself: the `BEFORE INSERT` fill triggers exist only for the v0.7.0
-binary, and v0.9.1 (T-R3.2) drops them. A user write sets `role_id`; the
-legacy `role` column went with 00105. The `users_last_admin` trigger refuses any
-change that leaves no active Admin.
+owner itself, a test fixture and a seed too: the `BEFORE INSERT` fill triggers
+went with 00106 (T-R3.2), and an insert that omits an owner fails with `23502`.
+A user write sets `role_id`; the legacy `role` column went with 00105. The
+`users_last_admin` trigger refuses any change that leaves no active Admin.
 
 **Soft delete and the reference check are two tables, so the lock must be taken
 on both sides.** `SoftDelete` locks the row it is deleting and then counts

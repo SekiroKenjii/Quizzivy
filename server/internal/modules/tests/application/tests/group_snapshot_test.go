@@ -23,13 +23,13 @@ func snapshotDraft(t *testing.T, tx pgx.Tx, author string) (string, string, time
 	ctx := context.Background()
 	var testID, sectionID, questionID string
 	var updated time.Time
-	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by) VALUES ('Grouped exam',$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by,owner_id) VALUES ('Grouped exam',$1,$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.QueryRow(ctx, `INSERT INTO app.test_sections (test_id,ordinal,title) VALUES ($1,0,'Part') RETURNING id::text`, testID).Scan(&sectionID); err != nil {
 		t.Fatal(err)
 	}
-	if err := tx.QueryRow(ctx, `INSERT INTO app.questions (type,prompt,points,created_by) VALUES ('short_answer','Standalone',1,$1) RETURNING id::text`, author).Scan(&questionID); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO app.questions (type,prompt,points,created_by,owner_id) VALUES ('short_answer','Standalone',1,$1,$1) RETURNING id::text`, author).Scan(&questionID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.test_section_questions (test_section_id,ordinal,question_id) VALUES ($1,0,$2)`, sectionID, questionID); err != nil {
