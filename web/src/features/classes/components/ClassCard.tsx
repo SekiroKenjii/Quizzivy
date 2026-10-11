@@ -78,7 +78,7 @@ export function ClassCard({
       <div className="flex flex-1 flex-col gap-3.5 p-4">
         <div className="flex justify-between gap-2.5">
           <div className="min-w-0">
-            <h2 className="text-body leading-[1.35] font-semibold [overflow-wrap:anywhere]">
+            <h2 className="text-[0.9375rem] leading-[1.35] font-semibold [overflow-wrap:anywhere]">
               <Link to={`/teacher/classes/${klass.id}`} className="hover:underline">
                 {klass.name}
               </Link>

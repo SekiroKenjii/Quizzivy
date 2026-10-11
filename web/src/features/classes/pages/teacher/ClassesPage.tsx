@@ -204,6 +204,8 @@ export default function ClassesPage() {
 
       {nothingYet ? null : (
         <Segmented
+          className="max-w-full self-start"
+          scroll
           label={t("classes.statusFilter")}
           value={tab}
           options={[
