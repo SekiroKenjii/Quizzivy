@@ -23,9 +23,6 @@ const listed = `
 	  FROM app.notifications n
 	 WHERE n.user_id = $1::uuid`
 
-// ofAudience is the clause that keeps the rows of audience's kinds, with the
-// argument it numbers appended to args. For the empty audience it is no clause
-// at all, so the statement is what it was before audiences existed.
 func ofAudience(audience domain.Audience, column string, args []any) (string, []any) {
 	kinds := domain.KindsOf(audience)
 	if kinds == nil {

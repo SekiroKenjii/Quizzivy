@@ -313,7 +313,7 @@ func TestTheAudienceARequestNamesIsWhatTheUseCasesAreAsked(t *testing.T) {
 	})
 	ids := []openapi.Uuid{uuid.MustParse(firstID)}
 	for _, audience := range []openapi.NotificationAudience{openapi.NotificationAudienceTeacher, openapi.NotificationAudienceStudent} {
-		answered(t, "", func(ctx context.Context, w http.ResponseWriter) error {
+		answered(t, "", func(ctx context.Context, _ http.ResponseWriter) error {
 			if _, err := transport.ListNotifications(ctx, openapi.ListNotificationsRequestObject{Params: openapi.ListNotificationsParams{Audience: &audience}}); err != nil {
 				return err
 			}
