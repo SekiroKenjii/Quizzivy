@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
-import { teacherUser } from "@tests/support/fixtures";
+import { adminUser, teacherUser } from "@tests/support/fixtures";
 import {
   BASE,
   CLASS_A,
@@ -149,5 +149,77 @@ describe("removing a student from their classes", () => {
     expect(
       within(menu).getByRole("menuitem", { name: "Xoá khỏi lớp" }),
     ).toHaveAttribute("aria-disabled", "true");
+  });
+});
+
+/**
+ * An Admin's row lists every class the student is in, other teachers' too
+ * (`scope.all`), and Remove and Move act on all of them, so each confirmation
+ * names them (SR-40-1).
+ */
+describe("an Admin's Remove and Move name every class they end", () => {
+  const OTHERS = { id: "018f0000-0000-7000-8000-0000000000a9", name: "TOEIC Cô Lan" };
+  const WIDE = student("018f0000-0000-7000-8000-0000000000e1", "Nguyễn Văn An", {
+    classes: [inClass(CLASS_A), inClass(OTHERS)],
+  });
+  const BINH = student("018f0000-0000-7000-8000-0000000000e2", "Trần Thị Bình", {
+    classes: [inClass(OTHERS)],
+  });
+
+  it("names the classes in the row's Remove", async () => {
+    serveStudents([WIDE]);
+    const calls = serveMembers();
+    const { user } = renderStudents(adminUser);
+
+    const menu = await menuOf(user, "Nguyễn Văn An");
+    await user.click(within(menu).getByRole("menuitem", { name: "Xoá khỏi lớp" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Xoá Nguyễn Văn An khỏi các lớp của học viên?",
+    });
+    expect(dialog).toHaveTextContent(
+      `Nguyễn Văn An sẽ rời: ${CLASS_A.name}, ${OTHERS.name}.`,
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Xoá khỏi lớp" }));
+    await waitFor(() =>
+      expect(calls).toEqual([
+        `remove ${CLASS_A.id} ${WIDE.id}`,
+        `remove ${OTHERS.id} ${WIDE.id}`,
+      ]),
+    );
+  });
+
+  it("names the classes a Move leaves, and none once they are kept", async () => {
+    serveStudents([WIDE]);
+    serveMembers();
+    const { user } = renderStudents(adminUser);
+
+    const menu = await menuOf(user, "Nguyễn Văn An");
+    await user.click(within(menu).getByRole("menuitem", { name: "Chuyển lớp" }));
+    const dialog = await screen.findByRole("dialog", { name: "Chuyển Nguyễn Văn An" });
+    await chooseClass(user, CLASS_B.name);
+    expect(dialog).toHaveTextContent(
+      `Nguyễn Văn An sẽ rời: ${CLASS_A.name}, ${OTHERS.name}.`,
+    );
+    await user.click(
+      within(dialog).getByRole("switch", { name: "Giữ học viên ở cả lớp hiện tại" }),
+    );
+    expect(dialog).not.toHaveTextContent("sẽ rời");
+  });
+
+  it("counts the memberships in the bulk Remove and names their classes once each", async () => {
+    serveStudents([WIDE, BINH]);
+    serveMembers();
+    const { user } = renderStudents(adminUser);
+
+    for (const name of ["Nguyễn Văn An", "Trần Thị Bình"]) {
+      await user.click(
+        within(await rowOf(name)).getByRole("checkbox", { name: `Chọn ${name}` }),
+      );
+    }
+    await user.click(screen.getByRole("button", { name: "Xoá khỏi lớp" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(
+      `(3 lượt tham gia): ${CLASS_A.name}, ${OTHERS.name}.`,
+    );
   });
 });

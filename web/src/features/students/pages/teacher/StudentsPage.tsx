@@ -41,7 +41,7 @@ import {
 import { ResetSheet } from "@/features/students/components/ResetSheet";
 import { StudentDrawer } from "@/features/students/components/StudentDrawer";
 import type { OneTimeCredential } from "@/features/students/credentials";
-import { removeFromClasses } from "@/features/students/membership";
+import { classesLeftBy, removeFromClasses } from "@/features/students/membership";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
@@ -193,6 +193,7 @@ function StudentsBulkBar({
   onSettled: () => Promise<unknown>;
 }>) {
   const { t } = useTranslation();
+  const left = classesLeftBy(selected);
   return (
     <BulkActions
       selected={selected}
@@ -203,7 +204,10 @@ function StudentsBulkBar({
           ? [
               {
                 label: t("students.bulk.remove"),
-                description: t("students.bulk.removeBody"),
+                description: t("students.bulk.removeBody", {
+                  count: left.count,
+                  classes: left.names,
+                }),
                 icon: UserMinus,
                 run: removeFromClasses,
               },
@@ -253,8 +257,8 @@ function StudentsBulkBar({
 }
 
 /**
- * RemoveStudentDialog asks before it takes `student` out of every class of
- * theirs the caller teaches, and keeps a refusal in the dialog.
+ * RemoveStudentDialog asks before it takes `student` out of every class in
+ * their row, which it names, and keeps a refusal in the dialog.
  */
 function RemoveStudentDialog({
   student,
@@ -297,7 +301,10 @@ function RemoveStudentDialog({
       }}
       icon={UserMinus}
       title={t("students.removeAllTitle", { name: student?.fullName ?? "" })}
-      description={t("students.removeAllBody")}
+      description={t("students.removeAllBody", {
+        name: student?.fullName ?? "",
+        classes: student === null ? "" : classesLeftBy([student]).names,
+      })}
       confirmLabel={t("students.removeAll")}
       destructive
       pending={pending}

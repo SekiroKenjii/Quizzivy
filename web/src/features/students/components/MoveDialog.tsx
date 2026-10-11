@@ -7,7 +7,7 @@ import { toast } from "@/components/ui/sonner";
 import type { Class } from "@/features/classes/api";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
 import type { Student } from "@/features/students/api";
-import { moveStudent } from "@/features/students/membership";
+import { classesLeftBy, moveStudent } from "@/features/students/membership";
 
 type MoveValues = { to: string; keep: boolean };
 
@@ -17,8 +17,10 @@ const INITIAL: MoveValues = { to: "", keep: false };
  * MoveDialog moves one student or several to one of the caller's classes:
  * Class, and "Keep them in their current class too", which is off. Each
  * student is added to the class, then taken out of their other classes unless
- * kept. A student who could not be moved is named in the dialog, which stays
- * open; when every one moved it closes with a toast.
+ * kept; unless kept, the dialog names the classes they leave, which for an
+ * Admin can be any class in the system. A student who could not be moved is
+ * named in the dialog, which stays open; when every one moved it closes with
+ * a toast.
  */
 export function MoveDialog({
   students,
@@ -53,6 +55,15 @@ export function MoveDialog({
       text: t(one === undefined ? "students.move.keepMany" : "students.move.keepOne"),
     },
   ];
+
+  const describe = ({ to, keep }: MoveValues) => {
+    if (keep) return undefined;
+    const left = classesLeftBy(students, to);
+    if (left.count === 0) return undefined;
+    return one === undefined
+      ? t("students.move.leavesMany", { count: left.count, classes: left.names })
+      : t("students.move.leavesOne", { name: one.fullName, classes: left.names });
+  };
 
   async function move({ to, keep }: MoveValues) {
     setPending(true);
@@ -102,6 +113,7 @@ export function MoveDialog({
           : t("students.move.titleOne", { name: one.fullName })
       }
       icon={ArrowRightLeft}
+      description={describe}
       initial={INITIAL}
       fields={fields}
       submitLabel={t("students.move.submit")}
