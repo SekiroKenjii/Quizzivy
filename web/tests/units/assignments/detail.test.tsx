@@ -284,7 +284,7 @@ describe("the assignment detail", () => {
     expect(screen.getByText("/ 1")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Chỉnh sửa" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Đóng sớm" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Gia hạn cho tất cả" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Gia hạn" })).toBeEnabled();
   });
 
   it("closed: keeps graded and flagged work in the roster and counts pending answers independently", async () => {
@@ -330,7 +330,7 @@ describe("the assignment detail", () => {
     expect(screen.queryByRole("complementary")).toBeNull();
   });
 
-  it("closed: Gia hạn cho tất cả asks for a moment and a reason, then reopens", async () => {
+  it("closed: Extend asks for a reason, then reopens from now", async () => {
     let sent: { closesAt: string; reason: string } | null = null;
     server.use(
       http.post(`${BASE}/teacher/assignments/${ID}/reopen`, async ({ request }) => {
@@ -346,27 +346,47 @@ describe("the assignment detail", () => {
     serve(assignment({ status: "closed", window: pastWindow }));
     const user = renderDetail();
 
-    await user.click(await screen.findByRole("button", { name: "Gia hạn cho tất cả" }));
-    const menu = await screen.findByRole("menu");
-    expect(within(menu).getByText("Mở lại cho cả 19 học viên")).toBeInTheDocument();
-    expect(within(menu).getByText(/Bước sau sẽ hỏi lý do/)).toBeInTheDocument();
-    await user.click(within(menu).getByRole("menuitem", { name: "Thêm 3 ngày" }));
-
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Mở lại cho cả 19 học viên")).toBeInTheDocument();
-    const confirm = within(dialog).getByRole("button", { name: "Mở lại" });
-    expect(confirm).toBeDisabled();
-    expect(within(dialog).queryByRole("radio")).toBeNull();
-    await user.type(within(dialog).getByLabelText("Lý do"), "mất điện cả lớp");
-    expect(confirm).toBeEnabled();
-    await user.click(confirm);
+    const extend = await screen.findByRole("button", { name: "Gia hạn" });
+    await user.click(extend);
+    const dialog = await screen.findByRole("dialog", { name: "Gia hạn" });
+    await user.type(within(dialog).getByLabelText(/Lý do/), "mất điện cả lớp");
+    await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
 
     await waitFor(() => expect(sent).not.toBeNull());
     expect(sent!.reason).toBe("mất điện cả lớp");
-    const inThreeDays = Date.now() + 3 * 24 * 60 * 60 * 1000;
-    expect(Math.abs(new Date(sent!.closesAt).getTime() - inThreeDays)).toBeLessThan(
+    const inHalfAnHour = Date.now() + 30 * 60 * 1000;
+    expect(Math.abs(new Date(sent!.closesAt).getTime() - inHalfAnHour)).toBeLessThan(
       60_000,
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(extend).toHaveFocus();
+  });
+
+  it("draft: Giao bài keeps focus while its request is pending", async () => {
+    let release: () => void = () => undefined;
+    serve(assignment({ publishedAt: null, status: "draft" }));
+    server.use(
+      http.patch(`${BASE}/teacher/assignments/${ID}`, async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return contractJson(
+          "/teacher/assignments/{id}",
+          "patch",
+          200,
+          assignment({ publishedAt: null, status: "draft" }),
+        );
+      }),
+    );
+    const user = renderDetail();
+    const publish = await screen.findByRole("button", { name: "Giao bài" });
+    publish.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(publish).toHaveAttribute("aria-disabled", "true"));
+    expect(publish).not.toBeDisabled();
+    expect(publish).toHaveFocus();
+    release();
+    await waitFor(() => expect(publish).not.toHaveAttribute("aria-disabled"));
+    expect(publish).toHaveFocus();
   });
 });

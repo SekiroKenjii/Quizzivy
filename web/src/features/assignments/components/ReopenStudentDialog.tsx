@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
@@ -26,18 +26,21 @@ type Values = {
  * a time limit of 30, 45 or 60 minutes, the moment it stays open until and the
  * required reason (DG-160). It writes the student's override through
  * `setStudentOverrides`, with one more attempt only when they have none left
- * (DG-163), and says which of the two will happen.
+ * (DG-163), and says which of the two will happen. Focus returns to
+ * `returnFocus` when it closes.
  */
 export function ReopenStudentDialog({
   assignment,
   rows,
   open,
+  returnFocus,
   onOpenChange,
   onDone,
 }: Readonly<{
   assignment: Assignment;
   rows: readonly MonitorRow[];
   open: boolean;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
   onOpenChange: (open: boolean) => void;
   onDone: () => Promise<void> | void;
 }>) {
@@ -149,6 +152,7 @@ export function ReopenStudentDialog({
       submitLabel={t("assignmentDetail.reopenStudent.submit")}
       pending={reopen.isPending}
       error={error}
+      returnFocus={returnFocus}
       onSubmit={(values) => reopen.mutate(values)}
     />
   );

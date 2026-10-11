@@ -428,12 +428,22 @@ function SettingsEditDialog({
         )}
       </DialogShellBody>
       <DialogShellFooter>
-        <Button variant="outline" disabled={save.isPending} onClick={onClose}>
+        <Button
+          variant="outline"
+          aria-disabled={save.isPending || undefined}
+          className="aria-disabled:opacity-50"
+          onClick={() => {
+            if (!save.isPending) onClose();
+          }}
+        >
           {t("common.cancel")}
         </Button>
         <Button
-          disabled={save.isPending || invalid}
+          disabled={invalid}
+          aria-disabled={save.isPending || undefined}
+          className="aria-disabled:opacity-50"
           onClick={() => {
+            if (save.isPending) return;
             setError(null);
             save.mutate();
           }}

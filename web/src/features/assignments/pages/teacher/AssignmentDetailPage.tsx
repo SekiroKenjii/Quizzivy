@@ -5,6 +5,8 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
+  type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -26,6 +28,7 @@ import {
   CircleStop,
   Clock,
   Copy,
+  Ellipsis,
   ExternalLink,
   FileText,
   Pencil,
@@ -34,13 +37,18 @@ import {
   SquarePen,
 } from "lucide-react";
 import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
-import { RowMenu } from "@/components/shared/RowMenu";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StatStrip } from "@/components/shared/stats/StatStrip";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { can, hasWorkspace, useCan, useWorkspace } from "@/features/auth/permissions";
 import {
@@ -64,8 +72,6 @@ import { formatMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useAuthStore } from "@/stores/auth";
 import { getAssignment, updateAssignment, type Assignment } from "../../api";
 import { CloseEarlyDialog } from "../../components/CloseEarlyDialog";
-import { ReopenDialog } from "../../components/ReopenDialog";
-import { ReopenMenu, type ReopenChoice } from "../../components/ReopenMenu";
 import { ItemAnalysis } from "../../components/ItemAnalysis";
 import { ReopenStudentDialog } from "../../components/ReopenStudentDialog";
 import { SettingsGroups } from "../../components/SettingsGroups";
@@ -93,6 +99,8 @@ export default function AssignmentDetailPage() {
   const client = useQueryClient();
   const [dialog, setDialog] = useState<DetailDialog | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const extendRef = useRef<HTMLButtonElement>(null);
   const { notes, recoveryPanel, noteFocusRequest } = useSheetDrafts();
 
   const { assignment, a, now, status, monitor, version, preview } = useAssignmentReads(
@@ -210,8 +218,9 @@ export default function AssignmentDetailPage() {
             <WriteActions
               a={a}
               status={status}
-              now={now}
               pending={publish.isPending}
+              moreRef={moreRef}
+              extendRef={extendRef}
               onPublish={() => publish.mutate(a)}
               onDialog={setDialog}
               onEditSettings={() =>
@@ -279,6 +288,8 @@ export default function AssignmentDetailPage() {
         failed={close.isError}
         rows={monitor.data?.rows ?? null}
         now={now}
+        moreRef={moreRef}
+        extendRef={extendRef}
         onDialog={setDialog}
         onClose={() => {
           if (write && status === "open") close.mutate(a);
@@ -469,9 +480,7 @@ function useSheetDrafts() {
   return { notes, recoveryPanel, noteFocusRequest };
 }
 
-type DetailDialog =
-  | { kind: "close" | "reopenStudent" | "extend" | "duplicate" }
-  | { kind: "reopen"; choice: ReopenChoice };
+type DetailDialog = { kind: "close" | "reopenStudent" | "extend" | "duplicate" };
 
 function StateDialogs({
   a,
@@ -481,6 +490,8 @@ function StateDialogs({
   failed,
   rows,
   now,
+  moreRef,
+  extendRef,
   onDialog,
   onClose,
   onRefresh,
@@ -492,6 +503,8 @@ function StateDialogs({
   failed: boolean;
   rows: readonly MonitorRow[] | null;
   now: Date;
+  moreRef: RefObject<HTMLButtonElement | null>;
+  extendRef: RefObject<HTMLButtonElement | null>;
   onDialog: (value: DetailDialog | null) => void;
   onClose: () => void;
   onRefresh: () => Promise<void>;
@@ -513,17 +526,9 @@ function StateDialogs({
           pending={pending}
           failed={failed}
           keepTime={rows === null ? 0 : keepsTimeAfter(rows, now)}
+          returnFocus={moreRef}
           onOpenChange={(open) => onDialog(open ? { kind: "close" } : null)}
           onConfirm={onClose}
-        />
-      )}
-      {write && status === "closed" && dialog?.kind === "reopen" && (
-        <ReopenDialog
-          assignment={a}
-          choice={dialog.choice}
-          open
-          onOpenChange={closeUnless}
-          onDone={onRefresh}
         />
       )}
       {intervene && status !== "draft" && rows !== null && (
@@ -531,16 +536,18 @@ function StateDialogs({
           assignment={a}
           rows={rows}
           open={kind === "reopenStudent"}
+          returnFocus={moreRef}
           onOpenChange={closeUnless}
           onDone={onRefresh}
         />
       )}
-      {write && (status === "scheduled" || status === "open") && (
+      {write && status !== "draft" && (
         <ExtendAssignmentsDialog
           items={[a]}
-          when={moment(a.window.closesAt, now, t)}
+          when={moment(a.window.closedAt ?? a.window.closesAt, now, t)}
           audience={intervene && rows !== null ? rows : undefined}
           open={kind === "extend"}
+          returnFocus={extendRef}
           onOpenChange={closeUnless}
           onExtended={() => void onRefresh()}
         />
@@ -549,6 +556,7 @@ function StateDialogs({
         <DuplicateAssignmentDialog
           assignment={a}
           open={kind === "duplicate"}
+          returnFocus={moreRef}
           onOpenChange={closeUnless}
           onDuplicated={(draft) => {
             void onRefresh();
@@ -592,16 +600,18 @@ function NoteRecovery({
 function WriteActions({
   a,
   status,
-  now,
   pending,
+  moreRef,
+  extendRef,
   onPublish,
   onDialog,
   onEditSettings,
 }: Readonly<{
   a: Assignment;
   status: ReturnType<typeof statusAt>;
-  now: Date;
   pending: boolean;
+  moreRef: RefObject<HTMLButtonElement | null>;
+  extendRef: RefObject<HTMLButtonElement | null>;
   onPublish: () => void;
   onDialog: (dialog: DetailDialog) => void;
   onEditSettings: () => void;
@@ -611,9 +621,10 @@ function WriteActions({
   const intervene = useCan("teaching.attempts.intervene");
   const draft = status === "draft";
   if (!write && !(intervene && !draft)) return null;
+  const unpublishable = (a.targetCount ?? 0) === 0;
   return (
     <>
-      <RowMenu label={t("assignmentDetail.moreActions")}>
+      <HeaderMenu label={t("assignmentDetail.moreActions")} triggerRef={moreRef}>
         {write && draft && (
           <DropdownMenuItem asChild>
             <Link to={`/teacher/assignments/${a.id}/edit`}>
@@ -654,27 +665,24 @@ function WriteActions({
             </DropdownMenuItem>
           </>
         )}
-      </RowMenu>
-      {write && (status === "scheduled" || status === "open") && (
-        <Button variant="outline" onClick={() => onDialog({ kind: "extend" })}>
+      </HeaderMenu>
+      {write && !draft && (
+        <Button
+          ref={extendRef}
+          variant="outline"
+          onClick={() => onDialog({ kind: "extend" })}
+        >
           <Clock aria-hidden="true" />
           {t("assignmentDetail.extend")}
         </Button>
       )}
-      {write && status === "closed" && (
-        <ReopenMenu
-          count={a.targetCount ?? 0}
-          todayPossible={now.getHours() < 21}
-          onChoose={(choice) => {
-            if (write && status === "closed") onDialog({ kind: "reopen", choice });
-          }}
-        />
-      )}
       {write && draft && (
         <Button
-          disabled={(a.targetCount ?? 0) === 0 || pending}
+          disabled={unpublishable}
+          aria-disabled={pending || undefined}
+          className="aria-disabled:opacity-50"
           onClick={() => {
-            if (write && status === "draft") onPublish();
+            if (write && status === "draft" && !pending) onPublish();
           }}
         >
           <Send aria-hidden="true" />
@@ -682,6 +690,29 @@ function WriteActions({
         </Button>
       )}
     </>
+  );
+}
+
+function HeaderMenu({
+  label,
+  triggerRef,
+  children,
+}: Readonly<{
+  label: string;
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  children: ReactNode;
+}>) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button ref={triggerRef} variant="outline" size="icon-lg" aria-label={label}>
+          <Ellipsis aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-55">
+        {children}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

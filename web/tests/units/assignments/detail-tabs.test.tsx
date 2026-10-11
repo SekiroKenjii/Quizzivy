@@ -102,13 +102,16 @@ describe("the Settings tab", () => {
     const user = renderDetail("settings");
     await user.click(await screen.findByRole("button", { name: "Sửa Tính toàn vẹn" }));
     const dialog = await screen.findByRole("dialog", { name: "Sửa Tính toàn vẹn" });
-    await user.click(within(dialog).getByRole("button", { name: "Lưu thay đổi" }));
+    const save = within(dialog).getByRole("button", { name: "Lưu thay đổi" });
+    await user.click(save);
     expect(
       await within(dialog).findByText("Bài đang mở nên không đổi được thời gian làm."),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("dialog", { name: "Sửa Tính toàn vẹn" }),
     ).toBeInTheDocument();
+    expect(save).not.toBeDisabled();
+    expect(save).toHaveFocus();
   });
 
   it("keeps the honest limits in the Integrity dialog", async () => {
@@ -410,22 +413,118 @@ describe("Extend deadline", () => {
     expect(within(dialog).queryByRole("group", { name: "Áp dụng cho" })).toBeNull();
   });
 
-  it("is not offered on a closed assignment, which is reopened instead", async () => {
-    serveDetail(
-      detailAssignment({
-        status: "closed",
-        window: {
-          opensAt: "2020-09-07T01:00:00Z",
-          closesAt: "2020-09-09T14:00:00Z",
-          closedAt: null,
-        },
-      }),
-    );
-    renderDetail();
-    expect(
-      await screen.findByRole("button", { name: "Gia hạn cho tất cả" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Gia hạn" })).toBeNull();
+  describe("on a closed assignment", () => {
+    async function openClosed() {
+      const calls = serveDetail(
+        detailAssignment({
+          status: "closed",
+          window: {
+            opensAt: "2020-09-07T01:00:00Z",
+            closesAt: "2020-09-09T14:00:00Z",
+            closedAt: null,
+          },
+        }),
+        { rows: ROWS },
+      );
+      const user = renderDetail();
+      await screen.findByText("Lê Văn An");
+      await user.click(screen.getByRole("button", { name: "Gia hạn" }));
+      const dialog = await screen.findByRole("dialog", { name: "Gia hạn" });
+      return { calls, user, dialog };
+    }
+
+    it("reopens for everyone from now, with the reason and no notification", async () => {
+      const { calls, user, dialog } = await openClosed();
+      expect(within(dialog).getByText(/đã đóng .* Mở lại đến/)).toBeInTheDocument();
+      expect(within(dialog).queryByRole("switch")).toBeNull();
+      await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
+      expect(within(dialog).getByRole("textbox", { name: /Lý do/ })).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
+      expect(calls.reopens).toEqual([]);
+      await user.click(within(dialog).getByRole("button", { name: "1 ngày" }));
+      await user.type(
+        within(dialog).getByRole("textbox", { name: /Lý do/ }),
+        "Mất điện cả lớp",
+      );
+      await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
+      await waitFor(() => expect(calls.reopens).toHaveLength(1), { timeout: 5_000 });
+      const sent = calls.reopens[0] as { closesAt: string; reason: string };
+      expect(sent.reason).toBe("Mất điện cả lớp");
+      expect(
+        Math.abs(new Date(sent.closesAt).getTime() - (Date.now() + 24 * 3_600_000)),
+      ).toBeLessThan(60_000);
+      expect(calls.extensions).toEqual([]);
+      expect(calls.overrides).toEqual([]);
+    });
+
+    it("gives chosen students a close from now through their override", async () => {
+      const { calls, user, dialog } = await openClosed();
+      await user.click(
+        within(dialog).getByRole("button", { name: "Học viên được chọn" }),
+      );
+      expect(within(dialog).getByRole("switch")).toBeInTheDocument();
+      await user.click(within(dialog).getByRole("checkbox", { name: /Trần Bình/ }));
+      await user.type(within(dialog).getByRole("textbox", { name: /Lý do/ }), "Ốm");
+      await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
+      await waitFor(() => expect(calls.overrides).toHaveLength(1), { timeout: 5_000 });
+      const sent = calls.overrides[0] as Record<string, unknown>;
+      expect(sent).toMatchObject({ studentIds: [BINH], reason: "Ốm", notify: true });
+      expect(sent).not.toHaveProperty("extendBy");
+      expect(
+        Math.abs(
+          new Date(sent.closesAt as string).getTime() - (Date.now() + 1_800_000),
+        ),
+      ).toBeLessThan(60_000);
+      expect(calls.reopens).toEqual([]);
+    });
+  });
+});
+
+describe("dialogs opened from the More menu (F-21)", () => {
+  it.each([
+    ["Nhân bản", "Nhân bản bài giao", "Huỷ"],
+    ["Mở lại cho một học viên", "Mở lại cho một học viên", "Huỷ"],
+    ["Đóng sớm", "Đóng Unit 5 — Present perfect & listening ngay?", "Huỷ"],
+  ])(
+    "%s gives focus back to the More button on Cancel",
+    async (item, title, cancel) => {
+      serveDetail(detailAssignment(), { rows: [detailRow(AN, "Lê Văn An")] });
+      const user = renderDetail();
+      await screen.findByText("Lê Văn An");
+      const more = screen.getByRole("button", { name: "Thao tác khác" });
+      await user.click(more);
+      await user.click(await screen.findByRole("menuitem", { name: item }));
+      const dialog = await screen.findByRole("dialog", { name: title });
+      await user.click(within(dialog).getByRole("button", { name: cancel }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(more).toHaveFocus();
+    },
+  );
+
+  it("gives focus back to the More button on Escape", async () => {
+    serveDetail(detailAssignment(), { rows: [detailRow(AN, "Lê Văn An")] });
+    const user = renderDetail();
+    await screen.findByText("Lê Văn An");
+    const more = screen.getByRole("button", { name: "Thao tác khác" });
+    await user.click(more);
+    await user.click(await screen.findByRole("menuitem", { name: "Nhân bản" }));
+    await screen.findByRole("dialog", { name: "Nhân bản bài giao" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(more).toHaveFocus();
+  });
+
+  it("gives focus back to Extend when its dialog closes", async () => {
+    serveDetail(detailAssignment());
+    const user = renderDetail();
+    const extend = await screen.findByRole("button", { name: "Gia hạn" });
+    await user.click(extend);
+    const dialog = await screen.findByRole("dialog", { name: "Gia hạn" });
+    await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(extend).toHaveFocus();
   });
 });
 

@@ -89,11 +89,12 @@ export function detailRow(
   };
 }
 
-/** DetailCalls collects what the page sent: PATCH, override, extend and duplicate bodies. */
+/** DetailCalls collects what the page sent: PATCH, override, extend, reopen and duplicate bodies. */
 export type DetailCalls = {
   patches: unknown[];
   overrides: unknown[];
   extensions: unknown[];
+  reopens: unknown[];
   duplicates: unknown[];
 };
 
@@ -118,6 +119,7 @@ export function serveDetail(
     patches: [],
     overrides: [],
     extensions: [],
+    reopens: [],
     duplicates: [],
   };
   server.use(
@@ -182,6 +184,13 @@ export function serveDetail(
       async ({ request }) => {
         calls.extensions.push(await request.json());
         return contractJson("/teacher/assignments/{id}/extend", "post", 200, a);
+      },
+    ),
+    http.post(
+      `${DETAIL_API}/teacher/assignments/${DETAIL_ID}/reopen`,
+      async ({ request }) => {
+        calls.reopens.push(await request.json());
+        return contractJson("/teacher/assignments/{id}/reopen", "post", 200, a);
       },
     ),
     http.post(
