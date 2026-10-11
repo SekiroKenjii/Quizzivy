@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import "@/lib/i18n";
@@ -31,7 +31,7 @@ describe("the confirm dialog", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the confirming button off while disabled or pending", () => {
+  it("keeps the confirming button off while disabled", () => {
     render(
       <ConfirmDialog
         open
@@ -43,6 +43,52 @@ describe("the confirm dialog", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "Đóng ngay" })).toBeDisabled();
+  });
+
+  it("keeps the confirming button focused and inert while pending, and after a failure (T-35)", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    function Pending() {
+      const [pending, setPending] = useState(false);
+      const [error, setError] = useState<string | null>(null);
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              setPending(false);
+              setError("Không đóng được.");
+            }}
+          >
+            Báo lỗi
+          </button>
+          <ConfirmDialog
+            open
+            onOpenChange={() => {}}
+            title="Đóng ngay?"
+            confirmLabel="Đóng ngay"
+            pending={pending}
+            error={error}
+            onConfirm={() => {
+              onConfirm();
+              setPending(true);
+            }}
+          />
+        </>
+      );
+    }
+    render(<Pending />);
+    const confirm = screen.getByRole("button", { name: "Đóng ngay" });
+
+    await user.click(confirm);
+    expect(confirm).toHaveAttribute("aria-disabled", "true");
+    expect(confirm).not.toBeDisabled();
+    expect(confirm).toHaveFocus();
+    await user.click(confirm);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText("Báo lỗi"));
+    expect(screen.getByRole("alert")).toHaveTextContent("Không đóng được.");
+    expect(confirm).toHaveFocus();
   });
 
   it("returns focus to the button that opened it", async () => {

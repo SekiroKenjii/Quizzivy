@@ -73,13 +73,101 @@ it.each(["pending", "disabled"] as const)(
         onSubmit={submit}
       />,
     );
-    expect(screen.getByRole("button", { name: "Lưu" })).toBeDisabled();
+    const button = screen.getByRole("button", { name: "Lưu" });
+    if (flag === "pending") {
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(button).not.toBeDisabled();
+    } else {
+      expect(button).toBeDisabled();
+    }
+    await userEvent.setup().click(button);
+    expect(submit).not.toHaveBeenCalled();
     fireEvent.submit(document.querySelector("form")!);
     expect(submit).not.toHaveBeenCalled();
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Tên" }), { key: "Enter" });
     expect(submit).not.toHaveBeenCalled();
   },
 );
+
+function Saving() {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setPending(false);
+          setError("Không lưu được.");
+        }}
+      >
+        Báo lỗi
+      </button>
+      <FormDialog
+        {...base}
+        initial={{ ...initial, title: "Có tên" }}
+        fields={[
+          ...fields,
+          {
+            kind: "seg",
+            name: "hidden",
+            label: "Loại",
+            options: [{ value: "a", label: "Một" }],
+          },
+        ]}
+        pending={pending}
+        error={error}
+        onSubmit={() => setPending(true)}
+      />
+    </>
+  );
+}
+
+it("keeps focus on the submit while pending and after a failure (T-35)", async () => {
+  const user = userEvent.setup();
+  render(<Saving />);
+  const button = screen.getByRole("button", { name: "Lưu" });
+
+  await user.click(button);
+  expect(button).toHaveAttribute("aria-disabled", "true");
+  expect(button).toHaveFocus();
+  fireEvent.click(screen.getByText("Báo lỗi"));
+  expect(screen.getByRole("alert")).toHaveTextContent("Không lưu được.");
+  expect(button).not.toHaveAttribute("aria-disabled");
+  expect(button).toHaveFocus();
+});
+
+it("keeps focus in the text field Enter submitted from, read-only while pending (T-35)", async () => {
+  const user = userEvent.setup();
+  render(<Saving />);
+  const field = screen.getByRole<HTMLInputElement>("textbox", { name: "Tên" });
+
+  await user.click(field);
+  fireEvent.submit(field.form!);
+  expect(field).toHaveFocus();
+  expect(field).toHaveAttribute("readonly");
+  expect(field).not.toBeDisabled();
+  await user.keyboard("x");
+  expect(field).toHaveValue("Có tên");
+  expect(screen.getByRole("button", { name: "Một" })).toBeDisabled();
+  expect(screen.getByRole("switch", { name: "Hiện" })).toBeDisabled();
+});
+
+it("keeps the submit focusable when a caller passes disabled and pending together", () => {
+  render(
+    <FormDialog
+      {...base}
+      initial={{ ...initial, title: "Có tên" }}
+      pending
+      disabled
+      onSubmit={() => {}}
+    />,
+  );
+  const button = screen.getByRole("button", { name: "Lưu" });
+  expect(button).not.toBeDisabled();
+  expect(button).toHaveAttribute("aria-disabled", "true");
+  expect(screen.getByRole("textbox", { name: "Tên" })).not.toBeDisabled();
+});
 it("retains hidden values and ignores caller errors for hidden fields", async () => {
   const user = userEvent.setup();
   const submit = vi.fn();
@@ -323,7 +411,7 @@ it.each(["date", "time"] as const)(
     expect(legacyTrigger).toHaveAccessibleDescription("Giờ địa phương Bắt buộc");
   },
 );
-it("disables native segmented and picker buttons while pending", () => {
+it("disables segmented and picker buttons while pending, which cannot start a submit", () => {
   render(
     <DeckScale>
       <FormDialog

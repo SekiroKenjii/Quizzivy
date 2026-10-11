@@ -52,7 +52,14 @@ export type FormDialogProps<V extends FormValues> = Readonly<{
   returnFocus?: RefObject<HTMLElement | null> | undefined;
 }>;
 
-/** FormDialog edits typed values while open and unlocked, revealing visible errors after submission. */
+/**
+ * FormDialog edits typed values while open and unlocked, revealing visible
+ * errors after submission. While `pending` the control a submit starts from
+ * keeps focus (T-35): the submit answers `aria-disabled` and ignores a press,
+ * text fields turn read-only, and the other controls, which cannot start a
+ * submit, are disabled. `disabled`, when not pending, disables the submit and
+ * the fields natively.
+ */
 export function FormDialog<V extends FormValues>({
   open,
   onOpenChange,
@@ -153,7 +160,11 @@ export function FormDialog<V extends FormValues>({
             onSubmit={submit}
             className="flex flex-col gap-3.5"
           >
-            <fieldset disabled={pending || disabled} className="contents">
+            <fieldset
+              disabled={disabled && !pending}
+              aria-busy={pending || undefined}
+              className="contents"
+            >
               {shown.map((field) => {
                 const fieldId = `${id}-${field.name}`;
                 const message = state.touched ? errors[field.name] : undefined;
@@ -188,7 +199,8 @@ export function FormDialog<V extends FormValues>({
                       id={fieldId}
                       invalid={message !== undefined}
                       describedBy={describedBy}
-                      disabled={!open || pending || disabled}
+                      disabled={!open || (disabled && !pending)}
+                      locked={pending}
                       onChange={(next) => {
                         if (!acceptsChanges.current) return;
                         setState((previous) => ({
@@ -239,12 +251,12 @@ export function FormDialog<V extends FormValues>({
           type="submit"
           form={id}
           variant={danger ? "destructive" : "default"}
-          disabled={pending || disabled}
-          aria-disabled={!valid || undefined}
+          disabled={disabled && !pending}
+          aria-disabled={pending || !valid || undefined}
           className={cn(
             "text-ui h-9 px-4 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-4",
             danger && "bg-danger text-primary-fg hover:bg-danger/90",
-            !valid && "opacity-50",
+            (pending || !valid) && "opacity-50",
           )}
         >
           {typeof submitLabel === "function" ? submitLabel(values) : submitLabel}
