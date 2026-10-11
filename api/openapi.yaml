@@ -4116,11 +4116,8 @@ components:
       enum: [teacher, student]
       description: |
         The console that reads a notification, and so which of the caller's
-        notifications a bell counts, lists and clears. It is the kinds' "For"
-        column in `NotificationKind`: `teacher` is `attempt.submitted`,
-        `attempt.flagged`, `assignment.closing`, `class.joined` and
-        `join_codes.rotated`; `student` is `assignment.opened`,
-        `assignment.due_soon`, `assignment.extended` and `result.ready`. Every
+        notifications a bell counts, lists and clears. Which kinds each one
+        reads is the "For" column of the table in `NotificationKind`, and every
         kind belongs to exactly one.
 
         Where an operation takes it, it is optional, and leaving it out keeps
