@@ -101,6 +101,8 @@ export default function AssignmentDetailPage() {
   const [failure, setFailure] = useState<string | null>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
   const extendRef = useRef<HTMLButtonElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const headingAfterPublish = useRef(false);
   const { notes, recoveryPanel, noteFocusRequest } = useSheetDrafts();
 
   const { assignment, a, now, status, monitor, version, preview } = useAssignmentReads(
@@ -141,7 +143,10 @@ export default function AssignmentDetailPage() {
         throw new Error("Assignment write is not permitted");
       return updateAssignment(value.id, { ...toInput(value), draft: false });
     },
-    onSuccess: refresh,
+    onSuccess: async () => {
+      headingAfterPublish.current = true;
+      await refresh();
+    },
     onError: (error) =>
       setFailure(
         error instanceof ApiError
@@ -149,6 +154,12 @@ export default function AssignmentDetailPage() {
           : t("assignments.detail.publishFailed"),
       ),
   });
+  useEffect(() => {
+    if (!headingAfterPublish.current || status === null || status === "draft") return;
+    headingAfterPublish.current = false;
+    if (document.activeElement === null || document.activeElement === document.body)
+      headingRef.current?.focus();
+  }, [status]);
   const close = useMutation({
     mutationFn: (value: Assignment) => {
       if (!write || value.id !== id || statusAt(value, new Date()) !== "open")
@@ -212,6 +223,7 @@ export default function AssignmentDetailPage() {
     <div className="flex min-w-0 flex-col gap-4.5">
       <PageHead
         title={a.testTitle}
+        headingRef={headingRef}
         status={<StatusBadge kind="assignment" status={status} />}
         className="items-start! [&_h1]:text-balance"
         actions={
