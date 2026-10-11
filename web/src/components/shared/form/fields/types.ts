@@ -91,5 +91,6 @@ export type TextControlProps = FieldControlProps<string> &
     autoComplete?: string | undefined;
     inputMode?: Text<Virtual>["inputMode"] | undefined;
     maxLength?: number | undefined;
+    readOnly?: boolean | undefined;
   }>;
 type Virtual = { value: string };
