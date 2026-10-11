@@ -20,7 +20,6 @@ export function ReviewBanners({
   value,
   stale,
   finished,
-  committedTestId,
   reprocessed,
   onReload,
   onReloadStale,
@@ -29,15 +28,14 @@ export function ReviewBanners({
   value: WordImport;
   stale: boolean;
   finished: boolean;
-  committedTestId: string | null;
   reprocessed: boolean;
   onReload: () => void;
   onReloadStale: () => void;
   onAdopt: () => void;
 }>) {
   const { t } = useTranslation();
-  const testId = committedTestId ?? value.testId ?? null;
-  const committed = value.status === "committed" || committedTestId !== null;
+  const testId = value.testId ?? null;
+  const committed = value.status === "committed";
   return (
     <>
       {stale ? (
