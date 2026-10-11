@@ -55,7 +55,7 @@ const TEACHER_TREE = [
   ["/teacher/attempts/:id", "features/attempts/pages/teacher/AttemptReviewPage"],
   ["/teacher/grading", "features/attempts/pages/teacher/GradingPage"],
   ["/teacher/students", "features/students/pages/teacher/StudentsListPage"],
-  ["/teacher/classes", "features/classes/pages/teacher/ClassesListPage"],
+  ["/teacher/classes", "features/classes/pages/teacher/ClassesPage"],
   ["/teacher/classes/:id", "features/classes/pages/teacher/ClassDetailPage"],
   [
     "/teacher/settings/:section?",
@@ -129,13 +129,13 @@ describe("the teacher's route table", () => {
       swapped(
         ROUTER,
         "features/assignments/pages/teacher/AssignmentsListPage",
-        "features/classes/pages/teacher/ClassesListPage",
+        "features/classes/pages/teacher/ClassesPage",
       ),
     );
     expect(crossed).not.toEqual(TEACHER_TREE);
     expect(crossed).toContainEqual([
       "/teacher/assignments",
-      "features/classes/pages/teacher/ClassesListPage",
+      "features/classes/pages/teacher/ClassesPage",
     ]);
     expect(crossed).toContainEqual([
       "/teacher/classes",
