@@ -135,6 +135,28 @@ describe("leaving Settings with unsaved changes", () => {
     expect(await screen.findByRole("dialog", { name: TITLE })).toBeVisible();
   });
 
+  it("asks for unsaved Assignment defaults as it does for the profile", async () => {
+    renderWithElsewhere(["/teacher/settings/defaults"]);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("switch", { name: "Xáo trộn câu hỏi" }));
+    await user.click(elsewhere());
+
+    expect(await screen.findByRole("dialog", { name: TITLE })).toBeVisible();
+  });
+
+  it("asks for unsaved Notifications as it does for the profile", async () => {
+    renderWithElsewhere(["/teacher/settings/notifications"]);
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole("switch", { name: "Học viên nộp bài trong ứng dụng" }),
+    );
+    await user.click(elsewhere());
+
+    expect(await screen.findByRole("dialog", { name: TITLE })).toBeVisible();
+  });
+
   it("does not ask right after a successful save", async () => {
     server.use(
       http.patch(`${BASE}/auth/me`, async ({ request }) => {

@@ -305,8 +305,8 @@ export default function ClassesPage() {
 function ReplacedCodesCallout() {
   const { t } = useTranslation();
   const locale = useLocale();
-  const list = useNotificationList();
-  const mark = useMarkNotificationsRead();
+  const list = useNotificationList("teacher");
+  const mark = useMarkNotificationsRead("teacher");
   const [dismissed, setDismissed] = useState<string | null>(null);
   const notice = list.items.find(
     (item) =>

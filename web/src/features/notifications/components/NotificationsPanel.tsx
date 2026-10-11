@@ -6,14 +6,13 @@ import { toast } from "@/components/ui/sonner";
 import { IconTile } from "@/components/shared/IconTile";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { cn } from "@/lib/utils";
-import type { Notification } from "../api";
+import type { Notification, NotificationAudience } from "../api";
 import { audienceOf, describeNotification, type NotificationView } from "../kinds";
 import { relativeTime } from "../relativeTime";
 import { useMarkNotificationsRead } from "../useMarkNotificationsRead";
 import { useNotificationList } from "../useNotificationList";
 
-/** NotificationAudience is whose kinds a bell lists. */
-export type NotificationAudience = "teacher" | "student";
+export type { NotificationAudience };
 
 interface Row {
   notification: Notification;
@@ -26,9 +25,9 @@ interface Row {
  * kinds, newest first, with its kind's tile (a neutral one in the muted
  * text colour, as both decks draw it), its sentence in the reader's
  * language, how long ago it came and a lime dot while unread, then "Load
- * more". "Mark all read" marks every notification of the account, so it is
- * active while the bell's `unread` count or a listed row says something is
- * unread (DG-170), and says so in a toast when it fails. Neither it nor
+ * more". The list, the marks and "Mark all read" cover only the audience's
+ * kinds (DG-170); "Mark all read" is active while a listed row is unread,
+ * and says so in a toast when it fails. Neither it nor
  * "Load more" gives up focus while its request is out, and after "Load
  * more" focus moves to the first row it added. Picking a row marks it read without waiting and hands its
  * destination to `onPick`, which may be null. `canGrade` says whether a
@@ -39,19 +38,17 @@ export function NotificationsPanel({
   audience,
   canGrade,
   heading,
-  unread,
   onPick,
 }: Readonly<{
   audience: NotificationAudience;
   canGrade: boolean;
   heading: boolean;
-  unread: number;
   onPick: (to: string | null) => void;
 }>) {
   const { t } = useTranslation();
   const locale = useLocale();
-  const list = useNotificationList();
-  const mark = useMarkNotificationsRead();
+  const list = useNotificationList(audience);
+  const mark = useMarkNotificationsRead(audience);
   const [now] = useState(() => Date.now());
   const rows = useMemo(
     () =>
@@ -63,8 +60,7 @@ export function NotificationsPanel({
     [audience, canGrade, list.items, locale, t],
   );
   const markAllOff =
-    mark.isPending ||
-    (unread === 0 && rows.every((row) => row.notification.readAt !== null));
+    mark.isPending || rows.every((row) => row.notification.readAt !== null);
   const rowCount = rows.length;
   const loadingMore = list.loadingMore;
   const listRef = useRef<HTMLUListElement>(null);

@@ -21,6 +21,10 @@ var (
 	// ErrClosed means the window an extension would move has already closed.
 	// The assignment, or the student whose close it is, is reopened instead.
 	ErrClosed = errors.New("assignments: closed, so it is reopened and not extended")
+	// ErrReopens is an update whose window would make a closed assignment
+	// scheduled or open again. That is a reopening, which Reopen does with a
+	// reason and its own audit entry.
+	ErrReopens = errors.New("assignments: closed, so a window that opens it again is a reopening")
 )
 
 // NotTargetedError names the ids of an override request that are not students
