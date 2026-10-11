@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/assignments/application/internal/support"
 	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/shared/content"
 )
 
 // SetOverrides gives the students in Input an override, or changes the one
@@ -20,6 +21,11 @@ type SetOverridesHandler struct {
 }
 
 func (s SetOverridesHandler) Handle(ctx context.Context, cmd SetOverrides) ([]domain.StudentOverride, error) {
+	var c content.Composer
+	cmd.Input.Reason = c.Text("reason", cmd.Input.Reason, domain.MaxOverrideReason)
+	if err := c.Err(); err != nil {
+		return nil, err
+	}
 	written, err := s.Repo.SetOverrides(ctx, cmd.Request, cmd.Input)
 	if err != nil {
 		return written, err

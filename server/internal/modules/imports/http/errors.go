@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/validation"
 )
 
 var errMultipart = errors.New("imports: malformed multipart")
@@ -69,6 +70,10 @@ func importFailure(ctx context.Context, err error) (*failure, error) {
 		if errors.Is(err, m.err) {
 			return &failure{status: m.status, body: httpapi.Error(ctx, m.code, m.message)}, nil
 		}
+	}
+	var invalid *validation.Error
+	if errors.As(err, &invalid) {
+		return &failure{status: 400, body: httpapi.Invalid(ctx, httpx.Text(ctx, "Dữ liệu lượt nhập không hợp lệ.", "The import data is not valid."), invalid)}, nil
 	}
 	return nil, err
 }

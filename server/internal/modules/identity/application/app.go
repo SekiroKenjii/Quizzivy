@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"log/slog"
 	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/application/internal/support"
@@ -46,25 +47,36 @@ func (a *Application) SetPrincipals(p ports.Principals) {
 	a.service.Principals = p
 }
 
+// SetTemporaryPasswords replaces how a student's temporary password and its hash are made. Tests only.
+func (a *Application) SetTemporaryPasswords(source func(ctx context.Context) (password, hash string, err error)) {
+	a.students.Password = source
+}
+
+// SetLogger attaches the logger the students commands report faults to. Without it they log nowhere.
+func (a *Application) SetLogger(logger *slog.Logger) {
+	a.students.Logger = logger
+}
+
 type Commands struct {
-	DeleteStudent        cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
-	RemoveAvatar         cqrs.CommandHandler[command.RemoveAvatar, domain.User]
-	SetAvatar            cqrs.CommandHandler[command.SetAvatar, domain.User]
-	ChangePassword       cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
-	CreateStudent        cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
-	GoogleSignIn         cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
-	LinkGoogle           cqrs.CommandHandler[command.LinkGoogle, domain.User]
-	Login                cqrs.CommandHandler[command.Login, model.Session]
-	Logout               cqrs.CommandHandler[command.Logout, cqrs.Nothing]
-	PruneExpiredTokens   cqrs.CommandHandler[command.PruneExpiredTokens, int64]
-	Refresh              cqrs.CommandHandler[command.Refresh, model.RefreshResult]
-	UpdateProfile        cqrs.CommandHandler[command.UpdateProfile, domain.User]
-	UpdatePreferences    cqrs.CommandHandler[command.UpdatePreferences, domain.Preferences]
-	ResetStudentPassword cqrs.CommandHandler[command.ResetStudentPassword, string]
-	RevokeOtherSessions  cqrs.CommandHandler[command.RevokeOtherSessions, int]
-	RevokeSession        cqrs.CommandHandler[command.RevokeSession, cqrs.Nothing]
-	UnlinkGoogle         cqrs.CommandHandler[command.UnlinkGoogle, cqrs.Nothing]
-	UpdateStudent        cqrs.CommandHandler[command.UpdateStudent, domain.Student]
+	DeleteStudent          cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
+	RemoveAvatar           cqrs.CommandHandler[command.RemoveAvatar, domain.User]
+	SetAvatar              cqrs.CommandHandler[command.SetAvatar, domain.User]
+	ChangePassword         cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
+	CreateStudent          cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
+	GoogleSignIn           cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
+	LinkGoogle             cqrs.CommandHandler[command.LinkGoogle, domain.User]
+	Login                  cqrs.CommandHandler[command.Login, model.Session]
+	Logout                 cqrs.CommandHandler[command.Logout, cqrs.Nothing]
+	PruneExpiredTokens     cqrs.CommandHandler[command.PruneExpiredTokens, int64]
+	Refresh                cqrs.CommandHandler[command.Refresh, model.RefreshResult]
+	UpdateProfile          cqrs.CommandHandler[command.UpdateProfile, domain.User]
+	UpdatePreferences      cqrs.CommandHandler[command.UpdatePreferences, domain.Preferences]
+	ResetStudentPassword   cqrs.CommandHandler[command.ResetStudentPassword, string]
+	ResetStudentsPasswords cqrs.CommandHandler[command.ResetStudentsPasswords, domain.BulkReset]
+	RevokeOtherSessions    cqrs.CommandHandler[command.RevokeOtherSessions, int]
+	RevokeSession          cqrs.CommandHandler[command.RevokeSession, cqrs.Nothing]
+	UnlinkGoogle           cqrs.CommandHandler[command.UnlinkGoogle, cqrs.Nothing]
+	UpdateStudent          cqrs.CommandHandler[command.UpdateStudent, domain.Student]
 }
 
 type Queries struct {
@@ -83,24 +95,25 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 	students := support.NewStudents(repo, stats)
 	return &Application{
 		Commands: Commands{
-			DeleteStudent:        command.DeleteStudentHandler{Students: students},
-			RemoveAvatar:         command.RemoveAvatarHandler{Service: service},
-			SetAvatar:            command.SetAvatarHandler{Service: service},
-			ChangePassword:       command.ChangePasswordHandler{Service: service},
-			CreateStudent:        command.CreateStudentHandler{Students: students},
-			GoogleSignIn:         command.GoogleSignInHandler{Service: service},
-			LinkGoogle:           command.LinkGoogleHandler{Service: service},
-			Login:                command.LoginHandler{Service: service},
-			Logout:               command.LogoutHandler{Service: service},
-			PruneExpiredTokens:   command.PruneExpiredTokensHandler{Service: service},
-			Refresh:              command.RefreshHandler{Service: service},
-			UpdateProfile:        command.UpdateProfileHandler{Service: service},
-			UpdatePreferences:    command.UpdatePreferencesHandler{Service: service},
-			ResetStudentPassword: command.ResetStudentPasswordHandler{Students: students},
-			RevokeOtherSessions:  command.RevokeOtherSessionsHandler{Service: service},
-			RevokeSession:        command.RevokeSessionHandler{Service: service},
-			UnlinkGoogle:         command.UnlinkGoogleHandler{Service: service},
-			UpdateStudent:        command.UpdateStudentHandler{Students: students},
+			DeleteStudent:          command.DeleteStudentHandler{Students: students},
+			RemoveAvatar:           command.RemoveAvatarHandler{Service: service},
+			SetAvatar:              command.SetAvatarHandler{Service: service},
+			ChangePassword:         command.ChangePasswordHandler{Service: service},
+			CreateStudent:          command.CreateStudentHandler{Students: students},
+			GoogleSignIn:           command.GoogleSignInHandler{Service: service},
+			LinkGoogle:             command.LinkGoogleHandler{Service: service},
+			Login:                  command.LoginHandler{Service: service},
+			Logout:                 command.LogoutHandler{Service: service},
+			PruneExpiredTokens:     command.PruneExpiredTokensHandler{Service: service},
+			Refresh:                command.RefreshHandler{Service: service},
+			UpdateProfile:          command.UpdateProfileHandler{Service: service},
+			UpdatePreferences:      command.UpdatePreferencesHandler{Service: service},
+			ResetStudentPassword:   command.ResetStudentPasswordHandler{Students: students},
+			ResetStudentsPasswords: command.ResetStudentsPasswordsHandler{Students: students},
+			RevokeOtherSessions:    command.RevokeOtherSessionsHandler{Service: service},
+			RevokeSession:          command.RevokeSessionHandler{Service: service},
+			UnlinkGoogle:           command.UnlinkGoogleHandler{Service: service},
+			UpdateStudent:          command.UpdateStudentHandler{Students: students},
 		},
 		Queries: Queries{
 			AvatarURL:      query.AvatarURLHandler{Service: service},

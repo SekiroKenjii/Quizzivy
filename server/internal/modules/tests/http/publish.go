@@ -44,9 +44,14 @@ func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestReque
 			Message: httpx.Text(ctx, "Đề chưa có phần nào để xuất bản.", "The test has no sections to publish."),
 		}}), nil
 	default:
-		var invalid *domain.PublishValidationError
+		var violations *domain.PublishValidationError
+		if errors.As(err, &violations) {
+			return publishViolations(ctx, violations.Violations), nil
+		}
+		var invalid *domain.ValidationError
 		if errors.As(err, &invalid) {
-			return publishViolations(ctx, invalid.Violations), nil
+			return openapi.PublishTest400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+				testValidationError(ctx, invalid))}, nil
 		}
 		return nil, err
 	}
