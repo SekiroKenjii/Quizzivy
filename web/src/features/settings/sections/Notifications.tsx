@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DirtyBar } from "@/components/shared/DirtyBar";
 import { SettingsCard } from "@/components/shared/SettingsCard";
@@ -11,6 +11,7 @@ import type {
   NotificationPreference,
 } from "@/features/notifications/api";
 import { useNotificationPreferences } from "@/features/notifications/useNotificationPreferences";
+import { useUnsavedSection } from "@/features/settings/unsavedSection";
 import { failureMessage } from "@/lib/api/errors";
 
 const TEACHER_EVENTS = [
@@ -18,6 +19,8 @@ const TEACHER_EVENTS = [
   { event: "attempt.flagged", key: "flagged" },
   { event: "assignment.closing", key: "closing" },
 ] as const satisfies readonly { event: NotificationEvent; key: string }[];
+
+const QUIET = "aria-disabled:opacity-50";
 
 const GRID = "grid grid-cols-[minmax(0,1fr)_64px] items-center gap-3 px-4.5";
 
@@ -34,7 +37,9 @@ function switchesOf(rows: readonly NotificationPreference[]): Switches {
  * assignment is about to close. Email arrives in R7, and New message and
  * Weekly summary with it. A change raises the DirtyBar; Save changes sends
  * all five switches, the student's two as they were read, and Discard
- * restores the saved ones.
+ * restores the saved ones. While saving, the switches stay focusable and
+ * ignore a press; when Save changes or Discard ends the unsaved changes,
+ * focus returns to the switch last changed.
  */
 export function NotificationsSection() {
   const { t } = useTranslation();
@@ -47,10 +52,20 @@ export function NotificationsSection() {
     savedSwitches !== undefined &&
     [...edits].some(([event, on]) => savedSwitches.get(event) !== on);
 
+  const saving = save.isPending;
+  useUnsavedSection("notifications", dirty);
+  const lastToggled = useRef<string>(TEACHER_EVENTS[0].key);
+  const toggledSwitch = useCallback(
+    () => document.getElementById(`notify-${lastToggled.current}-switch`),
+    [],
+  );
+
   const isOn = (event: NotificationEvent) =>
     edits.get(event) ?? savedSwitches?.get(event) ?? true;
 
-  function toggle(event: NotificationEvent, on: boolean) {
+  function toggle(event: NotificationEvent, key: string, on: boolean) {
+    if (saving) return;
+    lastToggled.current = key;
     setEdits((current) => new Map(current).set(event, on));
   }
 
@@ -128,12 +143,14 @@ export function NotificationsSection() {
                 </span>
                 <span className="flex justify-center">
                   <Switch
+                    id={`notify-${key}-switch`}
                     checked={isOn(event)}
                     aria-label={t("settings.notifications.inAppFor", {
                       update: t(`settings.notifications.events.${key}`),
                     })}
-                    disabled={save.isPending}
-                    onCheckedChange={(on) => toggle(event, on)}
+                    aria-disabled={saving || undefined}
+                    className={QUIET}
+                    onCheckedChange={(on) => toggle(event, key, on)}
                   />
                 </span>
               </div>
@@ -141,13 +158,14 @@ export function NotificationsSection() {
       </SettingsCard>
       <DirtyBar
         dirty={dirty}
-        saving={save.isPending}
+        saving={saving}
         error={error}
         onDiscard={() => {
           setError(null);
           setEdits(new Map());
         }}
         onSave={submit}
+        returnFocus={toggledSwitch}
       />
     </>
   );

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { Toaster } from "@/components/ui/sonner";
@@ -84,7 +84,7 @@ describe("the Assignment defaults card", () => {
         },
       ]),
     );
-    expect(await screen.findByText("Đã lưu cài đặt.")).toBeInTheDocument();
+    expect(await screen.findByText("Đã lưu cài đặt")).toBeInTheDocument();
     expect(screen.queryByText("Bạn có thay đổi chưa lưu.")).toBeNull();
 
     const stored = useAuthStore.getState().user?.preferences?.assignmentDefaults;
@@ -103,7 +103,7 @@ describe("the Assignment defaults card", () => {
     });
     const user = renderSection();
 
-    await user.click(screen.getByRole("button", { name: "90 phút" }));
+    fireEvent.click(screen.getByRole("button", { name: "90 phút" }));
     await user.click(screen.getByRole("switch", { name: "Xáo trộn câu hỏi" }));
     await user.click(screen.getByRole("button", { name: "Bỏ thay đổi" }));
 
@@ -113,5 +113,46 @@ describe("the Assignment defaults card", () => {
     );
     expect(screen.getByRole("switch", { name: "Xáo trộn câu hỏi" })).toBeChecked();
     expect(bodies).toEqual([]);
+  });
+
+  it("keeps the controls inert but focusable while saving, then returns focus to the last one (T-35)", async () => {
+    let open: () => void = () => undefined;
+    const reply = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    server.use(
+      http.patch(`${BASE}/me/preferences`, async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        bodies.push(body);
+        await reply;
+        return HttpResponse.json({ theme: "light", ...body });
+      }),
+    );
+    const user = renderSection();
+    const shuffle = screen.getByRole("switch", { name: "Xáo trộn câu hỏi" });
+
+    await user.click(shuffle);
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    expect(shuffle).toHaveAttribute("aria-disabled", "true");
+    expect(shuffle).not.toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "90 phút" }));
+    expect(screen.getByRole("button", { name: "45 phút" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    open();
+
+    expect(await screen.findByText("Đã lưu cài đặt")).toBeInTheDocument();
+    expect(bodies).toHaveLength(1);
+    await waitFor(() => expect(shuffle).toHaveFocus());
+  });
+
+  it("returns focus to the time limit chosen last after Discard", async () => {
+    const user = renderSection();
+
+    await user.click(screen.getByRole("button", { name: "60 phút" }));
+    await user.click(screen.getByRole("button", { name: "Bỏ thay đổi" }));
+
+    expect(screen.getByRole("button", { name: "45 phút" })).toHaveFocus();
   });
 });

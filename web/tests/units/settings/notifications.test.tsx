@@ -88,7 +88,7 @@ describe("the Notifications card", () => {
         ],
       ]),
     );
-    expect(await screen.findByText("Đã lưu cài đặt.")).toBeInTheDocument();
+    expect(await screen.findByText("Đã lưu cài đặt")).toBeInTheDocument();
     expect(screen.queryByText("Bạn có thay đổi chưa lưu.")).toBeNull();
     expect(toggle("Một lượt làm bài bị gắn cờ")).not.toBeChecked();
   });
@@ -151,5 +151,44 @@ describe("the Notifications card", () => {
       within(failed.parentElement!).getByRole("button", { name: "Thử lại" }),
     );
     expect(await screen.findByText("Gộp lại mỗi 15 phút")).toBeVisible();
+  });
+
+  it("keeps a switch focusable and inert while saving, then returns focus to it (T-35)", async () => {
+    let open: () => void = () => undefined;
+    const reply = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    server.use(
+      http.put(`${BASE}/me/notification-preferences`, async ({ request }) => {
+        const body = (await request.json()) as unknown[];
+        await reply;
+        return contractJson("/me/notification-preferences", "put", 200, body);
+      }),
+    );
+    const user = renderSection();
+    await screen.findByText("Gộp lại mỗi 15 phút");
+    const flagged = toggle("Một lượt làm bài bị gắn cờ");
+
+    await user.click(flagged);
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    expect(flagged).toHaveAttribute("aria-disabled", "true");
+    expect(flagged).not.toBeDisabled();
+    await user.click(flagged);
+    expect(flagged).not.toBeChecked();
+    open();
+
+    expect(await screen.findByText("Đã lưu cài đặt")).toBeInTheDocument();
+    await waitFor(() => expect(flagged).toHaveFocus());
+  });
+
+  it("returns focus to the switch last changed after Discard", async () => {
+    const user = renderSection();
+    await screen.findByText("Gộp lại mỗi 15 phút");
+
+    await user.click(toggle("Bài giao sắp đóng"));
+    await user.click(screen.getByRole("button", { name: "Bỏ thay đổi" }));
+
+    expect(toggle("Bài giao sắp đóng")).not.toBeChecked();
+    expect(toggle("Bài giao sắp đóng")).toHaveFocus();
   });
 });

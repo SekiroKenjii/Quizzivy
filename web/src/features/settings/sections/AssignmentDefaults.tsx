@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DirtyBar } from "@/components/shared/DirtyBar";
 import { SettingsCard } from "@/components/shared/SettingsCard";
@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import type { AssignmentDefaults } from "@/features/assignments/draft";
 import { savePreferences } from "@/features/auth/accountPreferences";
+import { useUnsavedSection } from "@/features/settings/unsavedSection";
 import { failureMessage } from "@/lib/api/errors";
 import { authStore, useAuthStore } from "@/stores/auth";
 
@@ -20,6 +21,19 @@ const RULES = [
 ] as const;
 
 type Defaults = Required<AssignmentDefaults>;
+
+const QUIET = "aria-disabled:opacity-50";
+
+function fieldControl(field: keyof Defaults): HTMLElement | null {
+  if (field === "durationMinutes")
+    return document.querySelector<HTMLElement>(
+      '#defaults-duration-options [aria-pressed="true"]',
+    );
+  const rule = RULES.find((entry) => entry.field === field);
+  return rule === undefined
+    ? null
+    : document.getElementById(`defaults-${rule.key}-switch`);
+}
 
 /**
  * FALLBACK is what a new assignment starts with when nothing is stored, the
@@ -54,6 +68,9 @@ function same(a: Defaults, b: Defaults): boolean {
  * every new assignment starts with, and that each assignment can still
  * change. A change raises the DirtyBar; Save changes stores all five in
  * `preferences.assignmentDefaults`, and Discard restores the saved ones.
+ * While saving, the controls stay focusable and ignore a press; when Save
+ * changes or Discard ends the unsaved changes, focus returns to the control
+ * last changed.
  */
 export function AssignmentDefaultsSection() {
   const { t } = useTranslation();
@@ -64,8 +81,13 @@ export function AssignmentDefaultsSection() {
   const [error, setError] = useState<string | null>(null);
   const current = draft ?? saved;
   const dirty = draft !== null && !same(draft, saved);
+  useUnsavedSection("defaults", dirty);
+  const lastChanged = useRef<keyof Defaults>("durationMinutes");
+  const changedControl = useCallback(() => fieldControl(lastChanged.current), []);
 
-  function change(patch: Partial<Defaults>) {
+  function change(field: keyof Defaults, patch: Partial<Defaults>) {
+    if (saving) return;
+    lastChanged.current = field;
     setDraft({ ...current, ...patch });
   }
 
@@ -92,11 +114,15 @@ export function AssignmentDefaultsSection() {
         description={t("settings.defaults.hint")}
         className="overflow-hidden"
       >
-        <div className="flex flex-col gap-2 px-4.5 py-3.5">
+        <div
+          id="defaults-duration-options"
+          className="flex flex-col gap-2 px-4.5 py-3.5"
+        >
           <span id="defaults-duration" className="text-ui leading-normal font-medium">
             {t("settings.defaults.duration")}
           </span>
           <Segmented
+            className={saving ? "opacity-50" : ""}
             label={t("settings.defaults.duration")}
             value={String(current.durationMinutes)}
             fill
@@ -104,7 +130,9 @@ export function AssignmentDefaultsSection() {
               value: String(minutes),
               label: t("settings.defaults.minutes", { count: minutes }),
             }))}
-            onChange={(value) => change({ durationMinutes: Number(value) })}
+            onChange={(value) =>
+              change("durationMinutes", { durationMinutes: Number(value) })
+            }
           />
         </div>
         {RULES.map(({ field, key }) => (
@@ -124,11 +152,13 @@ export function AssignmentDefaultsSection() {
               </span>
             </span>
             <Switch
+              id={`defaults-${key}-switch`}
               checked={current[field]}
               aria-labelledby={`defaults-${key}`}
               aria-describedby={`defaults-${key}-hint`}
-              disabled={saving}
-              onCheckedChange={(on) => change({ [field]: on })}
+              aria-disabled={saving || undefined}
+              className={QUIET}
+              onCheckedChange={(on) => change(field, { [field]: on })}
             />
           </div>
         ))}
@@ -142,6 +172,7 @@ export function AssignmentDefaultsSection() {
           setDraft(null);
         }}
         onSave={() => void submit()}
+        returnFocus={changedControl}
       />
     </>
   );
