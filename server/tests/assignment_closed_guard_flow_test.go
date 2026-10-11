@@ -8,6 +8,24 @@ import (
 	"time"
 )
 
+func windowInput(versionID, classID string, opens, closes time.Time, mutate func(map[string]any)) map[string]any {
+	in := map[string]any{
+		"testVersionId":   versionID,
+		"targets":         map[string]any{"classIds": []string{classID}, "studentIds": []string{}},
+		"window":          map[string]any{"opensAt": rfc3339(opens), "closesAt": rfc3339(closes)},
+		"durationMinutes": 30,
+		"maxAttempts":     1,
+		"review":          map[string]any{"showScore": true, "showCorrectAnswers": true, "showExplanations": true},
+		"integrity": map[string]any{
+			"requireFullscreen": false, "blockCopyPaste": true, "maxFocusLoss": 0, "onLimitExceeded": "flag", "minAwayMs": 3000,
+		},
+	}
+	if mutate != nil {
+		mutate(in)
+	}
+	return in
+}
+
 func TestAClosedAssignmentIsOpenedAgainOnlyByReopeningIt(t *testing.T) {
 	w := boot(t)
 	email, password := w.teacher()
@@ -19,21 +37,7 @@ func TestAClosedAssignmentIsOpenedAgainOnlyByReopeningIt(t *testing.T) {
 
 	now := time.Now()
 	input := func(opens, closes time.Duration, mutate func(map[string]any)) map[string]any {
-		in := map[string]any{
-			"testVersionId":   versionID,
-			"targets":         map[string]any{"classIds": []string{classID}, "studentIds": []string{}},
-			"window":          map[string]any{"opensAt": rfc3339(now.Add(opens)), "closesAt": rfc3339(now.Add(closes))},
-			"durationMinutes": 30,
-			"maxAttempts":     1,
-			"review":          map[string]any{"showScore": true, "showCorrectAnswers": true, "showExplanations": true},
-			"integrity": map[string]any{
-				"requireFullscreen": false, "blockCopyPaste": true, "maxFocusLoss": 0, "onLimitExceeded": "flag", "minAwayMs": 3000,
-			},
-		}
-		if mutate != nil {
-			mutate(in)
-		}
-		return in
+		return windowInput(versionID, classID, now.Add(opens), now.Add(closes), mutate)
 	}
 	refused := func(assignmentID string, body map[string]any, status int, wantCode string) {
 		t.Helper()
@@ -85,4 +89,55 @@ func TestAClosedAssignmentIsOpenedAgainOnlyByReopeningIt(t *testing.T) {
 		t.Errorf("a later close on an assignment closed early: %v, want it still closed", later["status"])
 	}
 	refused(earlyID, input(time.Hour, 3*time.Hour, nil), http.StatusConflict, "ASSIGNMENT_CLOSED")
+}
+
+func TestCloseNowBeforeTheWindowOpensIsA400AndACreateIgnoresIt(t *testing.T) {
+	w := boot(t)
+	email, password := w.teacher()
+	teacher := w.browser()
+	teacher.login(email, password)
+
+	classID := teacher.class("Lớp đóng ngay " + nonce(t))
+	_, versionID := teacher.publishedVersion("Đề đóng ngay " + nonce(t))
+	now := time.Now()
+	closeNow := func(in map[string]any) { in["closeNow"] = true }
+	input := func(opens, closes time.Duration) map[string]any {
+		return windowInput(versionID, classID, now.Add(opens), now.Add(closes), closeNow)
+	}
+
+	created := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/assignments", input(time.Hour, 2*time.Hour))
+	if created["status"] != "scheduled" {
+		t.Errorf("a create with closeNow and an opening ahead is %v, want scheduled and not closed", created["status"])
+	}
+	openCreated := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/assignments", input(-time.Hour, time.Hour))
+	if openCreated["status"] != "open" {
+		t.Errorf("a create with closeNow and an open window is %v, want open", openCreated["status"])
+	}
+
+	refuses := func(label, assignmentID string, body map[string]any) {
+		t.Helper()
+		status, answer := teacher.call(http.MethodPatch, "/teacher/assignments/"+assignmentID, body)
+		details, _ := answer["error"].(map[string]any)["details"].(map[string]any)
+		code, _ := answer["error"].(map[string]any)["code"].(string)
+		if status != http.StatusBadRequest || code != "VALIDATION_FAILED" || details["closeNow"] == nil {
+			t.Errorf("%s: status %d code %q details %v, want 400 VALIDATION_FAILED naming closeNow", label, status, code, details)
+		}
+	}
+	refuses("a scheduled assignment closed now", id(created), input(time.Hour, 2*time.Hour))
+	refuses("an open assignment closed now with its opening moved ahead", id(openCreated), input(30*time.Minute, 2*time.Hour))
+
+	closedAlready := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/assignments", windowInput(versionID, classID, now.Add(-2*time.Hour), now.Add(-time.Hour), nil))
+	refuses("a closed assignment closed now with its opening ahead", id(closedAlready), input(time.Hour, 2*time.Hour))
+
+	for _, assignmentID := range []string{id(created), id(openCreated), id(closedAlready)} {
+		after := teacher.must(http.StatusOK, http.MethodGet, "/teacher/assignments/"+assignmentID, nil)
+		if after["status"] == "closed" && assignmentID != id(closedAlready) {
+			t.Errorf("a refused save closed %s", assignmentID)
+		}
+	}
+
+	closedNow := teacher.must(http.StatusOK, http.MethodPatch, "/teacher/assignments/"+id(openCreated), input(-time.Hour, time.Hour))
+	if closedNow["status"] != "closed" {
+		t.Errorf("closing an open assignment now: %v, want closed", closedNow["status"])
+	}
 }

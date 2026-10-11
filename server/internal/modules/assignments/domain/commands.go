@@ -78,6 +78,10 @@ func (in WriteInput) Validate() error {
 		fields = append(fields, FieldError{Field: "window.closesAt", Message: "Thời điểm đóng phải sau thời điểm mở."})
 	}
 
+	if in.CloseNow && in.OpensAt.After(in.Now) {
+		fields = append(fields, FieldError{Field: "closeNow", Message: "Không thể đóng ngay khi thời điểm mở còn ở phía trước."})
+	}
+
 	if !in.Review.Release.Valid() {
 		fields = append(fields, FieldError{Field: "review.release", Message: "Thời điểm công bố kết quả không hợp lệ."})
 	}

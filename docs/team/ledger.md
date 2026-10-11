@@ -7,24 +7,23 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-11, handover from team Ryan.Alt to team Ryan.Pri (T-34).
-- **Base:** `work/redesign-r4` at `4c0f90e2` (T-R4.47 merged, #482).
-- **Objective:** unchanged: R4 to v0.10.0, then D4 (v0.11.0) (T-24). T-22 governs merges.
-- **In flight** (five agents, T-3):
+- **As of:** 2026-10-11, evening.
+- **Base:** `work/redesign-r4` at `c5ec99ad` (#497 merged).
+- **Objective:** unchanged: R4 to v0.10.0, then D4 (v0.11.0) (T-24). T-22 governs merges;
+  since 2026-10-11 the user lets the Tech Lead merge a PR into `work/redesign-r4` on green CI
+  without asking. A release to `main` still needs the user.
+- **In flight** (at most three agents, T-36):
 
   | Task | PR | Owner | State |
   |---|---|---|---|
-  | T-R4.43 settings | #485 | frontend, lane 1 | round 2: VER-43's findings (QA-43-1 focus, a Google-only dead end, three minors) |
-  | T-R4.44 settings, notifications and defaults | none yet | frontend, lane 1 | built, stacked on #485; opens after #485 merges |
-  | T-R4.45b bell and student settings | none yet | frontend, lane 2 | merging R4 into the branch, then the PR |
-  | T-R4.26 assignment detail tabs | none yet | frontend, lane 3 | implementing (DG-160 to 163 used; 174 to 177 reserved) |
-  | T-R4.49 C, `00106_validate_ownership` (T-R3.2) | none yet | backend | implementing, restarted from scratch (INC-2) |
-  | Done-when audit of merged tasks | — | senior_tester | read-only audit, feeds T-R4.50 |
+  | T-R4.40 students | none yet | frontend, lane 1 | implementing; the Principal's security review before merge (temporary passwords) |
+  | T-R4.41 classes list | #498 | frontend, lane 2 | green; VER-41 running; takes the base after #499 (the audience argument) |
+  | T-R4.42 class detail | none yet | frontend, lane 2 | implementing, stacked on 41 |
+  | DG-170, the web half | #499 | Tech Lead | approved by the Principal; merges on green |
+  | F-63 `closeNow` before the window opens | #500 | backend | reviewed by the Tech Lead; merges on green |
 
-- **Waiting on the user (T-22):** #483 (F-37, 00103), #484 (T-R4.18, 00104) and #486 (T-R4.49 B,
-  00105), merged in that order; #481 (T-R4.20) with the F-53 choice; for #486, `fly status`
-  and `fly releases` and the Neon rehearsal; whether Settings warns on leaving with unsaved
-  edits (F-57).
+- **Waiting on the user:** the seven days of production `legacy_admin_path` counts for
+  T-R4.49 A; the release to `main` at T-R4.52.
 
 ## Roster and models
 
@@ -64,8 +63,15 @@ Taken from merged pull requests on 2026-10-10. The plan's "Done when" boxes lag 
   plan (#444, #445); and, from before the team, the plan corrections (#351, titled T-R4.0,
   not a plan task), the develop syncs (#344, #352, #364, #379, #396, #402) and the team
   (#420, #421).
+- **Merged on 2026-10-11:** the ledger (#488) and the audit ticks (#489); F-37 (#483,
+  00103); 18 (#484, 00104); 20 (#481, F-53 option B); 45b (#490); QA-F1-2 (#492); 49 B
+  (#486, 00105) and 49 C (#491, 00106), after the user's Neon rehearsal passed; 43 (#485);
+  F-59 (#494); DG-170's server half (#495); 26 (#493); 44 (#496); and the closed-assignment
+  guard (#497).
 - **In flight:** see the checkpoint.
-- **Order (2026-10-11):** lane 1: 43 round 2 → 44 → 40 (after #481). Lane 2: 45b → 41 and 42
+- **Order (2026-10-11, evening):** lane 1: 40. Lane 2: 41 → 42. Backend: F-63, then frontend
+  help or 49 A. Then 48, and the close-out: 50, 51, 52.
+- **Order (2026-10-11, morning, superseded):** lane 1: 43 round 2 → 44 → 40 (after #481). Lane 2: 45b → 41 and 42
   (after #484). Lane 3: 26 → 48. Backend: 49 C, then 49 A when the user has read the
   production logs; then frontend help. Close-out: 50, 51, 52.
 - **Order (2026-10-10, superseded):** W3-PLAN (T-23). Lane 1: 33, then a task from lane 3's tail (24 or 40) when it
@@ -73,16 +79,13 @@ Taken from merged pull requests on 2026-10-10. The plan's "Done when" boxes lag 
   41 → 42. Backend: stream A is done (12b, 13, 10b, F-43); stream B is 8 (#472) and 9 (#473),
   then F-46, 20 and 18 (18 waits for 8). Close-out (T-R4.48 to 52) comes last.
 - **Migration numbers:** 00092 (16a), 00097 and 00098 (62a), 00099 and 00100 (11), 00101
-  (12a), 00102 (9, #473); in open PRs 00103 (F-37, #483), 00104 (18, #484), 00105 (49 B, #486);
-  reserved 00106 (49 C). The next free number is 00107; T-5 governs.
+  (12a), 00102 (9, #473), 00103 (F-37, #483), 00104 (18, #484), 00105 (49 B, #486) and 00106
+  (49 C, #491). The next free number is 00107; T-5 governs.
 
 Still waiting on an unmerged dependency:
 
 | Task | Waits for |
 |---|---|
-| T-R4.40 students | 20 (#481, the user's go) |
-| T-R4.41, 42 classes | 18 (#484, the user's go) |
-| T-R4.44 settings | 43 (#485) |
 | T-R4.49 A, the `/admin` alias | seven days of production `legacy_admin_path` counts, read by the user |
 | T-R4.48 delete the old tree | every rebuilt screen |
 
@@ -274,6 +277,23 @@ and any reversal of the defaults above.
   focused element drops focus to `<body>` (QA-43-1, QA-47-1). It keeps focus with
   `aria-disabled`, its handler guards on `isPending`, and a test asserts the focus. A bar that
   unmounts after its action moves focus deliberately.
+- **T-36 (2026-10-11).** At most three agents run at once, for the usage budget. An agent runs
+  only the gates that cover what it added or changed and their direct consumers; CI is the
+  authority for the full suites. A PR body lists what ran and what did not.
+- **T-37 (2026-10-11).** The user's answers: merge into `work/redesign-r4` on green CI without
+  asking; F-53 option B (`word-word-word-NN`); Settings warns before unsaved edits are lost
+  (F-57); DG-170 is the Tech Lead's to decide. The Tech Lead chose one notification audience
+  per console: `listNotifications`, `markNotificationsRead`, `getTeacherSummary` and
+  `getMySummary` take an optional `audience` (`teacher` or `student`), and `KindsOf` maps
+  five teacher kinds and four student kinds (spec v0.80, data model §34).
+- **T-38 (2026-10-11).** Production checks run read-only: Fly status and releases only, and
+  a Neon rehearsal only on a throwaway branch, deleted afterwards, never the production
+  endpoint. No token or DSN is printed or pasted in chat. The cloud container cannot resolve
+  Neon's endpoint, so the user ran the rehearsal for #486 and #491 locally: PASS.
+- **T-39 (2026-10-11).** A `PATCH` that would reopen a closed assignment answers 409
+  `ASSIGNMENT_CLOSED` (#497); a later close on an assignment closed early stays allowed.
+  `closeNow` belongs to `PATCH`: a create ignores it, and with the window opening after now
+  it answers 400 `VALIDATION_FAILED` (F-63).
 
 ## Findings and open items
 
@@ -321,7 +341,7 @@ and any reversal of the defaults above.
 | F-34 | `assignment-sheet-presence.test.tsx`'s cold first test missed `findBy`'s one second under load. | senior_tester | fixed (#443) |
 | F-35 | `builder-group-recovery.spec.ts` failed when Back came within ~60 ms of the URL change. | the user | fixed (#449); an app-side guard for the six `useBlocker` callers is optional |
 | F-36 | The tests list: select-all, the "not shown" count, and a stubbed e2e for a failed Duplicate and a failed bulk delete (T-25). | senior_swe_frontend, lane 2 | fixed (#464) |
-| F-37 | Decomposed (NFD) text from the server still falls back in plain fields such as a test title. Proposal: `content.Normalize` and `norm.NFC` in the command handlers (never passwords, tokens, emails or join codes), and a one-off backfill that skips published snapshots. | senior_swe_backend | open: waits on the user's go, because the backfill rewrites populated tables (T-22) |
+| F-37 | Decomposed (NFD) text from the server still falls back in plain fields such as a test title. Proposal: `content.Normalize` and `norm.NFC` in the command handlers (never passwords, tokens, emails or join codes), and a one-off backfill that skips published snapshots. | senior_swe_backend | fixed (#483, 00103) |
 | QA-66a-1 | A failed builder autosave crashed the page (React #185). The cause was `MarqueeText` flipping as the "Not saved" label shrank the title. | senior_swe_frontend, lane 1 | fixed (#452) |
 | R12b-1 | `updateAssignment` and `reopenAssignment` change an assignment's window without recomputing in-progress deadlines or taking the windows lock. | senior_swe_backend | fixed (#451) |
 | F-38 | The tag search box's radius is 10px where the deck draws 8. | the next task touching `TagCombobox` | open |
@@ -342,11 +362,18 @@ and any reversal of the defaults above.
 | INC-2 | The handover lost unpushed work: #485's round 2, the R4 merge into the bell branch, and T-R4.49 C. | Tech Lead | closed: restarted from the pushed heads (T-34) |
 | F-56 | SR-49B-1 and 2 (the rehearsal printed timings; no test pinned a staff sitter's review) | senior_swe_backend | fixed on #486 (`fb490ab5`, `66e3db04`) |
 | F-54 | `AssignmentFormPage`, which carried spec §10.5 in full, is no longer routed (T-R4.46). | T-R4.48 | open: delete with the old tree |
-| F-53 | The temporary password `word-word-NN` is about 18.45 bits. Options: (A) as is, (B) a third word, about 24.4 bits, before T-R4.40 (recommended), (C) a 24-hour expiry (R5 size). | the user | open: #481 |
-| F-57 | Settings loses unsaved Profile edits on reload or leaving, without a warning (VER-43). Disclosed in #485. | the user | open: product question |
-| F-58 | "Mark all read" marks student-side items the teacher bell does not show; for an Admin who takes tests the dot and the list can disagree. | frontend, lane 2 | open: a risk in T-R4.45b's PR |
+| F-53 | The temporary password `word-word-NN` is about 18.45 bits. Options: (A) as is, (B) a third word, about 24.4 bits, before T-R4.40 (recommended), (C) a 24-hour expiry (R5 size). | the user | closed: option B, shipped in #481 |
+| F-57 | Settings loses unsaved Profile edits on reload or leaving, without a warning (VER-43). Disclosed in #485. | the user | closed: yes, a warning; shipped in #485 |
+| F-58 | "Mark all read" marks student-side items the teacher bell does not show; for an Admin who takes tests the dot and the list can disagree. | frontend, lane 2 | fixed by DG-170 (#495, #499) |
 | SR-420-1 to 4 | The Principal's review of #481: a word-list error message could log a candidate; a refused student costs a hash; `Forget` on a cancelled commit; no batch correlation in the audit rows. All low. | senior_swe_backend | open: follow-ups |
 | QA-34-6 | In the material editor, an image inserted at an audio block's cursor seemed to replace the audio block (VER-34, observation 6). | senior_swe_frontend, lane 3 | investigating in #471's round 2 |
+| F-59 | `FormDialog` and `ConfirmDialog` disabled their submit while pending, so focus fell to `<body>` (T-35). | senior_swe_frontend | fixed (#494) |
+| F-60 | Vietnamese "Hôm nay" is capitalised mid-sentence. | the next task touching relative dates | open |
+| F-61 | `GroupEditorPage`'s keep-local button takes native `disabled` while busy (T-35). | senior_swe_frontend | open |
+| F-62 | `Segmented` has no `aria-disabled` path for a pending option (T-35). | senior_swe_frontend | open |
+| F-63 | `closeNow` on an assignment whose window opens later answered 500 (the `closed_at` CHECK). | senior_swe_backend | fixed on #500 |
+| QA-26-3 to 5 | VER-26: the segmented fill labels (with F-15), a raw `{{n}}` in the Questions tab's excerpt, and no hint when chosen students drop out; focus after Publish → Assign lands on `<body>`. | senior_swe_frontend | open |
+| INC-3 | After a container restart dockerd would not start: a stale `/var/run/docker.pid`. Removing it, starting dockerd and `docker compose up -d db minio` recovered with the volumes intact. | Tech Lead | closed: add the check to the session-start hook with F-13 |
 
 ## Reviews
 
@@ -425,9 +452,8 @@ and any reversal of the defaults above.
 ## Next action
 
 As each hand-off arrives:
-- **#485** round 2 → the Principal's review and VER-43's retest → merge; lane 1 then merges it
-  into T-R4.44 and opens that PR.
-- **T-R4.45b** and **T-R4.26** open as PRs → the Principal's review → VER.
-- **T-R4.49 C** opens → the Principal's security review (T-29) → the user (T-22).
-- The tester's audit → one Tech Lead docs PR that ticks the boxes it finds done and files its gaps.
-- The user: #483, #484, #486 in order; #481 and F-53; F-57.
+- **#499** and **#500** merge on green; then #498 takes the base and merges after VER-41.
+- **T-R4.40** opens → the Principal's security review (T-29) → VER-40 → merge.
+- **T-R4.42** opens after 41 → VER-42 → merge.
+- Then T-R4.48 (the old tree, F-54, QA-F1-2's remainder), the small T-35 fixes (F-61, F-62)
+  and VER-26's follow-ups, and the close-out (50, 51, 52). 49 A waits on the user.
