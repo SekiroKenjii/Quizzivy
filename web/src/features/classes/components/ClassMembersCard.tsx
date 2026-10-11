@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
@@ -6,23 +6,23 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type UseQueryResult,
 } from "@tanstack/react-query";
-import { ChartColumn, Ellipsis, UserMinus } from "lucide-react";
+import { formatInTimeZone } from "date-fns-tz";
+import { ChartColumn, UserMinus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { BulkActions } from "@/components/shared/BulkActions";
-import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { LoadError } from "@/components/shared/ListState";
 import { SearchInput } from "@/components/shared/SearchInput";
+import {
+  DataTable,
+  type DataColumn,
+  type DataTableMenuContext,
+} from "@/components/shared/data/DataTable";
 import { Pager } from "@/components/shared/data/Pager";
 import { useCan } from "@/features/auth/permissions";
 import {
@@ -37,33 +37,48 @@ import { scorePercent } from "@/features/students/api";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
+import { useContentBand } from "@/layouts/shell/contentWidth";
 import { dayMonth, formatDate, getDisplayTimeZone } from "@/lib/i18n/datetime";
-import { formatInTimeZone } from "date-fns-tz";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZES = [20, 50] as const;
 const LOW_AVERAGE = 60;
+const MEMBER_BANDS = [520, 620, 720, 1000, 1080] as const;
+const MEMBER_SETS: readonly ReadonlySet<string>[] = [
+  new Set(["name", "submitted"]),
+  new Set(["name", "submitted", "average"]),
+  new Set(["name", "via", "submitted", "average"]),
+  new Set(["name", "via", "at", "submitted", "average"]),
+  new Set(["name", "via", "submitted", "average"]),
+  new Set(["name", "via", "at", "submitted", "average"]),
+];
+const ALL_COLUMNS: ReadonlySet<string> = new Set([
+  "name",
+  "via",
+  "at",
+  "submitted",
+  "average",
+]);
 
-const ROW =
-  "grid items-center gap-3 px-4.5 grid-cols-[16px_minmax(0,2fr)_80px_32px] @[520px]/members:grid-cols-[16px_minmax(180px,2fr)_80px_70px_32px] @[620px]/members:grid-cols-[16px_minmax(180px,2fr)_120px_80px_70px_32px] @[720px]/members:grid-cols-[16px_minmax(180px,2fr)_120px_80px_80px_70px_32px]";
-
-type Selectable = { id: string; name: string };
-
-function menuTrigger(userId: string): HTMLElement | null {
-  return document.querySelector<HTMLElement>(`[data-member-menu="${userId}"]`);
-}
+type Member = ClassMember & { id: string };
+type MemberPage = Awaited<ReturnType<typeof fetchMembers>>;
+type Locale = ReturnType<typeof useLocale>;
+type Translate = ReturnType<typeof useTranslation>["t"];
 
 /**
  * ClassMembersCard is the class's members, as the deck draws them: "Members
- * · {n}" with a search, then one row per member with a checkbox, the name
- * and email, how they joined (from 620px of the card), when (from 720px),
- * what they handed in and their average (from 520px, in danger ink under
- * 60%), and a menu with View results and Remove from class. Selecting rows
- * offers Remove selected. Removing anyone needs `canWrite`; without it there
- * are no checkboxes and the menu only views results. The footer says that
- * removing a student keeps their work.
+ * · {n}" with a search, then a DataTable with one row per member: a
+ * checkbox, the name and email, how they joined, when, what they handed in
+ * and their average (in danger ink under 60%), and a menu with View results
+ * and Remove from class. The columns follow the deck's content widths: the
+ * card is the whole width below 1000px and two thirds of it from there, so
+ * Joined via shows from 620 and again from 1000, and Joined from 720 and
+ * again from 1080. A selected row is tinted, and selecting offers Remove
+ * selected. Removing anyone needs `canWrite`; without it there are no
+ * checkboxes and the menu only views results. The footer says that removing
+ * a student keeps their work.
  */
 export function ClassMembersCard({
   klass,
@@ -73,7 +88,8 @@ export function ClassMembersCard({
   const locale = useLocale();
   const queryClient = useQueryClient();
   const canSeeResults = useCan("people.students.read");
-  const bulk = useBulkSelection<Selectable>();
+  const bulk = useBulkSelection<Member>();
+  const band = useContentBand(MEMBER_BANDS);
   const { params, setFilter } = useListFilters();
   const query = params.get("q") ?? "";
   const search = useDebounced(query, 300).trim();
@@ -89,10 +105,16 @@ export function ClassMembersCard({
       ),
     placeholderData: keepPreviousData,
   });
+  const rows = useMemo(
+    () =>
+      (members.data?.items ?? []).map((member) => ({ ...member, id: member.userId })),
+    [members.data],
+  );
+  const columns = useMemo(() => memberColumns(t, locale), [t, locale]);
   const returnTo = useRef<HTMLElement | null>(null);
-  const [removing, setRemoving] = useState<ClassMember | null>(null);
+  const [removing, setRemoving] = useState<Member | null>(null);
   const remove = useMutation({
-    mutationFn: (member: ClassMember) => removeMember(klass.id, member.userId),
+    mutationFn: (member: Member) => removeMember(klass.id, member.userId),
     onSuccess: async (_, member) => {
       setRemoving(null);
       toast(t("classDetail.removedNamed", { name: member.fullName }));
@@ -100,14 +122,33 @@ export function ClassMembersCard({
     },
   });
 
-  const items = members.data?.items ?? [];
-  const selectable = items.map((m) => ({ id: m.userId, name: m.fullName }));
-  const total = members.data?.total ?? klass.studentCount;
+  const askToRemove = (
+    member: Member,
+    trigger: RefObject<HTMLButtonElement | null>,
+  ) => {
+    returnTo.current = trigger.current;
+    remove.reset();
+    setRemoving(member);
+  };
+  const menu =
+    canWrite || canSeeResults
+      ? (member: Member, { triggerRef }: DataTableMenuContext) => (
+          <MemberMenuItems
+            member={member}
+            canWrite={canWrite}
+            canSeeResults={canSeeResults}
+            onRemove={() => askToRemove(member, triggerRef)}
+          />
+        )
+      : undefined;
+  const selecting = canWrite
+    ? { selection: bulk, rowName: (member: Member) => member.fullName }
+    : {};
 
   return (
     <section
       aria-labelledby="members-heading"
-      className="bg-card shadow-card @container/members overflow-hidden rounded-xl border"
+      className="bg-card shadow-card overflow-hidden rounded-xl border"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 px-4.5 pt-4 pb-3">
         <h2
@@ -128,13 +169,13 @@ export function ClassMembersCard({
         <BulkActions
           className="mx-3 mb-2.5"
           selected={[...bulk.selected.values()]}
-          name={(item) => item.name}
+          name={(member) => member.fullName}
           actions={[
             {
               label: t("classDetail.removeSelected"),
               description: t("classDetail.removeSelectedBody"),
               icon: UserMinus,
-              run: (item) => removeMember(klass.id, item.id),
+              run: (member) => removeMember(klass.id, member.userId),
             },
           ]}
           onRemoved={bulk.remove}
@@ -143,93 +184,29 @@ export function ClassMembersCard({
         />
       ) : null}
 
-      <div role="table" aria-labelledby="members-heading">
-        <div role="rowgroup">
-          <div
-            role="row"
-            className={cn(
-              ROW,
-              "bg-muted text-muted-fg h-10 text-[0.78125rem] font-medium",
-            )}
-          >
-            <span role="columnheader" className="flex">
-              {canWrite ? <BulkSelectAll items={selectable} selection={bulk} /> : null}
-            </span>
-            <span role="columnheader">{t("classDetail.name")}</span>
-            <span role="columnheader" className="hidden @[620px]/members:block">
-              {t("classDetail.joinedVia")}
-            </span>
-            <span role="columnheader" className="hidden @[720px]/members:block">
-              {t("classDetail.joinedAt")}
-            </span>
-            <span role="columnheader" className="text-right">
-              {t("students.submitted")}
-            </span>
-            <span
-              role="columnheader"
-              className="hidden text-right @[520px]/members:block"
-            >
-              {t("students.average")}
-            </span>
-            <span role="columnheader">
-              <span className="sr-only">{t("classDetail.actions")}</span>
-            </span>
-          </div>
-        </div>
-        <div role="rowgroup">
-          {members.isPending ? <MembersSkeleton /> : null}
-          {items.map((member) => (
-            <MemberRow
-              key={member.userId}
-              member={member}
-              locale={locale}
-              selection={
-                canWrite ? (
-                  <BulkSelectRow
-                    item={{ id: member.userId, name: member.fullName }}
-                    name={member.fullName}
-                    selection={bulk}
-                  />
-                ) : null
-              }
-              canWrite={canWrite}
-              canSeeResults={canSeeResults}
-              onRemove={() => {
-                returnTo.current = menuTrigger(member.userId);
-                remove.reset();
-                setRemoving(member);
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      {members.isError ? (
-        <div className="border-t px-4.5 py-4">
-          <LoadError error={members.error} onRetry={() => void members.refetch()}>
-            {t("classDetail.membersFailed")}
-          </LoadError>
-        </div>
-      ) : null}
-      {members.data !== undefined && items.length === 0 ? (
-        <p className="text-muted-fg border-t px-4.5 py-8 text-center text-sm">
-          {search === ""
-            ? t("classDetail.noMembers")
-            : t("classDetail.noMemberMatches", { query: search })}
-        </p>
-      ) : null}
-      {members.data !== undefined && total > PAGE_SIZES[0] ? (
-        <Pager
-          page={members.data.page}
-          pageSize={members.data.pageSize}
-          total={members.data.total}
-          noun={(count) => t("classDetail.memberNoun", { count })}
-          sizes={PAGE_SIZES}
+      {members.isPending ? (
+        <MembersSkeleton />
+      ) : (
+        <DataTable
+          label={t("classDetail.membersHeading", { count: klass.studentCount })}
+          columns={columns}
+          rows={rows}
+          rowSize={{ minHeight: 56 }}
+          shown={MEMBER_SETS[band] ?? ALL_COLUMNS}
+          {...selecting}
+          rowTone={(member) => (bulk.selected.has(member.id) ? "selected" : undefined)}
+          menu={menu}
+          menuLabel={(member) =>
+            t("classDetail.memberActions", { name: member.fullName })
+          }
+          menuTrack="32px"
+          padX={18}
+          framed={false}
+          empty={members.isError ? null : emptyLine(t, search)}
         />
-      ) : null}
-      <p className="text-muted-fg border-t px-4.5 py-2.25 text-xs">
-        {t("classDetail.removeKeepsWork")}
-      </p>
+      )}
+
+      <MembersFooter members={members} />
 
       <ConfirmDialog
         open={removing !== null}
@@ -257,130 +234,159 @@ export function ClassMembersCard({
   );
 }
 
-function MemberRow({
-  member,
-  locale,
-  selection,
-  canWrite,
-  canSeeResults,
-  onRemove,
-}: Readonly<{
-  member: ClassMember;
-  locale: ReturnType<typeof useLocale>;
-  selection: React.ReactNode;
-  canWrite: boolean;
-  canSeeResults: boolean;
-  onRemove: () => void;
-}>) {
+function MembersFooter({ members }: Readonly<{ members: UseQueryResult<MemberPage> }>) {
+  const { t } = useTranslation();
+  const data = members.data;
+  return (
+    <>
+      {members.isError ? (
+        <div className="border-t px-4.5 py-4">
+          <LoadError error={members.error} onRetry={() => void members.refetch()}>
+            {t("classDetail.membersFailed")}
+          </LoadError>
+        </div>
+      ) : null}
+      {data !== undefined && data.total > PAGE_SIZES[0] ? (
+        <Pager
+          page={data.page}
+          pageSize={data.pageSize}
+          total={data.total}
+          noun={(count) => t("classDetail.memberNoun", { count })}
+          sizes={PAGE_SIZES}
+        />
+      ) : null}
+      <p className="text-muted-fg border-t px-4.5 py-2.25 text-xs">
+        {t("classDetail.removeKeepsWork")}
+      </p>
+    </>
+  );
+}
+
+function emptyLine(t: Translate, search: string): string {
+  if (search === "") return t("classDetail.noMembers");
+  return t("classDetail.noMemberMatches", { query: search });
+}
+
+function memberColumns(t: Translate, locale: Locale): readonly DataColumn<Member>[] {
+  return [
+    {
+      id: "name",
+      header: t("classDetail.name"),
+      track: "minmax(180px,2fr)",
+      cell: (member) => (
+        <span className="flex min-w-0 items-center gap-2.5">
+          <Avatar name={member.fullName} size="30" />
+          <span className="min-w-0">
+            <span className="block truncate font-medium">{member.fullName}</span>
+            <span className="text-muted-fg block truncate text-xs leading-normal">
+              {member.email}
+            </span>
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: "via",
+      header: t("classDetail.joinedVia"),
+      track: "120px",
+      cell: (member) => <JoinedVia member={member} />,
+    },
+    {
+      id: "at",
+      header: t("classDetail.joinedAt"),
+      track: "80px",
+      cell: (member) => (
+        <span className="text-muted-fg block text-sm leading-normal whitespace-nowrap">
+          {joinedOn(member.joinedAt, locale)}
+        </span>
+      ),
+    },
+    {
+      id: "submitted",
+      header: t("students.submitted"),
+      track: "80px",
+      align: "end",
+      cell: (member) => (
+        <span className="tabular-nums">{member.stats.submittedCount}</span>
+      ),
+    },
+    {
+      id: "average",
+      header: t("students.average"),
+      track: "70px",
+      align: "end",
+      cell: (member) => <Average member={member} />,
+    },
+  ];
+}
+
+function JoinedVia({ member }: Readonly<{ member: Member }>) {
+  const { t } = useTranslation();
+  const byTeacher = member.joinedVia === "admin";
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5.5 items-center rounded-sm px-2 text-xs font-medium whitespace-nowrap",
+        byTeacher ? "bg-primary text-primary-fg" : "bg-muted font-mono",
+      )}
+    >
+      {byTeacher
+        ? t("classDetail.viaAdmin")
+        : t("classDetail.viaCode", { hint: member.joinCodeHint ?? "" })}
+    </span>
+  );
+}
+
+function Average({ member }: Readonly<{ member: Member }>) {
   const { t } = useTranslation();
   const percent = scorePercent(member.stats);
+  if (percent === null) return <span className="text-muted-fg">—</span>;
   return (
-    <div
-      role="row"
-      className={cn(ROW, "hover:bg-muted min-h-14 border-t py-2 text-[0.84375rem]")}
+    <span
+      className={cn(
+        "font-semibold tabular-nums",
+        percent < LOW_AVERAGE && "text-danger-ink",
+      )}
     >
-      <span role="cell" className="flex">
-        {selection}
-      </span>
-      <span role="cell" className="flex min-w-0 items-center gap-2.5">
-        <Avatar name={member.fullName} size="30" />
-        <span className="min-w-0">
-          <span className="block truncate font-medium">{member.fullName}</span>
-          <span className="text-muted-fg block truncate text-xs">{member.email}</span>
-        </span>
-      </span>
-      <span role="cell" className="hidden @[620px]/members:block">
-        {member.joinedVia === "admin" ? (
-          <span className="bg-primary text-primary-fg inline-flex h-5.5 items-center rounded-md px-2 text-xs font-medium whitespace-nowrap">
-            {t("classDetail.viaAdmin")}
-          </span>
-        ) : (
-          <span className="bg-muted inline-flex h-5.5 items-center rounded-md px-2 font-mono text-xs font-medium whitespace-nowrap">
-            {t("classDetail.viaCode", { hint: member.joinCodeHint ?? "" })}
-          </span>
-        )}
-      </span>
-      <span
-        role="cell"
-        className="text-muted-fg hidden text-[0.8125rem] whitespace-nowrap @[720px]/members:block"
-      >
-        {joinedOn(member.joinedAt, locale)}
-      </span>
-      <span role="cell" className="text-right tabular-nums">
-        {member.stats.submittedCount}
-      </span>
-      <span
-        role="cell"
-        className={cn(
-          "hidden text-right tabular-nums @[520px]/members:block",
-          percent === null && "text-muted-fg",
-          percent !== null && percent < LOW_AVERAGE && "text-danger-ink",
-        )}
-      >
-        {percent === null ? "—" : t("students.percent", { value: percent })}
-      </span>
-      <span role="cell" className="flex justify-end">
-        {canWrite || canSeeResults ? (
-          <MemberMenu
-            member={member}
-            canWrite={canWrite}
-            canSeeResults={canSeeResults}
-            onRemove={onRemove}
-          />
-        ) : null}
-      </span>
-    </div>
+      {t("students.percent", { value: percent })}
+    </span>
   );
 }
 
-function MemberMenu({
+function MemberMenuItems({
   member,
   canWrite,
   canSeeResults,
   onRemove,
 }: Readonly<{
-  member: ClassMember;
+  member: Member;
   canWrite: boolean;
   canSeeResults: boolean;
   onRemove: () => void;
 }>) {
   const { t } = useTranslation();
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          data-member-menu={member.userId}
-          aria-label={t("classDetail.memberActions", { name: member.fullName })}
-          className="hover:bg-hover data-[state=open]:bg-hover grid size-7.5 cursor-pointer place-items-center rounded-[0.4375rem]"
-        >
-          <Ellipsis aria-hidden="true" className="size-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 data-[scale=deck]:w-55">
-        {canSeeResults ? (
-          <DropdownMenuItem asChild>
-            <Link to={`/teacher/students?studentId=${member.userId}`}>
-              <ChartColumn aria-hidden="true" />
-              {t("classDetail.viewResults")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {canWrite ? (
-          <>
-            {canSeeResults ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuItem variant="destructive" onSelect={onRemove}>
-              <UserMinus aria-hidden="true" />
-              {t("classDetail.remove")}
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      {canSeeResults ? (
+        <DropdownMenuItem asChild>
+          <Link to={`/teacher/students?studentId=${member.userId}`}>
+            <ChartColumn aria-hidden="true" />
+            {t("classDetail.viewResults")}
+          </Link>
+        </DropdownMenuItem>
+      ) : null}
+      {canWrite && canSeeResults ? <DropdownMenuSeparator /> : null}
+      {canWrite ? (
+        <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+          <UserMinus aria-hidden="true" />
+          {t("classDetail.remove")}
+        </DropdownMenuItem>
+      ) : null}
+    </>
   );
 }
 
-function joinedOn(at: string, locale: ReturnType<typeof useLocale>): string {
+function joinedOn(at: string, locale: Locale): string {
   const zone = getDisplayTimeZone();
   const year = (moment: string | Date) => formatInTimeZone(moment, zone, "yyyy");
   return year(at) === year(new Date()) ? dayMonth(at, locale) : formatDate(at, locale);

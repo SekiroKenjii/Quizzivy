@@ -15,8 +15,12 @@ import { ClassMembersCard } from "@/features/classes/components/ClassMembersCard
 import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
 import { PageHead } from "@/layouts/shell/PageHead";
+import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { ApiError } from "@/lib/api/errors";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { cn } from "@/lib/utils";
+
+const TWO_COLUMNS = 1000;
 
 /**
  * ClassDetailPage is one class, as the deck's Class detail draws it: back to
@@ -32,6 +36,7 @@ export default function ClassDetailPage() {
   const { id = "" } = useParams();
   const canWrite = useCan("teaching.classes.write");
   const canAssign = useCan("teaching.assignments.write");
+  const two = useContentWidthAtLeast(TWO_COLUMNS);
   const addButton = useRef<HTMLButtonElement>(null);
   const [adding, setAdding] = useState(false);
   const klass = useQuery({
@@ -61,7 +66,7 @@ export default function ClassDetailPage() {
 
   const data = klass.data;
   return (
-    <DeckScale className="@container/class-detail mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4.5">
+    <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4.5">
       <PageHead
         title={data.name}
         crumb
@@ -91,7 +96,12 @@ export default function ClassDetailPage() {
         }
       />
 
-      <div className="grid items-start gap-4.5 @[1000px]/class-detail:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div
+        className={cn(
+          "grid items-start gap-4.5",
+          two && "grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
+        )}
+      >
         <div className="flex min-w-0 flex-col gap-4.5">
           <ClassMembersCard klass={data} canWrite={canWrite} />
           <ClassAssignmentsCard classId={data.id} />

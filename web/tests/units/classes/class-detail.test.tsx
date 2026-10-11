@@ -328,6 +328,19 @@ describe("the members", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("tints a selected row and removes the selected members from the bar", async () => {
+    const { user } = renderDetail();
+    const han = await memberRow("Phạm Gia Hân");
+    await user.click(within(han).getByRole("checkbox"));
+    expect(han).toHaveAttribute("aria-selected", "true");
+    expect(han).toHaveClass("bg-muted");
+    expect(await memberRow("Nguyễn Đức Minh")).not.toHaveClass("bg-muted");
+    await user.click(screen.getByRole("button", { name: /Xoá khỏi lớp/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Xác nhận 1 mục" }));
+    await waitFor(() => expect(removals).toEqual([HAN]));
+  });
+
   it("offers a reader without the right to change classes no checkboxes and no removal", async () => {
     useAuthStore.setState({ user: assistantUser });
     renderDetail();
