@@ -104,6 +104,7 @@ export function NotificationBell({
       audience={audience}
       canGrade={canGrade}
       heading={heading}
+      unread={unread}
       onPick={pick}
     />
   );

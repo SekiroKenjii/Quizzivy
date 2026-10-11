@@ -185,18 +185,118 @@ describe("the list", () => {
   });
 });
 
+function held() {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { gate, release };
+}
+
+describe("keeping focus while a request is out (QA-43-1, QA-47-1)", () => {
+  it("keeps focus on Mark all read while it marks, and after nothing is left unread", async () => {
+    const marks: unknown[] = [];
+    let read = false;
+    const { gate, release } = held();
+    server.use(
+      http.get(`${BASE}/me/notifications`, () =>
+        listResponse({
+          items: of("teacher").map((notice) => ({
+            ...notice,
+            readAt: read ? "2026-10-01T13:00:00Z" : null,
+          })),
+          nextBefore: null,
+        }),
+      ),
+      http.post(`${BASE}/me/notifications/read`, async ({ request }) => {
+        marks.push(await request.json());
+        await gate;
+        read = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = renderBell("teacher");
+    const panel = await openBell(user);
+    await within(panel).findByText(textOf(of("teacher")[0]!));
+    const all = within(panel).getByRole("button", { name: "Đánh dấu đã đọc hết" });
+    expect(all).not.toHaveAttribute("aria-disabled");
+
+    await user.click(all);
+    await waitFor(() => expect(all).toHaveAttribute("aria-disabled", "true"));
+    expect(all).toBeEnabled();
+    expect(all).toHaveFocus();
+    await user.click(all);
+
+    release();
+    await waitFor(() => expect(within(panel).queryByText("Chưa đọc")).toBeNull());
+    expect(all).toHaveAttribute("aria-disabled", "true");
+    expect(all).toBeEnabled();
+    expect(all).toHaveFocus();
+    expect(marks).toEqual([{}]);
+  });
+
+  it("keeps focus on Load more while it loads, then moves it to the first row it added", async () => {
+    const first = of("teacher").slice(0, 1);
+    const second = of("teacher").slice(1, 3);
+    const { gate, release } = held();
+    server.use(
+      http.get(`${BASE}/me/notifications`, async ({ request }) => {
+        if (new URL(request.url).searchParams.get("before") === null)
+          return listResponse({ items: first, nextBefore: first[0]!.id });
+        await gate;
+        return listResponse({ items: second, nextBefore: null });
+      }),
+    );
+    const { user } = renderBell("teacher");
+    const panel = await openBell(user);
+    const more = await within(panel).findByRole("button", { name: "Xem thêm" });
+    more.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(more).toHaveAttribute("aria-disabled", "true"));
+    expect(more).toBeEnabled();
+    expect(more).toHaveFocus();
+
+    release();
+    const added = await within(panel).findByText(textOf(second[0]!));
+    await waitFor(() => expect(added.closest("button")).toHaveFocus());
+  });
+});
+
 describe("reading", () => {
-  it("marks everything read and keeps focus in the panel", async () => {
+  it("marks every notification of the account read and keeps focus in the panel", async () => {
     const marks = serveList(of("teacher"));
     const { user } = renderBell("teacher", { unread: 4 });
     const panel = await openBell(user);
     const all = await within(panel).findByRole("button", {
       name: "Đánh dấu đã đọc hết",
     });
-    await waitFor(() => expect(all).toBeEnabled());
     await user.click(all);
     await waitFor(() => expect(marks).toEqual([{}]));
     expect(panel.contains(document.activeElement)).toBe(true);
+  });
+
+  it("offers Mark all read while the dot is lit by notifications this bell does not list (DG-170)", async () => {
+    const marks = serveList(of("student"));
+    const { user } = renderBell("teacher", { unread: 2 });
+    const panel = await openBell(user);
+    expect(await within(panel).findByText("Bạn đã xem hết thông báo.")).toBeVisible();
+    const all = within(panel).getByRole("button", { name: "Đánh dấu đã đọc hết" });
+    expect(all).not.toHaveAttribute("aria-disabled");
+    await user.click(all);
+    await waitFor(() => expect(marks).toEqual([{}]));
+  });
+
+  it("sends nothing from Mark all read when nothing is unread", async () => {
+    const marks = serveList(
+      of("teacher").map((notice) => ({ ...notice, readAt: "2026-10-01T13:00:00Z" })),
+    );
+    const { user } = renderBell("teacher", { unread: 0 });
+    const panel = await openBell(user);
+    await within(panel).findByText(textOf(of("teacher")[0]!));
+    const all = within(panel).getByRole("button", { name: "Đánh dấu đã đọc hết" });
+    expect(all).toHaveAttribute("aria-disabled", "true");
+    await user.click(all);
+    expect(marks).toEqual([]);
   });
 
   it.each(["teacher", "student"] as const)(

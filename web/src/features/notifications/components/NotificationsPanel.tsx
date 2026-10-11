@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,24 +21,29 @@ interface Row {
 
 /**
  * NotificationsPanel is the bell's list, the same in the popover and the
- * sheet: "Mark all read", which keeps focus in the panel, then one row per
- * notification of the audience's kinds, newest first, with its kind's tile,
- * its sentence in the reader's language, how long ago it came and a lime dot
- * while unread, then "Load more". Picking a row marks it read without waiting
- * and hands its destination to `onPick`, which may be null. `canGrade` says
- * whether a hand-in with papers to grade goes to Grading or to its own
- * destination. `heading` draws the "Notifications" title, which the sheet
- * draws itself.
+ * sheet: "Mark all read", then one row per notification of the audience's
+ * kinds, newest first, with its kind's tile, its sentence in the reader's
+ * language, how long ago it came and a lime dot while unread, then "Load
+ * more". "Mark all read" marks every notification of the account, so it is
+ * active while the bell's `unread` count or a listed row says something is
+ * unread (DG-170). Neither it nor "Load more" gives up focus while its
+ * request is out, and after "Load more" focus moves to the first row it
+ * added. Picking a row marks it read without waiting and hands its
+ * destination to `onPick`, which may be null. `canGrade` says whether a
+ * hand-in with papers to grade goes to Grading or to its own destination.
+ * `heading` draws the "Notifications" title, which the sheet draws itself.
  */
 export function NotificationsPanel({
   audience,
   canGrade,
   heading,
+  unread,
   onPick,
 }: Readonly<{
   audience: NotificationAudience;
   canGrade: boolean;
   heading: boolean;
+  unread: number;
   onPick: (to: string | null) => void;
 }>) {
   const { t } = useTranslation();
@@ -55,7 +60,35 @@ export function NotificationsPanel({
       }),
     [audience, canGrade, list.items, locale, t],
   );
-  const anyUnread = rows.some((row) => row.notification.readAt === null);
+  const markAllOff =
+    mark.isPending ||
+    (unread === 0 && rows.every((row) => row.notification.readAt !== null));
+  const rowCount = rows.length;
+  const loadingMore = list.loadingMore;
+  const listRef = useRef<HTMLUListElement>(null);
+  const loadMoreRef = useRef<HTMLButtonElement>(null);
+  const focusFrom = useRef<number | null>(null);
+
+  useEffect(() => {
+    const from = focusFrom.current;
+    if (from === null || loadingMore) return;
+    focusFrom.current = null;
+    const buttons =
+      listRef.current?.querySelectorAll<HTMLButtonElement>(":scope > li > button");
+    if (buttons === undefined || buttons.length === 0) return;
+    const added = buttons[from];
+    if (added !== undefined) added.focus();
+    else if (!loadMoreRef.current?.isConnected) buttons[buttons.length - 1]!.focus();
+  }, [loadingMore, rowCount]);
+
+  const markAll = () => {
+    if (!markAllOff) mark.mutate(undefined);
+  };
+  const loadMore = () => {
+    if (loadingMore) return;
+    if (document.activeElement === loadMoreRef.current) focusFrom.current = rowCount;
+    list.loadMore();
+  };
 
   const pick = (row: Row) => {
     if (row.notification.readAt === null) mark.mutate([row.notification.id]);
@@ -75,9 +108,9 @@ export function NotificationsPanel({
         ) : null}
         <button
           type="button"
-          disabled={!anyUnread || mark.isPending}
-          onClick={() => mark.mutate(undefined)}
-          className="text-muted-fg hover:text-fg text-meta rounded-sm disabled:opacity-50"
+          aria-disabled={markAllOff || undefined}
+          onClick={markAll}
+          className="text-muted-fg hover:text-fg aria-disabled:hover:text-muted-fg text-meta rounded-sm aria-disabled:cursor-default aria-disabled:opacity-50"
         >
           {t("notifications.bell.markAllRead")}
         </button>
@@ -103,7 +136,7 @@ export function NotificationsPanel({
           </p>
         ) : null}
         {rows.length > 0 ? (
-          <ul className="m-0 list-none p-0">
+          <ul ref={listRef} className="m-0 list-none p-0">
             {rows.map((row) => (
               <li key={row.notification.id} className="border-b">
                 <NotificationRow
@@ -121,11 +154,13 @@ export function NotificationsPanel({
         {list.hasMore ? (
           <div className="flex justify-center px-3.5 py-2.5">
             <Button
+              ref={loadMoreRef}
               type="button"
               variant="ghost"
               size="sm"
-              disabled={list.loadingMore}
-              onClick={list.loadMore}
+              aria-disabled={loadingMore || undefined}
+              className="aria-disabled:opacity-50"
+              onClick={loadMore}
             >
               {t("notifications.bell.loadMore")}
             </Button>

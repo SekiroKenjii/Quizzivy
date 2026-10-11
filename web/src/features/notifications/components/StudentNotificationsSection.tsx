@@ -23,9 +23,10 @@ const COPY: Record<(typeof STUDENT_EVENTS)[number], { title: string; hint: strin
  * StudentNotificationsSection is the Notifications card of the student's
  * Settings: "Test due soon" and "Result ready", each switch turning its
  * event on or off in the app and by email at once (DG-82). A switch saves as
- * it moves and shows the new value while the save is out; a failed save puts
- * the saved value back and says so. The other rows the deck draws arrive
- * with their releases: messages in R7, the practice reminder in R10.
+ * it moves and shows the new value while the save is out, keeping focus and
+ * taking no other change until it answers; a failed save puts the saved value
+ * back and says so. The other rows the deck draws arrive with their
+ * releases: messages in R7, the practice reminder in R10.
  */
 export function StudentNotificationsSection() {
   const { t } = useTranslation();
@@ -34,7 +35,7 @@ export function StudentNotificationsSection() {
   const rows = save.isPending ? save.variables : query.data;
 
   const change = (event: NotificationEvent, on: boolean) => {
-    if (rows === undefined) return;
+    if (rows === undefined || save.isPending) return;
     save.mutate(withPreference(rows, event, { inApp: on, email: on }));
   };
 
@@ -92,7 +93,9 @@ export function StudentNotificationsSection() {
                   checked={row?.inApp ?? false}
                   aria-labelledby={id}
                   aria-describedby={`${id}-hint`}
-                  disabled={save.isPending || row === undefined}
+                  disabled={row === undefined}
+                  aria-disabled={save.isPending || undefined}
+                  className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                   onCheckedChange={(on) => change(event, on)}
                 />
               </div>

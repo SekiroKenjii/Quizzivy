@@ -1609,6 +1609,46 @@ describe("the notifications section", () => {
     );
   });
 
+  it("keeps focus on a switch while it saves, and takes no other change until then (QA-43-1)", async () => {
+    flags.notifications = true;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const puts: unknown[] = [];
+    server.use(
+      http.put(`${BASE}/me/notification-preferences`, async ({ request }) => {
+        const body = (await request.json()) as unknown[];
+        puts.push(body);
+        await gate;
+        return contractJson("/me/notification-preferences", "put", 200, body);
+      }),
+    );
+    const user = userEvent.setup();
+    open("/app/settings/notifications");
+    const section = await screen.findByRole("region", { name: "Thông báo" });
+    const dueSoon = await within(section).findByRole("switch", {
+      name: "Bài sắp hết hạn",
+    });
+    const result = within(section).getByRole("switch", { name: "Đã có kết quả" });
+    await user.click(dueSoon);
+
+    await waitFor(() => expect(dueSoon).toHaveAttribute("aria-disabled", "true"));
+    expect(dueSoon).toBeEnabled();
+    expect(dueSoon).toHaveFocus();
+    expect(dueSoon).not.toBeChecked();
+    await user.click(result);
+    expect(result).toHaveFocus();
+    expect(result).toBeChecked();
+
+    release();
+    await waitFor(() => expect(result).not.toHaveAttribute("aria-disabled"));
+    expect(result).toHaveFocus();
+    expect(result).toBeChecked();
+    expect(dueSoon).not.toBeChecked();
+    expect(puts).toHaveLength(1);
+  });
+
   it("puts the saved value back and says so when the save fails", async () => {
     flags.notifications = true;
     preferences(true);
