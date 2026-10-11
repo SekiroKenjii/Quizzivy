@@ -5,7 +5,11 @@ import { SettingsCard } from "@/components/shared/SettingsCard";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
-import type { AssignmentDefaults } from "@/features/assignments/draft";
+import {
+  emptyDraft,
+  type AssignmentDefaults,
+  type AssignmentDraft,
+} from "@/features/assignments/draft";
 import { savePreferences } from "@/features/auth/accountPreferences";
 import { useUnsavedSection } from "@/features/settings/unsavedSection";
 import { failureMessage } from "@/lib/api/errors";
@@ -35,21 +39,18 @@ function fieldControl(field: keyof Defaults): HTMLElement | null {
     : document.getElementById(`defaults-${rule.key}-switch`);
 }
 
-/**
- * FALLBACK is what a new assignment starts with when nothing is stored, the
- * same as `emptyDraft`'s: 45 minutes, not shuffled, the score shown, copy
- * and paste blocked, fullscreen off.
- */
-const FALLBACK: Defaults = {
-  durationMinutes: 45,
-  shuffleQuestions: false,
-  showScore: true,
-  blockCopyPaste: true,
-  requireFullscreen: false,
-};
+function defaultsOf(draft: AssignmentDraft): Defaults {
+  return {
+    durationMinutes: draft.durationMinutes,
+    shuffleQuestions: draft.shuffleQuestions,
+    showScore: draft.review.showScore,
+    blockCopyPaste: draft.integrity.blockCopyPaste,
+    requireFullscreen: draft.integrity.requireFullscreen,
+  };
+}
 
 function withFallback(stored: AssignmentDefaults | undefined): Defaults {
-  return { ...FALLBACK, ...stored };
+  return defaultsOf(emptyDraft(new Date(), stored));
 }
 
 function same(a: Defaults, b: Defaults): boolean {
@@ -88,7 +89,8 @@ export function AssignmentDefaultsSection() {
   function change(field: keyof Defaults, patch: Partial<Defaults>) {
     if (saving) return;
     lastChanged.current = field;
-    setDraft({ ...current, ...patch });
+    const next = { ...current, ...patch };
+    setDraft(same(next, saved) ? null : next);
   }
 
   async function submit() {

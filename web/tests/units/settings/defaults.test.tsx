@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { Toaster } from "@/components/ui/sonner";
@@ -46,16 +46,23 @@ describe("the Assignment defaults card", () => {
     expect(
       screen.getByRole("heading", { name: "Mặc định khi giao bài" }),
     ).toBeVisible();
-    expect(screen.getByRole("button", { name: "45 phút" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    const fresh = emptyDraft();
+    expect(
+      screen.getByRole("button", { name: `${fresh.durationMinutes} phút` }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("switch", { name: "Xáo trộn câu hỏi" })).toHaveAttribute(
+      "aria-checked",
+      String(fresh.shuffleQuestions),
     );
-    expect(screen.getByRole("switch", { name: "Xáo trộn câu hỏi" })).not.toBeChecked();
-    expect(screen.getByRole("switch", { name: "Hiện điểm sau khi nộp" })).toBeChecked();
-    expect(screen.getByRole("switch", { name: "Chặn sao chép và dán" })).toBeChecked();
+    expect(
+      screen.getByRole("switch", { name: "Hiện điểm sau khi nộp" }),
+    ).toHaveAttribute("aria-checked", String(fresh.review.showScore));
+    expect(
+      screen.getByRole("switch", { name: "Chặn sao chép và dán" }),
+    ).toHaveAttribute("aria-checked", String(fresh.integrity.blockCopyPaste));
     expect(
       screen.getByRole("switch", { name: "Bắt buộc toàn màn hình" }),
-    ).not.toBeChecked();
+    ).toHaveAttribute("aria-checked", String(fresh.integrity.requireFullscreen));
     expect(
       ["30 phút", "45 phút", "60 phút", "90 phút"].map(
         (name) => screen.getByRole("button", { name }).textContent,
@@ -154,5 +161,24 @@ describe("the Assignment defaults card", () => {
     await user.click(screen.getByRole("button", { name: "Bỏ thay đổi" }));
 
     expect(screen.getByRole("button", { name: "45 phút" })).toHaveFocus();
+  });
+
+  it("lowers the bar when a change is undone by hand, and keeps it down when the saved values change", async () => {
+    const user = renderSection();
+    const shuffle = screen.getByRole("switch", { name: "Xáo trộn câu hỏi" });
+
+    await user.click(shuffle);
+    expect(screen.getByText("Bạn có thay đổi chưa lưu.")).toBeVisible();
+    await user.click(shuffle);
+    expect(screen.queryByText("Bạn có thay đổi chưa lưu.")).toBeNull();
+
+    act(() =>
+      useAuthStore.getState().setUser({
+        ...useAuthStore.getState().user!,
+        preferences: { theme: "light", assignmentDefaults: { shuffleQuestions: true } },
+      }),
+    );
+    expect(shuffle).toBeChecked();
+    expect(screen.queryByText("Bạn có thay đổi chưa lưu.")).toBeNull();
   });
 });

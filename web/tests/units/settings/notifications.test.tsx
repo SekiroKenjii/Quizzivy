@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -190,5 +190,37 @@ describe("the Notifications card", () => {
 
     expect(toggle("Bài giao sắp đóng")).not.toBeChecked();
     expect(toggle("Bài giao sắp đóng")).toHaveFocus();
+  });
+
+  it("describes each switch by its row's hint", async () => {
+    renderSection();
+    await screen.findByText("Gộp lại mỗi 15 phút");
+
+    expect(toggle("Học viên nộp bài")).toHaveAccessibleDescription(
+      "Gộp lại mỗi 15 phút",
+    );
+  });
+
+  it("keeps the switches, without the load error, when a later read fails", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <NotificationsSection />
+      </QueryClientProvider>,
+    );
+    await screen.findByText("Gộp lại mỗi 15 phút");
+    server.use(
+      http.get(`${BASE}/me/notification-preferences`, () =>
+        HttpResponse.json(
+          { error: { code: "INTERNAL", message: "Lỗi.", requestId: REQUEST_ID } },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    await act(() => client.refetchQueries());
+
+    expect(toggle("Học viên nộp bài")).toBeChecked();
+    expect(screen.queryByText("Không tải được cài đặt thông báo.")).toBeNull();
   });
 });

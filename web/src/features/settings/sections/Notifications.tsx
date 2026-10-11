@@ -10,15 +10,16 @@ import type {
   NotificationEvent,
   NotificationPreference,
 } from "@/features/notifications/api";
+import { TEACHER_EVENTS } from "@/features/notifications/kinds";
 import { useNotificationPreferences } from "@/features/notifications/useNotificationPreferences";
 import { useUnsavedSection } from "@/features/settings/unsavedSection";
 import { failureMessage } from "@/lib/api/errors";
 
-const TEACHER_EVENTS = [
-  { event: "attempt.submitted", key: "submitted" },
-  { event: "attempt.flagged", key: "flagged" },
-  { event: "assignment.closing", key: "closing" },
-] as const satisfies readonly { event: NotificationEvent; key: string }[];
+const EVENT_KEY: Record<(typeof TEACHER_EVENTS)[number], string> = {
+  "attempt.submitted": "submitted",
+  "attempt.flagged": "flagged",
+  "assignment.closing": "closing",
+};
 
 const QUIET = "aria-disabled:opacity-50";
 
@@ -54,14 +55,14 @@ export function NotificationsSection() {
 
   const saving = save.isPending;
   useUnsavedSection("notifications", dirty);
-  const lastToggled = useRef<string>(TEACHER_EVENTS[0].key);
+  const lastToggled = useRef<string>(EVENT_KEY[TEACHER_EVENTS[0]]);
   const toggledSwitch = useCallback(
     () => document.getElementById(`notify-${lastToggled.current}-switch`),
     [],
   );
 
   const isOn = (event: NotificationEvent) =>
-    edits.get(event) ?? savedSwitches?.get(event) ?? true;
+    edits.get(event) ?? savedSwitches?.get(event) ?? false;
 
   function toggle(event: NotificationEvent, key: string, on: boolean) {
     if (saving) return;
@@ -100,7 +101,7 @@ export function NotificationsSection() {
         </div>
         {query.isPending ? (
           <div role="status" aria-label={t("common.loading")}>
-            {TEACHER_EVENTS.map(({ event }) => (
+            {TEACHER_EVENTS.map((event) => (
               <div key={event} className={`${GRID} border-t py-3`}>
                 <span className="flex flex-col gap-1.5">
                   <Skeleton className="h-3.5 w-48" />
@@ -111,7 +112,7 @@ export function NotificationsSection() {
             ))}
           </div>
         ) : null}
-        {query.isError ? (
+        {query.isError && saved === undefined ? (
           <div className="flex flex-wrap items-center gap-3 border-t px-4.5 py-4">
             <p role="alert" className="text-muted-fg text-ui flex-1">
               {t("settings.notifications.loadFailed")}
@@ -128,33 +129,40 @@ export function NotificationsSection() {
         ) : null}
         {saved === undefined
           ? null
-          : TEACHER_EVENTS.map(({ event, key }) => (
-              <div key={event} className={`${GRID} border-t py-3`}>
-                <span className="min-w-0">
-                  <span
-                    id={`notify-${key}`}
-                    className="text-ui block leading-normal font-medium"
-                  >
-                    {t(`settings.notifications.events.${key}`)}
+          : TEACHER_EVENTS.map((event) => {
+              const key = EVENT_KEY[event];
+              return (
+                <div key={event} className={`${GRID} border-t py-3`}>
+                  <span className="min-w-0">
+                    <span
+                      id={`notify-${key}`}
+                      className="text-ui block leading-normal font-medium"
+                    >
+                      {t(`settings.notifications.events.${key}`)}
+                    </span>
+                    <span
+                      id={`notify-${key}-hint`}
+                      className="text-muted-fg text-meta block leading-normal"
+                    >
+                      {t(`settings.notifications.events.${key}Hint`)}
+                    </span>
                   </span>
-                  <span className="text-muted-fg text-meta block leading-normal">
-                    {t(`settings.notifications.events.${key}Hint`)}
+                  <span className="flex justify-center">
+                    <Switch
+                      id={`notify-${key}-switch`}
+                      checked={isOn(event)}
+                      aria-label={t("settings.notifications.inAppFor", {
+                        update: t(`settings.notifications.events.${key}`),
+                      })}
+                      aria-describedby={`notify-${key}-hint`}
+                      aria-disabled={saving || undefined}
+                      className={QUIET}
+                      onCheckedChange={(on) => toggle(event, key, on)}
+                    />
                   </span>
-                </span>
-                <span className="flex justify-center">
-                  <Switch
-                    id={`notify-${key}-switch`}
-                    checked={isOn(event)}
-                    aria-label={t("settings.notifications.inAppFor", {
-                      update: t(`settings.notifications.events.${key}`),
-                    })}
-                    aria-disabled={saving || undefined}
-                    className={QUIET}
-                    onCheckedChange={(on) => toggle(event, key, on)}
-                  />
-                </span>
-              </div>
-            ))}
+                </div>
+              );
+            })}
       </SettingsCard>
       <DirtyBar
         dirty={dirty}
