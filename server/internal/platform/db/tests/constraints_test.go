@@ -1025,3 +1025,66 @@ func TestAVersionMustHaveAPositiveVersionNumber(t *testing.T) {
 			 VALUES ($1, 0, 10.00, $2)`, testID, f.adminID)
 	})
 }
+
+// The constraints a release added NOT VALID and a later release has not yet
+// validated, by schema.table.constraint, each with the step that validates it.
+// An expand step adds its constraint here; its contract step removes the line.
+// A constraint that is NOT VALID and missing from this list is a forgotten
+// VALIDATE, and a line whose constraint is already validated is a forgotten
+// removal.
+var notValidatedConstraints = map[string]string{
+	"app.users.users_role_id_not_null": "00105, the legacy-role contract step (T-R4.49 part B, T-R3.1)",
+}
+
+func TestNoConstraintIsLeftNotValidatedOutsideThePinnedList(t *testing.T) {
+	conn := migrated(t)
+	rows, err := conn.Query(`
+		SELECT n.nspname || '.' || r.relname || '.' || c.conname
+		  FROM pg_constraint c
+		  JOIN pg_class r ON r.oid = c.conrelid
+		  JOIN pg_namespace n ON n.oid = r.relnamespace
+		 WHERE n.nspname = 'app' AND NOT c.convalidated`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rows.Close() }()
+	found := map[string]bool{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		found[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	for name := range found {
+		if _, listed := notValidatedConstraints[name]; !listed {
+			t.Errorf("%s is NOT VALID and not on the pinned list: validate it in its contract step, or list it with the step that will", name)
+		}
+	}
+	for name, step := range notValidatedConstraints {
+		if !found[name] {
+			t.Errorf("%s is on the pinned list (%s) but is validated or gone: remove the line", name, step)
+		}
+	}
+}
+
+func TestAnInsertWithoutAnOwnerIsRefused(t *testing.T) {
+	for _, c := range []struct{ table, column, insert string }{
+		{"tests", "owner_id", `INSERT INTO app.tests (title, created_by) VALUES ('Không chủ', $1)`},
+		{"questions", "owner_id", `INSERT INTO app.questions (type, prompt, points, created_by) VALUES ('short_answer', 'Không chủ', 1.0, $1)`},
+		{"question_groups", "owner_id", `INSERT INTO app.question_groups (title, created_by) VALUES ('Không chủ', $1)`},
+		{"media_assets", "owner_id", `INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('image', 'media/khong-chu.png', 'image/png', 1024, 'khong-chu.png', repeat('x',32)::bytea, $1)`},
+		{"classes", "teacher_id", `INSERT INTO app.classes (name) VALUES ('Không chủ ' || $1::text)`},
+	} {
+		t.Run(c.table, func(t *testing.T) {
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				rejectsWith(t, tx, `null value in column "`+c.column+`" of relation "`+c.table+`"`, c.insert, f.adminID)
+			})
+		})
+	}
+}
