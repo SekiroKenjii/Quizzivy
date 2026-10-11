@@ -4,7 +4,11 @@ import { Check, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { matchesOption } from "./rules";
 import type { FieldControlProps, FormOption } from "./types";
-/** ListField filters and toggles named choices while keeping its search outside form values. */
+/**
+ * ListField filters and toggles named choices while keeping its search
+ * outside form values. While `readOnly` the search box, where Enter submits
+ * the form, stays focusable but does not change, and the choices are off.
+ */
 export function ListField({
   id,
   label,
@@ -16,8 +20,10 @@ export function ListField({
   options,
   search = true,
   searchPlaceholder,
+  readOnly = false,
 }: FieldControlProps<readonly string[]> &
   Readonly<{
+    readOnly?: boolean | undefined;
     options: readonly FormOption[];
     search?: boolean | undefined;
     searchPlaceholder?: string | undefined;
@@ -43,7 +49,8 @@ export function ListField({
             placeholder={searchPlaceholder ?? t("formDialog.search")}
             size={1}
             value={query}
-            disabled={disabled}
+            disabled={disabled && !readOnly}
+            readOnly={readOnly}
             onChange={(event) => setQuery(event.target.value)}
             className="text-ui min-w-0 flex-1 bg-transparent outline-none"
           />

@@ -25,9 +25,9 @@ const MANY = { chips: ChipsField, list: ListField };
 const DATE = { date: DateField, time: TimeField };
 /**
  * FieldControl renders the matching typed control for one form field. While
- * `locked`, a text or multiline field turns read-only and stays focusable,
- * since Enter in a text field may have submitted the form, and every other
- * control is disabled.
+ * `locked`, a text or multiline field, and a list's search box, turn
+ * read-only and stay focusable, since Enter in one of them may have
+ * submitted the form, and every other control is disabled.
  */
 export function FieldControl<V extends FormValues>({
   field,
@@ -98,7 +98,11 @@ export function FieldControl<V extends FormValues>({
           {...props}
           options={field.options}
           {...(field.kind === "list"
-            ? { search: field.search, searchPlaceholder: field.searchPlaceholder }
+            ? {
+                search: field.search,
+                searchPlaceholder: field.searchPlaceholder,
+                readOnly: locked,
+              }
             : {})}
           value={multiple}
         />

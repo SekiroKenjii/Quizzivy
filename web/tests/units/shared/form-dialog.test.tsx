@@ -153,6 +153,34 @@ it("keeps focus in the text field Enter submitted from, read-only while pending 
   expect(screen.getByRole("switch", { name: "Hiện" })).toBeDisabled();
 });
 
+it("keeps focus in a list's search box while pending, with its choices off (T-35)", async () => {
+  const user = userEvent.setup();
+  const options = ["A", "B", "C", "D", "E", "F"].map((name) => ({
+    value: name,
+    label: `Lớp ${name}`,
+  }));
+  const props = {
+    open: true,
+    onOpenChange: () => {},
+    title: "Chọn lớp",
+    initial: { classes: [] as readonly string[] },
+    fields: [
+      { kind: "list", name: "classes", label: "Lớp", options },
+    ] as readonly FormField<{ classes: readonly string[] }>[],
+    submitLabel: "Lưu",
+    onSubmit: () => {},
+  };
+  const view = render(<FormDialog {...props} />);
+  const search = screen.getByRole<HTMLInputElement>("textbox", { name: "Tìm" });
+
+  await user.click(search);
+  view.rerender(<FormDialog {...props} pending />);
+  expect(search).toHaveFocus();
+  expect(search).toHaveAttribute("readonly");
+  expect(search).not.toBeDisabled();
+  expect(screen.getByRole("checkbox", { name: "Lớp A" })).toBeDisabled();
+});
+
 it("keeps the submit focusable when a caller passes disabled and pending together", () => {
   render(
     <FormDialog
