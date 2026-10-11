@@ -542,6 +542,8 @@ describe("the class's assignments", () => {
     const rows = await within(card).findAllByRole("row");
     expect(rows[1]).toHaveTextContent("Unit 5 — Present perfect & listening");
     expect(rows[2]).toHaveTextContent("Unit 4 — Past simple review");
+    expect(within(card).getByRole("columnheader", { name: "Tiến độ" })).toBeVisible();
+    expect(within(rows[1]!).getByText("12 / 18")).toBeVisible();
     expect(within(card).getByRole("link", { name: /Xem tất cả/ })).toHaveAttribute(
       "href",
       `/teacher/assignments?classId=${CLASS_ID}`,

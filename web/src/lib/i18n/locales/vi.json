@@ -1538,7 +1538,7 @@
     "new": "Giao bài mới",
     "test": "Đề thi",
     "statusColumn": "Trạng thái",
-    "progress": "Đã nộp",
+    "progress": "Tiến độ",
     "loadFailed": "Không tải được danh sách bài giao.",
     "createFailed": "Không giao được bài. Vui lòng thử lại.",
     "step1": "1 · Đề thi",
@@ -1647,7 +1647,7 @@
       "audioUnlimited": "Bài có câu nghe; bạn nghe lại được không giới hạn."
     },
     "summaryTitle": "Tóm tắt",
-    "progressValue": "{{submitted}}/{{total}}",
+    "progressValue": "{{submitted}} / {{total}}",
     "latestVersion": "mới nhất: bản v{{version}}",
     "saveDraft": "Lưu nháp",
     "needTargets": "Chọn lớp hoặc học viên trước khi giao.",
