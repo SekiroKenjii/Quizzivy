@@ -26,11 +26,11 @@ import { CardGrid } from "@/components/shared/CardGrid";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DeleteItemDialog } from "@/components/shared/DeleteItemButton";
 import { EmptyState, LoadError, QueryStates } from "@/components/shared/ListState";
-import { Pager } from "@/components/shared/Pager";
+import { Pager } from "@/components/shared/data/Pager";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { useListFilters } from "@/hooks/useListFilters";
-import { usePage } from "@/hooks/usePage";
+import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
@@ -47,7 +47,7 @@ import {
 } from "@/features/tests/api";
 import { TestCard } from "@/features/tests/pages/teacher/TestCard";
 
-const PAGE_SIZE = 24;
+const PAGE_SIZES = [24, 48] as const;
 const TABS = ["all", "published", "draft"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS = {
@@ -133,7 +133,8 @@ function message(cause: unknown, fallback: string): string {
  * tabs with their counts, a search by title, and the tests as cards. Every
  * test, archived ones included, is under All. A card can be selected for the
  * bulk archive and delete, duplicated in place, and archived, restored or
- * deleted from its menu.
+ * deleted from its menu. The deck draws no pager here; the list pages under
+ * the deck's pager, 24 or 48 cards a page.
  */
 export default function TestsListPage() {
   useDisplayTimeZone();
@@ -146,13 +147,14 @@ export default function TestsListPage() {
   const tab = toTab(params.get("status"));
   const query = params.get("q") ?? "";
   const search = useDebounced(query.trim(), 300);
+  const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(JSON.stringify({ tab, search }));
   const tests = useQuery({
-    queryKey: ["admin-tests", { tab, search, page }],
+    queryKey: ["admin-tests", { tab, search, page, size }],
     queryFn: ({ signal }) =>
       listTests(
         {
-          limit: PAGE_SIZE,
+          limit: size,
           page,
           ...(tab === "all" ? {} : { status: tab }),
           ...(search === "" ? {} : { q: search }),
@@ -271,7 +273,14 @@ export default function TestsListPage() {
               />
             )}
           </CardGrid>
-          <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+          <Pager
+            page={data.page}
+            pageSize={data.pageSize}
+            total={data.total}
+            noun={(count) => t("tests.noun", { count })}
+            sizes={PAGE_SIZES}
+            frame="plain"
+          />
         </>
       );
     if (filtered)

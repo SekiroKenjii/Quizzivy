@@ -670,7 +670,9 @@
       "uploadNew": "Upload new",
       "attach": "Attach",
       "notUsedYet": "Not used yet"
-    }
+    },
+    "noun_one": "file",
+    "noun_other": "files"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -1251,7 +1253,9 @@
         "confirm": "Delete version",
         "done": "Version {{n}} deleted"
       }
-    }
+    },
+    "noun_one": "test",
+    "noun_other": "tests"
   },
   "preview": {
     "questionNumber": "Question {{n}}",
@@ -3418,8 +3422,8 @@
       "file": "File",
       "review": "To review",
       "test": "Test",
-      "pageSize": "Imports per page",
-      "rows": "{{count}} imports per page",
+      "noun_one": "import",
+      "noun_other": "imports",
       "withKey": "with {{name}}",
       "noTest": "none yet",
       "openTest": "Open test {{title}}",

@@ -377,3 +377,28 @@ describe("the tests list's loading and error states", () => {
     expect(await screen.findByRole("link", { name: "Unit 5" })).toBeVisible();
   });
 });
+
+describe("the tests list's pager (QA-F1-2)", () => {
+  it("is the deck's pager, 24 or 48 cards a page, a new size going back to page 1", async () => {
+    const user = renderList("/teacher/tests?status=draft&page=2");
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    expect(lists[0]?.get("limit")).toBe("24");
+    expect(lists[0]?.get("page")).toBe("2");
+    expect(within(pager).getByText("1–1 trên 1 đề thi")).toBeInTheDocument();
+    expect(within(pager).getByText("Trang 1 trên 1")).toBeInTheDocument();
+
+    await user.click(
+      within(pager).getByRole("combobox", { name: "Số dòng mỗi trang" }),
+    );
+    const sizes = await screen.findByRole("listbox");
+    expect(
+      within(sizes)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["24", "48"]);
+    await user.click(within(sizes).getByRole("option", { name: "48" }));
+    await waitFor(() => expect(lists.at(-1)?.get("limit")).toBe("48"));
+    expect(lists.at(-1)?.has("page")).toBe(false);
+    expect(lists.at(-1)?.get("status")).toBe("draft");
+  });
+});
