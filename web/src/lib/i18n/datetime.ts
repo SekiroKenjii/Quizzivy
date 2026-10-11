@@ -174,6 +174,20 @@ export function dayMonth(
 }
 
 /**
+ * dayMonthYear is a date with its year: "05/09/2026" in Vietnamese, "5 Sep
+ * 2026" in English, which the deck writes and which reads one way only.
+ */
+export function dayMonthYear(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return formatInTimeZone(utc, zone, locale === "vi" ? "dd/MM/yyyy" : "d MMM yyyy", {
+    locale: dateFnsLocale[locale],
+  });
+}
+
+/**
  * dayDate is a short weekday and date: "Thứ 6, 19/09" in Vietnamese, "Fri 19
  * Sep" in English.
  */

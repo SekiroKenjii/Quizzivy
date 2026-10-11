@@ -7,6 +7,7 @@ import {
   countdown,
   dayDate,
   dayMonth,
+  dayMonthYear,
   dayOfMonth,
   formatMoment,
   formatTime,
@@ -76,6 +77,8 @@ describe("a day in the app's zone, where the UTC day differs", () => {
     expect(dayOfMonth("2026-09-01T01:00:00Z")).toBe("1");
     expect(dayMonth("2026-09-04T17:00:00Z")).toBe("05/09");
     expect(dayMonth("2026-09-04T17:00:00Z", "en")).toBe("5 Sep");
+    expect(dayMonthYear("2026-10-24T16:59:00Z")).toBe("24/10/2026");
+    expect(dayMonthYear("2026-10-24T16:59:00Z", "en")).toBe("24 Oct 2026");
     expect(dayDate("2026-08-26T09:30:00Z")).toBe("Thứ 4, 26/08");
     expect(dayDate(midnight)).toBe("CN, 30/08");
     expect(dayDate("2026-08-26T09:30:00Z", "en")).toBe("Wed 26 Aug");

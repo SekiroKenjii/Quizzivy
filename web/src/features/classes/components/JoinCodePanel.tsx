@@ -20,7 +20,7 @@ import { ShowQrDialog } from "@/features/classes/components/ShowQrDialog";
 import { invalidateClass } from "@/features/classes/invalidate";
 import { useCopyJoinLink } from "@/features/classes/joinLink";
 import { downloadJoinQr } from "@/features/classes/joinQrImage";
-import { formatDate, formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { dayMonthYear, formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 
 const EXPIRY_DAYS = ["30", "7", "90"] as const;
@@ -295,7 +295,7 @@ function CodeSummary({
           <dt className="text-muted-fg">{t("classDetail.expiresAt")}</dt>
           <dd className="m-0 text-right">
             {t("classDetail.expiresOn", {
-              date: formatDate(info.expiresAt, locale),
+              date: dayMonthYear(info.expiresAt, locale),
               time: formatTime(info.expiresAt, locale),
             })}{" "}
             <ExpiryNote expiresAt={info.expiresAt} now={now} />

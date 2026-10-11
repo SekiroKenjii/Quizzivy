@@ -38,7 +38,7 @@ import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { useContentBand } from "@/layouts/shell/contentWidth";
-import { dayMonth, formatDate, getDisplayTimeZone } from "@/lib/i18n/datetime";
+import { dayMonth, dayMonthYear, getDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
@@ -393,7 +393,9 @@ function MemberMenuItems({
 function joinedOn(at: string, locale: Locale): string {
   const zone = getDisplayTimeZone();
   const year = (moment: string | Date) => formatInTimeZone(moment, zone, "yyyy");
-  return year(at) === year(new Date()) ? dayMonth(at, locale) : formatDate(at, locale);
+  return year(at) === year(new Date())
+    ? dayMonth(at, locale)
+    : dayMonthYear(at, locale);
 }
 
 function MembersSkeleton() {
