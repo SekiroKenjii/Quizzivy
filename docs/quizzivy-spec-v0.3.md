@@ -24,6 +24,11 @@ R4, the bulk password reset and the student filters (T-R4.20):
   cached principal is forgotten after the commit. Two students are worked on at a time, inside
   `MAX_CONCURRENT_PASSWORD_HASHES`. A cancelled request starts no further student and keeps
   those already reset.
+- §5.4 A temporary password, from `createStudent`, `resetStudentPassword` and
+  `resetStudentsPasswords` alike, is three words and a two-digit number, `word-word-word-NN`,
+  about 24.4 bits (it was `word-word-NN`, 18.45), so that guessing it at §6.5's sign-in limit
+  (20 an hour per email) takes about 560,000 hours on average, where it took about 8,900. Nothing
+  else about it changes.
 - §6.5 `resetStudentsPasswords` 2/min and 10/h per signed-in user.
 - §15 `GET /teacher/students` takes `classId` more than once (a student in any of those
   classes, counted once; a single value works as before) and `mustChangePassword`; its facets
@@ -1090,7 +1095,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   transport/admission UI deadline and10s cleanup deadline show pending status without
   abandoning raw ownership; late timed-out login never auto-admits. Permanent hangs
   may keep admission closed. Cross-tab ordering is not promised by this design.
-- Password reset in v1: a holder of `people.students.reset_password` sets a temporary password from the student detail page, under the shared-student rule below, or for up to 40 students at once from the student list. No self-service email flow (§17.1).
+- Password reset in v1: a holder of `people.students.reset_password` sets a temporary password (`word-word-word-NN`, three words and two digits, about 24.4 bits) from the student detail page, under the shared-student rule below, or for up to 40 students at once from the student list. No self-service email flow (§17.1).
 - New passwords have three rules:
   - at least 8 characters;
   - at least one number or symbol (`[\p{N}\p{P}\p{S}]`);
