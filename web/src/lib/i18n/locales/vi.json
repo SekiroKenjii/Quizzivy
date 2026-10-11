@@ -1964,6 +1964,8 @@
       "extendStudents": "Học viên",
       "extendNoStudents": "Chọn ít nhất một học viên.",
       "extendTooMany": "Mỗi lần chọn tối đa {{count}} học viên.",
+      "extendLaterHidden_one": "{{count}} học viên đã có hạn đóng muộn hơn nên không hiện ở đây.",
+      "extendLaterHidden_other": "{{count}} học viên đã có hạn đóng muộn hơn nên không hiện ở đây.",
       "extendedFor_one": "Đã gia hạn thêm {{by}} cho {{count}} học viên.",
       "extendedFor_other": "Đã gia hạn thêm {{by}} cho {{count}} học viên.",
       "reopenWhen": "{{title}} · đã đóng {{when}}. Mở lại đến {{until}}.",

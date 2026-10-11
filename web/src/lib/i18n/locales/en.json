@@ -1964,6 +1964,8 @@
       "extendStudents": "Students",
       "extendNoStudents": "Choose at least one student.",
       "extendTooMany": "Choose at most {{count}} students at a time.",
+      "extendLaterHidden_one": "{{count}} student already closes later, so they are not listed here.",
+      "extendLaterHidden_other": "{{count}} students already close later, so they are not listed here.",
       "extendedFor_one": "Deadline extended by {{by}} for {{count}} student.",
       "extendedFor_other": "Deadline extended by {{by}} for {{count}} students.",
       "reopenWhen": "{{title}} · closed {{when}}. Opens again until {{until}}.",

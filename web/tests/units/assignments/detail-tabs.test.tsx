@@ -662,6 +662,32 @@ describe("Extend deadline", () => {
       ).toBeInTheDocument();
       expect(within(students).queryByRole("checkbox", { name: /Phạm Chi/ })).toBeNull();
     });
+
+    it("says how many students it leaves out because they close later (QA-26-5)", async () => {
+      const { user, dialog } = await openClosed([
+        ...ROWS,
+        detailRow(CHI, "Phạm Chi", { extendedTo: "2099-09-10T14:00:00Z" }),
+      ]);
+      await user.click(
+        within(dialog).getByRole("button", { name: "Học viên được chọn" }),
+      );
+      const line = "1 học viên đã có hạn đóng muộn hơn nên không hiện ở đây.";
+      expect(within(dialog).getByText(line)).toBeInTheDocument();
+      expect(
+        within(dialog).getByRole("group", { name: "Học viên" }),
+      ).toHaveAccessibleDescription(line);
+    });
+
+    it("adds no line when every student is listed", async () => {
+      const { user, dialog } = await openClosed();
+      await user.click(
+        within(dialog).getByRole("button", { name: "Học viên được chọn" }),
+      );
+      expect(
+        within(dialog).getByRole("group", { name: "Học viên" }),
+      ).toBeInTheDocument();
+      expect(within(dialog).queryByText(/không hiện ở đây/)).toBeNull();
+    });
   });
 });
 
