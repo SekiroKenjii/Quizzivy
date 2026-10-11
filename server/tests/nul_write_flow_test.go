@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"testing"
@@ -69,4 +70,44 @@ func TestATextHoldingANulIsRefusedBeforeItCanReachPostgres(t *testing.T) {
 	anonymous := w.browser()
 	status, body = anonymous.call(http.MethodPost, "/auth/login", map[string]any{"email": email, "password": "mat-khau\x00sai"})
 	requireNULRefusal(t, "a sign-in whose password holds a NUL", status, body, "")
+}
+
+func nulFilenameUpload(t *testing.T, encodedName string) *payload {
+	t.Helper()
+	var b bytes.Buffer
+	b.WriteString("--b\r\nContent-Disposition: form-data; name=\"file\"; filename*=UTF-8''" + encodedName + "\r\nContent-Type: image/png\r\n\r\n")
+	b.Write(tinyPNG(t))
+	b.WriteString("\r\n--b--\r\n")
+	return &payload{contentType: "multipart/form-data; boundary=b", data: b.Bytes()}
+}
+
+func TestAFileNameHoldingANulIsRefusedBeforeItCanReachPostgres(t *testing.T) {
+	w := bootWithStorage(t)
+	email, password := w.createStaff("teacher")
+	teacher := w.signedIn(email, password)
+	ctx := context.Background()
+	var assets int
+	count := func() int {
+		t.Helper()
+		if err := w.pool.QueryRow(ctx, `SELECT count(*) FROM app.media_assets WHERE uploaded_by = (SELECT id FROM app.users WHERE email = $1)`, email).Scan(&assets); err != nil {
+			t.Fatal(err)
+		}
+		return assets
+	}
+
+	refused := teacher.send(http.MethodPost, "/teacher/media", nulFilenameUpload(t, "a%00b.png"))
+	requireNULRefusal(t, "an upload named with a NUL (RFC 2231)", refused.status, refused.json, "filename")
+	if got := count(); got != 0 {
+		t.Fatalf("a refused upload left %d rows", got)
+	}
+
+	stored := teacher.send(http.MethodPost, "/teacher/media", nulFilenameUpload(t, "b%C3%A0i.png"))
+	if stored.status != http.StatusCreated || stored.json["originalFilename"] != "bài.png" {
+		t.Fatalf("the same upload without the NUL: %s", answer(stored))
+	}
+	replaced := teacher.send(http.MethodPost, "/teacher/media/"+id(stored.json)+"/replace", nulFilenameUpload(t, "c%00d.png"))
+	requireNULRefusal(t, "a replacement named with a NUL", replaced.status, replaced.json, "filename")
+	if got := count(); got != 1 {
+		t.Fatalf("a refused replacement changed the library to %d rows, want the one upload", got)
+	}
 }

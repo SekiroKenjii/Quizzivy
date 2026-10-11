@@ -16,7 +16,10 @@ R4, a NUL character in a request (F-24):
   the message, as the validator's other refusals do, and in `details` as `{ field: message }`. It is decided in the one
   place the contract is enforced: it covers the seven open operations too, after the rate limiter
   has counted the request. A backslash followed by the characters `u0000` (JSON `\\u0000`) is ordinary
-  text and is not refused. A file name in a multipart upload is not covered by this rule.
+  text and is not refused. The file name of a media upload or replacement is refused the same way
+  when it holds U+0000 (`400 VALIDATION_FAILED` naming `filename`; an RFC 2231 `filename*` could
+  carry one past the multipart parser, and `POST /teacher/media` answered `500`). A Word import's
+  file name with any control character was already `415 IMPORT_SOURCE_UNSUPPORTED`.
 
 **Changes since v0.81**
 

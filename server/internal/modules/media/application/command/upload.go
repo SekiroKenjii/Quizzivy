@@ -28,6 +28,9 @@ type UploadHandler struct {
 }
 
 func (s UploadHandler) Handle(ctx context.Context, cmd Upload) (domain.Asset, error) {
+	if err := support.CheckFilename(cmd.Filename); err != nil {
+		return domain.Asset{}, err
+	}
 	intake, err := s.Receive(cmd.Body)
 	if err != nil {
 		return domain.Asset{}, err
