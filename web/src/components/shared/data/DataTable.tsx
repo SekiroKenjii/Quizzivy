@@ -74,6 +74,7 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly canOpen?: ((row: T) => boolean) | undefined;
     readonly shown?: ReadonlySet<string> | undefined;
     readonly menu?: ((row: T, context: DataTableMenuContext) => ReactNode) | undefined;
+    readonly menuLabel?: ((row: T) => string) | undefined;
     readonly menuTrack?: string | undefined;
     readonly padX?: number | undefined;
     readonly card?: ((row: T) => ReactNode) | undefined;
@@ -223,6 +224,7 @@ function BodyRow<T extends Item>({
   onOpen,
   select,
   menu,
+  menuLabel,
   template,
   padX,
   box,
@@ -237,6 +239,7 @@ function BodyRow<T extends Item>({
   onOpen: ((row: T) => void) | undefined;
   select: Select<T> | undefined;
   menu: ((row: T, context: DataTableMenuContext) => ReactNode) | undefined;
+  menuLabel: string | undefined;
   template: string;
   padX: number;
   box: RowBox;
@@ -247,6 +250,7 @@ function BodyRow<T extends Item>({
   const opens = canOpen && (rowHref !== undefined || onOpen !== undefined);
   // eslint-disable-next-line react-hooks/refs -- the public context captures this ref for event/effect reads only
   const menuItems = menu?.(row, { triggerRef });
+  const labelProps = menuLabel === undefined ? {} : { label: menuLabel };
   const emptyMenu =
     menuItems == null ||
     menuItems === false ||
@@ -306,7 +310,11 @@ function BodyRow<T extends Item>({
       ))}
       {menu === undefined ? null : (
         <div role="cell" className="flex">
-          {emptyMenu ? null : <RowMenu triggerRef={triggerRef}>{menuItems}</RowMenu>}
+          {emptyMenu ? null : (
+            <RowMenu triggerRef={triggerRef} {...labelProps}>
+              {menuItems}
+            </RowMenu>
+          )}
         </div>
       )}
     </div>
@@ -387,7 +395,8 @@ function CardList<T extends Item>({
  * included, names the row. A click elsewhere on the row presses the link or
  * button, unless a modifier key is held or the click landed on another
  * control in the row or outside the row, as one in an open menu does. The row
- * itself is never focusable. Below 768px a table that has `card` renders a
+ * itself is never focusable. `menuLabel` names a row's menu button, "Actions"
+ * otherwise. Below 768px a table that has `card` renders a
  * list of cards instead, without checkboxes, menus or asides. Content wider
  * than the table scrolls sideways inside it. Loading and failure stay with
  * the screen.
@@ -405,6 +414,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
     rowHref,
     onOpen,
     menu,
+    menuLabel,
     menuTrack = MENU_TRACK,
     padX = PAD_X,
     card,
@@ -482,6 +492,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
                 onOpen={onOpen}
                 select={select}
                 menu={menu}
+                menuLabel={menuLabel?.(row)}
                 template={template}
                 padX={padX}
                 box={box}

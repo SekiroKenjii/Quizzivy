@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CornerDownLeft, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,15 +10,19 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AdminQuestion, ReviewAnswer } from "../api";
 
 /**
- * G-03's marking loop for one short answer: points three ways (steppers,
- * typing, the common values), a comment the student will read, save and move
- * on. Saved per question, so a half-graded paper survives a refresh.
+ * GradingCard is the marking loop for one short answer: points three ways
+ * (steppers, typing, the common values), a comment the student will read, save
+ * and move on. Saved per question, so a half-graded paper survives a refresh.
+ * While `focusPoints` is set it focuses the points box, mounted or not, and
+ * reports it through `onPointsFocused`, so the caller asks once per move.
  */
 export function GradingCard({
   question,
   answer,
   pending,
   error,
+  focusPoints = false,
+  onPointsFocused,
   onSave,
   onSkip,
 }: Readonly<{
@@ -26,10 +30,19 @@ export function GradingCard({
   answer: ReviewAnswer | undefined;
   pending: boolean;
   error: string | null;
+  focusPoints?: boolean;
+  onPointsFocused?: () => void;
   onSave: (points: number, comment: string | null) => void;
   onSkip: () => void;
 }>) {
   const { t } = useTranslation();
+  const pointsInput = useRef<HTMLInputElement>(null);
+  const focused = useEffectEvent(() => onPointsFocused?.());
+  useEffect(() => {
+    if (!focusPoints) return;
+    pointsInput.current?.focus();
+    focused();
+  }, [focusPoints]);
   const max = question.points;
   const [points, setPoints] = useState<string>(
     answer?.manualScore == null ? "" : String(answer.manualScore),
@@ -69,6 +82,7 @@ export function GradingCard({
               <Minus aria-hidden="true" />
             </Button>
             <Input
+              ref={pointsInput}
               id="grade-points"
               inputMode="decimal"
               className="w-16 text-center tabular-nums"

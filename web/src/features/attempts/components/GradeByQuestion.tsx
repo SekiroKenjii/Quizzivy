@@ -6,12 +6,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Eye, Minus, Plus } from "lucide-react";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { KeyGlyph } from "@/components/shared/KeyGlyph";
-import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { commandKeyLabel } from "@/features/search/useCommandPalette";
+import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
 import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
@@ -92,30 +92,22 @@ export function GradeByQuestion({
   };
 
   return (
-    <>
-      <PageHeader
+    <div className="flex min-w-0 flex-col gap-4">
+      <PageHead
         title={t("byQuestion.title")}
-        backTo={`/teacher/assignments/${assignmentId}`}
-        meta={
-          data ? (
-            <span className="text-muted-foreground text-xs">
-              {testTitle} ·{" "}
-              {t("byQuestion.questionOf", {
-                n: data.questionNumber,
-                count: data.questionCount,
-              })}
-            </span>
-          ) : null
-        }
+        back={{
+          to: `/teacher/assignments/${assignmentId}`,
+          label: t("review.backToAssignment"),
+        }}
         actions={
           <>
             {data ? (
               <>
-                <span className="text-muted-foreground text-xs tabular-nums">
+                <span className="text-muted-foreground self-center text-xs tabular-nums">
                   {t("byQuestion.graded", { done, total: gradable.length })}
                 </span>
                 <span
-                  className="bg-secondary block h-1.5 w-32 overflow-hidden rounded-full"
+                  className="bg-secondary block h-1.5 w-32 self-center overflow-hidden rounded-full"
                   role="img"
                   aria-label={t("byQuestion.graded", { done, total: gradable.length })}
                 >
@@ -142,7 +134,17 @@ export function GradeByQuestion({
             </Button>
           </>
         }
-      />
+      >
+        {data ? (
+          <p className="text-muted-fg text-sm [overflow-wrap:anywhere]">
+            {testTitle} ·{" "}
+            {t("byQuestion.questionOf", {
+              n: data.questionNumber,
+              count: data.questionCount,
+            })}
+          </p>
+        ) : null}
+      </PageHead>
 
       <QueryStates
         query={answers}
@@ -273,7 +275,7 @@ export function GradeByQuestion({
           )
         }
       </QueryStates>
-    </>
+    </div>
   );
 }
 
