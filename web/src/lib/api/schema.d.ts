@@ -1319,11 +1319,13 @@ export interface paths {
          *
          *     A **closed** assignment, by its window or by an early close, at the
          *     moment of the request, stays closed: a `window` that would make it
-         *     `scheduled` or `open` again is refused with `ASSIGNMENT_CLOSED`,
-         *     because that is a reopening and `reopenAssignment` does it, asking for a
-         *     reason and writing its own audit entry. A request that leaves it closed
-         *     passes: the stored window, an earlier `closesAt`, `closeNow` and every
-         *     other field. An early close is never lifted here.
+         *     `scheduled` or `open` again, or that opens after the early close the
+         *     assignment keeps, is refused with `ASSIGNMENT_CLOSED`, because that is
+         *     a reopening and `reopenAssignment` does it, asking for a reason and
+         *     writing its own audit entry. A request that leaves it closed passes:
+         *     the stored window, an earlier `closesAt`, `closeNow` (while `opensAt`
+         *     is not ahead of now) and every other field. An early close is never
+         *     lifted here.
          *
          *     `review.release`, `review.showClassAverage` and `studentNote` are
          *     partial: omitted, they keep what is stored. `studentNote: null` clears
@@ -5787,7 +5789,13 @@ export interface components {
              * @default false
              */
             draft: boolean;
-            /** @description PATCH only. Sets `closedAt`, closing the assignment before `closesAt`. */
+            /**
+             * @description PATCH only; a create ignores it. Sets `closedAt`, closing the
+             *     assignment before `closesAt`. It is refused with `400
+             *     VALIDATION_FAILED` naming `closeNow` while `window.opensAt` is
+             *     still ahead, because an assignment cannot close before it opens,
+             *     whatever its status.
+             */
             closeNow?: boolean;
         };
     };
