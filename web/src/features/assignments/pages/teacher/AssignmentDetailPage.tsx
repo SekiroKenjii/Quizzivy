@@ -557,7 +557,7 @@ function StateDialogs({
       {write && status !== "draft" && (
         <ExtendAssignmentsDialog
           items={[a]}
-          when={moment(a.window.closedAt ?? a.window.closesAt, now, t)}
+          when={moment(a.window.closedAt ?? a.window.closesAt, now, t, true)}
           audience={intervene && rows !== null ? rows : undefined}
           open={kind === "extend"}
           returnFocus={extendRef}

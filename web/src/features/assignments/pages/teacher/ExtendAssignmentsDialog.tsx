@@ -213,7 +213,7 @@ export function ExtendAssignmentsDialog({
           title: single.testTitle,
           when: unbroken(when),
           until: ahead(until)
-            ? unbroken(windowMoment(until.toISOString(), new Date(), t))
+            ? unbroken(windowMoment(until.toISOString(), new Date(), t, true))
             : "…",
         });
       }}

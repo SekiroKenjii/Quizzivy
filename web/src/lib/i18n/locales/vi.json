@@ -1928,6 +1928,8 @@
       "students_other": "{{count}} học viên",
       "today": "Hôm nay, {{time}}",
       "tomorrow": "Ngày mai, {{time}}",
+      "todayInline": "hôm nay, {{time}}",
+      "tomorrowInline": "ngày mai, {{time}}",
       "submittedOf": "{{submitted}} trên {{target}} đã nộp",
       "noun_one": "bài giao",
       "noun_other": "bài giao",

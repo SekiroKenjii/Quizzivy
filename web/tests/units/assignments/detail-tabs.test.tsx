@@ -620,9 +620,9 @@ describe("Extend deadline", () => {
       const tomorrow = toDateTimeInput(new Date(Date.now() + DAY)).slice(0, 10);
       const picked = fromDateTimeInput(`${tomorrow}T21:00`);
       expect(
-        within(dialog).getByText(/Mở lại đến Ngày mai, 21:00\./),
+        within(dialog).getByText(/Mở lại đến ngày mai, 21:00\./),
       ).toBeInTheDocument();
-      expect(dialog.textContent).toContain("Ngày\u00a0mai,\u00a021:00");
+      expect(dialog.textContent).toContain("ngày\u00a0mai,\u00a021:00");
       await user.type(
         within(dialog).getByRole("textbox", { name: /Lý do/ }),
         "Thi lại",

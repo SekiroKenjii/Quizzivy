@@ -1928,6 +1928,8 @@
       "students_other": "{{count}} students",
       "today": "Today, {{time}}",
       "tomorrow": "Tomorrow, {{time}}",
+      "todayInline": "today, {{time}}",
+      "tomorrowInline": "tomorrow, {{time}}",
       "submittedOf": "{{submitted}} of {{target}} submitted",
       "noun_one": "assignment",
       "noun_other": "assignments",
