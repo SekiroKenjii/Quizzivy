@@ -517,3 +517,66 @@ it("disables an option, says why, and leaves the others as they were", async () 
   await userEvent.setup().click(markdown);
   expect(onChange).not.toHaveBeenCalled();
 });
+
+it("keeps focus on an option while the control is pending and ignores a press", async () => {
+  const onChange = vi.fn();
+  function Saving() {
+    const [value, setValue] = useState("vi");
+    const [pending, setPending] = useState(false);
+    return (
+      <Segmented
+        label="Ngôn ngữ"
+        value={value}
+        pending={pending}
+        onChange={(next) => {
+          onChange(next);
+          setValue(next);
+          setPending(true);
+        }}
+        options={LANGUAGES}
+      />
+    );
+  }
+  render(<Saving />);
+  const user = userEvent.setup();
+  const english = screen.getByRole("button", { name: "English" });
+  await user.click(english);
+  for (const button of screen.getAllByRole("button")) {
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    expect(button).not.toBeDisabled();
+  }
+  expect(english).toHaveFocus();
+  await user.keyboard("{Shift>}{Tab}{/Shift}");
+  const vietnamese = screen.getByRole("button", { name: "Tiếng Việt" });
+  expect(vietnamese).toHaveFocus();
+  await user.keyboard("{Enter}");
+  expect(vietnamese).toHaveFocus();
+  expect(onChange).toHaveBeenCalledTimes(1);
+});
+
+it("marks one pending option unavailable and leaves the others choosable", async () => {
+  const onChange = vi.fn();
+  render(
+    <Segmented
+      label="Ngôn ngữ"
+      value="vi"
+      onChange={onChange}
+      options={[
+        { value: "vi", label: "Tiếng Việt" },
+        { value: "en", label: "English", pending: true },
+      ]}
+    />,
+  );
+  const user = userEvent.setup();
+  const english = screen.getByRole("button", { name: "English" });
+  english.focus();
+  await user.keyboard("{Enter}");
+  expect(english).toHaveFocus();
+  expect(english).toHaveAttribute("aria-disabled", "true");
+  expect(english).toHaveClass("opacity-45");
+  expect(onChange).not.toHaveBeenCalled();
+  const vietnamese = screen.getByRole("button", { name: "Tiếng Việt" });
+  expect(vietnamese).not.toHaveAttribute("aria-disabled");
+  await user.click(vietnamese);
+  expect(onChange).toHaveBeenCalledWith("vi");
+});

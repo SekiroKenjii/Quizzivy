@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   keepPreviousData,
@@ -50,6 +50,10 @@ function menuTrigger(id: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-class-menu="${id}"]`);
 }
 
+function survivor(id: string): HTMLElement | null {
+  return menuTrigger(id) ?? document.querySelector<HTMLElement>("main");
+}
+
 function message(cause: unknown, fallback: string): string {
   return cause instanceof ApiError ? cause.message : fallback;
 }
@@ -62,7 +66,9 @@ function message(cause: unknown, fallback: string): string {
  * list itself (`withCodes`), asked for only by a reader who may change
  * classes and dropped from memory when the page goes. While the notice that
  * the join codes were replaced is unread, a callout says so; dismissing it
- * marks it read.
+ * marks it read. New code and Create code give focus back to the card's
+ * menu, which outlives the footer button that may have opened them; once a
+ * restored or deleted card has left the list, focus goes to the page.
  */
 export default function ClassesPage() {
   useDisplayTimeZone();
@@ -90,6 +96,16 @@ export default function ClassesPage() {
   const [archiving, setArchiving] = useState<ClassListItem | null>(null);
   const [deleting, setDeleting] = useState<ClassListItem | null>(null);
   const copyLink = useCopyJoinLink();
+  const settling = useRef<string | null>(null);
+  const refreshedAt = classes.dataUpdatedAt;
+
+  useEffect(() => {
+    const id = settling.current;
+    if (id === null) return;
+    settling.current = null;
+    const active = document.activeElement;
+    if (active === null || active === document.body) survivor(id)?.focus();
+  }, [refreshedAt]);
 
   const fromMenu =
     (open: (klass: ClassListItem) => void) =>
@@ -114,6 +130,7 @@ export default function ClassesPage() {
     mutationFn: (klass: ClassListItem) => updateClass(klass.id, { archived: false }),
     onSuccess: async (_, klass) => {
       toast(t("classes.restored"));
+      settling.current = klass.id;
       await invalidateClass(queryClient, klass.id);
     },
     onError: (cause) => toast.error(message(cause, t("classes.restoreFailed"))),
@@ -144,7 +161,10 @@ export default function ClassesPage() {
                 onCopyLink={copyLink}
                 onShowQr={showQr}
                 onEdit={fromMenu(setEditing)}
-                onNewCode={fromMenu(setRecoding)}
+                onNewCode={(klass) => {
+                  returnTo.current = menuTrigger(klass.id);
+                  setRecoding(klass);
+                }}
                 onArchive={fromMenu(setArchiving)}
                 onRestore={(klass) => {
                   if (!restore.isPending) restore.mutate(klass);
@@ -294,7 +314,9 @@ export default function ClassesPage() {
         name={deleting?.name ?? ""}
         returnFocus={returnTo}
         onDelete={async () => {
-          if (deleting !== null) await deleteClass(deleting.id);
+          if (deleting === null) return;
+          await deleteClass(deleting.id);
+          settling.current = deleting.id;
         }}
         onDeleted={() => queryClient.invalidateQueries({ queryKey: ["admin-classes"] })}
       />

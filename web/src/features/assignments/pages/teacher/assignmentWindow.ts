@@ -8,12 +8,22 @@ export type ListTab = AssignmentStatus;
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** moment is a window time as the deck writes it: "Today, 21:00", "Tomorrow, 08:00", else "08:00 · 26/09". */
-export function moment(utc: string, now: Date, t: TFunction): string {
+/**
+ * moment is a window time as the deck writes it: "Today, 21:00", "Tomorrow,
+ * 08:00", else "08:00 · 26/09". `inline` lowercases the day for a moment set
+ * inside a sentence ("closes today, 21:00"); a moment that starts a line or a
+ * label keeps its capital (F-60).
+ */
+export function moment(utc: string, now: Date, t: TFunction, inline = false): string {
+  const time = formatTime(utc);
   if (sameAppDay(utc, now))
-    return t("assignments.list.today", { time: formatTime(utc) });
+    return inline
+      ? t("assignments.list.todayInline", { time })
+      : t("assignments.list.today", { time });
   if (sameAppDay(utc, new Date(now.getTime() + DAY)))
-    return t("assignments.list.tomorrow", { time: formatTime(utc) });
+    return inline
+      ? t("assignments.list.tomorrowInline", { time })
+      : t("assignments.list.tomorrow", { time });
   return compactMoment(utc);
 }
 

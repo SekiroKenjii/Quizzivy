@@ -389,4 +389,31 @@ describe("the assignment detail", () => {
     await waitFor(() => expect(publish).not.toHaveAttribute("aria-disabled"));
     expect(publish).toHaveFocus();
   });
+
+  it("draft: moves focus to the heading once Giao bài is gone after it succeeds", async () => {
+    serve(assignment({ publishedAt: null, status: "draft" }));
+    const published = assignment({ status: "scheduled", window: scheduledWindow });
+    server.use(
+      http.patch(`${BASE}/teacher/assignments/${ID}`, () => {
+        server.use(
+          http.get(`${BASE}/teacher/assignments/${ID}`, () =>
+            contractJson("/teacher/assignments/{id}", "get", 200, published),
+          ),
+        );
+        return contractJson("/teacher/assignments/{id}", "patch", 200, published);
+      }),
+    );
+    const user = renderDetail();
+    const publish = await screen.findByRole("button", { name: "Giao bài" });
+    publish.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Giao bài" })).toBeNull(),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { level: 1, name: published.testTitle }),
+      ).toHaveFocus(),
+    );
+  });
 });
