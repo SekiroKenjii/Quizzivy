@@ -103,6 +103,9 @@ export const myClass: components["schemas"]["MyClass"] = {
   name: "Tiếng Anh giao tiếp - Lớp A",
   description: null,
   teacherName: "Cô Thương",
+  teacherAvatarUrl: null,
+  scheduleLabel: null,
+  room: null,
   joinedAt: "2026-06-12T01:00:00Z",
 };
 
