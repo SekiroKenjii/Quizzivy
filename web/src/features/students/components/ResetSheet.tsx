@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyRound, Printer } from "lucide-react";
 import { Callout } from "@/components/shared/Callout";
@@ -22,8 +22,8 @@ import {
  * are shown only now, and Print, which prints this sheet alone. Students a
  * reset did not reach are listed under it with the reason. It closes only
  * through Done or its close button, never on Escape or a click outside, so a
- * password is not lost by accident; the caller drops the passwords when it
- * closes.
+ * password is not lost by accident; Escape moves focus to Done instead, one
+ * Enter from the way out. The caller drops the passwords when it closes.
  */
 export function ResetSheet({
   open,
@@ -42,6 +42,7 @@ export function ResetSheet({
 }>) {
   const { t } = useTranslation();
   const shown = credentials.length > 0;
+  const done = useRef<HTMLButtonElement>(null);
   return (
     <DialogShell
       open={open}
@@ -51,7 +52,10 @@ export function ResetSheet({
       onOpenChange={(next) => {
         if (!next) onDone();
       }}
-      onEscapeKeyDown={(event) => event.preventDefault()}
+      onEscapeKeyDown={(event) => {
+        event.preventDefault();
+        done.current?.focus();
+      }}
       onPointerDownOutside={(event) => event.preventDefault()}
       onInteractOutside={(event) => event.preventDefault()}
     >
@@ -125,7 +129,7 @@ export function ResetSheet({
             {t("students.reset.print")}
           </Button>
         ) : null}
-        <Button type="button" onClick={onDone}>
+        <Button ref={done} type="button" onClick={onDone}>
           {t("students.done")}
         </Button>
       </DialogShellFooter>

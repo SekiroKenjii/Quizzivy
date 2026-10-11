@@ -91,7 +91,7 @@ describe("resetting one student's password", () => {
     nowhereElse(SECRET, client);
   });
 
-  it("does not close on Escape, and forgets the password when Done closes it", async () => {
+  it("does not close on Escape but moves focus to Done, and forgets the password when Done closes it", async () => {
     serveStudents([AN]);
     resetsOne(() =>
       contractJson("/teacher/students/{id}/reset-password", "post", 200, {
@@ -110,6 +110,7 @@ describe("resetting one student's password", () => {
     const sheet = await screen.findByRole("dialog", { name: /Mật khẩu tạm/ });
     await user.keyboard("{Escape}");
     expect(within(sheet).getByText(SECRET)).toBeVisible();
+    expect(within(sheet).getByRole("button", { name: "Xong" })).toHaveFocus();
 
     await user.click(within(sheet).getByRole("button", { name: "Xong" }));
     await waitFor(() => expect(screen.queryByText(SECRET)).toBeNull());
