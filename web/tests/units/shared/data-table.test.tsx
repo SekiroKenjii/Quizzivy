@@ -664,6 +664,24 @@ describe("roles", () => {
     expect(new Set(refs).size).toBe(ROWS.length);
   });
 
+  it("names each row's menu button by menuLabel when it is given", () => {
+    render(
+      <DataTable
+        label="Bài giao"
+        columns={COLUMNS}
+        rows={ROWS}
+        rowSize={{ minHeight: 60 }}
+        menu={(row) => <DropdownMenuItem>Nhân bản {row.title}</DropdownMenuItem>}
+        menuLabel={(row) => `Thao tác với ${row.title}`}
+      />,
+    );
+    for (const row of ROWS) {
+      expect(
+        screen.getByRole("button", { name: `Thao tác với ${row.title}` }),
+      ).toBeInTheDocument();
+    }
+  });
+
   it("names a row by its first cell", () => {
     contentWidth(1200);
     renderAssignments();

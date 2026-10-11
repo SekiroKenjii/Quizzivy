@@ -13,15 +13,20 @@ export type CommitState =
   | { phase: "refused"; code: string; message: string }
   | { phase: "done"; result: ImportCommitResult };
 
+const SAVED = () => Promise.resolve();
+
 /**
- * useImportCommit flushes the autosave and creates the draft test from the
- * saved revision. One request ID is bound to each revision and reused after a
- * lost response. A call while a commit is pending does nothing.
+ * useImportCommit flushes the autosave, when one is passed, and creates the
+ * draft test from the saved revision. One request ID is bound to each
+ * revision and reused after a lost response. A call while a commit is
+ * pending does nothing. A stale revision (`STALE_WRITE`) or an import that
+ * left review (`IMPORT_CONFLICT`) re-reads the import and its review, and a
+ * stale revision's request is dropped, so the next commit is a new request.
  */
 export function useImportCommit(
   importId: string,
-  flush: () => Promise<void>,
   revision: RefObject<number>,
+  flush: () => Promise<void> = SAVED,
 ) {
   const client = useQueryClient();
   const [state, setState] = useState<CommitState>({ phase: "idle" });
@@ -51,8 +56,11 @@ export function useImportCommit(
     } catch (cause) {
       if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500) {
         setState({ phase: "refused", code: cause.code, message: cause.message });
-        if (cause.code === "IMPORT_CONFLICT")
+        if (cause.code === "STALE_WRITE") attempt.current = null;
+        if (cause.code === "IMPORT_CONFLICT" || cause.code === "STALE_WRITE") {
           void client.invalidateQueries({ queryKey: ["word-import", importId] });
+          void client.invalidateQueries({ queryKey: ["word-import-review", importId] });
+        }
       } else {
         setState({ phase: "lost" });
       }

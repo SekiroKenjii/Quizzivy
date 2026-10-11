@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocale } from "@/lib/i18n/useLocale";
 import {
   Link,
   useBeforeUnload,
@@ -347,6 +348,7 @@ function AssignmentMeta({
   status,
 }: Readonly<{ a: Assignment; status: ReturnType<typeof statusAt> }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   return (
     <p className="text-muted-fg text-ui mt-1">
       {a.targets.classes.map((value) => value.name).join(", ")} ·{" "}
@@ -354,6 +356,7 @@ function AssignmentMeta({
         status === "scheduled"
           ? a.window.opensAt
           : (a.window.closedAt ?? a.window.closesAt),
+        locale,
       )}{" "}
       · {t("assignments.minutes", { count: a.durationMinutes })}
     </p>
@@ -861,6 +864,7 @@ function TargetsCard({ a }: Readonly<{ a: Assignment }>) {
 
 function TimeCard({ a }: Readonly<{ a: Assignment }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   return (
     <Card>
       <CardHeader>
@@ -869,11 +873,11 @@ function TimeCard({ a }: Readonly<{ a: Assignment }>) {
       <CardContent className="space-y-2 pt-1 text-sm">
         <Line
           label={t("assignments.detail.opens")}
-          value={formatMoment(a.window.opensAt)}
+          value={formatMoment(a.window.opensAt, locale)}
         />
         <Line
           label={t("assignments.detail.closes")}
-          value={formatMoment(a.window.closesAt)}
+          value={formatMoment(a.window.closesAt, locale)}
         />
         <Line
           label={t("assignments.detail.duration")}

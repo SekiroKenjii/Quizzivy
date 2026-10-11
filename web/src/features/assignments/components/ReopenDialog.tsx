@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { useMutation } from "@tanstack/react-query";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DateTimeField } from "@/components/shared/DateTimeField";
@@ -38,6 +39,7 @@ export function ReopenDialog({
 }>) {
   useDisplayTimeZone();
   const { t } = useTranslation();
+  const locale = useLocale();
   const [picked, setPicked] = useState(() =>
     toDateTimeInput(new Date(Date.now() + DAY_MS)),
   );
@@ -100,7 +102,7 @@ export function ReopenDialog({
         ) : null}
         <p className="text-sm">
           {t("assignments.detail.closesAt", {
-            when: formatMoment(new Date(closesAt).toISOString()),
+            when: formatMoment(new Date(closesAt).toISOString(), locale),
           })}
         </p>
         <div>

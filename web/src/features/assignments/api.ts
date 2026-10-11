@@ -1,6 +1,8 @@
 import { holdSession } from "@/features/take-test/heldSession";
 import { saveStrandedDraft } from "@/features/take-test/strandedDraft";
-import { api } from "@/lib/api/client";
+import { formatInTimeZone } from "date-fns-tz";
+import { api, downloadFile } from "@/lib/api/client";
+import { getDisplayTimeZone } from "@/lib/i18n/datetime";
 import type { components } from "@/lib/api/schema";
 
 export type Assignment = components["schemas"]["Assignment"];
@@ -11,8 +13,10 @@ export type IntegrityPolicy = components["schemas"]["IntegrityPolicy"];
 
 export interface ListAssignmentsParams {
   status?: AssignmentStatus;
-  /** Only assignments that target this class; the facets follow it (G-12). */
-  classId?: string;
+  /** Only assignments that target this class, or any of these; the facets follow them (G-12). */
+  classId?: string | readonly string[];
+  /** Test title or target class name, accent-insensitive; the facets follow it. */
+  q?: string;
   page?: number;
   limit?: number;
 }
@@ -23,7 +27,10 @@ export function listAssignments(
 ) {
   const query: Record<string, unknown> = {};
   if (params.status) query["status"] = params.status;
-  if (params.classId) query["classId"] = params.classId;
+  const classIds =
+    typeof params.classId === "string" ? [params.classId] : params.classId;
+  if (classIds?.length) query["classId"] = [...classIds];
+  if (params.q) query["q"] = params.q;
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   return api("get", "/teacher/assignments", signal ? { query, signal } : { query });
@@ -85,6 +92,79 @@ export async function continueAttempt(assignmentId: string, attemptId: string) {
   });
   holdSession(session.attempt.id, session.sessionId);
   return session;
+}
+
+/**
+ * extendAssignment moves the assignment's close later by `minutes` for
+ * everyone, and asks for the students to be told when `notify` is set. A
+ * closed assignment answers `ASSIGNMENT_CLOSED`: it is reopened instead.
+ */
+export function extendAssignment(id: string, minutes: number, notify: boolean) {
+  return api("post", "/teacher/assignments/{id}/extend", {
+    path: { id },
+    body: { minutes, notify },
+  });
+}
+
+/** duplicateAssignment copies an assignment as a draft assigned to `classIds`. */
+export function duplicateAssignment(id: string, classIds: readonly string[]) {
+  return api("post", "/teacher/assignments/{id}/duplicate", {
+    path: { id },
+    body: { classIds: [...classIds] },
+  });
+}
+
+/**
+ * resultsFileName is the name a results export is saved under when the
+ * server gives none: the assignment's title for one assignment, "results"
+ * for several, then the day, as "unit-5-20260829.csv".
+ */
+export function resultsFileName(
+  titles: readonly string[],
+  now: Date,
+  zone = getDisplayTimeZone(),
+): string {
+  const base =
+    titles.length === 1 && titles[0] !== undefined
+      ? titles[0]
+          .normalize("NFD")
+          .replaceAll(/\p{M}/gu, "")
+          .replaceAll(/[đĐ]/g, "d")
+          .toLowerCase()
+          .replaceAll(/[^a-z0-9]+/g, "-")
+          .replaceAll(/^-|-$/g, "")
+      : "";
+  return `${base || "results"}-${formatInTimeZone(now, zone, "yyyyMMdd")}.csv`;
+}
+
+const REVOKE_AFTER_MS = 40_000;
+
+/**
+ * exportResults downloads the results of up to 50 assignments as one CSV
+ * file, under the name the server gives it or else `resultsFileName`, and
+ * hands it to the browser to save through an object URL. The URL is revoked
+ * 40 seconds later, not at once, because Firefox and some Safari versions
+ * start the download after the click returns.
+ */
+export async function exportResults(
+  assignments: readonly Pick<Assignment, "id" | "testTitle">[],
+) {
+  const file = await downloadFile("/teacher/assignments/results.csv", {
+    ids: assignments.map((assignment) => assignment.id),
+  });
+  const href = URL.createObjectURL(file.blob);
+  const link = document.createElement("a");
+  link.href = href;
+  link.download =
+    file.filename ??
+    resultsFileName(
+      assignments.map((assignment) => assignment.testTitle),
+      new Date(),
+    );
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(href), REVOKE_AFTER_MS);
 }
 
 export function deleteAssignment(id: string) {
