@@ -52,14 +52,14 @@ function RowStatus({
 }: Readonly<{ row: MonitorRow; compact?: boolean }>) {
   const { t } = useTranslation();
   return pendingAnswers(row) > 0 ? (
-    <Badge variant="warning" className={compact ? "block min-w-0 truncate" : undefined}>
+    <Badge variant="warning" className={compact ? "shrink-0" : undefined}>
       {t("assignmentDetail.needsGrading")}
     </Badge>
   ) : (
     <StatusBadge
       kind="attempt"
       status={row.state}
-      className={compact ? "block min-w-0 truncate" : undefined}
+      className={compact ? "shrink-0" : undefined}
     />
   );
 }
@@ -67,9 +67,10 @@ function RowStatus({
 function ExtendedTo({ row, zone }: Readonly<{ row: MonitorRow; zone: string }>) {
   const { t } = useTranslation();
   if (row.extendedTo == null) return null;
+  const when = compactMoment(row.extendedTo, zone).replaceAll(" ", "\u00a0");
   return (
-    <span className="text-info-ink text-xs whitespace-nowrap">
-      {t("assignmentDetail.extendedTo", { when: compactMoment(row.extendedTo, zone) })}
+    <span className="text-info-ink block max-w-full text-xs leading-4">
+      {t("assignmentDetail.extendedTo", { when })}
     </span>
   );
 }
@@ -123,12 +124,11 @@ export function Monitor({
         cell: (row, visible) => (
           <span className="flex min-w-0 items-center gap-2.5">
             <Avatar name={row.fullName} className="text-2xs size-7.5" />
-            <span className="min-w-0">
+            <span className="min-w-0 py-1.5">
               <span className="block truncate font-medium">{row.fullName}</span>
               {(!visible.has("status") || (!visible.has("focus") && row.flagged)) && (
                 <span className="flex min-w-0 items-center gap-1 text-xs leading-4">
                   {!visible.has("status") && <RowStatus row={row} compact />}
-                  {!visible.has("status") && <ExtendedTo row={row} zone={zone} />}
                   {row.flagged && !visible.has("focus") && (
                     <span
                       role="img"
@@ -146,6 +146,7 @@ export function Monitor({
                   )}
                 </span>
               )}
+              {!visible.has("status") && <ExtendedTo row={row} zone={zone} />}
             </span>
           </span>
         ),
@@ -156,7 +157,7 @@ export function Monitor({
         track: "130px",
         showFrom: 560,
         cell: (row) => (
-          <span className="flex min-w-0 flex-col items-start gap-0.5">
+          <span className="flex min-w-0 flex-col items-start gap-0.5 py-1.5">
             <RowStatus row={row} />
             <ExtendedTo row={row} zone={zone} />
           </span>
@@ -297,7 +298,7 @@ export function Monitor({
         label={t("assignmentDetail.roster")}
         columns={columns}
         rows={shown}
-        rowSize={{ height: 54 }}
+        rowSize={{ minHeight: 54 }}
         canOpen={(row) =>
           canRead && Boolean(row.attemptId) && row.state !== "not_started"
         }

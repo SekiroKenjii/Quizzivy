@@ -12,6 +12,7 @@ import {
 } from "@tests/support/assignmentDetail";
 import i18n from "@/lib/i18n";
 import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
+import { contentWidth } from "@tests/support/contentWidth";
 
 const AN = "018f0000-0000-7000-8000-0000000000e1";
 const BINH = "018f0000-0000-7000-8000-0000000000e2";
@@ -268,6 +269,36 @@ describe("the Students tab", () => {
     renderDetail();
     expect(await screen.findByText(/^Gia hạn đến /)).toBeInTheDocument();
   });
+
+  it.each([
+    ["with the Status column", 1000],
+    ["under the name at phone width", 340],
+  ])(
+    "keeps the status pill whole and puts the extension on its own line, %s (QA-26-1)",
+    async (_where, width) => {
+      contentWidth(width);
+      serveDetail(detailAssignment(), {
+        rows: [
+          detailRow(AN, "Lê Văn An", {
+            state: "in_progress",
+            attemptNo: 1,
+            extendedTo: "2099-09-10T14:00:00Z",
+          }),
+        ],
+      });
+      renderDetail();
+      const line = await screen.findByText(/^Gia hạn đến /);
+      expect(line).toHaveClass("block");
+      expect(line).not.toHaveClass("whitespace-nowrap");
+      expect(line.textContent).toMatch(/đến \S+\u00a0·\u00a0\S+$/);
+      const pill = within(line.parentElement!).getByText("Đang làm");
+      expect(pill.closest("[data-slot=badge]") ?? pill).not.toHaveClass("truncate");
+      expect(line.parentElement).toContainElement(pill);
+      expect(
+        pill.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+  );
 });
 
 describe("Close early", () => {
@@ -555,7 +586,10 @@ describe("Extend deadline", () => {
       expect(within(dialog).getByText("Giờ đóng")).toBeInTheDocument();
       const tomorrow = toDateTimeInput(new Date(Date.now() + DAY)).slice(0, 10);
       const picked = fromDateTimeInput(`${tomorrow}T21:00`);
-      expect(within(dialog).getByText(/Mở lại đến 21:00/)).toBeInTheDocument();
+      expect(
+        within(dialog).getByText(/Mở lại đến Ngày mai, 21:00\./),
+      ).toBeInTheDocument();
+      expect(dialog.textContent).toContain("Ngày\u00a0mai,\u00a021:00");
       await user.type(
         within(dialog).getByRole("textbox", { name: /Lý do/ }),
         "Thi lại",

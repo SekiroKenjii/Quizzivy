@@ -14,7 +14,7 @@ import type { MonitorRow } from "@/features/attempts/api";
 import { ApiError } from "@/lib/api/errors";
 import { formatMoment, fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { nameOf } from "./assignmentWindow";
+import { moment as windowMoment, nameOf } from "./assignmentWindow";
 
 const STEPS = ["15", "30", "60", "1440"] as const;
 const CUSTOM = "custom";
@@ -207,11 +207,13 @@ export function ExtendAssignmentsDialog({
         if (single === undefined || when === undefined) return undefined;
         if (!closed)
           return t("assignments.list.extendWhen", { title: single.testTitle, when });
-        const moment = reopenUntil(values);
+        const until = reopenUntil(values);
         return t("assignments.list.reopenWhen", {
           title: single.testTitle,
-          when,
-          until: ahead(moment) ? formatMoment(moment.toISOString(), locale) : "…",
+          when: unbroken(when),
+          until: ahead(until)
+            ? unbroken(windowMoment(until.toISOString(), new Date(), t))
+            : "…",
         });
       }}
       initial={{
@@ -330,4 +332,8 @@ export function ExtendAssignmentsDialog({
 
 function tomorrow(): string {
   return toDateTimeInput(new Date(Date.now() + DAY_MS)).slice(0, 10);
+}
+
+function unbroken(text: string): string {
+  return text.replaceAll(" ", "\u00a0");
 }
