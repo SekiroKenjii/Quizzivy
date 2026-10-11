@@ -80,6 +80,9 @@ function klass(id: string, name: string) {
     archivedAt: null,
     selfJoinEnabled: true,
     joinCode: null,
+    scheduleLabel: null,
+    room: null,
+    averageScore: null,
     createdAt: "2026-06-01T00:00:00Z",
   };
 }

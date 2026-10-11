@@ -166,6 +166,8 @@ func ToAPIClass(c domain.EnrolledClass) openapi.Class {
 		Id:              httpapi.ParseUUID(c.ID),
 		Name:            c.Name,
 		Description:     c.Description,
+		ScheduleLabel:   c.ScheduleLabel,
+		Room:            c.Room,
 		StudentCount:    c.StudentCount,
 		SelfJoinEnabled: c.SelfJoinEnabled,
 		CreatedAt:       c.CreatedAt,

@@ -8,12 +8,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { CardGrid } from "@/components/shared/CardGrid";
 import { EmptyState, LoadError, QueryStates } from "@/components/shared/ListState";
-import { Pager } from "@/components/shared/Pager";
+import { Pager } from "@/components/shared/data/Pager";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useFileDrop } from "@/hooks/useFileDrop";
 import { useListFilters } from "@/hooks/useListFilters";
-import { usePage } from "@/hooks/usePage";
+import { usePage, usePageSize } from "@/hooks/usePage";
 import { useDebounced } from "@/lib/useDebounced";
 import { listMedia, type LibraryAsset, type MediaUsage } from "@/features/media/api";
 import { DeleteMediaDialog } from "@/features/media/components/DeleteMediaDialog";
@@ -23,7 +23,7 @@ import { ReplaceDialog } from "@/features/media/components/ReplaceDialog";
 import { UploadDialog } from "@/features/media/components/UploadDialog";
 import { formatStorage } from "@/features/media/format";
 
-const PAGE_SIZE = 24;
+const PAGE_SIZES = [24, 48] as const;
 const FRESH_URL_MS = 60_000;
 const TABS = ["all", "audio", "image", "unused"] as const;
 type Tab = (typeof TABS)[number];
@@ -53,8 +53,10 @@ function menuTrigger(id: string): HTMLElement | null {
 
 /**
  * MediaPage is the teacher's media library: storage against the quota, the
- * files as cards filtered by kind or by use and searched by name, and the
- * upload, rename, replace, download and delete of a file.
+ * files as cards filtered by kind or by use and searched by name, 24 or 48 a
+ * page, and the upload, rename, replace, download and delete of a file. The
+ * pager shows whenever the library holds a match, so a page past the end
+ * still leads back.
  */
 export default function MediaPage() {
   const { t } = useTranslation();
@@ -63,14 +65,15 @@ export default function MediaPage() {
   const query = params.get("q") ?? "";
   const search = useDebounced(query.trim(), 300);
   const tab = toTab(params.get("tab"));
+  const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(JSON.stringify({ search, tab }));
   const library = useQuery({
-    queryKey: ["admin-media", { search, tab, page }],
+    queryKey: ["admin-media", { search, tab, page, size }],
     queryFn: ({ signal }) =>
       listMedia(
         {
           page,
-          limit: PAGE_SIZE,
+          limit: size,
           ...(search === "" ? {} : { q: search }),
           ...(tab === "audio" || tab === "image" ? { kind: tab } : {}),
           ...(tab === "unused" ? { unused: true } : {}),
@@ -129,28 +132,37 @@ export default function MediaPage() {
   const filtered = search !== "" || tab !== "all";
 
   const results = (data: NonNullable<typeof library.data>) => {
-    if (data.items.length > 0)
+    if (data.total > 0)
       return (
         <>
-          <CardGrid
-            label={t("media.title")}
-            items={data.items}
-            itemKey={(asset) => asset.id}
-            min={240}
-          >
-            {(asset) => (
-              <MediaCard
-                asset={asset}
-                active={playing === asset.id}
-                onPlay={setPlaying}
-                onExpired={refreshExpired}
-                onRename={fromMenu(setRenaming)}
-                onReplace={fromMenu(setReplacing)}
-                onDelete={fromMenu(setDeleting)}
-              />
-            )}
-          </CardGrid>
-          <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+          {data.items.length > 0 ? (
+            <CardGrid
+              label={t("media.title")}
+              items={data.items}
+              itemKey={(asset) => asset.id}
+              min={240}
+            >
+              {(asset) => (
+                <MediaCard
+                  asset={asset}
+                  active={playing === asset.id}
+                  onPlay={setPlaying}
+                  onExpired={refreshExpired}
+                  onRename={fromMenu(setRenaming)}
+                  onReplace={fromMenu(setReplacing)}
+                  onDelete={fromMenu(setDeleting)}
+                />
+              )}
+            </CardGrid>
+          ) : null}
+          <Pager
+            page={data.page}
+            pageSize={data.pageSize}
+            total={data.total}
+            noun={(count) => t("media.noun", { count })}
+            sizes={PAGE_SIZES}
+            frame="plain"
+          />
         </>
       );
     if (filtered)

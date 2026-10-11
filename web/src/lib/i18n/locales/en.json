@@ -253,6 +253,7 @@
       "sections": {
         "profile": "Profile",
         "signIn": "Sign-in",
+        "notifications": "Notifications",
         "appearance": "Appearance"
       },
       "nameHint": "Your teacher sees this name.",
@@ -670,7 +671,9 @@
       "uploadNew": "Upload new",
       "attach": "Attach",
       "notUsedYet": "Not used yet"
-    }
+    },
+    "noun_one": "file",
+    "noun_other": "files"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -1251,7 +1254,9 @@
         "confirm": "Delete version",
         "done": "Version {{n}} deleted"
       }
-    }
+    },
+    "noun_one": "test",
+    "noun_other": "tests"
   },
   "preview": {
     "questionNumber": "Question {{n}}",
@@ -1374,9 +1379,6 @@
       "graded": "was graded on",
       "voided": "had voided"
     },
-    "notifications": "Notifications",
-    "notificationsWith": "Notifications, {{count}} outstanding",
-    "nothingOutstanding": "Nothing outstanding.",
     "state": "State",
     "waitingContext": "{{count}} students · oldest submission {{age}}",
     "noWaiting": "No answers waiting for grading",
@@ -2113,6 +2115,27 @@
       "dueSoon": "{{title}} closes at {{when}}",
       "extended": "{{title}} now closes at {{when}}",
       "resultReady": "Your result for {{title}} is ready"
+    },
+    "bell": {
+      "label": "Notifications",
+      "labelUnread_one": "Notifications, {{count}} unread",
+      "labelUnread_other": "Notifications, {{count}} unread",
+      "title": "Notifications",
+      "markAllRead": "Mark all read",
+      "empty": "You're all caught up.",
+      "failed": "Couldn't load notifications.",
+      "loadMore": "Load more",
+      "unread": "Unread",
+      "justNow": "Just now",
+      "markFailed": "Couldn't mark your notifications as read. Try again."
+    },
+    "settings": {
+      "dueSoon": "Test due soon",
+      "dueSoonHint": "The day before and 1 hour before it closes",
+      "resultReady": "Result ready",
+      "resultReadyHint": "When your teacher finishes grading",
+      "loadFailed": "Couldn't load your notification settings.",
+      "saveFailed": "Your change wasn't saved. Try again."
     }
   },
   "pagination": {
@@ -3420,8 +3443,8 @@
       "file": "File",
       "review": "To review",
       "test": "Test",
-      "pageSize": "Imports per page",
-      "rows": "{{count}} imports per page",
+      "noun_one": "import",
+      "noun_other": "imports",
       "withKey": "with {{name}}",
       "noTest": "none yet",
       "openTest": "Open test {{title}}",

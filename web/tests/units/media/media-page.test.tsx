@@ -628,3 +628,51 @@ describe("the upload dialog", () => {
     expect(uploads).toBe(0);
   });
 });
+
+describe("the media library's pager (QA-F1-2)", () => {
+  it("is the deck's pager, 24 or 48 cards a page, a new size going back to page 1", async () => {
+    const user = renderPage("/teacher/media?tab=audio&page=2");
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    expect(lists[0]?.get("limit")).toBe("24");
+    expect(lists[0]?.get("page")).toBe("2");
+    expect(within(pager).getByText("1–2 trên 2 tệp")).toBeInTheDocument();
+
+    await user.click(
+      within(pager).getByRole("combobox", { name: "Số dòng mỗi trang" }),
+    );
+    const sizes = await screen.findByRole("listbox");
+    expect(
+      within(sizes)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["24", "48"]);
+    await user.click(within(sizes).getByRole("option", { name: "48" }));
+    await waitFor(() => expect(lists.at(-1)?.get("limit")).toBe("48"));
+    expect(lists.at(-1)?.has("page")).toBe(false);
+    expect(lists.at(-1)?.get("kind")).toBe("audio");
+  });
+
+  it("still draws the pager on a page past the end, so it leads back", async () => {
+    server.use(
+      http.get(`${BASE}/teacher/media`, ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        lists.push(query);
+        return contractJson("/teacher/media", "get", 200, {
+          ...libraryBody(query),
+          items: [],
+          page: 3,
+          total: 30,
+        });
+      }),
+    );
+    renderPage("/teacher/media?page=3");
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    expect(within(pager).getByText("Trang 2 trên 2")).toBeInTheDocument();
+    expect(within(pager).getByRole("link", { name: "Trang đầu" })).toHaveAttribute(
+      "href",
+      "/teacher/media",
+    );
+    expect(screen.queryByText("Chưa có media")).toBeNull();
+    expect(screen.queryByText("Không có tệp nào khớp.")).toBeNull();
+  });
+});

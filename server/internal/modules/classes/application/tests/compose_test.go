@@ -116,3 +116,48 @@ func TestASignUpFromAProviderStoresTheFullNameComposedAndTheIdentityUntouched(t 
 		t.Fatal("the command's member was rewritten")
 	}
 }
+
+func TestTheScheduleLabelAndRoomAreStoredComposedAndTrimmed(t *testing.T) {
+	repo := &composingRepository{}
+	app := newComposingApplication(repo)
+	label, room := "  "+decomposedText("Thứ Hai, 7:30")+" ", decomposedText("Phòng 204")
+	if _, err := app.Commands.Create.Handle(context.Background(), command.Create{Name: "10A", ScheduleLabel: &label, Room: &room}); err != nil {
+		t.Fatal(err)
+	}
+	if *repo.created.ScheduleLabel != "Thứ Hai, 7:30" || *repo.created.Room != "Phòng 204" {
+		t.Fatalf("created=%+v", repo.created)
+	}
+	input := domain.UpdateInput{ScheduleLabel: domain.TextPatch{Set: true, Value: &label}, Room: domain.TextPatch{Set: true, Value: &room}}
+	if _, err := app.Commands.Update.Handle(context.Background(), command.Update{ClassID: "c", Input: input}); err != nil {
+		t.Fatal(err)
+	}
+	if !repo.updated.ScheduleLabel.Set || *repo.updated.ScheduleLabel.Value != "Thứ Hai, 7:30" || *repo.updated.Room.Value != "Phòng 204" {
+		t.Fatalf("updated=%+v", repo.updated)
+	}
+}
+
+func TestARoomComposingLeavesOverItsLimitIsRefusedBeforeAnyWrite(t *testing.T) {
+	room := strings.Repeat("क़", domain.MaxRoom)
+	repo := &composingRepository{}
+	app := newComposingApplication(repo)
+	for label, run := range map[string]func() error{
+		"create": func() error {
+			_, err := app.Commands.Create.Handle(context.Background(), command.Create{Name: "10A", Room: &room})
+			return err
+		},
+		"update": func() error {
+			_, err := app.Commands.Update.Handle(context.Background(), command.Update{ClassID: "c", Input: domain.UpdateInput{Room: domain.TextPatch{Set: true, Value: &room}}})
+			return err
+		},
+	} {
+		t.Run(label, func(t *testing.T) {
+			var invalid *validation.Error
+			if err := run(); !errors.As(err, &invalid) || invalid.Fields[0].Field != "room" {
+				t.Fatalf("err=%v", err)
+			}
+		})
+	}
+	if repo.writes != 0 {
+		t.Fatalf("a refused room reached the repository %d times", repo.writes)
+	}
+}
