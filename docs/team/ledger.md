@@ -7,23 +7,24 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-10, 16:40 UTC.
-- **Base:** `work/redesign-r4` at `5b4e7355` (T-R4.30 merged, #469).
-- **Objective:** R4 to v0.10.0, then D4 (v0.11.0), which absorbs the design team's v2 export
-  and builds the AI assistant (T-24). Done pull requests into the integration branch merge
-  without asking the user (T-22); a release to `main`, a hotfix or a critical PR waits for
-  the user's go.
+- **As of:** 2026-10-11, handover from team Ryan.Alt to team Ryan.Pri (T-34).
+- **Base:** `work/redesign-r4` at `4c0f90e2` (T-R4.47 merged, #482).
+- **Objective:** unchanged: R4 to v0.10.0, then D4 (v0.11.0) (T-24). T-22 governs merges.
 - **In flight** (five agents, T-3):
 
   | Task | PR | Owner | State |
   |---|---|---|---|
-  | T-R4.34 question groups | #471 | frontend, lane 3 | VER-34 PASS WITH FINDINGS; round 2 (QA-34-1, QA-34-3, copy, and observation 6, a possible content loss); QA-34-2 is closed by #474 |
-  | T-R4.33 question editor | #474 | frontend, lane 1 | CI green; VER-33 running |
-  | T-R4.8 profile photo | #472 | backend 1 | security review: SR-472-1 (major) to SR-472-4 in a fix round; then the user (T-22) |
-  | T-R4.9 signed-in devices | #473 | backend 2 | security review approved; waits on the user (T-22) |
-  | T-R4.38 import review | none yet | frontend, lane 2 | implementing (DG-147 to 149) |
-  | T-R4.46 teacher integrity | none yet | frontend, lane 3 | parked while #471's round 2 runs (DG-150 to 152) |
-  | F-46 next version on `Test` | none yet | backend 2 | implementing |
+  | T-R4.43 settings | #485 | frontend, lane 1 | round 2: VER-43's findings (QA-43-1 focus, a Google-only dead end, three minors) |
+  | T-R4.44 settings, notifications and defaults | none yet | frontend, lane 1 | built, stacked on #485; opens after #485 merges |
+  | T-R4.45b bell and student settings | none yet | frontend, lane 2 | merging R4 into the branch, then the PR |
+  | T-R4.26 assignment detail tabs | none yet | frontend, lane 3 | implementing (DG-160 to 163 used; 174 to 177 reserved) |
+  | T-R4.49 C, `00106_validate_ownership` (T-R3.2) | none yet | backend | implementing, restarted from scratch (INC-2) |
+  | Done-when audit of merged tasks | — | senior_tester | read-only audit, feeds T-R4.50 |
+
+- **Waiting on the user (T-22):** #483 (F-37, 00103), #484 (T-R4.18, 00104) and #486 (T-R4.49 B,
+  00105), merged in that order; #481 (T-R4.20) with the F-53 choice; for #486, `fly status`
+  and `fly releases` and the Neon rehearsal; whether Settings warns on leaving with unsaved
+  edits (F-57).
 
 ## Roster and models
 
@@ -57,28 +58,33 @@ Taken from merged pull requests on 2026-10-10. The plan's "Done when" boxes lag 
   2026-10-10, 10b (#462), 12b (#451), 13 (#456), 27a (#458), 27b (#468), 29 (#448), 30
   (#469), 31b (#467), 31b-2 (#470), 32 (#455), 57 (#459), 65 (#461) and 66b (#457), with the
   fixes #452 (QA-66a-1), #454 (FONT-1), #460 and #463 (F-20), #464 (F-36), #465 (F-43) and
-  #466 (the gates), and the docs #453; the D4
+  #466 (the gates), and the docs #453; later on 2026-10-10, 6 (#487), 8 (#472), 9 (#473), 24
+  (#479), 33 (#474), 34 (#471), 38 (#477), 39 (#480), 46 (#478), 47 (#482) and F-46 (#476),
+  and the ledger #475; the D4
   plan (#444, #445); and, from before the team, the plan corrections (#351, titled T-R4.0,
   not a plan task), the develop syncs (#344, #352, #364, #379, #396, #402) and the team
   (#420, #421).
 - **In flight:** see the checkpoint.
-- **Order:** W3-PLAN (T-23). Lane 1: 33, then a task from lane 3's tail (24 or 40) when it
+- **Order (2026-10-11):** lane 1: 43 round 2 → 44 → 40 (after #481). Lane 2: 45b → 41 and 42
+  (after #484). Lane 3: 26 → 48. Backend: 49 C, then 49 A when the user has read the
+  production logs; then frontend help. Close-out: 50, 51, 52.
+- **Order (2026-10-10, superseded):** W3-PLAN (T-23). Lane 1: 33, then a task from lane 3's tail (24 or 40) when it
   frees. Lane 2: 38 → 39 → 43 → 44 → 45b → 6. Lane 3: 34 → 46 → 47 → 26a → 24 → 26b → 40 →
   41 → 42. Backend: stream A is done (12b, 13, 10b, F-43); stream B is 8 (#472) and 9 (#473),
   then F-46, 20 and 18 (18 waits for 8). Close-out (T-R4.48 to 52) comes last.
 - **Migration numbers:** 00092 (16a), 00097 and 00098 (62a), 00099 and 00100 (11), 00101
-  (12a), 00102 (9, #473). The next free number is 00103; T-5 governs.
+  (12a), 00102 (9, #473); in open PRs 00103 (F-37, #483), 00104 (18, #484), 00105 (49 B, #486);
+  reserved 00106 (49 C). The next free number is 00107; T-5 governs.
 
 Still waiting on an unmerged dependency:
 
 | Task | Waits for |
 |---|---|
-| T-R4.18 class schedule and room | 8 (#472) |
-| T-R4.40 students | 20 |
-| T-R4.41, 42 classes | 18 |
-| T-R4.43, 44 settings | 8 (#472), 9 (#473) |
-| T-R4.45b bell and student settings | 8 (#472) |
-| T-R4.47 attempt review | 46 |
+| T-R4.40 students | 20 (#481, the user's go) |
+| T-R4.41, 42 classes | 18 (#484, the user's go) |
+| T-R4.44 settings | 43 (#485) |
+| T-R4.49 A, the `/admin` alias | seven days of production `legacy_admin_path` counts, read by the user |
+| T-R4.48 delete the old tree | every rebuilt screen |
 
 ## Environment baseline
 
@@ -261,6 +267,14 @@ and any reversal of the defaults above.
   (T-R4.31b-2) may merge on the Tech Lead's review without a VER round; T-R4.51 measures
   every route against the deck again.
 
+- **T-34 (2026-10-11).** Team Ryan.Alt reached its weekly limit; team Ryan.Pri took over in a
+  new container. Work that was not pushed was lost (INC-2) and is restarted from the pushed
+  branches. Every agent is relaunched from its definition with a self-contained brief.
+- **T-35 (2026-10-11).** A control never takes `disabled` while its own request is pending: the
+  focused element drops focus to `<body>` (QA-43-1, QA-47-1). It keeps focus with
+  `aria-disabled`, its handler guards on `isPending`, and a test asserts the focus. A bar that
+  unmounts after its action moves focus deliberately.
+
 ## Findings and open items
 
 | ID | Finding | Owner | State |
@@ -274,11 +288,11 @@ and any reversal of the defaults above.
 | F-7 | This container has Node 22 and pnpm 10.28; CI uses Node 24, pnpm 11.25.0 and Go 1.27. Only Chromium is available, so the Firefox and WebKit paste checks of T-R4.51 cannot run here. | senior_swe_platform | accepted: `environment.md` lists the differences, and CI stays the authority for Node 24, pnpm 11 and other browsers |
 | F-8 | T-R4.5b's ticked "Done when" item (`74-r4.md:1331-1336`) says the `router-chunks` media pattern was narrowed to `features/media/(pages/\|components/(UploadPanel\|AssetLibraryDialog))`; the code still names all of `features/media/` (`router-chunks.test.ts:51`). So T-R4.35 needs no canary edit. | Tech Lead | fixed (`76a39e1c`) |
 | F-9 | Setting up the container takes a session's first half hour by hand. The platform engineer proposes a SessionStart hook (dockerd, `.env`, the MinIO image, compose, goose, `pnpm install`, `goose up`, the toolchain pin); it would change every session, so it waits for the user. | senior_swe_platform | fixed (`21a161c0`): `.claude/hooks/session-start.sh` |
-| QA-F1-1 | T-R4.36: the imports history row does not draw a pasted import (clipboard tile, "Pasted text", characters); PR #410 deferred it and no task owned it. Major for the R4 exit. | senior_swe_frontend, in T-R4.57 (a "Done when" line added) | open |
-| QA-F1-2 | T-R4.36: `ImportsListPage.tsx` still uses the legacy `Pager`, which T-R4.1b meant the deck `data/Pager` to replace there; ten rebuilt pages do, and T-R4.48 cannot delete it while they remain. | senior_swe_frontend, by T-R4.48 | open |
-| QA-F1-3 | T-R4.19: the seeded-volume `EXPLAIN` that shows the five named indexes is still owed; PR #397 made it a release gate. | senior_swe_platform, at T-R4.52 | open |
-| QA-F1-4 | T-R4.25: the header has no Extend button; the "As built" moved it to T-R4.26. | T-R4.26 | open |
-| QA-F1-5 | T-R4.25: the sheet's "Grade answers" opens the full review, not Grading filtered to the student, until T-R4.28. | T-R4.28 (#416) | open |
+| QA-F1-1 | T-R4.36: the imports history row does not draw a pasted import (clipboard tile, "Pasted text", characters). | senior_swe_frontend | closed: shipped (`ImportsListPage.tsx`, `history.test.tsx`), found by the 2026-10-11 audit |
+| QA-F1-2 | T-R4.36 and others: Media, Tests and Imports still use the legacy `Pager`. | T-R4.48 | open: 48's Touches and Done-when now name the swap and the files |
+| QA-F1-3 | T-R4.19: the seeded-volume `EXPLAIN` that shows the five named indexes is still owed; PR #397 made it a release gate. | senior_swe_platform, at T-R4.52 | open: a line in T-R4.52's checklist since 2026-10-11 |
+| QA-F1-4 | T-R4.25: the header has no Extend button. | T-R4.26 | open: in lane 3's brief and 26's Done-when |
+| QA-F1-5 | T-R4.25: the sheet's "Grade answers" opens the full review, not Grading filtered to the student; T-R4.28 merged without it. | T-R4.26 | open: in lane 3's brief |
 | QA-F1-6 | T-R4.23 and T-R4.25: the keys exist in both locales (`parity.test.ts`), but the PRs do not list them as the box asks. | Tech Lead, at the release review | open |
 | QA-F1-7 | T-R4.17a: PR #386 records the canaries at its last commit only, not at the branch point. | Tech Lead, at the release review | open |
 | QA-16a-1 | T-R4.16a: `Test.assignments`' three correlated counts lift `listTests` at `limit=100` past `jit_above_cost`, so the first five runs per connection take 82–131 ms instead of about 15 ms. | backend, in T-R4.16b (one `LATERAL` aggregate) | fixed on #423; the tester re-measures in VER-16b |
@@ -325,6 +339,13 @@ and any reversal of the defaults above.
 | F-51 | `listTestVersions` answers 200 with no items and `previewTest` 409 for a missing or another teacher's test; consistent with a missing id, but not a 404. | senior_swe_backend | open |
 | INC-1 | `909115d4` on #469 reverted 49 files: it was committed from a working tree older than the Tech Lead's merge of the integration branch. The gates passed, because the old tree is self-consistent. | Tech Lead | fixed (`31c37362`) before the merge; T-28 |
 | SR-472-1 to 4 | The Principal's security review of #472: a progressive JPEG of near-empty scans holds a decode slot for minutes (major); the PNG estimate misses Adam7 and `tRNS`; a decoder panic leaves no trace; a 2 MiB file cannot be uploaded. | senior_swe_backend | fix round on #472 |
+| INC-2 | The handover lost unpushed work: #485's round 2, the R4 merge into the bell branch, and T-R4.49 C. | Tech Lead | closed: restarted from the pushed heads (T-34) |
+| F-56 | SR-49B-1 and 2 (the rehearsal printed timings; no test pinned a staff sitter's review) | senior_swe_backend | fixed on #486 (`fb490ab5`, `66e3db04`) |
+| F-54 | `AssignmentFormPage`, which carried spec §10.5 in full, is no longer routed (T-R4.46). | T-R4.48 | open: delete with the old tree |
+| F-53 | The temporary password `word-word-NN` is about 18.45 bits. Options: (A) as is, (B) a third word, about 24.4 bits, before T-R4.40 (recommended), (C) a 24-hour expiry (R5 size). | the user | open: #481 |
+| F-57 | Settings loses unsaved Profile edits on reload or leaving, without a warning (VER-43). Disclosed in #485. | the user | open: product question |
+| F-58 | "Mark all read" marks student-side items the teacher bell does not show; for an Admin who takes tests the dot and the list can disagree. | frontend, lane 2 | open: a risk in T-R4.45b's PR |
+| SR-420-1 to 4 | The Principal's review of #481: a word-list error message could log a candidate; a refused student costs a hash; `Forget` on a cancelled commit; no batch correlation in the audit rows. All low. | senior_swe_backend | open: follow-ups |
 | QA-34-6 | In the material editor, an image inserted at an audio block's cursor seemed to replace the audio block (VER-34, observation 6). | senior_swe_frontend, lane 3 | investigating in #471's round 2 |
 
 ## Reviews
@@ -404,11 +425,9 @@ and any reversal of the defaults above.
 ## Next action
 
 As each hand-off arrives:
-- **#471** merges after round 2 and green CI; lane 3 then resumes T-R4.46.
-- **#474** merges after VER-33; lane 1 takes the next task (24 or 40).
-- **#472** goes to the user once SR-472-1 to 4 are fixed and CI is green; **#473** waits on
-  the user. Whichever of the two merges second resolves the pinned counts, the golden, the
-  per-actor table and the generated code.
-- **F-46** opens as a PR; backend 2 then takes T-R4.20.
-- **Lane 2** finishes T-R4.38, then 39.
-- **F-37** waits on the user's go.
+- **#485** round 2 → the Principal's review and VER-43's retest → merge; lane 1 then merges it
+  into T-R4.44 and opens that PR.
+- **T-R4.45b** and **T-R4.26** open as PRs → the Principal's review → VER.
+- **T-R4.49 C** opens → the Principal's security review (T-29) → the user (T-22).
+- The tester's audit → one Tech Lead docs PR that ticks the boxes it finds done and files its gaps.
+- The user: #483, #484, #486 in order; #481 and F-53; F-57.

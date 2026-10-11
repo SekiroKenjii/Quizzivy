@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/attempts/application/internal/support"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/content"
 )
 
 type Reset struct {
@@ -17,5 +18,5 @@ type ResetHandler struct {
 }
 
 func (s ResetHandler) Handle(ctx context.Context, cmd Reset) (domain.Attempt, error) {
-	return s.Store.Reset(ctx, cmd.Request, cmd.AttemptID, cmd.Reason, s.Now())
+	return s.Store.Reset(ctx, cmd.Request, cmd.AttemptID, content.NFC(cmd.Reason), s.Now())
 }

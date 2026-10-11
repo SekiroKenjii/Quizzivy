@@ -1361,6 +1361,7 @@ listed here matches the spec.
 | D-35 | `assignments` gains a nullable `student_note`, 1 to 500 characters once trimmed of the whitespace JavaScript's `trim()` removes (the set of `shared/answered`, not `btrim`'s space alone) | The Student deck's Test intro draws a note from the teacher and the Teacher deck had no field for it (DG-71, T-R4.11). Nullable with no default, so the previous release's insert keeps working; the command trims the same set and stores NULL for a note that is blank once trimmed, so the check never meets an empty string, and a note of a tab, a newline or a no-break space is refused by the check as it is dropped by the command |
 | D-36 | Add `assignment_student_overrides (assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by, created_at, updated_at)` | §13.3 has no per-student accommodation, and R4 lets a teacher give one student more time, more attempts or a reopened window without touching the assignment everyone else has (T-R4.12). A separate table, not columns on `assignments`, because the rows are per student and optional: no row is the assignment as it is. A new table adds nothing the previous release reads or writes, so the rolling deploy needs no expand step (§38) |
 | D-37 | `refresh_tokens` gains a nullable `geo_label`, 1 to 80 characters | The Signed-in devices list names where a device last signed in or refreshed (T-R4.9, DG-58). A label is the edge's city and country at the request, so it is data about the request and lives beside `ip` and `user_agent` on the token row, which each rotation rewrites; a column on `users` or a table of devices would need a second writer and a second delete path. Nullable with no default, so the previous release's insert keeps working; the command stores NULL for no label, never an empty string, so the check never meets one (§39) |
+| D-38 | `00103_compose_text_nfc.sql` has a Down that does nothing, where every other file's Down undoes its Up (§13, AGENTS "Migrations") | The file changes data and no schema, and nothing records which rows were decomposed before it ran, so there is nothing to restore: NFC and NFD are the same text, a rolled-back binary reads composed text exactly as it read decomposed text, and the one row it deletes (a decomposed accepted answer whose composed twin exists) was equal to the grader's eyes, so it is not brought back. A Down that decomposed every row would be wrong, since it would also decompose what was composed before. The file says so in the Down, and up/down/up still passes because the Down leaves the schema and every row as they are (§40) |
 
 ---
 
@@ -1469,6 +1470,7 @@ the file it adds.
 | `00100_add_assignments_student_note.sql` | `assignments.student_note` and `assignments_student_note_check` (1 to 500 characters once trimmed of the `shared/answered` whitespace set), added with the column | R4 (T-R4.11), D-35 |
 | `00101_create_assignment_student_overrides.sql` | `assignment_student_overrides`, its four checks, `assignment_student_overrides_student_idx` and the `updated_at` trigger | R4 (T-R4.12), D-36 |
 | `00102_add_refresh_tokens_geo_label.sql` | `refresh_tokens.geo_label` and `refresh_tokens_geo_label_check` (1 to 80 characters), added with the column | R4 (T-R4.9), D-37 |
+| `00103_compose_text_nfc.sql` | Data only: composes to NFC the plain columns a person types, deletes a decomposed accepted answer whose composed twin exists, and keeps `updated_at` by disabling the eight named `set_updated_at` triggers for the transaction. The Down does nothing | R4 (F-37), D-38 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2732,3 +2734,71 @@ cheap, and a nullable column with no default rewrites nothing. The label reaches
 A session is a family with an unrevoked, unexpired row. The list reads it through
 `refresh_tokens_user_live_idx (user_id) WHERE revoked_at IS NULL`, and the current session's
 lookup by `token_hash` and `refresh_tokens_family_idx`; neither needed a new index.
+
+## 40. Composed text (F-37)
+
+`00103_compose_text_nfc.sql` changes data and no schema. Be Vietnam Pro draws the precomposed
+Vietnamese letters, so text a person typed in a decomposed form (Unikey's "Unicode tổ hợp", a file
+name from a Mac, a paste from a PDF) fell back to another font in a title or a name. From this
+release the server composes the text it stores (spec §12), and this file brings the rows written
+before to the same form.
+
+**What it rewrites.** Each plain column below is set to `normalize(col, NFC)` where it
+`IS NOT NFC NORMALIZED`, one `UPDATE` per column from a single list in a `DO` block:
+`tests` (`title`, `description`), `test_sections` (`title`, `instructions`), `questions`
+(`sample_answer`, `transcript`, `media_alt`, `tags`, and `prompt` and `explanation` only where
+`prompt_content` / `explanation_content` is null), `question_options.text` where `content` is null,
+`question_blank_answers.answer`, `question_groups.title`, `group_stimuli.title`,
+`group_recordings.transcript`, `classes` (`name`, `description`), `users` (`full_name`,
+`display_name`), `media_assets` (`display_name`, `original_filename`), `word_imports.title`,
+`word_import_sources.filename`, `assignments.student_note`, `assignment_student_overrides.reason`
+and `attempts` (`teacher_note`, `void_reason`). A tag array is composed element by element, a
+repeat that composing makes of two spellings is dropped, and the order of first appearance is kept.
+A value is left as it is when composing would take it past the `CHECK` that bounds its column
+(`tests.title` 200, `classes.name` 120, `attempts.teacher_note` 2000 and the rest of the list), which
+only a few scripts can do (U+0958 grows to two characters): no row can stop the deploy.
+
+**What it leaves, and why.** The published versions (`test_version_*`, `test_versions.change_note`)
+are frozen. `attempt_answers` is a student's saved work, and the server composes new saves.
+`attempt_events` and `audit_log` are append-only. Every prose document (`prompt_content`,
+`explanation_content`, `question_options.content`, `question_groups.instructions`,
+`group_stimuli.content`) and the plain text kept beside one are left together: a write checks that
+the text equals the document's projection, SQL cannot derive that projection, and composing the two
+apart breaks the equality where a combining mark opens a text node. The next save of such a row
+composes the pair, and the web composes it where it draws. Emails, passwords, tokens, join codes, ids,
+keys, kinds, statuses and URLs are never composed.
+
+**The accepted answers.** `UNIQUE (blank_id, answer)` would refuse composing a decomposed answer
+whose composed twin exists, so the file first deletes, per blank and per composed form, every row but
+one, preferring the row that is already composed. The grader folds the two spellings into one
+(`normalise` composes both sides), so the answer the deleted row gave is still accepted. The write
+path de-duplicates the same way.
+
+**`updated_at`.** `app.set_updated_at()` sets `updated_at := now()` on every `UPDATE`, unconditionally.
+`tests.updated_at` is the token an open editor sends back with its autosave (a moved one is a 409),
+the lists sort on it, and `word_imports.updated_at` is the clock idle retention reads. So for each of the eight
+tables that has such a trigger (`tests`, `questions`, `question_groups`, `classes`, `assignments`,
+`assignment_student_overrides`, `users`, `word_imports`) the file runs `ALTER TABLE … DISABLE TRIGGER
+<name>` before the rewrite and `ENABLE TRIGGER <name>` after it, in the same transaction. It names the
+trigger: never `ALL`, never `session_replication_role`. The other tables the file touches have no such
+trigger.
+
+**Lock and duration.** One transaction, no batching, no table rewrite, no index build. `DISABLE
+TRIGGER` takes `SHARE ROW EXCLUSIVE` on its table until the transaction commits: a write to one of
+those eight tables (the autosave of a test, a profile edit) waits, and a read does not. The
+`UPDATE`s take `ROW EXCLUSIVE` and block no reader and no writer of another row. Production holds tens
+of questions and a handful of accounts (T-R4.15), so the transaction lasts milliseconds to seconds.
+`SET LOCAL lock_timeout = '5s'` makes it fail instead of wait: a transaction that holds a conflicting
+lock for longer than five seconds makes the migration fail at its first `ALTER TABLE`, rather than queue
+every writer behind it. A failure rolls the whole transaction back, the disabled triggers included
+(`DISABLE TRIGGER` is transactional), so nothing is left half done or disabled, and the deploy is
+retried; the file is idempotent, so a retry, or a second run after the old binary has written
+decomposed text, changes only the rows that are not composed.
+
+**The deploy log.** The `DO` block raises `NOTICE`s: how many decomposed duplicate accepted answers
+were folded, the rows per column that the `CHECK` guard left (with the table and column, nonzero
+counts only), or that every listed column is composed. `TestTheComposeMigration*` captures them
+through pgx's `OnNotice`.
+
+**Down.** A no-op with a comment, a deliberate deviation (D-38). The file is data only and
+forward-safe.
