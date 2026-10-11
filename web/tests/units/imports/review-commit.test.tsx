@@ -1,20 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { http } from "msw";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import {
-  BASE,
-  TEST_ID,
-  deferred,
-  question,
-  review,
-  section,
-  summary,
-  wordImport,
-} from "./fixtures";
+import type { SaveImportReview } from "@/features/imports/api";
+import { BASE, IMPORT_ID, question, review, section, summary } from "./fixtures";
 import {
   baseline,
+  cardHeader,
+  isOpen,
   renderReview,
   serveReview,
   type ReviewServer,
@@ -37,13 +31,6 @@ function ready() {
   });
 }
 
-function committed() {
-  return contractJson("/teacher/imports/{id}/commit", "post", 200, {
-    testId: TEST_ID,
-    import: wordImport({ status: "committed", testId: TEST_ID, revision: 7 }),
-  });
-}
-
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   state = { puts: [], commits: [] };
@@ -53,104 +40,69 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("creating the draft test from a review", () => {
-  it("keeps Tạo bản nháp đề disabled until the saved review is ready, and links each open item", async () => {
+describe("leaving the review for Preview and create", () => {
+  it("saves a pending edit, then opens Preview and create", async () => {
     serveReview(baseline(), state);
-    const { user } = await renderReview();
+    const { user, router } = await renderReview();
+    await user.type(screen.getByLabelText("Tên đề"), "A");
     await user.click(
       screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
     );
-    const dialog = await screen.findByRole("dialog");
 
-    expect(
-      within(dialog).getByRole("button", { name: "Tạo bản nháp đề" }),
-    ).toBeDisabled();
+    expect(await screen.findByText("confirm page")).toBeInTheDocument();
+    expect(state.puts.at(-1)?.title).toBe("Đề thi học kỳ 1A");
+    expect(router.state.location.pathname).toBe(
+      `/teacher/imports/${IMPORT_ID}/confirm`,
+    );
+  });
+
+  it("stays on the review with the leave dialog when the edit cannot be saved", async () => {
+    serveReview(baseline(), state);
+    server.use(
+      http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
+        state.puts.push((await request.json()) as SaveImportReview);
+        return new Response(null, { status: 503 });
+      }),
+    );
+    const { user, router } = await renderReview();
+    await user.type(screen.getByLabelText("Tên đề"), "A");
     await user.click(
-      within(dialog).getByRole("button", { name: "Xem 2 mục cần xử lý" }),
+      screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
     );
 
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByRole("button", { name: "Cần xử lý 2" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByText("1 / 2 mục còn mở")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Rời trang rà soát?" });
+    expect(within(dialog).getByText(/Chưa lưu được thay đổi/)).toBeInTheDocument();
+    expect(screen.queryByText("confirm page")).toBeNull();
+    expect(router.state.location.pathname).toBe(`/teacher/imports/${IMPORT_ID}/review`);
+  });
+});
+
+describe("arriving from Preview and create with a filter", () => {
+  it("opens on the filter's first open finding and focuses it", async () => {
+    serveReview(baseline(), state);
+    await renderReview("?filter=review");
+
+    await waitFor(() => expect(document.activeElement?.id).toBe("finding-f-irregular"));
+    expect(isOpen("q2")).toBe(true);
+    expect(screen.getByText("1 / 1 mục còn mở")).toBeInTheDocument();
+  });
+
+  it("moves focus only once, not when the review renders again", async () => {
+    serveReview(baseline(), state);
+    const { user } = await renderReview("?filter=blocking");
     await waitFor(() => expect(document.activeElement?.id).toBe("finding-f-conflict"));
+
+    const title = screen.getByLabelText("Tên đề");
+    await user.click(title);
+    await user.type(title, "A");
+    await vi.advanceTimersByTimeAsync(1500);
+    await waitFor(() => expect(state.puts).toHaveLength(1));
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(title).toHaveFocus();
   });
+});
 
-  it("returns focus to the summary button when the summary closes", async () => {
-    serveReview(baseline(), state);
-    const { user } = await renderReview();
-    const open = screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!;
-    await user.click(open);
-    await screen.findByRole("dialog");
-    await user.keyboard("{Escape}");
-
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(open).toHaveFocus();
-  });
-
-  it("retries a lost commit with the same request, and names the draft it created", async () => {
-    serveReview(ready(), state);
-    let attempts = 0;
-    server.use(
-      http.post(`${BASE}/teacher/imports/:id/commit`, async ({ request }) => {
-        state.commits.push((await request.json()) as ReviewServer["commits"][number]);
-        attempts += 1;
-        if (attempts === 1) return HttpResponse.error();
-        return committed();
-      }),
-    );
-    const { user } = await renderReview();
-    await user.click(
-      screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
-    );
-    const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Tạo bản nháp đề" }));
-
-    expect(
-      await within(dialog).findByText(/Thử lại sẽ không tạo đề trùng/),
-    ).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Thử lại" }));
-
-    expect(await within(dialog).findByText("Đã tạo bản nháp đề")).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("link", { name: "Mở trình soạn đề" }),
-    ).toHaveAttribute("href", `/teacher/tests/${TEST_ID}/edit`);
-    expect(state.commits).toHaveLength(2);
-    expect(
-      state.commits[1]!.requestId,
-      "a lost response replays the same request",
-    ).toBe(state.commits[0]!.requestId);
-    expect(state.commits[1]!.draftRevision).toBe(1);
-  });
-
-  it("ignores a second click while the commit is pending", async () => {
-    serveReview(ready(), state);
-    const gate = deferred<void>();
-    server.use(
-      http.post(`${BASE}/teacher/imports/:id/commit`, async ({ request }) => {
-        state.commits.push((await request.json()) as ReviewServer["commits"][number]);
-        await gate.promise;
-        return committed();
-      }),
-    );
-    const { user } = await renderReview();
-    await user.click(
-      screen.getAllByRole("button", { name: "Xem trước và hoàn tất" })[0]!,
-    );
-    const dialog = await screen.findByRole("dialog");
-    const commit = within(dialog).getByRole("button", { name: "Tạo bản nháp đề" });
-    await user.click(commit);
-    await waitFor(() => expect(state.commits).toHaveLength(1));
-    expect(within(dialog).getByRole("button", { name: "Đang tạo…" })).toBeDisabled();
-    await user.click(within(dialog).getByRole("button", { name: "Đang tạo…" }));
-
-    gate.resolve();
-    expect(await within(dialog).findByText("Đã tạo bản nháp đề")).toBeInTheDocument();
-    expect(state.commits).toHaveLength(1);
-  });
-
+describe("a newer processing result", () => {
   it("adopts a newer processing result only after the teacher confirms losing their edits", async () => {
     serveReview(review(ready().draft.sections, [], { reprocessed: true }), state);
     const adopted: number[] = [];
@@ -181,5 +133,20 @@ describe("creating the draft test from a review", () => {
     await waitFor(() =>
       expect(screen.queryByText(/Có kết quả xử lý mới hơn/)).toBeNull(),
     );
+  });
+});
+
+describe("arriving from Preview and create for one question", () => {
+  it("opens that question's card and focuses it", async () => {
+    serveReview(baseline(), state);
+    await renderReview("?question=q2");
+    expect(isOpen("q2")).toBe(true);
+    await waitFor(() => expect(cardHeader("q2")).toHaveFocus());
+  });
+
+  it("falls back to the first open finding for a question it does not have", async () => {
+    serveReview(baseline(), state);
+    await renderReview("?question=missing");
+    expect(isOpen("q1")).toBe(true);
   });
 });

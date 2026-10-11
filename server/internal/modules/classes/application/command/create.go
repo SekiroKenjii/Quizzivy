@@ -5,6 +5,7 @@ import (
 	"quizzivy/internal/modules/classes/application/internal/support"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/shared/actor"
+	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/opt"
 )
 
@@ -24,9 +25,17 @@ type CreateHandler struct {
 }
 
 func (s CreateHandler) Handle(ctx context.Context, cmd Create) (domain.Class, error) {
+	var c content.Composer
+	name := c.Text("name", cmd.Name, domain.MaxClassName)
+	description := c.Optional("description", cmd.Description, 0)
+	scheduleLabel := c.Optional("scheduleLabel", cmd.ScheduleLabel, domain.MaxScheduleLabel)
+	room := c.Optional("room", cmd.Room, domain.MaxRoom)
+	if err := c.Err(); err != nil {
+		return domain.Class{}, err
+	}
 	class, err := s.Repo.Create(ctx, domain.CreateInput{
-		Name: cmd.Name, Description: cmd.Description, SelfJoinEnabled: cmd.SelfJoin, ActorUserID: cmd.Actor.ID,
-		ScheduleLabel: domain.LabelOf(cmd.ScheduleLabel), Room: domain.LabelOf(cmd.Room),
+		Name: name, Description: description, SelfJoinEnabled: cmd.SelfJoin, ActorUserID: cmd.Actor.ID,
+		ScheduleLabel: domain.LabelOf(scheduleLabel), Room: domain.LabelOf(room),
 		Now: s.Now(), IP: opt.String(cmd.Actor.IP), UserAgent: opt.String(cmd.Actor.UserAgent),
 	})
 	if err != nil {

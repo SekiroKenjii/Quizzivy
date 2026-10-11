@@ -5,6 +5,7 @@ import (
 	"quizzivy/internal/modules/attempts/application/internal/support"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/content"
 )
 
 // Grade marks a paper on an assignment Scope reaches, as GraderID.
@@ -20,5 +21,13 @@ type GradeHandler struct {
 }
 
 func (r GradeHandler) Handle(ctx context.Context, cmd Grade) (domain.Score, error) {
-	return r.Repo.Grade(ctx, cmd.Scope, cmd.AttemptID, cmd.GraderID, cmd.Items)
+	items := cmd.Items
+	if items != nil {
+		items = make([]domain.GradeItem, len(cmd.Items))
+		for i, item := range cmd.Items {
+			item.Comment = content.NFCPtr(item.Comment)
+			items[i] = item
+		}
+	}
+	return r.Repo.Grade(ctx, cmd.Scope, cmd.AttemptID, cmd.GraderID, items)
 }

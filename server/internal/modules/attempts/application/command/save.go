@@ -17,6 +17,13 @@ type SaveHandler struct {
 }
 
 func (s SaveHandler) Handle(ctx context.Context, cmd Save) (domain.SaveResult, error) {
+	if cmd.Input.Answers != nil {
+		answers := make([]domain.Answer, len(cmd.Input.Answers))
+		for i, answer := range cmd.Input.Answers {
+			answers[i] = answer.Composed()
+		}
+		cmd.Input.Answers = answers
+	}
 	saved, reached, err := s.Store.Save(ctx, cmd.Input, s.Now())
 	if err != nil {
 		return saved, err

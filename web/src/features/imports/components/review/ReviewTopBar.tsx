@@ -1,4 +1,3 @@
-import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
@@ -86,7 +85,6 @@ export function ReviewTopBar({
   onRetry,
   blocking,
   review,
-  finishRef,
   finishDisabled,
   onFinish,
 }: Readonly<{
@@ -99,7 +97,6 @@ export function ReviewTopBar({
   onRetry: () => void;
   blocking: number;
   review: number;
-  finishRef: RefObject<HTMLButtonElement | null>;
   finishDisabled: boolean;
   onFinish: () => void;
 }>) {
@@ -176,7 +173,6 @@ export function ReviewTopBar({
         ))}
       </ul>
       <Button
-        ref={finishRef}
         className="h-9 font-semibold"
         disabled={finishDisabled}
         onClick={onFinish}

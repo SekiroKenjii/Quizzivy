@@ -20,10 +20,13 @@ type UpdateHandler struct {
 }
 
 func (s UpdateHandler) Handle(ctx context.Context, cmd Update) (domain.Class, error) {
-	in := cmd.Input
-	in.ScheduleLabel.Value = domain.LabelOf(in.ScheduleLabel.Value)
-	in.Room.Value = domain.LabelOf(in.Room.Value)
-	class, err := s.Repo.Update(ctx, cmd.Scope, cmd.ClassID, in)
+	input, err := cmd.Input.Composed()
+	if err != nil {
+		return domain.Class{}, err
+	}
+	input.ScheduleLabel.Value = domain.LabelOf(input.ScheduleLabel.Value)
+	input.Room.Value = domain.LabelOf(input.Room.Value)
+	class, err := s.Repo.Update(ctx, cmd.Scope, cmd.ClassID, input)
 	if err != nil {
 		return domain.Class{}, err
 	}

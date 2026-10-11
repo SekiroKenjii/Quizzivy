@@ -12,9 +12,14 @@ import (
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/stats"
+	"quizzivy/internal/shared/validation"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+func msgClassInvalid(ctx context.Context) string {
+	return httpx.Text(ctx, "Dữ liệu lớp học không hợp lệ.", "The class data is not valid.")
+}
 
 func msgClassNotFound(ctx context.Context) string {
 	return httpx.Text(ctx, "Không tìm thấy lớp học.", "The class was not found.")
@@ -74,10 +79,15 @@ func (h Classes) UpdateClass(ctx context.Context, request openapi.UpdateClassReq
 		class, err = h.app.Commands.Archive.Handle(ctx, command.Archive{ClassID: request.Id.String(), Archived: *request.Body.Archived, Actor: who})
 	}
 	if err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
+		var invalid *validation.Error
+		switch {
+		case errors.Is(err, domain.ErrNotFound):
 			return openapi.UpdateClass404JSONResponse{
 				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound(ctx))),
 			}, nil
+		case errors.As(err, &invalid):
+			return openapi.UpdateClass400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+				httpapi.Invalid(ctx, msgClassInvalid(ctx), invalid))}, nil
 		}
 		return nil, err
 	}
@@ -100,6 +110,11 @@ func (h Classes) CreateClass(ctx context.Context, request openapi.CreateClassReq
 		Name: request.Body.Name, Description: request.Body.Description,
 		ScheduleLabel: request.Body.ScheduleLabel, Room: request.Body.Room, SelfJoin: selfJoin, Actor: who,
 	})
+	var invalid *validation.Error
+	if errors.As(err, &invalid) {
+		return openapi.CreateClass400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.Invalid(ctx, msgClassInvalid(ctx), invalid))}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
