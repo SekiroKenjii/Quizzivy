@@ -16,6 +16,7 @@ const BASE = "http://localhost:8080";
 const CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
 const MINH = "018f0000-0000-7000-8000-0000000000e1";
 const HAN = "018f0000-0000-7000-8000-0000000000e2";
+const LAN = "018f0000-0000-7000-8000-0000000000e3";
 
 const klass = {
   id: CLASS_ID,
@@ -372,6 +373,87 @@ describe("adding students", () => {
     expect(await screen.findByText("Đã thêm 1 học viên")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(opener).toHaveFocus();
+  });
+
+  it("after a partial failure keeps only the one it could not add, counts only the new ones and shows the added one as a member", async () => {
+    const joined = new Set<string>();
+    let lanRefused = false;
+    const pupil = (id: string, fullName: string) => ({
+      id,
+      email: `${id.slice(-4)}@gmail.com`,
+      fullName,
+      hasPassword: true,
+      linkedProviders: [],
+      mustChangePassword: false,
+      createdAt: "2026-06-01T00:00:00Z",
+      disabledAt: null,
+      classes: joined.has(id)
+        ? [
+            {
+              id: CLASS_ID,
+              name: klass.name,
+              joinedVia: "admin",
+              joinedAt: "2026-10-11T01:00:00Z",
+            },
+          ]
+        : [],
+      stats: stats({}),
+    });
+    server.use(
+      http.post(`${BASE}/teacher/classes/${CLASS_ID}/members`, async ({ request }) => {
+        const body = (await request.json()) as { userId: string };
+        additions.push(body);
+        if (body.userId === LAN && !lanRefused) {
+          lanRefused = true;
+          return HttpResponse.json(
+            { error: { code: "NOT_FOUND", message: "Không tìm thấy học viên" } },
+            { status: 404 },
+          );
+        }
+        joined.add(body.userId);
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get(`${BASE}/teacher/students`, () =>
+        contractJson("/teacher/students", "get", 200, {
+          items: [pupil(HAN, "Phạm Gia Hân"), pupil(LAN, "Đỗ Ngọc Lan")],
+          facets: { total: 2, activeLast7Days: 0 },
+          page: 1,
+          pageSize: 20,
+          total: 2,
+        }),
+      ),
+    );
+    const { user } = renderDetail();
+    await user.click(await screen.findByRole("button", { name: "Thêm học viên" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: `Thêm học viên vào ${klass.name}`,
+    });
+    await user.click(
+      await within(dialog).findByRole("checkbox", { name: /Phạm Gia Hân/ }),
+    );
+    await user.click(within(dialog).getByRole("checkbox", { name: /Đỗ Ngọc Lan/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Thêm 2" }));
+    expect(await within(dialog).findByText(/Đỗ Ngọc Lan: /)).toBeInTheDocument();
+    const toasts = (await screen.findAllByText("Đã thêm 1 học viên")).length;
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("checkbox", { name: /Phạm Gia Hân/ }),
+      ).toHaveAttribute("aria-disabled", "true"),
+    );
+    expect(
+      within(dialog).getByRole("checkbox", { name: /Phạm Gia Hân/ }),
+    ).toHaveTextContent("đã trong lớp");
+    expect(
+      within(dialog).getByRole("checkbox", { name: /Đỗ Ngọc Lan/ }),
+    ).toHaveAttribute("aria-checked", "true");
+    await user.click(within(dialog).getByRole("button", { name: "Thêm 1" }));
+    await waitFor(() =>
+      expect(additions).toEqual([{ userId: HAN }, { userId: LAN }, { userId: LAN }]),
+    );
+    await waitFor(() =>
+      expect(screen.getAllByText("Đã thêm 1 học viên").length).toBeGreaterThan(toasts),
+    );
+    expect(screen.queryByText("Đã thêm 2 học viên")).toBeNull();
   });
 });
 

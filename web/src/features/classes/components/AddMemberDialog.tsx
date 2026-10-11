@@ -27,8 +27,9 @@ const FOOTER_BUTTON =
  * over the students the caller reaches, one row per student with the
  * classes they are in, ticked to add, those already in the class shown and
  * not choosable, and "Add {n}", which asks for at least one. It adds them
- * one by one and names any it could not add. Focus goes back to
- * `returnFocus` when it closes.
+ * one by one and names any it could not add; the ones it added leave the
+ * selection, the toast counts only them, and the list is read again so they
+ * show as members. Focus goes back to `returnFocus` when it closes.
  */
 export function AddMemberDialog({
   klass,
@@ -59,21 +60,31 @@ export function AddMemberDialog({
 
   const add = useMutation({
     mutationFn: async (ids: readonly string[]) => {
+      const added: string[] = [];
       const failed: string[] = [];
       for (const id of ids) {
         try {
           await addMember(klass.id, id);
+          added.push(id);
         } catch (cause) {
           failed.push(
             `${chosen.get(id) ?? id}: ${cause instanceof ApiError ? cause.message : t("classDetail.addFailed")}`,
           );
         }
       }
-      return { added: ids.length - failed.length, failed };
+      return { added, failed };
     },
     onSuccess: async ({ added, failed }) => {
-      await invalidateClassMembership(queryClient, klass.id);
-      if (added > 0) toast(t("classDetail.addedCount", { count: added }));
+      setChosen((current) => {
+        const next = new Map(current);
+        for (const id of added) next.delete(id);
+        return next;
+      });
+      if (added.length > 0) toast(t("classDetail.addedCount", { count: added.length }));
+      await Promise.all([
+        invalidateClassMembership(queryClient, klass.id),
+        queryClient.invalidateQueries({ queryKey: ["admin-students"] }),
+      ]);
       if (failed.length === 0) close();
     },
   });
