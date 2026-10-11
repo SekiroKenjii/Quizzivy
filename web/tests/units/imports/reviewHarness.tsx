@@ -170,16 +170,17 @@ export function savedFrom(initial: ImportReview, body: SaveImportReview): Import
   };
 }
 
-export async function renderReview() {
+export async function renderReview(search = "") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
       { path: "/teacher/imports/:id/review", element: <ImportReviewPage /> },
       { path: "/teacher/imports/:id", element: <p>import detail</p> },
+      { path: "/teacher/imports/:id/confirm", element: <p>confirm page</p> },
       { path: "/teacher/imports", element: <p>history</p> },
       { path: "/teacher/tests/:id/edit", element: <p>builder</p> },
     ],
-    { initialEntries: [`/teacher/imports/${IMPORT_ID}/review`] },
+    { initialEntries: [`/teacher/imports/${IMPORT_ID}/review${search}`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -188,4 +189,26 @@ export async function renderReview() {
   );
   await screen.findByLabelText("Tên đề");
   return { user: userEvent.setup({ advanceTimers: vi.advanceTimersByTime }), router };
+}
+
+/** card is the review card of a question, by question id, or the whole-test card. */
+export function card(id: string): HTMLElement {
+  const found = document.querySelector<HTMLElement>(`[data-card="${id}"]`);
+  if (found === null) throw new Error(`no card ${id}`);
+  return found;
+}
+
+/** cardHeader is the button that opens and closes a card. */
+export function cardHeader(id: string): HTMLElement {
+  const found = card(id).querySelector<HTMLElement>("button[aria-expanded]");
+  if (found === null) throw new Error(`no header for card ${id}`);
+  return found;
+}
+
+/** isOpen reports whether a card is the open one. */
+export function isOpen(id: string): boolean {
+  return (
+    document.querySelector(`[data-card="${id}"] > button[aria-expanded="true"]`) !==
+    null
+  );
 }

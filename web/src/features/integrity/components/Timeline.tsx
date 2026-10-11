@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
@@ -21,6 +22,7 @@ import {
 import { POLL_MS, eventsKey } from "@/features/attempts/keys";
 import { TeacherNoteCard } from "@/features/attempts/components/TeacherNoteCard";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
+import { useOverflowsX } from "@/hooks/useOverflowsX";
 import { formatInTimeZone } from "date-fns-tz";
 import { getDisplayTimeZone, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
@@ -30,16 +32,24 @@ import {
   timelineRows,
   type TimelineFilter,
 } from "../timeline";
+import { TIMELINE_DOT, timelineMark, type TimelineMark } from "../tones";
 
 const FILTERS: TimelineFilter[] = ["all", "away", "audio", "network"];
+const TABLE_SCROLLER =
+  "-mx-1 overflow-x-auto rounded-md px-1 [&>[data-slot=table-container]]:w-max [&>[data-slot=table-container]]:min-w-full [&>[data-slot=table-container]]:overflow-visible";
 
-/** Timeline presents neutral paired events, preserving the full review by default and omitting its autosave note in compact mode. */
+/**
+ * Timeline presents an attempt's paired events: the full review by default,
+ * or in compact mode the deck's dotted list, from the start to the submission,
+ * without the note card.
+ */
 export function Timeline({
   attemptId,
   questions,
   live,
   note,
   onViewPaper,
+  submittedAt = null,
   presentation = "full",
 }: Readonly<{
   attemptId: string;
@@ -49,11 +59,14 @@ export function Timeline({
   /** G-05's private note as last saved; the card autosaves from here. */
   note: string | null;
   onViewPaper: () => void;
+  /** When the compact list ends with "Submitted"; null while there is nothing handed in. */
+  submittedAt?: string | null;
   presentation?: "full" | "compact";
 }>) {
   useDisplayTimeZone();
   const { t } = useTranslation();
   const [filter, setFilter] = useState<TimelineFilter>("all");
+  const [scroller, scrolls] = useOverflowsX<HTMLDivElement>();
   const refetchInterval = useIdlePolling(POLL_MS, live);
   const events = useQuery({
     queryKey: eventsKey(attemptId),
@@ -93,41 +106,40 @@ export function Timeline({
           {t("assignmentDetail.sheet.timeline")}
         </h2>
         <ol className="text-sm">
-          <li className="flex gap-3 pb-3.5">
-            <span
-              aria-hidden="true"
-              className="bg-info mt-1.25 size-2.5 shrink-0 rounded-full"
-            />
-            <div>
-              {t("timeline.kind.started")}
-              <p className="text-muted-fg text-xs tabular-nums">
-                {clockTime(data.startedAt)}
-              </p>
-            </div>
-          </li>
+          <CompactRow mark="start" when={clockTime(data.startedAt)}>
+            {t("timeline.kind.started")}
+          </CompactRow>
+          {rows.length === 0 && (
+            <CompactRow mark="autosave" when={t("timeline.autosavedWhen")}>
+              {t("timeline.autosaved")}
+            </CompactRow>
+          )}
           {rows.map(({ event, ongoing, playNo }) => (
-            <li key={event.id} className="flex gap-3 pb-3.5">
-              <span
-                aria-hidden="true"
-                className="bg-muted-fg mt-1.25 size-2.5 shrink-0 rounded-full"
+            <CompactRow
+              key={event.id}
+              mark={timelineMark(event.kind)}
+              when={
+                event.questionId && numberOf.has(event.questionId)
+                  ? `${clockTime(event.occurredAt)} · ${t("timeline.columns.question")} ${numberOf.get(event.questionId)}`
+                  : clockTime(event.occurredAt)
+              }
+            >
+              <EventLabel
+                event={event}
+                playNo={playNo}
+                ongoing={ongoing}
+                questions={questions}
               />
-              <div className="min-w-0 flex-1">
-                <EventLabel
-                  event={event}
-                  playNo={playNo}
-                  ongoing={ongoing}
-                  questions={questions}
-                />
-                <p className="text-muted-fg text-xs tabular-nums">
-                  {clockTime(event.occurredAt)} ·{" "}
-                  <DurationCell event={event} ongoing={ongoing} />
-                  {event.questionId && numberOf.has(event.questionId)
-                    ? ` · ${t("timeline.columns.question")} ${numberOf.get(event.questionId)}`
-                    : ""}
-                </p>
-              </div>
-            </li>
+              {!ongoing && event.durationMs != null && (
+                <> · {spokenSpan(event.durationMs, t)}</>
+              )}
+            </CompactRow>
           ))}
+          {submittedAt !== null && (
+            <CompactRow mark="submitted" when={clockTime(submittedAt)}>
+              {t("timeline.kind.submitted")}
+            </CompactRow>
+          )}
         </ol>
         <details className="text-muted-fg text-xs">
           <summary className="cursor-pointer">{t("timeline.help.title")}</summary>
@@ -141,7 +153,7 @@ export function Timeline({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-3 lg:grid-cols-6 lg:gap-4">
         <Strip
           label={t("timeline.strip.totalAway")}
           hint={open ? t("timeline.strip.openNotSummed") : null}
@@ -170,13 +182,13 @@ export function Timeline({
         </Strip>
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
-        <Card className="col-span-2 gap-0">
-          <CardHeader className="flex items-center justify-between">
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Card className="min-w-0 gap-0 lg:col-span-2">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle>{t("timeline.title")}</CardTitle>
             {!empty && (
               <div
-                className="flex items-center gap-1.5"
+                className="flex flex-wrap items-center gap-1.5"
                 role="group"
                 aria-label={t("timeline.filter")}
               >
@@ -208,70 +220,79 @@ export function Timeline({
               </EmptyState>
             ) : (
               <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[90px]">
-                        {t("timeline.columns.at")}
-                      </TableHead>
-                      <TableHead className="w-[90px]">
-                        {t("timeline.columns.offset")}
-                      </TableHead>
-                      <TableHead>{t("timeline.columns.event")}</TableHead>
-                      <TableHead className="text-right">
-                        {t("timeline.columns.duration")}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t("timeline.columns.question")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="text-muted-foreground tabular-nums">
-                        {clockTime(data.startedAt)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground tabular-nums">
-                        {clockSpan(0)}
-                      </TableCell>
-                      <TableCell>{t("timeline.kind.started")}</TableCell>
-                      <TableCell className="text-muted-foreground text-right">
-                        —
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-right">
-                        {1}
-                      </TableCell>
-                    </TableRow>
-                    {rows.map(({ event, ongoing, playNo }) => (
-                      <TableRow key={event.id}>
+                <div
+                  ref={scroller}
+                  role="region"
+                  aria-label={t("timeline.title")}
+                  // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- A scroll region needs keyboard access while it scrolls.
+                  tabIndex={scrolls ? 0 : undefined}
+                  className={TABLE_SCROLLER}
+                >
+                  <Table className="min-w-[34rem]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[90px]">
+                          {t("timeline.columns.at")}
+                        </TableHead>
+                        <TableHead className="w-[90px]">
+                          {t("timeline.columns.offset")}
+                        </TableHead>
+                        <TableHead>{t("timeline.columns.event")}</TableHead>
+                        <TableHead className="text-right">
+                          {t("timeline.columns.duration")}
+                        </TableHead>
+                        <TableHead className="text-right">
+                          {t("timeline.columns.question")}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
                         <TableCell className="text-muted-foreground tabular-nums">
-                          {clockTime(event.occurredAt)}
+                          {clockTime(data.startedAt)}
                         </TableCell>
                         <TableCell className="text-muted-foreground tabular-nums">
-                          {clockSpan(event.offsetMs)}
+                          {clockSpan(0)}
                         </TableCell>
-                        <TableCell>
-                          <EventLabel
-                            event={event}
-                            playNo={playNo}
-                            ongoing={ongoing}
-                            questions={questions}
-                          />
+                        <TableCell>{t("timeline.kind.started")}</TableCell>
+                        <TableCell className="text-muted-foreground text-right">
+                          —
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          <DurationCell event={event} ongoing={ongoing} />
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {event.questionId && numberOf.has(event.questionId) ? (
-                            numberOf.get(event.questionId)
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                        <TableCell className="text-muted-foreground text-right">
+                          {1}
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                      {rows.map(({ event, ongoing, playNo }) => (
+                        <TableRow key={event.id}>
+                          <TableCell className="text-muted-foreground tabular-nums">
+                            {clockTime(event.occurredAt)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground tabular-nums">
+                            {clockSpan(event.offsetMs)}
+                          </TableCell>
+                          <TableCell>
+                            <EventLabel
+                              event={event}
+                              playNo={playNo}
+                              ongoing={ongoing}
+                              questions={questions}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <DurationCell event={event} ongoing={ongoing} />
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {event.questionId && numberOf.has(event.questionId) ? (
+                              numberOf.get(event.questionId)
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
                 {live && (
                   <p className="text-muted-foreground mt-3 text-xs">
                     {t("timeline.updatedAt", {
@@ -285,7 +306,7 @@ export function Timeline({
           </CardContent>
         </Card>
 
-        <div className="space-y-5 self-start">
+        <div className="min-w-0 space-y-5 self-start">
           <Card className="gap-0">
             <CardHeader>
               <CardTitle>{t("timeline.help.title")}</CardTitle>
@@ -347,6 +368,37 @@ function EventLabel({
   );
 }
 
+function CompactRow({
+  mark,
+  when,
+  children,
+}: Readonly<{ mark: TimelineMark; when: string; children: React.ReactNode }>) {
+  return (
+    <li className="flex gap-3 pb-3.5">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "ring-card mt-1.25 size-2.5 shrink-0 rounded-full ring-3",
+          TIMELINE_DOT[mark],
+        )}
+      />
+      <div className="min-w-0 flex-1">
+        {children}
+        <p className="text-muted-fg text-xs tabular-nums">{when}</p>
+      </div>
+    </li>
+  );
+}
+
+function spokenSpan(ms: number, t: TFunction): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  if (minutes === 0) return t("timeline.span.seconds", { n: seconds });
+  if (seconds === 0) return t("timeline.span.minutes", { n: minutes });
+  return t("timeline.span.minutesSeconds", { m: minutes, s: seconds });
+}
+
 function Strip({
   label,
   hint = null,
@@ -387,7 +439,7 @@ function TimelineSkeleton() {
       aria-label={t("common.loading")}
       className="space-y-5"
     >
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-3 lg:grid-cols-6 lg:gap-4">
         {Array.from({ length: 6 }, (_, i) => (
           <Card key={i}>
             <CardContent>

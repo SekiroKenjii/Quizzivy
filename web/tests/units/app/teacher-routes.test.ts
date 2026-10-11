@@ -20,6 +20,7 @@ const TEACHER_TREE = [
   ["/teacher/imports/new", "features/imports/pages/teacher/NewImportPage"],
   ["/teacher/imports/:id", "features/imports/pages/teacher/ImportDetailPage"],
   ["/teacher/imports/:id/review", "features/imports/pages/teacher/ImportReviewPage"],
+  ["/teacher/imports/:id/confirm", "features/imports/pages/teacher/ImportConfirmPage"],
   ["/teacher/question-bank", "features/question-bank/pages/teacher/QuestionBankPage"],
   [
     "/teacher/question-bank/groups",

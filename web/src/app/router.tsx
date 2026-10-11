@@ -129,8 +129,32 @@ const teacherTree: RouteObject = {
             },
             {
               path: ":id/review",
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "tests.importHistory", to: "/teacher/imports" },
+                  { key: "imports.review.crumb" },
+                ],
+                width: "full",
+                sidebar: "collapsed",
+              },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/ImportReviewPage"),
+              ),
+            },
+            {
+              path: ":id/confirm",
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "tests.importHistory", to: "/teacher/imports" },
+                  { key: "imports.review.crumb" },
+                  { key: "imports.confirm.crumb" },
+                ],
+                width: 1320,
+              },
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/ImportConfirmPage"),
               ),
             },
           ],
@@ -202,6 +226,7 @@ const teacherTree: RouteObject = {
         },
         {
           path: "assignments",
+          handle: { crumb: [{ key: "teacherShell.nav.assignments" }], width: 1320 },
           lazy: page(
             () => import("@/features/assignments/pages/teacher/AssignmentsListPage"),
           ),
@@ -251,6 +276,14 @@ const teacherTree: RouteObject = {
         },
         {
           path: "attempts/:id",
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
+              { key: "assignmentDetail.title" },
+              { key: "review.title" },
+            ],
+            width: 1320,
+          },
           lazy: page(
             () => import("@/features/attempts/pages/teacher/AttemptReviewPage"),
           ),
