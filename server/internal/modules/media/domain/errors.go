@@ -28,6 +28,9 @@ var ErrInvalidPlayLimit = errors.New("media: the play limit is out of range")
 // ErrInvalidName refuses a display name that is blank once trimmed or longer than MaxDisplayNameLength.
 var ErrInvalidName = errors.New("media: the display name is blank or too long")
 
+// ErrInvalidFilename refuses an upload whose file name holds the character U+0000, which no text column stores.
+var ErrInvalidFilename = errors.New("media: the file name holds a NUL character")
+
 // ErrNothingToUpdate refuses an update that names no change.
 var ErrNothingToUpdate = errors.New("media: the update changes nothing")
 
