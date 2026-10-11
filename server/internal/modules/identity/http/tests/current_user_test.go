@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -59,19 +60,18 @@ func TestTheSignedInUserSeesTheirPermissionsAndWorkspaces(t *testing.T) {
 	)
 	cases := []struct {
 		name        string
-		role        string
 		permissions access.Set
 		workspaces  []openapi.Workspace
 	}{
-		{"admin", "admin", access.NewSet(access.All()...).Without(access.LearningTakeTests), []openapi.Workspace{openapi.WorkspaceTeacher, openapi.WorkspaceAdmin}},
-		{"teacher", "admin", teacher, []openapi.Workspace{openapi.WorkspaceTeacher}},
-		{"assistant", "admin", assistant, []openapi.Workspace{openapi.WorkspaceTeacher}},
-		{"student", "student", access.NewSet(access.LearningTakeTests), []openapi.Workspace{openapi.WorkspaceApp}},
+		{"admin", access.NewSet(access.All()...).Without(access.LearningTakeTests), []openapi.Workspace{openapi.WorkspaceTeacher, openapi.WorkspaceAdmin}},
+		{"teacher", teacher, []openapi.Workspace{openapi.WorkspaceTeacher}},
+		{"assistant", assistant, []openapi.Workspace{openapi.WorkspaceTeacher}},
+		{"student", access.NewSet(access.LearningTakeTests), []openapi.Workspace{openapi.WorkspaceApp}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			id := "01935000-0000-7000-8000-0000000000a1"
-			user := domain.User{ID: id, Email: c.name + "@example.com", FullName: "Nguyễn Văn An", Role: c.role, CreatedAt: time.Now()}
+			user := domain.User{ID: id, Email: c.name + "@example.com", FullName: "Nguyễn Văn An", CreatedAt: time.Now()}
 			h := identityhttp.NewIdentity(currentUserApp(user), time.Hour, true, nil)
 			resp, err := h.GetCurrentUser(contextAs(t, access.Principal{UserID: id, Permissions: c.permissions}), openapi.GetCurrentUserRequestObject{})
 			if err != nil {
@@ -91,8 +91,16 @@ func TestTheSignedInUserSeesTheirPermissionsAndWorkspaces(t *testing.T) {
 			if !slices.Equal(body.Workspaces, c.workspaces) {
 				t.Errorf("workspaces = %v, want %v", body.Workspaces, c.workspaces)
 			}
-			if string(body.Role) != c.role {
-				t.Errorf("role = %q, want the legacy %q", body.Role, c.role)
+			wire, err := json.Marshal(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(wire, &fields); err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := fields["role"]; ok {
+				t.Errorf("the response carries a role: %s", wire)
 			}
 		})
 	}

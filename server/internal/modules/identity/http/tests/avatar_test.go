@@ -27,7 +27,7 @@ import (
 const avatarUserID = "01935000-0000-7000-8000-0000000000a1"
 
 func avatarUser(key *string) domain.User {
-	return domain.User{ID: avatarUserID, Email: "photo@example.com", FullName: "Có ảnh", Role: "student", AvatarKey: key, CreatedAt: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+	return domain.User{ID: avatarUserID, Email: "photo@example.com", FullName: "Có ảnh", AvatarKey: key, CreatedAt: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
 }
 
 func upload(t *testing.T, parts ...[2]string) *multipart.Reader {

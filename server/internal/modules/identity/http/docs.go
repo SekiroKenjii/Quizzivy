@@ -14,8 +14,6 @@ import (
 
 const docsCookieName = "quizzivy_docs"
 
-const legacyAdminRole = "admin"
-
 // OpenDocsSession sets the caller's fifteen-minute docs session cookie, which
 // RequireDocsSession accepts on /docs. The operation requires
 // system.api_reference, which only the Admin holds, and the cookie carries the
@@ -28,7 +26,7 @@ func (h Identity) OpenDocsSession(ctx context.Context, _ openapi.OpenDocsSession
 	if !ok {
 		return nil, errors.New("docs session requested without an authenticated principal")
 	}
-	raw, err := h.docs.Issue(principal.UserID, legacyAdminRole, principal.Epoch)
+	raw, err := h.docs.Issue(principal.UserID, principal.Epoch)
 	if err != nil {
 		return nil, err
 	}

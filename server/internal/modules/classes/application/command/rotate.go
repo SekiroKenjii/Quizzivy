@@ -10,7 +10,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// Rotate issues a new join code, revoking any existing one.
+// Rotate issues a new join code, revoking any existing one. The code works
+// through 23:59:59 on the day ExpiresInDays after today in the calendar zone of
+// the actor's profile (domain.CodeExpiry).
 type Rotate struct {
 	Request domain.RotateRequest
 }
@@ -53,7 +55,7 @@ func (s RotateHandler) Handle(ctx context.Context, cmd Rotate) (domain.Rotated, 
 		Ciphertext:  sealed,
 		KeyID:       s.Keys.CurrentID(),
 		Hint:        domain.JoinCodes.Hint(code),
-		ExpiresAt:   now.AddDate(0, 0, days),
+		ExpiresAt:   domain.CodeExpiry(now, days, s.ZoneOf(ctx, cmd.Request.ActorUserID)),
 		MaxUses:     &maxUses,
 		Now:         now,
 		IP:          opt.String(cmd.Request.IP),

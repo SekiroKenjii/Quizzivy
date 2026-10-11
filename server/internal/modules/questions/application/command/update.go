@@ -18,6 +18,11 @@ func (s UpdateHandler) Handle(ctx context.Context, cmd Update) (domain.Question,
 	if cmd.Request.ID == "" {
 		return domain.Question{}, domain.ErrNotFound
 	}
+	input, err := cmd.Request.Input.Composed()
+	if err != nil {
+		return domain.Question{}, err
+	}
+	cmd.Request.Input = input
 	if err := cmd.Request.Input.ValidateAuthoring(); err != nil {
 		return domain.Question{}, err
 	}

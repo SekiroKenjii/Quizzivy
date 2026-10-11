@@ -120,7 +120,7 @@ func (r *revocation) login(t *testing.T, email, password string) (string, string
 
 func (r *revocation) get(t *testing.T, userID, path string) int {
 	t.Helper()
-	token, err := r.tokens.Issue(userID, "student", 0)
+	token, err := r.tokens.Issue(userID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

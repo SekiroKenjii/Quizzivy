@@ -1026,15 +1026,7 @@ func TestAVersionMustHaveAPositiveVersionNumber(t *testing.T) {
 	})
 }
 
-// The constraints a release added NOT VALID and a later release has not yet
-// validated, by schema.table.constraint, each with the step that validates it.
-// An expand step adds its constraint here; its contract step removes the line.
-// A constraint that is NOT VALID and missing from this list is a forgotten
-// VALIDATE, and a line whose constraint is already validated is a forgotten
-// removal.
-var notValidatedConstraints = map[string]string{
-	"app.users.users_role_id_not_null": "00105, the legacy-role contract step (T-R4.49 part B, T-R3.1)",
-}
+var notValidatedConstraints = map[string]string{}
 
 func TestNoConstraintIsLeftNotValidatedOutsideThePinnedList(t *testing.T) {
 	conn := migrated(t)

@@ -58,8 +58,12 @@ test("the destinations are a tab bar at the foot, and each tab opens its screen"
   const banner = page.getByRole("banner");
   await expect(tabs).toHaveCount(1);
   await expect(banner.getByRole("navigation")).toHaveCount(0);
-  await expect(banner.getByRole("button")).toHaveCount(1);
-  await expect(banner.getByRole("button", { name: /^Tài khoản của/ })).toBeVisible();
+  const buttons = banner.getByRole("button");
+  await expect(buttons).toHaveCount(2);
+  await expect(buttons.nth(0)).toHaveAccessibleName("Thông báo");
+  await expect(buttons.nth(1)).toHaveAccessibleName(/^Tài khoản của/);
+  await expect(buttons.nth(0)).toBeVisible();
+  await expect(buttons.nth(1)).toBeVisible();
   await expect(tabs.getByRole("link")).toHaveText([/Trang chủ$/, "Lớp", "Tôi"]);
   const bar = (await tabs.boundingBox())!;
   expect(bar.y + bar.height).toBeCloseTo(page.viewportSize()!.height, 0);

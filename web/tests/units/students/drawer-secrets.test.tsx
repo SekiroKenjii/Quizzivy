@@ -66,7 +66,7 @@ beforeEach(() => {
     ),
     http.post(`${BASE}/teacher/students/:id/reset-password`, ({ params }) =>
       contractJson("/teacher/students/{id}/reset-password", "post", 200, {
-        temporaryPassword: params["id"] === HAN ? "tho-vang-42" : "cay-dua-13",
+        temporaryPassword: params["id"] === HAN ? "tho-vang-cay-42" : "cay-dua-mut-13",
       }),
     ),
   );
@@ -97,12 +97,12 @@ describe("the one-time password in the student drawer", () => {
 
     await openDrawerFor(user, "Phạm Gia Hân");
     await user.click(await screen.findByRole("button", { name: "Đặt mật khẩu tạm" }));
-    expect(await screen.findByText("tho-vang-42")).toBeInTheDocument();
+    expect(await screen.findByText("tho-vang-cay-42")).toBeInTheDocument();
 
     await openDrawerFor(user, "Hoàng Tiến Dũng");
 
     await screen.findByRole("complementary", { name: /Hoàng Tiến Dũng/ });
-    expect(screen.queryByText("tho-vang-42")).toBeNull();
+    expect(screen.queryByText("tho-vang-cay-42")).toBeNull();
   });
 
   it("survives a search that filters the table underneath it", async () => {
@@ -110,7 +110,7 @@ describe("the one-time password in the student drawer", () => {
 
     await openDrawerFor(user, "Hoàng Tiến Dũng");
     await user.click(await screen.findByRole("button", { name: "Đặt mật khẩu tạm" }));
-    expect(await screen.findByText("cay-dua-13")).toBeInTheDocument();
+    expect(await screen.findByText("cay-dua-mut-13")).toBeInTheDocument();
 
     // The password exists nowhere else: the server keeps only a hash.
     await user.type(screen.getByLabelText("Tìm theo tên hoặc email"), "Hân");
@@ -118,7 +118,7 @@ describe("the one-time password in the student drawer", () => {
     await waitFor(() =>
       expect(screen.queryByText("Hoàng Tiến Dũng", { selector: "td *" })).toBeNull(),
     );
-    expect(screen.getByText("cay-dua-13")).toBeInTheDocument();
+    expect(screen.getByText("cay-dua-mut-13")).toBeInTheDocument();
   });
 });
 

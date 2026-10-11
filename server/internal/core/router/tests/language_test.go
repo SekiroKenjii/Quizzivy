@@ -9,7 +9,7 @@ import (
 
 func TestTheRoutersOwnAnswersSpeakTheCallersLanguage(t *testing.T) {
 	issuer := testIssuer(t)
-	student, err := issuer.Issue(studentUser, "admin", 0)
+	student, err := issuer.Issue(studentUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
