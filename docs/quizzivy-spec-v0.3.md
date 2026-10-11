@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.75 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.77 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.74**
+**Changes since v0.76**
 
 R4, the bulk password reset and the student filters (T-R4.20):
 
@@ -33,6 +33,60 @@ R4, the bulk password reset and the student filters (T-R4.20):
 - §15 `GET /teacher/students` takes `classId` more than once (a student in any of those
   classes, counted once; a single value works as before) and `mustChangePassword`; its facets
   count the same students as its list.
+
+**Changes since v0.75**
+
+R4, the class schedule and room, the end-of-day expiry, class averages and the codes in the class
+list (T-R4.18):
+
+- §6.1 A code issued with `expiresInDays` n works through 23:59:59 on the day n days after today
+  in the issuer's calendar zone: the profile preference, or `Asia/Ho_Chi_Minh` when there is none
+  or it cannot be read. The day is counted on the wall clock of that zone, so a daylight-saving
+  change cannot move it, and a code made at any hour of a day expires at the end of the same day.
+  An Admin who rotates a teacher's class is the issuer, and the Admin's zone counts.
+- §6.4, §15 `listClasses` rows are `ClassListItem`s, which repeat `Class` with `joinCode` read in
+  full. `withCodes=true` opens each row's code, and only for a holder of `teaching.classes.write`;
+  a code opens in the list exactly when `getJoinCode` would open it for the same caller and class
+  (through the same read, so a legacy code, or one sealed under a key the server no longer holds,
+  shows `null`, and a code that does not authenticate shows `null` and is logged by class without
+  the code). A caller without the permission who asks gets `null` codes and no error. Every
+  `listClasses` answer is `Cache-Control: no-store`, and the operation is limited to 60 a minute
+  and 600 an hour per user, as `getJoinCode` is. Pickers do not ask for codes.
+- §7, §15 `Class` gains `scheduleLabel` (1 to 120 characters) and `room` (1 to 60), both nullable,
+  and on teacher responses `averageScore`, an `AttemptScore`: the sum of earned over the sum of
+  total points of the best graded attempt (the highest share, the later attempt on a tie) of each
+  live member on each assignment that targets the class, with the unmarked manual answers of those
+  attempts as `pendingManual`. A student who left, a disabled student, a voided attempt and an
+  attempt not yet graded count for nothing; `null` when nothing is graded. `createClass` and
+  `updateClass` take `scheduleLabel` and `room`: trimmed, blank is none, and on update an omitted
+  field keeps the value while `null` or blank clears it.
+- §9, §15 A student's class (`GET /app/classes`) gains `scheduleLabel`, `room` and
+  `teacherAvatarUrl`, each `null` when there is nothing to show, and still no count, member list,
+  code or average. The class a student joins carries the schedule and room but never an average
+  or a code.
+- §13.3 `classes.schedule_label` and `classes.room`, nullable, migration 00104.
+
+**Changes since v0.74**
+
+Composed text on the server (F-37, FONT-1):
+
+- §12 Typography: the server stores the text a person types composed to NFC, so "stored as
+  typed" (v0.67) no longer holds for it. A write composes the plain fields (titles,
+  descriptions, names, notes, reasons, tags, accepted answers, transcripts, alt text, file
+  names), the `text`, `label` and `alt` of a prose document and the Markdown of a legacy one,
+  and the text a student types in a text or fill-in answer when it is saved. A document and
+  the plain text kept beside it are composed together, so the text still equals the
+  document's projection. Emails, passwords, tokens, join codes, ids, links and the published
+  versions are never composed. NFC shortens Vietnamese, but a few scripts grow when composed:
+  a value that composing leaves over its limit is answered as any other invalid value, 400
+  `VALIDATION_FAILED` naming the field (an import commit answers a refused question the same
+  way; a group answers 422 `group_content`), never as a server error. A name or a file name
+  that comes from a provider or a file is kept as it came, and a student's save is never
+  refused over it.
+- §13 Migration 00103 composes the rows written before, in the same plain fields, without moving
+  `updated_at`. It leaves the published versions, a student's saved answers and every prose
+  document, with the plain text beside it, as they are: those are composed when next saved.
+  A view still composes what it draws, because those rows can stay decomposed.
 
 **Changes since v0.73**
 
@@ -1129,7 +1183,7 @@ A join code belongs to a class and is a **bearer secret**: whoever holds it can 
 
 - Format: 8 characters from an unambiguous alphabet `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no `0/O`, `1/I`). Displayed grouped `XXXX-XXXX`; accepted with or without the dash, case-insensitive.
 - Generated from a CSPRNG. Never sequential, never derived from the class ID.
-- Per-code controls: `expires_at` (default 30 days), `max_uses` (default null = unlimited), `uses_count`, `revoked_at`.
+- Per-code controls: `expires_at` (default 30 days, counted to 23:59:59 of the last day in the issuer's calendar zone), `max_uses` (default null = unlimited), `uses_count`, `revoked_at`.
 - One **active** code per class at a time. Rotating issues a new code and revokes the old one; previously enrolled students are unaffected.
 - Stored encrypted, so it can be read back for its teacher and for admins (D5), and found by a keyed hash (§6.5). A code issued from v0.8.0 on is sealed under the server's `JOIN_CODE_KEY`, which the database never holds (§13.3). A code issued before v0.8.0 is held only as its SHA-256: it still redeems but cannot be read back, and R4 rotates every such code. At each start-up from v0.10.0 the API replaces every such code that is neither revoked nor expired with a sealed one that keeps its expiry and use cap and starts unused, leaves the class's self-join setting as it is, audits the change as the System and tells the class's teacher once in the app; the old code then answers as any replaced code does, "revoked" where self-join is open and as an unknown code where it is closed or the class archived.
 - The key is standard base64 of exactly 32 random bytes, kept as a Fly secret with an offline copy. The API refuses to start without it and never logs it. HKDF-SHA256 derives three values from it, each under its own label: the AES-256-GCM key, the HMAC-SHA256 lookup key and a 16-bit key id; a key whose id derives to 0 is refused.
@@ -1170,7 +1224,7 @@ So: **self-join requires Google.** Password accounts remain staff-created. If Th
 A class's code and members are managed by its teacher (`classes.teacher_id`), and by an Admin through `scope.all` (plan 70 §4.1). Another teacher's class answers 404, as a missing class does. The code operations and member changes need `teaching.classes.write`; the member list needs `people.students.read`.
 
 On `/admin/classes/:id` (R4 moves the screen to `/teacher/*`):
-- Show the active code, with copy button, QR code, expiry, and uses count. `getJoinCode` reads the code back in full (§6.1); until R4 the screen shows it once when issued and then as its hint.
+- Show the active code, with copy button, QR code, expiry, and uses count. `getJoinCode` reads the code back in full (§6.1); until R4 the screen shows it once when issued and then as its hint. The class cards show every code from one call, `listClasses` with `withCodes=true`, which opens a code exactly when `getJoinCode` would.
 - **Rotate code** (confirm dialog: "Mã cũ sẽ ngừng hoạt động ngay").
 - **Disable self-join** toggle — revokes the code without issuing a new one.
 - Member list shows `joined_via` (`admin` / `join_code`) and `joined_at`, so the teacher can spot unexpected enrolments.
@@ -1186,7 +1240,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
   - `POST /auth/refresh` and `POST /auth/logout`: 120/min and 1,200/h per address.
   - `DELETE /auth/sessions/{familyId}`: 10/min and 60/h, and `POST /auth/sessions/revoke-others`: 5/min and 30/h, per signed-in user. Neither hands out a credential; each moves the user's session epoch and so makes every device of the user refresh (T-R4.9).
   - A code is counted after normalization, so respelling it buys no fresh allowance. Guessing stays at 600 codes an hour per address on each operation that checks one.
-  - The signed-in operations that hand out a credential are limited per signed-in user, after the permission check and wherever the user connects from, so staff behind one address do not share a budget (T-R4.53): `resetStudentPassword` 5/min and 30/h, `resetStudentsPasswords` 2/min and 10/h, `createStudent` 30/min and 300/h, `rotateJoinCode` 10/min and 60/h, `getJoinCode` 60/min and 600/h, `openDocsSession` 5/min and 30/h. A caller with no session or without the permission is answered `401` or `403` and spends no budget.
+  - The signed-in operations that hand out a credential are limited per signed-in user, after the permission check and wherever the user connects from, so staff behind one address do not share a budget (T-R4.53): `resetStudentPassword` 5/min and 30/h, `resetStudentsPasswords` 2/min and 10/h, `createStudent` 30/min and 300/h, `rotateJoinCode` 10/min and 60/h, `getJoinCode` 60/min and 600/h, `listClasses` 60/min and 600/h (it can open every code of a page), `openDocsSession` 5/min and 30/h. A caller with no session or without the permission is answered `401` or `403` and spends no budget.
 - **Bounded bodies.** The four operations with a bucket keyed on a body field (login, Google sign-in, the preview and the in-app join) accept at most 8 KiB and answer `413` before any handler, so padding cannot hide the key from its bucket.
 - **Constant-time comparison** on code lookup; look up by a keyed hash (HMAC-SHA256) of the normalized code, not by plaintext equality. A code issued before v0.8.0 is found by its SHA-256 until R4 rotates it.
 - No audit row or log line carries a code, its ciphertext or its hash.
@@ -1242,9 +1296,12 @@ interface UserPreferences {
 
 interface Class {
   id; name; description?;
+  scheduleLabel?: string | null;        // 1 to 120 characters
+  room?: string | null;                 // 1 to 60
   studentCount: number;
   selfJoinEnabled: boolean;
-  joinCode?: { hint: string; expiresAt: string; maxUses: number | null; usesCount: number } | null; // teacher responses only; the code itself comes from getJoinCode (§6.4)
+  joinCode?: { hint: string; expiresAt: string; maxUses: number | null; usesCount: number } | null; // teacher responses only; the code itself comes from getJoinCode, or from listClasses with withCodes (§6.4)
+  averageScore?: AttemptScore | null;   // teacher responses only (T-R4.18)
   createdAt;
 }
 
@@ -1691,7 +1748,7 @@ engine has no navigator column and no stored width. `AuthLayout` is the brand fr
 | `/app/assignments/:id` | Student | Intro: class and title, three facts (time limit, questions, attempts used of allowed), and "Trước khi bắt đầu": **the rules stated plainly**, generated from the stored policy and dates (availability, the timer, fullscreen, copy and paste, leaving, the audio plays per §11.4, what the result shows). "Bắt đầu làm bài" asks "Bắt đầu ngay?" first; "Tiếp tục làm bài" resumes at once. A test not yet open, closed or with no attempts left says so in the button's place. A start the server refuses says why above the button: `409 MAINTENANCE_SCHEDULED`, for a start that would run into a maintenance window, with the server's message. When the teacher wrote a note for the students, it is drawn between "Trước khi bắt đầu" and the button: the teacher's initials, "Ghi chú từ {name}" and the text, as plain text with its line breaks; with no note nothing is drawn. The score sentence says "sau khi nộp bài" for a result released on submit and "sau khi bài đóng" for one released after the close. |
 | `/app/attempts/:id` | Focus | The engine (below). §10, §11.3. |
 | `/app/attempts/:id/result` | Student | The summary card (the score ring if allowed, the class, the title, one sentence on where grading stands), tiles, then every answer honoring `review.*`, with the transcript if `showTranscriptAfterSubmit`. While answers wait for the teacher the ring shows the score so far and the tiles say what waits. A line names what the policy hides. A result released after the close is withheld until then: the ring is a lock, no score, mark, answer key, explanation or grader's comment is sent, and the line and the summary say when it is released (`releasesAt`). When the server sends `classAverage`, one muted line under the summary sentence reads "Điểm trung bình của lớp: {n}%." Filters All / Wrong / Waiting: Wrong only when scores are shown, Waiting only when something waits; an empty filter says so and offers all questions. The phone header reads "Kết quả". |
-| `/app/classes` | Student | The classes joined, as cards: name, description, teacher, and "Next", the paper that comes next in that class. A card is not a link, and nothing here leaves a class. One action, "Tham gia lớp", opens the Join dialog (§6.2). |
+| `/app/classes` | Student | The classes joined, as cards: name, description, teacher (with photo), when and where it meets, and "Next", the paper that comes next in that class. A card is not a link, and nothing here leaves a class. One action, "Tham gia lớp", opens the Join dialog (§6.2). |
 | `/app/settings/:section?` | Student | Profile (default: name, email read-only, language), Sign-in (password, Google) and Appearance (theme, "Chữ lớn hơn khi làm bài"), under a segmented switcher. Every section stays mounted, so a form survives a change of section or of width. The old slugs redirect: `security` to `sign-in`, `preferences` and any unknown slug to Profile. |
 
 Shared:
@@ -2029,7 +2086,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
 - **Primary action: the deck's charcoal `--primary` with `--primary-fg`.** Not blue, not purple, not indigo. The lime `--accent-c` (with its soft and ink tones) marks progress, counts and current states, never a primary button.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
-- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC: the rich content editor composes what it writes, and other text is composed where it is drawn. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
+- **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC: the server composes the text a person types before it stores it, the rich content editor composes what it writes, and a view composes what it draws, because a row saved before the server did can still be decomposed. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
 - **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows, until R4 rebuilds them. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
 - **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the count button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
@@ -2183,6 +2240,8 @@ CREATE TABLE app.classes (
   id                uuid PRIMARY KEY DEFAULT uuidv7(),
   name              text NOT NULL,
   description       text,
+  schedule_label    text CHECK (char_length(schedule_label) BETWEEN 1 AND 120),
+  room              text CHECK (char_length(room) BETWEEN 1 AND 60),
   self_join_enabled boolean NOT NULL DEFAULT true,
   teacher_id        uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   created_at        timestamptz NOT NULL DEFAULT now(),
@@ -2568,7 +2627,14 @@ POST   /teacher/students/reset-passwords {studentIds (1-40)}
 POST   /teacher/students/:id/reset-password
                                           403 STUDENT_SHARED when someone else also reaches the student,
                                           403 FORBIDDEN when the subset rule refuses (§5.4)
-GET    /teacher/classes | POST | GET /:id | PATCH /:id
+GET    /teacher/classes?q=&page=&limit=&status=&withCodes=
+                                          rows carry joinCode in full, its code opened only with
+                                          withCodes=true for a holder of teaching.classes.write and
+                                          only where getJoinCode would open it; Cache-Control no-store
+POST   /teacher/classes                 {name, description, scheduleLabel, room, selfJoinEnabled}
+GET    /teacher/classes/:id
+PATCH  /teacher/classes/:id             {name, description, scheduleLabel, room, selfJoinEnabled, archived};
+                                          an omitted scheduleLabel or room keeps its value, null or blank clears it
 DELETE /teacher/classes/:id             archived only, else 409 RESOURCE_NOT_ARCHIVED;
                                           409 RESOURCE_REFERENCED {referencedBy}
 POST   /teacher/classes/:id/members | DELETE /teacher/classes/:id/members/:userId
@@ -2576,7 +2642,8 @@ GET    /teacher/classes/:id/join-code   → {code, hint, legacy, expiresAt, maxU
                                           Cache-Control no-store; code null for a legacy code or one
                                           sealed under a key the server no longer holds; 404 without
                                           an active code
-POST   /teacher/classes/:id/join-code   rotate → {code}
+POST   /teacher/classes/:id/join-code   rotate {expiresInDays, maxUses} → {code, expiresAt, maxUses};
+                                          expiresAt is 23:59:59 of the last day in the caller's zone (§6.1)
 DELETE /teacher/classes/:id/join-code   revoke, disable self-join
 
 # admin

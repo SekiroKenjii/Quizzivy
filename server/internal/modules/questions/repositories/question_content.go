@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/validation"
 
@@ -43,11 +44,27 @@ func preserveProse(field string, next *json.RawMessage, old json.RawMessage, tex
 	if *next != nil || old == nil {
 		return nil
 	}
-	if text == nil || previous == nil || *text != *previous {
+	if text == nil || previous == nil || content.NFC(*text) != content.NFC(*previous) {
 		return &validation.Error{Fields: []validation.Field{{
 			Field: field, Message: "Câu hỏi đã có định dạng. Hãy tải lại trước khi sửa nội dung.",
 		}}}
 	}
-	*next = old
+	*next, *text = composedProse(old, *text, *previous)
 	return nil
+}
+
+func composedProse(old json.RawMessage, text, previous string) (json.RawMessage, string) {
+	document, err := content.Parse(old)
+	if err != nil {
+		return old, previous
+	}
+	composed, err := content.Normalize(document)
+	if err != nil || content.NFC(composed.PlainText()) != content.NFC(text) {
+		return old, previous
+	}
+	encoded, err := composed.MarshalJSON()
+	if err != nil {
+		return old, previous
+	}
+	return encoded, composed.PlainText()
 }

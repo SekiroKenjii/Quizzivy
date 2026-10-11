@@ -36,6 +36,9 @@ type OverrideInput struct {
 	Now           time.Time
 }
 
+// MaxOverrideReason is the longest reason for an override, in characters.
+const MaxOverrideReason = 500
+
 // CleanReason is the reason as it is stored: trimmed.
 func (in OverrideInput) CleanReason() string {
 	return strings.TrimSpace(in.Reason)
