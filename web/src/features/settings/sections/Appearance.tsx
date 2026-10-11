@@ -30,7 +30,7 @@ function Swatch({ theme }: Readonly<{ theme: ThemePreference }>) {
         {theme === "dark" ? null : <span className="bg-swatch-light flex-1" />}
         {theme === "light" ? null : <span className="bg-swatch-dark flex-1" />}
       </span>
-      <span className={cn("relative w-[24%] rounded-sm", side)} />
+      <span className={cn("relative w-[24%] rounded-[4px]", side)} />
       <span className="relative flex flex-1 flex-col gap-1.25">
         <span className={cn("h-2 w-[60%] rounded-[3px]", line)} />
         <span className={cn("h-2 w-[85%] rounded-[3px]", line)} />

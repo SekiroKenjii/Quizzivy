@@ -107,7 +107,7 @@ export function ProfilePhoto() {
         <Button
           type="button"
           variant="ghost"
-          className="text-muted-fg hover:text-fg h-8.5 px-2.5 text-sm"
+          className="text-muted-fg hover:text-fg h-8.5 px-2.5 text-sm font-normal hover:bg-transparent in-data-[scale=deck]:px-2.5 in-data-[scale=deck]:text-sm dark:hover:bg-transparent"
           onClick={() => setMode("remove")}
         >
           {t("settings.photo.remove")}

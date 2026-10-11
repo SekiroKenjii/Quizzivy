@@ -248,6 +248,23 @@ describe("the profile photo", () => {
     expect(await within(dialog).findByText(message)).toBeVisible();
   });
 
+  it("draws Remove as the deck's flat 13px link with 10px of padding", () => {
+    signIn({ ...SAVED, avatarUrl: "https://media.example.com/avatar.png" });
+    renderProfile();
+
+    const remove = screen.getByRole("button", { name: "Gỡ ảnh" });
+    expect(remove).toHaveClass(
+      "h-8.5",
+      "font-normal",
+      "text-muted-fg",
+      "hover:bg-transparent",
+      "in-data-[scale=deck]:px-2.5",
+      "in-data-[scale=deck]:text-sm",
+    );
+    expect(remove).not.toHaveClass("in-data-[scale=deck]:px-3.5");
+    expect(remove).not.toHaveClass("in-data-[scale=deck]:text-ui");
+  });
+
   it("removes the photo after a confirmation", async () => {
     signIn({ ...SAVED, avatarUrl: "https://media.example.com/avatar.png" });
     let removed = 0;
