@@ -17,10 +17,11 @@ const KEY_CAP =
 
 /**
  * TopBar is the teacher shell's 56px bar: the sidebar toggle, the breadcrumb
- * trail, the search button that opens the command palette, and the switch
- * between the light and dark themes, then `bell`. `drawer` says the sidebar is the drawer
- * below 768px, where the toggle opens it; from 768px the toggle collapses and
- * expands the sidebar, and `expanded` is the state it reports either way.
+ * trail, the search button that opens the command palette, the switch
+ * between the light and dark themes, then `bell`. `drawer` says the sidebar
+ * is the drawer below 768px, where the toggle opens it; from 768px the toggle
+ * collapses and expands the sidebar, and `expanded` is the state it reports
+ * either way.
  */
 export function TopBar({
   drawer,
