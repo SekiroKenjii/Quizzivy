@@ -223,6 +223,7 @@ describe("the classes list", () => {
     });
     await user.click(opener);
     const dialog = await screen.findByRole("dialog", { name: "IELTS 6.5 Evening" });
+    expect(dialog.style.getPropertyValue("--dialog-width")).toBe("480px");
     expect(
       within(dialog).getByRole("img", {
         name: "Mã QR để tham gia lớp bằng mã K7QM-2PXA",
