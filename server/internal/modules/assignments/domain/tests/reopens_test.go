@@ -41,7 +41,7 @@ func TestASaveReopensOnlyWhatItTurnsFromClosedToNotClosed(t *testing.T) {
 		{"an assignment closed early saved with a window that opens at the early close", &published, &early, windowOpens, now.Add(time.Hour), saving(early, now.Add(3*time.Hour), false), false},
 		{"an open assignment given a later close", &published, nil, now.Add(-time.Hour), now.Add(time.Hour), saving(now.Add(-time.Hour), now.Add(3*time.Hour), false), false},
 		{"an open assignment given a window in the past", &published, nil, now.Add(-time.Hour), now.Add(time.Hour), saving(windowOpens, windowCloses, false), false},
-		{"a scheduled assignment given a later window", &published, nil, now.Add(time.Hour), now.Add(2*time.Hour), saving(now.Add(2*time.Hour), now.Add(3*time.Hour), false), false},
+		{"a scheduled assignment given a later window", &published, nil, now.Add(time.Hour), now.Add(2 * time.Hour), saving(now.Add(2*time.Hour), now.Add(3*time.Hour), false), false},
 		{"a draft given any window", nil, nil, windowOpens, windowCloses, saving(now.Add(time.Hour), now.Add(2*time.Hour), false), false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
