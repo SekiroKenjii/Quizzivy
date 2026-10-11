@@ -1927,7 +1927,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Three nav counts in the caller's own teaching scope, Admin included; answersToGrade is null without teaching.grading. */
+        /**
+         * @description Three nav counts in the caller's own teaching scope, Admin included; answersToGrade is null without teaching.grading.
+         *
+         *     `audience` narrows `unreadNotifications` to one console's kinds and
+         *     changes neither of the other two counts. The teacher's bell passes
+         *     `teacher`; without it the count is every kind the caller has.
+         */
         get: operations["getTeacherSummary"];
         put?: never;
         post?: never;
@@ -2690,6 +2696,11 @@ export interface paths {
          *     user's, already read or not a notification at all is skipped, and the
          *     answer is the same 204 whatever matched, so it tells the caller
          *     nothing about an id that is not theirs.
+         *
+         *     With `audience`, only that console's kinds are marked, with `ids` or
+         *     without: an id of the other console's kind is skipped like any other
+         *     id that does not match, and "every unread one" becomes every unread
+         *     one of that console. Left out, every kind, as before.
          */
         post: operations["markNotificationsRead"];
         delete?: never;
@@ -2779,6 +2790,10 @@ export interface paths {
          *     bell. One count over the caller's own rows, cheap enough to poll. It
          *     writes the caller's due-time notifications first, exactly as
          *     `listNotifications` does, so the count includes them.
+         *
+         *     `audience` counts one console's kinds only (`NotificationAudience`),
+         *     so the student's bell does not light for a teacher kind the same
+         *     account holds, nor the reverse. Left out, every kind.
          */
         get: operations["getMySummary"];
         put?: never;
@@ -5501,6 +5516,19 @@ export interface components {
          * @enum {string}
          */
         NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready";
+        /**
+         * @description The console that reads a notification, and so which of the caller's
+         *     notifications a bell counts, lists and clears. Which kinds each one
+         *     reads is the "For" column of the table in `NotificationKind`, and every
+         *     kind belongs to exactly one.
+         *
+         *     Where an operation takes it, it is optional, and leaving it out keeps
+         *     the behaviour from before it existed: every kind. An Admin who takes
+         *     tests holds rows of both, and each of their two bells passes its own.
+         *     It only narrows: the rows are still the caller's own and nobody else's.
+         * @enum {string}
+         */
+        NotificationAudience: "teacher" | "student";
         /**
          * @description One switch of the notification settings. `attempt.submitted`,
          *     `attempt.flagged` and `assignment.closing` are the teacher's;
@@ -9447,7 +9475,9 @@ export interface operations {
     };
     getTeacherSummary: {
         parameters: {
-            query?: never;
+            query?: {
+                audience?: components["schemas"]["NotificationAudience"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9463,6 +9493,7 @@ export interface operations {
                     "application/json": components["schemas"]["TeacherSummary"];
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     listStudents: {
@@ -10665,6 +10696,13 @@ export interface operations {
         parameters: {
             query?: {
                 /**
+                 * @description Only the kinds this console reads (`NotificationAudience`). The
+                 *     page, `limit` and `nextBefore` count the narrowed list, so a page
+                 *     is never empty because the other console's rows filled it. Left
+                 *     out, every kind.
+                 */
+                audience?: components["schemas"]["NotificationAudience"];
+                /**
                  * @description A notification id, as `nextBefore` gave it: the page holds the
                  *     caller's notifications older than it. It is a position in the
                  *     caller's own list and never a lookup: an id the caller does not
@@ -10710,8 +10748,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description Absent means every unread notification the caller has. */
+                    /** @description Absent means every unread notification the caller has (of `audience`, when it is given). */
                     ids?: components["schemas"]["Uuid"][];
+                    audience?: components["schemas"]["NotificationAudience"];
                 };
             };
         };
@@ -10844,7 +10883,9 @@ export interface operations {
     };
     getMySummary: {
         parameters: {
-            query?: never;
+            query?: {
+                audience?: components["schemas"]["NotificationAudience"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -10860,6 +10901,7 @@ export interface operations {
                     "application/json": components["schemas"]["MySummary"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

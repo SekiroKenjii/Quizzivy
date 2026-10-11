@@ -42,5 +42,5 @@ export type TeacherSummary = components["schemas"]["TeacherSummary"];
 
 /** getTeacherSummary reads the own-teaching navigation figures without fetching the home payload. */
 export function getTeacherSummary(signal?: AbortSignal) {
-  return api("get", "/teacher/summary", signal ? { signal } : {});
+  return api("get", "/teacher/summary", signal ? { query: {}, signal } : { query: {} });
 }

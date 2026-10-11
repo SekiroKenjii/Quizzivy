@@ -54,7 +54,7 @@ export async function markNotificationsRead(ids?: readonly string[]): Promise<vo
 
 /** getMySummary reads the caller's current unread count. */
 export function getMySummary(signal?: AbortSignal): Promise<MySummary> {
-  return api("get", "/me/summary", signal ? { signal } : {});
+  return api("get", "/me/summary", signal ? { query: {}, signal } : { query: {} });
 }
 
 /** getNotificationPreferences reads every switch in contract order. */

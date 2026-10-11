@@ -1,7 +1,24 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.79 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.80 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.79**
+
+R4, a bell counts, lists and clears only its own console's notifications (DG-170):
+
+- §15 `getTeacherSummary` (`GET /teacher/summary`), `getMySummary` (`GET /me/summary`) and
+  `listNotifications` take an optional `audience` query parameter, and `markNotificationsRead`
+  an optional `audience` in its body, each `teacher` or `student`. With one, the unread count,
+  the page and the marking cover only the kinds that console shows. The teacher's are
+  `attempt.submitted`, `attempt.flagged`, `assignment.closing`, `class.joined` and
+  `join_codes.rotated`; the student's are `assignment.opened`, `assignment.due_soon`,
+  `assignment.extended` and `result.ready`. Every kind belongs to one of the two. The audience
+  narrows a marking by ids as it narrows "mark all": an id of the other console's kind is
+  skipped, as another user's id is, and answers 204 all the same. Without an audience every
+  kind is covered, as before. Any other value is 400 `VALIDATION_FAILED`.
+- §15 An account that holds both consoles (an Admin with "Take tests") has two bells that neither
+  light nor clear each other. Both bells passing `audience` is the web's part of DG-170.
 
 **Changes since v0.78**
 
@@ -2571,11 +2588,14 @@ PATCH  /auth/me                         {fullName?,displayName?|null,phone?|null
 PATCH  /me/preferences                 top-level UserPreferences merge → UserPreferences;
                                           nested assignmentDefaults replaces its key, {} no-op;
                                           raw/stored UTF8 cap8192 bytes,400 on excess
-GET    /me/notifications?before=&limit= → {items: [Notification], nextBefore}; the caller's own,
-                                          newest first (20 by default, 50 at most). Writes the caller's
+GET    /me/notifications?before=&limit=&audience= → {items: [Notification], nextBefore}; the caller's own,
+                                          newest first (20 by default, 50 at most), of one console's
+                                          kinds when audience is teacher or student. Writes the caller's
                                           due-time notifications first, at most once in 5 minutes
-POST   /me/notifications/read           {ids?} (1 to 100; absent means all) → 204 whatever matched
-GET    /me/summary                      → {unreadNotifications}; writes the due-time notifications first
+POST   /me/notifications/read           {ids?, audience?} (1 to 100; absent means all; audience narrows
+                                          both to that console's kinds) → 204 whatever matched
+GET    /me/summary?audience=            → {unreadNotifications}, of one console's kinds when audience
+                                          is given; writes the due-time notifications first
 GET    /me/notification-preferences     → the five switches [{event,inApp,email}]
 PUT    /me/notification-preferences     the five switches, each once → the stored switches
 PUT    /me/avatar                      multipart file (PNG or JPEG, at most 2 MiB, each side 200–2048 px,
@@ -2598,7 +2618,8 @@ POST   /auth/sessions/revoke-others     → {revoked}; 401 as above; moves the e
 
 # teacher
 GET    /teacher/dashboard?range=7d|14d|30d → Dashboard (default 14d; own teaching)
-GET    /teacher/summary                → TeacherSummary {liveAssignments,answersToGrade,unreadNotifications}
+GET    /teacher/summary?audience=      → TeacherSummary {liveAssignments,answersToGrade,unreadNotifications};
+                                          the count is of one console's kinds when audience is given
 GET    /teacher/tests?status=&q=&cursor=
 POST   /teacher/tests | GET /:id | PATCH /:id
 POST   /teacher/tests/:id/publish       → new version; its number is the `nextVersion` the test reported
