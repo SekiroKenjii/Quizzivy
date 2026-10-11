@@ -1,53 +1,104 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { useQuery } from "@tanstack/react-query";
-import {
-  AudioLines,
-  ClipboardList,
-  FileText,
-  GraduationCap,
-  Headphones,
-  LayoutDashboard,
-  Library,
-  Search,
-  Settings,
-  Users,
-} from "lucide-react";
-import { StatusBadge } from "@/components/shared/StatusBadge";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Search } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
+import { can, hasWorkspace } from "@/features/auth/permissions";
 import { listQuestions } from "@/features/question-bank/api";
+import { listStudents } from "@/features/students/api";
 import { listTests } from "@/features/tests/api";
 import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
-import { fold } from "@/lib/fold";
+import { useAuthStore } from "@/stores/auth";
+import {
+  PALETTE_GROUPS,
+  PALETTE_LIMITS,
+  assignmentEntries,
+  pageEntries,
+  palettePages,
+  questionEntries,
+  searchAssignments,
+  studentEntries,
+  testEntries,
+  type PaletteEntry,
+  type PaletteGroup,
+} from "./paletteResults";
 
-interface Entry {
-  id: string;
-  group: string;
-  label: string;
-  hint?: string;
-  status?: "published" | "draft" | "archived";
-  // Carried per entry rather than derived at render.
-  Icon: typeof FileText;
-  to: string;
+const DEBOUNCE_MS = 250;
+const STALE_MS = 30_000;
+
+function usePaletteEntries(
+  open: boolean,
+  search: string,
+): {
+  entries: PaletteEntry[];
+  settled: boolean;
+} {
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const teacher = hasWorkspace(user, "teacher");
+  const students = can(user, "people.students.read");
+  const pages = useMemo(() => palettePages(user, t), [user, t]);
+  const searching = search !== "";
+  const common = { placeholderData: keepPreviousData, staleTime: STALE_MS };
+
+  const assignments = useQuery({
+    queryKey: ["palette", "assignments", search],
+    queryFn: ({ signal }) => searchAssignments(search, signal),
+    enabled: open && teacher,
+    ...common,
+  });
+  const people = useQuery({
+    queryKey: ["palette", "students", search],
+    queryFn: ({ signal }) =>
+      listStudents(
+        { limit: PALETTE_LIMITS.students, ...(searching ? { q: search } : {}) },
+        signal,
+      ),
+    enabled: open && students,
+    ...common,
+  });
+  const tests = useQuery({
+    queryKey: ["palette", "tests", search],
+    queryFn: ({ signal }) =>
+      listTests({ q: search, limit: PALETTE_LIMITS.tests }, signal),
+    enabled: open && teacher && searching,
+    ...common,
+  });
+  const questions = useQuery({
+    queryKey: ["palette", "questions", search],
+    queryFn: ({ signal }) =>
+      listQuestions({ q: search, limit: PALETTE_LIMITS.questions }, signal),
+    enabled: open && teacher && searching,
+    ...common,
+  });
+
+  const now = new Date();
+  const entries = [
+    ...pageEntries(pages, search),
+    ...(teacher ? assignmentEntries(assignments.data ?? [], now, t) : []),
+    ...(students ? studentEntries(people.data?.items ?? []) : []),
+    ...(teacher && searching ? testEntries(tests.data?.items ?? [], t) : []),
+    ...(teacher && searching ? questionEntries(questions.data?.items ?? []) : []),
+  ];
+  const settled = ![assignments, people, tests, questions].some(
+    (query) => query.isFetching,
+  );
+  return { entries, settled };
 }
 
-const DESTINATIONS: { key: string; to: string; Icon: typeof FileText }[] = [
-  { key: "nav.dashboard", to: "/teacher", Icon: LayoutDashboard },
-  { key: "nav.tests", to: "/teacher/tests", Icon: FileText },
-  { key: "nav.questionBank", to: "/teacher/question-bank", Icon: Library },
-  { key: "nav.media", to: "/teacher/media", Icon: AudioLines },
-  { key: "nav.assignments", to: "/teacher/assignments", Icon: ClipboardList },
-  { key: "nav.students", to: "/teacher/students", Icon: Users },
-  { key: "nav.classes", to: "/teacher/classes", Icon: GraduationCap },
-  { key: "nav.settings", to: "/teacher/settings", Icon: Settings },
-];
-
 /**
- * A-02: one component, three jobs — navigation, search across tests and
- * questions, and getting to a screen from anywhere.
+ * CommandPalette is the teacher's palette as the deck draws it: a 560px panel
+ * 12% from the top with "Search pages, tests, students…". It lists the pages
+ * the user may open, then up to 4 assignments with their status and up to 3
+ * students with their first class, and, once something is typed, up to 4
+ * tests and 3 questions. Pages match on the client and the rest on the
+ * server, both ignoring accents and case; each search waits for the typing to
+ * pause, and an answer to an older search never replaces a newer one. ↑ and ↓
+ * move the highlight, Enter opens it, Esc closes, and "Nothing matches" says
+ * when a search finds nothing (DG-36).
  */
 export function CommandPalette({
   open,
@@ -62,49 +113,11 @@ export function CommandPalette({
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const listId = useId();
-  const search = useDebounced(query.trim(), 250);
-  const searching = search !== "";
+  const search = useDebounced(query.trim(), DEBOUNCE_MS);
+  const { entries, settled } = usePaletteEntries(open, search);
 
-  const tests = useQuery({
-    queryKey: ["palette-tests", search],
-    queryFn: ({ signal }) => listTests({ q: search, limit: 5 }, signal),
-    enabled: open && searching,
-  });
-  const questions = useQuery({
-    queryKey: ["palette-questions", search],
-    queryFn: ({ signal }) => listQuestions({ q: search, limit: 5 }, signal),
-    enabled: open && searching,
-  });
-
-  const entries: Entry[] = [
-    ...(tests.data?.items ?? []).map((test) => ({
-      id: `test-${test.id}`,
-      group: t("palette.tests"),
-      label: test.title,
-      status: test.status,
-      Icon: FileText,
-      to: `/teacher/tests/${test.id}`,
-    })),
-    ...(questions.data?.items ?? []).map((question) => ({
-      id: `question-${question.id}`,
-      group: t("palette.questions"),
-      label: question.prompt,
-      hint: question.tags.join(", "),
-      Icon: question.media?.kind === "audio" ? Headphones : Library,
-      to: `/teacher/question-bank/${question.id}`,
-    })),
-    ...DESTINATIONS.filter((d) => !searching || matches(t(d.key), search)).map((d) => ({
-      id: `nav-${d.to}`,
-      group: t("palette.navigate"),
-      label: t(d.key),
-      Icon: d.Icon,
-      to: d.to,
-    })),
-  ];
-
-  // The highlight has to land somewhere real after the results change under it.
   const [activeFor, setActiveFor] = useState("");
-  const resultKey = `${open}|${search}|${entries.length}`;
+  const resultKey = `${open}|${search}|${entries.map((entry) => entry.id).join(",")}`;
   if (activeFor !== resultKey) {
     setActiveFor(resultKey);
     setActive(0);
@@ -128,7 +141,7 @@ export function CommandPalette({
     onOpenChange(next);
   }
 
-  function choose(entry: Entry | undefined) {
+  function choose(entry: PaletteEntry | undefined) {
     if (!entry) return;
     close(false);
     void navigate(entry.to);
@@ -149,26 +162,25 @@ export function CommandPalette({
     }
   }
 
-  const groups: { name: string; items: { entry: Entry; index: number }[] }[] = [];
+  const grouped = new Map<PaletteGroup, { entry: PaletteEntry; index: number }[]>();
   entries.forEach((entry, index) => {
-    const last = groups.at(-1);
-    if (last?.name === entry.group) last.items.push({ entry, index });
-    else groups.push({ name: entry.group, items: [{ entry, index }] });
+    const rows = grouped.get(entry.group) ?? [];
+    rows.push({ entry, index });
+    grouped.set(entry.group, rows);
   });
+  const groups = PALETTE_GROUPS.filter((group) => grouped.has(group));
+  const nothing = entries.length === 0 && settled && query.trim() === search;
 
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent
-        className="max-w-lg gap-0 overflow-hidden p-0"
+        className="bg-card shadow-float top-[12%] w-[min(560px,calc(100%-24px))] max-w-none translate-y-0 gap-0 overflow-hidden rounded-xl p-0 sm:max-w-none"
         showCloseButton={false}
       >
         <DialogTitle className="sr-only">{t("palette.title")}</DialogTitle>
 
-        <div className="flex h-12 items-center gap-2.5 border-b px-3.5">
-          <Search
-            className="text-muted-foreground size-4 shrink-0"
-            aria-hidden="true"
-          />
+        <div className="flex h-12.5 items-center gap-2.5 border-b px-3.5">
+          <Search className="text-muted-fg size-4.25 shrink-0" aria-hidden="true" />
           <input
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
@@ -184,9 +196,11 @@ export function CommandPalette({
             onKeyDown={onKeyDown}
             placeholder={t("palette.placeholder")}
             aria-label={t("palette.placeholder")}
-            className="h-auto flex-1 border-0 bg-transparent p-0 text-sm outline-none"
+            className="text-md h-auto min-w-0 flex-1 border-0 bg-transparent p-0 outline-none"
           />
-          <Kbd className="font-sans">{t("palette.escape")}</Kbd>
+          <Kbd className="text-2xs text-muted-fg h-auto rounded-sm border bg-transparent px-1.25 py-0 font-sans leading-normal">
+            {t("palette.escape")}
+          </Kbd>
         </div>
 
         <div
@@ -194,73 +208,53 @@ export function CommandPalette({
           id={listId}
           role="listbox"
           aria-label={t("palette.title")}
-          className="max-h-80 overflow-y-auto p-1.5"
+          className="max-h-90 overflow-y-auto p-1.5"
         >
-          {entries.length === 0 ? (
-            <p
-              role="presentation"
-              className="text-muted-foreground px-2.5 py-6 text-center text-sm"
-            >
-              {searching ? t("palette.noMatches") : t("palette.hint")}
+          {nothing ? (
+            <p role="status" className="text-muted-fg text-ui px-2.5 py-6 text-center">
+              {t("palette.noMatches")}
             </p>
-          ) : (
-            groups.map((group, groupIndex) => (
-              <div
-                key={group.name}
-                role="group"
-                aria-labelledby={`${listId}-group-${groupIndex}`}
+          ) : null}
+          {groups.map((group) => (
+            <div key={group} role="group" aria-labelledby={`${listId}-${group}`}>
+              <p
+                id={`${listId}-${group}`}
+                className="text-muted-fg px-2.5 pt-2 pb-1 text-xs leading-normal"
               >
-                <p
-                  id={`${listId}-group-${groupIndex}`}
-                  className="text-muted-foreground px-3 pt-2 pb-1 text-[0.6875rem] font-semibold tracking-[0.06em] uppercase"
+                {t(`palette.${group}`)}
+              </p>
+              {grouped.get(group)?.map(({ entry, index }) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  id={optionId(index)}
+                  role="option"
+                  aria-selected={index === active}
+                  data-index={index}
+                  tabIndex={-1}
+                  onMouseMove={() => setActive(index)}
+                  onClick={() => choose(entry)}
+                  className={cn(
+                    "text-ui flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2.25 text-left leading-[normal]",
+                    index === active && "bg-muted",
+                  )}
                 >
-                  {group.name}
-                </p>
-                {group.items.map(({ entry, index }) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    id={optionId(index)}
-                    role="option"
-                    aria-selected={index === active}
-                    data-index={index}
-                    tabIndex={-1}
-                    onMouseMove={() => setActive(index)}
-                    onClick={() => choose(entry)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-[0.8125rem]",
-                      index === active ? "bg-accent" : "",
-                    )}
-                  >
-                    <entry.Icon
-                      className="text-muted-foreground size-4 shrink-0"
-                      aria-hidden="true"
-                    />
-                    <span className="truncate">{entry.label}</span>
-                    {entry.status ? (
-                      <StatusBadge
-                        className="ml-auto"
-                        kind="test"
-                        status={entry.status}
-                      />
-                    ) : null}
-                    {entry.hint ? (
-                      <span className="text-muted-foreground ml-auto shrink-0 text-xs">
-                        {entry.hint}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-            ))
-          )}
+                  <entry.Icon
+                    className="text-muted-fg size-4 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                  {entry.hint === "" ? null : (
+                    <span className="text-muted-fg max-w-[45%] shrink-0 truncate text-xs">
+                      {entry.hint}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          ))}
         </div>
       </DialogContent>
     </Dialog>
   );
-}
-
-/** Accent-insensitive on the client too, so the navigation group behaves like search. */
-function matches(label: string, query: string): boolean {
-  return fold(label).includes(fold(query));
 }
