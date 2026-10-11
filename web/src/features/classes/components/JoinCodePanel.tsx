@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Download, Link2, QrCode, RotateCw } from "lucide-react";
@@ -54,7 +54,9 @@ const ACTION =
  * download, New code with its expiry and use limit (30, 7 or 90 days; 1 to
  * 1,000 uses, 40 by default), and Stop after a confirm. A class with no
  * code says so and offers Create code, without the paused text or the
- * sharing line, which speak of a code. A code that cannot be read shows its last four
+ * sharing line, which speak of a code. An archived class cannot be joined,
+ * so it offers neither New code nor Create code and says to restore it
+ * first; Stop stays. A code that cannot be read shows its last four
  * characters until a new one is made. Without `canWrite` the card only
  * reads, the code masked.
  */
@@ -75,7 +77,9 @@ export function JoinCodePanel({
   const readable = info === null ? null : (code.data?.code ?? null);
   const words = info === null ? FIRST : NEXT;
   const [now] = useState(() => Date.now());
+  const archived = klass.archivedAt !== null;
   const rotateButton = useRef<HTMLButtonElement>(null);
+  const switchControl = useRef<HTMLButtonElement>(null);
   const [rotating, setRotating] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [showingQr, setShowingQr] = useState(false);
@@ -149,6 +153,7 @@ export function JoinCodePanel({
         <label className="text-meta flex items-center gap-2">
           {t("classDetail.selfJoinSwitch")}
           <Switch
+            ref={switchControl}
             size="sm"
             checked={klass.selfJoinEnabled}
             disabled={!canWrite}
@@ -179,34 +184,22 @@ export function JoinCodePanel({
           />
         )}
         {canWrite ? (
-          <div className="flex gap-2">
-            <Button
-              ref={rotateButton}
-              variant="outline"
-              className="h-8.5 flex-1 in-data-[scale=deck]:h-8.5"
-              onClick={() => {
-                rotate.reset();
-                setRotating(true);
-              }}
-            >
-              <RotateCw aria-hidden="true" />
-              {t(words.button)}
-            </Button>
-            {info === null ? null : (
-              <Button
-                variant="ghost"
-                className="text-muted-fg h-8.5 in-data-[scale=deck]:h-8.5"
-                onClick={() => {
-                  revoke.reset();
-                  setStopping(true);
-                }}
-              >
-                {t("classDetail.stop")}
-              </Button>
-            )}
-          </div>
+          <CodeActions
+            archived={archived}
+            hasCode={info !== null}
+            rotateLabel={t(words.button)}
+            rotateRef={rotateButton}
+            onRotate={() => {
+              rotate.reset();
+              setRotating(true);
+            }}
+            onStop={() => {
+              revoke.reset();
+              setStopping(true);
+            }}
+          />
         ) : null}
-        {info === null ? null : (
+        {info === null || archived ? null : (
           <p className="text-muted-fg text-xs leading-normal">
             {t("classDetail.codeShareHint")}
           </p>
@@ -246,7 +239,7 @@ export function JoinCodePanel({
         error={
           revoke.isError ? saveError(revoke.error, t("classDetail.revokeFailed")) : null
         }
-        returnFocus={rotateButton}
+        returnFocus={archived ? switchControl : rotateButton}
         onConfirm={() => {
           if (!revoke.isPending) revoke.mutate();
         }}
@@ -258,6 +251,57 @@ export function JoinCodePanel({
         onClose={() => setShowingQr(false)}
       />
     </section>
+  );
+}
+
+function CodeActions({
+  archived,
+  hasCode,
+  rotateLabel,
+  rotateRef,
+  onRotate,
+  onStop,
+}: Readonly<{
+  archived: boolean;
+  hasCode: boolean;
+  rotateLabel: string;
+  rotateRef: RefObject<HTMLButtonElement | null>;
+  onRotate: () => void;
+  onStop: () => void;
+}>) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {archived ? (
+        <p className="text-muted-fg text-xs leading-normal">
+          {t("classDetail.archivedNoCode")}
+        </p>
+      ) : null}
+      {archived && !hasCode ? null : (
+        <div className="flex gap-2">
+          {archived ? null : (
+            <Button
+              ref={rotateRef}
+              variant="outline"
+              className="h-8.5 flex-1 in-data-[scale=deck]:h-8.5"
+              onClick={onRotate}
+            >
+              <RotateCw aria-hidden="true" />
+              {rotateLabel}
+            </Button>
+          )}
+          {hasCode ? (
+            <Button
+              variant="ghost"
+              className="text-muted-fg h-8.5 in-data-[scale=deck]:h-8.5"
+              onClick={onStop}
+            >
+              {t("classDetail.stop")}
+            </Button>
+          ) : null}
+        </div>
+      )}
+    </>
   );
 }
 

@@ -199,6 +199,34 @@ describe("stopping a code", () => {
   });
 });
 
+describe("an archived class", () => {
+  const ARCHIVED = { ...KLASS, archivedAt: "2026-09-01T00:00:00Z" };
+
+  it("offers no new code, says to restore it, and still stops its code", async () => {
+    const user = renderPanel(ARCHIVED);
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    expect(screen.queryByRole("button", { name: "Mã mới" })).toBeNull();
+    expect(
+      screen.getByText(
+        "Lớp đã lưu trữ nên không ai tham gia được. Khôi phục lớp ở trang Lớp học để tạo mã.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/mã cũ ngừng hoạt động/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Ngừng" }));
+    const dialog = await screen.findByRole("dialog", { name: "Ngừng mã này?" });
+    await user.click(within(dialog).getByRole("button", { name: "Ngừng mã" }));
+    await waitFor(() => expect(revokes).toBe(1));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("switch", { name: "Cho học viên tham gia" })).toHaveFocus();
+  });
+
+  it("offers no Create code when it has no code", () => {
+    renderPanel({ ...ARCHIVED, joinCode: null });
+    expect(screen.queryByRole("button", { name: "Tạo mã" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ngừng" })).toBeNull();
+  });
+});
+
 describe("the Students can join switch", () => {
   it("pauses joining without touching the code, keeping focus while it saves", async () => {
     const user = renderPanel();

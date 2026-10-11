@@ -382,6 +382,7 @@
     "expiresAt": "Expires",
     "uses": "Uses",
     "noActiveCode": "No active code. Students can only be added by you.",
+    "archivedNoCode": "This class is archived, so nobody can join it. Restore it from Classes to make a code.",
     "copyLink": "Copy link",
     "rotate": "New code",
     "issue": "Create code",

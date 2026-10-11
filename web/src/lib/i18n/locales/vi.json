@@ -382,6 +382,7 @@
     "expiresAt": "Hết hạn",
     "uses": "Lượt dùng",
     "noActiveCode": "Chưa có mã đang dùng. Chỉ bạn thêm được học viên vào lớp.",
+    "archivedNoCode": "Lớp đã lưu trữ nên không ai tham gia được. Khôi phục lớp ở trang Lớp học để tạo mã.",
     "copyLink": "Chép liên kết",
     "rotate": "Mã mới",
     "issue": "Tạo mã",
