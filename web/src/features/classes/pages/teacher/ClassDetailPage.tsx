@@ -1,345 +1,141 @@
-import { useBulkSelection } from "@/hooks/useBulkSelection";
-import { BulkActions } from "@/components/shared/BulkActions";
-import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
-import { useListFilters } from "@/hooks/useListFilters";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import {
-  EmptyState,
-  ListSkeleton,
-  LoadError,
-  QueryStates,
-} from "@/components/shared/ListState";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { RowMenu } from "@/components/shared/RowMenu";
-import { SearchInput } from "@/components/shared/SearchInput";
-import { toast } from "@/components/ui/sonner";
-import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Link, useParams } from "react-router";
+import { useQuery } from "@tanstack/react-query";
+import { ClipboardList, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { fetchClass, fetchMembers, removeMember } from "@/features/classes/api";
+import { DeckScale } from "@/components/ui/deck-scale";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LoadError } from "@/components/shared/ListState";
+import { useCan } from "@/features/auth/permissions";
+import { fetchClass } from "@/features/classes/api";
 import { AddMemberDialog } from "@/features/classes/components/AddMemberDialog";
 import { ClassAssignmentsCard } from "@/features/classes/components/ClassAssignmentsCard";
+import { ClassMembersCard } from "@/features/classes/components/ClassMembersCard";
 import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
-import { invalidateClassMembership } from "@/features/classes/invalidate";
-import { scorePercent } from "@/features/students/api";
+import { PageHead } from "@/layouts/shell/PageHead";
+import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { ApiError } from "@/lib/api/errors";
-import { useLocale } from "@/lib/i18n/useLocale";
-import { formatDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { ClipboardList, UserMinus, UserPlus } from "lucide-react";
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router";
-import { Pager } from "@/components/shared/Pager";
-import { usePage } from "@/hooks/usePage";
-import { useDebounced } from "@/lib/useDebounced";
+import { useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { cn } from "@/lib/utils";
 
-/** §6.4's class screen: the join code, and who is in the class. */
-const MEMBERS_PAGE_SIZE = 20;
+const TWO_COLUMNS = 1000;
 
+/**
+ * ClassDetailPage is one class, as the deck's Class detail draws it: back to
+ * Classes, the name with its student count, Add student and Assign to class;
+ * then, side by side from 1000px of content (two thirds and one third), the
+ * members and the class's assignments, and the join code and the class's own
+ * words. Writing anything needs `teaching.classes.write`; without it the
+ * page reads. A class that is missing, or another teacher's, is not found.
+ */
 export default function ClassDetailPage() {
   useDisplayTimeZone();
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { id = "" } = useParams();
-  const queryClient = useQueryClient();
-  const bulk = useBulkSelection<{ id: string; name: string }>();
-  const locale = useLocale();
-
+  const canWrite = useCan("teaching.classes.write");
+  const canAssign = useCan("teaching.assignments.write");
+  const two = useContentWidthAtLeast(TWO_COLUMNS);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const [adding, setAdding] = useState(false);
   const klass = useQuery({
     queryKey: ["admin-class", id],
     queryFn: ({ signal }) => fetchClass(id, signal),
-  });
-  const { params, setFilter } = useListFilters();
-  const query = params.get("q") ?? "";
-  const setQuery = (value: string) => setFilter("q", value);
-  const search = useDebounced(query, 300).trim();
-  const [page] = usePage(search);
-  const members = useQuery({
-    queryKey: ["admin-class-members", id, { q: search, page }],
-    queryFn: ({ signal }) =>
-      fetchMembers(
-        id,
-        { limit: MEMBERS_PAGE_SIZE, page, ...(search === "" ? {} : { q: search }) },
-        signal,
-      ),
-    placeholderData: keepPreviousData,
+    retry: (count, cause) =>
+      !(cause instanceof ApiError && cause.status === 404) && count < 2,
   });
 
-  const [adding, setAdding] = useState(false);
-  const [removeError, setRemoveError] = useState<string | null>(null);
-  const [confirmRemove, setConfirmRemove] = useState<{
-    userId: string;
-    name: string;
-  } | null>(null);
-
-  const remove = useMutation({
-    mutationFn: (userId: string) => removeMember(id, userId),
-    onSuccess: async () => {
-      setRemoveError(null);
-      setConfirmRemove(null);
-      await invalidateClassMembership(queryClient, id);
-      toast(t("classDetail.removed"));
-    },
-    onError: (cause) => {
-      setConfirmRemove(null);
-      setRemoveError(
-        cause instanceof ApiError ? cause.message : t("classDetail.removeFailed"),
-      );
-    },
-  });
-
-  if (klass.isPending) {
-    return <ListSkeleton rows={6} />;
-  }
-  if (klass.isError) {
+  if (klass.isPending) return <DetailSkeleton />;
+  if (klass.isError)
     return (
-      <LoadError error={klass.error} onRetry={() => void klass.refetch()}>
-        {t("classDetail.loadFailed")}
-      </LoadError>
+      <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4">
+        <PageHead
+          title={t("classDetail.notFoundTitle")}
+          back={{ to: "/teacher/classes", label: t("teacherShell.nav.classes") }}
+        />
+        {klass.error instanceof ApiError && klass.error.status === 404 ? (
+          <p className="text-muted-fg text-sm">{t("classDetail.notFound")}</p>
+        ) : (
+          <LoadError error={klass.error} onRetry={() => void klass.refetch()}>
+            {t("classDetail.loadFailed")}
+          </LoadError>
+        )}
+      </DeckScale>
     );
-  }
 
-  const items = members.data?.items ?? [];
-  const selectionItems = items.map((m) => ({ id: m.userId, name: m.fullName }));
-
+  const data = klass.data;
   return (
-    <>
-      <PageHeader
-        title={klass.data.name}
-        backTo="/teacher/classes"
-        meta={
-          <Badge>
-            {t("classDetail.studentCount", { count: klass.data.studentCount })}
-          </Badge>
+    <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4.5">
+      <PageHead
+        title={data.name}
+        crumb
+        back={{ to: "/teacher/classes", label: t("teacherShell.nav.classes") }}
+        status={
+          <span className="bg-muted inline-flex h-5.5 items-center rounded-full px-2.25 text-xs font-medium whitespace-nowrap">
+            {t("classDetail.studentCount", { count: data.studentCount })}
+          </span>
         }
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
-              <UserPlus aria-hidden="true" />
-              {t("classDetail.addStudent")}
-            </Button>
-            <Button
-              size="sm"
-              onClick={() =>
-                void navigate(`/teacher/assignments/new?class=${klass.data.id}`)
-              }
-            >
-              <ClipboardList aria-hidden="true" />
-              {t("classDetail.assignToClass")}
-            </Button>
+            {canWrite ? (
+              <Button ref={addButton} variant="outline" onClick={() => setAdding(true)}>
+                <UserPlus aria-hidden="true" />
+                {t("classDetail.addStudent")}
+              </Button>
+            ) : null}
+            {canAssign && data.archivedAt === null ? (
+              <Button asChild>
+                <Link to={`/teacher/assignments/new?class=${data.id}`}>
+                  <ClipboardList aria-hidden="true" />
+                  {t("classDetail.assignToClass")}
+                </Link>
+              </Button>
+            ) : null}
           </>
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
-          <Card asChild className="gap-0 py-0">
-            <section aria-labelledby="members-heading">
-              <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
-                <h2
-                  id="members-heading"
-                  className="text-[0.9375rem] font-semibold tracking-[-0.01em]"
-                >
-                  {t("classDetail.members", { count: klass.data.studentCount })}
-                </h2>
-                <SearchInput
-                  className="w-56"
-                  value={query}
-                  onChange={setQuery}
-                  placeholder={t("classDetail.searchMembers")}
-                />
-              </div>
-
-              <BulkActions
-                selected={[...bulk.selected.values()]}
-                name={(item) => item.name}
-                actions={[
-                  {
-                    label: t("classDetail.removeSelected"),
-                    description: t("classDetail.removeSelectedBody"),
-                    run: (item) => removeMember(id, item.id),
-                  },
-                ]}
-                onRemoved={bulk.remove}
-                onClear={bulk.clear}
-                onSettled={() => invalidateClassMembership(queryClient, id)}
-              />
-              <QueryStates
-                query={members}
-                skeleton={<ListSkeleton rows={4} />}
-                failed={t("classDetail.membersFailed")}
-                className="px-5 pb-5"
-              >
-                {() =>
-                  items.length === 0 ? (
-                    <div className="px-5 pb-5">
-                      <EmptyState
-                        action={
-                          search === "" ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setAdding(true)}
-                            >
-                              <UserPlus aria-hidden="true" />
-                              {t("classDetail.addStudent")}
-                            </Button>
-                          ) : undefined
-                        }
-                      >
-                        {search === ""
-                          ? t("classDetail.noMembers")
-                          : t("classDetail.noMemberMatches", { query: search })}
-                      </EmptyState>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-10">
-                            <BulkSelectAll items={selectionItems} selection={bulk} />
-                          </TableHead>
-                          <TableHead>{t("classDetail.name")}</TableHead>
-                          <TableHead>{t("classDetail.joinedVia")}</TableHead>
-                          <TableHead>{t("classDetail.joinedAt")}</TableHead>
-                          <TableHead className="text-right">
-                            {t("students.submitted")}
-                          </TableHead>
-                          <TableHead className="text-right">
-                            {t("students.average")}
-                          </TableHead>
-                          <TableHead className="w-10">
-                            <span className="sr-only">{t("classDetail.actions")}</span>
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {items.map((m) => (
-                          <TableRow key={m.userId}>
-                            <TableCell>
-                              <BulkSelectRow
-                                item={{ id: m.userId, name: m.fullName }}
-                                name={m.fullName}
-                                selection={bulk}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Avatar name={m.fullName} size="sm" />
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium">{m.fullName}</p>
-                                  <p className="text-muted-foreground truncate text-xs">
-                                    {m.email}
-                                  </p>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {m.joinedVia === "admin" ? (
-                                <Badge>{t("classDetail.viaAdmin")}</Badge>
-                              ) : (
-                                <Badge variant="secondary">
-                                  {t("classDetail.viaCode", {
-                                    hint: m.joinCodeHint ?? "",
-                                  })}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {formatDate(m.joinedAt, locale)}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {m.stats.submittedCount}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {scorePercent(m.stats) === null ? (
-                                <span className="text-muted-foreground">—</span>
-                              ) : (
-                                t("students.percent", { value: scorePercent(m.stats) })
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <RowMenu>
-                                <DropdownMenuItem
-                                  variant="destructive"
-                                  disabled={remove.isPending}
-                                  onSelect={() => {
-                                    setRemoveError(null);
-                                    setConfirmRemove({
-                                      userId: m.userId,
-                                      name: m.fullName,
-                                    });
-                                  }}
-                                >
-                                  <UserMinus aria-hidden="true" />
-                                  {t("classDetail.remove")}
-                                </DropdownMenuItem>
-                              </RowMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )
-                }
-              </QueryStates>
-              {members.data && members.data.total > MEMBERS_PAGE_SIZE && (
-                <div className="px-5 pb-4">
-                  <Pager
-                    page={members.data.page}
-                    pageSize={members.data.pageSize}
-                    total={members.data.total}
-                  />
-                </div>
-              )}
-              {removeError ? (
-                <p role="alert" className="text-destructive px-5 pb-2 text-sm">
-                  {removeError}
-                </p>
-              ) : null}
-              <p className="text-muted-foreground border-t px-5 pt-2 pb-2 text-xs">
-                {t("classDetail.removeKeepsWork")}
-              </p>
-            </section>
-          </Card>
-          <ClassAssignmentsCard classId={id} />
+      <div
+        className={cn(
+          "grid items-start gap-4.5",
+          two && "grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
+        )}
+      >
+        <div className="flex min-w-0 flex-col gap-4.5">
+          <ClassMembersCard klass={data} canWrite={canWrite} />
+          <ClassAssignmentsCard classId={data.id} />
         </div>
-
-        <div className="space-y-5">
-          <JoinCodePanel klass={klass.data} />
-          <ClassSettingsCard klass={klass.data} />
+        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] items-start gap-4.5">
+          <JoinCodePanel klass={data} canWrite={canWrite} />
+          <ClassSettingsCard klass={data} canWrite={canWrite} />
         </div>
       </div>
 
-      <ConfirmDialog
-        open={confirmRemove !== null}
-        onOpenChange={(open) => !open && setConfirmRemove(null)}
-        title={t("classDetail.removeConfirmTitle")}
-        description={`${confirmRemove?.name ?? ""} — ${t("classDetail.removeConfirmBody")}`}
-        confirmLabel={t("classDetail.removeConfirm")}
-        destructive
-        pending={remove.isPending}
-        onConfirm={() => confirmRemove && remove.mutate(confirmRemove.userId)}
+      <AddMemberDialog
+        klass={data}
+        open={adding}
+        onOpenChange={setAdding}
+        returnFocus={addButton}
       />
+    </DeckScale>
+  );
+}
 
-      <AddMemberDialog classId={id} open={adding} onOpenChange={setAdding} />
-    </>
+function DetailSkeleton() {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={t("common.loading")}
+      className="mx-auto flex w-full max-w-[1320px] flex-col gap-4.5"
+    >
+      <Skeleton className="h-14 w-72 rounded-lg" />
+      <div className="grid gap-4.5 min-[1280px]:grid-cols-[2fr_1fr]">
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    </div>
   );
 }
