@@ -1,7 +1,22 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.81 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.82 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.81**
+
+R4, `closeNow` before the window has opened (F-63):
+
+- §15 `closeNow` closes an assignment now, so it needs a window that has opened. A request with
+  `closeNow` and `window.opensAt` still ahead of now is `400 VALIDATION_FAILED` naming `closeNow`,
+  whatever the assignment's status: a scheduled assignment closed now, an open one given an
+  opening ahead, a closed one given an opening ahead. All three answered `500` before, because the
+  schema requires `closed_at >= opens_at`. On a closed assignment this takes the case "closed now
+  beside a window that opens later" away from `409 ASSIGNMENT_CLOSED` (v0.81); a window that opens
+  after an early close the assignment already keeps, with no `closeNow`, stays `409`.
+- §15 `closeNow` is a field of a PATCH. A `POST /teacher/assignments` ignores it, as the contract
+  said ("PATCH only"): a new assignment is never closed, and a create with `closeNow` and an
+  opening ahead answered `500` before.
 
 **Changes since v0.80**
 
@@ -2651,7 +2666,9 @@ GET    /teacher/assignments?status=&classId=&classId=&q=&page=&limit= | POST | G
                                         PATCH 409 ASSIGNMENT_LOCKED while the assignment is open and the
                                         body changes testVersionId, durationMinutes or maxAttempts;
                                         PATCH 409 ASSIGNMENT_CLOSED when the assignment is closed and
-                                        the window would open it again (use /reopen)
+                                        the window would open it again (use /reopen);
+                                        PATCH 400 VALIDATION_FAILED naming closeNow when closeNow is
+                                        sent with opensAt still ahead (a POST ignores closeNow)
 POST   /teacher/assignments/:id/extend  {minutes,notify?} → Assignment; 409 ASSIGNMENT_CLOSED when closed
 POST   /teacher/assignments/:id/duplicate {classIds} → 201 Assignment, a draft; 409 TEST_NOT_PUBLISHED
 GET    /teacher/assignments/:id/item-analysis → {handedIn, items:[{questionId,number,type,promptExcerpt,
@@ -2765,7 +2782,7 @@ validator's 400 response; malformed or schema-invalid bodies are
 
 **The live lock.** While the derived status is `open` (from `opensAt` up to, not including, `closesAt`, and before an early close), `updateAssignment` refuses a change to `testVersionId`, `durationMinutes` or `maxAttempts` with `409 ASSIGNMENT_LOCKED`, whether or not anyone has started; sending the stored value is not a change. The check precedes the version check, so a scheduled or closed assignment that has attempts still answers `VERSION_LOCKED` for a changed version, and its timing stays editable.
 
-**The closed rule.** An assignment that is closed (its window has ended, or it was closed early) stays closed under `updateAssignment`. A `window` that would make it scheduled or open again, or that opens after the early close it keeps, answers `409 ASSIGNMENT_CLOSED`: that is a reopening, and `reopenAssignment` does it with a reason and an audit row. The two operations take complementary sets, as `extendAssignment` and `reopenAssignment` do. A save that leaves it closed is unaffected: the stored window, an earlier close, `closeNow`, any other field, and a later close on an assignment closed early (a save never lifts an early close).
+**The closed rule.** An assignment that is closed (its window has ended, or it was closed early) stays closed under `updateAssignment`. A `window` that would make it scheduled or open again, or that opens after the early close it keeps, answers `409 ASSIGNMENT_CLOSED`: that is a reopening, and `reopenAssignment` does it with a reason and an audit row. The two operations take complementary sets, as `extendAssignment` and `reopenAssignment` do. A save that leaves it closed is unaffected: the stored window, an earlier close, `closeNow` (while the window has opened: with `opensAt` ahead of now it is `400 VALIDATION_FAILED` naming `closeNow`, for every status), any other field, and a later close on an assignment closed early (a save never lifts an early close).
 
 **Release after the close.** The effective close of an assignment is the earlier of its early close and `closesAt`. Until `now` reaches it, a result whose assignment releases `after_close` is read as if the policy hid the score, the marks, the answer key and the explanations, and its grader's comments are not sent: the result's `review.showScore`, `showCorrectAnswers` and `showExplanations` are false, `review.release` and `review.showClassAverage` are as stored, and `releasesAt` is that close. A pending manual answer and a transcript keep their own gates. The student's assignment card shows no score before the same moment.
 
