@@ -1,14 +1,16 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { listNotifications, notificationKeys } from "./api";
+import { listNotifications, notificationKeys, type NotificationAudience } from "./api";
 
-/** useNotificationList appends twenty-item cursor pages without polling or repeating a loaded cursor. */
-export function useNotificationList(enabled = true) {
+/** useNotificationList appends twenty-item cursor pages of `audience`'s kinds without polling or repeating a loaded cursor. */
+export function useNotificationList(audience: NotificationAudience, enabled = true) {
   const query = useInfiniteQuery({
-    queryKey: notificationKeys.list,
+    queryKey: notificationKeys.list(audience),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       listNotifications(
-        pageParam ? { before: pageParam, limit: 20 } : { limit: 20 },
+        pageParam
+          ? { audience, before: pageParam, limit: 20 }
+          : { audience, limit: 20 },
         signal,
       ),
     getNextPageParam: (last, _pages, _lastParam, pageParams) =>

@@ -20,7 +20,10 @@ var anyAssignment = access.Scope{All: true}
 // Create assigns a version of a test the actor owns to classes the actor
 // teaches and students the actor reaches, or to anything under scope.all. A
 // version, class or student outside that answers exactly as a missing one.
+// CloseNow belongs to Update: a new assignment is never closed, and Create
+// ignores the field, as the contract says.
 func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.WriteInput) (domain.Assignment, error) {
+	in.CloseNow = false
 	if err := in.Validate(); err != nil {
 		return domain.Assignment{}, err
 	}
@@ -45,17 +48,17 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 	var id string
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO app.assignments
-		       (test_id, test_version_id, opens_at, closes_at, closed_at,
+		       (test_id, test_version_id, opens_at, closes_at,
 		        duration_minutes, max_attempts, shuffle_questions, shuffle_options,
 		        review_show_score, review_show_correct_answers, review_show_explanations,
 		        review_release, review_show_class_average, student_note,
 		        integrity_require_fullscreen, integrity_block_copy_paste,
 		        integrity_max_focus_loss, integrity_on_limit_exceeded, integrity_min_away_ms,
 		        created_by, published_at)
-		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-		        $13, $14, $15, $16, $17, $18, $19::app.integrity_action, $20, $21::uuid, $22)
+		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+		        $12, $13, $14, $15, $16, $17, $18::app.integrity_action, $19, $20::uuid, $21)
 		RETURNING id::text`,
-		testID, in.TestVersionID, in.OpensAt, in.ClosesAt, domain.Schedule.ClosedAtOf(in),
+		testID, in.TestVersionID, in.OpensAt, in.ClosesAt,
 		in.DurationMin, in.MaxAttempts, in.ShuffleQ, in.ShuffleO,
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
 		string(in.Review.Release), in.Review.ShowClassAverage, in.StudentNote,

@@ -45,6 +45,7 @@ describe("the teacher shell's bell", () => {
     const seen = serveSummary();
     renderShell("/teacher", [home()]);
     await waitFor(() => expect(seen.asked).toBeGreaterThan(0));
+    expect(new Set(seen.audiences)).toEqual(new Set(["teacher"]));
     const button = await screen.findByRole("button", { name: "Thông báo" });
     expect(button.querySelector("[data-slot='bell-dot']")).toBeNull();
   });
@@ -68,13 +69,14 @@ describe("the admin console's bell", () => {
     },
   ];
 
-  it("keeps a bell until R5 rebuilds the console", async () => {
+  it("keeps a bell until R5 rebuilds the console, counting the teacher's kinds", async () => {
     serveDashboard();
-    serveSummary({ ...summaryBody, unreadNotifications: 1 });
+    const seen = serveSummary({ ...summaryBody, unreadNotifications: 1 });
     renderRoutes("/teacher", admin());
     expect(
       await screen.findByRole("button", { name: "Thông báo, 1 chưa đọc" }),
     ).toBeInTheDocument();
+    expect(new Set(seen.audiences)).toEqual(new Set(["teacher"]));
   });
 
   it("has none while the notifications module is off", async () => {

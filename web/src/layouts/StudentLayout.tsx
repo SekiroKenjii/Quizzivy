@@ -61,7 +61,7 @@ export default function StudentLayout() {
   const route = matches.at(-1)?.id;
   const detail = detailOf(matches);
   const dueSoon = useDueSoonCount();
-  const { unread } = useNotificationSummary(modules.notifications);
+  const { unread } = useNotificationSummary("student", modules.notifications);
   const [own, setTitle] = useState<string | null>(null);
   const context = useMemo(() => ({ setTitle }) satisfies DetailShell, []);
   const main = useRef<HTMLElement>(null);

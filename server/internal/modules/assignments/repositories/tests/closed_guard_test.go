@@ -12,6 +12,7 @@ import (
 	"quizzivy/internal/modules/assignments/repositories"
 	"quizzivy/internal/platform/db"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -31,15 +32,19 @@ func closedNow(in domain.WriteInput) domain.WriteInput {
 	return in
 }
 
-func auditCount(t *testing.T, pool *pgxpool.Pool, assignmentID, action string) int {
+func auditedAfterCreation(t *testing.T, pool *pgxpool.Pool, assignmentID string) []string {
 	t.Helper()
-	var n int
-	if err := pool.QueryRow(context.Background(),
-		`SELECT count(*) FROM app.audit_log WHERE entity = 'assignment' AND entity_id = $1::uuid AND action = $2`,
-		assignmentID, action).Scan(&n); err != nil {
+	rows, err := pool.Query(context.Background(),
+		`SELECT action FROM app.audit_log WHERE entity = 'assignment' AND entity_id = $1::uuid AND action <> 'assignment.created' ORDER BY id`,
+		assignmentID)
+	if err != nil {
 		t.Fatal(err)
 	}
-	return n
+	actions, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return actions
 }
 
 func TestAWindowThatWouldOpenAClosedAssignmentAgainIsRefusedAndWritesNothing(t *testing.T) {
@@ -56,7 +61,6 @@ func TestAWindowThatWouldOpenAClosedAssignmentAgainIsRefusedAndWritesNothing(t *
 		"a close a minute ahead":             windowed(w, -2*time.Hour, time.Minute),
 		"a window that opens later":          windowed(w, time.Hour, 2*time.Hour),
 		"a later close with other edits too": shuffled(windowed(w, -2*time.Hour, time.Hour)),
-		"closing now beside a later opening": closedNow(windowed(w, time.Hour, 2*time.Hour)),
 	} {
 		if _, err := store.Update(ctx, req, in); !errors.Is(err, domain.ErrReopens) {
 			t.Errorf("%s: %v, want ErrReopens", name, err)
@@ -73,8 +77,8 @@ func TestAWindowThatWouldOpenAClosedAssignmentAgainIsRefusedAndWritesNothing(t *
 	if status := domain.Schedule.StatusAt(time.Now(), got.PublishedAt, got.OpensAt, got.ClosesAt, got.ClosedAt); status != domain.Closed {
 		t.Errorf("the assignment is %s after the refusals, want closed", status)
 	}
-	if n := auditCount(t, pool, closed.ID, "assignment.updated"); n != 0 {
-		t.Errorf("%d assignment.updated rows after refused updates, want none", n)
+	if actions := auditedAfterCreation(t, pool, closed.ID); len(actions) != 0 {
+		t.Errorf("audit rows after refused updates: %v, want only the creation", actions)
 	}
 
 	until := time.Now().Add(time.Hour).Truncate(time.Second)
@@ -85,8 +89,8 @@ func TestAWindowThatWouldOpenAClosedAssignmentAgainIsRefusedAndWritesNothing(t *
 	if !reopened.ClosesAt.Equal(until) {
 		t.Errorf("reopened to %v, want %v", reopened.ClosesAt, until)
 	}
-	if n := auditCount(t, pool, closed.ID, "assignment.reopened"); n != 1 {
-		t.Errorf("%d assignment.reopened rows, want the one with the reason", n)
+	if actions := auditedAfterCreation(t, pool, closed.ID); len(actions) != 1 || actions[0] != "assignment.reopened" {
+		t.Errorf("audit rows after reopening: %v, want the one with the reason", actions)
 	}
 }
 

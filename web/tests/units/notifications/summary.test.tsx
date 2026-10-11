@@ -43,7 +43,7 @@ describe("idle notification summary", () => {
         return summaryResponse(7);
       }),
     );
-    const hook = renderHook(() => useNotificationSummary(), harness());
+    const hook = renderHook(() => useNotificationSummary("student"), harness());
     expect(hook.result.current.unread).toBe(0);
     expect(SUMMARY_POLL_MS).toBe(60_000);
     await settled(() => hook.result.current.unread === 7);
@@ -70,28 +70,32 @@ describe("idle notification summary", () => {
       ),
     );
     const setup = harness();
-    const hook = renderHook(() => useNotificationSummary(), setup);
+    const hook = renderHook(() => useNotificationSummary("student"), setup);
     await settled(
       () =>
-        setup.client.getQueryState(notificationKeys.summary)?.status === "error" &&
-        hook.result.current.unread === 0,
+        setup.client.getQueryState(notificationKeys.summary("student"))?.status ===
+          "error" && hook.result.current.unread === 0,
     );
     expect(hook.result.current.unread).toBe(0);
     fail = false;
     await act(async () => {
-      await setup.client.invalidateQueries({ queryKey: notificationKeys.summary });
+      await setup.client.invalidateQueries({
+        queryKey: notificationKeys.summary("student"),
+      });
     });
     await settled(() => hook.result.current.unread === 5);
     fail = true;
     await act(async () => {
-      await setup.client.invalidateQueries({ queryKey: notificationKeys.summary });
+      await setup.client.invalidateQueries({
+        queryKey: notificationKeys.summary("student"),
+      });
     });
     await settled(
       () =>
-        setup.client.getQueryState(notificationKeys.summary)?.status === "error" &&
-        hook.result.current.unread === 0,
+        setup.client.getQueryState(notificationKeys.summary("student"))?.status ===
+          "error" && hook.result.current.unread === 0,
     );
-    expect(setup.client.getQueryData(notificationKeys.summary)).toEqual({
+    expect(setup.client.getQueryData(notificationKeys.summary("student"))).toEqual({
       unreadNotifications: 5,
     });
     expect(hook.result.current.unread).toBe(0);
@@ -107,11 +111,13 @@ describe("idle notification summary", () => {
       }),
     );
     const setup = harness();
-    const hook = renderHook(() => useNotificationSummary(), setup);
+    const hook = renderHook(() => useNotificationSummary("student"), setup);
     await settled(() => hook.result.current.unread === 2);
     let refresh!: Promise<void>;
     act(() => {
-      refresh = setup.client.invalidateQueries({ queryKey: notificationKeys.summary });
+      refresh = setup.client.invalidateQueries({
+        queryKey: notificationKeys.summary("student"),
+      });
     });
     await settled(() => requests === 2);
     expect(hook.result.current.unread).toBe(2);
@@ -132,11 +138,16 @@ describe("idle notification summary", () => {
       }),
     );
     const setup = harness();
-    setup.client.setQueryData(notificationKeys.summary, { unreadNotifications: 9 });
-    const hook = renderHook(({ enabled }) => useNotificationSummary(enabled), {
-      ...setup,
-      initialProps: { enabled: false },
+    setup.client.setQueryData(notificationKeys.summary("student"), {
+      unreadNotifications: 9,
     });
+    const hook = renderHook(
+      ({ enabled }) => useNotificationSummary("student", enabled),
+      {
+        ...setup,
+        initialProps: { enabled: false },
+      },
+    );
     expect(hook.result.current.unread).toBe(0);
     await tick(720_000);
     act(() => window.dispatchEvent(new Event("keydown")));
@@ -160,7 +171,7 @@ describe("idle notification summary", () => {
         return summaryResponse(4);
       }),
     );
-    const hook = renderHook(() => useNotificationSummary(), harness());
+    const hook = renderHook(() => useNotificationSummary("student"), harness());
     await settled(() => hook.result.current.unread === 4);
     visibility("hidden");
     await tick(120_000);

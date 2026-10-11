@@ -620,17 +620,20 @@ describe("the bell", () => {
     expect(screen.queryByRole("button", { name: /^Thông báo/ })).toBeNull();
   });
 
-  it("sits before the account button with a dot while something is unread", async () => {
+  it("sits before the account button with a dot while something is unread, counting the student's kinds", async () => {
     flags.notifications = true;
     serveStudent({});
+    const audiences: (string | null)[] = [];
     server.use(
-      http.get(`${BASE}/me/summary`, () =>
-        contractJson("/me/summary", "get", 200, { unreadNotifications: 2 }),
-      ),
+      http.get(`${BASE}/me/summary`, ({ request }) => {
+        audiences.push(new URL(request.url).searchParams.get("audience"));
+        return contractJson("/me/summary", "get", 200, { unreadNotifications: 2 });
+      }),
     );
     shell("/app", <p>trang</p>);
     const bell = await screen.findByRole("button", { name: "Thông báo, 2 chưa đọc" });
     expect(bell.querySelector("[data-slot='bell-dot']")).not.toBeNull();
+    expect(new Set(audiences)).toEqual(new Set(["student"]));
     const account = screen.getByRole("button", { name: "Tài khoản của Nguyễn Văn An" });
     expect(
       bell.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING,

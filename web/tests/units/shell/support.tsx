@@ -118,12 +118,16 @@ export const summaryBody: TeacherSummary = {
   unreadNotifications: 0,
 };
 
-/** serveSummary answers the actual cheap Teacher summary endpoint for rebuilt-shell public cases. */
+/**
+ * serveSummary answers the actual cheap Teacher summary endpoint for
+ * rebuilt-shell public cases, and records the audience each read asked for.
+ */
 export function serveSummary(body: TeacherSummary = summaryBody) {
-  const seen = { asked: 0 };
+  const seen = { asked: 0, audiences: [] as (string | null)[] };
   server.use(
-    http.get(`${BASE}/teacher/summary`, () => {
+    http.get(`${BASE}/teacher/summary`, ({ request }) => {
       seen.asked += 1;
+      seen.audiences.push(new URL(request.url).searchParams.get("audience"));
       return contractJson("/teacher/summary", "get", 200, body);
     }),
   );

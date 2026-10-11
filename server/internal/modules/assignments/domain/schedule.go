@@ -44,13 +44,6 @@ func (ScheduleManager) PublishedAtOf(in WriteInput) *time.Time {
 	return &in.Now
 }
 
-func (ScheduleManager) ClosedAtOf(in WriteInput) *time.Time {
-	if in.CloseNow {
-		return &in.Now
-	}
-	return nil
-}
-
 // ClosedAtAfter is the early close an assignment holds once in is saved over
 // it: the one it has, which an update never lifts, or in.Now when in closes it
 // now.
