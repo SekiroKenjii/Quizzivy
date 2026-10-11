@@ -24,9 +24,11 @@ type bulkShelf struct {
 	domain.Students
 	mu     sync.Mutex
 	known  map[string]domain.Student
+	refuse map[string]error
 	fail   map[string]error
 	panics map[string]bool
 	delay  map[string]time.Duration
+	tried  []string
 	done   []string
 	hashes map[string]string
 }
@@ -34,6 +36,7 @@ type bulkShelf struct {
 func newBulkShelf(ids ...string) *bulkShelf {
 	shelf := &bulkShelf{
 		known:  map[string]domain.Student{},
+		refuse: map[string]error{},
 		fail:   map[string]error{},
 		panics: map[string]bool{},
 		delay:  map[string]time.Duration{},
@@ -53,7 +56,14 @@ func (b *bulkShelf) Get(_ context.Context, _ access.Scope, id string) (domain.St
 	return student, nil
 }
 
+func (b *bulkShelf) CheckResettable(_ context.Context, _ domain.WriteRequest, id string) error {
+	return b.refuse[id]
+}
+
 func (b *bulkShelf) ResetPassword(_ context.Context, _ domain.WriteRequest, id, hash string, _ time.Time) error {
+	b.mu.Lock()
+	b.tried = append(b.tried, id)
+	b.mu.Unlock()
 	time.Sleep(b.delay[id])
 	if b.panics[id] {
 		panic("the connection pool closed under " + id)
@@ -73,6 +83,14 @@ func (b *bulkShelf) reset(id string) bool {
 	defer b.mu.Unlock()
 	_, ok := b.hashes[id]
 	return ok
+}
+
+func (b *bulkShelf) attempted() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := slices.Clone(b.tried)
+	slices.Sort(out)
+	return out
 }
 
 func (b *bulkShelf) committed() []string {
@@ -267,6 +285,59 @@ func TestABulkResetAnswersEachStudentInTheOrderAskedWithItsOwnReason(t *testing.
 	}
 	if len(rig.principal.early) != 0 {
 		t.Errorf("forgot %v before their reset was stored", rig.principal.early)
+	}
+}
+
+func TestAStudentTheResetWouldRefuseCostsNoHash(t *testing.T) {
+	rig := newBulkRig("a", "shared", "b", "vanished", "fault", "c")
+	rig.shelf.refuse["shared"] = domain.ErrStudentShared
+	rig.shelf.refuse["vanished"] = domain.ErrStudentNotFound
+	rig.shelf.refuse["fault"] = errors.New("pq: the connection was reset")
+	rig.shelf.fail["c"] = domain.ErrStudentShared
+
+	result := rig.reset(context.Background(), teacherRequest, "a", "shared", "b", "vanished", "fault", "c")
+
+	if got, want := resetIDs(result), []string{"a", "b"}; !slices.Equal(got, want) {
+		t.Errorf("reset %v, want %v", got, want)
+	}
+	for id, want := range map[string]error{
+		"shared":   domain.ErrStudentShared,
+		"vanished": domain.ErrStudentNotFound,
+		"fault":    domain.ErrResetFailed,
+		"c":        domain.ErrStudentShared,
+	} {
+		if got := reasonFor(result, id); !errors.Is(got, want) {
+			t.Errorf("%s failed with %v, want %v", id, got, want)
+		}
+	}
+	if got := rig.passwords.calls.Load(); got != 3 {
+		t.Errorf("%d passwords were made, want 3: one for each of a and b and one for c, whose refusal only the transaction could give", got)
+	}
+	if got, want := rig.shelf.attempted(), []string{"a", "b", "c"}; !slices.Equal(got, want) {
+		t.Errorf("the transaction ran for %v, want %v and not a student refused before the hash", got, want)
+	}
+}
+
+func TestASingleResetOfAStudentItWouldRefuseCostsNoHash(t *testing.T) {
+	app, shelf := guarded()
+	passwords := &passwordSource{}
+	app.SetTemporaryPasswords(passwords.make)
+	shelf.refuse = map[string]error{"pupil": domain.ErrStudentShared}
+	reset := command.ResetStudentPassword{Request: teacherRequest, ID: "pupil"}
+
+	if _, err := app.Commands.ResetStudentPassword.Handle(context.Background(), reset); !errors.Is(err, domain.ErrStudentShared) {
+		t.Fatalf("a shared student answered %v", err)
+	}
+	if got := passwords.calls.Load(); got != 0 || len(shelf.writes) != 0 {
+		t.Errorf("a refused student cost %d passwords and %v writes, want none", got, shelf.writes)
+	}
+
+	shelf.refuse = nil
+	if _, err := app.Commands.ResetStudentPassword.Handle(context.Background(), reset); err != nil {
+		t.Fatal(err)
+	}
+	if got := passwords.calls.Load(); got != 1 || len(shelf.writes) != 1 {
+		t.Errorf("a student who proceeds cost %d passwords and %v writes, want one of each", got, shelf.writes)
 	}
 }
 

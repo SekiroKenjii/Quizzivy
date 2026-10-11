@@ -99,6 +99,9 @@ func (s ResetStudentsPasswordsHandler) resetOne(ctx context.Context, req domain.
 	if err == nil && student.DisabledAt != nil {
 		err = domain.ErrStudentNotFound
 	}
+	if err == nil {
+		err = s.Repo.CheckResettable(ctx, req, id)
+	}
 	if err != nil {
 		outcome.err = s.classify(id, err)
 		return outcome

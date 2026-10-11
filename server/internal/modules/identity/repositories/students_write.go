@@ -213,13 +213,31 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 	return tx.Commit(ctx)
 }
 
+// CheckResettable answers what ResetPassword would answer for the student on
+// the grounds that need no write: ErrStudentNotFound for one the actor does not
+// reach or who is disabled, and ErrStudentShared for one another teacher also
+// reaches unless the actor manages accounts. It takes no lock, so only
+// ResetPassword's own answer is final; a caller uses this one to decline a
+// student before it spends a password hash on it.
+func (s *Students) CheckResettable(ctx context.Context, req domain.WriteRequest, id string) error {
+	err := checkUnshared(ctx, s, req, id, nil, true, ``)
+	if req.ManagesUsers() && errors.Is(err, domain.ErrStudentShared) {
+		return nil
+	}
+	return err
+}
+
 func unshared(ctx context.Context, tx pgx.Tx, req domain.WriteRequest, id string, email *string, activeOnly bool) error {
+	return checkUnshared(ctx, tx, req, id, email, activeOnly, ` FOR NO KEY UPDATE OF u`)
+}
+
+func checkUnshared(ctx context.Context, q db.Querier, req domain.WriteRequest, id string, email *string, activeOnly bool, lock string) error {
 	active := ``
 	if activeOnly {
 		active = ` AND u.disabled_at IS NULL`
 	}
 	var alone bool
-	err := tx.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		SELECT u.email IS NOT DISTINCT FROM $4::text OR coalesce(
 		         NOT EXISTS (SELECT 1 FROM app.class_members m WHERE m.user_id = u.id AND m.class_id NOT IN `+visibility.TaughtClassIDs(3)+`)
 		         AND (u.created_by IS NULL OR u.created_by = $3::uuid)
@@ -229,8 +247,7 @@ func unshared(ctx context.Context, tx pgx.Tx, req domain.WriteRequest, id string
 		         false)
 		  FROM app.users u
 		 WHERE u.id = $1::uuid AND `+studentLike+active+`
-		   AND ($2::boolean OR u.id IN `+visibility.StudentIDs(3)+`)
-		   FOR NO KEY UPDATE OF u`, id, req.All, opt.String(req.ActorID), email).Scan(&alone)
+		   AND ($2::boolean OR u.id IN `+visibility.StudentIDs(3)+`)`+lock, id, req.All, opt.String(req.ActorID), email).Scan(&alone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrStudentNotFound
 	}

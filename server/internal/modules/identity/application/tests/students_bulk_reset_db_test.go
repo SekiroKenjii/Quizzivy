@@ -13,6 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -432,5 +433,92 @@ func TestListingFiltersByAnyOfSeveralClassesAndByTheTemporaryPasswordFlag(t *tes
 				t.Errorf("the facets total %d, want %d: they must count the same students the list shows", facets.Total, len(want))
 			}
 		})
+	}
+}
+
+func TestCheckResettableAnswersWhatTheTransactionWouldWithoutLockingTheStudent(t *testing.T) {
+	w := newBulkWorld(t)
+	store := repositories.NewStudents(db.NewContext(w.pool))
+	missing := uuid.NewString()
+
+	for name, c := range map[string]struct {
+		req  domain.WriteRequest
+		id   string
+		want error
+	}{
+		"a teacher's own student":                  {w.requestA, w.mine[0], nil},
+		"a student another teacher also reaches":   {w.requestA, w.shared, domain.ErrStudentShared},
+		"another teacher's student":                {w.requestA, w.theirs, domain.ErrStudentNotFound},
+		"a disabled student":                       {w.requestA, w.disabled, domain.ErrStudentNotFound},
+		"an account that holds more than a pupil":  {w.requestA, w.grader, domain.ErrStudentNotFound},
+		"an id nobody holds":                       {w.requestA, missing, domain.ErrStudentNotFound},
+		"a shared student, for a manager":          {w.requestAB, w.shared, nil},
+		"another teacher's student, for a manager": {w.requestAB, w.theirs, nil},
+		"a disabled student, for a manager":        {w.requestAB, w.disabled, domain.ErrStudentNotFound},
+		"a grader, for a manager":                  {w.requestAB, w.grader, domain.ErrStudentNotFound},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := store.CheckResettable(context.Background(), c.req, c.id); !errors.Is(got, c.want) || (c.want == nil) != (got == nil) {
+				t.Errorf("answered %v, want %v", got, c.want)
+			}
+		})
+	}
+
+	ctx := context.Background()
+	holder, err := w.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := holder.Rollback(ctx); err != nil {
+			t.Errorf("release the lock: %v", err)
+		}
+	})
+	if _, err := holder.Exec(ctx, `SELECT 1 FROM app.users WHERE id = $1::uuid FOR UPDATE`, w.mine[0]); err != nil {
+		t.Fatal(err)
+	}
+	waited, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := store.CheckResettable(waited, w.requestA, w.mine[0]); err != nil {
+		t.Errorf("a student whose row another transaction holds answered %v, want the check to read past the lock", err)
+	}
+}
+
+func TestAStudentTheTransactionWouldRefuseCostsNoHashAndChangesNothing(t *testing.T) {
+	w := newBulkWorld(t)
+	var hashes atomic.Int64
+	w.app.SetTemporaryPasswords(func(context.Context) (string, string, error) {
+		n := hashes.Add(1)
+		return fmt.Sprintf("pw-%d", n), fmt.Sprintf("$argon2id$v=19$m=65536,t=3,p=2$c2FsdA$aGFzaA%d", n), nil
+	})
+	missing := uuid.NewString()
+	refused := []string{w.shared, w.theirs, w.disabled, w.grader, missing}
+	before := map[string]accountState{}
+	for _, id := range refused {
+		if id != missing {
+			before[id] = w.state(t, id)
+		}
+	}
+
+	result := w.resetAs(t, w.requestA, append(slices.Clone(refused), w.mine[0])...)
+
+	if got := resetIDs(result); !slices.Equal(got, []string{w.mine[0]}) {
+		t.Fatalf("reset %v, want only A's own student", got)
+	}
+	if got := hashes.Load(); got != 1 {
+		t.Errorf("a bulk reset of %d refused students and one that proceeds made %d passwords, want 1", len(refused), got)
+	}
+	for _, id := range refused {
+		if _, err := w.app.Commands.ResetStudentPassword.Handle(context.Background(), command.ResetStudentPassword{Request: w.requestA, ID: id}); err == nil {
+			t.Errorf("the single reset of %s succeeded", id)
+		}
+	}
+	if got := hashes.Load(); got != 1 {
+		t.Errorf("the single resets of the refused students made %d passwords in all, want still 1", got)
+	}
+	for id, was := range before {
+		if after := w.state(t, id); after != was {
+			t.Errorf("a refused reset changed %s: %+v became %+v", id, was, after)
+		}
 	}
 }

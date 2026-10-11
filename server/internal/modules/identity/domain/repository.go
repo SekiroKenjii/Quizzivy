@@ -42,4 +42,5 @@ type Students interface {
 	Create(ctx context.Context, req WriteRequest, in NewStudent) (Student, error)
 	Update(ctx context.Context, req WriteRequest, in StudentPatch) (Student, error)
 	ResetPassword(ctx context.Context, req WriteRequest, id, hash string, now time.Time) error
+	CheckResettable(ctx context.Context, req WriteRequest, id string) error
 }

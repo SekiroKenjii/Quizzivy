@@ -20,7 +20,10 @@ func (s ResetStudentPasswordHandler) Handle(ctx context.Context, cmd ResetStuden
 	if err := s.MayActOn(ctx, cmd.Request, cmd.ID, false); err != nil {
 		return "", err
 	}
-	temporary, hash, err := support.TemporaryPassword(ctx)
+	if err := s.Repo.CheckResettable(ctx, cmd.Request, cmd.ID); err != nil {
+		return "", err
+	}
+	temporary, hash, err := s.Password(ctx)
 	if err != nil {
 		return "", err
 	}
