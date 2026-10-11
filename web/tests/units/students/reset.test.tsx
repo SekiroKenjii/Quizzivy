@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { useAuthStore } from "@/stores/auth";
 import { contractJson } from "@tests/support/contractResponse";
@@ -34,10 +35,25 @@ function resetsOne(answer: () => Response) {
   return asked;
 }
 
+const CONSOLE_METHODS = ["log", "info", "warn", "error", "debug"] as const;
+
+function watchConsole() {
+  return CONSOLE_METHODS.map((method) => vi.spyOn(console, method));
+}
+
 const nowhereElse = (
   secret: string,
   client: ReturnType<typeof renderStudents>["client"],
+  consoles: ReturnType<typeof watchConsole>,
 ) => {
+  for (const spy of consoles) {
+    for (const call of spy.mock.calls) {
+      expect(call.map((argument) => String(argument)).join(" ")).not.toContain(secret);
+      expect(JSON.stringify(call, (_, value: unknown) => value ?? null)).not.toContain(
+        secret,
+      );
+    }
+  }
   expect(
     JSON.stringify(
       client
@@ -66,6 +82,7 @@ describe("resetting one student's password", () => {
         temporaryPassword: SECRET,
       }),
     );
+    const consoles = watchConsole();
     const { user, router, client } = renderStudents(teacherUser);
 
     const menu = await menuOf(user, "Nguyễn Văn An");
@@ -88,17 +105,18 @@ describe("resetting one student's password", () => {
     const { pathname, search, hash } = router.state.location;
     expect(`${pathname}${search}${hash}`).not.toContain(SECRET);
     expect(screen.queryByRole("status", { name: /song-hoa/ })).toBeNull();
-    nowhereElse(SECRET, client);
+    nowhereElse(SECRET, client, consoles);
   });
 
-  it("does not close on Escape but moves focus to Done, and forgets the password when Done closes it", async () => {
+  it("does not close on a click outside or on Escape, which moves focus to Done, and forgets the password when Done closes it", async () => {
     serveStudents([AN]);
     resetsOne(() =>
       contractJson("/teacher/students/{id}/reset-password", "post", 200, {
         temporaryPassword: SECRET,
       }),
     );
-    const { user } = renderStudents(teacherUser);
+    const consoles = watchConsole();
+    const { user, router, client } = renderStudents(teacherUser);
 
     const menu = await menuOf(user, "Nguyễn Văn An");
     await user.click(within(menu).getByRole("menuitem", { name: "Đặt lại mật khẩu" }));
@@ -108,6 +126,12 @@ describe("resetting one student's password", () => {
       }),
     );
     const sheet = await screen.findByRole("dialog", { name: /Mật khẩu tạm/ });
+    await userEvent.setup({ pointerEventsCheck: 0 }).click(document.body);
+    expect(within(sheet).getByText(SECRET)).toBeVisible();
+    const { pathname, search, hash } = router.state.location;
+    expect(`${pathname}${search}${hash}`).not.toContain(SECRET);
+    nowhereElse(SECRET, client, consoles);
+
     await user.keyboard("{Escape}");
     expect(within(sheet).getByText(SECRET)).toBeVisible();
     expect(within(sheet).getByRole("button", { name: "Xong" })).toHaveFocus();
@@ -115,6 +139,7 @@ describe("resetting one student's password", () => {
     await user.click(within(sheet).getByRole("button", { name: "Xong" }));
     await waitFor(() => expect(screen.queryByText(SECRET)).toBeNull());
     expect(document.body.innerHTML).not.toContain(SECRET);
+    nowhereElse(SECRET, client, consoles);
   });
 
   it("returns focus to the row's menu button after Done", async () => {
@@ -257,6 +282,7 @@ describe("resetting several passwords at once", () => {
       }),
     );
     const print = vi.spyOn(window, "print").mockImplementation(() => undefined);
+    const consoles = watchConsole();
     const { user, client } = renderStudents(teacherUser);
 
     await selectAll(user);
@@ -281,7 +307,7 @@ describe("resetting several passwords at once", () => {
     expect(sheet).toHaveAttribute("data-print", "credentials");
     await user.click(within(sheet).getByRole("button", { name: "In" }));
     expect(print).toHaveBeenCalledTimes(1);
-    nowhereElse("mot-hai-ba-11", client);
+    nowhereElse("mot-hai-ba-11", client, consoles);
   });
 
   it("refuses more than 40 students before asking the server", async () => {
