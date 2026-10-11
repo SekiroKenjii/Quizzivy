@@ -530,8 +530,8 @@
     "joinCode": "Mã tham gia",
     "maskedCode": "••••-{{hint}}",
     "codeState": {
-      "expired": "Đã hết hạn",
-      "usedUp": "Đã hết lượt"
+      "expired": "Hết hạn",
+      "usedUp": "Hết lượt"
     },
     "noCode": "Chưa có mã tham gia",
     "createCode": "Tạo mã",
