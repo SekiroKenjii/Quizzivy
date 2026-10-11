@@ -9,18 +9,18 @@
 -- uuids throughout.
 
 -- --------------------------------------------------------------- students
-INSERT INTO app.users (id, email, full_name, role, password_hash, must_change_password)
+INSERT INTO app.users (id, email, full_name, role_id, password_hash, must_change_password)
 VALUES
   -- Google-only: no password_hash, which is what makes the drawer offer
   -- "Đặt mật khẩu tạm" with the Google-only wording.
   ('01935000-0000-7000-8000-00000000ee01'::uuid,
-   'han.pham@example.com', 'Phạm Gia Hân', 'student', NULL, false),
+   'han.pham@example.com', 'Phạm Gia Hân', (SELECT id FROM app.roles WHERE builtin_key = 'student'), NULL, false),
   ('01935000-0000-7000-8000-00000000ee02'::uuid,
-   'dung.hoang@example.com', 'Hoàng Tiến Dũng', 'student',
+   'dung.hoang@example.com', 'Hoàng Tiến Dũng', (SELECT id FROM app.roles WHERE builtin_key = 'student'),
    '$argon2id$v=19$m=65536,t=3,p=2$NsEIYu5N8g+iv1W9zV2hfQ$HgTGHdo9uosWEPKpMFDPDSUvBOTCc0oVcPvq7FeVIR4',
    false),
   ('01935000-0000-7000-8000-00000000ee03'::uuid,
-   'trang.le@example.com', 'Lê Thu Trang', 'student',
+   'trang.le@example.com', 'Lê Thu Trang', (SELECT id FROM app.roles WHERE builtin_key = 'student'),
    '$argon2id$v=19$m=65536,t=3,p=2$NsEIYu5N8g+iv1W9zV2hfQ$HgTGHdo9uosWEPKpMFDPDSUvBOTCc0oVcPvq7FeVIR4',
    false)
 ON CONFLICT (id) DO NOTHING;

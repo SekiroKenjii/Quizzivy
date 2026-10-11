@@ -18,7 +18,6 @@ const BASE = {
   id: "018f0000-0000-7000-8000-0000000000a2",
   email: "an@example.com",
   fullName: "Nguyễn Văn An",
-  role: "student" as const,
   mustChangePassword: false,
   createdAt: "2026-01-01T00:00:00Z",
   permissions: ["learning.take_tests" as const],
