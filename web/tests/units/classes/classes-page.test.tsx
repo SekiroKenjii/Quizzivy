@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import ClassesPage from "@/features/classes/pages/teacher/ClassesPage";
 import type { ClassListItem } from "@/features/classes/api";
 import { Toaster } from "@/components/ui/sonner";
@@ -61,9 +61,14 @@ let posts: unknown[] = [];
 let patches: { id: string; body: unknown }[] = [];
 let rotations: { id: string; body: unknown }[] = [];
 
-function serveList(active: ClassListItem[], archived: ClassListItem[] = [ARCHIVED]) {
+function serveList(
+  active: ClassListItem[],
+  archived: ClassListItem[] = [ARCHIVED],
+  wait = 0,
+) {
   server.use(
-    http.get(`${BASE}/teacher/classes`, ({ request }) => {
+    http.get(`${BASE}/teacher/classes`, async ({ request }) => {
+      if (wait > 0) await delay(wait);
       const query = new URL(request.url).searchParams;
       lists.push(query);
       const items = query.get("status") === "archived" ? archived : active;
@@ -138,7 +143,9 @@ function renderPage(path = "/teacher/classes") {
   );
   render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
+      <main tabIndex={-1}>
+        <RouterProvider router={router} />
+      </main>
       <Toaster />
     </QueryClientProvider>,
   );
@@ -254,6 +261,73 @@ describe("the classes list", () => {
     expect(await screen.findByText("Mã tham gia mới: B4XN-9TRE")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(trigger).toHaveFocus();
+  });
+
+  it("gives focus to the card's menu once its footer New code is gone (QA-41-1)", async () => {
+    const { user } = renderPage();
+    const legacy = await card("Kids Starters B");
+    await user.click(
+      within(legacy).getByRole("button", {
+        name: "Tạo mã tham gia mới cho Kids Starters B",
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Tạo mã tham gia mới?" });
+    serveList([
+      EVENING,
+      {
+        ...LEGACY,
+        joinCode: {
+          ...LEGACY.joinCode!,
+          code: "B4XN-9TRE",
+          hint: "9TRE",
+          legacy: false,
+        },
+      },
+    ]);
+    await user.click(within(dialog).getByRole("button", { name: "Mã mới" }));
+    expect(
+      await screen.findByRole("button", {
+        name: "Sao chép liên kết tham gia của Kids Starters B",
+      }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      screen.queryByRole("button", { name: "Tạo mã tham gia mới cho Kids Starters B" }),
+    ).toBeNull();
+    expect(
+      within(legacy).getByRole("button", { name: "Thao tác với lớp Kids Starters B" }),
+    ).toHaveFocus();
+  });
+
+  it("gives focus to the page once a restored card leaves the Archived list (QA-41-1)", async () => {
+    const { user } = renderPage("/teacher/classes?status=archived");
+    const archived = await card("Summer 2025");
+    serveList([EVENING, LEGACY], []);
+    await user.click(
+      within(archived).getByRole("button", { name: "Khôi phục Summer 2025" }),
+    );
+    await waitFor(() => expect(screen.queryByText("Summer 2025")).toBeNull());
+    await waitFor(() => expect(screen.getByRole("main")).toHaveFocus());
+  });
+
+  it("gives focus to the page once a deleted card is gone (QA-41-1)", async () => {
+    server.use(
+      http.delete(
+        `${BASE}/teacher/classes/:id`,
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    const { user } = renderPage("/teacher/classes?status=archived");
+    const archived = await card("Summer 2025");
+    await user.click(
+      within(archived).getByRole("button", { name: "Thao tác với lớp Summer 2025" }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Xoá lớp" }));
+    const dialog = await screen.findByRole("dialog", { name: "Xoá vĩnh viễn" });
+    serveList([EVENING, LEGACY], [], 200);
+    await user.click(within(dialog).getByRole("button", { name: "Xoá vĩnh viễn" }));
+    await waitFor(() => expect(screen.queryByText("Summer 2025")).toBeNull());
+    await waitFor(() => expect(screen.getByRole("main")).toHaveFocus());
   });
 
   it("edits the name, schedule and room, a cleared field sent as none", async () => {
