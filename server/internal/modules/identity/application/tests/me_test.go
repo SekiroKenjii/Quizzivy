@@ -47,8 +47,8 @@ func TestCurrentUserReportsTheSessionShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CurrentUser: %v", err)
 	}
-	if user.Email != email || user.Role != "admin" {
-		t.Errorf("got %s/%s, want %s/admin", user.Email, user.Role, email)
+	if user.Email != email {
+		t.Errorf("got %s, want %s", user.Email, email)
 	}
 	if !user.HasPassword() {
 		t.Error("hasPassword = false for a password account")

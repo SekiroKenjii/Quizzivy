@@ -10,7 +10,6 @@ export const studentUser: components["schemas"]["CurrentUser"] = {
   id: "019535d9-3df7-79fb-b466-fa907fa17f9e",
   email: "hocvien@example.com",
   fullName: "Nguyễn Văn An",
-  role: "student",
   hasPassword: true,
   linkedProviders: [],
   mustChangePassword: false,
@@ -24,7 +23,6 @@ export const adminUser: components["schemas"]["CurrentUser"] = {
   id: "019535d9-3df7-79fb-b466-fa907fa17f9f",
   email: "thuong@example.com",
   fullName: "Thuong",
-  role: "admin",
   permissions: [
     "content.tests.write",
     "content.tests.publish",
@@ -56,7 +54,6 @@ export const teacherUser: components["schemas"]["CurrentUser"] = {
   id: "019535d9-3df7-79fb-b466-fa907fa17fa0",
   email: "giaovien@example.com",
   fullName: "Trần Thị Bình",
-  role: "admin",
   permissions: [
     "content.tests.write",
     "content.tests.publish",
@@ -80,7 +77,6 @@ export const assistantUser: components["schemas"]["CurrentUser"] = {
   id: "019535d9-3df7-79fb-b466-fa907fa17fa1",
   email: "trogiang@example.com",
   fullName: "Lê Văn Cường",
-  role: "admin",
   permissions: [
     "content.tests.write",
     "content.questions.write",

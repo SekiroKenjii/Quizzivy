@@ -20,7 +20,6 @@ type User struct {
 	Locale             *string
 	TimeZone           *string
 	Preferences        Preferences
-	Role               string
 	PasswordHash       *string
 	MustChangePassword bool
 	DisabledAt         *time.Time
