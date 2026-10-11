@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/attempts/application/internal/support"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/content"
 )
 
 type Extend struct {
@@ -18,5 +19,5 @@ type ExtendHandler struct {
 }
 
 func (s ExtendHandler) Handle(ctx context.Context, cmd Extend) (domain.Attempt, error) {
-	return s.Store.Extend(ctx, cmd.Request, cmd.AttemptID, cmd.Minutes, cmd.Reason, s.Now())
+	return s.Store.Extend(ctx, cmd.Request, cmd.AttemptID, cmd.Minutes, content.NFC(cmd.Reason), s.Now())
 }
