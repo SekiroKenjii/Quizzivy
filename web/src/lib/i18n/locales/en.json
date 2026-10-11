@@ -2120,7 +2120,8 @@
       "failed": "Couldn't load notifications.",
       "loadMore": "Load more",
       "unread": "Unread",
-      "justNow": "Just now"
+      "justNow": "Just now",
+      "markFailed": "Couldn't mark your notifications as read. Try again."
     },
     "settings": {
       "dueSoon": "Test due soon",

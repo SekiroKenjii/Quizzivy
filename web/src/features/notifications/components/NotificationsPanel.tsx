@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/sonner";
 import { IconTile } from "@/components/shared/IconTile";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { cn } from "@/lib/utils";
@@ -22,13 +23,14 @@ interface Row {
 /**
  * NotificationsPanel is the bell's list, the same in the popover and the
  * sheet: "Mark all read", then one row per notification of the audience's
- * kinds, newest first, with its kind's tile, its sentence in the reader's
+ * kinds, newest first, with its kind's tile (a neutral one in the muted
+ * text colour, as both decks draw it), its sentence in the reader's
  * language, how long ago it came and a lime dot while unread, then "Load
  * more". "Mark all read" marks every notification of the account, so it is
  * active while the bell's `unread` count or a listed row says something is
- * unread (DG-170). Neither it nor "Load more" gives up focus while its
- * request is out, and after "Load more" focus moves to the first row it
- * added. Picking a row marks it read without waiting and hands its
+ * unread (DG-170), and says so in a toast when it fails. Neither it nor
+ * "Load more" gives up focus while its request is out, and after "Load
+ * more" focus moves to the first row it added. Picking a row marks it read without waiting and hands its
  * destination to `onPick`, which may be null. `canGrade` says whether a
  * hand-in with papers to grade goes to Grading or to its own destination.
  * `heading` draws the "Notifications" title, which the sheet draws itself.
@@ -82,7 +84,10 @@ export function NotificationsPanel({
   }, [loadingMore, rowCount]);
 
   const markAll = () => {
-    if (!markAllOff) mark.mutate(undefined);
+    if (markAllOff) return;
+    mark.mutate(undefined, {
+      onError: () => toast.error(t("notifications.bell.markFailed")),
+    });
   };
   const loadMore = () => {
     if (loadingMore) return;
@@ -96,7 +101,7 @@ export function NotificationsPanel({
   };
 
   return (
-    <div className="flex min-h-0 flex-col">
+    <div data-slot="notifications-panel" className="flex min-h-0 flex-col">
       <div
         className={cn(
           "flex flex-none items-center gap-2 border-b px-3.5 py-3",
@@ -185,7 +190,12 @@ function NotificationRow({
       onClick={onPick}
       className="hover:bg-muted flex w-full cursor-pointer gap-2.5 px-3.5 py-3 text-left"
     >
-      <IconTile icon={row.view.icon} size={30} tone={row.view.tone} />
+      <IconTile
+        icon={row.view.icon}
+        size={30}
+        tone={row.view.tone}
+        className={row.view.tone === "neutral" ? "text-muted-fg" : undefined}
+      />
       <span className="min-w-0 flex-1">
         <span className="block text-sm leading-[1.4] [overflow-wrap:anywhere]">
           {row.view.text}

@@ -3,9 +3,16 @@ import { useEffect, useRef } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createMemoryRouter, RouterProvider, useLocation } from "react-router";
+import {
+  createMemoryRouter,
+  Outlet,
+  RouterProvider,
+  useLocation,
+  useMatches,
+} from "react-router";
 import { http, HttpResponse } from "msw";
 import i18n from "@/lib/i18n";
+import { Toaster } from "@/components/ui/sonner";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { audienceOf, describeNotification } from "@/features/notifications/kinds";
 import type { Notification, NotificationPage } from "@/features/notifications/api";
@@ -23,17 +30,28 @@ import {
 
 type Audience = "teacher" | "student";
 
-function Page() {
+function Shell({
+  audience,
+  unread,
+  canGrade,
+}: Readonly<{ audience: Audience; unread: number; canGrade: boolean }>) {
   const { pathname } = useLocation();
+  const route = useMatches().at(-1)?.id;
   const main = useRef<HTMLElement>(null);
-  const first = useRef(pathname);
+  const shown = useRef(route);
   useEffect(() => {
-    if (pathname !== first.current) main.current?.focus();
-  }, [pathname]);
+    if (route === shown.current) return;
+    shown.current = route;
+    main.current?.focus();
+  }, [route]);
   return (
-    <main ref={main} tabIndex={-1}>
-      <p data-testid="where">{pathname}</p>
-    </main>
+    <>
+      <NotificationBell audience={audience} unread={unread} canGrade={canGrade} />
+      <main ref={main} tabIndex={-1}>
+        <p data-testid="where">{pathname}</p>
+        <Outlet />
+      </main>
+    </>
   );
 }
 
@@ -51,27 +69,35 @@ function serveList(items: Notification[], nextBefore: string | null = null) {
 
 function renderBell(
   audience: Audience,
-  over: Partial<{ unread: number; canGrade: boolean }> = {},
+  over: Partial<{ unread: number; canGrade: boolean; at: string }> = {},
 ) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const element = (
-    <>
-      <NotificationBell
-        audience={audience}
-        unread={over.unread ?? 0}
-        canGrade={over.canGrade ?? true}
-      />
-      <Page />
-    </>
+    <Shell
+      audience={audience}
+      unread={over.unread ?? 0}
+      canGrade={over.canGrade ?? true}
+    />
   );
-  const router = createMemoryRouter([{ path: "*", element }], {
-    initialEntries: ["/start"],
-  });
+  const router = createMemoryRouter(
+    [
+      {
+        element,
+        children: [
+          { id: "teacher-assignment", path: "/teacher/assignments/:id" },
+          { id: "student-assignment", path: "/app/assignments/:id" },
+          { id: "elsewhere", path: "*" },
+        ],
+      },
+    ],
+    { initialEntries: [over.at ?? "/start"] },
+  );
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>,
   );
   return { user: userEvent.setup(), client, router };
@@ -442,5 +468,60 @@ describe("closing", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("button", { name: /^Thông báo/ })).toHaveFocus();
+  });
+
+  it.each([
+    ["teacher", "assignment.closing", "/teacher/assignments"],
+    ["student", "assignment.due_soon", "/app/assignments"],
+  ] as const)(
+    "puts focus on the page when a %s row only changes the route's parameter (QA-45b-1)",
+    async (audience, kind, base) => {
+      const notice = notices.find((candidate) => candidate.kind === kind)!;
+      serveList([notice]);
+      const from = `${base}/${id(4242)}`;
+      const { user, router } = renderBell(audience, { at: from });
+      await user.click(await within(await openBell(user)).findByText(textOf(notice)));
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe(`${base}/${assignmentId}`),
+      );
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await waitFor(() => expect(screen.getByRole("main")).toHaveFocus());
+    },
+  );
+});
+
+describe("what the panel draws and says", () => {
+  it("draws a neutral kind's icon in the muted text colour, as both decks do (QA-45b-2)", async () => {
+    const joined = notices.find((notice) => notice.kind === "class.joined")!;
+    serveList([joined]);
+    const { user } = renderBell("teacher");
+    const panel = await openBell(user);
+    const row = (await within(panel).findByText(textOf(joined))).closest("button")!;
+    expect(row).toHaveAttribute("data-tone", "neutral");
+    const tile = row.querySelector("span[aria-hidden='true']")!;
+    expect(tile.className.split(" ")).toEqual(
+      expect.arrayContaining(["bg-muted", "text-muted-fg"]),
+    );
+    expect(tile.className.split(" ")).not.toContain("text-fg");
+  });
+
+  it("says when Mark all read fails, and keeps focus on it", async () => {
+    server.use(
+      http.get(`${BASE}/me/notifications`, () =>
+        listResponse({ items: of("teacher"), nextBefore: null }),
+      ),
+      http.post(`${BASE}/me/notifications/read`, () => errorResponse()),
+    );
+    const { user } = renderBell("teacher", { unread: 2 });
+    const panel = await openBell(user);
+    const all = await within(panel).findByRole("button", {
+      name: "Đánh dấu đã đọc hết",
+    });
+    await user.click(all);
+    expect(
+      await screen.findByText("Chưa đánh dấu được thông báo là đã đọc. Hãy thử lại."),
+    ).toBeInTheDocument();
+    expect(all).toHaveFocus();
+    await waitFor(() => expect(all).not.toHaveAttribute("aria-disabled"));
   });
 });

@@ -2120,7 +2120,8 @@
       "failed": "Không tải được thông báo.",
       "loadMore": "Xem thêm",
       "unread": "Chưa đọc",
-      "justNow": "Vừa xong"
+      "justNow": "Vừa xong",
+      "markFailed": "Chưa đánh dấu được thông báo là đã đọc. Hãy thử lại."
     },
     "settings": {
       "dueSoon": "Bài sắp hết hạn",

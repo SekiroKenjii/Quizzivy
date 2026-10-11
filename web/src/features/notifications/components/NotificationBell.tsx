@@ -68,14 +68,28 @@ const BellButton = forwardRef<HTMLButtonElement, BellButtonProps>(function BellB
   );
 });
 
+function focusPage(bell: Element | null) {
+  const active = document.activeElement;
+  const ours =
+    active === null ||
+    active === document.body ||
+    active === bell ||
+    active.closest("[data-slot='notifications-panel']") !== null;
+  if (!ours) return;
+  document.querySelector<HTMLElement>("main")?.focus({ preventScroll: true });
+}
+
 /**
  * NotificationBell is the shell's bell: a 7px dot while `unread` is above
  * zero, and the notifications of `audience`'s kinds in a 340px popover from
  * 768px, which on the student's bar ends at the bar's edge as drawn, or the
  * shared 380px sheet, the whole width of a phone, below it. Both return
  * focus to the bell when they close, except after a row sends the reader to
- * another page, whose shell then takes focus. `canGrade` is the reader's
- * reach of Grading.
+ * another page: once that navigation lands, the page's `<main>` takes focus
+ * unless something else already holds it, so a row that only changes a
+ * route's parameter, which the shells do not treat as a new page, still
+ * leaves the keyboard on the page. `canGrade` is the reader's reach of
+ * Grading.
  */
 export function NotificationBell({
   audience,
@@ -92,12 +106,16 @@ export function NotificationBell({
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const leaving = useRef(false);
+  const bell = useRef<HTMLButtonElement>(null);
 
   const pick = (to: string | null) => {
     if (to === null) return;
-    leaving.current = wide && to !== pathname;
+    const moving = to !== pathname;
+    leaving.current = wide && moving;
     setOpen(false);
-    void navigate(to);
+    void Promise.resolve(navigate(to)).then(() => {
+      if (moving) focusPage(bell.current);
+    });
   };
   const panel = (heading: boolean) => (
     <NotificationsPanel
@@ -113,6 +131,7 @@ export function NotificationBell({
     return (
       <>
         <BellButton
+          ref={bell}
           audience={audience}
           unread={unread}
           aria-haspopup="dialog"
@@ -133,7 +152,7 @@ export function NotificationBell({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <BellButton audience={audience} unread={unread} />
+        <BellButton ref={bell} audience={audience} unread={unread} />
       </PopoverTrigger>
       <PopoverContent
         align="end"
