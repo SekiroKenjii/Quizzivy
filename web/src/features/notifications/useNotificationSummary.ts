@@ -1,22 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
-import { getMySummary, notificationKeys } from "./api";
+import { getMySummary, notificationKeys, type NotificationAudience } from "./api";
 
 /** SUMMARY_POLL_MS is the active reader's sixty-second notification interval. */
 export const SUMMARY_POLL_MS = 60_000;
 
 /**
- * useNotificationSummary returns the unread count of `/me/summary`, polled
+ * useNotificationSummary returns the unread count of `/me/summary` for
+ * `audience`'s kinds, polled
  * idle-aware with an immediate read on resume. It keeps the last count while
  * a later read is in flight, so a bell's dot does not blink on each poll, and
  * is zero while disabled, before the first read answers, and after a read
  * fails.
  */
-export function useNotificationSummary(enabled = true): { unread: number } {
+export function useNotificationSummary(
+  audience: NotificationAudience,
+  enabled = true,
+): { unread: number } {
   const refetchInterval = useIdlePolling(SUMMARY_POLL_MS, enabled);
   const query = useQuery({
-    queryKey: notificationKeys.summary,
-    queryFn: ({ signal }) => getMySummary(signal),
+    queryKey: notificationKeys.summary(audience),
+    queryFn: ({ signal }) => getMySummary(audience, signal),
     enabled,
     refetchInterval,
     refetchIntervalInBackground: false,

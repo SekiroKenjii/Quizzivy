@@ -266,7 +266,7 @@ describe("keeping focus while a request is out (QA-43-1, QA-47-1)", () => {
     expect(all).toHaveAttribute("aria-disabled", "true");
     expect(all).toBeEnabled();
     expect(all).toHaveFocus();
-    expect(marks).toEqual([{}]);
+    expect(marks).toEqual([{ audience: "teacher" }]);
   });
 
   it("keeps focus on Load more while it loads, then moves it to the first row it added", async () => {
@@ -297,27 +297,48 @@ describe("keeping focus while a request is out (QA-43-1, QA-47-1)", () => {
 });
 
 describe("reading", () => {
-  it("marks every notification of the account read and keeps focus in the panel", async () => {
-    const marks = serveList(of("teacher"));
-    const { user } = renderBell("teacher", { unread: 4 });
-    const panel = await openBell(user);
-    const all = await within(panel).findByRole("button", {
-      name: "Đánh dấu đã đọc hết",
-    });
-    await user.click(all);
-    await waitFor(() => expect(marks).toEqual([{}]));
-    expect(panel.contains(document.activeElement)).toBe(true);
-  });
+  it.each(["teacher", "student"] as const)(
+    "marks every %s notification read, with its audience, and keeps focus in the panel",
+    async (audience) => {
+      const marks = serveList(of(audience));
+      const { user } = renderBell(audience, { unread: 4 });
+      const panel = await openBell(user);
+      const all = await within(panel).findByRole("button", {
+        name: "Đánh dấu đã đọc hết",
+      });
+      await within(panel).findByText(textOf(of(audience)[0]!));
+      await user.click(all);
+      await waitFor(() => expect(marks).toEqual([{ audience }]));
+      expect(panel.contains(document.activeElement)).toBe(true);
+    },
+  );
 
-  it("offers Mark all read while the dot is lit by notifications this bell does not list (DG-170)", async () => {
+  it.each(["teacher", "student"] as const)(
+    "asks for the %s bell's own kinds only (DG-170)",
+    async (audience) => {
+      const audiences: (string | null)[] = [];
+      server.use(
+        http.get(`${BASE}/me/notifications`, ({ request }) => {
+          audiences.push(new URL(request.url).searchParams.get("audience"));
+          return listResponse({ items: of(audience), nextBefore: null });
+        }),
+      );
+      const { user } = renderBell(audience);
+      const panel = await openBell(user);
+      await within(panel).findByText(textOf(of(audience)[0]!));
+      expect(audiences).toEqual([audience]);
+    },
+  );
+
+  it("leaves Mark all read off when no listed row is unread, whatever the dot says (DG-170)", async () => {
     const marks = serveList(of("student"));
     const { user } = renderBell("teacher", { unread: 2 });
     const panel = await openBell(user);
     expect(await within(panel).findByText("Bạn đã xem hết thông báo.")).toBeVisible();
     const all = within(panel).getByRole("button", { name: "Đánh dấu đã đọc hết" });
-    expect(all).not.toHaveAttribute("aria-disabled");
+    expect(all).toHaveAttribute("aria-disabled", "true");
     await user.click(all);
-    await waitFor(() => expect(marks).toEqual([{}]));
+    expect(marks).toEqual([]);
   });
 
   it("sends nothing from Mark all read when nothing is unread", async () => {
@@ -346,7 +367,7 @@ describe("reading", () => {
           canGrade: true,
         })!.to;
         await waitFor(() => expect(router.state.location.pathname).toBe(to));
-        await waitFor(() => expect(marks).toEqual([{ ids: [notice.id] }]));
+        await waitFor(() => expect(marks).toEqual([{ audience, ids: [notice.id] }]));
         expect(screen.queryByRole("dialog")).toBeNull();
         document.body.innerHTML = "";
       }

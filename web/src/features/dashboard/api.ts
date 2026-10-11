@@ -40,7 +40,12 @@ export async function listDashboardAssignments(signal?: AbortSignal) {
 /** TeacherSummary supplies nullable permission-aware navigation counts. */
 export type TeacherSummary = components["schemas"]["TeacherSummary"];
 
-/** getTeacherSummary reads the own-teaching navigation figures without fetching the home payload. */
+/**
+ * getTeacherSummary reads the own-teaching navigation figures without
+ * fetching the home payload; its unread count is the teacher bell's, of the
+ * teacher's kinds only (DG-170).
+ */
 export function getTeacherSummary(signal?: AbortSignal) {
-  return api("get", "/teacher/summary", signal ? { query: {}, signal } : { query: {} });
+  const query = { audience: "teacher" } as const;
+  return api("get", "/teacher/summary", signal ? { query, signal } : { query });
 }
