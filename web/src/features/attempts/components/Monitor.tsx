@@ -124,7 +124,12 @@ export function Monitor({
         cell: (row, visible) => (
           <span className="flex min-w-0 items-center gap-2.5">
             <Avatar name={row.fullName} className="text-2xs size-7.5" />
-            <span className="min-w-0 py-1.5">
+            <span
+              className={cn(
+                "min-w-0",
+                !visible.has("status") && row.extendedTo != null && "py-1.5",
+              )}
+            >
               <span className="block truncate font-medium">{row.fullName}</span>
               {(!visible.has("status") || (!visible.has("focus") && row.flagged)) && (
                 <span className="flex min-w-0 items-center gap-1 text-xs leading-4">
@@ -157,7 +162,12 @@ export function Monitor({
         track: "130px",
         showFrom: 560,
         cell: (row) => (
-          <span className="flex min-w-0 flex-col items-start gap-0.5 py-1.5">
+          <span
+            className={cn(
+              "flex min-w-0 flex-col items-start gap-0.5",
+              row.extendedTo != null && "py-1.5",
+            )}
+          >
             <RowStatus row={row} />
             <ExtendedTo row={row} zone={zone} />
           </span>
