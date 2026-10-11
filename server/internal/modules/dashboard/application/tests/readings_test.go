@@ -127,6 +127,20 @@ func TestNavSkipsForbiddenWorkAndUsesTheCallersNotifications(t *testing.T) {
 	}
 }
 
+func TestNavAsksForTheUnreadOfTheConsoleItIsGiven(t *testing.T) {
+	for _, audience := range []notificationsdomain.Audience{"", notificationsdomain.AudienceTeacher, notificationsdomain.AudienceStudent} {
+		var asked notificationsquery.Summary
+		app := application.New(&store{t: t}).WithNotifications(cqrs.HandlerFunc[notificationsquery.Summary, notificationsdomain.Summary](func(_ context.Context, q notificationsquery.Summary) (notificationsdomain.Summary, error) {
+			asked = q
+			return notificationsdomain.Summary{UnreadNotifications: 2}, nil
+		}))
+		out, err := app.Queries.Nav.Handle(context.Background(), query.Nav{Scope: access.Scope{UserID: "teacher"}, Audience: audience})
+		if err != nil || out.UnreadNotifications != 2 || asked != (notificationsquery.Summary{UserID: "teacher", Audience: audience}) {
+			t.Errorf("for %q the port was asked %+v and the nav is %+v (%v)", audience, asked, out, err)
+		}
+	}
+}
+
 func TestNavNeedsItsNotificationsPort(t *testing.T) {
 	app := application.New(&store{t: t})
 	if _, err := app.Queries.Nav.Handle(context.Background(), query.Nav{}); !errors.Is(err, domain.ErrNotificationsUnavailable) {

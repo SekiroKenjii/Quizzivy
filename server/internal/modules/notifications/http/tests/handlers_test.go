@@ -283,3 +283,117 @@ func TestNothingIsServedWithoutACallerOrAModule(t *testing.T) {
 		t.Error("a query ran without a caller")
 	}
 }
+
+func TestTheAudienceARequestNamesIsWhatTheUseCasesAreAsked(t *testing.T) {
+	var listed query.List
+	var summarised query.Summary
+	var marked command.MarkRead
+	var all command.MarkAllRead
+	transport := notificationshttp.NewNotifications(&application.Application{
+		Queries: application.Queries{
+			List: cqrs.HandlerFunc[query.List, domain.Page](func(_ context.Context, q query.List) (domain.Page, error) {
+				listed = q
+				return domain.Page{}, nil
+			}),
+			Summary: cqrs.HandlerFunc[query.Summary, domain.Summary](func(_ context.Context, q query.Summary) (domain.Summary, error) {
+				summarised = q
+				return domain.Summary{}, nil
+			}),
+		},
+		Commands: application.Commands{
+			MarkRead: cqrs.HandlerFunc[command.MarkRead, cqrs.Nothing](func(_ context.Context, cmd command.MarkRead) (cqrs.Nothing, error) {
+				marked = cmd
+				return cqrs.Nothing{}, nil
+			}),
+			MarkAllRead: cqrs.HandlerFunc[command.MarkAllRead, cqrs.Nothing](func(_ context.Context, cmd command.MarkAllRead) (cqrs.Nothing, error) {
+				all = cmd
+				return cqrs.Nothing{}, nil
+			}),
+		},
+	})
+	ids := []openapi.Uuid{uuid.MustParse(firstID)}
+	for _, audience := range []openapi.NotificationAudience{openapi.NotificationAudienceTeacher, openapi.NotificationAudienceStudent} {
+		answered(t, "", func(ctx context.Context, w http.ResponseWriter) error {
+			if _, err := transport.ListNotifications(ctx, openapi.ListNotificationsRequestObject{Params: openapi.ListNotificationsParams{Audience: &audience}}); err != nil {
+				return err
+			}
+			if _, err := transport.GetMySummary(ctx, openapi.GetMySummaryRequestObject{Params: openapi.GetMySummaryParams{Audience: &audience}}); err != nil {
+				return err
+			}
+			if _, err := transport.MarkNotificationsRead(ctx, openapi.MarkNotificationsReadRequestObject{Body: &openapi.MarkNotificationsReadJSONRequestBody{Ids: &ids, Audience: &audience}}); err != nil {
+				return err
+			}
+			_, err := transport.MarkNotificationsRead(ctx, openapi.MarkNotificationsReadRequestObject{Body: &openapi.MarkNotificationsReadJSONRequestBody{Audience: &audience}})
+			return err
+		})
+		want := domain.Audience(audience)
+		if listed.Audience != want || summarised.Audience != want || marked.Audience != want || all.Audience != want {
+			t.Errorf("for %s the use cases were asked for %q, %q, %q and %q", audience, listed.Audience, summarised.Audience, marked.Audience, all.Audience)
+		}
+	}
+	answered(t, "", func(ctx context.Context, _ http.ResponseWriter) error {
+		if _, err := transport.ListNotifications(ctx, openapi.ListNotificationsRequestObject{}); err != nil {
+			return err
+		}
+		_, err := transport.GetMySummary(ctx, openapi.GetMySummaryRequestObject{})
+		return err
+	})
+	if listed.Audience != "" || summarised.Audience != "" {
+		t.Errorf("a request that names no audience asked for %q and %q, want every kind", listed.Audience, summarised.Audience)
+	}
+}
+
+func TestAnAudienceTheUseCaseRefusesIsAFieldErrorOnAudience(t *testing.T) {
+	transport := notificationshttp.NewNotifications(&application.Application{
+		Queries: application.Queries{
+			List: cqrs.HandlerFunc[query.List, domain.Page](func(context.Context, query.List) (domain.Page, error) {
+				return domain.Page{}, domain.ErrUnknownAudience
+			}),
+			Summary: cqrs.HandlerFunc[query.Summary, domain.Summary](func(context.Context, query.Summary) (domain.Summary, error) {
+				return domain.Summary{}, domain.ErrUnknownAudience
+			}),
+		},
+		Commands: application.Commands{
+			MarkAllRead: cqrs.HandlerFunc[command.MarkAllRead, cqrs.Nothing](func(context.Context, command.MarkAllRead) (cqrs.Nothing, error) {
+				return cqrs.Nothing{}, domain.ErrUnknownAudience
+			}),
+		},
+	})
+	unknown := openapi.NotificationAudience("admin")
+	for label, visit := range map[string]func(context.Context, http.ResponseWriter) error{
+		"list": func(ctx context.Context, w http.ResponseWriter) error {
+			out, err := transport.ListNotifications(ctx, openapi.ListNotificationsRequestObject{Params: openapi.ListNotificationsParams{Audience: &unknown}})
+			if err != nil {
+				return err
+			}
+			return out.VisitListNotificationsResponse(w)
+		},
+		"summary": func(ctx context.Context, w http.ResponseWriter) error {
+			out, err := transport.GetMySummary(ctx, openapi.GetMySummaryRequestObject{Params: openapi.GetMySummaryParams{Audience: &unknown}})
+			if err != nil {
+				return err
+			}
+			return out.VisitGetMySummaryResponse(w)
+		},
+		"mark": func(ctx context.Context, w http.ResponseWriter) error {
+			out, err := transport.MarkNotificationsRead(ctx, openapi.MarkNotificationsReadRequestObject{Body: &openapi.MarkNotificationsReadJSONRequestBody{Audience: &unknown}})
+			if err != nil {
+				return err
+			}
+			return out.VisitMarkNotificationsReadResponse(w)
+		},
+	} {
+		response := answered(t, "", visit)
+		var envelope struct {
+			Error struct {
+				Details map[string]string `json:"details"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+			t.Fatalf("%s: %v: %s", label, err, response.Body.String())
+		}
+		if response.Code != http.StatusBadRequest || envelope.Error.Details["audience"] == "" {
+			t.Errorf("%s answered %d %s, want 400 with a message for audience", label, response.Code, response.Body.String())
+		}
+	}
+}

@@ -23,11 +23,28 @@ const listed = `
 	  FROM app.notifications n
 	 WHERE n.user_id = $1::uuid`
 
+// ofAudience is the clause that keeps the rows of audience's kinds, with the
+// argument it numbers appended to args. For the empty audience it is no clause
+// at all, so the statement is what it was before audiences existed.
+func ofAudience(audience domain.Audience, column string, args []any) (string, []any) {
+	kinds := domain.KindsOf(audience)
+	if kinds == nil {
+		return "", args
+	}
+	names := make([]string, len(kinds))
+	for i, k := range kinds {
+		names[i] = string(k)
+	}
+	args = append(args, names)
+	return fmt.Sprintf(` AND %s = ANY($%d::text[])`, column, len(args)), args
+}
+
 // List reads one page of the user's own notifications through
 // notifications_user_recent_idx: the rows whose id sorts below q.Before,
-// newest first. It asks for one row more than the page to learn whether
-// older ones exist. The order names the column n.id, never the id::text the
-// statement returns, or the index could not give the order.
+// newest first, of q.Audience's kinds when it names one. It asks for one row
+// more than the page to learn whether older ones exist. The order names the
+// column n.id, never the id::text the statement returns, or the index could
+// not give the order.
 func (p *Postgres) List(ctx context.Context, q domain.ListQuery) (domain.Page, error) {
 	size := q.Size()
 	sql, args := listed, []any{q.UserID}
@@ -35,6 +52,8 @@ func (p *Postgres) List(ctx context.Context, q domain.ListQuery) (domain.Page, e
 		sql += ` AND n.id < $2::uuid`
 		args = append(args, q.Before)
 	}
+	clause, args := ofAudience(q.Audience, "n.kind", args)
+	sql += clause
 	args = append(args, size+1)
 	sql += fmt.Sprintf(` ORDER BY n.id DESC LIMIT $%d`, len(args))
 	items, err := db.QueryMany(ctx, p, sql, args, scanNotification)
@@ -68,34 +87,40 @@ func scanNotification(rows pgx.Rows) (domain.Notification, error) {
 	return n, nil
 }
 
-// MarkRead marks those of ids that are the user's own and unread. Every
-// other id matches nothing, and read_at keeps its first value.
-func (p *Postgres) MarkRead(ctx context.Context, userID string, ids []string) error {
+// MarkRead marks those of ids that are the user's own, unread and of
+// audience's kinds. Every other id matches nothing, and read_at keeps its
+// first value.
+func (p *Postgres) MarkRead(ctx context.Context, userID string, ids []string, audience domain.Audience) error {
+	clause, args := ofAudience(audience, "kind", []any{userID, ids})
 	if _, err := p.Exec(ctx, `
 		UPDATE app.notifications
 		   SET read_at = now()
-		 WHERE user_id = $1::uuid AND id = ANY($2::uuid[]) AND read_at IS NULL`, userID, ids); err != nil {
+		 WHERE user_id = $1::uuid AND id = ANY($2::uuid[]) AND read_at IS NULL`+clause, args...); err != nil {
 		return fmt.Errorf("notifications: mark read: %w", err)
 	}
 	return nil
 }
 
-// MarkAllRead marks every unread notification the user has.
-func (p *Postgres) MarkAllRead(ctx context.Context, userID string) error {
+// MarkAllRead marks every unread notification the user has of audience's
+// kinds.
+func (p *Postgres) MarkAllRead(ctx context.Context, userID string, audience domain.Audience) error {
+	clause, args := ofAudience(audience, "kind", []any{userID})
 	if _, err := p.Exec(ctx, `
 		UPDATE app.notifications
 		   SET read_at = now()
-		 WHERE user_id = $1::uuid AND read_at IS NULL`, userID); err != nil {
+		 WHERE user_id = $1::uuid AND read_at IS NULL`+clause, args...); err != nil {
 		return fmt.Errorf("notifications: mark all read: %w", err)
 	}
 	return nil
 }
 
-// Unread counts the user's unread notifications through
-// notifications_unread_idx, which holds nothing else.
-func (p *Postgres) Unread(ctx context.Context, userID string) (int, error) {
+// Unread counts the user's unread notifications of audience's kinds through
+// notifications_unread_idx, which holds nothing else; the kind is read from
+// the few rows the index finds.
+func (p *Postgres) Unread(ctx context.Context, userID string, audience domain.Audience) (int, error) {
+	clause, args := ofAudience(audience, "kind", []any{userID})
 	unread, err := db.Count(ctx, p, `
-		SELECT count(*) FROM app.notifications WHERE user_id = $1::uuid AND read_at IS NULL`, userID)
+		SELECT count(*) FROM app.notifications WHERE user_id = $1::uuid AND read_at IS NULL`+clause, args...)
 	if err != nil {
 		return 0, fmt.Errorf("notifications: unread: %w", err)
 	}

@@ -29,6 +29,8 @@ type meStore struct {
 	query notificationsdomain.ListQuery
 	ids   []string
 	saved []notificationsdomain.Preference
+
+	audience notificationsdomain.Audience
 }
 
 func (s *meStore) record(call, userID string) {
@@ -49,19 +51,21 @@ func (s *meStore) List(_ context.Context, q notificationsdomain.ListQuery) (noti
 	return notificationsdomain.Page{}, nil
 }
 
-func (s *meStore) MarkRead(_ context.Context, userID string, ids []string) error {
+func (s *meStore) MarkRead(_ context.Context, userID string, ids []string, audience notificationsdomain.Audience) error {
 	s.record("MarkRead", userID)
-	s.ids = ids
+	s.ids, s.audience = ids, audience
 	return nil
 }
 
-func (s *meStore) MarkAllRead(_ context.Context, userID string) error {
+func (s *meStore) MarkAllRead(_ context.Context, userID string, audience notificationsdomain.Audience) error {
 	s.record("MarkAllRead", userID)
+	s.audience = audience
 	return nil
 }
 
-func (s *meStore) Unread(_ context.Context, userID string) (int, error) {
+func (s *meStore) Unread(_ context.Context, userID string, audience notificationsdomain.Audience) (int, error) {
 	s.record("Unread", userID)
+	s.audience = audience
 	return 2, nil
 }
 
@@ -279,6 +283,51 @@ func TestTheSummaryAndTheSwitchesAnswerTheContractsBodies(t *testing.T) {
 	for i, event := range theFiveEvents {
 		if defaults[i]["event"] != event || defaults[i]["inApp"] != true || defaults[i]["email"] != false {
 			t.Errorf("switch %d is %v, want %s in the app and not by email", i, defaults[i], event)
+		}
+	}
+}
+
+func TestAnAudienceNarrowsTheMeTreeAndAnUnknownOneIsRefusedBeforeTheStore(t *testing.T) {
+	issuer := testIssuer(t)
+	for _, user := range []string{studentUser, adminUser} {
+		for name, c := range map[string]struct {
+			method, path, body string
+			status             int
+		}{
+			"the teacher's summary":   {http.MethodGet, "/me/summary?audience=teacher", "", http.StatusOK},
+			"the student's list":      {http.MethodGet, "/me/notifications?audience=student", "", http.StatusOK},
+			"marking a console":       {http.MethodPost, "/me/notifications/read", `{"audience":"teacher"}`, http.StatusNoContent},
+			"marking a console's ids": {http.MethodPost, "/me/notifications/read", `{"audience":"student","ids":["` + uuid.NewString() + `"]}`, http.StatusNoContent},
+		} {
+			store := &meStore{}
+			rec := sendAs(t, meRouter(t, issuer, store), issuer, c.method, c.path, user, c.body)
+			if rec.Code != c.status {
+				t.Errorf("%s as %s: %d, want %d: %s", name, user, rec.Code, c.status, rec.Body.String())
+				continue
+			}
+			want := notificationsdomain.AudienceTeacher
+			if strings.Contains(c.path+c.body, "student") {
+				want = notificationsdomain.AudienceStudent
+			}
+			got := store.audience
+			if name == "the student's list" {
+				got = store.query.Audience
+			}
+			if got != want {
+				t.Errorf("%s as %s reached the store with audience %q, want %q", name, user, got, want)
+			}
+		}
+		for name, c := range map[string]struct{ method, path, body string }{
+			"an unknown summary audience":   {http.MethodGet, "/me/summary?audience=admin", ""},
+			"an unknown list audience":      {http.MethodGet, "/me/notifications?audience=admin", ""},
+			"an unknown marked audience":    {http.MethodPost, "/me/notifications/read", `{"audience":"admin"}`},
+			"an audience in the wrong case": {http.MethodGet, "/me/summary?audience=Teacher", ""},
+		} {
+			store := &meStore{}
+			rec := sendAs(t, meRouter(t, issuer, store), issuer, c.method, c.path, user, c.body)
+			if rec.Code != http.StatusBadRequest || len(store.calls) != 0 {
+				t.Errorf("%s as %s: %d with store calls %v, want 400 and none", name, user, rec.Code, store.calls)
+			}
 		}
 	}
 }
