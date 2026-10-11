@@ -7,7 +7,8 @@ import (
 	"quizzivy/internal/shared/access"
 )
 
-// Update edits the own fields of a class Scope reaches.
+// Update edits the own fields of a class Scope reaches. A schedule label or
+// room that is blank once trimmed clears the stored value, as null does.
 type Update struct {
 	ClassID string
 	Input   domain.UpdateInput
@@ -19,5 +20,15 @@ type UpdateHandler struct {
 }
 
 func (s UpdateHandler) Handle(ctx context.Context, cmd Update) (domain.Class, error) {
-	return s.Repo.Update(ctx, cmd.Scope, cmd.ClassID, cmd.Input)
+	input, err := cmd.Input.Composed()
+	if err != nil {
+		return domain.Class{}, err
+	}
+	input.ScheduleLabel.Value = domain.LabelOf(input.ScheduleLabel.Value)
+	input.Room.Value = domain.LabelOf(input.Room.Value)
+	class, err := s.Repo.Update(ctx, cmd.Scope, cmd.ClassID, input)
+	if err != nil {
+		return domain.Class{}, err
+	}
+	return class, s.AttachAverage(ctx, &class)
 }

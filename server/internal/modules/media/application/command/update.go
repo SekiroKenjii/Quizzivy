@@ -5,6 +5,7 @@ import (
 	"quizzivy/internal/modules/media/application/internal/support"
 	"quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/content"
 )
 
 // Update renames an asset of the library or sets its default play limit, and
@@ -25,7 +26,7 @@ func (s UpdateHandler) Handle(ctx context.Context, cmd Update) (domain.Asset, er
 		return domain.Asset{}, domain.ErrNothingToUpdate
 	}
 	if in.DisplayName != nil {
-		name, err := domain.Assets.DisplayName(*in.DisplayName)
+		name, err := domain.Assets.DisplayName(content.NFC(*in.DisplayName))
 		if err != nil {
 			return domain.Asset{}, err
 		}

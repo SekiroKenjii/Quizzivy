@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import { modules } from "@/app/modules";
 
 describe("the availability map", () => {
-  it("has nothing on in v0.9.0", () => {
+  it("has notifications on since R4 (T-R4.45b) and nothing else yet", () => {
     expect(modules).toEqual({
-      notifications: false,
+      notifications: true,
       messages: false,
       schedule: false,
       grades: false,
