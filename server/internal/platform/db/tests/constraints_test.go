@@ -356,8 +356,8 @@ func TestAnAudioAssetMustCarryItsDuration(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_audio_has_duration",
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('audio', 'media/a.mp3', 'audio/mpeg', 1024, 'a.mp3', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('audio', 'media/a.mp3', 'audio/mpeg', 1024, 'a.mp3', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 	})
 }
@@ -366,8 +366,8 @@ func TestANonAudioAssetMustNotCarryADuration(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_audio_has_duration",
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('image', 'media/i.png', 'image/png', 1024, 5000, 'i.png', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('image', 'media/i.png', 'image/png', 1024, 5000, 'i.png', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 	})
 }
@@ -377,15 +377,15 @@ func TestAnOversizedAssetIsRejected(t *testing.T) {
 	withTx(t, conn, func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_bytes_by_kind",
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('audio', 'media/big.mp3', 'audio/mpeg', 52428801, 1000, 'big.mp3', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('audio', 'media/big.mp3', 'audio/mpeg', 52428801, 1000, 'big.mp3', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 	})
 	withTx(t, conn, func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_bytes_by_kind",
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('image', 'media/big.png', 'image/png', 10485761, 'big.png', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('image', 'media/big.png', 'image/png', 10485761, 'big.png', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 	})
 }
@@ -394,18 +394,18 @@ func TestAnAssetAtTheLimitOfItsKindIsAccepted(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('audio', 'media/limit.mp3', 'audio/mpeg', 52428800, 1000, 'limit.mp3', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('audio', 'media/limit.mp3', 'audio/mpeg', 52428800, 1000, 'limit.mp3', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 		mustExec(t, tx,
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('audio', 'media/over-the-image-limit.mp3', 'audio/mpeg', 10485761, 1000, 'eleven.mp3', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('audio', 'media/over-the-image-limit.mp3', 'audio/mpeg', 10485761, 1000, 'eleven.mp3', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 		mustExec(t, tx,
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('image', 'media/limit.png', 'image/png', 10485760, 'limit.png', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('image', 'media/limit.png', 'image/png', 10485760, 'limit.png', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 	})
 }
@@ -415,8 +415,8 @@ func TestAnOverlongAssetIsRejected(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_duration_ms_check",
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('audio', 'media/long.mp3', 'audio/mpeg', 1024, 300001, 'long.mp3', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('audio', 'media/long.mp3', 'audio/mpeg', 1024, 300001, 'long.mp3', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 	})
 }
@@ -425,8 +425,8 @@ func TestTheKindMustAgreeWithTheMimeType(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_kind_matches_mime",
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('image', 'media/x.png', 'audio/mpeg', 1024, 'x.png', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('image', 'media/x.png', 'audio/mpeg', 1024, 'x.png', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 	})
 }
@@ -435,8 +435,8 @@ func TestAnUnknownMimeTypeIsRejected(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_mime_type_check",
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('audio', 'media/x.ogg', 'audio/ogg', 1024, 1000, 'x.ogg', repeat('x',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('audio', 'media/x.ogg', 'audio/ogg', 1024, 1000, 'x.ogg', repeat('x',32)::bytea, $1, $1)`,
 			f.adminID)
 	})
 }
@@ -446,8 +446,8 @@ func TestTwoAssetsMayShareAChecksum(t *testing.T) {
 		for _, key := range []string{"media/first.mp3", "media/second.mp3"} {
 			mustExec(t, tx,
 				`INSERT INTO app.media_assets
-				   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-				 VALUES ('audio', $1, 'audio/mpeg', 2048, 1000, 'same.mp3', repeat('y',32)::bytea, $2)`,
+				   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+				 VALUES ('audio', $1, 'audio/mpeg', 2048, 1000, 'same.mp3', repeat('y',32)::bytea, $2, $2)`,
 				key, f.adminID)
 		}
 	})
@@ -457,8 +457,8 @@ func TestAValidAudioAssetIsAccepted(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
 			`INSERT INTO app.media_assets
-			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-			 VALUES ('audio', 'media/ok.mp3', 'audio/mpeg', 2048, 120000, 'bai-nghe-1.mp3', repeat('z',32)::bytea, $1)`,
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+			 VALUES ('audio', 'media/ok.mp3', 'audio/mpeg', 2048, 120000, 'bai-nghe-1.mp3', repeat('z',32)::bytea, $1, $1)`,
 			f.adminID)
 	})
 }
@@ -470,12 +470,13 @@ func TestAValidAudioAssetIsAccepted(t *testing.T) {
 func newAudioAsset(t *testing.T, tx *sql.Tx, owner string) string {
 	t.Helper()
 	var id string
+	ownerColumn, ownerValue := ownerOfAsset(t, tx)
 	if err := tx.QueryRow(
 		`INSERT INTO app.media_assets
 		        (kind, storage_key, mime_type, bytes, duration_ms,
-		         original_filename, checksum_sha256, uploaded_by)
+		         original_filename, checksum_sha256, uploaded_by`+ownerColumn+`)
 		 VALUES ('audio', $1, 'audio/mpeg', 1024, 10000, 'nghe.mp3',
-		         repeat('a', 32)::bytea, $2)
+		         repeat('a', 32)::bytea, $2`+ownerValue+`)
 		 RETURNING id`, "audio/"+randomTag(t)+".mp3", owner,
 	).Scan(&id); err != nil {
 		t.Fatalf("audio fixture: %v", err)
@@ -483,15 +484,24 @@ func newAudioAsset(t *testing.T, tx *sql.Tx, owner string) string {
 	return id
 }
 
+func ownerOfAsset(t *testing.T, tx *sql.Tx) (column, value string) {
+	t.Helper()
+	if txHasColumn(t, tx, "media_assets", "owner_id") {
+		return ", owner_id", ", $2"
+	}
+	return "", ""
+}
+
 func newImageAsset(t *testing.T, tx *sql.Tx, owner string) string {
 	t.Helper()
 	var id string
+	ownerColumn, ownerValue := ownerOfAsset(t, tx)
 	if err := tx.QueryRow(
 		`INSERT INTO app.media_assets
 		        (kind, storage_key, mime_type, bytes,
-		         original_filename, checksum_sha256, uploaded_by)
+		         original_filename, checksum_sha256, uploaded_by`+ownerColumn+`)
 		 VALUES ('image', $1, 'image/png', 1024, 'anh.png',
-		         repeat('b', 32)::bytea, $2)
+		         repeat('b', 32)::bytea, $2`+ownerValue+`)
 		 RETURNING id`, "image/"+randomTag(t)+".png", owner,
 	).Scan(&id); err != nil {
 		t.Fatalf("image fixture: %v", err)
@@ -515,8 +525,8 @@ func TestNonAudioQuestionCannotCarryAnAudioPolicy(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "questions_audio_policy_iff_audio",
 			`INSERT INTO app.questions
-			        (type, prompt, points, created_by, audio_allow_seek, audio_show_transcript_after)
-			 VALUES ('short_answer', 'Không có audio', 1.0, $1, false, true)`, f.adminID)
+			        (type, prompt, points, created_by, owner_id, audio_allow_seek, audio_show_transcript_after)
+			 VALUES ('short_answer', 'Không có audio', 1.0, $1, $1, false, true)`, f.adminID)
 	})
 }
 
@@ -525,8 +535,8 @@ func TestAudioQuestionMustCarryAnAudioPolicy(t *testing.T) {
 		asset := newAudioAsset(t, tx, f.adminID)
 		rejectsWith(t, tx, "questions_audio_policy_iff_audio",
 			`INSERT INTO app.questions
-			        (type, prompt, points, created_by, media_asset_id, media_asset_kind)
-			 VALUES ('short_answer', 'Có audio nhưng thiếu policy', 1.0, $1, $2, 'audio')`,
+			        (type, prompt, points, created_by, owner_id, media_asset_id, media_asset_kind)
+			 VALUES ('short_answer', 'Có audio nhưng thiếu policy', 1.0, $1, $1, $2, 'audio')`,
 			f.adminID, asset)
 	})
 }
@@ -536,9 +546,9 @@ func TestAudioQuestionWithItsPolicyIsAccepted(t *testing.T) {
 		asset := newAudioAsset(t, tx, f.adminID)
 		mustExec(t, tx,
 			`INSERT INTO app.questions
-			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			        (type, prompt, points, created_by, owner_id, media_asset_id, media_asset_kind,
 			         audio_max_plays, audio_allow_seek, audio_show_transcript_after, transcript)
-			 VALUES ('short_answer', 'Nghe và trả lời', 2.0, $1, $2, 'audio',
+			 VALUES ('short_answer', 'Nghe và trả lời', 2.0, $1, $1, $2, 'audio',
 			         2, false, true, 'Hello there.')`, f.adminID, asset)
 	})
 }
@@ -551,9 +561,9 @@ func TestImageAssetCannotBeClaimedAsAudio(t *testing.T) {
 		image := newImageAsset(t, tx, f.adminID)
 		rejectsWith(t, tx, "questions_media_asset_id_media_asset_kind_fkey",
 			`INSERT INTO app.questions
-			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			        (type, prompt, points, created_by, owner_id, media_asset_id, media_asset_kind,
 			         audio_allow_seek, audio_show_transcript_after)
-			 VALUES ('short_answer', 'Ảnh giả làm audio', 1.0, $1, $2, 'audio', false, true)`,
+			 VALUES ('short_answer', 'Ảnh giả làm audio', 1.0, $1, $1, $2, 'audio', false, true)`,
 			f.adminID, image)
 	})
 }
@@ -565,9 +575,9 @@ func TestImageQuestionCannotCarryAnAudioPolicy(t *testing.T) {
 		image := newImageAsset(t, tx, f.adminID)
 		rejectsWith(t, tx, "questions_audio_policy_iff_audio",
 			`INSERT INTO app.questions
-			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			        (type, prompt, points, created_by, owner_id, media_asset_id, media_asset_kind,
 			         audio_allow_seek, audio_show_transcript_after)
-			 VALUES ('short_answer', 'Ảnh có policy audio', 1.0, $1, $2, 'image', false, true)`,
+			 VALUES ('short_answer', 'Ảnh có policy audio', 1.0, $1, $1, $2, 'image', false, true)`,
 			f.adminID, image)
 	})
 }
@@ -576,32 +586,32 @@ func TestMediaPairMustBeCompleteOrAbsent(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		asset := newAudioAsset(t, tx, f.adminID)
 		rejectsWith(t, tx, "questions_media_pair_complete",
-			`INSERT INTO app.questions (type, prompt, points, created_by, media_asset_id)
-			 VALUES ('short_answer', 'Thiếu kind', 1.0, $1, $2)`, f.adminID, asset)
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, media_asset_id)
+			 VALUES ('short_answer', 'Thiếu kind', 1.0, $1, $1, $2)`, f.adminID, asset)
 	})
 }
 
 func TestSampleAnswerIsShortAnswerOnly(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "questions_sample_answer_only_short_answer",
-			`INSERT INTO app.questions (type, prompt, points, created_by, sample_answer)
-			 VALUES ('single_choice', 'Chọn một đáp án', 1.0, $1, 'Đáp án mẫu')`, f.adminID)
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+			 VALUES ('single_choice', 'Chọn một đáp án', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
 	})
 }
 
 func TestSampleAnswerOnShortAnswerIsAccepted(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.questions (type, prompt, points, created_by, sample_answer)
-			 VALUES ('short_answer', 'Viết câu trả lời', 1.0, $1, 'Đáp án mẫu')`, f.adminID)
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+			 VALUES ('short_answer', 'Viết câu trả lời', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
 	})
 }
 
 func TestTranscriptRequiresAudio(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "questions_transcript_iff_audio",
-			`INSERT INTO app.questions (type, prompt, points, created_by, transcript)
-			 VALUES ('short_answer', 'Không có audio', 1.0, $1, 'Lời thoại')`, f.adminID)
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, transcript)
+			 VALUES ('short_answer', 'Không có audio', 1.0, $1, $1, 'Lời thoại')`, f.adminID)
 	})
 }
 
@@ -635,8 +645,8 @@ func newQuestion(t *testing.T, tx *sql.Tx, author, qtype, prompt string) string 
 	t.Helper()
 	var id string
 	if err := tx.QueryRow(
-		`INSERT INTO app.questions (type, prompt, points, created_by)
-		 VALUES ($1::app.question_type, $2, 1.0, $3) RETURNING id`,
+		`INSERT INTO app.questions (type, prompt, points, created_by, owner_id)
+		 VALUES ($1::app.question_type, $2, 1.0, $3, $3) RETURNING id`,
 		qtype, prompt, author,
 	).Scan(&id); err != nil {
 		t.Fatalf("question fixture: %v", err)
@@ -651,8 +661,8 @@ func newQuestion(t *testing.T, tx *sql.Tx, author, qtype, prompt string) string 
 func TestMaxPlaysCannotBeSetWithoutAudio(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "questions_max_plays_only_with_audio",
-			`INSERT INTO app.questions (type, prompt, points, created_by, audio_max_plays)
-			 VALUES ('short_answer', 'Không có audio', 1.0, $1, 3)`, f.adminID)
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, audio_max_plays)
+			 VALUES ('short_answer', 'Không có audio', 1.0, $1, $1, 3)`, f.adminID)
 	})
 }
 
@@ -661,8 +671,8 @@ func TestMaxPlaysCannotBeSetOnAnImageQuestion(t *testing.T) {
 		image := newImageAsset(t, tx, f.adminID)
 		rejectsWith(t, tx, "questions_max_plays_only_with_audio",
 			`INSERT INTO app.questions
-			        (type, prompt, points, created_by, media_asset_id, media_asset_kind, audio_max_plays)
-			 VALUES ('short_answer', 'Ảnh', 1.0, $1, $2, 'image', 3)`, f.adminID, image)
+			        (type, prompt, points, created_by, owner_id, media_asset_id, media_asset_kind, audio_max_plays)
+			 VALUES ('short_answer', 'Ảnh', 1.0, $1, $1, $2, 'image', 3)`, f.adminID, image)
 	})
 }
 
@@ -674,9 +684,9 @@ func TestAnAudioQuestionMayLeaveMaxPlaysUnlimited(t *testing.T) {
 		asset := newAudioAsset(t, tx, f.adminID)
 		mustExec(t, tx,
 			`INSERT INTO app.questions
-			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			        (type, prompt, points, created_by, owner_id, media_asset_id, media_asset_kind,
 			         audio_allow_seek, audio_show_transcript_after, audio_max_plays)
-			 VALUES ('short_answer', 'Nghe không giới hạn', 1.0, $1, $2, 'audio', false, true, NULL)`,
+			 VALUES ('short_answer', 'Nghe không giới hạn', 1.0, $1, $1, $2, 'audio', false, true, NULL)`,
 			f.adminID, asset)
 	})
 }
@@ -686,9 +696,9 @@ func TestAnAudioQuestionMaySetMaxPlays(t *testing.T) {
 		asset := newAudioAsset(t, tx, f.adminID)
 		mustExec(t, tx,
 			`INSERT INTO app.questions
-			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			        (type, prompt, points, created_by, owner_id, media_asset_id, media_asset_kind,
 			         audio_allow_seek, audio_show_transcript_after, audio_max_plays)
-			 VALUES ('short_answer', 'Nghe tối đa 2 lần', 1.0, $1, $2, 'audio', false, true, 2)`,
+			 VALUES ('short_answer', 'Nghe tối đa 2 lần', 1.0, $1, $1, $2, 'audio', false, true, 2)`,
 			f.adminID, asset)
 	})
 }
@@ -700,8 +710,8 @@ func TestAnAudioQuestionMaySetMaxPlays(t *testing.T) {
 func TestAPublishedTestMustHaveAVersion(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "tests_published_has_version",
-			`INSERT INTO app.tests (title, status, current_version, created_by)
-			 VALUES ('Đề đã xuất bản', 'published', 0, $1)`, f.adminID)
+			`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+			 VALUES ('Đề đã xuất bản', 'published', 0, $1, $1)`, f.adminID)
 	})
 }
 
@@ -710,23 +720,23 @@ func TestAPublishedTestMustHaveAVersion(t *testing.T) {
 func TestAnArchivedDraftNeedsNoVersion(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.tests (title, status, current_version, created_by)
-			 VALUES ('Đề lưu trữ', 'archived', 0, $1)`, f.adminID)
+			`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+			 VALUES ('Đề lưu trữ', 'archived', 0, $1, $1)`, f.adminID)
 	})
 }
 
 func TestADraftMayHaveNoVersionYet(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.tests (title, created_by) VALUES ('Đề nháp', $1)`, f.adminID)
+			`INSERT INTO app.tests (title, created_by, owner_id) VALUES ('Đề nháp', $1, $1)`, f.adminID)
 	})
 }
 
 func TestAPublishedTestWithAVersionIsAccepted(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.tests (title, status, current_version, created_by)
-			 VALUES ('Đề đã xuất bản', 'published', 1, $1)`, f.adminID)
+			`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+			 VALUES ('Đề đã xuất bản', 'published', 1, $1, $1)`, f.adminID)
 	})
 }
 
@@ -826,7 +836,7 @@ func newSection(t *testing.T, tx *sql.Tx, author string) string {
 	t.Helper()
 	var testID, sectionID string
 	if err := tx.QueryRow(
-		`INSERT INTO app.tests (title, created_by) VALUES ('Đề nháp', $1) RETURNING id`,
+		`INSERT INTO app.tests (title, created_by, owner_id) VALUES ('Đề nháp', $1, $1) RETURNING id`,
 		author,
 	).Scan(&testID); err != nil {
 		t.Fatalf("test fixture: %v", err)
@@ -842,14 +852,28 @@ func newSection(t *testing.T, tx *sql.Tx, author string) string {
 
 // ------------------------------------------------- version snapshots
 
+func txHasColumn(t *testing.T, tx *sql.Tx, table, column string) bool {
+	t.Helper()
+	var exists bool
+	if err := tx.QueryRow(`SELECT EXISTS (SELECT 1 FROM pg_attribute
+		WHERE attrelid = ('app.' || $1)::regclass AND attname = $2 AND NOT attisdropped)`, table, column).Scan(&exists); err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+	return exists
+}
+
 // newVersion creates a published test with one version and one section, and
 // returns the section id.
 func newVersion(t *testing.T, tx *sql.Tx, author string) string {
 	t.Helper()
 	var testID, versionID, sectionID string
+	ownerColumn, ownerValue := "", ""
+	if txHasColumn(t, tx, "tests", "owner_id") {
+		ownerColumn, ownerValue = ", owner_id", ", $1"
+	}
 	if err := tx.QueryRow(
-		`INSERT INTO app.tests (title, status, current_version, created_by)
-		 VALUES ('Đề đã xuất bản', 'published', 1, $1) RETURNING id`, author,
+		`INSERT INTO app.tests (title, status, current_version, created_by`+ownerColumn+`)
+		 VALUES ('Đề đã xuất bản', 'published', 1, $1`+ownerValue+`) RETURNING id`, author,
 	).Scan(&testID); err != nil {
 		t.Fatalf("test fixture: %v", err)
 	}
@@ -991,7 +1015,7 @@ func TestAVersionMustHaveAPositiveVersionNumber(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		var testID string
 		if err := tx.QueryRow(
-			`INSERT INTO app.tests (title, created_by) VALUES ('Đề', $1) RETURNING id`,
+			`INSERT INTO app.tests (title, created_by, owner_id) VALUES ('Đề', $1, $1) RETURNING id`,
 			f.adminID,
 		).Scan(&testID); err != nil {
 			t.Fatal(err)

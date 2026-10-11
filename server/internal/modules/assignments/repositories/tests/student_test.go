@@ -310,8 +310,8 @@ func TestTheIntroReportsTheStrictestAudioCap(t *testing.T) {
 		VALUES ($1::uuid, 0, 'Nghe') RETURNING id::text`, w.versionID).Scan(&section))
 	must(pool.QueryRow(ctx, `
 		INSERT INTO app.media_assets
-		  (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-		VALUES ('audio', $1, 'audio/mpeg', 1000, 1000, 'a.mp3', sha256(convert_to($1, 'UTF8')), $2::uuid)
+		  (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+		VALUES ('audio', $1, 'audio/mpeg', 1000, 1000, 'a.mp3', sha256(convert_to($1, 'UTF8')), $2::uuid, $2::uuid)
 		RETURNING id::text`, "audio/asg-"+id+".mp3", w.admin).Scan(&asset))
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM app.media_assets WHERE id = $1::uuid`, asset)

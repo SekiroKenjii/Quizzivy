@@ -28,9 +28,9 @@ func TestPublishingADraftWhoseQuestionNamesADeletedAssetAnswers409NamingTheQuest
 	if err := w.pool.QueryRow(ctx,
 		`INSERT INTO app.media_assets
 		        (kind, storage_key, mime_type, bytes, duration_ms,
-		         original_filename, checksum_sha256, uploaded_by)
+		         original_filename, checksum_sha256, uploaded_by, owner_id)
 		 VALUES ('audio', $1, 'audio/mpeg', 1024, 10000, 'nghe.mp3',
-		         repeat('c', 32)::bytea, $2)
+		         repeat('c', 32)::bytea, $2, $2)
 		 RETURNING id::text`, "audio/e2e-"+nonce(t)+".mp3", owner).Scan(&asset); err != nil {
 		t.Fatal(err)
 	}

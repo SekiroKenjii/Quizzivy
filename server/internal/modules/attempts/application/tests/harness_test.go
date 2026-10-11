@@ -133,8 +133,8 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 	      VALUES ($1::uuid,$2::uuid,'admin',$3::uuid)`, w.class, w.student, w.admin)
 
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.tests (title, status, current_version, created_by)
-		 VALUES ($1,'published',1,$2::uuid) RETURNING id::text`,
+		`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+		 VALUES ($1,'published',1,$2::uuid,$2::uuid) RETURNING id::text`,
 		"Đề "+id, w.admin).Scan(&w.testID))
 	must(pool.QueryRow(ctx,
 		`INSERT INTO app.test_versions (test_id, version, total_points, published_by)
@@ -177,9 +177,9 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 	must(pool.QueryRow(ctx, `
 		INSERT INTO app.media_assets
 		  (kind, storage_key, mime_type, bytes, duration_ms, original_filename,
-		   checksum_sha256, uploaded_by)
+		   checksum_sha256, uploaded_by, owner_id)
 		VALUES ('audio', $1, 'audio/mpeg', 159711, 10004, 'nghe-'||$2||'.mp3',
-		        sha256(convert_to($1, 'UTF8')), $3::uuid)
+		        sha256(convert_to($1, 'UTF8')), $3::uuid, $3::uuid)
 		RETURNING id::text`, "audio/att-"+id+".mp3", id, w.admin).Scan(&w.asset))
 	must(pool.QueryRow(ctx, `
 		INSERT INTO app.test_version_questions

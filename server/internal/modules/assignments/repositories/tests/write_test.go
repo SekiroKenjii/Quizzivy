@@ -90,8 +90,8 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, status string) world {
 		version = 0
 	}
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.tests (title, status, current_version, created_by)
-		 VALUES ($1,$2::app.test_status,$3,$4::uuid) RETURNING id::text`,
+		`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+		 VALUES ($1,$2::app.test_status,$3,$4::uuid,$4::uuid) RETURNING id::text`,
 		"Đề "+id, status, version, w.admin).Scan(&w.testID))
 	must(pool.QueryRow(ctx,
 		`INSERT INTO app.test_versions (test_id, version, total_points, published_by)
