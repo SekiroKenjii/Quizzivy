@@ -54,8 +54,9 @@ function menuTrigger(id: string): HTMLElement | null {
 /**
  * MediaPage is the teacher's media library: storage against the quota, the
  * files as cards filtered by kind or by use and searched by name, 24 or 48 a
- * page under the deck's pager (the deck draws none here), and the upload,
- * rename, replace, download and delete of a file.
+ * page, and the upload, rename, replace, download and delete of a file. The
+ * pager shows whenever the library holds a match, so a page past the end
+ * still leads back.
  */
 export default function MediaPage() {
   const { t } = useTranslation();
@@ -131,27 +132,29 @@ export default function MediaPage() {
   const filtered = search !== "" || tab !== "all";
 
   const results = (data: NonNullable<typeof library.data>) => {
-    if (data.items.length > 0)
+    if (data.total > 0)
       return (
         <>
-          <CardGrid
-            label={t("media.title")}
-            items={data.items}
-            itemKey={(asset) => asset.id}
-            min={240}
-          >
-            {(asset) => (
-              <MediaCard
-                asset={asset}
-                active={playing === asset.id}
-                onPlay={setPlaying}
-                onExpired={refreshExpired}
-                onRename={fromMenu(setRenaming)}
-                onReplace={fromMenu(setReplacing)}
-                onDelete={fromMenu(setDeleting)}
-              />
-            )}
-          </CardGrid>
+          {data.items.length > 0 ? (
+            <CardGrid
+              label={t("media.title")}
+              items={data.items}
+              itemKey={(asset) => asset.id}
+              min={240}
+            >
+              {(asset) => (
+                <MediaCard
+                  asset={asset}
+                  active={playing === asset.id}
+                  onPlay={setPlaying}
+                  onExpired={refreshExpired}
+                  onRename={fromMenu(setRenaming)}
+                  onReplace={fromMenu(setReplacing)}
+                  onDelete={fromMenu(setDeleting)}
+                />
+              )}
+            </CardGrid>
+          ) : null}
           <Pager
             page={data.page}
             pageSize={data.pageSize}

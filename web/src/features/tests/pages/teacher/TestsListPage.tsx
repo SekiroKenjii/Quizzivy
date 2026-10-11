@@ -133,8 +133,9 @@ function message(cause: unknown, fallback: string): string {
  * tabs with their counts, a search by title, and the tests as cards. Every
  * test, archived ones included, is under All. A card can be selected for the
  * bulk archive and delete, duplicated in place, and archived, restored or
- * deleted from its menu. The deck draws no pager here; the list pages under
- * the deck's pager, 24 or 48 cards a page.
+ * deleted from its menu. The list pages 24 or 48 cards at a time, and its
+ * pager shows whenever a test matches, so a page past the end still leads
+ * back.
  */
 export default function TestsListPage() {
   useDisplayTimeZone();
@@ -251,28 +252,30 @@ export default function TestsListPage() {
   const createNew = () => create.mutate();
 
   const results = (data: NonNullable<typeof tests.data>) => {
-    if (data.items.length > 0)
+    if (data.total > 0)
       return (
         <>
-          <CardGrid
-            label={t("teacherShell.nav.tests")}
-            items={data.items}
-            itemKey={(test) => test.id}
-            min={290}
-          >
-            {(test) => (
-              <TestCard
-                test={test}
-                selection={bulk}
-                duplicated={duplicated.has(test.id)}
-                duplicating={duplicate.isPending}
-                onDuplicate={(source) => duplicate.mutate(source)}
-                onArchive={fromMenu(setArchiving)}
-                onRestore={(archived) => restore.mutate(archived)}
-                onDelete={fromMenu(setDeleting)}
-              />
-            )}
-          </CardGrid>
+          {data.items.length > 0 ? (
+            <CardGrid
+              label={t("teacherShell.nav.tests")}
+              items={data.items}
+              itemKey={(test) => test.id}
+              min={290}
+            >
+              {(test) => (
+                <TestCard
+                  test={test}
+                  selection={bulk}
+                  duplicated={duplicated.has(test.id)}
+                  duplicating={duplicate.isPending}
+                  onDuplicate={(source) => duplicate.mutate(source)}
+                  onArchive={fromMenu(setArchiving)}
+                  onRestore={(archived) => restore.mutate(archived)}
+                  onDelete={fromMenu(setDeleting)}
+                />
+              )}
+            </CardGrid>
+          ) : null}
           <Pager
             page={data.page}
             pageSize={data.pageSize}

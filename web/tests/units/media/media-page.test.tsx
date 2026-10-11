@@ -651,4 +651,28 @@ describe("the media library's pager (QA-F1-2)", () => {
     expect(lists.at(-1)?.has("page")).toBe(false);
     expect(lists.at(-1)?.get("kind")).toBe("audio");
   });
+
+  it("still draws the pager on a page past the end, so it leads back", async () => {
+    server.use(
+      http.get(`${BASE}/teacher/media`, ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        lists.push(query);
+        return contractJson("/teacher/media", "get", 200, {
+          ...libraryBody(query),
+          items: [],
+          page: 3,
+          total: 30,
+        });
+      }),
+    );
+    renderPage("/teacher/media?page=3");
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    expect(within(pager).getByText("Trang 2 trên 2")).toBeInTheDocument();
+    expect(within(pager).getByRole("link", { name: "Trang đầu" })).toHaveAttribute(
+      "href",
+      "/teacher/media",
+    );
+    expect(screen.queryByText("Chưa có media")).toBeNull();
+    expect(screen.queryByText("Không có tệp nào khớp.")).toBeNull();
+  });
 });

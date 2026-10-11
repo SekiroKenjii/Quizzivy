@@ -134,47 +134,49 @@ export default function ImportsListPage() {
   );
 
   const results = (data: NonNullable<typeof list.data>) => {
-    if (data.items.length > 0)
+    if (data.total > 0)
       return (
         <>
-          <div className="@container/import-history min-w-0">
-            <Card
-              role="table"
-              aria-label={t("imports.historyTitle")}
-              className="gap-0 overflow-hidden py-0"
-            >
-              <div role="rowgroup" className="hidden @[960px]/import-history:block">
-                <div
-                  role="row"
-                  className={cn(
-                    "bg-muted text-meta text-muted-fg grid items-center gap-3 px-4 py-2.5",
-                    GRID,
-                  )}
-                >
-                  <span role="columnheader">{t("imports.history.file")}</span>
-                  <span role="columnheader">{t("imports.columnStatus")}</span>
-                  <span role="columnheader">{t("imports.history.review")}</span>
-                  <span role="columnheader">{t("imports.history.test")}</span>
-                  <span role="columnheader" className="sr-only">
-                    {t("imports.columnActions")}
-                  </span>
-                  <span role="columnheader" className="sr-only">
-                    {t("common.actions")}
-                  </span>
+          {data.items.length > 0 ? (
+            <div className="@container/import-history min-w-0">
+              <Card
+                role="table"
+                aria-label={t("imports.historyTitle")}
+                className="gap-0 overflow-hidden py-0"
+              >
+                <div role="rowgroup" className="hidden @[960px]/import-history:block">
+                  <div
+                    role="row"
+                    className={cn(
+                      "bg-muted text-meta text-muted-fg grid items-center gap-3 px-4 py-2.5",
+                      GRID,
+                    )}
+                  >
+                    <span role="columnheader">{t("imports.history.file")}</span>
+                    <span role="columnheader">{t("imports.columnStatus")}</span>
+                    <span role="columnheader">{t("imports.history.review")}</span>
+                    <span role="columnheader">{t("imports.history.test")}</span>
+                    <span role="columnheader" className="sr-only">
+                      {t("imports.columnActions")}
+                    </span>
+                    <span role="columnheader" className="sr-only">
+                      {t("common.actions")}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div role="rowgroup" className="divide-border divide-y">
-                {data.items.map((item) => (
-                  <HistoryRow
-                    key={item.id}
-                    item={item}
-                    locale={locale}
-                    processing={canStart}
-                  />
-                ))}
-              </div>
-            </Card>
-          </div>
+                <div role="rowgroup" className="divide-border divide-y">
+                  {data.items.map((item) => (
+                    <HistoryRow
+                      key={item.id}
+                      item={item}
+                      locale={locale}
+                      processing={canStart}
+                    />
+                  ))}
+                </div>
+              </Card>
+            </div>
+          ) : null}
           <Pager
             page={data.page}
             pageSize={data.pageSize}

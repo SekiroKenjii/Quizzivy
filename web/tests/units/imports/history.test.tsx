@@ -354,4 +354,35 @@ describe("the history's pager (QA-F1-2)", () => {
     await waitFor(() => expect(queries.at(-1)?.get("limit")).toBe("50"));
     expect(queries.at(-1)?.get("page")).toBe("1");
   });
+
+  it("still draws the pager on a page past the end, so it leads back", async () => {
+    server.use(
+      http.get(`${BASE}/teacher/imports`, () =>
+        contractJson("/teacher/imports", "get", 200, {
+          items: [],
+          facets: {
+            all: 30,
+            processing: 0,
+            needsReview: 0,
+            failed: 0,
+            committed: 30,
+            cancelled: 0,
+          },
+          page: 3,
+          pageSize: 20,
+          total: 30,
+        }),
+      ),
+    );
+    renderHistory("/teacher/imports?page=3");
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    expect(within(pager).getByText("Trang 2 trên 2")).toBeInTheDocument();
+    expect(within(pager).getByRole("link", { name: "Trang đầu" })).toHaveAttribute(
+      "href",
+      "/teacher/imports",
+    );
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByText("Chưa có lần nhập đề nào.")).toBeNull();
+    expect(screen.queryByText("Không có lần nhập nào khớp bộ lọc.")).toBeNull();
+  });
 });

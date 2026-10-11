@@ -401,4 +401,28 @@ describe("the tests list's pager (QA-F1-2)", () => {
     expect(lists.at(-1)?.has("page")).toBe(false);
     expect(lists.at(-1)?.get("status")).toBe("draft");
   });
+
+  it("still draws the pager on a page past the end, so it leads back", async () => {
+    server.use(
+      http.get(`${BASE}/teacher/tests`, () =>
+        contractJson("/teacher/tests", "get", 200, {
+          items: [],
+          page: 3,
+          pageSize: 24,
+          total: 30,
+          facets: { all: 30, draft: 30, published: 0, archived: 0 },
+          tags: [],
+        }),
+      ),
+    );
+    renderList("/teacher/tests?page=3");
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    expect(within(pager).getByText("Trang 2 trên 2")).toBeInTheDocument();
+    expect(within(pager).getByRole("link", { name: "Trang đầu" })).toHaveAttribute(
+      "href",
+      "/teacher/tests",
+    );
+    expect(screen.queryByText("Chưa có đề thi nào.")).toBeNull();
+    expect(screen.queryByText("Không có đề thi nào khớp.")).toBeNull();
+  });
 });
