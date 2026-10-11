@@ -56,7 +56,7 @@ test("follows the device while the preference is system", async ({ page }) => {
   expect(await background(page)).toBe("rgb(14, 18, 19)");
 });
 
-test("keeps a console not yet rebuilt light under a dark preference", async ({
+test("draws Students in the rebuilt shell under a dark preference", async ({
   page,
 }) => {
   const user = { ...adminUser, preferences: { theme: "dark" as const } };
@@ -65,16 +65,16 @@ test("keeps a console not yet rebuilt light under a dark preference", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/teacher/students");
   await expect(page.getByRole("heading", { name: "Học viên", level: 1 })).toBeVisible();
-  await expect(page.locator("[data-columns] main")).toBeVisible();
-  await expect(page.locator('[data-scale="deck"] main')).toHaveCount(0);
+  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator("[data-columns] main")).toHaveCount(0);
   await expect(
     page.getByRole("navigation", { name: "Điều hướng chính" }),
   ).toBeVisible();
-  await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
-  expect(await background(page)).toBe("rgb(255, 255, 255)");
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  expect(await background(page)).toBe("rgb(14, 18, 19)");
 });
 
-test("restores the dark preference after visiting a console not yet rebuilt through SPA links", async ({
+test("keeps the dark preference through SPA links from the dashboard to Settings and Students", async ({
   page,
 }) => {
   const user = { ...adminUser, preferences: { theme: "dark" as const } };
@@ -124,10 +124,10 @@ test("restores the dark preference after visiting a console not yet rebuilt thro
     .click();
   await expect(page).toHaveURL(/\/teacher\/students$/);
   await expect(page.getByRole("heading", { name: "Học viên", level: 1 })).toBeVisible();
-  await expect(page.locator("[data-columns] main")).toBeVisible();
-  await expect(page.locator('[data-scale="deck"] main')).toHaveCount(0);
-  await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
-  expect(await background(page)).toBe("rgb(255, 255, 255)");
+  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator("[data-columns] main")).toHaveCount(0);
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  expect(await background(page)).toBe("rgb(14, 18, 19)");
   expect(await page.evaluate(() => localStorage.getItem("quizzivy.theme"))).toBe(
     "dark",
   );
