@@ -17,6 +17,8 @@ import (
 type guardedShelf struct {
 	domain.Students
 	visible map[string]bool
+	refuse  map[string]error
+	failed  map[string]error
 	writes  []string
 }
 
@@ -37,9 +39,13 @@ func (g *guardedShelf) Delete(context.Context, domain.WriteRequest, string, time
 	return nil
 }
 
-func (g *guardedShelf) ResetPassword(context.Context, domain.WriteRequest, string, string, time.Time) error {
+func (g *guardedShelf) ResetPassword(_ context.Context, _ domain.WriteRequest, id, _ string, _ time.Time) error {
 	g.writes = append(g.writes, "reset")
-	return nil
+	return g.failed[id]
+}
+
+func (g *guardedShelf) CheckResettable(_ context.Context, _ domain.WriteRequest, id string) error {
+	return g.refuse[id]
 }
 
 type noFigures struct{}
