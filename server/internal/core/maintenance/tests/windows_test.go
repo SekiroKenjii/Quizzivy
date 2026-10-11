@@ -56,8 +56,8 @@ func (w world) assignment(t *testing.T, closesAt time.Time) string {
 	 WITH teacher AS (
 	   INSERT INTO app.users(email,full_name,role_id) VALUES($1 || '@example.com','Teacher',(SELECT id FROM app.roles WHERE builtin_key='teacher')) RETURNING id
 	 ), test AS (
-	   INSERT INTO app.tests(title,status,current_version,created_by)
-	   SELECT 'Window fixture','published',1,id FROM teacher RETURNING id,created_by
+	   INSERT INTO app.tests(title,status,current_version,created_by,owner_id)
+	   SELECT 'Window fixture','published',1,id,id FROM teacher RETURNING id,created_by
 	 ), version AS (
 	   INSERT INTO app.test_versions(test_id,version,total_points,published_by)
 	   SELECT id,1,1,created_by FROM test RETURNING id,test_id,published_by
@@ -383,8 +383,8 @@ func commitAssignment(t *testing.T, base time.Time) *committed {
 	 WITH teacher AS (
 	   INSERT INTO app.users(email,full_name,role_id) VALUES($1 || '@example.com','Teacher',(SELECT id FROM app.roles WHERE builtin_key='teacher')) RETURNING id
 	 ), test AS (
-	   INSERT INTO app.tests(title,status,current_version,created_by)
-	   SELECT 'Window race fixture','published',1,id FROM teacher RETURNING id,created_by
+	   INSERT INTO app.tests(title,status,current_version,created_by,owner_id)
+	   SELECT 'Window race fixture','published',1,id,id FROM teacher RETURNING id,created_by
 	 ), version AS (
 	   INSERT INTO app.test_versions(test_id,version,total_points,published_by)
 	   SELECT id,1,1,created_by FROM test RETURNING id,test_id,published_by

@@ -35,8 +35,8 @@ func publishVersionUsing(ctx context.Context, pool *pgxpool.Pool, author, assetI
 
 	var testID, versionID, sectionID string
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO app.tests (title, status, current_version, created_by)
-		 VALUES ('Đề đã xuất bản', 'published', 1, $1) RETURNING id::text`, author).Scan(&testID); err != nil {
+		`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+		 VALUES ('Đề đã xuất bản', 'published', 1, $1, $1) RETURNING id::text`, author).Scan(&testID); err != nil {
 		return err
 	}
 	if err := tx.QueryRow(ctx,

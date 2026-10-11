@@ -8,12 +8,13 @@
 -- Fixed uuids throughout, for the same reason.
 
 -- ------------------------------------------------------------------ a test
-INSERT INTO app.tests (id, title, description, status, current_version, created_by)
+INSERT INTO app.tests (id, title, description, status, current_version, created_by, owner_id)
 VALUES (
   '01935000-0000-7000-8000-00000000dd01'::uuid,
   'Unit 5 — Present perfect & listening',
   'Đề mẫu cho môi trường phát triển.',
   'published', 1,
+  '01935000-0000-7000-8000-0000000000a1',
   '01935000-0000-7000-8000-0000000000a1'
 )
 ON CONFLICT (id) DO NOTHING;

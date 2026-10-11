@@ -59,9 +59,9 @@ func storedGroupAsset(t *testing.T, tx pgx.Tx, author, kind string) string {
 	t.Helper()
 	var id string
 	err := tx.QueryRow(context.Background(), `INSERT INTO app.media_assets
-		(kind,storage_key,mime_type,bytes,duration_ms,original_filename,checksum_sha256,uploaded_by)
+		(kind,storage_key,mime_type,bytes,duration_ms,original_filename,checksum_sha256,uploaded_by,owner_id)
 		VALUES ($1::app.media_kind,$2,CASE WHEN $1='audio' THEN 'audio/mpeg' ELSE 'image/png' END,100,
-		CASE WHEN $1='audio' THEN 1000 ELSE NULL END,'fixture', $3,$4) RETURNING id::text`, kind, groupIdentity(t), make([]byte, 32), author).Scan(&id)
+		CASE WHEN $1='audio' THEN 1000 ELSE NULL END,'fixture', $3,$4,$4) RETURNING id::text`, kind, groupIdentity(t), make([]byte, 32), author).Scan(&id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestGroupStoreMountsEmptyGroupAndChecksDraftRevision(t *testing.T) {
 	tx, author, repo := groupTransaction(t)
 	var testID, sectionID string
 	var updated time.Time
-	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by) VALUES ('Draft',$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by,owner_id) VALUES ('Draft',$1,$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.QueryRow(ctx, `INSERT INTO app.test_sections (test_id,ordinal,title) VALUES ($1,0,'Part') RETURNING id::text`, testID).Scan(&sectionID); err != nil {
@@ -221,7 +221,7 @@ func TestGroupStorePreservesStandaloneOrderWhenMounting(t *testing.T) {
 	tx, author, repo := groupTransaction(t)
 	var testID, sectionID string
 	var updated time.Time
-	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by) VALUES ('Draft',$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by,owner_id) VALUES ('Draft',$1,$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.QueryRow(ctx, `INSERT INTO app.test_sections (test_id,ordinal,title) VALUES ($1,0,'Part') RETURNING id::text`, testID).Scan(&sectionID); err != nil {
@@ -229,7 +229,7 @@ func TestGroupStorePreservesStandaloneOrderWhenMounting(t *testing.T) {
 	}
 	ids := []string{groupIdentity(t), groupIdentity(t)}
 	for i, id := range ids {
-		if _, err := tx.Exec(ctx, `INSERT INTO app.questions (id,type,prompt,points,created_by) VALUES ($1,'short_answer','Standalone',1,$2)`, id, author); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO app.questions (id,type,prompt,points,created_by,owner_id) VALUES ($1,'short_answer','Standalone',1,$2,$2)`, id, author); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO app.test_section_questions (test_section_id,question_id,ordinal) VALUES ($1,$2,$3)`, sectionID, id, 1-i); err != nil {

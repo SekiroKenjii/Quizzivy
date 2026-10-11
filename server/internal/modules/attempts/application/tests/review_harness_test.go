@@ -36,8 +36,8 @@ func seedPaper(t *testing.T, pool *pgxpool.Pool, status string) paper {
 		"rev-s-"+id+"@example.com").Scan(&p.student))
 
 	var versionID, sectionID, assignmentID string
-	must(pool.QueryRow(ctx, `INSERT INTO app.tests (title, status, current_version, created_by)
-		VALUES ('Unit 5', 'published', 1, $1::uuid) RETURNING id::text`, p.admin).Scan(&p.testID))
+	must(pool.QueryRow(ctx, `INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+		VALUES ('Unit 5', 'published', 1, $1::uuid, $1::uuid) RETURNING id::text`, p.admin).Scan(&p.testID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.test_versions (test_id, version, total_points, published_by)
 		VALUES ($1::uuid, 1, '10.00', $2::uuid) RETURNING id::text`, p.testID, p.admin).Scan(&versionID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.test_version_sections (test_version_id, ordinal, title)
