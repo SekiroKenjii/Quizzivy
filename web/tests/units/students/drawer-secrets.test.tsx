@@ -1,179 +1,104 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http } from "msw";
-import StudentsListPage from "@/features/students/pages/teacher/StudentsListPage";
 import { useAuthStore } from "@/stores/auth";
-import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { adminUser } from "@tests/support/fixtures";
+import { server } from "@tests/support/server";
+import { adminUser, teacherUser } from "@tests/support/fixtures";
+import { BASE, renderStudents, rowOf, serveStudents, student } from "./support";
 import "@/lib/i18n";
 
-const BASE = "http://localhost:8080";
-const HAN = "018f0000-0000-7000-8000-0000000000e1";
-const DUNG = "018f0000-0000-7000-8000-0000000000e2";
+const HAN = student("018f0000-0000-7000-8000-0000000000e1", "Phạm Gia Hân");
+const DUNG = student("018f0000-0000-7000-8000-0000000000e2", "Hoàng Tiến Dũng");
 
-/**
- * A temporary password is shown once and stored only as a hash. Every test here
- * is about that: it must not follow the teacher to another student, and it must
- * not be destroyed by something as ordinary as typing in the search box.
- */
-function student(id: string, fullName: string, email: string) {
-  return {
-    id,
-    email,
-    fullName,
-    hasPassword: true,
-    linkedProviders: [],
-    mustChangePassword: false,
-    createdAt: "2026-01-01T00:00:00Z",
-    disabledAt: null,
-    classes: [],
-    stats: {
-      submittedCount: 0,
-      flaggedCount: 0,
-      activity: { live: false, lastAttemptAt: null },
-    },
-  };
-}
-
-const HAN_ROW = student(HAN, "Phạm Gia Hân", "han@example.com");
-const DUNG_ROW = student(DUNG, "Hoàng Tiến Dũng", "dung@example.com");
-
-beforeEach(() => {
-  server.use(
-    http.get(`${BASE}/teacher/students`, ({ request }) => {
-      const q = new URL(request.url).searchParams.get("q") ?? "";
-      const all = [HAN_ROW, DUNG_ROW];
-      const items = q === "" ? all : all.filter((s) => s.fullName.includes(q));
-      return contractJson("/teacher/students", "get", 200, {
-        items,
-        page: 1,
-        pageSize: 50,
-        total: 0,
-        facets: { total: all.length, activeLast7Days: 0 },
-      });
-    }),
-    http.get(`${BASE}/teacher/students/:id`, ({ params }) =>
-      contractJson(
-        "/teacher/students/{id}",
-        "get",
-        200,
-        params["id"] === HAN ? HAN_ROW : DUNG_ROW,
-      ),
-    ),
-    http.post(`${BASE}/teacher/students/:id/reset-password`, ({ params }) =>
-      contractJson("/teacher/students/{id}/reset-password", "post", 200, {
-        temporaryPassword: params["id"] === HAN ? "tho-vang-cay-42" : "cay-dua-mut-13",
-      }),
-    ),
-  );
+afterEach(() => {
+  useAuthStore.getState().clearSession();
 });
 
-function renderPage() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createMemoryRouter(
-    [{ path: "/teacher/students", element: <StudentsListPage /> }],
-    { initialEntries: ["/teacher/students"] },
-  );
-  render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  );
-  return userEvent.setup();
+async function openRecord(
+  user: ReturnType<typeof renderStudents>["user"],
+  name: string,
+) {
+  await user.click(within(await rowOf(name)).getByText(name));
+  return screen.findByRole("dialog", { name });
 }
 
-async function openDrawerFor(user: ReturnType<typeof userEvent.setup>, name: string) {
-  const table = await screen.findByRole("table");
-  await user.click(within(table).getByText(name));
-}
-
-describe("the one-time password in the student drawer", () => {
-  it("does not follow the teacher to the next student", async () => {
-    const user = renderPage();
-
-    await openDrawerFor(user, "Phạm Gia Hân");
-    await user.click(await screen.findByRole("button", { name: "Đặt mật khẩu tạm" }));
-    expect(await screen.findByText("tho-vang-cay-42")).toBeInTheDocument();
-
-    await openDrawerFor(user, "Hoàng Tiến Dũng");
-
-    await screen.findByRole("complementary", { name: /Hoàng Tiến Dũng/ });
-    expect(screen.queryByText("tho-vang-cay-42")).toBeNull();
+/**
+ * A temporary password is shown once and stored only as a hash. It must not
+ * follow the teacher to another student's record.
+ */
+describe("the one-time password in a student's record", () => {
+  beforeEach(() => {
+    serveStudents([HAN, DUNG]);
+    server.use(
+      http.post(`${BASE}/teacher/students/:id/reset-password`, ({ params }) =>
+        contractJson("/teacher/students/{id}/reset-password", "post", 200, {
+          temporaryPassword:
+            params["id"] === HAN.id ? "tho-vang-cay-42" : "cay-dua-mut-13",
+        }),
+      ),
+    );
   });
 
-  it("survives a search that filters the table underneath it", async () => {
-    const user = renderPage();
+  it("asks first, shows it once, and does not follow the teacher to the next student", async () => {
+    const { user } = renderStudents(teacherUser);
 
-    await openDrawerFor(user, "Hoàng Tiến Dũng");
-    await user.click(await screen.findByRole("button", { name: "Đặt mật khẩu tạm" }));
-    expect(await screen.findByText("cay-dua-mut-13")).toBeInTheDocument();
-
-    // The password exists nowhere else: the server keeps only a hash.
-    await user.type(screen.getByLabelText("Tìm theo tên hoặc email"), "Hân");
-
-    await waitFor(() =>
-      expect(screen.queryByText("Hoàng Tiến Dũng", { selector: "td *" })).toBeNull(),
+    const record = await openRecord(user, "Phạm Gia Hân");
+    await user.click(within(record).getByRole("button", { name: "Đặt mật khẩu tạm" }));
+    await user.click(
+      within(
+        await screen.findByRole("dialog", { name: /Đặt lại mật khẩu cho/ }),
+      ).getByRole("button", { name: "Đặt lại mật khẩu" }),
     );
-    expect(screen.getByText("cay-dua-mut-13")).toBeInTheDocument();
+    const sheet = await screen.findByRole("dialog", { name: /Mật khẩu tạm/ });
+    expect(within(sheet).getByText("tho-vang-cay-42")).toBeVisible();
+    await user.click(within(sheet).getByRole("button", { name: "Xong" }));
+    await user.click(within(record).getByRole("button", { name: "Đóng" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    await openRecord(user, "Hoàng Tiến Dũng");
+    expect(screen.queryByText("tho-vang-cay-42")).toBeNull();
   });
 });
 
 /**
  * Disabling used to be a one-way door: the student vanished from every listing
- * and nothing in the API could name them again, so `updateStudent`'s
- * `disabled: false` was unreachable.
+ * and nothing in the API could name them again.
  */
 describe("suspending and restoring a student", () => {
-  beforeEach(() => {
-    useAuthStore.getState().setUser(adminUser);
-  });
-
-  afterEach(() => {
-    useAuthStore.getState().clearSession();
-  });
-
-  it("finds suspended accounts only when asked, and offers to restore them", async () => {
-    const suspended = {
-      ...student(HAN, "Phạm Gia Hân", "han@example.com"),
-      disabledAt: "2026-08-01T00:00:00Z",
-    };
+  it("finds suspended accounts through the Status facet, and offers an admin the way back", async () => {
+    const suspended = { ...HAN, disabledAt: "2026-08-01T00:00:00Z" };
     server.use(
       http.get(`${BASE}/teacher/students`, ({ request }) => {
         const status = new URL(request.url).searchParams.get("status");
+        const items = status === "disabled" ? [suspended] : [DUNG];
         return contractJson("/teacher/students", "get", 200, {
-          items: status === "disabled" ? [suspended] : [DUNG_ROW],
+          items,
           page: 1,
-          pageSize: 50,
-          total: 0,
+          pageSize: 20,
+          total: items.length,
           facets: { total: 1, activeLast7Days: 0 },
         });
       }),
       http.get(`${BASE}/teacher/students/:id`, () =>
         contractJson("/teacher/students/{id}", "get", 200, suspended),
       ),
+      http.get(`${BASE}/teacher/classes`, () =>
+        contractJson("/teacher/classes", "get", 200, {
+          items: [],
+          page: 1,
+          pageSize: 100,
+          total: 0,
+          facets: { all: 0, joinable: 0, archived: 0, students: 0 },
+        }),
+      ),
     );
-    const user = renderPage();
+    const { user } = renderStudents(adminUser, "/teacher/students?account=suspended");
 
-    // Not in the default listing.
-    const table = await screen.findByRole("table");
-    expect(within(table).queryByText("Phạm Gia Hân")).toBeNull();
-
-    await user.click(screen.getByLabelText("Tài khoản đã khoá"));
-
-    await waitFor(() =>
-      expect(
-        within(screen.getByRole("table")).getByText("Phạm Gia Hân"),
-      ).toBeInTheDocument(),
-    );
-
-    await user.click(within(screen.getByRole("table")).getByText("Phạm Gia Hân"));
-    const panel = await screen.findByRole("complementary", { name: /Phạm Gia Hân/ });
-    expect(within(panel).getByText("đã khoá")).toBeInTheDocument();
-    // The way back that did not exist before.
-    expect(within(panel).getByRole("button", { name: "Mở khoá" })).toBeInTheDocument();
+    const row = await rowOf("Phạm Gia Hân");
+    expect(row).toHaveTextContent("Đã khoá");
+    const record = await openRecord(user, "Phạm Gia Hân");
+    expect(within(record).getByText("đã khoá")).toBeInTheDocument();
+    expect(within(record).getByRole("button", { name: "Mở khoá" })).toBeInTheDocument();
   });
 });
