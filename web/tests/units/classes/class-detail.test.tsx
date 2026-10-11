@@ -113,36 +113,37 @@ beforeEach(() => {
     http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>
       contractJson("/teacher/classes/{id}", "get", 200, stored),
     ),
-    http.get(`${BASE}/teacher/classes/${CLASS_ID}/members`, () =>
-      contractJson("/teacher/classes/{id}/members", "get", 200, {
-        items: [
-          {
-            userId: MINH,
-            fullName: "Nguyễn Đức Minh",
-            email: "minh.nguyen@gmail.com",
-            joinedVia: "admin",
-            joinedAt: "2026-07-12T01:00:00Z",
-            joinCodeHint: null,
-            stats: stats({
-              submittedCount: 14,
-              score: { earned: 86, total: 100, pendingManual: 0 },
-            }),
-          },
-          {
-            userId: HAN,
-            fullName: "Phạm Gia Hân",
-            email: "han.pham@gmail.com",
-            joinedVia: "join_code",
-            joinedAt: "2026-08-29T01:12:00Z",
-            joinCodeHint: "P9QR",
-            stats: stats({}),
-          },
-        ],
+    http.get(`${BASE}/teacher/classes/${CLASS_ID}/members`, () => {
+      const items = [
+        {
+          userId: MINH,
+          fullName: "Nguyễn Đức Minh",
+          email: "minh.nguyen@gmail.com",
+          joinedVia: "admin",
+          joinedAt: "2026-07-12T01:00:00Z",
+          joinCodeHint: null,
+          stats: stats({
+            submittedCount: 14,
+            score: { earned: 86, total: 100, pendingManual: 0 },
+          }),
+        },
+        {
+          userId: HAN,
+          fullName: "Phạm Gia Hân",
+          email: "han.pham@gmail.com",
+          joinedVia: "join_code",
+          joinedAt: "2026-08-29T01:12:00Z",
+          joinCodeHint: "P9QR",
+          stats: stats({}),
+        },
+      ].filter((member) => !removals.includes(member.userId));
+      return contractJson("/teacher/classes/{id}/members", "get", 200, {
+        items,
         page: 1,
         pageSize: 20,
-        total: 2,
-      }),
-    ),
+        total: items.length,
+      });
+    }),
     http.get(`${BASE}/teacher/assignments`, ({ request }) => {
       assignmentQueries.push(new URL(request.url).searchParams.get("classId"));
       return contractJson("/teacher/assignments", "get", 200, {
@@ -306,7 +307,7 @@ describe("the members", () => {
     ).toBeVisible();
   });
 
-  it("removes a member after a confirm naming them and the class, then gives focus back to the row's menu", async () => {
+  it("removes a member after a confirm naming them and the class, then gives focus to the members' search", async () => {
     const { user } = renderDetail();
     const han = await memberRow("Phạm Gia Hân");
     const trigger = within(han).getByRole("button", {
@@ -326,7 +327,8 @@ describe("the members", () => {
     await waitFor(() => expect(removals).toEqual([HAN]));
     expect(await screen.findByText("Đã xoá Phạm Gia Hân khỏi lớp")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(screen.queryByText("Phạm Gia Hân")).toBeNull());
+    expect(screen.getByRole("searchbox", { name: "Tìm học viên" })).toHaveFocus();
   });
 
   it("tints a selected row and removes the selected members from the bar", async () => {

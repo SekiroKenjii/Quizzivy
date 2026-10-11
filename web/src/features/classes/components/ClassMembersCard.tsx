@@ -77,8 +77,9 @@ type Translate = ReturnType<typeof useTranslation>["t"];
  * Joined via shows from 620 and again from 1000, and Joined from 720 and
  * again from 1080. A selected row is tinted, and selecting offers Remove
  * selected. Removing anyone needs `canWrite`; without it there are no
- * checkboxes and the menu only views results. The footer says that removing
- * a student keeps their work.
+ * checkboxes and the menu only views results. Once a member is removed from
+ * their row's menu, focus goes to the search, since the row is gone. The
+ * footer says that removing a student keeps their work.
  */
 export function ClassMembersCard({
   klass,
@@ -111,11 +112,13 @@ export function ClassMembersCard({
     [members.data],
   );
   const columns = useMemo(() => memberColumns(t, locale), [t, locale]);
+  const card = useRef<HTMLElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
   const [removing, setRemoving] = useState<Member | null>(null);
   const remove = useMutation({
     mutationFn: (member: Member) => removeMember(klass.id, member.userId),
     onSuccess: async (_, member) => {
+      returnTo.current = card.current?.querySelector("input") ?? null;
       setRemoving(null);
       toast(t("classDetail.removedNamed", { name: member.fullName }));
       await invalidateClassMembership(queryClient, klass.id);
@@ -147,6 +150,7 @@ export function ClassMembersCard({
 
   return (
     <section
+      ref={card}
       aria-labelledby="members-heading"
       className="bg-card shadow-card overflow-hidden rounded-xl border"
     >
