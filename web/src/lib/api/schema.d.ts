@@ -1317,6 +1317,14 @@ export interface paths {
          *     and every other field stays editable. Outside `open` the version check
          *     above is the only one.
          *
+         *     A **closed** assignment, by its window or by an early close, at the
+         *     moment of the request, stays closed: a `window` that would make it
+         *     `scheduled` or `open` again is refused with `ASSIGNMENT_CLOSED`,
+         *     because that is a reopening and `reopenAssignment` does it, asking for a
+         *     reason and writing its own audit entry. A request that leaves it closed
+         *     passes: the stored window, an earlier `closesAt`, `closeNow` and every
+         *     other field. An early close is never lifted here.
+         *
          *     `review.release`, `review.showClassAverage` and `studentNote` are
          *     partial: omitted, they keep what is stored. `studentNote: null` clears
          *     the note. Every other field is replaced as before.
@@ -8687,9 +8695,10 @@ export interface operations {
             404: components["responses"]["NotFound"];
             /**
              * @description `ASSIGNMENT_LOCKED` — the assignment is open, so the version, the
-             *     duration and the attempts cannot be changed; `VERSION_LOCKED` —
-             *     attempts exist, so the version cannot be changed; or
-             *     `TEST_NOT_PUBLISHED`.
+             *     duration and the attempts cannot be changed; `ASSIGNMENT_CLOSED` —
+             *     the assignment is closed and the window would open it again, so it
+             *     is reopened with `reopenAssignment`; `VERSION_LOCKED` — attempts
+             *     exist, so the version cannot be changed; or `TEST_NOT_PUBLISHED`.
              */
             409: {
                 headers: {
