@@ -4,10 +4,14 @@ import { getTeacherSummary } from "@/features/dashboard/api";
 import { dashboardKeys } from "@/features/dashboard/keys";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 
-/** NavCounts preserves unavailable figures as null rather than claiming no work. */
+/**
+ * NavCounts preserves unavailable figures as null rather than claiming no
+ * work; `unread` is the bell's count of unread notifications.
+ */
 export interface NavCounts {
   liveAssignments: number | null;
   toGrade: number | null;
+  unread: number;
 }
 
 const POLL_MS = 60_000;
@@ -29,5 +33,6 @@ export function useNavCounts(): NavCounts | null {
   return {
     liveAssignments: query.data.liveAssignments,
     toGrade: query.data.answersToGrade,
+    unread: query.data.unreadNotifications,
   };
 }

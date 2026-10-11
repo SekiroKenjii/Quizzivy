@@ -229,7 +229,7 @@ it("keeps grouped status search duplicate parameters and size when opening the n
     "/teacher/imports?q=hk1&status=processing&size=30&keep=a&keep=b",
   );
   await screen.findByRole("table");
-  await user.click(screen.getByRole("link", { name: "Trang 2" }));
+  await user.click(screen.getByRole("link", { name: "Trang sau" }));
   await waitFor(() => expect(queries.at(-1)?.get("page")).toBe("2"));
   expect(queries.at(-1)?.getAll("status")).toEqual([
     "awaiting_sources",

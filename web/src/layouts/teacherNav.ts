@@ -162,6 +162,17 @@ function under(path: string, prefix: string): boolean {
 }
 
 /**
+ * reaches reports whether `user` holds the requirement of the destination
+ * `id`, the rule the sidebar shows it by; an unknown id is never reached.
+ */
+export function reaches(user: NavUser | null | undefined, id: string): boolean {
+  const item = TEACHER_NAV.flatMap((group) => group.items).find(
+    (candidate) => candidate.id === id,
+  );
+  return item !== undefined && holds(user, item.requires);
+}
+
+/**
  * navFor returns the sidebar for `user`: the destinations whose requirement
  * the user holds, in order. A group left with no destination is dropped.
  */

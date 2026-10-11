@@ -15,7 +15,7 @@ func TestTheWordsStayTypeable(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, w := range strings.Split(got, "-")[:2] {
+		for _, w := range strings.Split(got, "-")[:3] {
 			for _, r := range w {
 				if r > unicode.MaxASCII || !unicode.IsLower(r) {
 					t.Fatalf("%q carries %q: a word read aloud must be plain lowercase ASCII", got, w)
@@ -41,10 +41,10 @@ func TestATemporaryPasswordCanActuallyBeUsed(t *testing.T) {
 		}
 
 		parts := strings.Split(got, "-")
-		if len(parts) != 3 {
-			t.Fatalf("%q is not word-word-digits", got)
+		if len(parts) != 4 {
+			t.Fatalf("%q is not word-word-word-digits", got)
 		}
-		if len(parts[2]) != 2 {
+		if len(parts[3]) != 2 || parts[3][0] == '0' {
 			t.Errorf("%q: a leading zero is read aloud as one digit and typed as two", got)
 		}
 	}
@@ -61,5 +61,29 @@ func TestTemporaryPasswordsDiffer(t *testing.T) {
 	}
 	if len(seen) < 50 {
 		t.Errorf("100 draws produced %d distinct passwords", len(seen))
+	}
+}
+
+func TestATemporaryPasswordCarriesAboutTwentyFourBits(t *testing.T) {
+	if bits := domain.Passwords.TemporaryBits(); bits < 24 || bits > 25 {
+		t.Errorf("a temporary password carries %.2f bits, want about 24.4 (F-53: three words and two digits)", bits)
+	}
+}
+
+func TestEveryWordOfATemporaryPasswordIsDrawnIndependently(t *testing.T) {
+	positions := [3]map[string]bool{{}, {}, {}}
+	for range 600 {
+		got, err := domain.Passwords.Temporary()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, w := range strings.Split(got, "-")[:3] {
+			positions[i][w] = true
+		}
+	}
+	for i, seen := range positions {
+		if len(seen) < 40 {
+			t.Errorf("word %d took %d distinct values in 600 draws, want most of the list", i+1, len(seen))
+		}
 	}
 }

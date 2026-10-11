@@ -9,7 +9,9 @@ import {
 import { Outlet, useLocation, useMatches } from "react-router";
 import { useTranslation } from "react-i18next";
 import { registerSkeleton } from "@/app/boot/handoff";
+import { modules } from "@/app/modules";
 import { DeckScale } from "@/components/ui/deck-scale";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { CommandPalette } from "@/features/search/CommandPalette";
 import { useCommandPalette } from "@/features/search/useCommandPalette";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -24,7 +26,7 @@ import { Sidebar, SidebarDrawer } from "@/layouts/shell/Sidebar";
 import { useSidebarState, writeSidebarState } from "@/layouts/shell/sidebarState";
 import { TopBar } from "@/layouts/shell/TopBar";
 import { useNavCounts } from "@/layouts/shell/useNavCounts";
-import { activeNavId, navFor } from "@/layouts/teacherNav";
+import { activeNavId, navFor, reaches } from "@/layouts/teacherNav";
 import { TeacherSkeleton } from "@/layouts/TeacherSkeleton";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -177,6 +179,15 @@ export default function TeacherLayout() {
             toggleRef={toggleButton}
             trail={trail}
             onSearch={() => palette.setOpen(true)}
+            bell={
+              modules.notifications ? (
+                <NotificationBell
+                  audience="teacher"
+                  unread={counts?.unread ?? 0}
+                  canGrade={reaches(user, "grading")}
+                />
+              ) : null
+            }
           />
           <main
             ref={registerMain}
