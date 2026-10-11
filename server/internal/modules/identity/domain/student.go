@@ -21,15 +21,12 @@ type Student struct {
 	Stats              stats.Student
 }
 
-// Account is one user's account fields, whatever their role, with the legacy
-// role derived from what that role holds now: "student" for a student-like
-// role and "admin" otherwise, as tokens and /auth/me derive it.
+// Account is one user's account fields, whatever their role.
 type Account struct {
 	DisplayName        *string
 	ID                 string
 	Email              string
 	FullName           string
-	Role               string
 	HasPassword        bool
 	LinkedProviders    []string
 	MustChangePassword bool
@@ -60,16 +57,19 @@ const (
 )
 
 // StudentQuery selects the students Scope reaches (visibility.StudentIDs), or
-// every student under scope.all; a zero Scope matches nothing. A ClassID the
-// scope does not reach matches nothing either.
+// every student under scope.all; a zero Scope matches nothing. ClassIDs, when
+// not empty, keeps the students who are in at least one of those classes; a
+// class the scope does not reach matches nothing. MustChange, when set, keeps
+// the accounts whose must_change_password equals it.
 type StudentQuery struct {
 	// StudentStatus defaults to StudentsActive when empty.
-	Status  StudentStatus
-	Query   string
-	ClassID string
-	Page    int
-	Limit   int
-	Scope   access.Scope
+	Status     StudentStatus
+	Query      string
+	ClassIDs   []string
+	MustChange *bool
+	Page       int
+	Limit      int
+	Scope      access.Scope
 }
 
 // WriteRequest is the actor behind a write, for the audit row, for reach and
@@ -115,4 +115,30 @@ type StudentPatch struct {
 	Email    *string
 	Disabled *bool
 	Now      time.Time
+}
+
+// MaxBulkReset is how many students one bulk password reset may name.
+const MaxBulkReset = 40
+
+// PasswordReset is one student a bulk reset reset: the temporary password is
+// shown once and kept nowhere.
+type PasswordReset struct {
+	StudentID         string
+	FullName          string
+	Email             string
+	TemporaryPassword string
+}
+
+// ResetFailure names a student a bulk reset did not reset, and why: Reason is
+// ErrStudentNotFound, ErrForbidden, ErrStudentShared or ErrResetFailed.
+type ResetFailure struct {
+	StudentID string
+	Reason    error
+}
+
+// BulkReset is what a bulk password reset did, each list in the order the
+// students were named.
+type BulkReset struct {
+	Reset  []PasswordReset
+	Failed []ResetFailure
 }

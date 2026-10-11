@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { useRef, useState } from "react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DirtyBar } from "@/components/shared/DirtyBar";
 import { DeckScale } from "@/components/ui/deck-scale";
@@ -24,7 +25,7 @@ function inForm(
   const view = render(
     <DeckScale>
       <form aria-label="Hồ sơ" onSubmit={onSubmit}>
-        <DirtyBar dirty onDiscard={() => {}} {...props} />
+        <DirtyBar dirty onDiscard={() => {}} returnFocus={() => null} {...props} />
       </form>
     </DeckScale>,
   );
@@ -81,18 +82,29 @@ describe("the unsaved-changes bar", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("switches both buttons off and reads Saving while it saves", async () => {
+  it("switches both buttons off and reads Saving while it saves, keeping them focusable", async () => {
     const user = userEvent.setup();
     const onDiscard = vi.fn();
     const onSave = vi.fn();
     const { onSubmit } = inForm({ saving: true, onDiscard, onSave });
     expect(screen.queryByRole("button", { name: "Lưu thay đổi" })).toBeNull();
-    expect(save("Đang lưu…")).toBeDisabled();
-    expect(discard()).toBeDisabled();
+    expect(save("Đang lưu…")).toHaveAttribute("aria-disabled", "true");
+    expect(discard()).toHaveAttribute("aria-disabled", "true");
+    expect(save("Đang lưu…")).toBeEnabled();
+    expect(discard()).toBeEnabled();
     await user.click(save("Đang lưu…"));
+    expect(save("Đang lưu…")).toHaveFocus();
     await user.click(discard());
+    expect(discard()).toHaveFocus();
     expect(onSave).not.toHaveBeenCalled();
     expect(onDiscard).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("does not submit the form it sits in while it saves", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = inForm({ saving: true });
+    await user.click(save("Đang lưu…"));
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -152,5 +164,82 @@ describe("the unsaved-changes bar", () => {
       "in-data-[scale=deck]:text-ui",
     );
     expect(save()).not.toHaveClass("h-9");
+  });
+});
+
+function Editor() {
+  const [dirty, setDirty] = useState(false);
+  const target = useRef<HTMLButtonElement>(null);
+  return (
+    <DeckScale>
+      <form
+        aria-label="Hồ sơ"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setDirty(false);
+        }}
+      >
+        <button ref={target} type="button">
+          Đích
+        </button>
+        <input aria-label="Tên" onChange={() => setDirty(true)} />
+        <DirtyBar
+          dirty={dirty}
+          onDiscard={() => setDirty(false)}
+          returnFocus={() => target.current}
+        />
+      </form>
+    </DeckScale>
+  );
+}
+
+describe("focus when the unsaved-changes bar goes", () => {
+  it.each([
+    ["Save changes", "Lưu thay đổi"],
+    ["Discard", "Bỏ thay đổi"],
+  ])("moves to the caller's target after %s", async (_, name) => {
+    const user = userEvent.setup();
+    render(<Editor />);
+    await user.type(screen.getByRole("textbox", { name: "Tên" }), "a");
+    await user.click(screen.getByRole("button", { name }));
+    expect(screen.queryByRole("button", { name })).toBeNull();
+    expect(screen.getByRole("button", { name: "Đích" })).toHaveFocus();
+  });
+
+  it("leaves focus alone when the changes end from outside the bar", async () => {
+    const user = userEvent.setup();
+    render(<Editor />);
+    const field = screen.getByRole("textbox", { name: "Tên" });
+    await user.type(field, "a{Enter}");
+    expect(screen.queryByText(SENTENCE)).toBeNull();
+    expect(field).toHaveFocus();
+  });
+
+  it("forgets a failed save, so a later reset from elsewhere does not move focus", async () => {
+    const user = userEvent.setup();
+    const target = document.createElement("button");
+    document.body.append(target);
+    const bar = (dirty: boolean, saving: boolean) => (
+      <DeckScale>
+        <form aria-label="Hồ sơ" onSubmit={(event) => event.preventDefault()}>
+          <DirtyBar
+            dirty={dirty}
+            saving={saving}
+            onDiscard={() => {}}
+            returnFocus={() => target}
+          />
+        </form>
+      </DeckScale>
+    );
+    const view = render(bar(true, false));
+
+    await user.click(save());
+    view.rerender(bar(true, true));
+    view.rerender(bar(true, false));
+    act(() => (document.activeElement as HTMLElement).blur());
+    view.rerender(bar(false, false));
+
+    expect(target).not.toHaveFocus();
+    target.remove();
   });
 });

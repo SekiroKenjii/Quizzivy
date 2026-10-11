@@ -155,7 +155,12 @@ const unsaved = (error: string | null) =>
             onChange={() => setDirty(true)}
           />
         </div>
-        <DirtyBar dirty={dirty} error={error} onDiscard={() => setDirty(false)} />
+        <DirtyBar
+          dirty={dirty}
+          error={error}
+          onDiscard={() => setDirty(false)}
+          returnFocus={() => null}
+        />
       </form>
     );
   };
@@ -545,6 +550,7 @@ export const cases: Record<string, () => ReactElement> = {
           error="Không lưu được thay đổi vì mất kết nối. Hãy kiểm tra mạng rồi thử lại."
           onDiscard={() => {}}
           onSave={() => {}}
+          returnFocus={() => null}
         />
       </div>
     );

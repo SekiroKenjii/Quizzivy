@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/questions/application/internal/support"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/content"
 )
 
 // AddTags adds Tags to the bank questions among IDs that Scope reaches; any
@@ -19,5 +20,5 @@ type AddTagsHandler struct {
 }
 
 func (s AddTagsHandler) Handle(ctx context.Context, cmd AddTags) (int, error) {
-	return s.Repo.AddTags(ctx, cmd.Scope, cmd.IDs, cmd.Tags)
+	return s.Repo.AddTags(ctx, cmd.Scope, cmd.IDs, content.NFCAll(cmd.Tags))
 }

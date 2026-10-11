@@ -42,7 +42,7 @@ beforeEach(() => {
     http.post(`${BASE}/teacher/students`, () =>
       contractJson("/teacher/students", "post", 201, {
         user: CREATED,
-        temporaryPassword: "tho-vang-42",
+        temporaryPassword: "tho-vang-cay-42",
       }),
     ),
   );
@@ -80,12 +80,12 @@ describe("adding a student", () => {
     await user.type(screen.getByLabelText("Email"), "trang@example.com");
     await user.click(screen.getByRole("button", { name: "Tạo tài khoản" }));
 
-    expect(await screen.findByText("tho-vang-42")).toBeInTheDocument();
+    expect(await screen.findByText("tho-vang-cay-42")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Xong" }));
 
     await user.click(screen.getByRole("button", { name: "mở" }));
     expect(await screen.findByLabelText("Họ và tên")).toHaveValue("");
-    expect(screen.queryByText("tho-vang-42")).toBeNull();
+    expect(screen.queryByText("tho-vang-cay-42")).toBeNull();
   });
 
   it("clears a half-typed form when cancelled", async () => {
@@ -109,13 +109,13 @@ describe("while the temporary password is shown", () => {
     await user.type(screen.getByLabelText("Họ và tên"), "Lê Thu Trang");
     await user.type(screen.getByLabelText("Email"), "trang@example.com");
     await user.click(screen.getByRole("button", { name: "Tạo tài khoản" }));
-    expect(await screen.findByText("tho-vang-42")).toBeInTheDocument();
+    expect(await screen.findByText("tho-vang-cay-42")).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
-    expect(screen.getByText("tho-vang-42")).toBeInTheDocument();
+    expect(screen.getByText("tho-vang-cay-42")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Đóng" })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Xong" }));
-    expect(screen.queryByText("tho-vang-42")).toBeNull();
+    expect(screen.queryByText("tho-vang-cay-42")).toBeNull();
   });
 });

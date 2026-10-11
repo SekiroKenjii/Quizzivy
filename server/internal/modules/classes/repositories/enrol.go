@@ -183,13 +183,15 @@ func createMember(ctx context.Context, tx pgx.Tx, m domain.NewMember) (string, e
 func loadClass(ctx context.Context, tx pgx.Tx, classID string) (domain.EnrolledClass, error) {
 	const q = `
 		SELECT c.id::text, c.name, c.description, c.self_join_enabled, c.created_at,
-		       (SELECT count(*) FROM app.class_members m WHERE m.class_id = c.id)
+		       (SELECT count(*) FROM app.class_members m WHERE m.class_id = c.id),
+		       c.schedule_label, c.room
 		  FROM app.classes c
 		 WHERE c.id = $1`
 
 	var c domain.EnrolledClass
 	if err := tx.QueryRow(ctx, q, classID).Scan(
 		&c.ID, &c.Name, &c.Description, &c.SelfJoinEnabled, &c.CreatedAt, &c.StudentCount,
+		&c.ScheduleLabel, &c.Room,
 	); err != nil {
 		return domain.EnrolledClass{}, fmt.Errorf("load class %s: %w", classID, err)
 	}

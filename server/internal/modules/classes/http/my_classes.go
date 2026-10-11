@@ -25,11 +25,14 @@ func (h Classes) ListMyClasses(ctx context.Context, _ openapi.ListMyClassesReque
 	items := make([]openapi.MyClass, 0, len(found))
 	for _, c := range found {
 		items = append(items, openapi.MyClass{
-			Id:          httpapi.ParseUUID(c.ID),
-			Name:        c.Name,
-			Description: c.Description,
-			TeacherName: c.TeacherName,
-			JoinedAt:    c.JoinedAt,
+			Id:               httpapi.ParseUUID(c.ID),
+			Name:             c.Name,
+			Description:      c.Description,
+			TeacherName:      c.TeacherName,
+			TeacherAvatarUrl: c.TeacherAvatarURL,
+			ScheduleLabel:    c.ScheduleLabel,
+			Room:             c.Room,
+			JoinedAt:         c.JoinedAt,
 		})
 	}
 	return openapi.ListMyClasses200JSONResponse{Items: items}, nil

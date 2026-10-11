@@ -69,6 +69,9 @@ describe("the Appearance card", () => {
     const split = buttons[2]!.querySelector('[data-swatch="system"]')!;
     expect(split.querySelector(".bg-swatch-light")).not.toBeNull();
     expect(split.querySelector(".bg-swatch-dark")).not.toBeNull();
+    expect(split.querySelector(".bg-swatch-device.w-\\[24\\%\\]")).toHaveClass(
+      "rounded-[4px]",
+    );
   });
 
   it("applies a theme at once and saves it without raising the DirtyBar", async () => {

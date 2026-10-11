@@ -54,7 +54,7 @@ function result(): AttemptResult {
 }
 
 function review(): AttemptReview {
-  const { id, email, fullName, role, hasPassword, mustChangePassword, createdAt } =
+  const { id, email, fullName, hasPassword, mustChangePassword, createdAt } =
     studentUser;
   return {
     attempt: { ...attempt, score: { earned: 1, total: 2, pendingManual: 1 } },
@@ -62,7 +62,6 @@ function review(): AttemptReview {
       id,
       email,
       fullName,
-      role,
       hasPassword,
       linkedProviders: [],
       mustChangePassword,

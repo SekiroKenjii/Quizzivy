@@ -16,7 +16,6 @@ const BASE = {
   id: "018f0000-0000-7000-8000-0000000000a2",
   email: "an@example.com",
   fullName: "Nguyễn Văn An",
-  role: "student" as const,
   mustChangePassword: false,
   createdAt: "2026-01-01T00:00:00Z",
   permissions: ["learning.take_tests" as const],
@@ -69,23 +68,24 @@ describe("the settings cards say what the deck writes", () => {
     expect(screen.getByText("Đã liên kết với Google.")).toBeInTheDocument();
     expect(screen.getByText(/Bỏ liên kết thì chỉ còn mật khẩu\./)).toBeInTheDocument();
     const unlink = screen.getByRole("button", { name: "Bỏ liên kết Google" });
-    expect(unlink).toHaveAttribute("aria-disabled", "false");
+    expect(unlink).not.toHaveAttribute("aria-disabled");
     expect(unlink).toHaveAccessibleDescription(/Bỏ liên kết thì chỉ còn mật khẩu/);
   });
 
-  it("says Google is the only way in, and refuses the unlink, when there is no password (S-10)", () => {
+  it("says a Google-only account signs in with Google only, and refuses the unlink, asking for no step it cannot take (S-10)", async () => {
     signedIn({ hasPassword: false, google: true });
     render(<GoogleSection />);
+    const fact = "Bạn chỉ đăng nhập bằng Google, nên chưa thể bỏ liên kết Google.";
 
-    expect(
-      screen.getByText(/Google đang là cách duy nhất để đăng nhập/),
-    ).toBeInTheDocument();
-    // aria-disabled, not disabled: S-10 keeps it focusable so the reason beside
-    // it is announced rather than silently skipped.
+    expect(screen.getByText(fact)).toBeInTheDocument();
+    expect(screen.queryByText(/đặt mật khẩu/i)).toBeNull();
     const unlink = screen.getByRole("button", { name: "Bỏ liên kết Google" });
     expect(unlink).toHaveAttribute("aria-disabled", "true");
-    expect(unlink).toHaveAccessibleDescription(/cách duy nhất để đăng nhập/);
+    expect(unlink).toHaveAccessibleDescription(fact);
     expect(unlink).not.toBeDisabled();
+    await userEvent.setup().click(unlink);
+    expect(unlink).toHaveFocus();
+    expect(screen.getByText("Đã liên kết với Google.")).toBeInTheDocument();
   });
 
   it("explains nothing about unlinking when there is nothing linked", () => {

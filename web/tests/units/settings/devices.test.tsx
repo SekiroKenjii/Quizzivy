@@ -143,21 +143,33 @@ describe("the signed-in devices", () => {
     expect(
       within(phone!).getByRole("button", { name: /^Đăng xuất/ }),
     ).toHaveTextContent("Đang đăng xuất…");
-    expect(within(phone!).getByRole("button", { name: /^Đăng xuất/ })).toBeDisabled();
-    expect(within(unknown!).getByRole("button", { name: /^Đăng xuất/ })).toBeDisabled();
+    expect(within(phone!).getByRole("button", { name: /^Đăng xuất/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(
+      within(unknown!).getByRole("button", { name: /^Đăng xuất/ }),
+    ).toHaveAttribute("aria-disabled", "true");
     expect(
       screen.getByRole("button", { name: "Đăng xuất các thiết bị khác" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
+    await user.click(within(unknown!).getByRole("button", { name: /^Đăng xuất/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Đăng xuất các thiết bị khác" }),
+    );
+    expect(
+      screen.queryByRole("dialog", { name: "Đăng xuất các thiết bị khác?" }),
+    ).toBeNull();
 
     reply.open();
-    expect(await screen.findByText("Đã đăng xuất thiết bị.")).toBeInTheDocument();
+    expect(await screen.findByText("Đã đăng xuất thiết bị")).toBeInTheDocument();
     await waitFor(async () => expect(await rows()).toHaveLength(2));
     expect(refreshes).toBe(1);
     expect(reads).toEqual(["Bearer token-a", "Bearer token-a", "Bearer token-b"]);
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Đăng xuất các thiết bị khác" }),
-      ).toBeEnabled(),
+      ).not.toHaveAttribute("aria-disabled"),
     );
   });
 
@@ -185,10 +197,47 @@ describe("the signed-in devices", () => {
     );
   });
 
+  it("shows a failed Sign out other devices in the confirmation, which stays open", async () => {
+    listsSessions([THIS_DEVICE, PHONE]);
+    server.use(
+      http.post(`${BASE}/auth/sessions/revoke-others`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "INTERNAL",
+              message: "Không đăng xuất được.",
+              requestId: REQUEST_ID,
+            },
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderDevices();
+    const user = userEvent.setup();
+    await rows();
+
+    await user.click(
+      screen.getByRole("button", { name: "Đăng xuất các thiết bị khác" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Đăng xuất các thiết bị khác?",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Đăng xuất" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Không đăng xuất được.",
+    );
+    expect(dialog).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it.each([
     [0, "Không có thiết bị nào khác đang đăng nhập."],
-    [1, "Đã đăng xuất 1 thiết bị khác."],
-    [2, "Đã đăng xuất 2 thiết bị khác."],
+    [1, "Đã đăng xuất 1 thiết bị khác"],
+    [2, "Đã đăng xuất 2 thiết bị khác"],
   ])(
     "signs out the others after a confirmation and says so for %i",
     async (n, said) => {

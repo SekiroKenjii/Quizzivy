@@ -102,7 +102,7 @@ describe("the Profile card", () => {
     await user.click(screen.getByRole("option", { name: /Tokyo$/ }));
     await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
 
-    expect(await screen.findByText("Đã lưu cài đặt.")).toBeInTheDocument();
+    expect(await screen.findByText("Đã lưu cài đặt")).toBeInTheDocument();
     expect(bodies).toEqual([{ displayName: null, timeZone: "Asia/Tokyo" }]);
     expect(field("Tên học viên thấy")).toHaveValue("");
     expect(screen.queryByText("Bạn có thay đổi chưa lưu.")).toBeNull();
@@ -194,7 +194,7 @@ describe("the profile photo", () => {
 
     await choose(PNG);
 
-    expect(await screen.findByText("Đã cập nhật ảnh.")).toBeInTheDocument();
+    expect(await screen.findByText("Đã cập nhật ảnh")).toBeInTheDocument();
     expect(methods).toEqual(["PUT"]);
     expect(screen.getByRole("img", { name: "Ảnh hồ sơ của bạn" })).toHaveAttribute(
       "src",
@@ -248,6 +248,23 @@ describe("the profile photo", () => {
     expect(await within(dialog).findByText(message)).toBeVisible();
   });
 
+  it("draws Remove as the deck's flat 13px link with 10px of padding", () => {
+    signIn({ ...SAVED, avatarUrl: "https://media.example.com/avatar.png" });
+    renderProfile();
+
+    const remove = screen.getByRole("button", { name: "Gỡ ảnh" });
+    expect(remove).toHaveClass(
+      "h-8.5",
+      "font-normal",
+      "text-muted-fg",
+      "hover:bg-transparent",
+      "in-data-[scale=deck]:px-2.5",
+      "in-data-[scale=deck]:text-sm",
+    );
+    expect(remove).not.toHaveClass("in-data-[scale=deck]:px-3.5");
+    expect(remove).not.toHaveClass("in-data-[scale=deck]:text-ui");
+  });
+
   it("removes the photo after a confirmation", async () => {
     signIn({ ...SAVED, avatarUrl: "https://media.example.com/avatar.png" });
     let removed = 0;
@@ -268,7 +285,7 @@ describe("the profile photo", () => {
     expect(removed).toBe(0);
     await user.click(within(dialog).getByRole("button", { name: "Gỡ ảnh" }));
 
-    expect(await screen.findByText("Đã gỡ ảnh.")).toBeInTheDocument();
+    expect(await screen.findByText("Đã gỡ ảnh")).toBeInTheDocument();
     expect(removed).toBe(1);
     await waitFor(() => expect(screen.getByText("TH")).toBeVisible());
   });

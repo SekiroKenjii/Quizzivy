@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
@@ -20,10 +27,23 @@ import {
 } from "@/features/settings/profileFormSchema";
 import { ProfilePhoto } from "@/features/settings/sections/ProfilePhoto";
 import { timeZoneOptions } from "@/features/settings/timeZones";
+import { useUnsavedSection } from "@/features/settings/unsavedSection";
 import { failureMessage } from "@/lib/api/errors";
 import i18n, { SUPPORTED_LOCALES, chosenLocale, type Locale } from "@/lib/i18n";
 import { APP_TIME_ZONE } from "@/lib/i18n/datetime";
 import { authStore, useAuthStore } from "@/stores/auth";
+
+const FIELD_IDS: Record<keyof ProfileFormValues, string> = {
+  fullName: "settings-name",
+  displayName: "settings-display",
+  phone: "settings-phone",
+  locale: "settings-language",
+  timeZone: "settings-zone",
+};
+
+function isProfileField(name: string | undefined): name is keyof ProfileFormValues {
+  return name !== undefined && Object.hasOwn(FIELD_IDS, name);
+}
 
 const GRID = "grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5";
 const INPUT = "bg-bg h-9.5";
@@ -105,7 +125,9 @@ function described(id: string, hint: boolean, error: boolean) {
  * the email the account signs in with (read only), the phone, the language
  * and the time zone. An edit raises the DirtyBar; Save changes sends only the
  * changed fields in one `PATCH /auth/me`, and the language and the zone apply
- * once they are saved (DG-158). Discard restores what was saved.
+ * once they are saved (DG-158). Discard restores what was saved. When either
+ * button in the bar ends the unsaved changes, focus moves to the field last
+ * edited.
  */
 export function ProfileSection() {
   const user = useAuthStore((s) => s.user);
@@ -125,6 +147,7 @@ function ProfileForm({ user }: Readonly<{ user: User }>) {
   });
   const { reset, formState } = form;
   const dirty = formState.isDirty;
+  useUnsavedSection("profile", dirty);
   const zone = useWatch({ control: form.control, name: "timeZone" });
   const zones = useMemo(() => timeZoneOptions(t, zone, new Date()), [t, zone]);
   const languages = useMemo(
@@ -139,6 +162,23 @@ function ProfileForm({ user }: Readonly<{ user: User }>) {
   useEffect(() => {
     if (!dirty) reset(formValues(saved));
   }, [dirty, saved, reset]);
+
+  const lastEdited = useRef<keyof ProfileFormValues>("fullName");
+  const { subscribe } = form;
+  useEffect(
+    () =>
+      subscribe({
+        formState: { values: true },
+        callback: ({ name }) => {
+          if (isProfileField(name)) lastEdited.current = name;
+        },
+      }),
+    [subscribe],
+  );
+  const editedField = useCallback(
+    () => document.getElementById(FIELD_IDS[lastEdited.current]),
+    [],
+  );
 
   const onSubmit = form.handleSubmit(async (values) => {
     const patch = changes(values, saved);
@@ -163,7 +203,17 @@ function ProfileForm({ user }: Readonly<{ user: User }>) {
   const message = (key: string | undefined) => (key === undefined ? undefined : t(key));
 
   return (
-    <form onSubmit={(event) => void onSubmit(event)} noValidate className="contents">
+    <form
+      onSubmit={(event) => {
+        if (formState.isSubmitting) {
+          event.preventDefault();
+          return;
+        }
+        void onSubmit(event);
+      }}
+      noValidate
+      className="contents"
+    >
       <SettingsCard
         title={t("settings.profile")}
         description={t("settings.profileHint")}
@@ -287,6 +337,7 @@ function ProfileForm({ user }: Readonly<{ user: User }>) {
           setError(null);
           reset(formValues(saved));
         }}
+        returnFocus={editedField}
       />
     </form>
   );
