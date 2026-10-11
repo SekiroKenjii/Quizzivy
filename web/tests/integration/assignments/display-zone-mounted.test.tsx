@@ -7,7 +7,7 @@ import { http, HttpResponse } from "msw";
 import { Monitor } from "@/features/attempts/components/Monitor";
 import { assignment, defaultRows, monitor } from "@tests/units/attempts/fixtures";
 import { contentWidth } from "@tests/support/contentWidth";
-import { ReopenDialog } from "@/features/assignments/components/ReopenDialog";
+import { ExtendAssignmentsDialog } from "@/features/assignments/pages/teacher/ExtendAssignmentsDialog";
 import { StudentRulesPreview } from "@/features/assignments/components/StudentRulesPreview";
 import AssignmentIntroPage from "@/features/assignments/pages/AssignmentIntroPage";
 import AssignmentFormPage from "@/features/assignments/pages/teacher/AssignmentFormPage";
@@ -86,7 +86,7 @@ afterEach(async () => {
   await i18n.changeLanguage("vi");
 });
 
-it("keeps the same dirty reopen date, reason and focus across account zone, language and theme changes with exact HCM input UTC", async () => {
+it("keeps the closed Extend's choice, reason and focus across account zone, language and theme changes, and reopens from now", async () => {
   let sent: unknown;
   server.use(
     http.post(`${BASE}/teacher/assignments/${ID}/reopen`, async ({ request }) => {
@@ -94,31 +94,25 @@ it("keeps the same dirty reopen date, reason and focus across account zone, lang
       return HttpResponse.json(saved);
     }),
   );
+  const closed = {
+    ...saved,
+    window: { ...saved.window, closesAt: "2026-08-28T14:00:00Z" },
+    status: "closed" as const,
+  };
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ReopenDialog
-        assignment={saved}
-        choice="pick"
+      <ExtendAssignmentsDialog
+        items={[closed]}
+        when="21:00 · 28/08"
         open
         onOpenChange={() => undefined}
-        onDone={() => undefined}
+        onExtended={() => undefined}
       />
     </QueryClientProvider>,
   );
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(screen.getByRole("button", { name: "1 ngày" }));
   const reason = screen.getByRole("textbox");
-  const time = screen.getByRole("button", { name: /giờ/i });
-  await user.click(time);
-  await user.click(
-    within(screen.getByRole("listbox", { name: "Giờ" })).getByRole("option", {
-      name: "19",
-    }),
-  );
-  await user.click(
-    within(screen.getByRole("listbox", { name: "Phút" })).getByRole("option", {
-      name: "35",
-    }),
-  );
   await user.type(reason, "Retained reason");
   reason.focus();
   await act(async () => {
@@ -132,15 +126,21 @@ it("keeps the same dirty reopen date, reason and focus across account zone, lang
   expect(screen.getByRole("textbox")).toBe(reason);
   expect(reason).toHaveValue("Retained reason");
   expect(reason).toHaveFocus();
-  expect(time).toHaveTextContent("19:35");
-  expect(document.documentElement).toHaveClass("dark");
-  await user.click(screen.getByRole("button", { name: "Reopen" }));
-  await waitFor(() =>
-    expect(sent).toEqual({
-      closesAt: "2026-08-30T12:35:00.000Z",
-      reason: "Retained reason",
-    }),
+  expect(screen.getByRole("button", { name: "1 day" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
   );
+  expect(screen.getByRole("dialog")).toHaveTextContent(
+    "Opens again until Tomorrow, 06:00.",
+  );
+  expect(document.documentElement).toHaveClass("dark");
+  await user.click(screen.getByRole("button", { name: "Extend" }));
+  await waitFor(() => expect(sent).toBeDefined());
+  const body = sent as { closesAt: string; reason: string };
+  expect(body.reason).toBe("Retained reason");
+  expect(
+    Math.abs(new Date(body.closesAt).getTime() - Date.parse("2026-08-30T10:00:00Z")),
+  ).toBeLessThan(60_000);
 });
 
 it("keeps mounted dirty assignment inputs fixed to HCM while display changes propagate", async () => {

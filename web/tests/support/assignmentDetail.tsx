@@ -1,0 +1,265 @@
+import { render } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createMemoryRouter, RouterProvider } from "react-router";
+import { http } from "msw";
+import AssignmentDetailPage from "@/features/assignments/pages/teacher/AssignmentDetailPage";
+import { Toaster } from "@/components/ui/sonner";
+import type { components } from "@/lib/api/schema";
+import { contractJson } from "@tests/support/contractResponse";
+import { server } from "@tests/support/server";
+
+/** DETAIL_API is the stubbed API origin the assignment detail calls. */
+export const DETAIL_API = "http://localhost:8080";
+/** DETAIL_ID is the assignment every stub answers for. */
+export const DETAIL_ID = "018f0000-0000-7000-8000-0000000000d1";
+/** DETAIL_TEST_ID is the assignment's test. */
+export const DETAIL_TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
+/** DETAIL_VERSION_ID is the assignment's pinned version. */
+export const DETAIL_VERSION_ID = "018f0000-0000-7000-8000-0000000000f1";
+/** DETAIL_DRAFT_ID is the draft a duplicate answers with. */
+export const DETAIL_DRAFT_ID = "018f0000-0000-7000-8000-0000000000d2";
+/** DETAIL_CLASS_ID is the class the assignment targets. */
+export const DETAIL_CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
+
+type Assignment = components["schemas"]["Assignment"];
+type MonitorRow = components["schemas"]["MonitorRow"];
+type ItemAnalysis = components["schemas"]["ItemAnalysis"];
+type StudentOverride = components["schemas"]["StudentOverride"];
+
+/** detailOverride is a stored student override for `studentId`, with `over` applied. */
+export function detailOverride(
+  studentId: string,
+  over: Partial<StudentOverride> = {},
+): StudentOverride {
+  return {
+    studentId,
+    studentName: "Học viên",
+    closesAt: null,
+    durationMinutes: null,
+    extraAttempts: 0,
+    reason: "Đã gia hạn",
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+    ...over,
+  };
+}
+
+/** detailAssignment is an open assignment with `over` applied. */
+export function detailAssignment(over: Partial<Assignment> = {}): Assignment {
+  return {
+    id: DETAIL_ID,
+    testId: DETAIL_TEST_ID,
+    testVersionId: DETAIL_VERSION_ID,
+    testVersion: 3,
+    testTitle: "Unit 5 — Present perfect & listening",
+    targets: {
+      classes: [{ id: DETAIL_CLASS_ID, name: "IELTS Foundation", studentCount: 18 }],
+      students: [],
+    },
+    publishedAt: "2026-08-27T00:00:00Z",
+    updatedAt: "2026-08-27T02:12:00Z",
+    window: {
+      opensAt: "2020-09-07T01:00:30Z",
+      closesAt: "2099-09-09T14:00:30Z",
+      closedAt: null,
+    },
+    durationMinutes: 45,
+    maxAttempts: 1,
+    shuffleQuestions: true,
+    shuffleOptions: true,
+    review: {
+      showScore: true,
+      showCorrectAnswers: false,
+      showExplanations: false,
+      release: "on_submit",
+      showClassAverage: false,
+    },
+    studentNote: null,
+    integrity: {
+      requireFullscreen: false,
+      blockCopyPaste: true,
+      maxFocusLoss: 2,
+      onLimitExceeded: "flag",
+      minAwayMs: 3000,
+    },
+    status: "open",
+    submittedCount: 1,
+    targetCount: 18,
+    flaggedCount: 0,
+    pendingGradingCount: 0,
+    ...over,
+  };
+}
+
+/** detailRow is a monitor row for `fullName`, not started unless `over` says otherwise. */
+export function detailRow(
+  studentId: string,
+  fullName: string,
+  over: Partial<MonitorRow> = {},
+): MonitorRow {
+  return {
+    studentId,
+    fullName,
+    state: "not_started",
+    flagged: false,
+    audioOverLimit: false,
+    ...over,
+  };
+}
+
+/** DetailCalls collects what the page sent: PATCH, override, extend, reopen and duplicate bodies. */
+export type DetailCalls = {
+  patches: unknown[];
+  overrides: unknown[];
+  extensions: unknown[];
+  reopens: unknown[];
+  duplicates: unknown[];
+};
+
+/**
+ * serveDetail stubs the assignment, its versions, its monitor with `rows`,
+ * its item analysis, its stored `overrides` and the writes the page makes.
+ * `patchStatus` answers every PATCH with that status instead, as
+ * `ASSIGNMENT_LOCKED` when 409.
+ */
+export function serveDetail(
+  a: Assignment,
+  {
+    rows = [],
+    analysis = { handedIn: 0, items: [] },
+    overrides = [],
+    patchStatus = 200,
+  }: {
+    rows?: MonitorRow[];
+    analysis?: ItemAnalysis;
+    overrides?: StudentOverride[];
+    patchStatus?: 200 | 409;
+  } = {},
+): DetailCalls {
+  const calls: DetailCalls = {
+    patches: [],
+    overrides: [],
+    extensions: [],
+    reopens: [],
+    duplicates: [],
+  };
+  server.use(
+    http.get(`${DETAIL_API}/teacher/assignments/${DETAIL_ID}`, () =>
+      contractJson("/teacher/assignments/{id}", "get", 200, a),
+    ),
+    http.get(`${DETAIL_API}/teacher/tests/${DETAIL_TEST_ID}/versions`, () =>
+      contractJson("/teacher/tests/{id}/versions", "get", 200, {
+        items: [
+          {
+            id: DETAIL_VERSION_ID,
+            version: 3,
+            totalPoints: 30,
+            questionCount: 24,
+            audioCount: 4,
+            manualCount: 2,
+            skills: ["grammar"],
+            assignmentCount: 0,
+            changeNote: null,
+            publishedAt: "2026-08-20T00:00:00Z",
+            publishedBy: "Thuong",
+          },
+        ],
+      }),
+    ),
+    http.get(`${DETAIL_API}/teacher/assignments/${DETAIL_ID}/attempts`, () =>
+      contractJson("/teacher/assignments/{id}/attempts", "get", 200, {
+        serverTime: "2026-09-04T02:10:00Z",
+        questionCount: 24,
+        rows,
+      }),
+    ),
+    http.get(`${DETAIL_API}/teacher/assignments/${DETAIL_ID}/item-analysis`, () =>
+      contractJson("/teacher/assignments/{id}/item-analysis", "get", 200, analysis),
+    ),
+    http.patch(
+      `${DETAIL_API}/teacher/assignments/${DETAIL_ID}`,
+      async ({ request }) => {
+        calls.patches.push(await request.json());
+        if (patchStatus === 409)
+          return contractJson("/teacher/assignments/{id}", "patch", 409, {
+            error: {
+              code: "ASSIGNMENT_LOCKED",
+              message: "Bài đang mở nên không đổi được thời gian làm.",
+              requestId: "018f0000-0000-7000-8000-0000000009a1",
+            },
+          });
+        return contractJson("/teacher/assignments/{id}", "patch", 200, a);
+      },
+    ),
+    http.get(`${DETAIL_API}/teacher/assignments/${DETAIL_ID}/student-overrides`, () =>
+      contractJson("/teacher/assignments/{id}/student-overrides", "get", 200, {
+        items: overrides,
+      }),
+    ),
+    http.put(
+      `${DETAIL_API}/teacher/assignments/${DETAIL_ID}/student-overrides`,
+      async ({ request }) => {
+        calls.overrides.push(await request.json());
+        return contractJson("/teacher/assignments/{id}/student-overrides", "put", 200, {
+          items: [],
+        });
+      },
+    ),
+    http.post(
+      `${DETAIL_API}/teacher/assignments/${DETAIL_ID}/extend`,
+      async ({ request }) => {
+        calls.extensions.push(await request.json());
+        return contractJson("/teacher/assignments/{id}/extend", "post", 200, a);
+      },
+    ),
+    http.post(
+      `${DETAIL_API}/teacher/assignments/${DETAIL_ID}/reopen`,
+      async ({ request }) => {
+        calls.reopens.push(await request.json());
+        return contractJson("/teacher/assignments/{id}/reopen", "post", 200, a);
+      },
+    ),
+    http.post(
+      `${DETAIL_API}/teacher/assignments/${DETAIL_ID}/duplicate`,
+      async ({ request }) => {
+        calls.duplicates.push(await request.json());
+        return contractJson("/teacher/assignments/{id}/duplicate", "post", 201, {
+          ...a,
+          id: DETAIL_DRAFT_ID,
+          status: "draft",
+          publishedAt: null,
+        });
+      },
+    ),
+    http.get(`${DETAIL_API}/teacher/classes`, () =>
+      contractJson("/teacher/classes", "get", 200, {
+        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
+        items: [],
+        page: 1,
+        pageSize: 100,
+        total: 0,
+      }),
+    ),
+  );
+  return calls;
+}
+
+/** renderDetail mounts the detail page on `tab`, with a toaster, and returns a user-event session. */
+export function renderDetail(tab = "students") {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createMemoryRouter(
+    [
+      { path: "/teacher/assignments/:id", element: <AssignmentDetailPage /> },
+      { path: "/teacher/assignments/:id/edit", element: <p>edit form</p> },
+    ],
+    { initialEntries: [`/teacher/assignments/${DETAIL_ID}?tab=${tab}`] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+      <Toaster />
+    </QueryClientProvider>,
+  );
+  return userEvent.setup();
+}

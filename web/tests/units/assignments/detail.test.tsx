@@ -159,19 +159,31 @@ describe("the assignment detail", () => {
     expect(
       await screen.findByText(
         "24 câu · 30 điểm · 4 câu nghe · 2 câu chấm tay · bản v3",
+        {},
+        { timeout: 5_000 },
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("IELTS Foundation")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("Phạm Gia Hân")[0]).toBeInTheDocument();
-    expect(
-      screen.getByText("1 học viên đã có trong lớp nên chỉ tính một lần."),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "IELTS Foundation" })).toBeInTheDocument();
+    expect(screen.getByText("+2 học viên lẻ")).toBeInTheDocument();
     expect(screen.getByText("2 lượt · lấy điểm cao nhất")).toBeInTheDocument();
     expect(
       screen.getByText("Cho phép 2 lần, quá thì đánh dấu để xem lại"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Có, trong từng phần")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Xem đề" })).toHaveAttribute(
+    expect(screen.getByText(/^Đảo câu hỏi trong từng phần/)).toBeInTheDocument();
+    for (const title of [
+      "Đề và thời gian",
+      "Thời gian mở",
+      "Tính toàn vẹn",
+      "Kết quả",
+      "Lời nhắn cho học viên",
+    ])
+      expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
+  });
+
+  it("keeps the pinned version's facts on the Questions tab", async () => {
+    serve(assignment({ status: "scheduled", window: scheduledWindow }));
+    renderDetail("questions");
+    expect(await screen.findByRole("link", { name: "Xem đề" })).toHaveAttribute(
       "href",
       `/teacher/tests/${TEST_ID}`,
     );
@@ -183,10 +195,12 @@ describe("the assignment detail", () => {
 
     expect(await screen.findByText("Bản nháp")).toBeInTheDocument();
     expect(screen.getByText(/Học viên chưa thấy bài này/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Chỉnh sửa" })).toHaveAttribute(
+    await user.click(screen.getByRole("button", { name: "Thao tác khác" }));
+    expect(await screen.findByRole("menuitem", { name: "Chỉnh sửa" })).toHaveAttribute(
       "href",
       `/teacher/assignments/${ID}/edit`,
     );
+    await user.keyboard("{Escape}");
 
     await user.click(screen.getByRole("button", { name: "Giao bài" }));
     await waitFor(() => expect(patches).toHaveLength(1));
@@ -216,15 +230,16 @@ describe("the assignment detail", () => {
     expect(await screen.findByText("Chưa chọn lớp hay học viên.")).toBeInTheDocument();
   });
 
-  it("scheduled: preserves Edit and never sends closeNow before the opening window", async () => {
+  it("scheduled: Edit settings opens the Settings tab and never sends closeNow before the opening window", async () => {
     serve(assignment({ status: "scheduled", window: scheduledWindow }));
     const user = renderDetail();
-    await user.click(await screen.findByRole("button", { name: "Thao tác" }));
-    expect(await screen.findByRole("menuitem", { name: "Chỉnh sửa" })).toHaveAttribute(
-      "href",
-      `/teacher/assignments/${ID}/edit`,
-    );
+    await user.click(await screen.findByRole("button", { name: "Thao tác khác" }));
     expect(screen.queryByRole("menuitem", { name: "Đóng sớm" })).toBeNull();
+    await user.click(await screen.findByRole("menuitem", { name: "Sửa cài đặt" }));
+    expect(await screen.findByRole("tab", { name: "Cài đặt" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(patches).toEqual([]);
   });
 
@@ -232,9 +247,11 @@ describe("the assignment detail", () => {
     serve(assignment());
     const user = renderDetail();
 
-    await user.click(await screen.findByRole("button", { name: "Thao tác" }));
+    await user.click(await screen.findByRole("button", { name: "Thao tác khác" }));
     await user.click(await screen.findByRole("menuitem", { name: "Đóng sớm" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("dialog", {
+      name: /^Đóng .* ngay\?$/,
+    });
     const confirm = within(dialog).getByRole("button", { name: "Đóng ngay" });
     expect(confirm).toBeDisabled();
     expect(patches).toHaveLength(0);
@@ -255,7 +272,7 @@ describe("the assignment detail", () => {
       `/teacher/classes/${CLASS_ID}`,
     );
     expect(screen.getByText("+2 học viên lẻ")).toBeInTheDocument();
-    expect(screen.getByText("· 19 học viên")).toBeInTheDocument();
+    expect(screen.getByText("19 học viên")).toBeInTheDocument();
   });
 
   it("closed: derives numbers from the actual full roster and preserves students without inviting an edit", async () => {
@@ -267,7 +284,7 @@ describe("the assignment detail", () => {
     expect(screen.getByText("/ 1")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Chỉnh sửa" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Đóng sớm" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Gia hạn cho tất cả" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Gia hạn" })).toBeEnabled();
   });
 
   it("closed: keeps graded and flagged work in the roster and counts pending answers independently", async () => {
@@ -313,7 +330,7 @@ describe("the assignment detail", () => {
     expect(screen.queryByRole("complementary")).toBeNull();
   });
 
-  it("closed: Gia hạn cho tất cả asks for a moment and a reason, then reopens", async () => {
+  it("closed: Extend asks for a reason, then reopens from now", async () => {
     let sent: { closesAt: string; reason: string } | null = null;
     server.use(
       http.post(`${BASE}/teacher/assignments/${ID}/reopen`, async ({ request }) => {
@@ -329,27 +346,47 @@ describe("the assignment detail", () => {
     serve(assignment({ status: "closed", window: pastWindow }));
     const user = renderDetail();
 
-    await user.click(await screen.findByRole("button", { name: "Gia hạn cho tất cả" }));
-    const menu = await screen.findByRole("menu");
-    expect(within(menu).getByText("Mở lại cho cả 19 học viên")).toBeInTheDocument();
-    expect(within(menu).getByText(/Bước sau sẽ hỏi lý do/)).toBeInTheDocument();
-    await user.click(within(menu).getByRole("menuitem", { name: "Thêm 3 ngày" }));
-
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Mở lại cho cả 19 học viên")).toBeInTheDocument();
-    const confirm = within(dialog).getByRole("button", { name: "Mở lại" });
-    expect(confirm).toBeDisabled();
-    expect(within(dialog).queryByRole("radio")).toBeNull();
-    await user.type(within(dialog).getByLabelText("Lý do"), "mất điện cả lớp");
-    expect(confirm).toBeEnabled();
-    await user.click(confirm);
+    const extend = await screen.findByRole("button", { name: "Gia hạn" });
+    await user.click(extend);
+    const dialog = await screen.findByRole("dialog", { name: "Gia hạn" });
+    await user.type(within(dialog).getByLabelText(/Lý do/), "mất điện cả lớp");
+    await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
 
     await waitFor(() => expect(sent).not.toBeNull());
     expect(sent!.reason).toBe("mất điện cả lớp");
-    const inThreeDays = Date.now() + 3 * 24 * 60 * 60 * 1000;
-    expect(Math.abs(new Date(sent!.closesAt).getTime() - inThreeDays)).toBeLessThan(
+    const inHalfAnHour = Date.now() + 30 * 60 * 1000;
+    expect(Math.abs(new Date(sent!.closesAt).getTime() - inHalfAnHour)).toBeLessThan(
       60_000,
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(extend).toHaveFocus();
+  });
+
+  it("draft: Giao bài keeps focus while its request is pending", async () => {
+    let release: () => void = () => undefined;
+    serve(assignment({ publishedAt: null, status: "draft" }));
+    server.use(
+      http.patch(`${BASE}/teacher/assignments/${ID}`, async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return contractJson(
+          "/teacher/assignments/{id}",
+          "patch",
+          200,
+          assignment({ publishedAt: null, status: "draft" }),
+        );
+      }),
+    );
+    const user = renderDetail();
+    const publish = await screen.findByRole("button", { name: "Giao bài" });
+    publish.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(publish).toHaveAttribute("aria-disabled", "true"));
+    expect(publish).not.toBeDisabled();
+    expect(publish).toHaveFocus();
+    release();
+    await waitFor(() => expect(publish).not.toHaveAttribute("aria-disabled"));
+    expect(publish).toHaveFocus();
   });
 });

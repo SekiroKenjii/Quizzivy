@@ -64,7 +64,7 @@ describe("phone roster flag and focus information", () => {
         within(screen.getByRole("table")).getByText(
           i18n.t("assignmentDetail.needsGrading"),
         ),
-      ).toHaveClass("truncate");
+      ).toHaveClass("shrink-0");
     });
   }
   it.each([undefined, null])(
