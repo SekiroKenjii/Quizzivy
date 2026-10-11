@@ -84,12 +84,82 @@ test("unlinking is disabled, with a reason, when Google is the only way in", asy
   await expect(signIn.getByRole("button", { name: "Đổi", exact: true })).toHaveCount(0);
 });
 
-test("a teacher's settings screen adds the profile block", async ({ page }) => {
-  await stubApi(page, sessionAs(adminUser));
+const thisDevice = {
+  familyId: "019535d9-3df7-79fb-b466-fa907fa18001",
+  device: "Mac · Chrome",
+  deviceKind: "computer",
+  location: "Ho Chi Minh City, VN",
+  lastUsedAt: "2026-10-10T09:59:00Z",
+  current: true,
+};
+
+test("a teacher's settings open on the Profile, among the deck's sections", async ({
+  page,
+}) => {
+  await stubApi(page, {
+    ...sessionAs(adminUser),
+    "GET /auth/sessions": { body: { items: [thisDevice] } },
+  });
   await page.goto("/teacher/settings");
 
+  await expect(page.getByRole("heading", { level: 1, name: "Cài đặt" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Hồ sơ" })).toBeVisible();
   await expect(page.getByLabel("Họ và tên")).toHaveValue("Thuong");
+  await expect(page.getByLabel("Email")).toHaveAttribute("readonly", "");
+  const nav = page.getByRole("navigation", { name: "Mục cài đặt" });
+  await expect(nav.getByRole("link")).toHaveText([
+    "Hồ sơ",
+    "Đăng nhập & bảo mật",
+    "Giao diện",
+    "Tài liệu API",
+  ]);
+  await page.goto("/teacher/settings/preferences");
+  await expect(page).toHaveURL(/\/teacher\/settings$/);
+  await page.goto("/admin/settings/security");
+  await expect(page).toHaveURL(/\/teacher\/settings\/security$/);
+  await expect(page.getByText("Thiết bị này")).toBeVisible();
+});
+
+test("a saved language opens the next load in that language, with no Vietnamese first", async ({
+  page,
+}) => {
+  let saved = { ...adminUser, locale: "vi" };
+  await stubApi(page, {
+    "GET /auth/me": (route) =>
+      route.fulfill({ contentType: "application/json", body: JSON.stringify(saved) }),
+    "PATCH /auth/me": async (route) => {
+      saved = { ...saved, ...(route.request().postDataJSON() as object) };
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(saved),
+      });
+    },
+    "GET /auth/sessions": { body: { items: [thisDevice] } },
+  });
+  await page.goto("/teacher/settings");
+  await page.getByRole("combobox", { name: "Ngôn ngữ" }).click();
+  await page.getByRole("option", { name: "English" }).click();
+  await page.getByRole("button", { name: "Lưu thay đổi" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    (window as unknown as { seenHeadings: string[] }).seenHeadings = seen;
+    new MutationObserver(() => {
+      for (const heading of document.querySelectorAll("h1"))
+        seen.push(heading.textContent ?? "");
+    }).observe(document, { childList: true, subtree: true, characterData: true });
+    document.addEventListener("DOMContentLoaded", () => {
+      seen.push(`lang:${document.documentElement.lang}`);
+    });
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  const seen = await page.evaluate(
+    () => (window as unknown as { seenHeadings: string[] }).seenHeadings,
+  );
+  expect(seen).toContain("lang:en");
+  expect(seen).not.toContain("Cài đặt");
 });
 
 test("signing out lives behind the avatar, on the settings screen too", async ({
