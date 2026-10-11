@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Link } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { useCrumbs } from "@/layouts/shell/crumbs";
@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
  * line. `crumb` puts the title in the shell's breadcrumb trail and document
  * title as the page's own name; a page that calls useCrumbs itself leaves it
  * off. `className` restates a class of the row for a head the deck draws
- * differently.
+ * differently. `headingRef` makes the h1 focusable from script, for a page
+ * that moves focus to it after the control that had it is gone.
  */
 export function PageHead({
   title,
@@ -23,6 +24,7 @@ export function PageHead({
   status,
   crumb = false,
   className,
+  headingRef,
   children,
 }: Readonly<{
   title: string;
@@ -32,11 +34,20 @@ export function PageHead({
   status?: ReactNode;
   crumb?: boolean;
   className?: string;
+  headingRef?: RefObject<HTMLHeadingElement | null>;
   children?: ReactNode;
 }>) {
   useCrumbs(crumb ? [{ label: title }] : null);
   const detail = back !== undefined || status !== undefined;
-  const heading = <h1 className="text-h1 min-w-0 break-words">{title}</h1>;
+  const heading = (
+    <h1
+      ref={headingRef}
+      tabIndex={headingRef === undefined ? undefined : -1}
+      className="text-h1 min-w-0 break-words"
+    >
+      {title}
+    </h1>
+  );
   return (
     <div
       data-slot="page-head"

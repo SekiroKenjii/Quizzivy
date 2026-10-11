@@ -38,7 +38,6 @@ export function ShowQrDialog({
     <DialogShell
       open={target !== null}
       onOpenChange={(open) => !open && onClose()}
-      width={420}
       returnFocus={returnFocus}
     >
       <DialogShellHeader

@@ -221,8 +221,10 @@ function Editor({
       >
         <Button
           variant="outline"
-          disabled={leaveBusy}
+          aria-disabled={leaveBusy || undefined}
+          className="aria-disabled:opacity-50"
           onClick={() => {
+            if (leaveBusy) return;
             setLeaveBusy(true);
             void editor
               .persist()

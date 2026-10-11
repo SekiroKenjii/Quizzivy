@@ -55,7 +55,8 @@ type Chosen = { studentIds: readonly string[]; reason: string };
  * a fifth "Pick a time…" step: everyone reopens it through `reopenAssignment`,
  * which takes the reason and notifies nobody, and chosen students get an
  * override that closes then (DG-174). A student whose own close is already
- * later than that moment is left out of the list, so no override is shortened.
+ * later than that moment is left out of the list, so no override is shortened,
+ * and a line under the list counts them (QA-26-5).
  */
 export function ExtendAssignmentsDialog({
   items,
@@ -212,7 +213,7 @@ export function ExtendAssignmentsDialog({
           title: single.testTitle,
           when: unbroken(when),
           until: ahead(until)
-            ? unbroken(windowMoment(until.toISOString(), new Date(), t))
+            ? unbroken(windowMoment(until.toISOString(), new Date(), t, true))
             : "…",
         });
       }}
@@ -266,6 +267,12 @@ export function ExtendAssignmentsDialog({
           when: chosenOnly,
           required: true,
           requiredText: t("assignments.list.extendNoStudents"),
+          hint: (values) => {
+            const later = (roster?.length ?? 0) - candidates(values).length;
+            return later > 0
+              ? t("assignments.list.extendLaterHidden", { count: later })
+              : undefined;
+          },
           options: (values) =>
             candidates(values).map((row) => ({
               value: row.studentId,
