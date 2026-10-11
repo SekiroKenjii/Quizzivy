@@ -24,6 +24,7 @@ import {
   ATTEMPT_ID,
   BASE,
   assignment,
+  STUDENT_ID,
   monitor,
   review,
 } from "../attempts/fixtures";
@@ -198,9 +199,13 @@ describe("actual assignment detail permission and identity gates", () => {
         expect(within(sheet).queryByRole("textbox")).toBe(
           edit ? within(sheet).getByRole("textbox") : null,
         );
-        expect(
-          within(sheet).queryByRole("link", { name: "Chấm câu trả lời" }) !== null,
-        ).toBe(edit);
+        const grade = within(sheet).queryByRole("link", { name: "Chấm câu trả lời" });
+        expect(grade !== null).toBe(edit);
+        if (grade !== null)
+          expect(grade).toHaveAttribute(
+            "href",
+            `/teacher/grading?assignment=${ASSIGNMENT_ID}&student=${STUDENT_ID}`,
+          );
         await waitFor(() => expect(requests.events).toEqual([ATTEMPT_ID]));
       } else {
         expect(
@@ -213,9 +218,11 @@ describe("actual assignment detail permission and identity gates", () => {
         .getByRole("heading", { level: 1, hidden: true })
         .closest<HTMLElement>('[data-slot="page-head"]')!;
       expect(
-        within(header).queryByRole("button", { name: "Thao tác", hidden: true }) !==
-          null,
-      ).toBe(write);
+        within(header).queryByRole("button", {
+          name: "Thao tác khác",
+          hidden: true,
+        }) !== null,
+      ).toBe(write || permissions.some((key) => key === "teaching.attempts.intervene"));
       expect(requests.notes).toEqual([]);
     },
   );

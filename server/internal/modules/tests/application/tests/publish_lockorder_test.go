@@ -33,9 +33,9 @@ func audioAsset(t *testing.T, pool *pgxpool.Pool, owner, label string) string {
 	if err := pool.QueryRow(context.Background(),
 		`INSERT INTO app.media_assets
 		        (kind, storage_key, mime_type, bytes, duration_ms,
-		         original_filename, checksum_sha256, uploaded_by)
+		         original_filename, checksum_sha256, uploaded_by, owner_id)
 		 VALUES ('audio', $1, 'audio/mpeg', 1024, 10000, 'nghe.mp3',
-		         repeat('c', 32)::bytea, $2)
+		         repeat('c', 32)::bytea, $2, $2)
 		 RETURNING id::text`, key, owner).Scan(&id); err != nil {
 		t.Fatal(err)
 	}

@@ -176,3 +176,44 @@ func TestPruneDeletesWhatWasWrittenMoreThan180DaysAgo(t *testing.T) {
 		t.Errorf("the cutoff is %s, want %s: exactly 180 days before now", store.cutoff, want)
 	}
 }
+
+func TestTheAudienceReachesTheStoreOnEveryRead(t *testing.T) {
+	ctx := context.Background()
+	for _, audience := range []domain.Audience{"", domain.AudienceTeacher, domain.AudienceStudent} {
+		store := only(t, "List")
+		if _, err := over(store).Queries.List.Handle(ctx, query.List{UserID: reader, Audience: audience}); err != nil || store.query.Audience != audience {
+			t.Errorf("list for %q asked the store %+v (%v)", audience, store.query, err)
+		}
+		store = only(t, "Unread")
+		if _, err := over(store).Queries.Summary.Handle(ctx, query.Summary{UserID: reader, Audience: audience}); err != nil || store.audience != audience {
+			t.Errorf("summary for %q asked the store for %q (%v)", audience, store.audience, err)
+		}
+		store = only(t, "MarkRead")
+		if _, err := over(store).Commands.MarkRead.Handle(ctx, command.MarkRead{UserID: reader, IDs: ids(1), Audience: audience}); err != nil || store.audience != audience {
+			t.Errorf("mark by id for %q asked the store for %q (%v)", audience, store.audience, err)
+		}
+		store = only(t, "MarkAllRead")
+		if _, err := over(store).Commands.MarkAllRead.Handle(ctx, command.MarkAllRead{UserID: reader, Audience: audience}); err != nil || store.audience != audience {
+			t.Errorf("mark all for %q asked the store for %q (%v)", audience, store.audience, err)
+		}
+	}
+}
+
+func TestAnUnknownAudienceIsRefusedBeforeTheStoreIsAsked(t *testing.T) {
+	store := only(t, "")
+	app := over(store)
+	ctx := context.Background()
+	const unknown = domain.Audience("admin")
+	_, list := app.Queries.List.Handle(ctx, query.List{UserID: reader, Audience: unknown})
+	_, summary := app.Queries.Summary.Handle(ctx, query.Summary{UserID: reader, Audience: unknown})
+	_, mark := app.Commands.MarkRead.Handle(ctx, command.MarkRead{UserID: reader, IDs: ids(1), Audience: unknown})
+	_, all := app.Commands.MarkAllRead.Handle(ctx, command.MarkAllRead{UserID: reader, Audience: unknown})
+	for label, err := range map[string]error{"List": list, "Summary": summary, "MarkRead": mark, "MarkAllRead": all} {
+		if !errors.Is(err, domain.ErrUnknownAudience) {
+			t.Errorf("%s with an unknown audience: err = %v, want ErrUnknownAudience", label, err)
+		}
+	}
+	if store.calls != 0 {
+		t.Errorf("the store was called %d times for an audience that does not exist", store.calls)
+	}
+}

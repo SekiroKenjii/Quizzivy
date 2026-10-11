@@ -16,8 +16,8 @@ import (
 func newGroup(t *testing.T, tx *sql.Tx, author string, section *string) string {
 	t.Helper()
 	var id string
-	if err := tx.QueryRow(`INSERT INTO app.question_groups (title, created_by, owner_section_id)
-		VALUES ('Bài đọc', $1, $2) RETURNING id`, author, section).Scan(&id); err != nil {
+	if err := tx.QueryRow(`INSERT INTO app.question_groups (title, created_by, owner_id, owner_section_id)
+		VALUES ('Bài đọc', $1, $1, $2) RETURNING id`, author, section).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	return id

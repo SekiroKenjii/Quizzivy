@@ -8,15 +8,18 @@ import { formatMoment, formatTime, useDisplayTimeZone } from "@/lib/i18n/datetim
 import { useLocale } from "@/lib/i18n/useLocale";
 
 /**
- * CloseEarlyDialog is the "Close now" confirm: it restates what students
- * keep, in the reader's language, and asks for one tick. Focus returns to
- * `returnFocus` when it closes.
+ * CloseEarlyDialog is "Close early": the deck's title and button, and the
+ * true promise that students mid-test keep their time (DG-161), in the
+ * reader's language, with one tick to confirm. `keepTime`, given where the
+ * roster is known, counts the students whose own extension reaches past now;
+ * they keep it, and none draws no sentence. Focus returns to `returnFocus` when it closes.
  */
 export function CloseEarlyDialog({
   assignment,
   open,
   pending,
   failed,
+  keepTime = 0,
   returnFocus,
   onOpenChange,
   onConfirm,
@@ -25,6 +28,7 @@ export function CloseEarlyDialog({
   open: boolean;
   pending: boolean;
   failed: boolean;
+  keepTime?: number | undefined;
   returnFocus?: RefObject<HTMLElement | null> | undefined;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
@@ -41,7 +45,7 @@ export function CloseEarlyDialog({
         if (!next) setUnderstood(false);
         onOpenChange(next);
       }}
-      title={t("assignments.detail.closeNowTitle")}
+      title={t("assignments.detail.closeNowTitle", { title: assignment.testTitle })}
       description={t("assignments.detail.closeNowBody", {
         now: formatTime(new Date()),
         planned: formatMoment(assignment.window.closesAt, locale),
@@ -62,6 +66,8 @@ export function CloseEarlyDialog({
           {t("assignments.detail.closeNowNote", {
             minutes: assignment.durationMinutes,
           })}
+          {keepTime > 0 &&
+            ` ${t("assignments.detail.closeNowKeepTime", { count: keepTime })}`}
         </p>
       </div>
       <label className="flex items-start gap-2 text-sm">

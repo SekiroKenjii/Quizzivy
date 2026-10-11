@@ -1,7 +1,33 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.78 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.80 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.79**
+
+R4, a bell counts, lists and clears only its own console's notifications (DG-170):
+
+- §15 `getTeacherSummary` (`GET /teacher/summary`), `getMySummary` (`GET /me/summary`) and
+  `listNotifications` take an optional `audience` query parameter, and `markNotificationsRead`
+  an optional `audience` in its body, each `teacher` or `student`. With one, the unread count,
+  the page and the marking cover only the kinds that console shows. The teacher's are
+  `attempt.submitted`, `attempt.flagged`, `assignment.closing`, `class.joined` and
+  `join_codes.rotated`; the student's are `assignment.opened`, `assignment.due_soon`,
+  `assignment.extended` and `result.ready`. Every kind belongs to one of the two. The audience
+  narrows a marking by ids as it narrows "mark all": an id of the other console's kind is
+  skipped, as another user's id is, and answers 204 all the same. Without an audience every
+  kind is covered, as before. Any other value is 400 `VALIDATION_FAILED`.
+- §15 An account that holds both consoles (an Admin with "Take tests") has two bells that neither
+  light nor clear each other. Both bells passing `audience` is the web's part of DG-170.
+
+**Changes since v0.78**
+
+R4, ownership is validated (T-R4.49, T-R3.2):
+
+- §13.3 Migration 00106 validated the `NOT NULL` of `classes.teacher_id` and of `owner_id` on
+  `tests`, `questions`, `question_groups` and `media_assets`, and dropped the triggers and
+  functions that filled an owner for the v0.7.0 binary's inserts. An insert that omits an owner now
+  fails with `23502`. The previous binary (v0.9.0) names the owner in every insert.
 
 **Changes since v0.77**
 
@@ -2386,7 +2412,7 @@ test_version_blanks / test_version_blank_answers
 
 Snapshotting into **normalized rows** rather than one `jsonb` blob keeps per-question analytics a plain SQL query later. `source_question_id` preserves the bank link without coupling to it. `media_asset_id` points at the same immutable asset — the file is never copied.
 
-**Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Until v0.9.1 (T-R3.2) the owner columns are `NOT NULL … NOT VALID`, and triggers fill them for the v0.7.0 binary's inserts. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
+**Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Migration 00106 (T-R3.2) validated the `NOT NULL` of every owner column, which R2 had added `NOT VALID`, and dropped the triggers that filled them for the v0.7.0 binary's inserts, so an insert that omits an owner fails. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
 
 **Per-student overrides** (R4). `assignment_student_overrides(assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by, created_at, updated_at)`, primary key `(assignment_id, student_id)`, both foreign keys `ON DELETE CASCADE`, `created_by` `ON DELETE SET NULL`. `closes_at` and `duration_minutes` are nullable and `extra_attempts` defaults to 0; a check requires at least one of the three to change something. A student's close is `greatest(least(closed_at, closes_at), override.closes_at)`: an override only ever lengthens, and one that reaches past an early close lifts it for that student alone. `shared/schedule` holds that rule as SQL and in Go, and the join that reads it.
 
@@ -2562,11 +2588,14 @@ PATCH  /auth/me                         {fullName?,displayName?|null,phone?|null
 PATCH  /me/preferences                 top-level UserPreferences merge → UserPreferences;
                                           nested assignmentDefaults replaces its key, {} no-op;
                                           raw/stored UTF8 cap8192 bytes,400 on excess
-GET    /me/notifications?before=&limit= → {items: [Notification], nextBefore}; the caller's own,
-                                          newest first (20 by default, 50 at most). Writes the caller's
+GET    /me/notifications?before=&limit=&audience= → {items: [Notification], nextBefore}; the caller's own,
+                                          newest first (20 by default, 50 at most), of one console's
+                                          kinds when audience is teacher or student. Writes the caller's
                                           due-time notifications first, at most once in 5 minutes
-POST   /me/notifications/read           {ids?} (1 to 100; absent means all) → 204 whatever matched
-GET    /me/summary                      → {unreadNotifications}; writes the due-time notifications first
+POST   /me/notifications/read           {ids?, audience?} (1 to 100; absent means all; audience narrows
+                                          both to that console's kinds) → 204 whatever matched
+GET    /me/summary?audience=            → {unreadNotifications}, of one console's kinds when audience
+                                          is given; writes the due-time notifications first
 GET    /me/notification-preferences     → the five switches [{event,inApp,email}]
 PUT    /me/notification-preferences     the five switches, each once → the stored switches
 PUT    /me/avatar                      multipart file (PNG or JPEG, at most 2 MiB, each side 200–2048 px,
@@ -2589,7 +2618,8 @@ POST   /auth/sessions/revoke-others     → {revoked}; 401 as above; moves the e
 
 # teacher
 GET    /teacher/dashboard?range=7d|14d|30d → Dashboard (default 14d; own teaching)
-GET    /teacher/summary                → TeacherSummary {liveAssignments,answersToGrade,unreadNotifications}
+GET    /teacher/summary?audience=      → TeacherSummary {liveAssignments,answersToGrade,unreadNotifications};
+                                          the count is of one console's kinds when audience is given
 GET    /teacher/tests?status=&q=&cursor=
 POST   /teacher/tests | GET /:id | PATCH /:id
 POST   /teacher/tests/:id/publish       → new version; its number is the `nextVersion` the test reported

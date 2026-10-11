@@ -58,7 +58,7 @@ func (h Notifications) ListNotifications(ctx context.Context, request openapi.Li
 		return nil, httpx.ErrNotImplemented
 	}
 	h.materialise(ctx, userID)
-	q := query.List{UserID: userID}
+	q := query.List{UserID: userID, Audience: audienceOf(request.Params.Audience)}
 	if request.Params.Before != nil {
 		q.Before = request.Params.Before.String()
 	}
@@ -66,6 +66,9 @@ func (h Notifications) ListNotifications(ctx context.Context, request openapi.Li
 		q.Limit = *request.Params.Limit
 	}
 	page, err := h.app.Queries.List.Handle(ctx, q)
+	if errors.Is(err, domain.ErrUnknownAudience) {
+		return openapi.ListNotifications400JSONResponse{BadRequestJSONResponse: unknownAudience(ctx)}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -117,16 +120,19 @@ func (h Notifications) MarkNotificationsRead(ctx context.Context, request openap
 		return nil, httpx.ErrNotImplemented
 	}
 	var err error
+	audience := audienceOf(request.Body.Audience)
 	if request.Body.Ids == nil {
-		_, err = h.app.Commands.MarkAllRead.Handle(ctx, command.MarkAllRead{UserID: userID})
+		_, err = h.app.Commands.MarkAllRead.Handle(ctx, command.MarkAllRead{UserID: userID, Audience: audience})
 	} else {
 		ids := make([]string, len(*request.Body.Ids))
 		for i, id := range *request.Body.Ids {
 			ids[i] = id.String()
 		}
-		_, err = h.app.Commands.MarkRead.Handle(ctx, command.MarkRead{UserID: userID, IDs: ids})
+		_, err = h.app.Commands.MarkRead.Handle(ctx, command.MarkRead{UserID: userID, IDs: ids, Audience: audience})
 	}
 	switch {
+	case errors.Is(err, domain.ErrUnknownAudience):
+		return openapi.MarkNotificationsRead400JSONResponse{BadRequestJSONResponse: unknownAudience(ctx)}, nil
 	case errors.Is(err, domain.ErrNoIDs):
 		return openapi.MarkNotificationsRead400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
 			httpapi.FieldError(ctx, "ids", httpx.Text(ctx, "Cần chọn ít nhất một thông báo.", "At least one notification is needed.")))}, nil
@@ -139,14 +145,30 @@ func (h Notifications) MarkNotificationsRead(ctx context.Context, request openap
 	return openapi.MarkNotificationsRead204Response{}, nil
 }
 
-// GetMySummary implements GET /me/summary: the caller's unread count.
-func (h Notifications) GetMySummary(ctx context.Context, _ openapi.GetMySummaryRequestObject) (openapi.GetMySummaryResponseObject, error) {
+func audienceOf(given *openapi.NotificationAudience) domain.Audience {
+	if given == nil {
+		return ""
+	}
+	return domain.Audience(*given)
+}
+
+func unknownAudience(ctx context.Context) openapi.BadRequestJSONResponse {
+	return openapi.BadRequestJSONResponse(
+		httpapi.FieldError(ctx, "audience", httpx.Text(ctx, "Chỉ có giao diện giáo viên và học viên.", "Only the teacher's and the student's console exist.")))
+}
+
+// GetMySummary implements GET /me/summary: the caller's unread count, of one
+// console's kinds when the request names it.
+func (h Notifications) GetMySummary(ctx context.Context, request openapi.GetMySummaryRequestObject) (openapi.GetMySummaryResponseObject, error) {
 	userID, ok := h.caller(ctx)
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 	h.materialise(ctx, userID)
-	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{UserID: userID})
+	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{UserID: userID, Audience: audienceOf(request.Params.Audience)})
+	if errors.Is(err, domain.ErrUnknownAudience) {
+		return openapi.GetMySummary400JSONResponse{BadRequestJSONResponse: unknownAudience(ctx)}, nil
+	}
 	if err != nil {
 		return nil, err
 	}

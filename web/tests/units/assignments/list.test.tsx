@@ -704,7 +704,7 @@ describe("the row menu's dialogs give focus back (QA-24-2)", () => {
   it.each([
     ["Gia hạn", "Gia hạn", {}],
     ["Nhân bản", "Nhân bản bài giao", {}],
-    ["Đóng sớm", "Đóng bài giao ngay?", {}],
+    ["Đóng sớm", "Đóng Unit 5 ngay?", {}],
     ["Xoá", "Xoá bài giao nháp này?", DRAFT],
   ] as const)(
     "returns to the menu button from %s, after Escape and after Cancel",

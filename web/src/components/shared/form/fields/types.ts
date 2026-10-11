@@ -33,7 +33,7 @@ type Choice<V> = Named<V, string> & {
 };
 type Multiple<V> = Named<V, readonly string[]> & {
   kind: "chips" | "list";
-  options: readonly FormOption[];
+  options: readonly FormOption[] | ((values: V) => readonly FormOption[]);
   search?: boolean;
   searchPlaceholder?: string;
 };
@@ -44,7 +44,10 @@ export type FormInfoRow = Readonly<{
   text: ReactNode;
   action?: { label: string; onAction: () => void };
 }>;
-/** FormField ties each field kind to a compatible key of the form's values. */
+/**
+ * FormField ties each field kind to a compatible key of the form's values. A
+ * list's or chips' options may be a function of the current values.
+ */
 export type FormField<V extends FormValues> =
   | Text<V>
   | Choice<V>
@@ -88,5 +91,6 @@ export type TextControlProps = FieldControlProps<string> &
     autoComplete?: string | undefined;
     inputMode?: Text<Virtual>["inputMode"] | undefined;
     maxLength?: number | undefined;
+    readOnly?: boolean | undefined;
   }>;
 type Virtual = { value: string };

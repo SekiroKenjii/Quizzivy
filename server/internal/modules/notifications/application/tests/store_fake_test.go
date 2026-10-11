@@ -15,16 +15,17 @@ type fakeStore struct {
 	allowed []string
 	calls   int
 
-	notice  domain.Notice
-	query   domain.ListQuery
-	userID  string
-	ids     []string
-	saved   []domain.Preference
-	cutoff  time.Time
-	stored  []domain.Preference
-	page    domain.Page
-	unread  int
-	deleted int64
+	notice   domain.Notice
+	query    domain.ListQuery
+	userID   string
+	audience domain.Audience
+	ids      []string
+	saved    []domain.Preference
+	cutoff   time.Time
+	stored   []domain.Preference
+	page     domain.Page
+	unread   int
+	deleted  int64
 
 	due       []domain.Notice
 	dueAt     time.Time
@@ -58,21 +59,21 @@ func (f *fakeStore) List(_ context.Context, q domain.ListQuery) (domain.Page, er
 	return f.page, nil
 }
 
-func (f *fakeStore) MarkRead(_ context.Context, userID string, ids []string) error {
+func (f *fakeStore) MarkRead(_ context.Context, userID string, ids []string, audience domain.Audience) error {
 	f.call("MarkRead")
-	f.userID, f.ids = userID, ids
+	f.userID, f.ids, f.audience = userID, ids, audience
 	return nil
 }
 
-func (f *fakeStore) MarkAllRead(_ context.Context, userID string) error {
+func (f *fakeStore) MarkAllRead(_ context.Context, userID string, audience domain.Audience) error {
 	f.call("MarkAllRead")
-	f.userID = userID
+	f.userID, f.audience = userID, audience
 	return nil
 }
 
-func (f *fakeStore) Unread(_ context.Context, userID string) (int, error) {
+func (f *fakeStore) Unread(_ context.Context, userID string, audience domain.Audience) (int, error) {
 	f.call("Unread")
-	f.userID = userID
+	f.userID, f.audience = userID, audience
 	return f.unread, nil
 }
 

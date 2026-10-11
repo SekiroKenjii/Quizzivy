@@ -5,6 +5,8 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
+  type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -23,36 +25,37 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import {
-  Check,
+  CircleStop,
+  Clock,
+  Copy,
+  Ellipsis,
   ExternalLink,
   FileText,
-  GraduationCap,
-  Lock,
   Pencil,
+  RotateCcw,
   Send,
   SquarePen,
-  X,
 } from "lucide-react";
 import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
-import { RowMenu } from "@/components/shared/RowMenu";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StatStrip } from "@/components/shared/stats/StatStrip";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { can, hasWorkspace, useCan, useWorkspace } from "@/features/auth/permissions";
 import {
   getMonitor,
   setAttemptNote,
   type AttemptReview,
+  type MonitorRow,
 } from "@/features/attempts/api";
 import { AttemptSheet } from "@/features/attempts/components/AttemptSheet";
 import { Monitor } from "@/features/attempts/components/Monitor";
@@ -69,13 +72,17 @@ import { formatMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useAuthStore } from "@/stores/auth";
 import { getAssignment, updateAssignment, type Assignment } from "../../api";
 import { CloseEarlyDialog } from "../../components/CloseEarlyDialog";
-import { ReopenDialog } from "../../components/ReopenDialog";
-import { ReopenMenu, type ReopenChoice } from "../../components/ReopenMenu";
-import { TargetsLine } from "../../components/TargetsLine";
+import { ItemAnalysis } from "../../components/ItemAnalysis";
+import { ReopenStudentDialog } from "../../components/ReopenStudentDialog";
+import { SettingsGroups } from "../../components/SettingsGroups";
+import { keepsTimeAfter, overridesKey } from "../../overrides";
 import { toInput } from "../../input";
 import { statusAt } from "../../status";
 import { assignmentStats, detailTab, firstPendingPaper } from "./assignmentDetail";
 import { assignmentDetailLocation } from "./assignmentDetailUrl";
+import { moment } from "./assignmentWindow";
+import { DuplicateAssignmentDialog } from "./DuplicateAssignmentDialog";
+import { ExtendAssignmentsDialog } from "./ExtendAssignmentsDialog";
 
 /** AssignmentDetailPage owns the assignment monitor and preserves authorized actions and note drafts across its URL-controlled tabs and sheet. */
 export default function AssignmentDetailPage() {
@@ -90,9 +97,10 @@ export default function AssignmentDetailPage() {
   const workspace = useWorkspace("teacher");
   const write = useCan("teaching.assignments.write");
   const client = useQueryClient();
-  const [closing, setClosing] = useState(false);
-  const [reopening, setReopening] = useState<ReopenChoice | null>(null);
+  const [dialog, setDialog] = useState<DetailDialog | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const extendRef = useRef<HTMLButtonElement>(null);
   const { notes, recoveryPanel, noteFocusRequest } = useSheetDrafts();
 
   const { assignment, a, now, status, monitor, version, preview } = useAssignmentReads(
@@ -124,6 +132,7 @@ export default function AssignmentDetailPage() {
       client.invalidateQueries({ queryKey: ["admin-assignments"] }),
       client.invalidateQueries({ queryKey: ["admin-dashboard"] }),
       client.invalidateQueries({ queryKey: monitorKey(id) }),
+      client.invalidateQueries({ queryKey: overridesKey(id) }),
     ]);
   };
   const publish = useMutation({
@@ -151,7 +160,7 @@ export default function AssignmentDetailPage() {
       });
     },
     onSuccess: async () => {
-      setClosing(false);
+      setDialog(null);
       await refresh();
     },
   });
@@ -210,11 +219,16 @@ export default function AssignmentDetailPage() {
             <WriteActions
               a={a}
               status={status}
-              now={now}
               pending={publish.isPending}
+              moreRef={moreRef}
+              extendRef={extendRef}
               onPublish={() => publish.mutate(a)}
-              onClose={() => setClosing(true)}
-              onReopen={setReopening}
+              onDialog={setDialog}
+              onEditSettings={() =>
+                void navigate(assignmentDetailLocation(location, { tab: "settings" }), {
+                  replace: true,
+                })
+              }
             />
             <GradeAction
               count={stats?.pending ?? 0}
@@ -259,22 +273,25 @@ export default function AssignmentDetailPage() {
           />
         </TabsContent>
         <TabsContent value="questions" className="space-y-4 pt-4.5">
+          <ItemAnalysis assignmentId={a.id} />
           <TestCard a={a} version={version} closed={status === "closed"} />
           <QuestionsPanel preview={preview} a={a} />
         </TabsContent>
-        <TabsContent value="settings" className="space-y-4 pt-4.5">
-          <AssignmentSettings a={a} version={version} status={status} />
+        <TabsContent value="settings" className="pt-4.5">
+          <SettingsGroups a={a} version={version} status={status} />
         </TabsContent>
       </Tabs>
       <StateDialogs
         a={a}
         status={status}
-        closing={closing}
-        reopening={reopening}
+        dialog={dialog}
         pending={close.isPending}
         failed={close.isError}
-        onClosing={setClosing}
-        onReopening={setReopening}
+        rows={monitor.data?.rows ?? null}
+        now={now}
+        moreRef={moreRef}
+        extendRef={extendRef}
+        onDialog={setDialog}
         onClose={() => {
           if (write && status === "open") close.mutate(a);
         }}
@@ -377,37 +394,6 @@ function DraftHint({
   );
 }
 
-function AssignmentSettings({
-  a,
-  version,
-  status,
-}: Readonly<{
-  a: Assignment;
-  version: TestVersion | undefined;
-  status: ReturnType<typeof statusAt>;
-}>) {
-  const { t } = useTranslation();
-  const write = useCan("teaching.assignments.write");
-  return (
-    <>
-      <TestCard a={a} version={version} closed={status === "closed"} />
-      <TargetsLine assignment={a} />
-      <TargetsCard a={a} />
-      <TimeCard a={a} />
-      <RulesCard a={a} />
-      <ReviewCard a={a} />
-      {write && status !== "closed" && (
-        <Button variant="outline" asChild>
-          <Link to={`/teacher/assignments/${a.id}/edit`}>
-            <Pencil aria-hidden="true" />
-            {t("assignments.detail.edit")}
-          </Link>
-        </Button>
-      )}
-    </>
-  );
-}
-
 function useSheetDrafts() {
   const client = useQueryClient();
   const [recovery, setRecovery] = useState(false);
@@ -495,55 +481,97 @@ function useSheetDrafts() {
   return { notes, recoveryPanel, noteFocusRequest };
 }
 
+type DetailDialog = { kind: "close" | "reopenStudent" | "extend" | "duplicate" };
+
 function StateDialogs({
   a,
   status,
-  closing,
-  reopening,
+  dialog,
   pending,
   failed,
-  onClosing,
-  onReopening,
+  rows,
+  now,
+  moreRef,
+  extendRef,
+  onDialog,
   onClose,
   onRefresh,
 }: Readonly<{
   a: Assignment;
   status: ReturnType<typeof statusAt>;
-  closing: boolean;
-  reopening: ReopenChoice | null;
+  dialog: DetailDialog | null;
   pending: boolean;
   failed: boolean;
-  onClosing: (value: boolean) => void;
-  onReopening: (value: ReopenChoice | null) => void;
+  rows: readonly MonitorRow[] | null;
+  now: Date;
+  moreRef: RefObject<HTMLButtonElement | null>;
+  extendRef: RefObject<HTMLButtonElement | null>;
+  onDialog: (value: DetailDialog | null) => void;
   onClose: () => void;
   onRefresh: () => Promise<void>;
 }>) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   const write = useCan("teaching.assignments.write");
-  if (!write) return null;
-  if (status === "open")
-    return (
-      <CloseEarlyDialog
-        assignment={a}
-        open={closing}
-        pending={pending}
-        failed={failed}
-        onOpenChange={onClosing}
-        onConfirm={onClose}
-      />
-    );
-  if (status === "closed" && reopening !== null)
-    return (
-      <ReopenDialog
-        assignment={a}
-        choice={reopening}
-        open
-        onOpenChange={(open) => {
-          if (!open) onReopening(null);
-        }}
-        onDone={onRefresh}
-      />
-    );
-  return null;
+  const intervene = useCan("teaching.attempts.intervene");
+  const kind = dialog?.kind;
+  const closeUnless = (open: boolean) => {
+    if (!open) onDialog(null);
+  };
+  return (
+    <>
+      {write && status === "open" && (
+        <CloseEarlyDialog
+          assignment={a}
+          open={kind === "close"}
+          pending={pending}
+          failed={failed}
+          keepTime={rows === null ? 0 : keepsTimeAfter(rows, now)}
+          returnFocus={moreRef}
+          onOpenChange={(open) => onDialog(open ? { kind: "close" } : null)}
+          onConfirm={onClose}
+        />
+      )}
+      {intervene && status !== "draft" && rows !== null && (
+        <ReopenStudentDialog
+          assignment={a}
+          rows={rows}
+          open={kind === "reopenStudent"}
+          returnFocus={moreRef}
+          onOpenChange={closeUnless}
+          onDone={onRefresh}
+        />
+      )}
+      {write && status !== "draft" && (
+        <ExtendAssignmentsDialog
+          items={[a]}
+          when={moment(a.window.closedAt ?? a.window.closesAt, now, t)}
+          audience={intervene && rows !== null ? rows : undefined}
+          open={kind === "extend"}
+          returnFocus={extendRef}
+          onOpenChange={closeUnless}
+          onExtended={() => void onRefresh()}
+        />
+      )}
+      {write && (
+        <DuplicateAssignmentDialog
+          assignment={a}
+          open={kind === "duplicate"}
+          returnFocus={moreRef}
+          onOpenChange={closeUnless}
+          onDuplicated={(draft) => {
+            void onRefresh();
+            toast(t("assignments.list.duplicated"), {
+              action: {
+                label: t("assignments.list.open"),
+                onClick: () => void navigate(`/teacher/assignments/${draft.id}`),
+              },
+            });
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 function NoteRecovery({
@@ -573,59 +601,89 @@ function NoteRecovery({
 function WriteActions({
   a,
   status,
-  now,
   pending,
+  moreRef,
+  extendRef,
   onPublish,
-  onClose,
-  onReopen,
+  onDialog,
+  onEditSettings,
 }: Readonly<{
   a: Assignment;
   status: ReturnType<typeof statusAt>;
-  now: Date;
   pending: boolean;
+  moreRef: RefObject<HTMLButtonElement | null>;
+  extendRef: RefObject<HTMLButtonElement | null>;
   onPublish: () => void;
-  onClose: () => void;
-  onReopen: (choice: ReopenChoice) => void;
+  onDialog: (dialog: DetailDialog) => void;
+  onEditSettings: () => void;
 }>) {
   const { t } = useTranslation();
   const write = useCan("teaching.assignments.write");
-  if (!write) return null;
-  if (status === "closed")
-    return (
-      <ReopenMenu
-        count={a.targetCount ?? 0}
-        todayPossible={now.getHours() < 21}
-        onChoose={(choice) => {
-          if (write && status === "closed") onReopen(choice);
-        }}
-      />
-    );
+  const intervene = useCan("teaching.attempts.intervene");
+  const draft = status === "draft";
+  if (!write && !(intervene && !draft)) return null;
+  const unpublishable = (a.targetCount ?? 0) === 0;
   return (
     <>
-      <RowMenu>
-        <DropdownMenuItem asChild>
-          <Link to={`/teacher/assignments/${a.id}/edit`}>
-            <Pencil aria-hidden="true" />
-            {t("assignments.detail.edit")}
-          </Link>
-        </DropdownMenuItem>
-        {status === "open" && (
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={() => {
-              if (write && status === "open") onClose();
-            }}
-          >
-            <Lock aria-hidden="true" />
-            {t("assignments.detail.closeEarly")}
+      <HeaderMenu label={t("assignmentDetail.moreActions")} triggerRef={moreRef}>
+        {write && draft && (
+          <DropdownMenuItem asChild>
+            <Link to={`/teacher/assignments/${a.id}/edit`}>
+              <Pencil aria-hidden="true" />
+              {t("assignments.detail.edit")}
+            </Link>
           </DropdownMenuItem>
         )}
-      </RowMenu>
-      {status === "draft" && (
+        {write && !draft && (
+          <DropdownMenuItem onSelect={onEditSettings}>
+            <Pencil aria-hidden="true" />
+            {t("assignmentDetail.editSettings")}
+          </DropdownMenuItem>
+        )}
+        {write && (
+          <DropdownMenuItem onSelect={() => onDialog({ kind: "duplicate" })}>
+            <Copy aria-hidden="true" />
+            {t("assignments.list.duplicate")}
+          </DropdownMenuItem>
+        )}
+        {intervene && !draft && (
+          <DropdownMenuItem onSelect={() => onDialog({ kind: "reopenStudent" })}>
+            <RotateCcw aria-hidden="true" />
+            {t("assignmentDetail.reopenStudent.title")}
+          </DropdownMenuItem>
+        )}
+        {write && status === "open" && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => {
+                if (write && status === "open") onDialog({ kind: "close" });
+              }}
+            >
+              <CircleStop aria-hidden="true" />
+              {t("assignments.detail.closeEarly")}
+            </DropdownMenuItem>
+          </>
+        )}
+      </HeaderMenu>
+      {write && !draft && (
         <Button
-          disabled={(a.targetCount ?? 0) === 0 || pending}
+          ref={extendRef}
+          variant="outline"
+          onClick={() => onDialog({ kind: "extend" })}
+        >
+          <Clock aria-hidden="true" />
+          {t("assignmentDetail.extend")}
+        </Button>
+      )}
+      {write && draft && (
+        <Button
+          disabled={unpublishable}
+          aria-disabled={pending || undefined}
+          className="aria-disabled:opacity-50"
           onClick={() => {
-            if (write && status === "draft") onPublish();
+            if (write && status === "draft" && !pending) onPublish();
           }}
         >
           <Send aria-hidden="true" />
@@ -633,6 +691,29 @@ function WriteActions({
         </Button>
       )}
     </>
+  );
+}
+
+function HeaderMenu({
+  label,
+  triggerRef,
+  children,
+}: Readonly<{
+  label: string;
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  children: ReactNode;
+}>) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button ref={triggerRef} variant="outline" size="icon-lg" aria-label={label}>
+          <Ellipsis aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-55">
+        {children}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -801,201 +882,5 @@ function TestCard({
         </p>
       </CardContent>
     </Card>
-  );
-}
-
-function TargetsCard({ a }: Readonly<{ a: Assignment }>) {
-  const { t } = useTranslation();
-  const { classes, students } = a.targets;
-  const reached = classes.reduce((sum, c) => sum + c.studentCount, 0) + students.length;
-  const overlap = Math.max(0, reached - (a.targetCount ?? reached));
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("assignments.detail.targets")}</CardTitle>
-        <CardDescription>
-          {t("assignments.detail.targetCount", { count: a.targetCount ?? 0 })}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 pt-1">
-        {classes.length === 0 && students.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {t("assignments.detail.noTargets")}
-          </p>
-        ) : null}
-        {classes.length > 0 && (
-          <div>
-            <p className="text-muted-foreground mb-1 text-xs">
-              {t("assignments.detail.classes")}
-            </p>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {classes.map((c) => (
-                <Badge key={c.id} variant="secondary">
-                  <GraduationCap aria-hidden="true" />
-                  {t("assignments.detail.classChip", { name: c.name })}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-        {students.length > 0 && (
-          <div>
-            <p className="text-muted-foreground mb-1 text-xs">
-              {t("assignments.detail.students")}
-            </p>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {students.map((s) => (
-                <Badge key={s.id} variant="secondary">
-                  {s.name}
-                </Badge>
-              ))}
-            </div>
-            {overlap > 0 && (
-              <p className="text-muted-foreground mt-1.5 text-xs">
-                {t("assignments.detail.overlap", { count: overlap })}
-              </p>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function TimeCard({ a }: Readonly<{ a: Assignment }>) {
-  const { t } = useTranslation();
-  const locale = useLocale();
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("assignments.detail.time")}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 pt-1 text-sm">
-        <Line
-          label={t("assignments.detail.opens")}
-          value={formatMoment(a.window.opensAt, locale)}
-        />
-        <Line
-          label={t("assignments.detail.closes")}
-          value={formatMoment(a.window.closesAt, locale)}
-        />
-        <Line
-          label={t("assignments.detail.duration")}
-          value={t("assignments.minutes", { count: a.durationMinutes })}
-        />
-        <Line
-          label={t("assignments.detail.attempts")}
-          value={
-            a.maxAttempts === 1
-              ? t("assignments.detail.attemptsOne")
-              : t("assignments.detail.attemptsMany", { count: a.maxAttempts })
-          }
-        />
-      </CardContent>
-    </Card>
-  );
-}
-
-function RulesCard({ a }: Readonly<{ a: Assignment }>) {
-  const { t } = useTranslation();
-  const { integrity } = a;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("assignments.detail.rules")}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 pt-1 text-sm">
-        <Line
-          label={t("assignments.detail.fullscreen")}
-          value={t(
-            integrity.requireFullscreen
-              ? "assignments.detail.required"
-              : "assignments.detail.notRequired",
-          )}
-        />
-        <Line
-          label={t("assignments.detail.copyPaste")}
-          value={t(
-            integrity.blockCopyPaste
-              ? "assignments.detail.blocked"
-              : "assignments.detail.allowed",
-          )}
-        />
-        <Line
-          label={t("assignments.detail.focusLoss")}
-          value={
-            integrity.maxFocusLoss === 0
-              ? t("assignments.detail.focusUnlimited")
-              : t(`assignments.detail.focusLimit.${integrity.onLimitExceeded}`, {
-                  count: Math.max(0, integrity.maxFocusLoss),
-                })
-          }
-        />
-        <Line
-          label={t("assignments.detail.shuffleQuestions")}
-          value={t(
-            a.shuffleQuestions
-              ? "assignments.detail.yesWithinSections"
-              : "assignments.detail.no",
-          )}
-        />
-        <Line
-          label={t("assignments.detail.shuffleOptions")}
-          value={t(
-            a.shuffleOptions ? "assignments.detail.yes" : "assignments.detail.no",
-          )}
-        />
-      </CardContent>
-    </Card>
-  );
-}
-
-function ReviewCard({ a }: Readonly<{ a: Assignment }>) {
-  const { t } = useTranslation();
-  const { review } = a;
-  let hint = "assignments.detail.reuseHint";
-  if (review.showCorrectAnswers) hint = "assignments.detail.reviewWhileOpen";
-  if (statusAt(a, new Date()) === "closed")
-    hint = "assignments.detail.reviewAfterClose";
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("assignments.detail.review")}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 pt-1 text-sm">
-        <Flag on={review.showScore}>{t("assignments.showScore")}</Flag>
-        <Flag on={review.showCorrectAnswers}>
-          {t("assignments.showCorrectAnswers")}
-        </Flag>
-        <Flag on={review.showExplanations}>{t("assignments.showExplanations")}</Flag>
-        <p className="text-muted-foreground text-xs leading-relaxed">{t(hint)}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Flag({ on, children }: Readonly<{ on: boolean; children: string }>) {
-  return (
-    <div
-      className={
-        on ? "flex items-center gap-2" : "text-muted-foreground flex items-center gap-2"
-      }
-    >
-      {on ? (
-        <Check className="text-muted-foreground size-4" aria-hidden="true" />
-      ) : (
-        <X className="size-4" aria-hidden="true" />
-      )}
-      {children}
-    </div>
-  );
-}
-
-function Line({ label, value }: Readonly<{ label: string; value: string }>) {
-  return (
-    <div className="flex justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium tabular-nums">{value}</span>
-    </div>
   );
 }
