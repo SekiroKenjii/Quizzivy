@@ -3435,12 +3435,6 @@ export interface components {
             blocks: components["schemas"]["ImportSourceBlock"][];
         };
         /**
-         * @description Guards are written so a third role (`teacher`, limited admin) can be
-         *     added without restructuring (§1.1).
-         * @enum {string}
-         */
-        Role: "admin" | "student";
-        /**
          * @description The permission catalogue, in the order of the Roles & permissions
          *     matrix, and equal to the rows of `app.permissions`. Each key and the
          *     matrix row it is:
@@ -3486,7 +3480,6 @@ export interface components {
             displayName?: string;
             /** Format: uri */
             avatarUrl?: string;
-            role: components["schemas"]["Role"];
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
             linkedProviders: "google"[];
@@ -3524,9 +3517,6 @@ export interface components {
          *     extended with `allOf` (issue #41). `User` stays where a response
          *     describes someone else, so a student's permissions never reach a
          *     teacher's payload.
-         *
-         *     `role` keeps its two legacy values, derived from the role, so a tab
-         *     still open on v0.7.0 keeps routing.
          */
         CurrentUser: {
             id: components["schemas"]["Uuid"];
@@ -3547,7 +3537,6 @@ export interface components {
             locale?: "vi" | "en";
             timeZone?: string;
             preferences?: components["schemas"]["UserPreferences"];
-            role: components["schemas"]["Role"];
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
             linkedProviders: "google"[];

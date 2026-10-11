@@ -57,7 +57,10 @@ const TEACHER_TREE = [
   ["/teacher/students", "features/students/pages/teacher/StudentsListPage"],
   ["/teacher/classes", "features/classes/pages/teacher/ClassesListPage"],
   ["/teacher/classes/:id", "features/classes/pages/teacher/ClassDetailPage"],
-  ["/teacher/settings/:section?", "features/auth/pages/AdminSettingsPage"],
+  [
+    "/teacher/settings/:section?",
+    "features/settings/pages/teacher/TeacherSettingsPage",
+  ],
 ];
 
 function treeOf(source: string, name: string): string {

@@ -32,9 +32,12 @@ this file describe the code as it is and name the release that changes them.
   answer through an alias until v0.9.1 (T-R3.1 to T-R3.3).
 - **v0.9.1** (T-R3.1 to T-R3.3, no earlier than 2026-10-10) removes that alias,
   drops the legacy `users.role` column with its sync trigger, and validates the
-  owner constraints and drops their fill triggers. Until then all of them are
-  in the code. By default the three now ship inside R4 as T-R4.49, because R4
-  has already taken migrations 00080 to 00091 (`73-r3.md`, "Migration numbers").
+  owner constraints and drops their fill triggers. By default the three now ship
+  inside R4 as T-R4.49, because R4 has already taken migrations 00080 to 00091
+  (`73-r3.md`, "Migration numbers"). The legacy role is gone (00105, T-R3.1):
+  no `users.role`, no `app.user_role`, no sync trigger, and no `role` in the
+  contract or in an access token. The alias (T-R3.3) and the owner constraints
+  with their fill triggers (T-R3.2) are in the code until their steps merge.
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
   an old `/admin/*` bookmark redirects.
 - **The design team's exports of 2026-10-04 (the fourth) and 2026-10-10 (v2, which
@@ -567,10 +570,9 @@ to these. Do not refactor them opportunistically while doing something else.
 refresh families, bumps `session_epoch` and calls `Principals.Forget` in one
 command (`docs/plan/70-redesign-overview.md` §4.2). Every insert names its
 owner itself: the `BEFORE INSERT` fill triggers exist only for the v0.7.0
-binary, and v0.9.1 (T-R3.1 to T-R3.3) drops them. A user write sets `role_id`,
-never `role`: 00056's trigger derives `role` until v0.9.1 (T-R3.1 to T-R3.3)
-drops the column. The `users_last_admin` trigger refuses any change that leaves
-no active Admin.
+binary, and v0.9.1 (T-R3.2) drops them. A user write sets `role_id`; the
+legacy `role` column went with 00105. The `users_last_admin` trigger refuses any
+change that leaves no active Admin.
 
 **Soft delete and the reference check are two tables, so the lock must be taken
 on both sides.** `SoftDelete` locks the row it is deleting and then counts
