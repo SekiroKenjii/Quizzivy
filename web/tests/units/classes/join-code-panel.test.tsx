@@ -216,6 +216,20 @@ describe("the Students can join switch", () => {
         "Đang tạm ngừng tham gia. Mã vẫn còn nhưng không ai dùng được cho đến khi bạn bật lại.",
       ),
     ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Gửi mã hoặc liên kết trong buổi học. Tạo mã mới thì mã cũ ngừng hoạt động.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("speaks of no code once the code is stopped", () => {
+    renderPanel({ ...KLASS, selfJoinEnabled: false, joinCode: null });
+    expect(
+      screen.getByText("Chưa có mã đang dùng. Chỉ bạn thêm được học viên vào lớp."),
+    ).toBeVisible();
+    expect(screen.queryByText(/Mã vẫn còn/)).toBeNull();
+    expect(screen.queryByText(/mã cũ ngừng hoạt động/)).toBeNull();
   });
 });
 

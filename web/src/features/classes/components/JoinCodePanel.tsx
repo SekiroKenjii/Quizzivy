@@ -53,7 +53,8 @@ const ACTION =
  * expires and how many uses it has had, Copy link, Copy code, the QR and its
  * download, New code with its expiry and use limit (30, 7 or 90 days; 1 to
  * 1,000 uses, 40 by default), and Stop after a confirm. A class with no
- * code offers Create code. A code that cannot be read shows its last four
+ * code says so and offers Create code, without the paused text or the
+ * sharing line, which speak of a code. A code that cannot be read shows its last four
  * characters until a new one is made. Without `canWrite` the card only
  * reads, the code masked.
  */
@@ -161,7 +162,7 @@ export function JoinCodePanel({
       </div>
 
       <div className="flex flex-col gap-3 px-4.5 pb-4">
-        {klass.selfJoinEnabled ? null : (
+        {klass.selfJoinEnabled || info === null ? null : (
           <p className="text-muted-fg text-meta leading-normal">
             {t("classDetail.selfJoinOffHint")}
           </p>
@@ -205,9 +206,11 @@ export function JoinCodePanel({
             )}
           </div>
         ) : null}
-        <p className="text-muted-fg text-xs leading-normal">
-          {t("classDetail.codeShareHint")}
-        </p>
+        {info === null ? null : (
+          <p className="text-muted-fg text-xs leading-normal">
+            {t("classDetail.codeShareHint")}
+          </p>
+        )}
       </div>
 
       <FormDialog
