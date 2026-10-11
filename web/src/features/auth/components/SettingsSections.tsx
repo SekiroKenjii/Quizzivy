@@ -146,8 +146,10 @@ export function PasswordSection() {
 /**
  * GoogleSection is the Google account card the deck does not draw (DG-157):
  * whether Google is linked, what unlinking would leave, and the control that
- * links or unlinks it. Unlinking replaces Unlink with Link Google, so focus
- * moves to the line that now reads "Not linked".
+ * links or unlinks it. A Google-only account keeps Unlink in the tab order,
+ * switched off and described by the fact that it signs in with Google only.
+ * Unlinking replaces Unlink with Link Google, so focus moves to the line that
+ * now reads "Not linked".
  */
 export function GoogleSection() {
   const { t } = useTranslation();
@@ -208,7 +210,7 @@ export function GoogleSection() {
           >
             {t(
               wouldLockOut
-                ? "settings.googleOnlyExplainer"
+                ? "settings.googleOnlyTeacher"
                 : "settings.googleBothExplainer",
             )}
           </p>

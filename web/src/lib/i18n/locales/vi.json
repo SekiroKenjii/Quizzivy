@@ -534,6 +534,7 @@
     "googleLinked": "Đã liên kết với Google.",
     "googleNotLinked": "Chưa liên kết với Google.",
     "googleOnlyExplainer": "Google đang là cách duy nhất để đăng nhập vào tài khoản này. Hãy đặt mật khẩu trước khi bỏ liên kết.",
+    "googleOnlyTeacher": "Bạn chỉ đăng nhập bằng Google, nên chưa thể bỏ liên kết Google.",
     "linkGoogle": "Liên kết Google",
     "unlinkGoogle": "Bỏ liên kết Google",
     "locale": {
