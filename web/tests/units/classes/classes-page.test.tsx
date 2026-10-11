@@ -330,9 +330,11 @@ describe("the classes list", () => {
 
   it("says when the codes were replaced while that notice is unread, and marks it read when dismissed", async () => {
     const marks: unknown[] = [];
+    const audiences: (string | null)[] = [];
     server.use(
-      http.get(`${BASE}/me/notifications`, () =>
-        contractJson("/me/notifications", "get", 200, {
+      http.get(`${BASE}/me/notifications`, ({ request }) => {
+        audiences.push(new URL(request.url).searchParams.get("audience"));
+        return contractJson("/me/notifications", "get", 200, {
           items: [
             {
               id: "018f0000-0000-7000-8000-0000000000e1",
@@ -347,8 +349,8 @@ describe("the classes list", () => {
             },
           ],
           nextBefore: null,
-        }),
-      ),
+        });
+      }),
       http.post(`${BASE}/me/notifications/read`, async ({ request }) => {
         marks.push(await request.json());
         return new HttpResponse(null, { status: 204 });
@@ -364,8 +366,11 @@ describe("the classes list", () => {
       }),
     );
     await waitFor(() =>
-      expect(marks).toEqual([{ ids: ["018f0000-0000-7000-8000-0000000000e1"] }]),
+      expect(marks).toEqual([
+        { audience: "teacher", ids: ["018f0000-0000-7000-8000-0000000000e1"] },
+      ]),
     );
+    expect(audiences).toContain("teacher");
     expect(screen.queryByText(/đã được thay ngày/)).toBeNull();
   });
 
