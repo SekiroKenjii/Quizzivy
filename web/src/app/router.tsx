@@ -300,7 +300,8 @@ const teacherTree: RouteObject = {
         },
         {
           path: "classes",
-          lazy: page(() => import("@/features/classes/pages/teacher/ClassesListPage")),
+          handle: { crumb: [{ key: "teacherShell.nav.classes" }], width: 1320 },
+          lazy: page(() => import("@/features/classes/pages/teacher/ClassesPage")),
         },
         {
           path: "classes/:id",

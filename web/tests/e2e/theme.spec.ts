@@ -16,17 +16,17 @@ async function prefer(page: Page, theme: string) {
 const background = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
-const noClasses = async (route: Route) => {
+const noStudents = async (route: Route) => {
   await route.fulfill({
     status: 200,
     contentType: "application/json",
     body: JSON.stringify(
-      await contractJson("/teacher/classes", "get", 200, {
+      await contractJson("/teacher/students", "get", 200, {
         page: 1,
         pageSize: 20,
         total: 0,
         items: [],
-        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
+        facets: { total: 0, activeLast7Days: 0 },
       }).json(),
     ),
   });
@@ -60,11 +60,11 @@ test("keeps a console not yet rebuilt light under a dark preference", async ({
   page,
 }) => {
   const user = { ...adminUser, preferences: { theme: "dark" as const } };
-  await stubApi(page, { ...sessionAs(user), "GET /teacher/classes": noClasses });
+  await stubApi(page, { ...sessionAs(user), "GET /teacher/students": noStudents });
   await prefer(page, "dark");
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/teacher/classes");
-  await expect(page.getByRole("heading", { name: "Lớp học", level: 1 })).toBeVisible();
+  await page.goto("/teacher/students");
+  await expect(page.getByRole("heading", { name: "Học viên", level: 1 })).toBeVisible();
   await expect(page.locator("[data-columns] main")).toBeVisible();
   await expect(page.locator('[data-scale="deck"] main')).toHaveCount(0);
   await expect(
@@ -93,7 +93,7 @@ test("restores the dark preference after visiting a console not yet rebuilt thro
     "GET /me/summary": { body: { unreadNotifications: 0 } },
     "GET /teacher/assignments": { body: dashboard23Assignments() },
     "GET /auth/sessions": { body: { items: [] } },
-    "GET /teacher/classes": noClasses,
+    "GET /teacher/students": noStudents,
   });
   await prefer(page, "dark");
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -120,10 +120,10 @@ test("restores the dark preference after visiting a console not yet rebuilt thro
 
   await page
     .getByRole("navigation", { name: "Điều hướng chính" })
-    .getByRole("link", { name: "Lớp học", exact: true })
+    .getByRole("link", { name: "Học viên", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/teacher\/classes$/);
-  await expect(page.getByRole("heading", { name: "Lớp học", level: 1 })).toBeVisible();
+  await expect(page).toHaveURL(/\/teacher\/students$/);
+  await expect(page.getByRole("heading", { name: "Học viên", level: 1 })).toBeVisible();
   await expect(page.locator("[data-columns] main")).toBeVisible();
   await expect(page.locator('[data-scale="deck"] main')).toHaveCount(0);
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
