@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useParams } from "react-router";
-import { BookOpen, Lock, Palette, User } from "lucide-react";
+import { Bell, BookOpen, Lock, Palette, SlidersHorizontal, User } from "lucide-react";
 import {
   SettingsLayout,
   type SettingsSection,
@@ -10,6 +10,8 @@ import { useCan } from "@/features/auth/permissions";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiDocsSection } from "@/features/auth/components/SettingsSections";
 import { AppearanceSection } from "@/features/settings/sections/Appearance";
+import { AssignmentDefaultsSection } from "@/features/settings/sections/AssignmentDefaults";
+import { NotificationsSection } from "@/features/settings/sections/Notifications";
 import { ProfileSection } from "@/features/settings/sections/Profile";
 import { SecuritySection } from "@/features/settings/sections/Security";
 import { UnsavedChangesGuard } from "@/features/settings/UnsavedChangesGuard";
@@ -19,17 +21,18 @@ const BASE = "/teacher/settings";
 /**
  * TeacherSettingsPage is the Teacher deck's Settings at
  * `/teacher/settings/:section`: Profile (also the bare address), Sign-in &
- * security, Appearance and, for holders of `system.api_reference` until R5,
- * API reference. Notifications and Assignment defaults join with T-R4.44
- * (DG-157). Every section stays mounted, so an unsaved profile survives a
- * visit to another one, and leaving Settings with unsaved changes asks
- * first. Any other section, the pre-R4 "preferences" included, is replaced
- * by the bare address.
+ * security, Notifications, Assignment defaults for those who may assign,
+ * Appearance and, for holders of `system.api_reference` until R5, API
+ * reference (DG-157). Every section stays mounted, so unsaved changes
+ * survive a visit to another one, and leaving Settings with unsaved changes
+ * asks first. Any other section, the pre-R4 "preferences" included, is
+ * replaced by the bare address.
  */
 export default function TeacherSettingsPage() {
   const { t } = useTranslation();
   const { section } = useParams();
   const canReadDocs = useCan("system.api_reference");
+  const canAssign = useCan("teaching.assignments.write");
   const sections = useMemo<SettingsSection[]>(
     () => [
       {
@@ -46,6 +49,24 @@ export default function TeacherSettingsPage() {
         to: `${BASE}/security`,
         content: <SecuritySection />,
       },
+      {
+        id: "notifications",
+        label: t("settings.sections.notifications"),
+        icon: Bell,
+        to: `${BASE}/notifications`,
+        content: <NotificationsSection />,
+      },
+      ...(canAssign
+        ? [
+            {
+              id: "defaults",
+              label: t("settings.sections.defaults"),
+              icon: SlidersHorizontal,
+              to: `${BASE}/defaults`,
+              content: <AssignmentDefaultsSection />,
+            },
+          ]
+        : []),
       {
         id: "appearance",
         label: t("settings.sections.appearance"),
@@ -65,7 +86,7 @@ export default function TeacherSettingsPage() {
           ]
         : []),
     ],
-    [t, canReadDocs],
+    [t, canReadDocs, canAssign],
   );
 
   if (section !== undefined && !sections.some(({ id }) => id === section)) {

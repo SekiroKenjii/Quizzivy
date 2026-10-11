@@ -568,7 +568,9 @@
       "profile": "Profile",
       "security": "Sign-in & security",
       "appearance": "Appearance",
-      "api": "API reference"
+      "api": "API reference",
+      "notifications": "Notifications",
+      "defaults": "Assignment defaults"
     },
     "preferenceSaving": "Saving preference…",
     "preferenceSaved": "Preference saved.",
@@ -651,6 +653,39 @@
       },
       "compact": "Compact tables",
       "compactHint": "Show more rows with less spacing"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "hint": "Choose where each update reaches you.",
+      "update": "Update",
+      "inApp": "In app",
+      "inAppFor": "{{update}} in app",
+      "loadFailed": "Your notification settings could not be loaded.",
+      "events": {
+        "submitted": "A student submits",
+        "submittedHint": "Grouped every 15 minutes",
+        "flagged": "An attempt is flagged",
+        "flaggedHint": "Focus lost more than allowed",
+        "closing": "An assignment is about to close",
+        "closingHint": "1 hour before, with who has not submitted"
+      }
+    },
+    "defaults": {
+      "title": "Assignment defaults",
+      "hint": "Pre-filled every time you assign a test. You can still change them per assignment.",
+      "duration": "Time limit",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "rules": {
+        "shuffle": "Shuffle questions",
+        "shuffleHint": "Each student gets a different order",
+        "score": "Show score after submitting",
+        "scoreHint": "Open answers stay pending until graded",
+        "copy": "Block copy and paste",
+        "copyHint": "Stops copying questions or pasting answers",
+        "fullscreen": "Require fullscreen",
+        "fullscreenHint": "Asks the student to return if they leave"
+      }
     }
   },
   "media": {
@@ -1590,7 +1625,6 @@
       "savedToday": "Saved at {{time}} today",
       "savedOn": "Saved at {{time}} · {{date}}",
       "opensAt": "Opens {{when}}",
-      "closesAt": "Closes {{when}}",
       "closedAt": "Closed {{when}}",
       "edit": "Edit",
       "publish": "Assign",
@@ -1600,18 +1634,7 @@
       "notSubmittedNames": "Not submitted: {{names}}",
       "openTable": "Open the student table",
       "viewAttempts": "View attempts",
-      "reopened": "Assignment reopened",
-      "reopenFailed": "Could not reopen the assignment.",
-      "reopenConfirm": "Reopen",
-      "reopenNote": "Anyone with attempts left can go back in.",
       "reopenReasonHint": "The reason is recorded with your name.",
-      "reopenReason": "Reason",
-      "reopenPick": "Pick a time…",
-      "reopenPlusThreeDays": "Add 3 days",
-      "reopenPlusDay": "Add 1 day",
-      "reopenUntilToday": "Until 21:00 today",
-      "reopenTitle": "Reopen for all {{count}} students",
-      "reopen": "Extend for everyone",
       "closeEarlyWhenOpen": "Close early is available once it opens",
       "publishFailed": "Could not assign it.",
       "draftNote": "Students cannot see this yet. Press <strong>Assign</strong> to show it under Upcoming for {{count}} students and open it on the schedule below.",
@@ -1669,17 +1692,18 @@
       "no": "No",
       "review": "What students see after submitting",
       "reuseHint": "Correct answers are hidden, so this test can be reused for another class.",
-      "closeNowTitle": "Close the assignment now?",
+      "closeNowTitle": "Close {{title}} now?",
       "closeNowBody": "Closes at {{now}} today instead of {{planned}}. Students who have not started can no longer get in.",
       "closeNowNote": "Students mid-test still get their full {{minutes}} minutes.",
       "closeNowAck": "I understand students mid-test keep their time",
       "closeNow": "Close now",
       "closeFailed": "Could not close the assignment.",
       "closeTable": "Close the student table",
-      "reopenMenuHint": "The next step asks for a reason. Anyone with attempts left can go back in.",
       "extraStudents": "+{{count}} individual students",
       "reviewAfterClose": "The assignment is closed. Students can review it according to the permissions above; pending grades update when marking is complete.",
-      "reviewWhileOpen": "Students can see correct answers after submitting, even while the assignment is still open."
+      "reviewWhileOpen": "Students can see correct answers after submitting, even while the assignment is still open.",
+      "closeNowKeepTime_one": "{{count}} student with their own extension keeps it.",
+      "closeNowKeepTime_other": "{{count}} students with their own extension keep it."
     },
     "panel": {
       "title": "Student table",
@@ -1928,11 +1952,24 @@
       "by30": "30 min",
       "by60": "1 hour",
       "by1440": "1 day",
+      "byCustom": "Pick a time…",
       "notify": "Notify students",
-      "notifySub": "They get a message in the app.",
+      "notifySub": "They get an in-app message.",
       "extendSubmit": "Extend",
       "extended": "Deadline extended by {{by}}.",
       "extendedMany": "{{count}} assignments extended by {{by}}.",
+      "extendFor": "For",
+      "extendEveryone": "Everyone",
+      "extendChosen": "Chosen students",
+      "extendStudents": "Students",
+      "extendNoStudents": "Choose at least one student.",
+      "extendTooMany": "Choose at most {{count}} students at a time.",
+      "extendedFor_one": "Deadline extended by {{by}} for {{count}} student.",
+      "extendedFor_other": "Deadline extended by {{by}} for {{count}} students.",
+      "reopenWhen": "{{title}} · closed {{when}}. Opens again until {{until}}.",
+      "reopened": "Reopened until {{when}}.",
+      "reopenedFor_one": "Reopened until {{when}} for {{count}} student.",
+      "reopenedFor_other": "Reopened until {{when}} for {{count}} students.",
       "failedItems": "{{count}} not done:",
       "duplicateTitle": "Duplicate assignment",
       "duplicateBody": "Creates a draft with the same test and rules. Nothing is sent.",
@@ -3725,6 +3762,83 @@
       "leaveFailed": "The note could not be saved. Retry or discard your changes to continue.",
       "discardLeave": "Discard and continue",
       "stay": "Stay"
+    },
+    "extendedTo": "Extended to {{when}}",
+    "moreActions": "More actions",
+    "extend": "Extend",
+    "editSettings": "Edit settings",
+    "reason": "Reason",
+    "analysis": {
+      "title": "Questions by difficulty",
+      "intro": "Questions sorted by how often students got them wrong.",
+      "number": "Q{{n}}",
+      "correct": "{{n}}% correct",
+      "noMarks": "No marks for this question yet",
+      "noPrompt": "(Question without text)",
+      "empty": "No papers handed in yet.",
+      "noPermission": "Seeing which questions students got wrong needs the grading permission.",
+      "loadFailed": "Could not load the question statistics."
+    },
+    "settings": {
+      "shown": "Shown",
+      "hidden": "Hidden",
+      "locked": "Locked while students are taking the test",
+      "lockedClosed": "Closed: use Extend to reopen it or move its close",
+      "lockedPill": "Locked",
+      "edit": "Edit",
+      "editLabel": "Edit {{group}}",
+      "editTitle": "Edit {{group}}",
+      "save": "Save changes",
+      "saved": "{{group}} saved. Students see the change right away.",
+      "timing": {
+        "title": "Test & timing",
+        "hint": "What students take and for how long",
+        "timerSub": "Timer starts when the student presses Start",
+        "questionsShuffled": "Questions shuffled within each section",
+        "questionsInOrder": "Questions in order",
+        "optionsShuffled": "options shuffled",
+        "optionsInOrder": "options in order"
+      },
+      "window": {
+        "title": "Window",
+        "hint": "When the test can be started",
+        "closesSub": "In-progress attempts are submitted automatically",
+        "closedEarly": "Closed early; planned to close {{planned}}",
+        "assignedTo": "Assigned to",
+        "noClasses": "No class yet",
+        "students_one": "{{count}} student",
+        "students_other": "{{count}} students",
+        "namedStudents_one": "The {{count}} student assigned by name stays assigned.",
+        "namedStudents_other": "The {{count}} students assigned by name stay assigned."
+      },
+      "integrity": {
+        "title": "Integrity",
+        "hint": "How focus loss is handled"
+      },
+      "results": {
+        "title": "Results",
+        "hint": "What students see after submitting"
+      },
+      "note": {
+        "title": "Note to students",
+        "hint": "Shown on the test's intro page",
+        "label": "Note",
+        "none": "No note"
+      }
+    },
+    "reopenStudent": {
+      "title": "Reopen for a student",
+      "description": "Reopens the assignment for one student, with their own time limit.",
+      "oneMore": "{{name}} has used their attempts, so they get one more.",
+      "canContinue": "{{name}} still has attempts left, so they can continue without one more.",
+      "student": "Student",
+      "until": "Open until",
+      "untilTime": "Closing time",
+      "untilPast": "Pick a moment after now.",
+      "submit": "Reopen",
+      "done": "Reopened for {{name}}",
+      "failed": "Could not reopen for this student.",
+      "unread": "Could not read the students' current extensions. Close this and try again."
     }
   },
   "markdownEditor": {

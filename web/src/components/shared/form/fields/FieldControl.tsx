@@ -96,7 +96,9 @@ export function FieldControl<V extends FormValues>({
       return (
         <Control
           {...props}
-          options={field.options}
+          options={
+            typeof field.options === "function" ? field.options(values) : field.options
+          }
           {...(field.kind === "list"
             ? {
                 search: field.search,

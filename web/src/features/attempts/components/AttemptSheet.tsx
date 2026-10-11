@@ -96,7 +96,9 @@ export function AttemptSheet(props: Props) {
         )
       }
       footer={
-        data === undefined ? undefined : <AttemptFooter data={data} active={active} />
+        data === undefined ? undefined : (
+          <AttemptFooter assignmentId={assignment.id} data={data} active={active} />
+        )
       }
     >
       {recovery}
@@ -147,9 +149,10 @@ function AttemptContent(
 }
 
 function AttemptFooter({
+  assignmentId,
   data,
   active,
-}: Readonly<{ data: AttemptReview; active: boolean }>) {
+}: Readonly<{ assignmentId: string; data: AttemptReview; active: boolean }>) {
   const { t } = useTranslation();
   const grade = useCan("teaching.grading");
   const pending =
@@ -171,7 +174,7 @@ function AttemptFooter({
       {grade && pending && (
         <Button asChild className="h-9.5 min-w-0 flex-1">
           <Link
-            to={`/teacher/attempts/${data.attempt.id}`}
+            to={gradingFor(assignmentId, data.attempt.studentId)}
             aria-disabled={!active}
             tabIndex={active ? undefined : -1}
             onClick={(event) => {
@@ -386,4 +389,9 @@ function AttemptNote({
       )}
     </div>
   );
+}
+
+function gradingFor(assignmentId: string, studentId: string): string {
+  const query = new URLSearchParams({ assignment: assignmentId, student: studentId });
+  return `/teacher/grading?${query.toString()}`;
 }

@@ -568,7 +568,9 @@
       "profile": "Hồ sơ",
       "security": "Đăng nhập & bảo mật",
       "appearance": "Giao diện",
-      "api": "Tài liệu API"
+      "api": "Tài liệu API",
+      "notifications": "Thông báo",
+      "defaults": "Mặc định khi giao bài"
     },
     "preferenceSaving": "Đang lưu tùy chọn…",
     "preferenceSaved": "Đã lưu tùy chọn.",
@@ -651,6 +653,39 @@
       },
       "compact": "Bảng thu gọn",
       "compactHint": "Hiện nhiều dòng hơn với khoảng cách hẹp hơn"
+    },
+    "notifications": {
+      "title": "Thông báo",
+      "hint": "Chọn nơi mỗi cập nhật đến với bạn.",
+      "update": "Cập nhật",
+      "inApp": "Trong ứng dụng",
+      "inAppFor": "{{update}} trong ứng dụng",
+      "loadFailed": "Không tải được cài đặt thông báo.",
+      "events": {
+        "submitted": "Học viên nộp bài",
+        "submittedHint": "Gộp lại mỗi 15 phút",
+        "flagged": "Một lượt làm bài bị gắn cờ",
+        "flaggedHint": "Rời khỏi bài quá số lần cho phép",
+        "closing": "Bài giao sắp đóng",
+        "closingHint": "Trước 1 giờ, kèm những ai chưa nộp"
+      }
+    },
+    "defaults": {
+      "title": "Mặc định khi giao bài",
+      "hint": "Điền sẵn mỗi khi bạn giao đề. Bạn vẫn đổi được cho từng bài giao.",
+      "duration": "Thời gian làm bài",
+      "minutes_one": "{{count}} phút",
+      "minutes_other": "{{count}} phút",
+      "rules": {
+        "shuffle": "Xáo trộn câu hỏi",
+        "shuffleHint": "Mỗi học viên nhận một thứ tự khác",
+        "score": "Hiện điểm sau khi nộp",
+        "scoreHint": "Câu tự luận chờ đến khi được chấm",
+        "copy": "Chặn sao chép và dán",
+        "copyHint": "Không cho chép câu hỏi hay dán câu trả lời",
+        "fullscreen": "Bắt buộc toàn màn hình",
+        "fullscreenHint": "Nhắc học viên quay lại nếu rời đi"
+      }
     }
   },
   "media": {
@@ -1590,7 +1625,6 @@
       "savedToday": "Lưu lúc {{time}} hôm nay",
       "savedOn": "Lưu lúc {{time}} · {{date}}",
       "opensAt": "Mở lúc {{when}}",
-      "closesAt": "Đóng lúc {{when}}",
       "closedAt": "Đóng lúc {{when}}",
       "edit": "Chỉnh sửa",
       "publish": "Giao bài",
@@ -1600,18 +1634,7 @@
       "notSubmittedNames": "Chưa nộp: {{names}}",
       "openTable": "Mở bảng học viên",
       "viewAttempts": "Xem bài làm",
-      "reopened": "Đã mở lại bài giao",
-      "reopenFailed": "Không mở lại được bài giao.",
-      "reopenConfirm": "Mở lại",
-      "reopenNote": "Ai còn lượt làm đều được vào lại.",
       "reopenReasonHint": "Lý do được ghi lại kèm tên bạn.",
-      "reopenReason": "Lý do",
-      "reopenPick": "Chọn thời điểm…",
-      "reopenPlusThreeDays": "Thêm 3 ngày",
-      "reopenPlusDay": "Thêm 1 ngày",
-      "reopenUntilToday": "Đến 21:00 hôm nay",
-      "reopenTitle": "Mở lại cho cả {{count}} học viên",
-      "reopen": "Gia hạn cho tất cả",
       "closeEarlyWhenOpen": "Đóng sớm bật khi bài đã mở",
       "publishFailed": "Không giao được bài.",
       "draftNote": "Học viên chưa thấy bài này. Bấm <strong>Giao bài</strong> để bài xuất hiện trong mục Sắp tới của {{count}} học viên và mở đúng lịch bên dưới.",
@@ -1669,17 +1692,18 @@
       "no": "Không",
       "review": "Học viên xem gì sau khi nộp",
       "reuseHint": "Đã tắt xem đáp án đúng, nên đề này dùng lại được cho lớp khác.",
-      "closeNowTitle": "Đóng bài giao ngay?",
+      "closeNowTitle": "Đóng {{title}} ngay?",
       "closeNowBody": "Đóng lúc {{now}} hôm nay thay vì {{planned}}. Học viên chưa bắt đầu sẽ không vào được nữa.",
       "closeNowNote": "Học viên đang làm vẫn được làm hết {{minutes}} phút của mình.",
       "closeNowAck": "Tôi hiểu học viên đang làm vẫn được làm hết giờ",
       "closeNow": "Đóng ngay",
       "closeFailed": "Không đóng được bài giao.",
       "closeTable": "Đóng bảng học viên",
-      "reopenMenuHint": "Bước sau sẽ hỏi lý do. Ai còn lượt làm đều được vào lại.",
       "extraStudents": "+{{count}} học viên lẻ",
       "reviewAfterClose": "Bài đã đóng. Học viên xem kết quả theo các quyền ở trên; bài chờ chấm sẽ cập nhật khi giáo viên hoàn tất.",
-      "reviewWhileOpen": "Học viên được xem đáp án đúng sau khi nộp, kể cả khi bài vẫn đang mở."
+      "reviewWhileOpen": "Học viên được xem đáp án đúng sau khi nộp, kể cả khi bài vẫn đang mở.",
+      "closeNowKeepTime_one": "{{count}} học viên được gia hạn riêng vẫn giữ thời gian của mình.",
+      "closeNowKeepTime_other": "{{count}} học viên được gia hạn riêng vẫn giữ thời gian của mình."
     },
     "panel": {
       "title": "Bảng học viên",
@@ -1928,11 +1952,24 @@
       "by30": "30 phút",
       "by60": "1 giờ",
       "by1440": "1 ngày",
+      "byCustom": "Chọn thời điểm…",
       "notify": "Báo cho học viên",
       "notifySub": "Học viên nhận thông báo trong ứng dụng.",
       "extendSubmit": "Gia hạn",
       "extended": "Đã gia hạn thêm {{by}}.",
       "extendedMany": "Đã gia hạn {{count}} bài giao thêm {{by}}.",
+      "extendFor": "Áp dụng cho",
+      "extendEveryone": "Mọi người",
+      "extendChosen": "Học viên được chọn",
+      "extendStudents": "Học viên",
+      "extendNoStudents": "Chọn ít nhất một học viên.",
+      "extendTooMany": "Mỗi lần chọn tối đa {{count}} học viên.",
+      "extendedFor_one": "Đã gia hạn thêm {{by}} cho {{count}} học viên.",
+      "extendedFor_other": "Đã gia hạn thêm {{by}} cho {{count}} học viên.",
+      "reopenWhen": "{{title}} · đã đóng {{when}}. Mở lại đến {{until}}.",
+      "reopened": "Đã mở lại đến {{when}}.",
+      "reopenedFor_one": "Đã mở lại đến {{when}} cho {{count}} học viên.",
+      "reopenedFor_other": "Đã mở lại đến {{when}} cho {{count}} học viên.",
       "failedItems": "Chưa xong {{count}} bài giao:",
       "duplicateTitle": "Nhân bản bài giao",
       "duplicateBody": "Tạo một bản nháp cùng đề và quy định. Chưa gửi cho ai.",
@@ -3725,6 +3762,83 @@
       "leaveFailed": "Chưa lưu được ghi chú. Hãy thử lại hoặc bỏ thay đổi để tiếp tục.",
       "discardLeave": "Bỏ thay đổi và tiếp tục",
       "stay": "Ở lại"
+    },
+    "extendedTo": "Gia hạn đến {{when}}",
+    "moreActions": "Thao tác khác",
+    "extend": "Gia hạn",
+    "editSettings": "Sửa cài đặt",
+    "reason": "Lý do",
+    "analysis": {
+      "title": "Câu hỏi theo mức độ khó",
+      "intro": "Các câu hỏi xếp theo mức độ học viên làm sai nhiều nhất.",
+      "number": "C{{n}}",
+      "correct": "{{n}}% đúng",
+      "noMarks": "Chưa có bài chấm cho câu này",
+      "noPrompt": "(Câu hỏi không có chữ)",
+      "empty": "Chưa có bài nộp nào.",
+      "noPermission": "Cần quyền chấm bài để xem học viên làm sai câu nào.",
+      "loadFailed": "Không tải được thống kê câu hỏi."
+    },
+    "settings": {
+      "shown": "Hiện",
+      "hidden": "Ẩn",
+      "locked": "Bị khóa khi học viên đang làm bài",
+      "lockedClosed": "Bài đã đóng: dùng Gia hạn để mở lại hoặc đổi giờ đóng",
+      "lockedPill": "Đã khóa",
+      "edit": "Sửa",
+      "editLabel": "Sửa {{group}}",
+      "editTitle": "Sửa {{group}}",
+      "save": "Lưu thay đổi",
+      "saved": "Đã lưu {{group}}. Học viên thấy thay đổi ngay.",
+      "timing": {
+        "title": "Đề và thời gian",
+        "hint": "Học viên làm đề nào và trong bao lâu",
+        "timerSub": "Đồng hồ chạy khi học viên bấm Bắt đầu",
+        "questionsShuffled": "Đảo câu hỏi trong từng phần",
+        "questionsInOrder": "Câu hỏi theo thứ tự",
+        "optionsShuffled": "đảo phương án",
+        "optionsInOrder": "phương án theo thứ tự"
+      },
+      "window": {
+        "title": "Thời gian mở",
+        "hint": "Khi nào học viên có thể bắt đầu",
+        "closesSub": "Bài đang làm được nộp tự động khi đến giờ đóng",
+        "closedEarly": "Đóng sớm; dự kiến đóng {{planned}}",
+        "assignedTo": "Giao cho",
+        "noClasses": "Chưa giao cho lớp nào",
+        "students_one": "{{count}} học viên",
+        "students_other": "{{count}} học viên",
+        "namedStudents_one": "Giữ nguyên {{count}} học viên được giao riêng.",
+        "namedStudents_other": "Giữ nguyên {{count}} học viên được giao riêng."
+      },
+      "integrity": {
+        "title": "Tính toàn vẹn",
+        "hint": "Xử lý khi học viên rời bài"
+      },
+      "results": {
+        "title": "Kết quả",
+        "hint": "Học viên thấy gì sau khi nộp bài"
+      },
+      "note": {
+        "title": "Lời nhắn cho học viên",
+        "hint": "Hiện trên trang giới thiệu bài",
+        "label": "Lời nhắn",
+        "none": "Không có lời nhắn"
+      }
+    },
+    "reopenStudent": {
+      "title": "Mở lại cho một học viên",
+      "description": "Mở lại bài cho một học viên, với thời gian làm riêng.",
+      "oneMore": "{{name}} đã dùng hết lượt làm, nên sẽ được thêm một lượt.",
+      "canContinue": "{{name}} vẫn còn lượt làm, nên có thể tiếp tục mà không cần thêm lượt.",
+      "student": "Học viên",
+      "until": "Mở đến ngày",
+      "untilTime": "Giờ đóng",
+      "untilPast": "Chọn một thời điểm sau bây giờ.",
+      "submit": "Mở lại",
+      "done": "Đã mở lại cho {{name}}",
+      "failed": "Không mở lại được cho học viên này.",
+      "unread": "Không đọc được phần gia hạn riêng hiện có. Đóng hộp thoại rồi thử lại."
     }
   },
   "markdownEditor": {
