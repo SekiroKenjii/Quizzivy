@@ -671,7 +671,9 @@
       "uploadNew": "Tải tệp mới",
       "attach": "Đính kèm",
       "notUsedYet": "Chưa dùng"
-    }
+    },
+    "noun_one": "tệp",
+    "noun_other": "tệp"
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",
@@ -1252,7 +1254,9 @@
         "confirm": "Xoá phiên bản",
         "done": "Đã xoá phiên bản {{n}}"
       }
-    }
+    },
+    "noun_one": "đề thi",
+    "noun_other": "đề thi"
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
@@ -3437,8 +3441,8 @@
       "file": "Tệp",
       "review": "Cần rà soát",
       "test": "Đề",
-      "pageSize": "Số lượt nhập mỗi trang",
-      "rows": "{{count}} lượt mỗi trang",
+      "noun_one": "lượt nhập",
+      "noun_other": "lượt nhập",
       "withKey": "kèm {{name}}",
       "noTest": "chưa có",
       "openTest": "Mở đề {{title}}",

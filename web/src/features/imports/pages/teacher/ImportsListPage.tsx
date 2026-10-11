@@ -6,21 +6,13 @@ import { ClipboardPaste, FileText, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { Segmented } from "@/components/ui/segmented";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { useAuthStore } from "@/stores/auth";
 import { ImportDownloadMenu } from "../../components/ImportDownloadMenu";
-import { Pager } from "@/components/shared/Pager";
+import { Pager } from "@/components/shared/data/Pager";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
@@ -81,7 +73,7 @@ export default function ImportsListPage() {
   const availability = useImportAvailability();
   const canStart = availability === "on";
   const poll = useIdlePolling(HISTORY_POLL_MS);
-  const [size, setSize] = usePageSize(PAGE_SIZES);
+  const [size] = usePageSize(PAGE_SIZES);
   const query = params.get("q") ?? "";
   const search = useDebounced(query.trim(), 300);
   const requested = params.get("status");
@@ -142,48 +134,57 @@ export default function ImportsListPage() {
   );
 
   const results = (data: NonNullable<typeof list.data>) => {
-    if (data.items.length > 0)
+    if (data.total > 0)
       return (
         <>
-          <div className="@container/import-history min-w-0">
-            <Card
-              role="table"
-              aria-label={t("imports.historyTitle")}
-              className="gap-0 overflow-hidden py-0"
-            >
-              <div role="rowgroup" className="hidden @[960px]/import-history:block">
-                <div
-                  role="row"
-                  className={cn(
-                    "bg-muted text-meta text-muted-fg grid items-center gap-3 px-4 py-2.5",
-                    GRID,
-                  )}
-                >
-                  <span role="columnheader">{t("imports.history.file")}</span>
-                  <span role="columnheader">{t("imports.columnStatus")}</span>
-                  <span role="columnheader">{t("imports.history.review")}</span>
-                  <span role="columnheader">{t("imports.history.test")}</span>
-                  <span role="columnheader" className="sr-only">
-                    {t("imports.columnActions")}
-                  </span>
-                  <span role="columnheader" className="sr-only">
-                    {t("common.actions")}
-                  </span>
+          {data.items.length > 0 ? (
+            <div className="@container/import-history min-w-0">
+              <Card
+                role="table"
+                aria-label={t("imports.historyTitle")}
+                className="gap-0 overflow-hidden py-0"
+              >
+                <div role="rowgroup" className="hidden @[960px]/import-history:block">
+                  <div
+                    role="row"
+                    className={cn(
+                      "bg-muted text-meta text-muted-fg grid items-center gap-3 px-4 py-2.5",
+                      GRID,
+                    )}
+                  >
+                    <span role="columnheader">{t("imports.history.file")}</span>
+                    <span role="columnheader">{t("imports.columnStatus")}</span>
+                    <span role="columnheader">{t("imports.history.review")}</span>
+                    <span role="columnheader">{t("imports.history.test")}</span>
+                    <span role="columnheader" className="sr-only">
+                      {t("imports.columnActions")}
+                    </span>
+                    <span role="columnheader" className="sr-only">
+                      {t("common.actions")}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div role="rowgroup" className="divide-border divide-y">
-                {data.items.map((item) => (
-                  <HistoryRow
-                    key={item.id}
-                    item={item}
-                    locale={locale}
-                    processing={canStart}
-                  />
-                ))}
-              </div>
-            </Card>
-          </div>
-          <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+                <div role="rowgroup" className="divide-border divide-y">
+                  {data.items.map((item) => (
+                    <HistoryRow
+                      key={item.id}
+                      item={item}
+                      locale={locale}
+                      processing={canStart}
+                    />
+                  ))}
+                </div>
+              </Card>
+            </div>
+          ) : null}
+          <Pager
+            page={data.page}
+            pageSize={data.pageSize}
+            total={data.total}
+            noun={(count) => t("imports.history.noun", { count })}
+            sizes={PAGE_SIZES}
+            frame="plain"
+          />
         </>
       );
     if (filtered)
@@ -245,24 +246,6 @@ export default function ImportsListPage() {
           placeholder={t("imports.searchPlaceholder")}
         />
       </div>
-      <Select value={String(size)} onValueChange={(value) => setSize(Number(value))}>
-        <SelectTrigger
-          className="w-auto self-end"
-          aria-label={t("imports.history.pageSize")}
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {PAGE_SIZES.map((value) => (
-              <SelectItem key={value} value={String(value)}>
-                {t("imports.history.rows", { count: value })}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-
       {list.data === undefined ? (
         <QueryStates
           query={list}
