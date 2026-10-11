@@ -54,7 +54,7 @@ const TEACHER_TREE = [
   ],
   ["/teacher/attempts/:id", "features/attempts/pages/teacher/AttemptReviewPage"],
   ["/teacher/grading", "features/attempts/pages/teacher/GradingPage"],
-  ["/teacher/students", "features/students/pages/teacher/StudentsListPage"],
+  ["/teacher/students", "features/students/pages/teacher/StudentsPage"],
   ["/teacher/classes", "features/classes/pages/teacher/ClassesListPage"],
   ["/teacher/classes/:id", "features/classes/pages/teacher/ClassDetailPage"],
   [

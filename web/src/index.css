@@ -472,3 +472,24 @@
     transition: none;
   }
 }
+
+/* A sheet of one-time passwords prints alone: everything else on the page is
+   hidden, and the dialog is laid out as a plain page. */
+@media print {
+  body:has([data-print="credentials"]) * {
+    visibility: hidden;
+  }
+  [data-print="credentials"],
+  [data-print="credentials"] * {
+    visibility: visible;
+  }
+  [data-print="credentials"] {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-height: none;
+    transform: none;
+    border: 0;
+    box-shadow: none;
+  }
+}
