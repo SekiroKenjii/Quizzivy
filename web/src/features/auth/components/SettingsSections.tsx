@@ -21,6 +21,7 @@ import {
 } from "@/features/auth/google/useGoogleSignIn";
 import { api, BASE_URL } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
+import { focusIsLost } from "@/lib/focusIsLost";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 const BODY = "flex flex-col gap-3.5 p-4.5";
@@ -168,8 +169,7 @@ export function GoogleSection() {
   useEffect(() => {
     if (linked || !unlinking.current) return;
     unlinking.current = false;
-    const active = document.activeElement;
-    if (active === null || active === document.body) notLinkedLine.current?.focus();
+    if (focusIsLost()) notLinkedLine.current?.focus();
   }, [linked]);
 
   async function unlink() {
@@ -223,7 +223,7 @@ export function GoogleSection() {
         {linked ? (
           <Button
             variant="outline"
-            aria-disabled={pending || wouldLockOut}
+            aria-disabled={pending || wouldLockOut || undefined}
             aria-describedby="settings-google-explainer"
             className={ACTION}
             onClick={() => {

@@ -69,7 +69,7 @@ describe("the settings cards say what the deck writes", () => {
     expect(screen.getByText("Đã liên kết với Google.")).toBeInTheDocument();
     expect(screen.getByText(/Bỏ liên kết thì chỉ còn mật khẩu\./)).toBeInTheDocument();
     const unlink = screen.getByRole("button", { name: "Bỏ liên kết Google" });
-    expect(unlink).toHaveAttribute("aria-disabled", "false");
+    expect(unlink).not.toHaveAttribute("aria-disabled");
     expect(unlink).toHaveAccessibleDescription(/Bỏ liên kết thì chỉ còn mật khẩu/);
   });
 

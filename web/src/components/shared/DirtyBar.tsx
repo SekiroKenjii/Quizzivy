@@ -2,14 +2,10 @@ import { useEffect, useEffectEvent, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { focusIsLost } from "@/lib/focusIsLost";
 import { cn } from "@/lib/utils";
 
 const BUTTON = "h-8.5 flex-none aria-disabled:opacity-50";
-
-function focusIsLost() {
-  const active = document.activeElement;
-  return active === null || active === document.body;
-}
 
 /**
  * DirtyBar is the Teacher deck's unsaved-changes bar: it sticks 12px above
@@ -42,7 +38,13 @@ export function DirtyBar({
 }>) {
   const { t } = useTranslation();
   const pressed = useRef(false);
+  const wasSaving = useRef(saving);
   const restoreFocus = useEffectEvent(() => returnFocus()?.focus());
+
+  useEffect(() => {
+    if (wasSaving.current && !saving && dirty) pressed.current = false;
+    wasSaving.current = saving;
+  }, [saving, dirty]);
 
   useEffect(() => {
     if (dirty || !pressed.current) return;

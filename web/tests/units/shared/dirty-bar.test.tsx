@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { useRef, useState } from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DirtyBar } from "@/components/shared/DirtyBar";
 import { DeckScale } from "@/components/ui/deck-scale";
@@ -213,5 +213,33 @@ describe("focus when the unsaved-changes bar goes", () => {
     await user.type(field, "a{Enter}");
     expect(screen.queryByText(SENTENCE)).toBeNull();
     expect(field).toHaveFocus();
+  });
+
+  it("forgets a failed save, so a later reset from elsewhere does not move focus", async () => {
+    const user = userEvent.setup();
+    const target = document.createElement("button");
+    document.body.append(target);
+    const bar = (dirty: boolean, saving: boolean) => (
+      <DeckScale>
+        <form aria-label="Hồ sơ" onSubmit={(event) => event.preventDefault()}>
+          <DirtyBar
+            dirty={dirty}
+            saving={saving}
+            onDiscard={() => {}}
+            returnFocus={() => target}
+          />
+        </form>
+      </DeckScale>
+    );
+    const view = render(bar(true, false));
+
+    await user.click(save());
+    view.rerender(bar(true, true));
+    view.rerender(bar(true, false));
+    act(() => (document.activeElement as HTMLElement).blur());
+    view.rerender(bar(false, false));
+
+    expect(target).not.toHaveFocus();
+    target.remove();
   });
 });
