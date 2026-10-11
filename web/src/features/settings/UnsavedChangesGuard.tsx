@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useBlocker } from "react-router";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -44,12 +44,10 @@ export function UnsavedChangesGuard({
     [],
   );
   const unsaved = unsavedSections.size > 0;
-  const leaving = useRef(false);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       unsaved &&
-      !leaving.current &&
       within(base, currentLocation.pathname) &&
       !within(base, nextLocation.pathname) &&
       nextLocation.pathname !== "/login",
@@ -76,9 +74,7 @@ export function UnsavedChangesGuard({
         cancelLabel={t("settings.leave.stay")}
         destructive
         onConfirm={() => {
-          if (blocker.state !== "blocked") return;
-          leaving.current = true;
-          blocker.proceed();
+          if (blocker.state === "blocked") blocker.proceed();
         }}
       />
     </ReportUnsaved.Provider>
