@@ -77,11 +77,14 @@ const (
 
 // ListQuery asks for one user's notifications older than Before, newest
 // first. Before is a position in that user's own list: an id the user does
-// not hold only bounds the page. An empty Before starts at the newest.
+// not hold only bounds the page. An empty Before starts at the newest. A
+// non-empty Audience narrows the list, and so its pages, to that console's
+// kinds.
 type ListQuery struct {
-	UserID string
-	Before string
-	Limit  int
+	UserID   string
+	Before   string
+	Limit    int
+	Audience Audience
 }
 
 // Size is the page the query gets: Limit, DefaultLimit when Limit is zero or

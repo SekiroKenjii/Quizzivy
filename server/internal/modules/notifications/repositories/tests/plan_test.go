@@ -77,13 +77,29 @@ func TestTheListAndTheCountAreGivenByTheirIndexes(t *testing.T) {
 	if _, err := store.List(ctx, domain.ListQuery{UserID: userID, Before: uuid.NewString(), Limit: 20}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Unread(ctx, userID); err != nil {
+	if _, err := store.Unread(ctx, userID, ""); err != nil {
 		t.Fatal(err)
 	}
-	if len(conn.seen) != 3 || len(conn.seen[0].args) != 2 || len(conn.seen[1].args) != 3 || len(conn.seen[2].args) != 1 {
-		t.Fatalf("three reads ran %+v", conn.seen)
+	if _, err := store.List(ctx, domain.ListQuery{UserID: userID, Limit: 20, Audience: domain.AudienceTeacher}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.List(ctx, domain.ListQuery{UserID: userID, Before: uuid.NewString(), Limit: 20, Audience: domain.AudienceStudent}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Unread(ctx, userID, domain.AudienceTeacher); err != nil {
+		t.Fatal(err)
+	}
+	wantArgs := []int{2, 3, 1, 3, 4, 2}
+	if len(conn.seen) != len(wantArgs) {
+		t.Fatalf("six reads were expected, ran %+v", conn.seen)
+	}
+	for i, want := range wantArgs {
+		if len(conn.seen[i].args) != want {
+			t.Fatalf("read %d took %d arguments, want %d: %+v", i, len(conn.seen[i].args), want, conn.seen[i])
+		}
 	}
 	first, later, count := conn.seen[0].sql, conn.seen[1].sql, conn.seen[2].sql
+	firstOf, laterOf, countOf := conn.seen[3].sql, conn.seen[4].sql, conn.seen[5].sql
 
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -127,5 +143,21 @@ func TestTheListAndTheCountAreGivenByTheirIndexes(t *testing.T) {
 	}
 	if plan := explained(t, tx, count, reader); !strings.Contains(plan, "notifications_unread_idx") {
 		t.Errorf("the unread count does not use notifications_unread_idx:\n%s", plan)
+	}
+
+	teacher, student := []string{"attempt.submitted", "class.joined"}, []string{"result.ready"}
+	for name, plan := range map[string]string{
+		"the first page of an audience": explained(t, tx, firstOf, reader, teacher, 21),
+		"a later page of an audience":   explained(t, tx, laterOf, reader, middle, student, 21),
+	} {
+		if !strings.Contains(plan, "Index Scan using notifications_user_recent_idx") || strings.Contains(plan, "Sort") || !strings.Contains(plan, "kind = ANY") {
+			t.Errorf("%s is not read from notifications_user_recent_idx in its order with the kind as a filter:\n%s", name, plan)
+		}
+	}
+	if plan := explained(t, tx, laterOf, reader, middle, student, 21); !strings.Contains(plan, "(id < ") {
+		t.Errorf("the cursor of an audience's page is not an index condition:\n%s", plan)
+	}
+	if plan := explained(t, tx, countOf, reader, teacher); !strings.Contains(plan, "notifications_unread_idx") {
+		t.Errorf("the unread count of an audience does not use notifications_unread_idx:\n%s", plan)
 	}
 }

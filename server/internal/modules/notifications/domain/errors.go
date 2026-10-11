@@ -25,6 +25,9 @@ var (
 	ErrTooManyIDs = errors.New("notifications: too many ids to mark read")
 	// ErrUnknownEvent is a preference for an event that is not a switch.
 	ErrUnknownEvent = errors.New("notifications: unknown event")
+	// ErrUnknownAudience is a request for a console that is neither the
+	// teacher's nor the student's.
+	ErrUnknownAudience = errors.New("notifications: unknown audience")
 	// ErrEventsNotOnceEach is a set of preferences that does not hold every
 	// event exactly once.
 	ErrEventsNotOnceEach = errors.New("notifications: every event must appear exactly once")
