@@ -99,7 +99,7 @@ func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
 
 func TestPathParametersAreValidatedToo(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestPathParametersAreValidatedToo(t *testing.T) {
 
 func TestANewPasswordNeedsADigitPunctuationOrSymbol(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000b2", "student", 0)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000b2", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func errorCodeAndMessage(t *testing.T, rec *httptest.ResponseRecorder) (code, me
 
 func TestABrokenPasswordRuleIsStatedInTheCallersLanguage(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000b2", "student", 0)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000b2", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestABrokenPasswordRuleIsStatedInTheCallersLanguage(t *testing.T) {
 
 func TestOtherValidationFailuresNameTheirField(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -570,7 +570,7 @@ func TestTwoFailingFieldsAlwaysNameTheSame(t *testing.T) {
 func TestAMissingRequiredPropertyIsNamedOnBothValidatorPaths(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := roleRouter(t, issuer, rolePrincipals())
-	admin, err := issuer.Issue(adminUser, "admin", 0)
+	admin, err := issuer.Issue(adminUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -602,7 +602,7 @@ func TestAMissingRequiredPropertyIsNamedOnBothValidatorPaths(t *testing.T) {
 func TestAMalformedAnswerKeyIsNamedInEnglishWhenAsked(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := roleRouter(t, issuer, rolePrincipals())
-	student, err := issuer.Issue(studentUser, "admin", 0)
+	student, err := issuer.Issue(studentUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -619,7 +619,7 @@ const (
 func TestAMalformedEmailInABodyNamesItsField(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := roleRouter(t, issuer, rolePrincipals())
-	admin, err := issuer.Issue(adminUser, "admin", 0)
+	admin, err := issuer.Issue(adminUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -657,11 +657,11 @@ func TestAMalformedEmailInABodyNamesItsField(t *testing.T) {
 func TestADecodeFailureNeverEchoesTheDecoder(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := roleRouter(t, issuer, rolePrincipals())
-	admin, err := issuer.Issue(adminUser, "admin", 0)
+	admin, err := issuer.Issue(adminUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	student, err := issuer.Issue(studentUser, "admin", 0)
+	student, err := issuer.Issue(studentUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -741,7 +741,7 @@ func TestTheValidatorRefusesNoIdTheDecoderAccepts(t *testing.T) {
 func TestAMalformedParameterNamesTheParameter(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := roleRouter(t, issuer, rolePrincipals())
-	admin, err := issuer.Issue(adminUser, "admin", 0)
+	admin, err := issuer.Issue(adminUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -778,11 +778,11 @@ func saveAnswersWithEvent(event string) string {
 func TestABodyThatRepeatsAMemberNameIsRefused(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := roleRouter(t, issuer, rolePrincipals())
-	admin, err := issuer.Issue(adminUser, "admin", 0)
+	admin, err := issuer.Issue(adminUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	student, err := issuer.Issue(studentUser, "admin", 0)
+	student, err := issuer.Issue(studentUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

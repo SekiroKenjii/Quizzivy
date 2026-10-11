@@ -41,8 +41,6 @@ export function hasWorkspace(
 
 /**
  * learnsOnly reports whether the student app is the user's only workspace.
- * For the four built-in roles it names the same users as the legacy `role`
- * value `student`; a custom role (R5) can make the two differ.
  */
 export function learnsOnly(user: Pick<User, "workspaces"> | null | undefined): boolean {
   return user?.workspaces.length === 1 && user.workspaces[0] === "app";

@@ -13,8 +13,8 @@ export async function _valid() {
 
   // Response shape flows through.
   const me = await api("get", "/auth/me");
-  const _role: "admin" | "student" = me.role;
-  void _role;
+  const _workspaces: readonly string[] = me.workspaces;
+  void _workspaces;
 
   // Request bodies are checked.
   await api("post", "/auth/login", { body: { email: "a@b.c", password: "hunter22" } });

@@ -50,7 +50,6 @@ const STUDENT = {
   id: "018f0000-0000-7000-8000-0000000000b1",
   email: "giabao.ng@gmail.com",
   fullName: "Nguyễn Gia Bảo",
-  role: "student" as const,
   hasPassword: true,
   linkedProviders: [],
   mustChangePassword: false,
