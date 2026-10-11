@@ -112,7 +112,8 @@ func TestTheListAndTheCountAreGivenByTheirIndexes(t *testing.T) {
 		 SELECT 'ke-hoach-' || $1 || '-' || g || '@example.com', 'Người đọc ' || g, (SELECT id FROM app.roles WHERE builtin_key = 'teacher')
 		   FROM generate_series(1, 200) g`,
 		`INSERT INTO app.notifications (user_id, kind, params, dedupe_key, read_at)
-		 SELECT u.id, 'class.joined', '{"studentName":"Bảo","className":"Lớp A"}'::jsonb, 'k' || g, CASE WHEN g % 10 = 0 THEN NULL ELSE now() END
+		 SELECT u.id, CASE WHEN g % 3 = 0 THEN 'result.ready' ELSE 'class.joined' END,
+		        '{"studentName":"Bảo","className":"Lớp A"}'::jsonb, 'k' || g, CASE WHEN g % 10 = 0 THEN NULL ELSE now() END
 		   FROM app.users u, generate_series(1, 250) g
 		  WHERE u.email LIKE 'ke-hoach-' || $1 || '-%'`,
 	} {
