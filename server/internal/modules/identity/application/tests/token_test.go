@@ -4,11 +4,15 @@ package application_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"quizzivy/internal/modules/identity/application/token"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func issuer(t *testing.T) *token.Issuer {
@@ -22,7 +26,7 @@ func issuer(t *testing.T) *token.Issuer {
 
 func TestIssueAndVerify(t *testing.T) {
 	i := issuer(t)
-	tok, err := i.Issue("user-1", "admin", 0)
+	tok, err := i.Issue("user-1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,14 +34,14 @@ func TestIssueAndVerify(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if claims.Subject != "user-1" || claims.Role != "admin" {
+	if claims.Subject != "user-1" {
 		t.Errorf("claims = %+v", claims)
 	}
 }
 
 func TestTheSessionEpochRoundTripsAsSep(t *testing.T) {
 	i := issuer(t)
-	tok, err := i.Issue("user-1", "student", 3)
+	tok, err := i.Issue("user-1", 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +63,7 @@ func TestTheSessionEpochRoundTripsAsSep(t *testing.T) {
 
 func TestATokenWithoutSepReadsAsEpochZero(t *testing.T) {
 	i := issuer(t)
-	tok, err := i.Issue("user-1", "student", 0)
+	tok, err := i.Issue("user-1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +90,7 @@ func TestExpiredTokenIsRejected(t *testing.T) {
 	i := issuer(t)
 	base := time.Now()
 	i.SetClock(func() time.Time { return base })
-	tok, _ := i.Issue("user-1", "student", 0)
+	tok, _ := i.Issue("user-1", 0)
 
 	i.SetClock(func() time.Time { return base.Add(16 * time.Minute) })
 	_, err := i.Verify(tok)
@@ -98,7 +102,7 @@ func TestExpiredTokenIsRejected(t *testing.T) {
 func TestTokenFromADifferentKeyIsRejected(t *testing.T) {
 	a := issuer(t)
 	b, _ := token.NewIssuer([]byte(strings.Repeat("z", 32)), time.Minute)
-	tok, _ := a.Issue("user-1", "admin", 0)
+	tok, _ := a.Issue("user-1", 0)
 	if _, err := b.Verify(tok); err == nil {
 		t.Error("a token signed with another key verified")
 	}
@@ -106,7 +110,7 @@ func TestTokenFromADifferentKeyIsRejected(t *testing.T) {
 
 func TestAlgNoneIsRejected(t *testing.T) {
 	i := issuer(t)
-	tok, _ := i.Issue("user-1", "student", 0)
+	tok, _ := i.Issue("user-1", 0)
 	parts := strings.Split(tok, ".")
 	if len(parts) != 3 {
 		t.Fatalf("unexpected token shape")
@@ -118,13 +122,49 @@ func TestAlgNoneIsRejected(t *testing.T) {
 	}
 }
 
-func TestClaimsCarryNothingBeyondIdentityAndRole(t *testing.T) {
+func TestClaimsCarryNothingBeyondIdentityAndEpoch(t *testing.T) {
 	i := issuer(t)
-	tok, _ := i.Issue("user-1", "student", 0)
-	payload := strings.Split(tok, ".")[1]
-	for _, forbidden := range []string{"email", "full_name", "fullName", "@"} {
-		if strings.Contains(strings.ToLower(payload), strings.ToLower(forbidden)) {
-			t.Errorf("token payload appears to contain %q", forbidden)
-		}
+	tok, _ := i.Issue("user-1", 3)
+	raw, err := base64.RawURLEncoding.DecodeString(strings.Split(tok, ".")[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for name := range payload {
+		got = append(got, name)
+	}
+	slices.Sort(got)
+	want := []string{"exp", "iat", "iss", "nbf", "sep", "sub"}
+	if !slices.Equal(got, want) {
+		t.Errorf("token claims = %v, want %v", got, want)
+	}
+}
+
+func TestATokenMintedBeforeTheRoleClaimWentStillVerifies(t *testing.T) {
+	i := issuer(t)
+	now := time.Now()
+	minted := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub":  "user-1",
+		"role": "admin",
+		"sep":  2,
+		"iss":  "quizzivy",
+		"iat":  now.Unix(),
+		"nbf":  now.Unix(),
+		"exp":  now.Add(time.Minute).Unix(),
+	})
+	raw, err := minted.SignedString([]byte(strings.Repeat("k", 32)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := i.Verify(raw)
+	if err != nil {
+		t.Fatalf("a token that still names a role was refused: %v", err)
+	}
+	if claims.Subject != "user-1" || claims.Epoch != 2 {
+		t.Errorf("claims = %+v, want subject user-1 and epoch 2", claims)
 	}
 }

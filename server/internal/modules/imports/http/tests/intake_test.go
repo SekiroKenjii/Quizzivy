@@ -74,11 +74,11 @@ func setup(t *testing.T) intake {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, err := issuer.Issue(actor, "admin", 0)
+	token, err := issuer.Issue(actor, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	student, err := issuer.Issue(uuid.NewString(), "student", 0)
+	student, err := issuer.Issue(uuid.NewString(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -114,7 +114,7 @@ func TestEveryServiceRateLimitNamesARouteTheRouterServes(t *testing.T) {
 
 func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

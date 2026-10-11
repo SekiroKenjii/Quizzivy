@@ -184,7 +184,7 @@ func streamUpload(t *testing.T, h http.Handler, issuer *identitytoken.Issuer, qu
 	req := httptest.NewRequest(http.MethodPost, "/teacher/media"+query, body)
 	req.ContentLength = -1
 	req.Header.Set("Content-Type", form.FormDataContentType())
-	token, err := issuer.Issue(teacherUser, "admin", 0)
+	token, err := issuer.Issue(teacherUser, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
