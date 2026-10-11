@@ -153,6 +153,21 @@ it("keeps focus in the text field Enter submitted from, read-only while pending 
   expect(screen.getByRole("switch", { name: "Hiện" })).toBeDisabled();
 });
 
+it("moves focus to the submit when a submit starts from a control that locks", async () => {
+  const user = userEvent.setup();
+  render(<Saving />);
+  const seg = screen.getByRole("button", { name: "Một" });
+
+  await user.click(seg);
+  expect(seg).toHaveFocus();
+  fireEvent.submit(seg.closest("form") as HTMLFormElement);
+
+  const submit = screen.getByRole("button", { name: "Lưu" });
+  expect(submit).toHaveFocus();
+  expect(seg).toBeDisabled();
+  expect(submit).not.toBeDisabled();
+});
+
 it("keeps focus in a list's search box while pending, with its choices off (T-35)", async () => {
   const user = userEvent.setup();
   const options = ["A", "B", "C", "D", "E", "F"].map((name) => ({
