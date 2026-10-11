@@ -66,7 +66,9 @@ describe("resetStudentsPasswords", () => {
     const result = await resetStudentsPasswords(["student-1", "student-2"]);
 
     expect(body).toEqual({ studentIds: ["student-1", "student-2"] });
-    expect(result.items.map((item) => item.temporaryPassword)).toEqual(["lop-hoc-sen-42"]);
+    expect(result.items.map((item) => item.temporaryPassword)).toEqual([
+      "lop-hoc-sen-42",
+    ]);
     expect(result.failed).toEqual([{ studentId: "student-2", code: "NOT_FOUND" }]);
   });
 });
