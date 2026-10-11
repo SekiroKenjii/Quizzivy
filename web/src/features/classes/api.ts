@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
 import type { components, operations } from "@/lib/api/schema";
 
 export type Class = components["schemas"]["Class"];
@@ -98,6 +99,30 @@ export function rotateJoinCode(id: string, options: JoinCodeOptions = {}) {
     path: { id },
     body: options,
   });
+}
+
+/** JoinCode is a class's active code read back for its teacher, `code` null when unreadable. */
+export type JoinCode = components["schemas"]["JoinCode"];
+
+/**
+ * getJoinCode reads a class's active code for its teacher, or null when the
+ * class has none (the 404 a missing code answers). The answer is never
+ * cached by the server, and a caller keeps it no longer than its screen.
+ */
+export async function getJoinCode(
+  id: string,
+  signal?: AbortSignal,
+): Promise<JoinCode | null> {
+  try {
+    return await api(
+      "get",
+      "/teacher/classes/{id}/join-code",
+      signal ? { path: { id }, signal } : { path: { id } },
+    );
+  } catch (cause) {
+    if (cause instanceof ApiError && cause.status === 404) return null;
+    throw cause;
+  }
 }
 
 export function revokeJoinCode(id: string) {
