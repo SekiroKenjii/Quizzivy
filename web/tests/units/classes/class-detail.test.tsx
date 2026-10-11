@@ -1,13 +1,15 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import ClassDetailPage from "@/features/classes/pages/teacher/ClassDetailPage";
-import { AddMemberDialog } from "@/features/classes/components/AddMemberDialog";
+import { Toaster } from "@/components/ui/sonner";
+import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { assistantUser, teacherUser } from "@tests/support/fixtures";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
@@ -19,6 +21,8 @@ const klass = {
   id: CLASS_ID,
   name: "IELTS Foundation — Lớp tối T3/T5",
   description: null,
+  scheduleLabel: "Tue · Thu, 17:30",
+  room: "Room 2",
   studentCount: 2,
   openAssignmentCount: 1,
   archivedAt: null,
@@ -28,6 +32,10 @@ const klass = {
 };
 
 let assignmentQueries: (string | null)[] = [];
+let removals: string[] = [];
+let additions: unknown[] = [];
+let patches: unknown[] = [];
+let stored: typeof klass = klass;
 
 function assignmentRow(over: Record<string, unknown>) {
   return {
@@ -81,9 +89,28 @@ const stats = (over: Record<string, unknown>) => ({
 
 beforeEach(() => {
   assignmentQueries = [];
+  removals = [];
+  additions = [];
+  patches = [];
+  stored = klass;
+  useAuthStore.setState({ user: teacherUser });
   server.use(
+    http.delete(`${BASE}/teacher/classes/${CLASS_ID}/members/:userId`, ({ params }) => {
+      removals.push(String(params["userId"]));
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.post(`${BASE}/teacher/classes/${CLASS_ID}/members`, async ({ request }) => {
+      additions.push(await request.json());
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.patch(`${BASE}/teacher/classes/${CLASS_ID}`, async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      patches.push(body);
+      stored = { ...stored, ...body };
+      return contractJson("/teacher/classes/{id}", "patch", 200, stored);
+    }),
     http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>
-      contractJson("/teacher/classes/{id}", "get", 200, klass),
+      contractJson("/teacher/classes/{id}", "get", 200, stored),
     ),
     http.get(`${BASE}/teacher/classes/${CLASS_ID}/members`, () =>
       contractJson("/teacher/classes/{id}/members", "get", 200, {
@@ -189,87 +216,208 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => {
+  useAuthStore.setState({ user: null });
+});
+
 function renderDetail() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   const router = createMemoryRouter(
-    [{ path: "/teacher/classes/:id", element: <ClassDetailPage /> }],
+    [
+      { path: "/teacher/classes/:id", element: <ClassDetailPage /> },
+      { path: "/teacher/classes", element: <p>classes</p> },
+      { path: "/teacher/students", element: <p>students</p> },
+      { path: "/teacher/assignments/new", element: <p>wizard</p> },
+    ],
     { initialEntries: [`/teacher/classes/${CLASS_ID}`] },
   );
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>,
   );
-  return userEvent.setup();
+  return { user: userEvent.setup(), router };
 }
 
-describe("the class roster (G-06)", () => {
-  it("carries the same figures as the students table, and one search box", async () => {
+async function memberRow(name: string) {
+  return (await screen.findByText(name)).closest<HTMLElement>("[role=row]")!;
+}
+
+describe("the class's head", () => {
+  it("names the class with its count, and offers Add student and Assign to class", async () => {
     renderDetail();
-
-    const row = (await screen.findByText("Nguyễn Đức Minh")).closest("tr")!;
-    expect(within(row).getByText("14")).toBeInTheDocument();
-    expect(within(row).getByText("86%")).toBeInTheDocument();
-    const han = screen.getByText("Phạm Gia Hân").closest("tr")!;
-    expect(within(han).getByText("—")).toBeInTheDocument();
-    expect(screen.getByRole("searchbox", { name: "Tìm học viên" })).toBeInTheDocument();
-  });
-
-  it("removes through the row menu, after a confirm", async () => {
-    const user = renderDetail();
-    const row = (await screen.findByText("Nguyễn Đức Minh")).closest("tr")!;
-
-    await user.click(within(row).getByRole("button", { name: "Thao tác" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Xoá khỏi lớp" }));
-
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/Nguyễn Đức Minh/)).toBeInTheDocument();
-  });
-});
-
-describe("adding a student who already belongs", () => {
-  it("reads membership off the student row, not the roster page on screen", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <AddMemberDialog classId={CLASS_ID} open onOpenChange={() => {}} />
-      </QueryClientProvider>,
+    expect(
+      await screen.findByRole("heading", { level: 1, name: klass.name }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("2 học viên")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Lớp học" })).toHaveAttribute(
+      "href",
+      "/teacher/classes",
     );
+    expect(screen.getByRole("link", { name: "Giao bài cho lớp" })).toHaveAttribute(
+      "href",
+      `/teacher/assignments/new?class=${CLASS_ID}`,
+    );
+    expect(screen.getByRole("button", { name: "Thêm học viên" })).toBeVisible();
+  });
 
-    const minh = (await screen.findByText("Nguyễn Đức Minh")).closest("li")!;
-    expect(within(minh).getByText("đã trong lớp")).toBeInTheDocument();
-    expect(within(minh).queryByRole("button", { name: "Thêm" })).toBeNull();
-    const han = screen.getByText("Phạm Gia Hân").closest("li")!;
-    expect(within(han).getByRole("button", { name: "Thêm" })).toBeInTheDocument();
+  it("says a class it cannot read is not found", async () => {
+    server.use(
+      http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "NOT_FOUND",
+              message: "Không tìm thấy.",
+              requestId: "018f0000-0000-7000-8000-0000000000f9",
+            },
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    renderDetail();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Không tìm thấy lớp" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Lớp này không có hoặc bạn không dạy lớp này."),
+    ).toBeVisible();
   });
 });
 
-describe("the class's assignments (G-06)", () => {
+describe("the members", () => {
+  it("draws the deck's rows: how they joined, what they handed in and the average", async () => {
+    renderDetail();
+    expect(await screen.findByRole("heading", { name: "Học viên · 2" })).toBeVisible();
+    const minh = await memberRow("Nguyễn Đức Minh");
+    expect(within(minh).getByText("Giáo viên thêm")).toBeInTheDocument();
+    expect(within(minh).getByText("14")).toBeInTheDocument();
+    expect(within(minh).getByText("86%")).not.toHaveClass("text-danger-ink");
+    const han = await memberRow("Phạm Gia Hân");
+    expect(within(han).getByText("Mã ••P9QR")).toBeInTheDocument();
+    expect(within(han).getByText("—")).toBeInTheDocument();
+    expect(
+      screen.getByText("Xoá học viên khỏi lớp vẫn giữ bài đã nộp và điểm của họ."),
+    ).toBeVisible();
+  });
+
+  it("removes a member after a confirm naming them and the class, then gives focus back to the row's menu", async () => {
+    const { user } = renderDetail();
+    const han = await memberRow("Phạm Gia Hân");
+    const trigger = within(han).getByRole("button", {
+      name: "Thao tác với Phạm Gia Hân",
+    });
+    await user.click(trigger);
+    expect(screen.getByRole("menuitem", { name: "Xem kết quả" })).toHaveAttribute(
+      "href",
+      `/teacher/students?studentId=${HAN}`,
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Xoá khỏi lớp" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: `Xoá Phạm Gia Hân khỏi ${klass.name}?`,
+    });
+    expect(removals).toEqual([]);
+    await user.click(within(dialog).getByRole("button", { name: "Xoá" }));
+    await waitFor(() => expect(removals).toEqual([HAN]));
+    expect(await screen.findByText("Đã xoá Phạm Gia Hân khỏi lớp")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(trigger).toHaveFocus();
+  });
+
+  it("tints a selected row and removes the selected members from the bar", async () => {
+    const { user } = renderDetail();
+    const han = await memberRow("Phạm Gia Hân");
+    await user.click(within(han).getByRole("checkbox"));
+    expect(han).toHaveAttribute("aria-selected", "true");
+    expect(han).toHaveClass("bg-muted");
+    expect(await memberRow("Nguyễn Đức Minh")).not.toHaveClass("bg-muted");
+    await user.click(screen.getByRole("button", { name: /Xoá khỏi lớp/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Xác nhận 1 mục" }));
+    await waitFor(() => expect(removals).toEqual([HAN]));
+  });
+
+  it("offers a reader without the right to change classes no checkboxes and no removal", async () => {
+    useAuthStore.setState({ user: assistantUser });
+    renderDetail();
+    const han = await memberRow("Phạm Gia Hân");
+    expect(within(han).queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Thêm học viên" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Xoá khỏi lớp" })).toBeNull();
+  });
+});
+
+describe("adding students", () => {
+  it("asks for at least one, shows who is already in, and adds the ones ticked", async () => {
+    const { user } = renderDetail();
+    const opener = await screen.findByRole("button", { name: "Thêm học viên" });
+    await user.click(opener);
+    const dialog = await screen.findByRole("dialog", {
+      name: `Thêm học viên vào ${klass.name}`,
+    });
+    const minh = await within(dialog).findByRole("checkbox", {
+      name: /Nguyễn Đức Minh/,
+    });
+    expect(minh).toHaveAttribute("aria-disabled", "true");
+    expect(minh).toHaveTextContent("đã trong lớp");
+    await user.click(within(dialog).getByRole("button", { name: "Thêm" }));
+    expect(within(dialog).getByText("Hãy chọn ít nhất một học viên")).toBeVisible();
+    await user.click(within(dialog).getByRole("checkbox", { name: /Phạm Gia Hân/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Thêm 1" }));
+    await waitFor(() => expect(additions).toEqual([{ userId: HAN }]));
+    expect(await screen.findByText("Đã thêm 1 học viên")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
+  });
+});
+
+describe("the class's own words", () => {
+  it("saves the name, schedule and room when something changed, and says students see the new name", async () => {
+    const { user } = renderDetail();
+    const card = (await screen.findByRole("heading", { name: "Lớp" })).closest(
+      "section",
+    )!;
+    const save = within(card).getByRole("button", { name: "Lưu" });
+    expect(save).toHaveAttribute("aria-disabled", "true");
+    await user.clear(within(card).getByLabelText("Phòng"));
+    await user.type(within(card).getByLabelText("Phòng"), "Phòng 5");
+    expect(save).not.toHaveAttribute("aria-disabled");
+    await user.click(save);
+    await waitFor(() =>
+      expect(patches).toEqual([
+        {
+          name: klass.name,
+          description: "",
+          scheduleLabel: "Tue · Thu, 17:30",
+          room: "Phòng 5",
+        },
+      ]),
+    );
+    expect(
+      await within(card).findByText("Đã lưu. Học viên sẽ thấy tên mới."),
+    ).toBeVisible();
+    expect(save).toHaveFocus();
+  });
+});
+
+describe("the class's assignments", () => {
   it("lists what the class has been given, open first, with the way to the full list", async () => {
     renderDetail();
-
-    const card = await screen.findByRole("region", { name: "Bài giao cho lớp" });
-    expect(await within(card).findByText("2 bài · 1 đang mở")).toBeInTheDocument();
-    expect(assignmentQueries).toEqual([CLASS_ID]);
-
-    const titles = within(card)
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => within(row).getByRole("link").textContent);
-    expect(titles).toEqual([
-      "Unit 5 — Present perfect & listening",
-      "Unit 4 — Past simple review",
-    ]);
-    expect(
-      within(card).getByRole("link", { name: "Unit 4 — Past simple review" }),
-    ).toHaveAttribute(
-      "href",
-      "/teacher/assignments/018f0000-0000-7000-8000-0000000000d2",
-    );
-    expect(within(card).getByText("18/18")).toBeInTheDocument();
-    expect(within(card).getByRole("link", { name: "Xem tất cả" })).toHaveAttribute(
+    const card = (await screen.findByRole("heading", { name: "Bài giao" })).closest(
+      "section",
+    )!;
+    expect(await within(card).findByText("2 bài · 1 đang mở")).toBeVisible();
+    const rows = await within(card).findAllByRole("row");
+    expect(rows[1]).toHaveTextContent("Unit 5 — Present perfect & listening");
+    expect(rows[2]).toHaveTextContent("Unit 4 — Past simple review");
+    expect(within(card).getByRole("link", { name: /Xem tất cả/ })).toHaveAttribute(
       "href",
       `/teacher/assignments?classId=${CLASS_ID}`,
     );
+    expect(assignmentQueries).toEqual([CLASS_ID]);
   });
 });
