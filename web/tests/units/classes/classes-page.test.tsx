@@ -186,6 +186,21 @@ describe("the classes list", () => {
     expect(lists[0]?.get("limit")).toBe("24");
   });
 
+  it("keeps an expired code's footer on one row, its note truncating with a title (QA-41-4)", async () => {
+    serveList([
+      {
+        ...EVENING,
+        joinCode: { ...EVENING.joinCode!, expiresAt: "2020-01-01T00:00:00Z" },
+      },
+    ]);
+    renderPage();
+    const evening = await card("IELTS 6.5 Evening");
+    const note = within(evening).getByText("Đã hết hạn");
+    expect(note).toHaveAttribute("title", "Đã hết hạn");
+    expect(note).toHaveClass("min-w-0", "truncate");
+    expect(note.parentElement).not.toHaveClass("flex-wrap");
+  });
+
   it("asks for codes only for a reader who may change classes, and offers that reader nothing to change", async () => {
     useAuthStore.setState({ user: assistantUser });
     renderPage();

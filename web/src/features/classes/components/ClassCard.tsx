@@ -49,8 +49,10 @@ const FOOTER_BUTTON =
  * live tests and average; and a footer with the join code in full, mono,
  * with Copy join link and Show QR code. A code that cannot be read shows its
  * last four characters and, for a teacher who may change the class, New
- * code; a class without one offers Create code. An archived class's footer
- * offers Restore. `canWrite` says whether the reader may change the class;
+ * code; a class without one offers Create code. The footer stays one row:
+ * an Expired or Used up note shrinks and truncates, with its text as its
+ * title, before the buttons would wrap. An archived class's footer offers
+ * Restore. `canWrite` says whether the reader may change the class;
  * without it the card has no menu.
  */
 export function ClassCard({
@@ -103,7 +105,7 @@ export function ClassCard({
           </Stat>
         </dl>
       </div>
-      <div className="bg-sidebar flex min-h-12.5 flex-wrap items-center gap-2 border-t py-2.5 pr-3 pl-4">
+      <div className="bg-sidebar flex min-h-12.5 items-center gap-2 border-t py-2.5 pr-3 pl-4">
         {archived ? (
           <ArchivedFooter
             klass={klass}
@@ -188,16 +190,21 @@ function CodeFooter({
   const readable = code.code;
   return (
     <>
-      <span className="text-muted-fg text-xs">{t("classes.joinCode")}</span>
-      <span className="font-mono text-[0.84375rem] font-semibold tracking-[.08em] whitespace-nowrap">
+      <span className="text-muted-fg flex-none text-xs whitespace-nowrap">
+        {t("classes.joinCode")}
+      </span>
+      <span className="flex-none font-mono text-[0.84375rem] font-semibold tracking-[.08em] whitespace-nowrap">
         {readable ?? t("classes.maskedCode", { hint: code.hint })}
       </span>
       {state === null ? null : (
-        <span className="text-warning-ink text-xs">
+        <span
+          title={t(`classes.codeState.${state}`)}
+          className="text-warning-ink min-w-0 truncate text-xs"
+        >
           {t(`classes.codeState.${state}`)}
         </span>
       )}
-      <span className="ml-auto flex gap-0.5">
+      <span className="ml-auto flex flex-none gap-0.5">
         {readable === null && canWrite ? (
           <button
             type="button"
