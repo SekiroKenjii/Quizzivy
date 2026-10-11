@@ -479,17 +479,22 @@
   body:has([data-print="credentials"]) * {
     visibility: hidden;
   }
-  [data-print="credentials"],
-  [data-print="credentials"] * {
+  body:has([data-print="credentials"]) [data-print="credentials"],
+  body:has([data-print="credentials"]) [data-print="credentials"] * {
     visibility: visible;
   }
   [data-print="credentials"] {
     position: absolute;
     inset: 0 auto auto 0;
     width: 100%;
+    max-width: none;
     max-height: none;
-    transform: none;
+    --tw-translate-x: 0;
+    --tw-translate-y: 0;
     border: 0;
     box-shadow: none;
+  }
+  [data-print="credentials"] button {
+    display: none;
   }
 }
