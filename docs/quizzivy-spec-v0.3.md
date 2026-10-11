@@ -1,7 +1,25 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.82 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.83 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.82**
+
+R4, a NUL character in a request (F-24):
+
+- §15 The character U+0000 is refused with `400 VALIDATION_FAILED`, wherever the request carries
+  text: a string or an object member name anywhere in a JSON body (the JSON a `text/plain`
+  beacon carries too), a query parameter's name or value, and a decoded path segment. PostgreSQL
+  stores it in no `text` or `jsonb` value, so every free-text field, every free-form `meta` and every
+  `q` or `tag` search answered `500` before. The refusal names the field by its dotted path
+  (`options.1.text`, `tags.0`; for a member name, the object that holds it) or the parameter, in
+  the message, as the validator's other refusals do, and in `details` as `{ field: message }`. It is decided in the one
+  place the contract is enforced: it covers the seven open operations too, after the rate limiter
+  has counted the request. A backslash followed by the characters `u0000` (JSON `\\u0000`) is ordinary
+  text and is not refused. The file name of a media upload or replacement is refused the same way
+  when it holds U+0000 (`400 VALIDATION_FAILED` naming `filename`; an RFC 2231 `filename*` could
+  carry one past the multipart parser, and `POST /teacher/media` answered `500`). A Word import's
+  file name with any control character was already `415 IMPORT_SOURCE_UNSUPPORTED`.
 
 **Changes since v0.81**
 
@@ -2776,7 +2794,8 @@ reader can swallow a read error on those four operations, so a declared body
 that ends early can still answer 400 instead of 408. Streamed uploads have
 separate handling. Every operation taking a JSON body declares the
 validator's 400 response; malformed or schema-invalid bodies are
-`400 VALIDATION_FAILED`.
+`400 VALIDATION_FAILED`, and so is a request that carries the character U+0000 in
+a body string, a body member name, a query parameter or a path segment (v0.83).
 
 **The review options and the note.** `review.release` is `on_submit` or `after_close`; `review.showClassAverage` and `studentNote` are the teacher's other two choices. On `createAssignment` an omitted field takes its default (`on_submit`, false, no note); on `updateAssignment` an omitted one keeps what is stored, every other field is replaced, and `studentNote: null` clears the note. The note is trimmed by the server and stored as NULL when nothing is left; the contract counts its 500 characters before trimming. It is plain text everywhere it is drawn and is carried to a student on the assignment's detail only.
 

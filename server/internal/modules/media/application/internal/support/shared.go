@@ -71,6 +71,14 @@ func ExtensionFor(mime string) string {
 	return ""
 }
 
+// CheckFilename refuses a file name that SanitiseFilename cannot make storable: one holding U+0000.
+func CheckFilename(name string) error {
+	if strings.ContainsRune(name, 0) {
+		return domain.ErrInvalidFilename
+	}
+	return nil
+}
+
 func SanitiseFilename(name string) string {
 	name = path.Base(strings.ReplaceAll(strings.TrimSpace(content.NFC(name)), "\\", "/"))
 	name = strings.TrimSpace(name)

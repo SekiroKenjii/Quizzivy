@@ -169,6 +169,7 @@ func TestInvalidOrExcessiveUploadNeverReachesStorage(t *testing.T) {
 		{name: "oversize", input: command.Upload{ImportID: "import", Filename: "Large.docx", Body: io.LimitReader(zeros{}, domain.MaxSourceBytes+1)}, errorWant: domain.ErrTooLarge},
 		{name: "empty", input: command.Upload{ImportID: "import", Filename: "Empty.docx", Body: bytes.NewReader(nil)}, errorWant: domain.ErrInvalid},
 		{name: "traversal", input: command.Upload{Filename: "../outside.docx"}, errorWant: domain.ErrUnsupported},
+		{name: "a NUL in the file name", input: command.Upload{ImportID: "import", UploadID: "upload", Role: "exam", ExpectedRevision: 1, Filename: "a\x00b.docx", Body: bytes.NewReader([]byte("synthetic Word bytes"))}, errorWant: domain.ErrUnsupported},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			repo := &repository{}
