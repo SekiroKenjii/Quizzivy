@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import type { components } from "../../src/lib/api/schema";
 
@@ -50,7 +50,12 @@ const ITEMS = [
   asset(2, { displayName: "Podcast · city parks.mp3", defaultMaxPlays: 0 }),
 ];
 
-async function prepare(page: Page, theme: "light" | "dark", width: number) {
+async function prepare(
+  page: Page,
+  theme: "light" | "dark",
+  width: number,
+  extra: Record<string, (route: Route) => Promise<void>> = {},
+) {
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript((theme) => {
     localStorage.setItem("quizzivy.theme", theme);
@@ -76,6 +81,7 @@ async function prepare(page: Page, theme: "light" | "dark", width: number) {
         },
       },
     },
+    ...extra,
   });
   const fetched = { audio: 0 };
   await page.route(SOURCE, (route) => {
@@ -142,4 +148,37 @@ test("a card's play button starts the recording in a real browser, one card at a
         [...document.querySelectorAll("audio")].filter((audio) => !audio.paused).length,
     ),
   ).toBe(1);
+});
+
+test("a failed rename keeps focus on the dialog's submit in a real browser (F-59)", async ({
+  page,
+}) => {
+  const first = ITEMS[0]!;
+  await prepare(page, "light", 1280, {
+    [`PATCH /teacher/media/${first.id}`]: async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: { code: "INTERNAL", message: "Lỗi máy chủ.", requestId: "e2e" },
+        }),
+      });
+    },
+  });
+  await page.goto("/teacher/media");
+
+  await page
+    .getByRole("button", { name: `Thao tác với tệp ${first.displayName}` })
+    .click();
+  await page.getByRole("menuitem", { name: "Đổi tên" }).click();
+  const dialog = page.getByRole("dialog", { name: "Đổi tên tệp" });
+  await dialog.getByRole("textbox").first().fill("Bài nghe mới");
+  const submit = dialog.getByRole("button", { name: "Đổi tên" });
+  await submit.click();
+
+  await expect(submit).toHaveAttribute("aria-disabled", "true");
+  await expect(submit).toBeFocused();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(submit).toBeFocused();
 });
