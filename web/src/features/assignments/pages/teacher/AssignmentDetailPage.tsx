@@ -75,7 +75,7 @@ import { CloseEarlyDialog } from "../../components/CloseEarlyDialog";
 import { ItemAnalysis } from "../../components/ItemAnalysis";
 import { ReopenStudentDialog } from "../../components/ReopenStudentDialog";
 import { SettingsGroups } from "../../components/SettingsGroups";
-import { keepsTimeAfter } from "../../overrides";
+import { keepsTimeAfter, overridesKey } from "../../overrides";
 import { toInput } from "../../input";
 import { statusAt } from "../../status";
 import { assignmentStats, detailTab, firstPendingPaper } from "./assignmentDetail";
@@ -132,6 +132,7 @@ export default function AssignmentDetailPage() {
       client.invalidateQueries({ queryKey: ["admin-assignments"] }),
       client.invalidateQueries({ queryKey: ["admin-dashboard"] }),
       client.invalidateQueries({ queryKey: monitorKey(id) }),
+      client.invalidateQueries({ queryKey: overridesKey(id) }),
     ]);
   };
   const publish = useMutation({

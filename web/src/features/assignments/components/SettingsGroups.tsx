@@ -60,8 +60,10 @@ const GROUPS: readonly { group: SettingsGroup; icon: LucideIcon }[] = [
  * SettingsGroups is the assignment's Settings tab: Test & timing, Window,
  * Integrity, Results and the note to students (DG-71), each a card whose Edit
  * opens the wizard's own controls for that group (DG-162). Test & timing is
- * locked while the assignment is open (DG-65): its card shows a Lock pill in
- * place of Edit. Editing needs `teaching.assignments.write`.
+ * locked while the assignment is open (DG-65), and Window once it is closed,
+ * since a closed assignment's close moves only through Extend or a reopening,
+ * which keep the reason (DG-160): a locked card shows a Lock pill with its
+ * reason in place of Edit. Editing needs `teaching.assignments.write`.
  */
 export function SettingsGroups({
   a,
@@ -81,7 +83,7 @@ export function SettingsGroups({
             icon={icon}
             title={t(`assignmentDetail.settings.${group}.title`)}
             hint={t(`assignmentDetail.settings.${group}.hint`)}
-            locked={group === "timing" && status === "open"}
+            locked={lockReason(group, status)}
             onEdit={write ? () => setEditing(group) : null}
             rows={rows[group]}
           />
@@ -100,6 +102,12 @@ export function SettingsGroups({
   );
 }
 
+function lockReason(group: SettingsGroup, status: Status) {
+  if (group === "timing" && status === "open") return "locked" as const;
+  if (group === "window" && status === "closed") return "lockedClosed" as const;
+  return null;
+}
+
 function SettingsCard({
   icon: Icon,
   title,
@@ -111,7 +119,7 @@ function SettingsCard({
   icon: LucideIcon;
   title: string;
   hint: string;
-  locked: boolean;
+  locked: "locked" | "lockedClosed" | null;
   onEdit: (() => void) | null;
   rows: readonly Row[];
 }>) {
@@ -129,14 +137,16 @@ function SettingsCard({
           <span className="block text-base font-semibold">{title}</span>
           <span className="text-muted-fg text-meta block">{hint}</span>
         </span>
-        {locked ? (
+        {locked !== null ? (
           <span
-            title={t("assignmentDetail.settings.locked")}
+            title={t(`assignmentDetail.settings.${locked}`)}
             className="text-muted-fg inline-flex flex-none items-center gap-1.25 text-xs whitespace-nowrap"
           >
             <Lock aria-hidden="true" className="size-3.25" />
             {t("assignmentDetail.settings.lockedPill")}
-            <span className="sr-only">: {t("assignmentDetail.settings.locked")}</span>
+            <span className="sr-only">
+              : {t(`assignmentDetail.settings.${locked}`)}
+            </span>
           </span>
         ) : (
           onEdit !== null && (

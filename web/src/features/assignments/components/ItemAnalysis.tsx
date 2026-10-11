@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
@@ -21,6 +22,7 @@ function itemAnalysisKey(assignmentId: string) {
 export function ItemAnalysis({ assignmentId }: Readonly<{ assignmentId: string }>) {
   const { t } = useTranslation();
   const grading = useCan("teaching.grading");
+  const introId = useId();
   const analysis = useQuery({
     queryKey: itemAnalysisKey(assignmentId),
     queryFn: ({ signal }) => getItemAnalysis(assignmentId, signal),
@@ -36,7 +38,7 @@ export function ItemAnalysis({ assignmentId }: Readonly<{ assignmentId: string }
     );
   return (
     <section className={CARD} aria-label={t("assignmentDetail.analysis.title")}>
-      <p className="text-muted-fg text-ui px-4 py-3.5">
+      <p id={introId} className="text-muted-fg text-ui px-4 py-3.5">
         {t("assignmentDetail.analysis.intro")}
       </p>
       {analysis.isPending && (
@@ -51,12 +53,15 @@ export function ItemAnalysis({ assignmentId }: Readonly<{ assignmentId: string }
           </LoadError>
         </div>
       )}
-      {analysis.isSuccess && <AnalysisRows data={analysis.data} />}
+      {analysis.isSuccess && <AnalysisRows data={analysis.data} labelledBy={introId} />}
     </section>
   );
 }
 
-function AnalysisRows({ data }: Readonly<{ data: Analysis }>) {
+function AnalysisRows({
+  data,
+  labelledBy,
+}: Readonly<{ data: Analysis; labelledBy: string }>) {
   const { t } = useTranslation();
   if (data.handedIn === 0 || data.items.length === 0)
     return (
@@ -69,7 +74,7 @@ function AnalysisRows({ data }: Readonly<{ data: Analysis }>) {
       </p>
     );
   return (
-    <ol aria-label={t("assignmentDetail.analysis.title")}>
+    <ol aria-labelledby={labelledBy}>
       {data.items.map((item) => {
         const share = item.correctRate === null ? null : percent(item.correctRate, 1);
         return (

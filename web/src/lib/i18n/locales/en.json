@@ -1840,6 +1840,7 @@
       "by30": "30 min",
       "by60": "1 hour",
       "by1440": "1 day",
+      "byCustom": "Pick a time…",
       "notify": "Notify students",
       "notifySub": "They get an in-app message.",
       "extendSubmit": "Extend",
@@ -3649,6 +3650,7 @@
       "shown": "Shown",
       "hidden": "Hidden",
       "locked": "Locked while students are taking the test",
+      "lockedClosed": "Closed: use Extend to reopen it or move its close",
       "lockedPill": "Locked",
       "edit": "Edit",
       "editLabel": "Edit {{group}}",
@@ -3702,7 +3704,8 @@
       "untilPast": "Pick a moment after now.",
       "submit": "Reopen",
       "done": "Reopened for {{name}}",
-      "failed": "Could not reopen for this student."
+      "failed": "Could not reopen for this student.",
+      "unread": "Could not read the students' current extensions. Close this and try again."
     }
   },
   "markdownEditor": {

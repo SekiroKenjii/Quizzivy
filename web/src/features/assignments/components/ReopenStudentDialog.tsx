@@ -1,14 +1,14 @@
 import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
 import { FormDialog } from "@/components/shared/form/FormDialog";
 import { toast } from "@/components/ui/sonner";
 import type { MonitorRow } from "@/features/attempts/api";
 import { ApiError } from "@/lib/api/errors";
 import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
-import { setStudentOverrides, type Assignment } from "../api";
-import { needsAnotherAttempt } from "../overrides";
+import { listStudentOverrides, setStudentOverrides, type Assignment } from "../api";
+import { attemptsAllowed, needsAnotherAttempt, overridesKey } from "../overrides";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LIMITS = ["30", "45", "60"] as const;
@@ -25,9 +25,11 @@ type Values = {
  * ReopenStudentDialog is the More menu's "Reopen for a student": one student,
  * a time limit of 30, 45 or 60 minutes, the moment it stays open until and the
  * required reason (DG-160). It writes the student's override through
- * `setStudentOverrides`, with one more attempt only when they have none left
- * (DG-163), and says which of the two will happen. Focus returns to
- * `returnFocus` when it closes.
+ * `setStudentOverrides`. A student whose latest attempt is handed in and was
+ * the last they are allowed, counting the extra attempts their override
+ * already holds, gets one more on top of those (DG-163); the dialog says which
+ * of the two will happen, and waits for the stored overrides before it sends.
+ * Focus returns to `returnFocus` when it closes.
  */
 export function ReopenStudentDialog({
   assignment,
@@ -45,26 +47,30 @@ export function ReopenStudentDialog({
   onDone: () => Promise<void> | void;
 }>) {
   const { t } = useTranslation();
+  const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const byId = new Map(rows.map((row) => [row.studentId, row]));
-  const [initial] = useState<Values>(() => ({
-    student: rows[0]?.studentId ?? "",
-    minutes: "60",
-    untilDate: toDateTimeInput(new Date(Date.now() + DAY_MS)).slice(0, 10),
-    untilTime: "21:00",
-    reason: "",
-  }));
+  const overrides = useQuery({
+    queryKey: overridesKey(assignment.id),
+    queryFn: ({ signal }) => listStudentOverrides(assignment.id, signal),
+    enabled: open,
+  });
+  const stored = overrides.data?.items ?? [];
+  const allowed = (studentId: string) =>
+    attemptsAllowed(assignment.maxAttempts, stored, studentId);
+  const extraFor = (studentId: string) =>
+    stored.find((override) => override.studentId === studentId)?.extraAttempts ?? 0;
   const reopen = useMutation({
     mutationFn: (values: Values) => {
       const row = byId.get(values.student);
-      if (row === undefined) throw new Error("unknown student");
+      if (row === undefined || !overrides.isSuccess) throw new Error("not ready");
       return setStudentOverrides(assignment.id, {
         studentIds: [row.studentId],
         closesAt: until(values).toISOString(),
         durationMinutes: Number(values.minutes),
         reason: values.reason.trim(),
-        ...(needsAnotherAttempt(row, assignment.maxAttempts)
-          ? { extraAttempts: 1 }
+        ...(needsAnotherAttempt(row, allowed(row.studentId))
+          ? { extraAttempts: extraFor(row.studentId) + 1 }
           : {}),
       });
     },
@@ -76,7 +82,10 @@ export function ReopenStudentDialog({
           name: byId.get(values.student)?.fullName ?? "",
         }),
       );
-      await onDone();
+      await Promise.all([
+        client.invalidateQueries({ queryKey: overridesKey(assignment.id) }),
+        onDone(),
+      ]);
     },
     onError: (cause) =>
       setError(
@@ -87,6 +96,9 @@ export function ReopenStudentDialog({
   });
   const limit = (minutes: string) =>
     t("assignments.minutes", { count: Number(minutes) });
+  const loadError = overrides.isError
+    ? t("assignmentDetail.reopenStudent.unread")
+    : null;
   return (
     <FormDialog<Values>
       open={open}
@@ -98,15 +110,22 @@ export function ReopenStudentDialog({
       title={t("assignmentDetail.reopenStudent.title")}
       description={(values) => {
         const row = byId.get(values.student);
-        if (row === undefined) return t("assignmentDetail.reopenStudent.description");
+        if (row === undefined || !overrides.isSuccess)
+          return t("assignmentDetail.reopenStudent.description");
         return t(
-          needsAnotherAttempt(row, assignment.maxAttempts)
+          needsAnotherAttempt(row, allowed(row.studentId))
             ? "assignmentDetail.reopenStudent.oneMore"
             : "assignmentDetail.reopenStudent.canContinue",
           { name: row.fullName },
         );
       }}
-      initial={initial}
+      initial={{
+        student: rows[0]?.studentId ?? "",
+        minutes: "60",
+        untilDate: tomorrow(),
+        untilTime: "21:00",
+        reason: "",
+      }}
       fields={[
         {
           kind: "select",
@@ -151,7 +170,8 @@ export function ReopenStudentDialog({
       }
       submitLabel={t("assignmentDetail.reopenStudent.submit")}
       pending={reopen.isPending}
-      error={error}
+      disabled={!overrides.isSuccess}
+      error={error ?? loadError}
       returnFocus={returnFocus}
       onSubmit={(values) => reopen.mutate(values)}
     />
@@ -160,4 +180,8 @@ export function ReopenStudentDialog({
 
 function until(values: Pick<Values, "untilDate" | "untilTime">): Date {
   return fromDateTimeInput(`${values.untilDate}T${values.untilTime}`);
+}
+
+function tomorrow(): string {
+  return toDateTimeInput(new Date(Date.now() + DAY_MS)).slice(0, 10);
 }

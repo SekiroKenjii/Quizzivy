@@ -1840,6 +1840,7 @@
       "by30": "30 phút",
       "by60": "1 giờ",
       "by1440": "1 ngày",
+      "byCustom": "Chọn thời điểm…",
       "notify": "Báo cho học viên",
       "notifySub": "Học viên nhận thông báo trong ứng dụng.",
       "extendSubmit": "Gia hạn",
@@ -3649,6 +3650,7 @@
       "shown": "Hiện",
       "hidden": "Ẩn",
       "locked": "Bị khóa khi học viên đang làm bài",
+      "lockedClosed": "Bài đã đóng: dùng Gia hạn để mở lại hoặc đổi giờ đóng",
       "lockedPill": "Đã khóa",
       "edit": "Sửa",
       "editLabel": "Sửa {{group}}",
@@ -3702,7 +3704,8 @@
       "untilPast": "Chọn một thời điểm sau bây giờ.",
       "submit": "Mở lại",
       "done": "Đã mở lại cho {{name}}",
-      "failed": "Không mở lại được cho học viên này."
+      "failed": "Không mở lại được cho học viên này.",
+      "unread": "Không đọc được phần gia hạn riêng hiện có. Đóng hộp thoại rồi thử lại."
     }
   },
   "markdownEditor": {

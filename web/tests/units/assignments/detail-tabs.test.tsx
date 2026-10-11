@@ -1,18 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { useAuthStore } from "@/stores/auth";
 import { teacherUser } from "@tests/support/fixtures";
 import {
   DETAIL_CLASS_ID,
   detailAssignment,
+  detailOverride,
   detailRow,
   renderDetail,
   serveDetail,
 } from "@tests/support/assignmentDetail";
 import i18n from "@/lib/i18n";
+import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
 
 const AN = "018f0000-0000-7000-8000-0000000000e1";
 const BINH = "018f0000-0000-7000-8000-0000000000e2";
+const CHI = "018f0000-0000-7000-8000-0000000000e3";
+const DAY = 24 * 60 * 60 * 1000;
 
 globalThis.ResizeObserver ??= class {
   observe() {}
@@ -47,6 +51,31 @@ describe("the Settings tab", () => {
       expect(
         within(card(name)).getByRole("button", { name: `Sửa ${name}` }),
       ).toBeEnabled();
+  });
+
+  it("locks Window on a closed assignment, whose close moves only through Extend (F2)", async () => {
+    serveDetail(
+      detailAssignment({
+        status: "closed",
+        window: {
+          opensAt: "2020-09-07T01:00:00Z",
+          closesAt: "2020-09-09T14:00:00Z",
+          closedAt: null,
+        },
+      }),
+    );
+    renderDetail("settings");
+    const window = await screen.findByRole("region", { name: "Thời gian mở" });
+    expect(within(window).getByText("Đã khóa").closest("[title]")).toHaveAttribute(
+      "title",
+      "Bài đã đóng: dùng Gia hạn để mở lại hoặc đổi giờ đóng",
+    );
+    expect(within(window).queryByRole("button", { name: /^Sửa/ })).toBeNull();
+    expect(
+      within(card("Đề và thời gian")).getByRole("button", {
+        name: "Sửa Đề và thời gian",
+      }),
+    ).toBeEnabled();
   });
 
   it("lets Test & timing be edited while the assignment is not live", async () => {
@@ -284,6 +313,9 @@ describe("Reopen for a student", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Mở lại cho một học viên",
     });
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Mở lại" })).toBeEnabled(),
+    );
     return { calls, user, dialog };
   }
 
@@ -292,7 +324,7 @@ describe("Reopen for a student", () => {
       rows: [detailRow(AN, "Lê Văn An", { state: "submitted", attemptNo: 1 })],
     });
     expect(
-      within(dialog).getByText(
+      await within(dialog).findByText(
         "Lê Văn An đã dùng hết lượt làm, nên sẽ được thêm một lượt.",
       ),
     ).toBeInTheDocument();
@@ -307,12 +339,44 @@ describe("Reopen for a student", () => {
     });
   });
 
+  it("adds a second attempt on top of the one a first reopening gave (F1)", async () => {
+    const { calls, user, dialog } = await open({
+      rows: [detailRow(AN, "Lê Văn An", { state: "submitted", attemptNo: 2 })],
+      overrides: [detailOverride(AN, { extraAttempts: 1 })],
+    });
+    expect(
+      await within(dialog).findByText(
+        "Lê Văn An đã dùng hết lượt làm, nên sẽ được thêm một lượt.",
+      ),
+    ).toBeInTheDocument();
+    await user.type(within(dialog).getByRole("textbox", { name: /Lý do/ }), "Lần nữa");
+    await user.click(within(dialog).getByRole("button", { name: "Mở lại" }));
+    await waitFor(() => expect(calls.overrides).toHaveLength(1), { timeout: 5_000 });
+    expect(calls.overrides[0]).toMatchObject({ studentIds: [AN], extraAttempts: 2 });
+  });
+
+  it("counts the extra attempt an earlier reopening gave as still to use", async () => {
+    const { calls, user, dialog } = await open({
+      rows: [detailRow(AN, "Lê Văn An", { state: "submitted", attemptNo: 1 })],
+      overrides: [detailOverride(AN, { extraAttempts: 1 })],
+    });
+    expect(
+      await within(dialog).findByText(
+        "Lê Văn An vẫn còn lượt làm, nên có thể tiếp tục mà không cần thêm lượt.",
+      ),
+    ).toBeInTheDocument();
+    await user.type(within(dialog).getByRole("textbox", { name: /Lý do/ }), "Hỏng máy");
+    await user.click(within(dialog).getByRole("button", { name: "Mở lại" }));
+    await waitFor(() => expect(calls.overrides).toHaveLength(1), { timeout: 5_000 });
+    expect(calls.overrides[0]).not.toHaveProperty("extraAttempts");
+  });
+
   it("adds no attempt for a student who can still continue", async () => {
     const { calls, user, dialog } = await open({
       rows: [detailRow(AN, "Lê Văn An", { state: "in_progress", attemptNo: 1 })],
     });
     expect(
-      within(dialog).getByText(
+      await within(dialog).findByText(
         "Lê Văn An vẫn còn lượt làm, nên có thể tiếp tục mà không cần thêm lượt.",
       ),
     ).toBeInTheDocument();
@@ -359,6 +423,9 @@ describe("Extend deadline", () => {
       ),
     ).toHaveAttribute("aria-pressed", "true");
     expect(within(dialog).queryByRole("textbox", { name: /Lý do/ })).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: "Chọn thời điểm…" }),
+    ).toBeNull();
     await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
     await waitFor(() => expect(calls.extensions).toHaveLength(1), { timeout: 5_000 });
     expect(calls.extensions[0]).toEqual({ minutes: 30, notify: true });
@@ -414,7 +481,7 @@ describe("Extend deadline", () => {
   });
 
   describe("on a closed assignment", () => {
-    async function openClosed() {
+    async function openClosed(rows = ROWS) {
       const calls = serveDetail(
         detailAssignment({
           status: "closed",
@@ -424,7 +491,7 @@ describe("Extend deadline", () => {
             closedAt: null,
           },
         }),
-        { rows: ROWS },
+        { rows },
       );
       const user = renderDetail();
       await screen.findByText("Lê Văn An");
@@ -478,6 +545,55 @@ describe("Extend deadline", () => {
         ),
       ).toBeLessThan(60_000);
       expect(calls.reopens).toEqual([]);
+    });
+
+    it("reopens until a picked moment, which must be ahead (DG-174)", async () => {
+      const { calls, user, dialog } = await openClosed();
+      expect(within(dialog).queryByRole("group", { name: /Mở đến ngày/ })).toBeNull();
+      await user.click(within(dialog).getByRole("button", { name: "Chọn thời điểm…" }));
+      expect(within(dialog).getByText("Mở đến ngày")).toBeInTheDocument();
+      expect(within(dialog).getByText("Giờ đóng")).toBeInTheDocument();
+      const tomorrow = toDateTimeInput(new Date(Date.now() + DAY)).slice(0, 10);
+      const picked = fromDateTimeInput(`${tomorrow}T21:00`);
+      expect(within(dialog).getByText(/Mở lại đến 21:00/)).toBeInTheDocument();
+      await user.type(
+        within(dialog).getByRole("textbox", { name: /Lý do/ }),
+        "Thi lại",
+      );
+      const now = Date.now();
+      const later = vi.spyOn(Date, "now").mockReturnValue(now + 3 * DAY);
+      await user.type(within(dialog).getByRole("textbox", { name: /Lý do/ }), ".");
+      await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
+      expect(
+        within(dialog).getByText("Chọn một thời điểm sau bây giờ."),
+      ).toBeInTheDocument();
+      expect(calls.reopens).toEqual([]);
+      later.mockRestore();
+      await user.type(
+        within(dialog).getByRole("textbox", { name: /Lý do/ }),
+        "{Backspace}",
+      );
+      await user.click(within(dialog).getByRole("button", { name: "Gia hạn" }));
+      await waitFor(() => expect(calls.reopens).toHaveLength(1), { timeout: 5_000 });
+      expect(calls.reopens[0]).toEqual({
+        closesAt: picked.toISOString(),
+        reason: "Thi lại",
+      });
+    });
+
+    it("leaves out a student whose own close is later than the moment (F3)", async () => {
+      const { user, dialog } = await openClosed([
+        ...ROWS,
+        detailRow(CHI, "Phạm Chi", { extendedTo: "2099-09-10T14:00:00Z" }),
+      ]);
+      await user.click(
+        within(dialog).getByRole("button", { name: "Học viên được chọn" }),
+      );
+      const students = within(dialog).getByRole("group", { name: "Học viên" });
+      expect(
+        within(students).getByRole("checkbox", { name: /Trần Bình/ }),
+      ).toBeInTheDocument();
+      expect(within(students).queryByRole("checkbox", { name: /Phạm Chi/ })).toBeNull();
     });
   });
 });

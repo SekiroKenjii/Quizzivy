@@ -12,13 +12,15 @@ import {
 import { statusAt } from "@/features/assignments/status";
 import type { MonitorRow } from "@/features/attempts/api";
 import { ApiError } from "@/lib/api/errors";
-import { formatMoment } from "@/lib/i18n/datetime";
+import { formatMoment, fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { nameOf } from "./assignmentWindow";
 
 const STEPS = ["15", "30", "60", "1440"] as const;
+const CUSTOM = "custom";
 const MAX_CHOSEN = 100;
 const MINUTE_MS = 60 * 1000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
 
 type Failure = { id: string; title: string; message: string };
 
@@ -28,6 +30,8 @@ type Values = {
   who: string;
   students: readonly string[];
   reason: string;
+  untilDate: string;
+  untilTime: string;
 };
 
 type Chosen = { studentIds: readonly string[]; reason: string };
@@ -47,9 +51,11 @@ type Chosen = { studentIds: readonly string[]; reason: string };
  * reason (DG-160). The caller gives an audience only to a teacher who may
  * intervene in attempts.
  *
- * A single closed assignment is extended from now: everyone reopens it
- * through `reopenAssignment`, which takes the reason and notifies nobody, and
- * chosen students get an override that closes then (DG-174).
+ * A single closed assignment is extended from now, or to a moment picked with
+ * a fifth "Pick a time…" step: everyone reopens it through `reopenAssignment`,
+ * which takes the reason and notifies nobody, and chosen students get an
+ * override that closes then (DG-174). A student whose own close is already
+ * later than that moment is left out of the list, so no override is shortened.
  */
 export function ExtendAssignmentsDialog({
   items,
@@ -80,21 +86,43 @@ export function ExtendAssignmentsDialog({
   const failedIds = new Set(failures.map((failure) => failure.id));
   const remaining =
     failures.length > 0 ? items.filter((item) => failedIds.has(item.id)) : items;
-  const label = (minutes: string) => t(`assignments.list.by${minutes}`);
+  const label = (minutes: string) =>
+    minutes === CUSTOM
+      ? t("assignments.list.byCustom")
+      : t(`assignments.list.by${minutes}`);
   const single = items.length === 1 ? items[0] : undefined;
   const roster = single === undefined ? undefined : audience;
   const closed = single !== undefined && statusAt(single, new Date()) === "closed";
-  const chosenOf = (values: Values): Chosen | null =>
-    roster !== undefined && values.who === "chosen"
-      ? { studentIds: values.students, reason: values.reason.trim() }
-      : null;
-  const reopenUntil = (minutes: string) =>
-    new Date(Date.now() + Number(minutes) * MINUTE_MS);
+  const reopenUntil = (values: Values) =>
+    values.by === CUSTOM
+      ? fromDateTimeInput(`${values.untilDate}T${values.untilTime}`)
+      : new Date(Date.now() + Number(values.by) * MINUTE_MS);
+  const ahead = (moment: Date) =>
+    !Number.isNaN(moment.getTime()) && moment.getTime() > Date.now();
+  const candidates = (values: Values) => {
+    if (roster === undefined) return [];
+    if (!closed) return roster;
+    const moment = reopenUntil(values);
+    if (!ahead(moment)) return roster;
+    return roster.filter(
+      (row) =>
+        row.extendedTo == null ||
+        new Date(row.extendedTo).getTime() <= moment.getTime(),
+    );
+  };
+  const chosenOf = (values: Values): Chosen | null => {
+    if (roster === undefined || values.who !== "chosen") return null;
+    const shown = new Set(candidates(values).map((row) => row.studentId));
+    return {
+      studentIds: values.students.filter((id) => shown.has(id)),
+      reason: values.reason.trim(),
+    };
+  };
 
-  function send(item: Assignment, values: Values, chosen: Chosen | null) {
+  function send(item: Assignment, values: Values, chosen: Chosen | null, until: Date) {
     const minutes = Number(values.by);
     if (closed) {
-      const closesAt = reopenUntil(values.by).toISOString();
+      const closesAt = until.toISOString();
       if (chosen === null)
         return reopenAssignment(item.id, { closesAt, reason: values.reason.trim() });
       return setStudentOverrides(item.id, {
@@ -113,9 +141,9 @@ export function ExtendAssignmentsDialog({
     });
   }
 
-  function announce(done: number, minutes: string, chosen: Chosen | null) {
+  function announce(done: number, minutes: string, chosen: Chosen | null, until: Date) {
     if (closed) {
-      const when = formatMoment(reopenUntil(minutes).toISOString(), locale);
+      const when = formatMoment(until.toISOString(), locale);
       if (chosen === null) toast(t("assignments.list.reopened", { when }));
       else
         toast(
@@ -135,12 +163,13 @@ export function ExtendAssignmentsDialog({
   async function extend(values: Values) {
     setPending(true);
     const chosen = chosenOf(values);
+    const until = reopenUntil(values);
     const done: string[] = [];
     const failed: Failure[] = [];
     const now = new Date();
     for (const item of remaining) {
       try {
-        await send(item, values, chosen);
+        await send(item, values, chosen, until);
         done.push(item.id);
       } catch (cause) {
         failed.push({
@@ -154,7 +183,7 @@ export function ExtendAssignmentsDialog({
     setFailures(failed);
     if (done.length > 0) {
       onExtended(done);
-      announce(done.length, values.by, chosen);
+      announce(done.length, values.by, chosen, until);
     }
     if (failed.length === 0) onOpenChange(false);
   }
@@ -178,10 +207,11 @@ export function ExtendAssignmentsDialog({
         if (single === undefined || when === undefined) return undefined;
         if (!closed)
           return t("assignments.list.extendWhen", { title: single.testTitle, when });
+        const moment = reopenUntil(values);
         return t("assignments.list.reopenWhen", {
           title: single.testTitle,
           when,
-          until: formatMoment(reopenUntil(values.by).toISOString(), locale),
+          until: ahead(moment) ? formatMoment(moment.toISOString(), locale) : "…",
         });
       }}
       initial={{
@@ -190,13 +220,32 @@ export function ExtendAssignmentsDialog({
         who: "everyone",
         students: [],
         reason: "",
+        untilDate: tomorrow(),
+        untilTime: "21:00",
       }}
       fields={[
         {
           kind: "seg",
           name: "by",
           label: t("assignments.list.extendBy"),
-          options: STEPS.map((minutes) => ({ value: minutes, label: label(minutes) })),
+          options: (closed ? [...STEPS, CUSTOM] : STEPS).map((minutes) => ({
+            value: minutes,
+            label: label(minutes),
+          })),
+        },
+        {
+          kind: "date",
+          name: "untilDate",
+          label: t("assignmentDetail.reopenStudent.until"),
+          when: (values) => closed && values.by === CUSTOM,
+          noOptional: true,
+        },
+        {
+          kind: "time",
+          name: "untilTime",
+          label: t("assignmentDetail.reopenStudent.untilTime"),
+          when: (values) => closed && values.by === CUSTOM,
+          noOptional: true,
         },
         {
           kind: "seg",
@@ -215,13 +264,14 @@ export function ExtendAssignmentsDialog({
           when: chosenOnly,
           required: true,
           requiredText: t("assignments.list.extendNoStudents"),
-          options: (roster ?? []).map((row) => ({
-            value: row.studentId,
-            label: row.fullName,
-            ...(row.state === "not_started" || row.state === "in_progress"
-              ? { meta: t(`status.attempt.${row.state}`) }
-              : {}),
-          })),
+          options: (values) =>
+            candidates(values).map((row) => ({
+              value: row.studentId,
+              label: row.fullName,
+              ...(row.state === "not_started" || row.state === "in_progress"
+                ? { meta: t(`status.attempt.${row.state}`) }
+                : {}),
+            })),
         },
         {
           kind: "toggle",
@@ -240,11 +290,19 @@ export function ExtendAssignmentsDialog({
           maxLength: 500,
         },
       ]}
-      validate={(values) =>
-        chosenOnly(values) && values.students.length > MAX_CHOSEN
-          ? { students: t("assignments.list.extendTooMany", { count: MAX_CHOSEN }) }
-          : null
-      }
+      validate={(values) => {
+        if (closed && values.by === CUSTOM && !ahead(reopenUntil(values)))
+          return { untilDate: t("assignmentDetail.reopenStudent.untilPast") };
+        const chosen = chosenOf(values);
+        if (chosen === null) return null;
+        if (chosen.studentIds.length === 0)
+          return { students: t("assignments.list.extendNoStudents") };
+        if (chosen.studentIds.length > MAX_CHOSEN)
+          return {
+            students: t("assignments.list.extendTooMany", { count: MAX_CHOSEN }),
+          };
+        return null;
+      }}
       submitLabel={
         failures.length > 0
           ? t("common.retryFailed", { count: failures.length })
@@ -268,4 +326,8 @@ export function ExtendAssignmentsDialog({
       ) : null}
     </FormDialog>
   );
+}
+
+function tomorrow(): string {
+  return toDateTimeInput(new Date(Date.now() + DAY_MS)).slice(0, 10);
 }

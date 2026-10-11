@@ -183,6 +183,17 @@ export function getItemAnalysis(id: string, signal?: AbortSignal) {
   );
 }
 
+export type StudentOverride = components["schemas"]["StudentOverride"];
+
+/** listStudentOverrides is every student override the assignment holds. */
+export function listStudentOverrides(id: string, signal?: AbortSignal) {
+  return api(
+    "get",
+    "/teacher/assignments/{id}/student-overrides",
+    signal ? { path: { id }, signal } : { path: { id } },
+  );
+}
+
 /** setStudentOverrides gives the named students an override, or changes theirs, with the reason. */
 export function setStudentOverrides(id: string, body: StudentOverrideInput) {
   return api("put", "/teacher/assignments/{id}/student-overrides", {

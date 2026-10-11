@@ -25,6 +25,25 @@ export const DETAIL_CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
 type Assignment = components["schemas"]["Assignment"];
 type MonitorRow = components["schemas"]["MonitorRow"];
 type ItemAnalysis = components["schemas"]["ItemAnalysis"];
+type StudentOverride = components["schemas"]["StudentOverride"];
+
+/** detailOverride is a stored student override for `studentId`, with `over` applied. */
+export function detailOverride(
+  studentId: string,
+  over: Partial<StudentOverride> = {},
+): StudentOverride {
+  return {
+    studentId,
+    studentName: "Học viên",
+    closesAt: null,
+    durationMinutes: null,
+    extraAttempts: 0,
+    reason: "Đã gia hạn",
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+    ...over,
+  };
+}
 
 /** detailAssignment is an open assignment with `over` applied. */
 export function detailAssignment(over: Partial<Assignment> = {}): Assignment {
@@ -100,18 +119,21 @@ export type DetailCalls = {
 
 /**
  * serveDetail stubs the assignment, its versions, its monitor with `rows`,
- * its item analysis and the writes the page makes. `patchStatus` answers
- * every PATCH with that status instead, as `ASSIGNMENT_LOCKED` when 409.
+ * its item analysis, its stored `overrides` and the writes the page makes.
+ * `patchStatus` answers every PATCH with that status instead, as
+ * `ASSIGNMENT_LOCKED` when 409.
  */
 export function serveDetail(
   a: Assignment,
   {
     rows = [],
     analysis = { handedIn: 0, items: [] },
+    overrides = [],
     patchStatus = 200,
   }: {
     rows?: MonitorRow[];
     analysis?: ItemAnalysis;
+    overrides?: StudentOverride[];
     patchStatus?: 200 | 409;
   } = {},
 ): DetailCalls {
@@ -169,6 +191,11 @@ export function serveDetail(
           });
         return contractJson("/teacher/assignments/{id}", "patch", 200, a);
       },
+    ),
+    http.get(`${DETAIL_API}/teacher/assignments/${DETAIL_ID}/student-overrides`, () =>
+      contractJson("/teacher/assignments/{id}/student-overrides", "get", 200, {
+        items: overrides,
+      }),
     ),
     http.put(
       `${DETAIL_API}/teacher/assignments/${DETAIL_ID}/student-overrides`,
