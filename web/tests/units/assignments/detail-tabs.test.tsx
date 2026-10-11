@@ -228,6 +228,39 @@ describe("the Questions tab", () => {
     expect(await screen.findByRole("link", { name: "Xem đề" })).toBeInTheDocument();
   });
 
+  it("draws a fill-blank excerpt's markers as gaps, a cut one included (QA-26-4)", async () => {
+    const cut = `${"x".repeat(134)} b {{1`;
+    serveDetail(detailAssignment(), {
+      analysis: {
+        handedIn: 2,
+        items: [
+          {
+            questionId: "018f0000-0000-7000-8000-000000000101",
+            number: 1,
+            type: "fill_blank",
+            promptExcerpt: "He told me that he {{1}} the film the day {{2}}.",
+            answered: 2,
+            correctRate: 0.5,
+          },
+          {
+            questionId: "018f0000-0000-7000-8000-000000000102",
+            number: 2,
+            type: "fill_blank",
+            promptExcerpt: cut,
+            answered: 2,
+            correctRate: 0.5,
+          },
+        ],
+      },
+    });
+    renderDetail("questions");
+    expect(
+      await screen.findByText("He told me that he ___ the film the day ___."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(`${"x".repeat(134)} b ___`)).toBeInTheDocument();
+    expect(screen.queryByText(/\{\{/)).toBeNull();
+  });
+
   it("says when nothing has been handed in", async () => {
     serveDetail(detailAssignment(), {
       analysis: {
