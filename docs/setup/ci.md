@@ -189,7 +189,7 @@ which does what a deploy does:
 
 MinIO is not started: neither process reaches the object store while it starts.
 The job's set is `image`, the files above plus `scripts/ci/`; a change to the
-web, the docs or the contract does not run it. It takes about two minutes, most
+web, the docs or the contract does not run it. It took 1 min 22 s on the first run, most
 of it the Go build inside the image; the smoke test itself takes seconds. The
 base image `golang:1.27-alpine` comes from the mirror, like the others.
 
