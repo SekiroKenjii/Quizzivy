@@ -241,10 +241,9 @@ sub-PRs there); they reach `develop` with v0.10.0.
 **Two fields a task here may carry** beyond the form of `74-r4.md`. "Reopens" names the R4
 task whose result the task changes. "Frozen" lists what the task leaves exactly as it is.
 
-**The gap rows.** T-D4.1 opens fourteen rows in `docs/design/gaps.md`. Their ids are the next
-free ones when it runs: `develop` ends at DG-119 today, the R4 branch holds DG-122 and reserves
-DG-120 and DG-121, and R4 may open more. This file calls them **DG+1** to **DG+14** (DG+1 is
-the first free id), and T-D4.1 replaces each label here with its id.
+**The gap rows.** T-D4.1 opened twenty-one rows in `docs/design/gaps.md` on 2026-10-12: DG-182 to
+DG-195 for the fourth export and DG-196 to DG-202 for v2. `develop` held DG-181 as its highest id
+that day (R4 used up to it), so DG-182 was the first free id.
 
 **If Thuong allows the documents to go ahead of R4.** The lead has asked whether the import and
 a documents-only amendment of the six R4 tasks may still happen before those tasks are built.
@@ -255,7 +254,7 @@ change:
   requests target `develop`. With them change T-D4.1's "Depends on" and its last bullet, the
   "Branches" paragraph, the decision "The import lands on `work/deck-d4`", section A's
   opening paragraph and step 1 of "Order of work". The gap rows take their ids on that day, so
-  the `DG+n` labels, "The gap rows" and fact 7 go.
+  "The gap rows" and fact 7 go.
 - **A fifteenth gap row returns**, for the weeks in which the deck is ahead of the engine: an
   engine change is compared with the Student page at tag `v0.9.0` until the engine chain
   ships. It returns with its bullet in AGENTS.md.
@@ -265,7 +264,7 @@ change:
   bullet leave this file. With them go the table and the paragraph under "What that order
   costs"; the group's row and the previews' frame in "Deliverable" and "Exit criteria"; the
   verdict "reopens R4" and the "Task" entries of S-32, B-02, B-03, B-07, B-09, B-13, T-01
-  and T-02, and B-15's "Task" entry; the "Built by" entries of DG+5, DG+6 and DG+7; the three
+  and T-02, and B-15's "Task" entry; the "Built by" entries of DG-186, DG-187 and DG-188; the three
   tasks' names in Q8, Q11 and Q26; and their entries in step 4 of "Order of work", in
   "Lanes", in the high-risk rules and in the release checklist.
 - **T-D4.15** loses its "Reopens" line and keeps the pause switch. **T-D4.14** depends on
@@ -280,23 +279,23 @@ change:
 **Decisions taken in this file, worth a second look.** Each is a default, with its question
 under "Open items".
 
-- **A recording never locks at its play limit** (Q3, DG+1). The export locks it. Spec §11.4,
+- **A recording never locks at its play limit** (Q3, DG-182). The export locks it. Spec §11.4,
   the contract and a canary case say the opposite, and the teacher judges; the app reports.
   The card is built; at the limit the button stays live.
-- **"Students can pause" is one boolean, `allowPause`, on by default** (Q4, DG+2), on a
+- **"Students can pause" is one boolean, `allowPause`, on by default** (Q4, DG-183), on a
   question's audio and on a group's recording. An absent field on update keeps the stored
   value, so an old tab cannot switch pausing back on.
-- **A start spends a play; a resume spends none** (Q5, DG+12). Today every press of play
+- **A start spends a play; a resume spends none** (Q5, DG-193). Today every press of play
   counts. A play in progress is remembered while the tab lives, and a place that cannot be put
   back costs a play.
-- **A cloze stays one question per gap** (Q6, DG+3). The engine shows a run of gap-bound
+- **A cloze stays one question per gap** (Q6, DG-184). The engine shows a run of gap-bound
   members as one screen. Numbers, squares, flags, points, grading and the result do not move.
-- **The builder keeps two levels** (Q8, DG+5). The deck's group is the product's section;
+- **The builder keeps two levels** (Q8, DG-186). The deck's group is the product's section;
   shared content belongs to a shared-context group inside it.
 - **The Shared content dialog has no writer of its own** (T-D4.14). It saves through the
   group's one editor, so the revision, the recovery draft and the conflict message keep one
   owner.
-- **A preview shows no time and claims no save** (Q11, DG+7). A test has no time limit until
+- **A preview shows no time and claims no save** (Q11, DG-188). A test has no time limit until
   it is assigned, so the deck's 45:00 has nothing to read.
 - **The rail returns and R3's footer strip goes** (Q12), as drawn. It reverses T-R3.9c.
 - **The import lands on `work/deck-d4`, not on `develop`.** The deck of record and the engine
@@ -314,12 +313,12 @@ stays open for two items only (the students' sentence and the provider account's
   prices from configuration, rounded up. The deck's example costs are placeholders.
 - **The default allowance is 20,000 credits a month** (Q30), the deck's lowest rule value: ten
   teachers fill the pool exactly, and the centre has fewer.
-- **The pool's rule has one value: pause everyone** (Q31, DG+15). The deck's "Allow 10% extra"
+- **The pool's rule has one value: pause everyone** (Q31, DG-196). The deck's "Allow 10% extra"
   and "billed on the next invoice" contradict D21 and the spec's non-goal on payments; "Add
   credits" is the approval and the product bills nobody.
-- **A variant is a new draft test, never the test's draft** (Q32, DG+16): a test has one draft
+- **A variant is a new draft test, never the test's draft** (Q32, DG-197): a test has one draft
   and a variant must not overwrite unpublished edits.
-- **The bank clean-up merges nothing** (Q32, DG+16): "Merge into one" has no operation and
+- **The bank clean-up merges nothing** (Q32, DG-197): "Merge into one" has no operation and
   crosses the publish snapshot; near-duplicates are listed, tags are applied.
 - **"Let AI read student answers" stays a per-teacher switch, on by default** (Q33), gating the
   two features that send answer text; no feature sends a name, email or id (D20).
@@ -381,9 +380,8 @@ task that builds the row, or the gap row that records why nothing is built.
 6. **Three thresholds are new to the engine: 420, 900 and 1180** (and 1000 for R6's matching).
    At `fd9c763a`, `web/tests/support/viewport.ts` answers every `min-width` query alike. Engine
    unit tests need the numeric form T-R4.3a adds, which is on `develop` from v0.10.0.
-7. **Gap ids are taken when T-D4.1 runs.** `develop` ends at DG-119 today; `work/redesign-r4`
-   holds DG-122 and reserves DG-120 and DG-121 for T-R4.2a and T-R4.1a. DG+1 is the first id
-   free after R4.
+7. **Gap ids were taken when T-D4.1 ran.** `develop` ended at DG-181 on 2026-10-12, the R4
+   rows included, so the new rows are DG-182 to DG-202.
 8. **Migration numbers are taken at merge.** `develop` ends at 00079 today. T-R3.1 and T-R3.2
    ("numbers from 00080", `73-r3.md`), R4's migrations and this export's `allowPause` all
    number above it, in the order they merge.
@@ -439,20 +437,20 @@ task that builds the row, or the gap row that records why nothing is built.
 | S-13 cloze stop | S 1145-1170; `gapStrip` S 1685; `gapOpts` S 1664 | not drawn | One navigator stop, "Question 23 of 31 · Cloze · 5 gaps". Prompt 17px; "The gaps are in the passage. Pick a gap here or in the passage." (12.5px); a strip of gap chips (32px, radius 8, 20px circle, the word or "—"; active = primary fill). A card (`--sidebar`, 1px border, radius 12, padding 14): "Gap {n}" (13.5px 600) and "{k} of {m} gaps filled"; options in `repeat(auto-fill, minmax(132px, 1fr))`, gap 8, rows 46px with the round letter marker. Choosing moves to the next unfilled gap. Answers red-pen mark 1 | Each gap-bound member is its own `single_choice` question with its own square, drawn by `Choice` (`QuestionBody.tsx:83-163`); `TakeTestPage.tsx:377-386` `jumpToGap` | new (presentation over data that exists) | L | T-D4.10 |
 | S-14 recording card | S 1074-1097; script S 1677-1682 | not drawn (DG-80: shared recordings in the question pane) | An audio stimulus fills the left pane (the drawer on a phone): the kicker, no h2 (S 1054-1056 puts the h2 inside `isPassage`), then the card. Card: padding 18, radius 14, 1px border, `--card`, `--shadow`. A 52px round primary button (22px icon: play, pause, rotate-ccw, lock), a 6px track on `--muted` filled `--accent-c`, under it "{m:ss} / {m:ss}" and "Play {n} of {N}" (12.5px tabular), then a line with a 15px headphones icon (13px muted): "Press play when you are ready.", "Playing", "Paused", "Finished · {k} play left", "You have used all {N} plays". Button names: Play, Pause, Resume, Play again, No plays left. No seek, no title, no transcript | The player is in the question pane: `GroupContext.tsx:90-199` (`GroupListening`, `SharedAudio`), mounted at `TakeTestPage.tsx:462-468`, one per recording, each under a printed "Recording {n}". The left pane meanwhile prints the recording's material: its heading (`GroupMaterials.tsx:67-69`) and, at the audio node, the node's label as a line of text (`GroupContext.tsx:62`). `AudioPlayer.tsx:150-250`: 40px button, 4px `bg-primary` track, hint "n plays left". Not drawn by the deck and present in the product: a material that mixes text and audio, and a group with several recordings | rework (reverses T-R3.9b: "Shared recordings sit in the question pane"); the card goes to its audio node, and an audio-only material loses its heading and label | M | T-D4.8 |
 | S-15 pause policy | `canPause` S 1503; S 1677-1681 | not drawn | Per recording. False: while playing, the button is inert at opacity .45 and the status reads "Playing · this recording can’t be paused"; before the first play "… It can’t be paused once it starts." True: Pause and Resume. The intro note still says "you can pause once" (S 1378) and the script keeps an unread `pauses` counter | nothing: `AudioPolicy` is `maxPlays`, `allowSeek`, `showTranscriptAfterSubmit` (`api/openapi.yaml` 1695-1709); no "pause" in the contract; `AudioPlayer` always pauses | contradicts DG-111's default; needs the contract | M | T-D4.13, T-D4.9 |
-| S-16 play-limit lock | `locked` S 1677; S 1679-1681 | not drawn; the product keeps the button live and says extra plays are recorded | After the last allowed play: lock icon, button at .45 named "No plays left", "You have used all {N} plays", and `toggle` returns without playing | `GroupContext.tsx:158-183`, `QuestionAudio.tsx:49-53`: live button, "Played 2/2 times", `takeTest.extraPlaysRecorded` | contradicts spec §11.4, the contract (`api/openapi.yaml` 1701-1707, 6858) and the canary case `audio-player.test.tsx:105-112` | S | not built (DG+1) |
+| S-16 play-limit lock | `locked` S 1677; S 1679-1681 | not drawn; the product keeps the button live and says extra plays are recorded | After the last allowed play: lock icon, button at .45 named "No plays left", "You have used all {N} plays", and `toggle` returns without playing | `GroupContext.tsx:158-183`, `QuestionAudio.tsx:49-53`: live button, "Played 2/2 times", `takeTest.extraPlaysRecorded` | contradicts spec §11.4, the contract (`api/openapi.yaml` 1701-1707, 6858) and the canary case `audio-player.test.tsx:105-112` | S | not built (DG-182) |
 | S-17 play counting | `toggle` S 1681; `go` S 1639 | not drawn | A play is spent only when playback starts from 0:00 or after it finished; Resume spends none. "Play 1 of 2" before the first play. Starting one recording pauses the others. Moving to another section pauses everything; "Resume" then continues without a play | `AudioPlayer.tsx:104-119` fires `onPlay` on every start; `GroupContext.tsx:175`, `QuestionAudio.tsx:34-38` count each; the shared player unmounts when the question leaves the group | rework; changes what spec §11.4 calls a play | S | T-D4.8 |
 | S-18 unlimited plays | T script 6904 (`plays: +x.shared.plays \|\| 99`); S 1681 | not drawn | No student state: the builder preview reads "Play 1 of 99" | `takeTest.sharedAudioUnlimited` ("Unlimited plays") | new (undrawn) | XS | T-D4.8 |
 | S-19 choice rows | S 1135-1142; `mk` S 1643; `optCols` S 1660 | One column; chosen marker shows a check; multi marker radius 6px | The chosen marker keeps its letter in `--primary-fg` on primary, no check. Multi radius 7px. Rows are `<button aria-pressed>` in `role=group` "Answer". Columns: every option at most 16 characters and no stimulus gives 2 columns below 768 and `min(4, options)` from 768; else one. Line-height 1.4 | `QuestionBody.tsx:114-160`: `flex-col gap-2`, `min-h-13`, `leading-[1.45]`, `<Check>` at 152, `rounded-[6px]`, real radio and checkbox inputs | rework | S | T-D4.6 |
 | S-20 fill-in field | S 1171-1176 | not drawn (DG-80) | The sentence at 18px (20px larger), weight 500, line-height 2.1, with the blank as an inline input: width `min(100%, 340px)`, height 38px, no box, a 2px bottom border (`--ring`, primary once typed), `--muted` fill, radius 6px 6px 0 0, padding 0 8px, placeholder "type here", `autocomplete=off spellcheck=false`. An optional hint (13px). No case-rule line, no worth line | `QuestionBody.tsx:165-254`: prompt 17px; `BlankInput` is a bordered box `h-11 w-32` (44 by 128px, 40px from 1024), centred, no placeholder | rework | S | T-D4.6 |
 | S-21 short answer | S 1227-1236; `countText` S 1666 | 52px input, "n of L words · too many" | Same, plus `autocomplete=off spellcheck=false` and "1 word" in the singular | `QuestionBody.tsx:258-302`: a growing `<textarea>`, "{n} words", the worth line; no limit in the contract | matches, with R3's recorded departures | XS | T-D4.6 |
 | S-22 sentence gap | S 1127-1129; `hasSentence` S 1645 | not drawn | A choice whose prompt holds "___": the sentence at 18px (20px larger), weight 500, line-height 1.8, with the blank as an inline box (min-width 88px, radius 7, a 2px bottom border): empty `--muted` with a `--ring` line; chosen, the option's text on `--accent-soft` with an `--accent-c` line | `QuestionBody.tsx:106-110` prints the prompt as written | new (no field; derived from the prompt) | S | T-D4.11 |
-| S-23 sign card | S 1115-1122; `EX_SIGN` S 1494 | not drawn | Above the prompt: a card with a 3px `--fg` border, radius 12, padding 18px 24px, min-width `min(100%, 320px)`; head 20px 700 letter-spacing .06em; optional sub 15px. Data from a table keyed by question id | nothing; a question image is the nearest thing | new, no model; not built (default) | M | not built (DG+8) |
-| S-24 word tiles | `EX_UL` S 1493; `wordMode` S 1644-1646; S 1140 | not drawn | Pronunciation and stress items: row min-height 60px, text 20px, the tested letters underlined (2px, offset 4px, 700). Chosen by fixture ids | `OptionText` renders `StudentOption.content`; `ContentMark` has `underline`; nothing marks a "word" question | new, no model; the underline is authorable, the size is not built (default) | S | not built (DG+8) |
-| S-25 image and caption | S 1178-1202; `MAP_CELLS` S 1497 | not drawn (DG-80: image) | Above the prompt: a 13px 600 caption ("Map of the town centre") and the picture in a bordered 12px-radius frame on `--sidebar` | `QuestionSheet.tsx:64-70` draws `question.media` above the prompt; alt fixed; no caption | answers DG-80's image position; the caption has no field | XS | none; the caption is not built (DG+8) |
-| S-26 hint line | S 1133-1135, 1173-1175, 1229-1231 | "Choose two answers.", "Write NO MORE THAN THREE WORDS." as fixture hints | The same, per question (`extra.hint`), 13px muted | no per-question hint in the contract; multiple choice shows `takeTest.chooseMultiple` there | new, no field; `maxWords` is R6 | XS | not built (DG+8) |
+| S-23 sign card | S 1115-1122; `EX_SIGN` S 1494 | not drawn | Above the prompt: a card with a 3px `--fg` border, radius 12, padding 18px 24px, min-width `min(100%, 320px)`; head 20px 700 letter-spacing .06em; optional sub 15px. Data from a table keyed by question id | nothing; a question image is the nearest thing | new, no model; not built (default) | M | not built (DG-189) |
+| S-24 word tiles | `EX_UL` S 1493; `wordMode` S 1644-1646; S 1140 | not drawn | Pronunciation and stress items: row min-height 60px, text 20px, the tested letters underlined (2px, offset 4px, 700). Chosen by fixture ids | `OptionText` renders `StudentOption.content`; `ContentMark` has `underline`; nothing marks a "word" question | new, no model; the underline is authorable, the size is not built (default) | S | not built (DG-189) |
+| S-25 image and caption | S 1178-1202; `MAP_CELLS` S 1497 | not drawn (DG-80: image) | Above the prompt: a 13px 600 caption ("Map of the town centre") and the picture in a bordered 12px-radius frame on `--sidebar` | `QuestionSheet.tsx:64-70` draws `question.media` above the prompt; alt fixed; no caption | answers DG-80's image position; the caption has no field | XS | none; the caption is not built (DG-189) |
+| S-26 hint line | S 1133-1135, 1173-1175, 1229-1231 | "Choose two answers.", "Write NO MORE THAN THREE WORDS." as fixture hints | The same, per question (`extra.hint`), 13px muted | no per-question hint in the contract; multiple choice shows `takeTest.chooseMultiple` there | new, no field; `maxWords` is R6 | XS | not built (DG-189) |
 | S-27 multiple choice cap | `exPick` S 1617; `stIt` S 1621 | "Choose two", any number of picks | "Multiple choice"; the third pick drops the oldest; one pick is partly. The Teacher preview feeds the same type with "Choose all the answers that are correct." (T 6907) | `TakeTestPage.tsx:592-603`, `QuestionBody.tsx:93-102`: no cap; the contract has no count | R6 (T-R6.5 `selectCount`, T-R6.10) | XS | R6 (T-D4.19) |
 | S-28 TFNG | S 1482-1484; `typeLabel` S 1655 | "True, false or not given" | "True / False / Not given", three options | no such type; a three-option `single_choice` today | R6 (label changes in T-R6.10) | XS | R6 (T-D4.19) |
-| S-29 matching | S 1177-1226; script S 1667-1670 | not drawn | Prompt; "{k} of {m} matched · pick the {pick} for each {what}" (12.5px). One card per item (1.5px border, primary once matched, radius 11, padding 10px 12px) with its key, text (14.5px 500) and a radiogroup of 38 by 38 chips (radius 9, 14px 600), one per option; a chip used elsewhere is at opacity .5, choosing it moves it, tapping the chosen one clears it. With option text, no stimulus and `w >= 1000`: a 220px reference card on the left. s2 numbers one matching "1–5" (five in the total), s9 another "31" (one) | no type; `UnknownType.tsx` | R6 (T-R6.10's matching bullets change) | L | R6 (T-D4.19, DG+13) |
+| S-29 matching | S 1177-1226; script S 1667-1670 | not drawn | Prompt; "{k} of {m} matched · pick the {pick} for each {what}" (12.5px). One card per item (1.5px border, primary once matched, radius 11, padding 10px 12px) with its key, text (14.5px 500) and a radiogroup of 38 by 38 chips (radius 9, 14px 600), one per option; a chip used elsewhere is at opacity .5, choosing it moves it, tapping the chosen one clears it. With option text, no stimulus and `w >= 1000`: a 220px reference card on the left. s2 numbers one matching "1–5" (five in the total), s9 another "31" (one) | no type; `UnknownType.tsx` | R6 (T-R6.10's matching bullets change) | L | R6 (T-D4.19, DG-194) |
 | S-30 keys | `onExKey` S 1616; `go` S 1639; Esc S 1530 | arrows move, a–e choose | Same, off in a field or under a dialog; a–e act on single, tf, tfng, multi only (not on the cloze card or matching chips, though the hint says "A–D to choose"). No F. The arrows set `exCur` directly and do not go through `go()`, so unlike a click on a square or on Next they do not close the drawer or the sheet and do not pause a recording when the section changes; Esc clears the old `sheet` state, not `exSheet`, so it does not close the new sheet | `TakeTestPage.tsx:164-208`: arrows, A–E, F flags; every move goes through one function, and the keys are off under the sheet | matches for the keys; the bypass and the Esc slip are the prototype's and are not copied; F stays a departure, now beside a drawn hint | XS | T-D4.4 (the hint) |
 | S-31 submit dialog | `exSubmit` S 1691-1697 (markup S 1317-1362 unchanged) | "Submit with {n} unanswered?" counting questions; "Unanswered questions score zero. …" | n counts empty gaps and match rows one each; body "Unanswered gaps, matches and questions score zero. You still have {m} minutes."; a partly answered item is listed under "Go to"; a chip may read "1–5" | `components/SubmitDialog.tsx:63`, 89-93, 118-129 | rework only if a cloze becomes one item; none under the default | XS | none; T-D4.10 adds one case |
 | S-32 preview header | S 950-978; S 1522, 1541, 1620, 1713 | Leave, title and save line, timer, Submit | Embedded with an `exam` prop: no leave button, no Submit, a chip "Student view" (30px, radius 999, `--info-soft` / `--info-ink`, 12.5px 600, eye 14px); Finish toasts "This is a preview. Students submit here."; no focus counting; root height 100%; the timer starts at 45:00 and runs. The save line is still drawn and `saved()` still runs on every pick (S 961-963, 1617, 1633), so the preview says "Saving…" and "All answers saved" | `components/EngineHeader.tsx:19-76`; the teacher's preview is `features/tests/components/StudentPreview.tsx`, not the engine. No preview host has a time limit or an integrity policy to show (note 13) | reopens R4 (T-R4.31b, T-R4.30, T-R4.39) and new; the timer and the save line cannot be built as drawn | S | T-D4.2c, T-D4.16 |
@@ -483,7 +481,7 @@ markup, `FOCUS_ALLOWED = 2`, `isMobile = w < 768`, larger text at 18 / 19 / 17.
 
 | ID | Where | Before | After | Product today | Verdict | Size | Task |
 |---|---|---|---|---|---|---|---|
-| B-01 group model | T 1581-1587, 1655-1732; script T 6881-6895, 6968, 6986, 7029 | The outline "group" had a title, instructions and questions; R4 maps it to the product's Section (T-R4.31a) | Every outline group can carry one "Shared content": None, Passage or Audio. Body: "A passage or recording shown beside every question in this group. Students see it on the left while they answer." The deck's group is now section and shared-context group in one level | Two levels: Section (`api/openapi.yaml` 2492-2508) holding units, each a question or a group (`migrations/00037` `test_section_units`); `QuestionGroup` 2274-2313 (200 members, 16 stimuli, 16 recordings); members owned by the group. Web: `features/tests/components/OutlineTree.tsx:334`, `OutlineGroupRow.tsx`, `BuilderGroupPane.tsx` | contradicts R4's reading, in which the deck's group is the product's section (T-R4.31a); the product's model is a superset | L if built literally; S under the default | T-D4.2a (DG+5) |
+| B-01 group model | T 1581-1587, 1655-1732; script T 6881-6895, 6968, 6986, 7029 | The outline "group" had a title, instructions and questions; R4 maps it to the product's Section (T-R4.31a) | Every outline group can carry one "Shared content": None, Passage or Audio. Body: "A passage or recording shown beside every question in this group. Students see it on the left while they answer." The deck's group is now section and shared-context group in one level | Two levels: Section (`api/openapi.yaml` 2492-2508) holding units, each a question or a group (`migrations/00037` `test_section_units`); `QuestionGroup` 2274-2313 (200 members, 16 stimuli, 16 recordings); members owned by the group. Web: `features/tests/components/OutlineTree.tsx:334`, `OutlineGroupRow.tsx`, `BuilderGroupPane.tsx` | contradicts R4's reading, in which the deck's group is the product's section (T-R4.31a); the product's model is a superset | L if built literally; S under the default | T-D4.2a (DG-186) |
 | B-02 outline line | T 1581-1587; script T 6968 | not drawn | Under the instructions line, same geometry (margin 0 0 4px 26px, padding 4px 6px, radius 6, 12px muted, 13px icon, one line with ellipsis): `file-text` "Passage · {title or Untitled}" plus " · {n} gaps", or `audio-lines` "Audio · {file or no file yet} · {n} plays" / "· unlimited plays". Shown while the group is open. Opens the dialog. The prototype prints "1 plays" | `OutlineGroupRow.tsx:53-92`: a `Layers` icon and the title, no summary | reopens R4 (T-R4.31a) | S | T-D4.2a |
 | B-03 menu item | script T 6986 | Rename, Instructions, Move up, Move down, Remove group | "Shared content" (icon `panel-left`) in third place | `OutlineTree.tsx:462-488`: the section menu; the group is added from the footer (334) and has no menu | reopens R4 (T-R4.31a) | XS | T-D4.2a |
 | B-04 dialog frame | T 1650, 1655-1656; script T 7026-7030 | one dialog, 440px, two variants | Width per variant: 440px for Remove and Instructions, 560px for Shared content. Title "Shared content for “{group}”", a scroll area (gap 12px, max-height 56vh), Cancel and Save, toast "Shared content saved". No validation, no dirty guard, no Esc | no dialog: `BuilderGroupPane.tsx:150-204` renders `GroupComposer` in the editor pane, with autosave and device recovery | new | M | T-D4.14 |
@@ -494,7 +492,7 @@ markup, `FOCUS_ALLOWED = 2`, `isMobile = w < 768`, larger text at 18 / 19 / 17.
 | B-09 plays | T 1714-1719; script T 6892 | not drawn for a group | A select: "1 play", "2 plays", "3 plays", "Unlimited"; default 2. A third drawing of Plays (question media: "Once \| Twice \| Unlimited", T 2155-2159; the bank: a select) | one component for both: `question-bank/components/AudioPolicyPanel.tsx:13` (1, 2, 3, 5, Unlimited) | reopens R4 (T-R4.65): its control serves the group too | XS | T-D4.15 |
 | B-10 students can pause | T 1720-1724; script T 6893, 6904; also T 2161-2165 | drawn once, on question media; DG-111: not built | Drawn a second time, on the group's recording: a switch, on by default (34 by 20 track, 16px knob `#fff`). The value reaches the Student page as `stim.canPause`, which acts on it | nothing in the contract, the schema or the player | contradicts DG-111's default; needs `allowPause` | M (server) + S (web) | T-D4.13, T-D4.15 |
 | B-11 transcript | T 1726-1729 | not drawn for a group | "Transcript", "Optional. Students see it after they submit.", 3 rows. No "Show transcript after submitting", no "Allow skipping ahead". The preview does not pass it on | `AudioPolicyPanel.tsx:66-108`: both switches and the transcript; `GroupRecording.transcript` up to 100,000 | contradicts DG-111 (both switches stay) | XS | T-D4.14 |
-| B-12 undrawn states | outline rows T 1591-1623; publish checks script T 7706 | not drawn | Still nothing for: a question bound to a gap (in its row or its card), deleting or retyping a bound question, publishing with an unbound gap or with "no file yet", a group that holds more than the dialog shows | `GroupComposer.tsx:372-381` (a bound member cannot be deleted), `model.ts:162`, `group_validation.go:52-67` | nothing; product behaviour kept, listed in a gap row | XS | T-D4.1 (DG+6) |
+| B-12 undrawn states | outline rows T 1591-1623; publish checks script T 7706 | not drawn | Still nothing for: a question bound to a gap (in its row or its card), deleting or retyping a bound question, publishing with an unbound gap or with "no file yet", a group that holds more than the dialog shows | `GroupComposer.tsx:372-381` (a bound member cannot be deleted), `model.ts:162`, `group_validation.go:52-67` | nothing; product behaviour kept, listed in a gap row | XS | T-D4.1 (DG-187) |
 | B-13 preview overlay | T 5737-5761; script T 6896-6901 | A 720px form dialog "Student preview" / "What students see. Answers here are not saved.", one question at a time, Previous / Next, four demo options | A full-window overlay (`role=dialog`, "Student preview", z 95, `--overlay`, padding 14px, gap 12px). Bar (card, radius 12, `--shadow-lg`, padding 8px 10px 8px 14px): eye 16px, "Student preview · {title}" 14px 600, a segmented "Computer \| Phone" (28px buttons, 12.5px, icons `monitor`, `smartphone`), a 34px "Close preview". Frame: `min(1320px, 100%)` and radius 12px, or 390px and radius 28px, full height, holding the Student take-test screen. No Esc, no focus trap | `features/tests/components/DraftPreviewDialog.tsx:76-90` (max-w-3xl, 85svh), `StudentPreviewPane.tsx` (phone 320px), `StudentPreview.tsx:44-95` (panes stacked, disabled) | reopens R4 (T-R4.31b: "Previous / Next" is no longer drawn) and new | M frame + L engine | T-D4.2c, T-D4.16 |
 | B-14 `previewExam` | script T 6902-6914 | not drawn | The prototype's mapping from builder state to the Student page. It passes no gaps, no question media, no rich prompt, no per-question options, no transcript; Unlimited becomes 99 | `question-groups/preview.ts`, `DraftPreviewDialog.tsx:39-75` map the real draft, gaps and assets included, transcripts stripped | nothing (demo plumbing; never the data contract) | XS | none |
 | B-15 fixtures | `INIT_SECS` T 6632 | two demo groups | Both carry a shared passage ("Why cities need green space", "The history of maps") and `gaps: []`, so the outline shows a "Passage · …" line under each open group by default | — | nothing; it is the fixture a deck check of the outline sees | XS | T-D4.2a (its deck check) |
@@ -505,11 +503,11 @@ markup, `FOCUS_ALLOWED = 2`, `isMobile = w < 768`, larger text at 18 / 19 / 17.
 | ID | Where | Before | After | Product today | Verdict | Size | Task |
 |---|---|---|---|---|---|---|---|
 | T-01 test detail preview | T 5846-5853; script T 7508 | A scrolling list (max-height 680px): five questions, changed ones outlined with "New" / "Changed" chips in compare mode, footer "Showing 5 of {n} questions. Answers are hidden from students." | A frame holding the Student take-test screen: padding 16px; width 100% and height 620px, radius 12px, or 390px and 720px, radius 24px. No outline, no chips, no footer. The "Changes from version {n}" list above and "Computer \| Phone" are unchanged. The prototype feeds it the builder's draft, whatever the version | `features/tests/pages/TestDetailPage.tsx:168` mounts `StudentPreviewPane` | reopens R4 (T-R4.30, its preview bullet) | S | T-D4.2c |
-| T-02 import preview | T 4975-4980; script T 7427-7428 | A scrolling list (max-height 640px) built from the import, footer "Showing 7 of 34 questions. Answers and your notes are hidden from students." It drew the cloze as the product models it: the passage with gap chips, then a member question "23.1 Choose the word for gap 23.1." with its own options and underlined runs. It was the one place where the deck drew one question per gap on a student-eye surface | The same frame holding Student fixture `s9`, not the import's own data, so the per-gap cloze is gone from every student-eye drawing (evidence for DG+3; its data stays in the script, T 7428). No footer | no confirm page yet; T-R4.39 creates `ImportConfirmPage.tsx` | reopens R4 (T-R4.39, its preview bullet) | S | T-D4.2c |
+| T-02 import preview | T 4975-4980; script T 7427-7428 | A scrolling list (max-height 640px) built from the import, footer "Showing 7 of 34 questions. Answers and your notes are hidden from students." It drew the cloze as the product models it: the passage with gap chips, then a member question "23.1 Choose the word for gap 23.1." with its own options and underlined runs. It was the one place where the deck drew one question per gap on a student-eye surface | The same frame holding Student fixture `s9`, not the import's own data, so the per-gap cloze is gone from every student-eye drawing (evidence for DG-184; its data stays in the script, T 7428). No footer | no confirm page yet; T-R4.39 creates `ImportConfirmPage.tsx` | reopens R4 (T-R4.39, its preview bullet) | S | T-D4.2c |
 | T-03 cross-page import | T 4978, 5756, 5850: `<dc-import name="Quizzivy Student" exam="…" dark="…">` | no page imported another | The Teacher page mounts the Student page three times; `support.js` already implements `dc-import` | `scripts/check-design-deck.mjs:20-31` reads `src`, `href` and quoted names ending `.svg`, `.dc.html`, `.js`: `name="Quizzivy Student"` is unchecked | the import teaches the check script | XS | T-D4.1 |
-| T-04 question count | S 1380 (`q: 31`), 1634-1637; T script 7430 ("… of 35"); old footer "34" | 34 and 35 | The same paper is "31 questions" on the Student page (the cloze counts once) and 35 on the Teacher import. Inside the Student page a matching numbered "1–5" counts five and a cloze of five gaps counts one | every member is a question; `TestSummary.questionCount` counts questions | design question; no build under the default | S | none (DG+4) |
+| T-04 question count | S 1380 (`q: 31`), 1634-1637; T script 7430 ("… of 35"); old footer "34" | 34 and 35 | The same paper is "31 questions" on the Student page (the cloze counts once) and 35 on the Teacher import. Inside the Student page a matching numbered "1–5" counts five and a cloze of five gaps counts one | every member is a question; `TestSummary.questionCount` counts questions | design question; no build under the default | S | none (DG-185) |
 | T-05 instructions copy | script T 7030 (unchanged) against S 1104-1107 | "Students see this above the group’s first question." | The builder still says so; the Student page shows the instructions above every question | `SectionInstructions` on the first question | reopens R4 (T-R4.31a): the dialog's line is reworded when S-09 ships | XS | T-D4.5 |
-| T-06 `github.md` | "Last sync", "Sync history" | 2026-10-03T17:53:01Z, four bullets on the content editor | 2026-10-04T09:04:30Z, "branch read: develop (question group graph: migrations/00037, 00002)", two bullets. The Screen map is unchanged: no row for `features/take-test/**` or `features/question-groups/**` | — | nothing; explains the drift: pause is in no migration, `allow_seek` and the `blank` gap kind were not drawn, the contract and the engine were not read | XS | T-D4.1 (DG+14) |
+| T-06 `github.md` | "Last sync", "Sync history" | 2026-10-03T17:53:01Z, four bullets on the content editor | 2026-10-04T09:04:30Z, "branch read: develop (question group graph: migrations/00037, 00002)", two bullets. The Screen map is unchanged: no row for `features/take-test/**` or `features/question-groups/**` | — | nothing; explains the drift: pause is in no migration, `allow_seek` and the `blank` gap kind were not drawn, the contract and the engine were not read | XS | T-D4.1 (DG-195) |
 | T-07 dead script values | script T 7427-7428, 7508-7509 | read by the two list previews | `wi.preview`, `wi.pvOptCols`, `td.preview`, `td.pvFoot` ("Showing 5 of … questions. Answers are hidden from students.") and `td.pvOptCols` are still computed and no markup reads them | — | nothing; reading the script without the markup would rebuild the list previews | XS | T-D4.1 (README) |
 
 Unchanged on the Teacher page (all fifteen hunks are covered above): the builder's title bar,
@@ -569,7 +567,7 @@ Read against the fourth export (`uiux/update-teacher-student-view` @ `fd66dd6a`,
 the export the six tables above inventory) and `uiux/update-uiux-v2` @ `26b60795`. Five pages
 changed; `github.md`, `support.js`, `qz-controls.js`, the SVGs, `brand/`, Splash and System pages
 are byte-identical to the fourth export, so with the three files above the manifest changes in
-**eight** files and `node scripts/check-design-deck.mjs` still prints "Deck OK: 15 files, 7 pages".
+**six** files (seven with itself) and `node scripts/check-design-deck.mjs` still prints "Deck OK: 15 files, 7 pages".
 No file is added; the three `<dc-import name="Quizzivy Student">` mounts are unchanged; no `<link>`,
 font, token, colour, radius, shadow or keyframe moved (`qz-pulse` and `qzSpin`, which the AI panel
 uses, exist in the fourth export). Every new icon name exists in the web's `lucide-react` 0.548.
@@ -602,16 +600,16 @@ names the D4 task, or the release and the correction T-D4.19 makes.
 | V-09 builder title bar | T 1619-1631 | Question settings, Versions, Preview, Publish | "AI check" (`scan-search`) and "Generate" before Preview; the actions row is `flex-wrap: wrap` | T-R4.31a ("keeps one row wherever the deck does") | reopens R4 + new (AI); the one-row measurement is redone with two more buttons | XS | T-D4.34 |
 | V-10 question editor | T 4560-4607, 4649-4681; `qai` T 9493-9515; `aiExplain` T 9435-9442; `aiDistract` T 9443-9450 | Add option; the Explanation textarea in a `<label>` | For single and multiple choice, beside Add option: "Suggest wrong options" (30px, muted; "Thinking…" with a spinner) and a panel "Suggested wrong options" (accent-soft) with up to four rows `{text, why}` and an "Add" button each (fills the first empty option or appends; "Added" after; the deck's toast "A question can have up to 6 options. Remove one first." is DG-63's 8 in the product), "Close suggestions", and an error line "AI didn’t respond. Try again in a minute.". Explanation: the label row gains "Write with AI" (28px; "Writing…"; "Write again" after) and the textarea takes `aria-label="Explanation"`; a panel "Suggested explanation" with the text (14px) and "Use this" (primary), "Shorter", "In Vietnamese" / "In English" (the other language than the preference), "Discard". Both guarded: "Write the question first", "Mark the correct answer first" | T-R4.33 and T-R4.66: one `QuestionEditor` for the bank and the builder (DG-108), so both pages gain it | new (AI) | server S, web M | T-D4.32, T-D4.35 |
 | V-11 "Read with AI" on the import page | T 5015-5033; `aiImp` T 9491 | One accepts line, scanned PDFs refused | A toggle card (1px border, radius 10, padding 12px 14px; a 32px sparkles tile; `role="switch"` 38 × 22): "Read with AI", "Handles scans, photos of printed tests and unusual layouts. About 400 credits per page."; on: "Accepts .docx, .doc and .pdf files up to 25 MB each, including scanned or photographed PDFs. Files with a password or macros are refused."; off: the fourth export's line. It mirrors the Settings preference "Read imports with AI" | T-R4.36; the `PDF_NO_TEXT` refusal (`17-word-import.md` §1.39); `18-word-import-ux.md` §4 (say where processing occurs and what is sent) | new (AI) | server L, web S | T-D4.33, T-D4.39 |
-| V-12 "Make a variant" | T 6206-6209; `AI_K.variant` T 7649-7661 | Version history, Share, Open builder, Assign | "Make a variant" (`sparkles`) before Share. Its panel: "A second version for another class or a retake, so students can’t share answers."; chips What to change (Reword questions, Reorder options, New wrong options; the first two on), Difficulty (Keep the same, A little easier, A little harder); an info callout "Answers, points and passages stay the same. The variant is saved as a draft version, so nothing changes for students until you publish it."; steps Reading the test / Rewriting questions / Checking that every answer still matches; items tagged "Q{n}" and Reworded / Options reordered / New wrong option with a struck-through before and an after; primary "Save {n} changes as a draft" → "Draft version saved. Review it in Version history before publishing." | T-R4.30; a test has one draft (T-R4.16) | new (AI); "saved as a draft version" is not taken (DG+16) | server M, web S | T-D4.32, T-D4.34 |
-| V-13 Settings › AI assistant | T 3861-3921; `aiu`, `aiLang`, `aiPrefs`, `setAi`, `setTabs` T 9484-9490 | Five sections | A sixth section "AI assistant" (`sparkles`) after Appearance. Card "AI usage this month": "Your school gives each teacher a monthly allowance. It resets on 1 October."; "{used} of {limit} credits" (22px) and "{left} left"; an 8px accent bar; a bordered list of five rows with icons: Generating questions and variants, Grading suggestions, Explanations and wrong options, Reading imports, Checks, word lists and insights. Card "Preferences": "Applies to every AI feature in your workspace. AI output is always a draft until you approve it."; "Explanations and feedback in" English \| Tiếng Việt ("You can still switch language on any suggestion."); switches (38 × 22) "Tag AI drafts" ("Adds an “AI draft” tag until you edit or approve the item. Only teachers see it."), "Let AI read student answers" ("Needed for grading suggestions and class insights. Student names are never sent."), "Read imports with AI" ("… About 400 credits per page."). No request control, though the Admin page lists requests (DG+19) | T-R4.43 (sections, `/teacher/settings/:section`), T-R4.7 `UserPreferences` | new (AI) | web M | T-D4.38 |
+| V-12 "Make a variant" | T 6206-6209; `AI_K.variant` T 7649-7661 | Version history, Share, Open builder, Assign | "Make a variant" (`sparkles`) before Share. Its panel: "A second version for another class or a retake, so students can’t share answers."; chips What to change (Reword questions, Reorder options, New wrong options; the first two on), Difficulty (Keep the same, A little easier, A little harder); an info callout "Answers, points and passages stay the same. The variant is saved as a draft version, so nothing changes for students until you publish it."; steps Reading the test / Rewriting questions / Checking that every answer still matches; items tagged "Q{n}" and Reworded / Options reordered / New wrong option with a struck-through before and an after; primary "Save {n} changes as a draft" → "Draft version saved. Review it in Version history before publishing." | T-R4.30; a test has one draft (T-R4.16) | new (AI); "saved as a draft version" is not taken (DG-197) | server M, web S | T-D4.32, T-D4.34 |
+| V-13 Settings › AI assistant | T 3861-3921; `aiu`, `aiLang`, `aiPrefs`, `setAi`, `setTabs` T 9484-9490 | Five sections | A sixth section "AI assistant" (`sparkles`) after Appearance. Card "AI usage this month": "Your school gives each teacher a monthly allowance. It resets on 1 October."; "{used} of {limit} credits" (22px) and "{left} left"; an 8px accent bar; a bordered list of five rows with icons: Generating questions and variants, Grading suggestions, Explanations and wrong options, Reading imports, Checks, word lists and insights. Card "Preferences": "Applies to every AI feature in your workspace. AI output is always a draft until you approve it."; "Explanations and feedback in" English \| Tiếng Việt ("You can still switch language on any suggestion."); switches (38 × 22) "Tag AI drafts" ("Adds an “AI draft” tag until you edit or approve the item. Only teachers see it."), "Let AI read student answers" ("Needed for grading suggestions and class insights. Student names are never sent."), "Read imports with AI" ("… About 400 credits per page."). No request control, though the Admin page lists requests (DG-200) | T-R4.43 (sections, `/teacher/settings/:section`), T-R4.7 `UserPreferences` | new (AI) | web M | T-D4.38 |
 | V-14 the AI panel | T 6540-6750; `aiVals` T 9470-9591; `AI_K` T 7577-7663; `aiOpen`, `aiStart` T 9405-9429 | not drawn | A right-side `role="dialog"` named by its title, `min(560px, 100%)` wide, full height, `--card`, a left border, `--shadow-lg`, over a `--overlay` backdrop (z 75 / 76). Header (padding 16px 16px 16px 18px): a 36px accent icon tile, the title (15px 600), the sub (12.5px muted), Close (32px). Body (padding 18, gap 18) in three stages. **Setup**: fields by type: source chips (28px pills with an icon: "Passage 1 · Urban green space", "Start empty"), a textarea (13.5px, `--bg`), a segmented control (30px), toggle chips (30px pills, `aria-pressed`, a check when on), a toggle card (border, radius 10), an info callout (`--muted`, `info` icon). **Running**: three step lines (a check in `--success`, a spinner, or a 7px dot) advancing every 1.3s, then a pulsing skeleton (`qz-pulse`); a run lasts at least 3.2s. **Done**: in the demo a warning callout "AI didn’t respond, so this is sample output. Try again in a minute."; a summary line (13px muted) and "Select all" / "Clear selection"; a dashed empty card; item cards (border, radius 12, padding 14; `--ring` border when selected): a `role="checkbox"` "Keep this" (18px) when selectable, tone pills, a right-aligned meta, a 14px 500 title, a 13px body, lettered options (the correct one in success tones with a check), an "Answer" pill, a before / after grid (the before struck through for a variant), dashed "+ {tag}" chips, a note with a bold label, action buttons (30px; the primary filled). Footer: a credit note with `coins` ("About {cost} credits · {left} left this month"; after a run "Used about {cost} credits"; or the validation sentence with `circle-alert` in warning ink), a secondary (Cancel / Stop / Start over), a primary (the run label with `sparkles`; after a run the apply label, at .5 opacity until something is selected; "Done" when the kind applies nothing). No Esc, no focus trap, no focus return (DG-36) | nothing in the product | new (AI) | web L | T-D4.34 |
 | V-14a Generate questions (`gen`) | T 7577-7605 | — | "Generate questions" / "From a passage, a transcript or a topic. Questions arrive as drafts for you to check.". Fields: Source (8 rows; chips "Passage 1 · …" with the test's passage, "Start empty"; placeholder "Paste a passage or transcript, or describe a topic"), Question types (Single choice, True / False / Not given, Fill in the blank, Short answer; default single and tf), How many 3 / 5 / 8 (5), Level B1 / B2 / C1 (B2), "Write an explanation for each question" / "Students see it after results are released." (on). Validation: "Add a source of at least a few sentences" under 40 characters, "Pick at least one question type". Steps: Reading the source, Writing questions, Checking every answer against the source. Items: tags the type, the level, "AI draft" (when tagging is on); the prompt; options with the key marked; an "Answer" pill for blank and short; the explanation as a note. Primary: in the builder "Add {n} to {section}" (appends the picks to the open question's section and opens the first; toast "{n} questions added to {section}. Check each one before publishing."); in the bank "Save {n} to the bank" ("… with an AI draft tag"); from insights "Save as practice test" ("Practice test with {n} questions saved as a draft in Tests"). Cost 1,800 | the section and bank question writes exist; `tfng` is R6 | new (AI); TFNG is offered once R6 ships | — | T-D4.32, T-D4.34 |
 | V-14b Check this test (`check`) | T 7606-7617 | — | "Check this test with AI" / "Looks for answer keys that don’t match the passage, unclear wording and questions that give answers away.". Look for: Wrong or doubtful answers, Unclear wording, Answers given away, Spelling and grammar (all on); info "Checks the questions in “{title}” against their passages. Nothing changes until you apply a fix.". Steps: Reading both passages, Checking answers against the text, Looking at wording and options. Items: tags Likely error (danger) / Worth a look (warning) / Minor (info) and "Q{n}"; meta the type; title the question's; body the issue; note "Suggested fix"; actions "{fix label}" (applies and toasts), "Open question", "Dismiss". Summary "{n} things worth a look"; empty "Nothing left to look at. The test is ready to publish."; no primary. Cost 2,400 | the draft read; `updateQuestion` for a fix; the demo's fixes name R6 types and `maxWords` | new (AI); fixes whose write exists are one click, the rest open the question | — | T-D4.32, T-D4.34 |
-| V-14c Clean up the bank (`dups`) | T 7618-7633 | — | "Clean up the question bank" / "Finds near-duplicates and questions with missing tags, so search and filters work better.". Look for: Near-duplicates, Missing tags; info "Scans the questions you own. Questions shared with you are skipped, and nothing changes until you confirm.". Steps: Reading 1,284 questions, Comparing similar questions, Suggesting tags. A duplicate card (not selectable): "Possible duplicate", meta "Used in 4 tests and 1 test", the reason as title, One / Other, actions "Merge into one" (toast "Merged. Tests that used either question now share one copy.") and "Keep both". A tag card: "Missing tags", the level, the prompt, dashed "+ {tag}" chips; primary "Add tags to {n} questions". Empty "All done. Your bank is tidy.". Cost 3,200 | `listQuestions` with `Own()`; the bulk tag write (T-R4.32); no merge operation | new (AI); no merge (DG+16): a duplicate card has "Open" for each and "Keep both" | — | T-D4.32, T-D4.34 |
+| V-14c Clean up the bank (`dups`) | T 7618-7633 | — | "Clean up the question bank" / "Finds near-duplicates and questions with missing tags, so search and filters work better.". Look for: Near-duplicates, Missing tags; info "Scans the questions you own. Questions shared with you are skipped, and nothing changes until you confirm.". Steps: Reading 1,284 questions, Comparing similar questions, Suggesting tags. A duplicate card (not selectable): "Possible duplicate", meta "Used in 4 tests and 1 test", the reason as title, One / Other, actions "Merge into one" (toast "Merged. Tests that used either question now share one copy.") and "Keep both". A tag card: "Missing tags", the level, the prompt, dashed "+ {tag}" chips; primary "Add tags to {n} questions". Empty "All done. Your bank is tidy.". Cost 3,200 | `listQuestions` with `Own()`; the bulk tag write (T-R4.32); no merge operation | new (AI); no merge (DG-197): a duplicate card has "Open" for each and "Keep both" | — | T-D4.32, T-D4.34 |
 | V-14d Generate words (`vocab`) | T 7634-7648; the button T 3678-3682 | — | "Generate words from a text" / "Picks the words your students need to understand a passage, with meanings and new example sentences.": Text (7 rows), How many words 8 / 12 / 20, Students’ level A2 / B1 / B2, Meanings in Tiếng Việt \| English; items the term, part of speech and level as tags, the meaning, the example as a note; primary "Add {n} to {list}". Cost 1,200 | word lists are R10 (T-R10.4, T-R10.12) | R10: the entity does not exist before it | — | R10 (T-D4.19: T-R10.12 gains the button and the kind) |
 | V-15 class detail: tabs | T 4145-4155; `cdTabs`, `cdOverview`, `cdAttTab` T 9655-9658 | One screen | Underline tabs Overview \| Attendance under the header; Attendance carries an accent badge with the number of sessions not yet taken | T-R4.42 (one screen); attendance is R8's | R8 | S (R8) | R8 (T-D4.19) |
 | V-16 class detail: join-code card | T 4287-4345; `cdCodeFull`, `cdLink`, `cdQrOp`, `cdShowQr`, `cdShare` T 8328-8331; `VIA` T 8303; `fresh` T 8320 | "••••-{last 4}" in a box, "The full code is shown only once, when it is created."; the paused paragraph; link rows; the New-code dialog "Copy it now. After you close this, only the last 4 characters are shown."; "Joined via" "Code ••{hint}" | A 112px QR button (`qr-code` 88px, `cursor: zoom-in`, `--qr-bg`; "Show full size for the projector"; opacity .4 while joining is paused) opening a 420px dialog "Join {class}" ("Show this on the projector. Students scan it or type the code." or "Joining is paused, so this code won’t work until you turn it back on."); beside it the full code (22px monospace, 600, letter-spacing .08em) with the join link under it (12.5px muted, ellipsis) and a "Joining paused" chip (`pause`, warning tones) in place of the paragraph; a row of three outline buttons (32px, flex 1, ellipsis) Copy code (`copy`), Copy link (`link`), Download QR (`download`); Expires and Uses under a 1px divider; the footer "A new code makes the old code, link and QR stop working."; the New-code dialog's desc "Share the code, the link or the QR with your students."; members' "Joined via" shows the full code | T-R4.42 built DG-01 (the full code, no "shown only once") in the fourth export's geometry | reopens R4 (T-R4.42); **DG-01 is Answered** by v2 | S | T-D4.23 |
-| V-17 class detail: Attendance tab | T 4359-4488; `attNewVals` T 9636-9695 | not drawn | A session picker (`calendar-days`, "{day} · {time}", chevron; a 260px menu titled "Sessions": each session with Today / Saved / Not taken), a status chip (Not taken yet / Not taken / Saved {time}); a 240px search "Search students"; "Mark all present" or "Mark the rest present". A card: a progress row "{k} of {n} marked" / "All {n} marked" with a three-segment bar (present / late / absent) and legend filters (Present, Late, Absent, Not marked); a selection bar on `--primary` ("{n} selected", Mark present, Mark late, Mark absent, Clear selection); a 40px header on `--muted` (Select all with an indeterminate `minus`; Student; "This term" from 640; Status; Note; the three from 760); rows (min 56px): a checkbox, avatar and name, the rate in danger ink under 80%, a `radiogroup` "Attendance" of Present / Late / Absent (68 × 30px, each in its tone when chosen), a Note button (`message-square-text` with the note, or "+ Note"; a dialog "Note for {name}" / "Only you and co-teachers see it.", placeholder "e.g. Left early for a doctor’s appointment"); empty "No student matches “{q}”" / "Nobody here yet."; footer "Students see their own attendance. Late counts as present in the attendance rate.". A sticky bar (12px from the bottom): "{n} changes not saved · {m} not marked yet", Discard, "Save attendance"; "Save with {m} not marked?" / "They count as absent until you mark them." / "Save anyway"; toast "Attendance saved · {a} absent, {l} late" | R8 T-R8.6 (present / late / absent / `unmarked`; "No student operation exposes attendance in R8"), T-R8.12 | R8; two sentences contradict R8's decisions (DG+17) | M (R8) | R8 (T-D4.19) |
+| V-17 class detail: Attendance tab | T 4359-4488; `attNewVals` T 9636-9695 | not drawn | A session picker (`calendar-days`, "{day} · {time}", chevron; a 260px menu titled "Sessions": each session with Today / Saved / Not taken), a status chip (Not taken yet / Not taken / Saved {time}); a 240px search "Search students"; "Mark all present" or "Mark the rest present". A card: a progress row "{k} of {n} marked" / "All {n} marked" with a three-segment bar (present / late / absent) and legend filters (Present, Late, Absent, Not marked); a selection bar on `--primary` ("{n} selected", Mark present, Mark late, Mark absent, Clear selection); a 40px header on `--muted` (Select all with an indeterminate `minus`; Student; "This term" from 640; Status; Note; the three from 760); rows (min 56px): a checkbox, avatar and name, the rate in danger ink under 80%, a `radiogroup` "Attendance" of Present / Late / Absent (68 × 30px, each in its tone when chosen), a Note button (`message-square-text` with the note, or "+ Note"; a dialog "Note for {name}" / "Only you and co-teachers see it.", placeholder "e.g. Left early for a doctor’s appointment"); empty "No student matches “{q}”" / "Nobody here yet."; footer "Students see their own attendance. Late counts as present in the attendance rate.". A sticky bar (12px from the bottom): "{n} changes not saved · {m} not marked yet", Discard, "Save attendance"; "Save with {m} not marked?" / "They count as absent until you mark them." / "Save anyway"; toast "Attendance saved · {a} absent, {l} late" | R8 T-R8.6 (present / late / absent / `unmarked`; "No student operation exposes attendance in R8"), T-R8.12 | R8; two sentences contradict R8's decisions (DG-198) | M (R8) | R8 (T-D4.19) |
 | V-18 Attendance page | T 3189-3235; `attNewVals` T 9641-9653; `ATT_*` T 7665-7667 | One class's register at 960: "{class} · {date}", Change session, Save, a counts bar with Mark all present, a segment per row | A cross-class list at 1320: "Take the register for today’s classes, or catch up on sessions you missed."; three cards "Today · {date}" ("{n} classes"), "Needs a register" ("Past sessions with no attendance taken"), "Recent" ("Last 7 days"); rows: time (13.5px 600) over the day ("Today"), the class name, a meta ("Room 2 · 24 students", or "{p} present · {l} late · {a} absent" once saved), a status chip (Not taken yet, warning; Not taken, danger; Saved, success), "Take attendance" (primary, `calendar-check`) or "Open"; empties "No classes today.", "All caught up.", "Nothing yet."; a row opens the class's Attendance tab on that session | R8 T-R8.12 | R8; T-R8.12's screen no longer exists | M (R8) | R8 (T-D4.19) |
 | V-19 word list progress | T 3689-3714; `wlProgVals`, `wordCounts`, `WBAND` T 7664, 9592-9609; `paginate` T 8379 | Four stat tiles (Words, Students practising, Mastered on average, Hardest word) | One card: "{p}% mastered on average", a three-segment bar (mastered `--success` at 70% or more of students, learning `--warning` 50–69%, hard `--danger` under 50%), legend filters with counts that filter the word table (`wordF`, the page resets), "Practising {a} / {b}" after a divider; "Generate from text" (`sparkles`) before Add word | R10 T-R10.12 | R10 | S (R10) | R10 (T-D4.19) |
 | V-20 prototype plumbing | `AI_*` T 7413-7663; `aiAsk` T 9399-9404 (`window.claude.complete`); `AI_USE0`, `AI_LIMIT` 50,000; `aiSpend`; `AI_WAIT` 3.2s | — | The prototype calls a browser-side model with inline prompts and falls back to demo arrays when it fails; usage is faked; a run waits 3.2s. None of it ships; the prompts are evidence of what each feature sends (section G) | — | nothing | — | T-D4.1 (README) |
@@ -625,7 +623,7 @@ names the D4 task, or the release and the correction T-D4.19 makes.
 | A-02 nav "AI credits" | A 1821 (`item('ai', 'AI credits', 'sparkles', badge)`); titles and `r.ai` A 1825-1826 | System: Audit log, API reference, Settings | System: **AI credits** (`sparkles`, a badge with the pending requests), then the three; route `ai` | T-R5.20's nav list | R5; the page is new | — | R5 T-R5.35 (new); T-D4.19 corrects T-R5.20 |
 | A-03 Audit log filters | A 681-724; `auditUiVals` A 1790-1802; `inRange`, `aFiltered`, `_auditEmpty` A 1836-1841 | A static search "Search person or entity" and a static "Last 7 days" chip | A live search (36px, `flex: 1 1 260px`, max 320) "Search person, action or entity" with `aria-label="Search audit log"` and a clear button, matching actor, action and entity; a "Date range" menu button (`calendar`, the label, chevron, `--shadow`): Today, Last 7 days, Last 30 days, All time, and "Custom range…" (`calendar-range`) opening a dialog From / To (date fields, "Must be on or after the start date") whose label reads "{d Mon} – {d Mon}"; "Reset" while a search or a non-default range is set; the empty row "No entries match these filters."; the pager counts the filtered rows | T-R5.12 (`range=7d\|30d\|year\|all`), T-R5.26 ("a range select … in place of the deck's static date button"; the search is "the deck's "Search person or entity""), DG-19 | R5: the contract's `range` set and the control change | S (R5) | R5 (T-D4.19 corrects T-R5.12, T-R5.26) |
 | A-04 settings nav sticky | A 894 (`setNavPos`) | static | `sticky; top: 16px` from 768 | T-R5.28a | R5 | XS (R5) | R5 (T-D4.19) |
-| A-05 AI credits page | A 1011-1125 (`r.ai`); `aiAdminVals` A 1666-1789; `AI_POOL` 200,000, `AI_DAY` 24, `AI_DAYS` 30, `AI_TEACHERS`, `AI_REQ0` A 1550-1559 | not drawn | Header "AI credits" / "Monthly allowances for AI features. Usage resets on 1 October." with "Add credits" (a dialog: Amount 50,000 / 100,000 / 250,000; "Added to the centre pool right away and billed on your next invoice. Added credits don’t carry over to next month."). A pool card: "Centre pool · September" and "Centre plan 200,000 (+ {n} added) · resets 1 October"; "{used}" (28px) "of {pool} credits used"; a 10px bar (accent; warning from 75%; danger from 90%) with a 2px projection tick ("Projected by 30 September"); three facts in a grid: "Left this month" ("{d} days to go"), "On pace for ≈ {n}" ("by 30 September, within the pool", or in warning ink "More than the pool. Add credits or lower allowances."), "Teacher allowances {sum}" ("Can add up to more than the pool, since few teachers use all of theirs"). Request cards (a `hand` tile in warning tones): "{name} asked for {n} more credits · {used} of {allow} used", the reason and age, "Decline" (toast "{name} will be told the request was declined"), "Approve {n}" (primary; raises the allowance; toast "{name}’s allowance is now {n} this month"). A Teachers card ("{n} teachers used AI this month · 3 haven’t yet"): rows sorted by used / allowance: avatar, name, email, "{used}" and "of {allow} (· custom)" over a 6px bar, a status pill with a dot (On track, Near limit from the warn percent, At limit, Paused), "Edit allowance" (pencil; a dialog "AI allowance · {name}": "{used} credits used so far this month.", Monthly allowance Default · {n} \| Custom, Credits per month ("Enter at least 1,000"; "Takes effect right away. Usage so far still counts."), "Pause AI for this teacher" / "AI buttons stay visible but can’t be used until you turn this off."). A Rules card (`flex: 1 1 320px`, sticky from a content width of 900): "For every teacher without a custom allowance."; Monthly allowance per teacher 20,000 \| 50,000 \| 100,000 ("Teachers see their balance in Settings → AI assistant."); Warn the teacher at 80% \| 90% ("They get a notification and an email."); When a teacher runs out: Pause until next month \| Let them ask for more ("Requests appear at the top of this page."); When the centre pool runs out: Pause AI for everyone \| Allow 10% extra ("Extra use is billed on the next invoice.") | nothing; no Admin console before R5 (T-R4.48 deletes the old `AdminLayout`, T-R5.20 builds the new one) | new (AI); "Allow 10% extra" and the two "billed" sentences contradict D21 and the spec's non-goals (DG+15) | server L (D4), web M (R5) | T-D4.31 (operations and the maintenance command); R5 T-R5.35 (the page) |
+| A-05 AI credits page | A 1011-1125 (`r.ai`); `aiAdminVals` A 1666-1789; `AI_POOL` 200,000, `AI_DAY` 24, `AI_DAYS` 30, `AI_TEACHERS`, `AI_REQ0` A 1550-1559 | not drawn | Header "AI credits" / "Monthly allowances for AI features. Usage resets on 1 October." with "Add credits" (a dialog: Amount 50,000 / 100,000 / 250,000; "Added to the centre pool right away and billed on your next invoice. Added credits don’t carry over to next month."). A pool card: "Centre pool · September" and "Centre plan 200,000 (+ {n} added) · resets 1 October"; "{used}" (28px) "of {pool} credits used"; a 10px bar (accent; warning from 75%; danger from 90%) with a 2px projection tick ("Projected by 30 September"); three facts in a grid: "Left this month" ("{d} days to go"), "On pace for ≈ {n}" ("by 30 September, within the pool", or in warning ink "More than the pool. Add credits or lower allowances."), "Teacher allowances {sum}" ("Can add up to more than the pool, since few teachers use all of theirs"). Request cards (a `hand` tile in warning tones): "{name} asked for {n} more credits · {used} of {allow} used", the reason and age, "Decline" (toast "{name} will be told the request was declined"), "Approve {n}" (primary; raises the allowance; toast "{name}’s allowance is now {n} this month"). A Teachers card ("{n} teachers used AI this month · 3 haven’t yet"): rows sorted by used / allowance: avatar, name, email, "{used}" and "of {allow} (· custom)" over a 6px bar, a status pill with a dot (On track, Near limit from the warn percent, At limit, Paused), "Edit allowance" (pencil; a dialog "AI allowance · {name}": "{used} credits used so far this month.", Monthly allowance Default · {n} \| Custom, Credits per month ("Enter at least 1,000"; "Takes effect right away. Usage so far still counts."), "Pause AI for this teacher" / "AI buttons stay visible but can’t be used until you turn this off."). A Rules card (`flex: 1 1 320px`, sticky from a content width of 900): "For every teacher without a custom allowance."; Monthly allowance per teacher 20,000 \| 50,000 \| 100,000 ("Teachers see their balance in Settings → AI assistant."); Warn the teacher at 80% \| 90% ("They get a notification and an email."); When a teacher runs out: Pause until next month \| Let them ask for more ("Requests appear at the top of this page."); When the centre pool runs out: Pause AI for everyone \| Allow 10% extra ("Extra use is billed on the next invoice.") | nothing; no Admin console before R5 (T-R4.48 deletes the old `AdminLayout`, T-R5.20 builds the new one) | new (AI); "Allow 10% extra" and the two "billed" sentences contradict D21 and the spec's non-goals (DG-196) | server L (D4), web M (R5) | T-D4.31 (operations and the maintenance command); R5 T-R5.35 (the page) |
 | A-06 Overview rows | A 1770-1773 | — | An "AI credits" row ("{used} of {pool} this month", accent) appended to the Storage meters and to Plan & usage; an attention item (`sparkles`, accent tones) "{n} teacher(s) asked for more AI credits" → `ai` while requests are pending | T-R5.18, T-R5.21, T-R5.28b | R5 + new | XS (R5) | R5 (T-D4.19) |
 | A-07 fixtures | A 101-124, 1506-1507, 1521-1545, 1779 | — | Persona renames; the export-all email | — | nothing | — | — |
 
@@ -657,27 +655,27 @@ D4 merges.
 | v2 draws | Recorded decision | Resolution |
 |---|---|---|
 | Cloud AI processing | Spec "Changes since v0.7": cloud and private processing "remain candidates … not enabled by default"; `17-word-import.md` §8; `18-word-import-ux.md` §4 | D19 supersedes it for the v2 features; the spec is edited by T-D4.40, in the release that ships the behaviour |
-| "Allow 10% extra"; "Extra use is billed on the next invoice."; "billed on your next invoice" | D21 (never overspent without an approval); spec §1.3's non-goal on payments | One pool rule, "Pause AI for everyone"; "Add credits" is the approval and records the approver; the copy says the extra is paid for outside Quizzivy (DG+15) |
+| "Allow 10% extra"; "Extra use is billed on the next invoice."; "billed on your next invoice" | D21 (never overspent without an approval); spec §1.3's non-goal on payments | One pool rule, "Pause AI for everyone"; "Add credits" is the approval and records the approver; the copy says the extra is paid for outside Quizzivy (DG-196) |
 | "They get a notification and an email." | Email is R7 (D9) | In-app in D4; the email channel joins in R7 (T-R7.23 gains `ai.allowance_warning`) |
 | "A question can have up to 6 options." | DG-63: 8 options | 8 (a DG-63 note) |
-| "The variant is saved as a draft version" | One draft per test (T-R4.16) | A new draft test, "{title} · Variant", through the duplicate path (DG+16) |
-| "Merge into one. Tests that used either question now share one copy." | No merge operation; frozen copies in published versions (`publish_snapshot_test.go`); `questions.LockForDraftUse` | Not built; "Open" and "Keep both" (DG+16) |
+| "The variant is saved as a draft version" | One draft per test (T-R4.16) | A new draft test, "{title} · Variant", through the duplicate path (DG-197) |
+| "Merge into one. Tests that used either question now share one copy." | No merge operation; frozen copies in published versions (`publish_snapshot_test.go`); `questions.LockForDraftUse` | Not built; "Open" and "Keep both" (DG-197) |
 | "Add {n} to {section}", "Save as practice test", "Use score and comment" | The AI never writes a grade or a question on its own (D19 to D22, AGENTS.md) | The primary is the acceptance: the browser then calls the existing writes with the accepted content; the AI module has no content write path |
 | "Scores against the four IELTS criteria." | Bands and rubrics are R6 (DG-61, DG-86) | D4 suggests a score in the card's set; the band form joins in R6 (T-R6.11 note) |
 | "True / False / Not given" in Generate; "Change to Not given", "Add word limit", a matching finding in Check | `tfng`, `maxWords` and matching are R6 | D4 offers the five stored types and the fixes whose write exists; the rest joins with R6 (T-R6.10 note) |
-| "Students see their own attendance." | T-R8.6: no student operation in R8 | R8 decides (DG+17) |
-| "They count as absent until you mark them." | DG-92 / T-R8.6: `unmarked` is outside the rate | R8 keeps `unmarked` (DG+17) |
-| No AI row in the roles matrix | 70 §4.1: every grantable key is a matrix row | `ai.use` and `ai.credits.manage` join the catalogue and the matrix; the rows are asked for (DG+18) |
-| No "ask for more credits" control on the teacher side | — | A request form under the usage card, extrapolated from the Admin card (DG+19) |
+| "Students see their own attendance." | T-R8.6: no student operation in R8 | R8 decides (DG-198) |
+| "They count as absent until you mark them." | DG-92 / T-R8.6: `unmarked` is outside the rate | R8 keeps `unmarked` (DG-198) |
+| No AI row in the roles matrix | 70 §4.1: every grantable key is a matrix row | `ai.use` and `ai.credits.manage` join the catalogue and the matrix; the rows are asked for (DG-199) |
+| No "ask for more credits" control on the teacher side | — | A request form under the usage card, extrapolated from the Admin card (DG-200) |
 | The fourth export's class fixtures | DG-01 | **Answered** (the card shows the full code, link, QR and the share buttons) |
 
 ---
 
 ## A. The import
 
-T-D4.1 is the first pull request into `work/deck-d4`. It changes eight files of fifteen: the five
-pages v2 touched, `github.md` (the fourth export's), and the manifest; the other seven are
-byte-identical to the third import. No test reads a deck file (`grep "design/deck"` under `web/`
+T-D4.1 is the first pull request into `work/deck-d4`. It changes six of the deck's fifteen files
+against the third import: the five pages v2 touched and `github.md` (the fourth export's); the
+other nine are byte-identical to it. The manifest is the seventh file the pull request changes. No test reads a deck file (`grep "design/deck"` under `web/`
 and `scripts/` finds the token comment, the CI plan test and the check script only), so the import
 cannot turn a unit suite red. From its merge the engine on `work/deck-d4` is behind the deck of
 record until section B ships, and the four R4 screens of section F and the AI surfaces of section G
@@ -688,7 +686,7 @@ until those ship. That state never reaches `develop`.
 **Touches:** `docs/design/deck/{Quizzivy Teacher.dc.html,Quizzivy Admin.dc.html,Quizzivy Student.dc.html,Quizzivy Landing.dc.html,Quizzivy Sign in.dc.html,github.md,MANIFEST.sha256}`, `docs/design/README.md`, `docs/design/gaps.md`, `scripts/check-design-deck.mjs`, `AGENTS.md` ("Redesign in progress"), `docs/plan/74d-d4-deck-update.md` (the gap ids)
 **Size:** S
 **Done when:**
-- [ ] The seven files are copied byte for byte from `origin/uiux/update-uiux-v2` @ `26b60795`
+- [x] The seven files are copied byte for byte from `origin/uiux/update-uiux-v2` @ `26b60795`
       (Thuong's v2 export, 2026-10-10, 10:44, which carries the fourth export of 2026-10-04,
       17:31 in every file it did not touch), and hash to `184536f0…` (Teacher), `8c043d26…`
       (Admin), `dc6d6077…` (Student), `52196e86…` (Landing), `15ab7e2b…` (Sign in) and
@@ -696,12 +694,12 @@ until those ship. That state never reaches `develop`.
       the v2 export changed". The other seven files still hash to the manifest. `screenshots/`,
       `uploads/` and `.thumbnail` are not imported. Neither UIUX branch updated the manifest; this
       task regenerates it (Thuong's standing instruction).
-- [ ] `MANIFEST.sha256` is regenerated with README's command, and
+- [x] `MANIFEST.sha256` is regenerated with README's command, and
       `node scripts/check-design-deck.mjs` prints "Deck OK: 15 files, 7 pages".
-- [ ] The check script reads `<dc-import name="X">` as a reference to `X.dc.html`: the Teacher
+- [x] The check script reads `<dc-import name="X">` as a reference to `X.dc.html`: the Teacher
       page now mounts the Student page three times (T 4978, 5756, 5850) and nothing checked it.
       A page that imports a missing page fails the script; the PR shows that failure once.
-- [ ] README, "Log": a fourth entry, dated the day of the import and naming the export's date,
+- [x] README, "Log": a fourth entry, dated the day of the import and naming the export's date,
       with the two hashes, the sizes (Student 123,460 to 173,426
       bytes, Teacher 781,532 to 794,309) and the screens: Student take test (one data-driven
       screen: sections rail, stimulus pane for a passage, a cloze passage or a recording, the
@@ -716,10 +714,10 @@ until those ship. That state never reaches `develop`.
       join-code card; sticky side columns and the collapsed sidebar's separator; the Attendance
       page and the class-detail Attendance tab; the Audit log's search and date range; the word
       list's progress card; and the persona renames.
-- [ ] README, "Reading a page": the Teacher page mounts the Student page through `dc-import`
+- [x] README, "Reading a page": the Teacher page mounts the Student page through `dc-import`
       with the props `exam` and `dark`; on the Student page `renderVals()` is `renderValsBase()`
       overlaid by `examVals()`, which holds every take-test rule.
-- [ ] README, "Prototype chrome never ships" and the demo-data paragraphs gain: `previewExam`,
+- [x] README, "Prototype chrome never ships" and the demo-data paragraphs gain: `previewExam`,
       `builderPreviewVals`, `sharedVals`' `pickFile` (always "part-1-asking-the-way.mp3") and
       `+plays || 99`; the Student fixtures `EXAMS`, `EX_RAW`, `EX_GROUP`, `EX_MATCH`, `EX_UL`,
       `EX_SIGN`, `AUD_LEN`, `MAP_CELLS`, including their answer keys (the seventh tuple entry
@@ -739,7 +737,7 @@ until those ship. That state never reaches `develop`.
       minimum run), the Admin fixtures `AI_POOL`, `AI_DAY`, `AI_DAYS`, `AI_TEACHERS` and
       `AI_REQ0`, the attendance fixtures `ATT_TODAY`, `ATT_ROOM` and `ATT_SES`, and the fixture
       persona (Giàu Bùi, Thường Võ, the demo accounts).
-- [ ] README, "Not imported": "ten red-pen markups" becomes eleven, with one new row: "Student
+- [x] README, "Not imported": "ten red-pen markups" becomes eleven, with one new row: "Student
       take test, a cloze: the gap's options cut in one row and the footer's count cut | Options
       wrap in a grid of 132px minimum; the count gives way to a key hint when the rail shows,
       and is a short form otherwise". Under the table, the two defects the drawing shows and
@@ -747,9 +745,9 @@ until those ship. That state never reaches `develop`.
       overlapping its own second line (S 1011), and the header's "All answers saved" on two
       lines (the label is now `white-space: nowrap` and the leave button `flex: none`, S 952,
       963; the product already truncates the line and pins the button).
-- [ ] README gains "Defaults taken with the fourth import (DG+1 to DG+14)", one line per row
-      below, and "Defaults taken with v2 (DG+15 to DG+21)".
-- [ ] `gaps.md`, existing rows (v2):
+- [x] README gains "Defaults taken with the fourth import (DG-182 to DG-195)", one line per row
+      below, and "Defaults taken with v2 (DG-196 to DG-202)".
+- [x] `gaps.md`, existing rows (v2):
       - **DG-01**: **Answered, 2026-10-10**: the class-detail card shows the full code, the link,
         the QR and Copy code / Copy link / Download QR, and the New-code dialog says "Share the
         code, the link or the QR with your students."; the "Meanwhile" rule is deleted (T-D4.23
@@ -760,7 +758,7 @@ until those ship. That state never reaches `develop`.
       - **DG-100**: the testimonials now name the owner as "Centre manager"; placeholders still
         stand until consent
       - **DG-36**: the AI panel joins the list of dialogs with no Esc, no focus trap and no return
-- [ ] `gaps.md`, existing rows:
+- [x] `gaps.md`, existing rows:
       - **DG-80**: the row's first sentence becomes "Since the fourth import the deck draws a
         passage, a cloze passage and a recording as shared content, the sections navigator (a
         rail and a sheet), fill in the blank, an image above the prompt and the phone drawer."
@@ -776,24 +774,24 @@ until those ship. That state never reaches `develop`.
       - **DG-68**: the builder now draws a group's passage and recording; the bank's group
         screens are still undrawn
       - **DG-69**: a third drawing of "Plays", a select with "3 plays" (T 1714-1719)
-      - **DG-111**: its "Students can pause is not built" default is reopened by DG+2
-      - **DG-113**: the Student page's matching differs from R6's plan (DG+13)
-      - **DG-115**: "The Student preview dialog was not redrawn" is answered (DG+7)
+      - **DG-111**: its "Students can pause is not built" default is reopened by DG-183
+      - **DG-113**: the Student page's matching differs from R6's plan (DG-194)
+      - **DG-115**: "The Student preview dialog was not redrawn" is answered (DG-188)
       - **DG-116**, **DG-36**: the Shared content dialog and the preview overlay join the list
         of dialogs with no name, no Esc and no focus trap
-- [ ] `gaps.md`, new rows, numbered from the first id free in the file on the day of the pull
-      request. DG+1 goes in "Decisions that override the current drawings" only if the owner
+- [x] `gaps.md`, new rows, numbered from the first id free in the file on the day of the pull
+      request. DG-182 goes in "Decisions that override the current drawings" only if the owner
       confirms Q3; until then all fourteen are Open, with these "Meanwhile" texts:
-      - **DG+1** Student › Take test, a recording at its play limit. The deck locks it ("No
+      - **DG-182** Student › Take test, a recording at its play limit. The deck locks it ("No
         plays left", lock icon, "You have used all {N} plays"). Meanwhile: spec §11.4 stands;
         the button stays live, the status reads "You have used all {N} plays." with the
         product's "You can keep listening. Additional plays are recorded for your teacher to
         review." (T-D4.8). Please redraw the state, or Thuong changes §11.4.
-      - **DG+2** "Students can pause" (Teacher: question media and Shared content; Student:
+      - **DG-183** "Students can pause" (Teacher: question media and Shared content; Student:
         the inert button and two status lines). Meanwhile: one boolean, `allowPause`, default
         on, on a question's audio and on a group's recording (T-D4.13, T-D4.9, T-D4.15); the
         intro fixture's "you can pause once" is read as a note, not a count.
-      - **DG+3** A cloze is one item with n gaps on the Student page and one single-choice
+      - **DG-184** A cloze is one item with n gaps on the Student page and one single-choice
         question per gap in the builder. The deck of record's import preview drew the
         product's model on a student-eye surface (a passage with gap chips and a member
         "23.1 Choose the word for gap 23.1." with its own options); this export removed it
@@ -801,14 +799,14 @@ until those ship. That state never reaches `develop`.
         gap, each with its own number, square, points and result row; the engine shows a run of
         them as one screen, with the open member's own prompt and worth in the gap card, and a
         member that carries media is its own stop (T-D4.10).
-      - **DG+4** Numbers and counts: "Question 23 of 31" against 35; a matching numbered
+      - **DG-185** Numbers and counts: "Question 23 of 31" against 35; a matching numbered
         "1–5" counts five, another numbered "31" counts one. Meanwhile: every question has one
         number; the cloze screen reads "Questions 23–27 of {total}", which is 34 on the fixture
         paper T-D4.3 builds (s9 without its matching) and 35 once R6 adds the matching.
-      - **DG+5** The builder's group now carries shared content. Meanwhile: the deck's group
+      - **DG-186** The builder's group now carries shared content. Meanwhile: the deck's group
         is the product's section; shared content belongs to a shared-context group inside it,
         whose row carries the line and the menu item (T-D4.2a, T-D4.14).
-      - **DG+6** The Shared content dialog against the product's group: a plain textarea, one
+      - **DG-187** The Shared content dialog against the product's group: a plain textarea, one
         passage or one recording, "[gap n]" appended at the end, any question as a target, one
         question on two gaps, unbound gaps saved, "MP3, M4A or WAV up to 25 MB", no "Show
         transcript after submitting" and no "Allow skipping ahead", no title for a recording.
@@ -820,7 +818,7 @@ until those ship. That state never reaches `develop`.
         student never sees. The deck's sentence "Students see it on the left while they
         answer." (T 7029) is reworded in English to "Students see it beside the questions
         while they answer.", because a phone shows a drawer, not a left pane (T-D4.14).
-      - **DG+7** The three previews embed the take-test screen, answerable, with a running
+      - **DG-188** The three previews embed the take-test screen, answerable, with a running
         45:00 timer. Meanwhile: T-D4.2c builds the bar and the frame around R4's read-only
         preview; T-D4.16 puts the engine in the frame with no saving, no integrity record and
         no play counting. A test has no time limit and no integrity policy: both belong to the
@@ -829,44 +827,44 @@ until those ship. That state never reaches `develop`.
         pill is a placeholder of the same size reading "––:––", named "The time limit is set
         when the test is assigned"; the save line reads "Answers here are not saved." where
         the deck still says "All answers saved"; pasting is allowed and nothing is counted.
-      - **DG+8** Student frames keyed by fixture ids, with no model: the sign card, the 60px
+      - **DG-189** Student frames keyed by fixture ids, with no model: the sign card, the 60px
         word tiles, the image caption, the per-question hint, paragraph letters. Meanwhile:
         none is built; a notice is prompt content or an image, an underline is option content.
-      - **DG+9** The phone drawer draws no Esc, no focus move, no `inert`, no reduced-motion
+      - **DG-190** The phone drawer draws no Esc, no focus move, no `inert`, no reduced-motion
         form and no rule for how long the tip is remembered; on a phone the recording is out of
         sight while the student answers. The closed drawer is `aria-hidden` (S 1041, 1700),
         which hides it from a screen reader and leaves its gap buttons in the Tab order.
         Meanwhile: T-D4.7's additions, with `inert` in place of `aria-hidden`.
-      - **DG+10** Navigation: the rail comes and goes between questions from 900 to 1179; the
+      - **DG-191** Navigation: the rail comes and goes between questions from 900 to 1179; the
         key hint names "A–D" on every question and omits E and F; the sheet has no title; the
         sheet's 42px squares, the rail's 34px, the 30px handle and the 38px blank are under the
         44px floor below 1024; the rail prints the part of a section title after " · ";
         the arrow keys bypass `go()`, so in the deck they do not close the drawer or the sheet
         and do not pause a recording, and Esc does not close the sheet. Meanwhile: T-D4.4's
         rules; every move, by key or by click, goes through one function.
-      - **DG+11** Section instructions show above every question on the Student page while the
+      - **DG-192** Section instructions show above every question on the Student page while the
         builder says "above the group’s first question"; a group's own instructions are not
         drawn. Meanwhile: every question (T-D4.5); the builder's sentence follows.
-      - **DG+12** What spends a play, and unlimited plays ("Play 1 of 99"). Meanwhile: a start
+      - **DG-193** What spends a play, and unlimited plays ("Play 1 of 99"). Meanwhile: a start
         with no play in progress spends one, a resume none; a play in progress is remembered
         while the tab lives, and a start whose place cannot be put back counts as a play;
         leaving a group pauses its recording however the student left; unlimited reads
         "Play {n}" (T-D4.8).
-      - **DG+13** Matching on the Student page: chips per row, three key styles, the nouns
+      - **DG-194** Matching on the Student page: chips per row, three key styles, the nouns
         "pick the {pick} for each {what}", 38px chips. Meanwhile: R6 (T-R6.10 as corrected by
         T-D4.19).
-      - **DG+14** The sync that produced this export read two migrations (`github.md`). Please
+      - **DG-195** The sync that produced this export read two migrations (`github.md`). Please
         read `api/openapi.yaml` (`QuestionGroup`, `StudentGroup`, `AudioPolicy`),
         `web/src/features/take-test/**` and `web/src/features/question-groups/**` at the next
         sync, and add them to the Screen map.
-      - **DG+15** Admin › AI credits, the pool's rules. The deck offers "When the centre pool runs
+      - **DG-196** Admin › AI credits, the pool's rules. The deck offers "When the centre pool runs
         out: Pause AI for everyone | Allow 10% extra", and says the extra and added credits are
         "billed on your next invoice". Meanwhile: D21 (the pool is never overspent without an
         Admin's approval) and the spec's non-goal on payments: the rule has one value, "Pause AI
         for everyone"; "Add credits" is the approval and records the approver; the dialog reads
         "Added to the centre pool right away. The extra is paid for outside Quizzivy." Please
         redraw the rule and the two sentences.
-      - **DG+16** Teacher › "Make a variant" and "Clean up the question bank". The deck saves a
+      - **DG-197** Teacher › "Make a variant" and "Clean up the question bank". The deck saves a
         variant "as a draft version" of the test, and merges two bank questions so that "tests
         that used either question now share one copy". Meanwhile: a test has one draft, so a
         variant is a new draft test named "{title} · Variant", owned by the teacher, with
@@ -874,19 +872,19 @@ until those ship. That state never reaches `develop`.
         card offers "Open" for each question and "Keep both", and nothing merges (a published
         version holds frozen copies; a merge would need an operation of its own). Tag suggestions
         apply through the bulk tag write.
-      - **DG+17** Teacher › Class detail › Attendance (R8). The footer says "Students see their
+      - **DG-198** Teacher › Class detail › Attendance (R8). The footer says "Students see their
         own attendance." and the save dialog "They count as absent until you mark them."
         Meanwhile: R8's decisions stand (T-R8.6: no student operation in R8; DG-92: `unmarked` is
         a status outside the rate); the two sentences are not taken until R8 decides.
-      - **DG+18** Admin › Roles & permissions. The matrix draws no row for the AI, while the
+      - **DG-199** Admin › Roles & permissions. The matrix draws no row for the AI, while the
         product adds two grantable keys. Meanwhile: "Use AI features" in Content (Admin and
         Teacher on) and "Manage AI credits" in System (Admin on), drawn in the matrix's own
         style. Please draw the two rows.
-      - **DG+19** Teacher › Settings › AI assistant. The Admin page lists teachers' requests for
+      - **DG-200** Teacher › Settings › AI assistant. The Admin page lists teachers' requests for
         more credits ("{name} asked for {n} more credits"), and the teacher side draws no way to
         ask. Meanwhile: "Ask for more credits" under the usage card (amount and reason, as the
         Admin card shows them), shown while the rule allows requests. Please draw it.
-      - **DG+20** Teacher › the AI panel's states. Not drawn: the panel with the provider off
+      - **DG-201** Teacher › the AI panel's states. Not drawn: the panel with the provider off
         (the entry points are hidden; the Settings section says "AI is not turned on for this
         school"), a teacher who is paused or out of credits (the deck says "AI buttons stay
         visible but can’t be used": a disabled button with the reason as its tooltip, and the
@@ -894,23 +892,37 @@ until those ship. That state never reaches `develop`.
         refusal or a timeout (the warning callout, with "Try again", never sample content), a
         suggestion that fails validation, and Esc, a focus trap and focus return (DG-36).
         Meanwhile: those states, from deck parts.
-      - **DG+21** Teacher › "Suggest a score", "Check this test", "Generate questions" against
+      - **DG-202** Teacher › "Suggest a score", "Check this test", "Generate questions" against
         R6. The deck scores against the four IELTS criteria, offers "True / False / Not given",
         and fixes "Change to Not given", "Add word limit" and a matching heading. Meanwhile: D4
         suggests a score in the grading card's own set (0 to max in 0.5 steps); the band form,
         the TFNG type and the word-limit fix join in R6 (T-R6.10, T-R6.11).
-- [ ] `gaps.md`'s preface gains the paragraph for DG+1 to DG+14, in the manner of the one
-      for DG-108 to DG-116, and one for DG+15 to DG+21 (v2, 2026-10-10).
-- [ ] This file: every `DG+n` label is replaced by the id its row took, in a commit that holds
-      nothing else.
-- [ ] AGENTS.md, "Redesign in progress": the bullet that says the design team's exports are not
+- [x] `gaps.md`'s preface gains the paragraph for DG-182 to DG-195, in the manner of the one
+      for DG-108 to DG-116, and one for DG-196 to DG-202 (v2, 2026-10-10).
+- [x] This file: every `DG+n` label is replaced by the id its row took, in a commit that holds
+      nothing else. (`DG+1` to `DG+21` became DG-182 to DG-202.)
+- [x] AGENTS.md, "Redesign in progress": the bullet that says the design team's exports are not
       the deck of record is replaced by "Since the fourth import (D4, T-D4.1) the deck of record
       is the design team's v2 export of 2026-10-10, 10:44, which carries the fourth export of
       2026-10-04. D4 (`docs/plan/74d-d4-deck-update.md`) rebuilds the take-test engine, the
       builder's shared content and the three previews to it, and builds the AI assistant it
       draws."
-- [ ] The PR says which screens changed. No file under `web/` or `server/` changes. The pull
+- [x] The PR says which screens changed. No file under `web/` or `server/` changes. The pull
       request targets `work/deck-d4`: `develop` keeps the third import until D4 merges.
+
+**As built:** the six changed files were copied with `git show origin/uiux/update-uiux-v2:<path>`
+and hash to the values above. The v2 branch holds sixteen files under `docs/design/`, none of them
+`screenshots/`, `uploads/` or `.thumbnail`, and the manifest is regenerated for the same fifteen
+paths. Against the third import exactly six files changed, so with the manifest the import
+touches seven; the plan's earlier "eight" added the fourth export's three files to v2's five
+without noticing that the Student and Teacher pages are in both lists. The check
+script reads `<dc-import name="X">` through a third loop in `localReferences`; a Teacher page
+that imports a page nobody ships fails with "references Quizzivy Nowhere.dc.html, which is not
+in the deck", where the previous script printed "Deck OK". `gaps.md` takes DG-182 to DG-195 (the
+fourth export) and DG-196 to DG-202 (v2) in the sections Take test and student, Teaching, Roles,
+users and the Admin console, Foundations and accessibility, and Collaboration, schedule,
+insights, learn; DG-01 is **Answered**. README's log names the two imports as its fourth and
+fifth entries. No file under `web/` or `server/` changed.
 
 ### T-D4.19 — R5 to R10 plan corrections
 **Depends on:** T-D4.1
@@ -928,18 +940,18 @@ task completes each into the task's own bullets):**
       `GET /admin/ai/credits`) first under System; **T-R5.18** and **T-R5.21** add the "AI
       credits" meter row and the attention item; **T-R5.28a** notes the sticky nav; **T-R5.28b**
       adds the row to Plan & usage; a new **T-R5.35 — AI credits** (M) draws the page of
-      inventory row A-05 on D4's `/admin/ai/*` operations, with DG+15's one rule.
+      inventory row A-05 on D4's `/admin/ai/*` operations, with DG-196's one rule.
 - [ ] `76-r6.md`: **T-R6.10** gains "the AI's Generate offers "True / False / Not given" and its
-      Check applies "Change to Not given" and "Add word limit" once the types exist (DG+21)";
+      Check applies "Change to Not given" and "Add word limit" once the types exist (DG-202)";
       **T-R6.11** gains "Suggest a score takes the band form: the four criteria as reasons and the
-      band as the score (DG+21)".
+      band as the score (DG-202)".
 - [ ] `77-r7.md`: **T-R7.23** gains the kinds `ai.allowance_warning`, `ai.credit_request` and
       `ai.credit_request.decided` in the Email column.
 - [ ] `78-r8.md`: **T-R8.12** describes v2's two screens (inventory rows V-17 and V-18): the
       Attendance page as the cross-class list of sessions in three cards, and the register as
       the Attendance tab of Class detail with the session picker, search, the progress row and
       its filters, selection and bulk marks, notes, the sticky save bar and the "not marked"
-      confirm; **T-R8.6** gains a note on DG+17 (no student operation; `unmarked` stays).
+      confirm; **T-R8.6** gains a note on DG-198 (no student operation; `unmarked` stays).
 - [ ] `80-r10.md`: **T-R10.12** draws the word list's progress card with its legend filters in
       place of the four tiles, and adds "Generate from text" opening the AI panel's `vocab` kind
       (a `POST /teacher/ai/words/generate` operation under `ai.use`, metered as section G
@@ -948,7 +960,7 @@ task completes each into the task's own bullets):**
 - [ ] `76-r6.md`, the head. Old: "The student engine asks students to "Choose two" and counts
       words against a limit." New: "Since the fourth export (2026-10-04) the Student page draws
       True / False / Not given, matching, a multiple choice capped at two picks and a word
-      limit on the take-test screen (DG-60, DG+13)." Old: "cloze groups (question groups,
+      limit on the take-test screen (DG-60, DG-194)." Old: "cloze groups (question groups,
       unchanged)". New: "cloze groups (question groups; the engine shows a run of gap-bound
       members as one stop, T-D4.10)".
 - [ ] **T-R6.10**, TFNG bullet. Old: "under the header "True, false or not given"". New: "with
@@ -964,7 +976,7 @@ task completes each into the task's own bullets):**
       item is at 50% opacity, choosing it moves it, and tapping the chosen chip clears it;
       above the cards "{k} of {n} matched"; when the options have text, the question has no
       shared content and the engine is at least 1000 wide, a 220px card lists the options
-      once, each with the item that uses it; keys are shown as authored (DG+13); a matching
+      once, each with the item that uses it; keys are shown as authored (DG-194); a matching
       is one question, one number and one square, "Partly" until every item is matched".
 - [ ] **T-R6.10**, last bullet. Old: "TFNG, "Choose two" and the word counter are compared with
       the deck's fixture paper. Matching and essay frames are listed for DG-80 and DG-60."
@@ -979,15 +991,15 @@ task completes each into the task's own bullets):**
       authored."
 - [ ] `76-r6.md`, Open items: "True / false answers already marked 0" is removed (fixed:
       `attempts/domain/grading.go:100-110` reads `optionIds`). Added: "Matching on the Student
-      page (DG+13): three key styles and the nouns "pick the {pick} for each {what}" have no
+      page (DG-194): three key styles and the nouns "pick the {pick} for each {what}" have no
       model; default, keys as authored and no nouns." and "A per-question hint line and an
-      image caption (DG+8) have no field; default, not built."
+      image caption (DG-189) have no field; default, not built."
 - [ ] `77-r7.md`, **T-R7.18**: Touches gains `SharedContentDialog.tsx`, and its read-only
       bullet names the dialog for a Can-use recipient. **O-R7.7** notes that "From Media" in
       that dialog is a third place that opens the media picker.
 
 Also waiting for a later release, with no task here: the sign card, the word tiles, the image
-caption and the per-question hint (DG+8, with DG-109's inline media in R6 if at all); a
+caption and the per-question hint (DG-189, with DG-109's inline media in R6 if at all); a
 transcript on the student's result as a drawn frame (DG-106, unchanged).
 
 ---
@@ -1123,7 +1135,7 @@ not change (`header.test.tsx` passes untouched).
 - [ ] The rail is the engine's own `<aside>` named "Sections" ("Các phần"): 236px, `--sidebar`,
       a right border, padding 16px 14px, gap 16px, scrolling by itself. It shows when the
       engine is at least 900 wide on a question with no shared content and at least 1180 on one
-      with it, and never below 768 (DG+10). It imports neither `SideColumn`, `PageAside` nor
+      with it, and never below 768 (DG-191). It imports neither `SideColumn`, `PageAside` nor
       `useColumnWidth`: `tests/units/student/side-column.test.ts` passes untouched.
 - [ ] Per section: its title (12.5px, line-height 1.35; 600 `--fg` for the open question's
       section, 500 `--muted-fg` otherwise) and "n / m" answered (11.5px, tabular); a grid of
@@ -1146,7 +1158,7 @@ not change (`header.test.tsx` passes untouched).
       (two 22px `<kbd>` "←" "→", then "to move between questions · A–D to choose an answer", or
       "to move · A–D to choose" beside shared content; 12.5px muted, one line, ellipsis), Next.
       On a question with no options the hint stops at "to move". A to E and F keep working;
-      the hint names what the deck names (DG+10).
+      the hint names what the deck names (DG-191).
 - [ ] Without the rail, at every width: Previous (icon only below 768), the grid button (flex
       1, 44px, radius 10, 1px border, `--card`, 14px 500, the `layout-grid` icon at 16px), Next.
       Its label is "{no} · {answered}/{total}" beside shared content from 768 and below 420,
@@ -1192,7 +1204,7 @@ gap callbacks of `GroupMaterials`, `PAPER_SURFACE`, `UnknownType`, the order of 
 - [ ] At the top of the question column, on every question: the section's title (12px, 600,
       muted, uppercase, letter-spacing .04em) over its instructions (13.5px, muted), 2px apart,
       12px of padding and a 1px border under them. It is left out on a paper of one section
-      that has no instructions, and the instructions line when a section has none (DG+11).
+      that has no instructions, and the instructions line when a section has none (DG-192).
       The first-question note and the headphones note go; `opensSection` and
       `SectionInstructions.tsx` are removed.
 - [ ] That section header is drawn by `Paper`, above `QuestionCard`, never by `QuestionSheet`.
@@ -1225,7 +1237,7 @@ gap callbacks of `GroupMaterials`, `PAPER_SURFACE`, `UnknownType`, the order of 
 - [ ] The builder's Instructions dialog, which T-R4.31a built with the deck's "Students see
       this above the group’s first question." (T 7030), reads "Students see this above every
       question in the section." in this PR. It is one string in both languages and no builder
-      logic (DG+11).
+      logic (DG-192).
 - [ ] `api/openapi.yaml`'s `StudentSection` description ("the engine shows it above the
       section's first question") is corrected in T-D4.13's pull request, or in a contract pull
       request of its own if the owner declines Q4 and T-D4.13 is not built.
@@ -1269,7 +1281,7 @@ blocking; the case-rule and worth lines (DG-80).
 - [ ] Compared with s9 questions 1 (four short options: four columns at 1280, two at 360), 5,
       21 and 31 (the blank; the deck's 27), and s1 question 5, at the five widths, light and
       dark. The sign
-      card, the 60px word tiles and the sentence gap are known differences (DG+8, T-D4.11).
+      card, the 60px word tiles and the sentence gap are known differences (DG-189, T-D4.11).
 
 ### T-D4.7 — Engine: the phone drawer
 **Depends on:** T-D4.5
@@ -1301,18 +1313,18 @@ flag only a question on screen.
       dragged back past 30%. `touch-action: pan-y`; a click within 60ms of a drag does nothing;
       a tap on an option is never swallowed (a unit test taps one right after a vertical
       scroll).
-- [ ] What the deck does not draw (DG+9): opening moves focus to the close button and closing
+- [ ] What the deck does not draw (DG-190): opening moves focus to the close button and closing
       returns it to the handle; Esc and the backdrop close; the closed drawer is `inert` and
       stays mounted, so the place in the passage and a playing recording survive; under
       `prefers-reduced-motion` there is no nudge, no tip animation and no slide. The deck
       marks the closed drawer `aria-hidden` (S 1041, 1700); `inert` is taken instead because
-      `aria-hidden` leaves the gap buttons inside it reachable by Tab, and DG+9 records the
+      `aria-hidden` leaves the gap buttons inside it reachable by Tab, and DG-190 records the
       choice. The drawer's own background is `--bg`, stated on the pane (S 1041), since it now
       lies over the question.
 - [ ] A gap tapped in the drawer closes it and lands on its question or blank, as today. A
       move by the arrows, a square or "Go to" closes it: all of them go through the engine's
       one move function, where the deck's arrow keys bypass `go()` and leave the drawer open
-      (S 1616, DG+10). While it is open the keys that answer
+      (S 1616, DG-191). While it is open the keys that answer
       or flag do nothing. The footer stays where it is, under the backdrop.
 - [ ] Crossing 768 with the drawer open shows both panes; the same pane element is used on both
       sides, so nothing inside it remounts.
@@ -1383,7 +1395,7 @@ today the passage pane prints that material's heading and the node's label
       keyed by the group and is the same element on both sides, T-D4.7). Leaving the group by
       any means (Previous, Next, the arrow keys, a square, "Go to", a gap) pauses its
       recording, because the pane unmounts; the deck pauses on a click that changes the
-      section and not on the arrow keys, which is a slip of the prototype (DG+10, DG+12).
+      section and not on the arrow keys, which is a slip of the prototype (DG-191, DG-193).
 - [ ] `AudioPlayer` gains `layout="card"`, used by the engine and the teacher's preview only:
       padding 18px, radius 14, 1px border, `--card`, `--shadow`; a 52px round primary button
       with a 22px icon (play, pause, or `rotate-ccw` after a finished play); a 6px track on
@@ -1394,9 +1406,9 @@ today the passage pane prints that material's heading and the node's label
 - [ ] Status and names, as drawn: "Press play when you are ready.", "Playing", "Paused",
       "Finished · 1 play left" (plural in both languages); the button is "Play", "Pause",
       "Resume" or "Play again". With no limit the counter reads "Play {n}" and the finished
-      line "Finished" (DG+12).
+      line "Finished" (DG-193).
 - [ ] The status line has a place for the blocked sentence (`media.playBlocked`).
-- [ ] At the limit the button stays live (DG+1, spec §11.4, the canary's "still plays when
+- [ ] At the limit the button stays live (DG-182, spec §11.4, the canary's "still plays when
       the hint says none are left"): no lock icon, the status reads "You have used all {N}
       plays." and the product's "You can keep listening. Additional plays are recorded for your
       teacher to review." follows; the counter reads "Played {n}/{N} times".
@@ -1449,7 +1461,7 @@ today the passage pane prints that material's heading and the node's label
 - [ ] Compared with s2 question 1 (part 1's recording: T-D4.3's fixture gives it choice
       members) at the five widths, light and dark: the card at rest, playing, paused and
       finished. Question 6 is the deck's recording that cannot be paused and is T-D4.9's
-      comparison. The lock state is a known difference (DG+1).
+      comparison. The lock state is a known difference (DG-182).
 
 ### T-D4.9 — Engine: a recording that cannot be paused
 **Depends on:** T-D4.8, T-D4.13
@@ -1477,7 +1489,7 @@ today the passage pane prints that material's heading and the node's label
       by leaving the group.
 
 ### T-D4.10 — Engine: a cloze as one stop
-**Depends on:** T-D4.5, T-D4.7; the design team's answer to Q6 (DG+3), or the default once the team has had the question for two working days
+**Depends on:** T-D4.5, T-D4.7; the design team's answer to Q6 (DG-184), or the default once the team has had the question for two working days
 **Touches:** `web/src/features/take-test/stops.ts` (new), `web/src/features/take-test/components/{ClozeBody.tsx (new),GroupContext.tsx,QuestionSheet.tsx,Navigator.tsx}`, `web/src/features/take-test/pages/TakeTestPage.tsx`, `web/src/components/shared/content/{GroupMaterials.tsx,content.css}`, locales, `web/tests/units/take-test/{stops.test.ts (new),cloze.test.tsx (new),group-context,keyboard,submit-dialog}.test.tsx`, `web/tests/e2e/group-attempt.spec.ts`
 **Size:** L
 **Frozen:** one `choice` answer per member question, keyed by its id (autosave, drafts, the
@@ -1502,7 +1514,7 @@ five prompts.
       blank, and a paper with no groups.
 - [ ] A run is one screen. Its line reads "Questions 23–27 of 34 · Cloze · 5 gaps" on
       T-D4.3's s9 session; the total is the paper's question count (35 once R6 adds the
-      matching, DG+4). Then "The gaps are in the passage. Pick a gap here or in the
+      matching, DG-185). Then "The gaps are in the passage. Pick a gap here or in the
       passage." (12.5px, muted), a strip of chips (32px, radius 8, a 20px circle with the
       question's number, then the chosen word or "—"; the open gap is filled primary), and a
       card (`--sidebar`, 1px border, radius 12, padding 14px) with "Gap 23" (13.5px 600),
@@ -1539,7 +1551,7 @@ five prompts.
       different prompts, each shown with its gap; a rich prompt in the card), the worth line
       of the open member, and that choosing writes one `choice` answer under that member's id.
 - [ ] Compared with s9 question 23 at 360, 768, 1024, 1280 and 1440, light and dark, with no
-      gap, two gaps and all five chosen. Known differences, all DG+3 and DG+4: gap numbers
+      gap, two gaps and all five chosen. Known differences, all DG-184 and DG-185: gap numbers
       are question numbers, the line reads a range and "of 34", five squares stand where the
       deck draws one, and each gap shows its own member's prompt and worth where the deck has
       one prompt for all five.
@@ -1580,11 +1592,11 @@ under a revision, through the group editor that already calls it. No operation i
 task in this file, so the isolation suite and the open list do not change.
 
 **What is not built, and has no task:** a per-question hint, an image caption, a sign block,
-the word-size option mode, matching's nouns (DG+8, DG+13); a hard play limit (DG+1: it
+the word-size option mode, matching's nouns (DG-189, DG-194); a hard play limit (DG-182: it
 would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
 
 ### T-D4.13 — `AudioPolicy.allowPause`
-**Depends on:** T-D4.1 (DG+2's row); Q4: the owner's yes, or the default (a boolean, on by default) if no answer has come when the task starts
+**Depends on:** T-D4.1 (DG-183's row); Q4: the owner's yes, or the default (a boolean, on by default) if no answer has come when the task starts
 **Touches:** `api/openapi.yaml` (`AudioPolicy`, a new `StudentAudioPolicy`, `StudentQuestion.audio`, `StudentGroupRecording.policy`, the `StudentSection` description), `server/gen/openapi/`, `web/src/lib/api/schema.d.ts`, `migrations/NNNNN_add_questions_audio_allow_pause.sql`, `NNNNN_add_test_version_questions_audio_allow_pause.sql`, `NNNNN_add_group_recordings_allow_pause.sql`, `NNNNN_add_test_version_group_recordings_allow_pause.sql` (new; numbered at merge), `server/internal/modules/questions/{domain/question.go,http/{input,questions}.go,repositories/store.go}`, `server/internal/modules/tests/{domain/{draft,publish_validation}.go,http/{tests,preview_groups}.go,repositories/{group_assets,group_frozen,group_read,preview,preview_groups,publish_groups,publish_group_snapshot,publish_load,publish_snapshot,version_draft}.go}` and the group write, duplicate and group-copy paths, `server/internal/modules/attempts/{domain/paper.go,http/{attempts,admin_attempts}.go,repositories/{store,review_review}.go}`, the import commit's default, `seed/`, the student-shaped fixtures `web/tests/support/groupPreview.ts`, `web/tests/units/take-test/{panes.test.tsx,question-audio-events.test.tsx,deckSession.ts}`, `web/tests/units/builder/group-preview.test.tsx`, `web/tests/e2e/audio-events.spec.ts` and the MSW fixtures of a session, `server/internal/modules/tests/application/tests/allow_pause_test.go` (new), `docs/plan/20-data-model.md`, `docs/quizzivy-spec-v0.3.md` §11.1, §13, §15, `docs/plan/74-r4.md` and `docs/plan/70-redesign-overview.md` (their open items on "Students can pause")
 **Size:** M
 **Done when:**
@@ -1661,7 +1673,7 @@ would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
       two shapes.
 - [ ] `74-r4.md`'s open item ""Students can pause", "Matching" and "Not given"" and 70 §10's
       item on the content editor say that "Students can pause" is built: both name
-      `allowPause`, this task and DG+2. DG-111's row in `gaps.md` says the same.
+      `allowPause`, this task and DG-183. DG-111's row in `gaps.md` says the same.
 - [ ] Rehearsed on a Neon branch of production; the timing goes in the release PR.
 
 ---
@@ -1691,7 +1703,7 @@ edited.
 **Touches:** `web/src/features/tests/components/{OutlineTree,OutlineGroupRow}.tsx`, `web/src/features/tests/pages/teacher/TestBuilderPage.tsx` (selecting the group from the line and from the menu items, nothing else), `web/src/features/tests/components/BuilderGroupPane.tsx` and `web/src/features/question-groups/components/GroupComposer.tsx` (focus on the title field when Rename asks; no save path changes), locales, `web/tests/units/builder/` (the outline's cases)
 **Size:** S
 **Done when:**
-- [ ] The deck's "group" stays the product's section (DG+5). A section's "…" menu is R4's
+- [ ] The deck's "group" stays the product's section (DG-186). A section's "…" menu is R4's
       (Rename, Instructions, Move up, Move down, Remove group) and gains no "Shared content":
       the export's menu entry `mi('Shared content', 'panel-left', …)` (T 6986) is on every
       group, and a section has no shared content to hold.
@@ -1725,7 +1737,7 @@ edited.
 - [ ] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, on a
       shared-context group holding one passage: the deck's fixture shows "Passage · Why cities
       need green space" under its first group (`INIT_SECS`, T 6632). Known difference: the line
-      and the item are on the group's row, not on the section's (DG+5).
+      and the item are on the group's row, not on the section's (DG-186).
 - [ ] Keys vi first, en from the deck, listed in the PR.
 
 ### T-D4.2b — Group pane: the gap row
@@ -1741,8 +1753,8 @@ edited.
       state is not carried by the border alone.
 - [ ] Above the rows: "Optional: add gaps for a cloze. Each gap is answered by a choice
       question or a blank in this group, shown at the gap." The export's sentence says "a
-      single-choice question"; the product also binds a gap to a blank (DG+6).
-- [ ] The rules do not change (DG+6; `model.ts:113-155`, `group_validation.go:176-212`): a gap
+      single-choice question"; the product also binds a gap to a blank (DG-187).
+- [ ] The rules do not change (DG-187; `model.ts:113-155`, `group_validation.go:176-212`): a gap
       is inserted at the caret by the editor's "Insert gap", a target is a choice member or one
       blank of a fill-in, a target is used once and shows disabled elsewhere, and a group with
       an unbound gap does not save. The export's "[gap n]" appended at the end of the text, any
@@ -1786,16 +1798,16 @@ draft holding the older materials could be offered back over what the dialog sav
 - [ ] It is 560px (`min(560px, 100% − 24px)`): "Shared content for “{group}”", "A passage or
       recording shown beside every question in this group. Students see it beside the questions
       while they answer." (the deck's "on the left", reworded because a phone shows a drawer;
-      DG+6), a scroll area (gap 12px, at most 56vh), Cancel and Save.
+      DG-187), a scroll area (gap 12px, at most 56vh), Cancel and Save.
 - [ ] Kind: a full-width Segmented, 30px, "None" (`circle-slash`), "Passage" (`file-text`),
       "Audio" (`audio-lines`).
 - [ ] Passage: "Title" (36px, "e.g. Why cities need green space", required, 1 to 200
       characters); "Passage" is the content editor in T-R4.63's frame with the placeholder
-      "Paste or type the passage students read" (DG+6), and the hint "Optional: add gaps for
+      "Paste or type the passage students read" (DG-187), and the hint "Optional: add gaps for
       a cloze. …" over T-D4.2b's `GapBindings` rows. The editor's toolbar holds the dialog's
       only "Insert gap" (T-R4.63 shows it for the `document` profile, at the caret); the
       deck's separate 30px button beside the hint is not built, so there are never two
-      (DG+6).
+      (DG-187).
 - [ ] Audio: the empty zone (1.5px dashed `--border`, radius 10px, padding 12px, `audio-lines`
       17px) reads "MP3 or M4A up to 50 MB and 5 minutes" (DG-63), with "Choose file" and "From
       Media"; the attached card shows the file name and "Replace". Uploads go through
@@ -1899,7 +1911,7 @@ draft holding the older materials could be offered back over what the dialog sav
       questions…" goes (Q24).
 - [ ] One frame component serves the three hosts (`StudentPreviewPane`); a host passes its
       sizes. In all three the frame holds R4's `StudentPreview`, scrolling inside it, until
-      T-D4.16 puts the engine there (DG+7).
+      T-D4.16 puts the engine there (DG-188).
 - [ ] Strings: "Close preview" and the bar's title are new, vi first. The keys of the retired
       dialog's sub line, Previous / Next, the two chips and the count line are removed in
       their own commit. The PR lists each test that pinned a retired frame beside the case that
@@ -1912,7 +1924,7 @@ draft holding the older materials could be offered back over what the dialog sav
       `tests/units/imports/`: the frame holds the whole review draft, with no count line, no
       answer and no note.
 - [ ] Compared with the deck at 1280 and 1440 (Computer) and with Phone selected, and at 360,
-      768 and 1024 for the bar and the overlay, light and dark. Known difference, under DG+7:
+      768 and 1024 for the bar and the overlay, light and dark. Known difference, under DG-188:
       the frame's content.
 
 ### T-D4.16 — Preview: the take-test screen in the frame
@@ -1936,11 +1948,11 @@ fullscreen, play counting); `preview.ts`'s stripping of keys and transcripts.
       timer's place stands a pill of the same geometry (36px, radius 999, the timer icon)
       reading "––:––", not a `timer`, named "The time limit is set when the test is assigned"
       ("Thời gian làm bài được đặt khi giao bài"), so the header keeps its width in the
-      390px frame. `Clock` is not mounted. Listed under DG+7 beside the deck's 45:00.
+      390px frame. `Clock` is not mounted. Listed under DG-188 beside the deck's 45:00.
 - [ ] The save line does not claim a save. Where the engine says "All answers saved" the
       preview says "Answers here are not saved." ("Câu trả lời ở đây không được lưu."), with
       the eye icon, and no "Saving…" follows a pick; the deck's preview keeps the live save
-      line (S 961-963, 1617), which DG+7 lists as a slip.
+      line (S 961-963, 1617), which DG-188 lists as a slip.
 - [ ] The integrity policy is the assignment's too (`IntegrityPolicy`, 2615-2637), so the
       preview has none: pasting into an answer is allowed, nothing is counted, no strike line
       and no fullscreen bar are drawn.
@@ -1954,7 +1966,7 @@ fullscreen, play counting); `preview.ts`'s stripping of keys and transcripts.
 - [ ] The engine enters the teacher tree as a lazy chunk; `router-chunks.test.ts` passes
       untouched.
 - [ ] The three previews are compared with the deck at 1280 and 1440 (Computer) and at 390
-      (Phone), light and dark. Known differences, all under DG+7: the placeholder where the
+      (Phone), light and dark. Known differences, all under DG-188: the placeholder where the
       deck runs a 45:00 timer; the save line's sentence; content is the teacher's own, not a
       fixture.
 
@@ -2237,7 +2249,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
 **Done when:**
 - [ ] The contract. `PermissionKey` gains `ai.use` ("Use AI features", Content, Admin and
       Teacher) and `ai.credits.manage` ("Manage AI credits", System, Admin); the migration
-      inserts both into `app.permissions` (`in_matrix` true, DG+18) and grants `ai.use` to the
+      inserts both into `app.permissions` (`in_matrix` true, DG-199) and grants `ai.use` to the
       built-in Teacher role; the Admin wildcard holds both. `httpx.PermissionRequirements` lets
       the `/teacher` tree take `ai.use` and the `/admin` tree `ai.credits.manage`.
       `permissions.golden` is regenerated once, in this PR. Operations, all `ai.use`, all `POST`,
@@ -2329,7 +2341,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
 - [ ] `AiPanel` is the deck's drawer (V-14) on the `Sheet` primitive from the right,
       `min(560px, 100%)`, with the three stages, the field types, the run steps and skeleton, the
       item cards and the footer's credit note from the operation's `usage`; and the states the
-      deck lacks (DG+20): Esc, a focus trap and return (DG-36); "Try again" on `503`; the 402
+      deck lacks (DG-201): Esc, a focus trap and return (DG-36); "Try again" on `503`; the 402
       sentence "Your allowance is used up. Ask for more in Settings." (or "The school's AI pool
       is used up this month."); `403 AI_PAUSED` as "AI is paused for your account."; a response
       that fails the schema as the warning callout. No demo content ever renders.
@@ -2341,26 +2353,26 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
       `useAiAvailable()` (the status read and `ai.use`) is true, and disabled with a tooltip when
       the usage read says paused or exhausted (Q34).
 - [ ] Generate: the source chips offer the test's shared-content passages by title ("Passage 1 ·
-      …") and "Start empty"; types are the five stored types (TFNG joins in R6, DG+21); "Add {n}
+      …") and "Start empty"; types are the five stored types (TFNG joins in R6, DG-202); "Add {n}
       to {section}" creates the accepted items as questions in the open question's section
       through the existing writes, with the "AI draft" tag when the preference is on, and opens
       the first; in the bank "Save {n} to the bank"; the toast is the deck's.
 - [ ] Check: findings as drawn; "{fix}" is one click only for a fix whose write exists (option
       text, accepted answer, explanation) and calls `updateQuestion` with the payload; otherwise
-      "Open question" and "Dismiss" only (DG+21).
+      "Open question" and "Dismiss" only (DG-202).
 - [ ] Variant: the before / after cards; "Save {n} changes as a draft" calls `duplicateTest` into
       "{title} · Variant" and applies the accepted changes to the copy's draft questions through
       `updateQuestion`; the toast reads "Variant saved as a draft. Open the variant." with a link
-      (DG+16).
+      (DG-197).
 - [ ] Clean up: a duplicate card offers "Open" for each question and "Keep both"; no merge
-      (DG+16); "Add tags to {n} questions" is the bulk tag write.
+      (DG-197); "Add tags to {n} questions" is the bulk tag write.
 - [ ] Every write a primary makes goes through the existing mutation hooks and their autosave
       flushes; the panel itself calls only `/teacher/ai/*`. A unit test spies on the API module
       and finds no write from `features/ai/`.
 - [ ] Strings vi first, en from the deck, listed in the PR; `features/ai/` is a lazy chunk;
       `router-chunks.test.ts` passes untouched.
 - [ ] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark: the panel in its
-      three stages for each kind, and the three headers. Known differences: DG+16, DG+20, DG+21.
+      three stages for each kind, and the three headers. Known differences: DG-197, DG-201, DG-202.
 
 ### T-D4.35 — Question editor: "Write with AI" and "Suggest wrong options"
 **Depends on:** T-D4.32, T-D4.34 (shares `features/ai/api.ts` and the credit note)
@@ -2392,7 +2404,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
       pill; "{score} / {max}"; the reasons; the comment; "Use score and comment" sets the score
       button and the comment field through the card's own handlers (nothing is saved until the
       teacher's Save & next, as today) and toasts the deck's sentence; "Try again". The idle
-      sentence is the short-answer one; the band sentence waits for R6 (DG+21).
+      sentence is the short-answer one; the band sentence waits for R6 (DG-202).
 - [ ] With the preference off the box is absent and a line under the answer reads "AI
       suggestions are off in Settings › AI assistant." (one sentence, from deck parts).
 - [ ] Unit tests: the gate, the fill, that no request carries the student's name (the fixture
@@ -2424,11 +2436,11 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
       readStudentAnswers, readImports}`, saved through `PATCH /auth/me` as the other
       preferences are; defaults en-or-vi from the locale, on, on, off) with the deck's three
       switches and the language segment.
-- [ ] "Ask for more credits" under the usage card (DG+19): amount and reason, `POST
+- [ ] "Ask for more credits" under the usage card (DG-200): amount and reason, `POST
       /teacher/ai/credit-requests`; "Request sent. Your admin will be told."; the pending request
       shown until decided; hidden while the rule is "Pause until next month".
 - [ ] With AI off (501): the section shows one sentence, "AI is not turned on for this school."
-      (DG+20), and the nav keeps the item so the teacher knows where it would be.
+      (DG-201), and the nav keeps the item so the teacher knows where it would be.
 - [ ] The `handle.permission` of the section is `ai.use`; a teacher without it gets the 403 page
       as the other sections do (T-R5.20's guard pattern, built here for the teacher tree if it is
       not there yet).
@@ -2449,7 +2461,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
 
 ### T-D4.40 — Documents for the AI assistant
 **Depends on:** T-D4.32 merged (the behaviour exists); runs before T-D4.12
-**Touches:** `docs/quizzivy-spec-v0.3.md` (§1.3, §2, §8, §12, §13, §15, §16, §17, the "Changes since" head; version per §18), `AGENTS.md` ("Non-negotiable", "High-risk areas", "Repository map", "The composition root"), `docs/plan/70-redesign-overview.md` (§4.1 is on the branch; §10), `docs/plan/17-word-import.md` §8, `docs/plan/18-word-import-ux.md` §4, `docs/design/gaps.md` (DG+15 to DG+21 "what was built"), `docs/setup/operations.md`
+**Touches:** `docs/quizzivy-spec-v0.3.md` (§1.3, §2, §8, §12, §13, §15, §16, §17, the "Changes since" head; version per §18), `AGENTS.md` ("Non-negotiable", "High-risk areas", "Repository map", "The composition root"), `docs/plan/70-redesign-overview.md` (§4.1 is on the branch; §10), `docs/plan/17-word-import.md` §8, `docs/plan/18-word-import-ux.md` §4, `docs/design/gaps.md` (DG-196 to DG-202 "what was built"), `docs/setup/operations.md`
 **Size:** S
 **Done when:**
 - [ ] The spec: §2 names the provider behind `platform/anthropic` and the tiers as
@@ -2469,7 +2481,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
 - [ ] `17-word-import.md` §8 and `18-word-import-ux.md` §4 record D19 (cloud approved; the
       admin-managed configuration is the environment and `ai_settings`; the page says what is
       sent); 70 §10 keeps the open item on Q35's two remaining pieces.
-- [ ] `gaps.md`: DG+15 to DG+21 say what was built.
+- [ ] `gaps.md`: DG-196 to DG-202 say what was built.
 
 ---
 
@@ -2480,7 +2492,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
 **Done when (v2):**
 - [ ] The four redrawn R4 screens (section F) and every AI surface (section G) are compared with
       the v2 deck at 360, 768, 1024, 1280 and 1440, light and dark, with the sidebar collapsed
-      where the deck draws a separator; the differences listed are DG+15 to DG+21's and no other.
+      where the deck draws a separator; the differences listed are DG-196 to DG-202's and no other.
 - [ ] `74-r4.md`: T-R4.4, T-R4.25, T-R4.26, T-R4.27a, T-R4.28, T-R4.30, T-R4.32, T-R4.33,
       T-R4.36, T-R4.38, T-R4.42 and T-R4.43 each gain one closing line naming the T-D4 task that
       reopened them (T-R4.31a's line names T-D4.2a, T-D4.20 and T-D4.34).
@@ -2509,7 +2521,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
       holding a recording; the Shared content dialog in its three kinds; the question media
       block and the group's recording with "Plays" and "Students can pause"; the three
       previews as Computer and as Phone, with the engine in the frame. The differences listed
-      are DG+5, DG+6 and DG+7's, and no other.
+      are DG-186, DG-187 and DG-188's, and no other.
 - [ ] AGENTS.md's engine paragraph is rewritten: the rail at 900 and 1180, the grid button and
       sheet elsewhere, the drawer below 768, shared content in the stimulus pane, the cloze
       stop, no strip. Its sentence "so the strip can leave a gap between parts" becomes "so the
@@ -2524,7 +2536,7 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
       not rewritten.
 - [ ] AGENTS.md, "Redesign in progress": T-D4.1's bullet leaves; the engine paragraph under
       "Design" carries the rules.
-- [ ] `gaps.md`: DG-80's list is trimmed as T-D4.1 says; the rows DG+1 to DG+13 say what was
+- [ ] `gaps.md`: DG-80's list is trimmed as T-D4.1 says; the rows DG-182 to DG-194 say what was
       built.
 
 ### T-D4.18 — Release v0.11.0
@@ -2663,7 +2675,7 @@ D4, the release after R4 (D22). The spec records them in the task that ships the
   case "still plays when the hint says none are left" (`audio-player.test.tsx:105-112`).
 - Default: the decision stands. The new card is built; at the limit the button stays live and
   the status adds the product's "You can keep listening. Additional plays are recorded for your
-  teacher to review." (DG+1).
+  teacher to review." (DG-182).
 - Cost of the other answer: the owner changes §11.4 and that canary case himself; a student
   whose play was counted twice, or counted while offline, is locked out of a recording they
   did not hear, and only a teacher's intervention reopens it. The lock in the browser alone is
@@ -2766,7 +2778,7 @@ D4, the release after R4 (D22). The spec records them in the task that ships the
   conflict message stay one mechanism.
 - One English sentence is reworded: the deck's "Students see it on the left while they
   answer." becomes "Students see it beside the questions while they answer.", because on a
-  phone it is a drawer (DG+6).
+  phone it is a drawer (DG-187).
 - Cost of the other answer: stored passages hold tables, images and gaps a textarea cannot
   show; the deck's looser rules ("[gap n]" at the end, any question, unbound gaps saved) are
   refused by the server today (`group_validation.go:176-212`).
@@ -2780,7 +2792,7 @@ D4, the release after R4 (D22). The spec records them in the task that ships the
   submit here." In the timer's place, a pill of the same size reading "––:––", named "The
   time limit is set when the test is assigned"; in the save line's place, "Answers here are
   not saved." (the deck's preview still says "All answers saved"). T-D4.2c builds the bar and
-  the frame around R4's read-only preview first (DG+7).
+  the frame around R4's read-only preview first (DG-188).
 - Cost of the other answer: read-only saves little, because the engine must run from a source
   other than the store either way. A timer with a number needs an invented limit, or a
   "typical time" field on the test, which nothing else uses.
@@ -2797,7 +2809,7 @@ since it reverses what shipped today)
 student answers?** (design)
 - Default: the handle and the close button are the controls and swipe is an extra; focus,
   Esc, `inert` (the deck marks the closed drawer `aria-hidden`, which leaves its gap buttons
-  reachable by Tab), reduced motion and a once-per-group tip are added (DG+9). The handle
+  reachable by Tab), reduced motion and a once-per-group tip are added (DG-190). The handle
   is named "Open the audio" in English, as the deck has it. The handle's dot is
   the only sign of a playing recording on the question.
 - Cost of the other answer: keeping the switcher drops T-D4.7 (L) and leaves a recording on a
@@ -2828,7 +2840,7 @@ student answers?** (design)
 **Q18. Sign cards, 60px word tiles, the hint line and the image caption: what in the data
 triggers each?** (design)
 - All four are keyed to fixture ids or fixture fields with no model.
-- Default: none is built (DG+8). A notice is an image or bold prompt content; an underline
+- Default: none is built (DG-189). A notice is an image or bold prompt content; an underline
   comes from the option's rich text.
 - Cost of the other answer: a notice block in the content model (contract, editor, engine,
   result), an option-size rule, a hint field and a caption field: R6 work.
@@ -2886,7 +2898,7 @@ time; the dialog has no "Show transcript after submitting" and no "Allow skippin
   and were not drawn; the contract and the engine were not read.
 - Request: read `api/openapi.yaml` (`QuestionGroup`, `StudentGroup`, `AudioPolicy`),
   `web/src/features/take-test/**` and `web/src/features/question-groups/**`, and add them to
-  the Screen map. Recorded as DG+14.
+  the Screen map. Recorded as DG-195.
 - Inconsistencies inside the export to send back with it: the cloze counts one and the
   listening matching five; the builder binds a question per gap and the Student fixture is one
   item; multiple choice is capped at two under a hint that says "all"; "you can pause once"
@@ -2934,11 +2946,11 @@ recommended; Q35 is answered for its default and stays open for two items.
 
 **Q31. The pool's rule.** (owner; follows D21)
 - **Answered 2026-10-10: the default.** One value, "Pause AI for everyone"; "Add credits" is the
-  approval (DG+15). The deck's "Allow 10% extra" contradicts D21 and is not offered.
+  approval (DG-196). The deck's "Allow 10% extra" contradicts D21 and is not offered.
 
 **Q32. A variant and a merge.** (owner, then design)
 - **Answered 2026-10-10: (a).** A variant is a new draft test; the clean-up merges nothing
-  (DG+16). Not taken: a variant that overwrites the test's draft, or a merge operation (L, high
+  (DG-197). Not taken: a variant that overwrites the test's draft, or a merge operation (L, high
   risk: the publish snapshot and the draft lock).
 
 **Q33. "Let AI read student answers": a per-teacher switch, on by default?** (owner)
@@ -2947,7 +2959,7 @@ recommended; Q35 is answered for its default and stays open for two items.
 
 **Q34. Paused or out of credits: visible and disabled, or hidden?** (owner)
 - **Answered 2026-10-10: (a).** Visible and disabled with the reason, as the deck says ("AI
-  buttons stay visible but can’t be used"); hidden only when the provider is off (DG+20).
+  buttons stay visible but can’t be used"); hidden only when the provider is off (DG-201).
 
 **Q35. What students and parents read about cloud processing.** (owner; product copy about
 minors' data)
@@ -2959,36 +2971,35 @@ minors' data)
 
 ### The gap rows T-D4.1 opens
 
-Fourteen new rows in `docs/design/gaps.md`, all Open. DG+1 moves to "Decisions that override
-the current drawings" only if the owner confirms Q3's default. Their ids are assigned when
-T-D4.1 runs, the first one being the next free id after the last row `develop` holds then: R4
-has DG-120 to DG-122 and may use more. T-D4.1 replaces the labels below, and every `DG+n` in
-this file, with the ids it took. If a `develop` sync later brings a row with the same id, the
-D4 row is renumbered at that sync. The full "Meanwhile" texts are in T-D4.1.
+Twenty-one new rows in `docs/design/gaps.md`, all Open: DG-182 to DG-195 for the fourth export
+and DG-196 to DG-202 for v2. DG-182 moves to "Decisions that override the current drawings" only
+if the owner confirms Q3's default. T-D4.1 took the ids on 2026-10-12, the first one being the
+next free id after `develop`'s DG-181. If a `develop` sync later brings a row with the same id,
+the D4 row is renumbered at that sync. The full "Meanwhile" texts are in `gaps.md`.
 
-| Label | Where | What the row records | Question | Built by |
+| ID | Where | What the row records | Question | Built by |
 |---|---|---|---|---|
-| DG+1 | Student › Take test, a recording at its play limit | The deck locks the recording; the product keeps it live and reports extra plays | Q3 | T-D4.8 |
-| DG+2 | Teacher › Question media and Shared content; Student › the recording card | "Students can pause" as one boolean, `allowPause`; "you can pause once" is read as a note | Q4 | T-D4.13, T-D4.9, T-D4.15 |
-| DG+3 | Student › Take test, a cloze | One item with n gaps on the Student page, one question per gap in the builder; the product keeps one question per gap | Q6 | T-D4.10 |
-| DG+4 | Student › Take test, numbers and counts | "Question 23 of 31" against 35; a matching counts five or one; every question has one number | Q7 | T-D4.10 |
-| DG+5 | Teacher › Test builder, the group | The deck's group carries shared content; the product keeps a section and a shared-context group | Q8 | T-D4.2a, T-D4.14 |
-| DG+6 | Teacher › Test builder, the Shared content dialog | A textarea, one passage or one recording, loose gap rules, "MP3, M4A or WAV up to 25 MB", two switches missing; "on the left" reworded | Q9, Q10, Q25 | T-D4.2b, T-D4.14 |
-| DG+7 | Teacher › the three previews | An answerable take-test screen with a running 45:00 timer and "All answers saved"; the product shows no time and claims no save | Q11 | T-D4.2c, T-D4.16 |
-| DG+8 | Student › Take test, frames with no model | The sign card, the 60px word tiles, the image caption, the per-question hint, paragraph letters | Q18 | not built |
-| DG+9 | Student › Take test, the phone drawer | No Esc, focus move, `inert`, reduced-motion form or tip rule; the recording is out of sight while answering | Q13 | T-D4.7 |
-| DG+10 | Student › Take test, navigation | The rail comes and goes from 900 to 1179; the key hint; a sheet with no title; four targets under 44px; the arrow keys bypass `go()`; Esc does not close the sheet | Q12, Q20, Q21 | T-D4.4 |
-| DG+11 | Student › Take test, section instructions | Shown above every question, while the builder says "above the group’s first question"; a group's own instructions are not drawn | Q14 | T-D4.5 |
-| DG+12 | Student › Take test, what spends a play | A start spends one and a resume none; unlimited plays read "Play 1 of 99" | Q5 | T-D4.8 |
-| DG+13 | Student › Take test, matching | Chips per row, three key styles, the nouns "pick the {pick} for each {what}", 38px chips | Q7 | R6 (T-D4.19) |
-| DG+14 | `github.md`, the sync behind the export | The sync read two migrations; the contract, the engine and the group editor were not read | Q27 | the design team's next sync |
-| DG+15 | Admin › AI credits, the pool's rules | "Allow 10% extra" and "billed on your next invoice" against D21 and the non-goal on payments; one rule, pause everyone; "Add credits" is the approval | Q31 | T-D4.31, R5 T-R5.35 |
-| DG+16 | Teacher › Make a variant; Clean up the bank | A variant "saved as a draft version"; "Merge into one"; the product makes a new draft test and merges nothing | Q32 | T-D4.34 |
-| DG+17 | Teacher › Class detail › Attendance (R8) | "Students see their own attendance"; "They count as absent until you mark them"; R8's decisions stand | — (R8) | R8 |
-| DG+18 | Admin › Roles & permissions | No AI row; two keys join the matrix | — | T-D4.32, R5 T-R5.24 |
-| DG+19 | Teacher › Settings › AI assistant | No request form while the Admin page lists requests; a form under the usage card | — | T-D4.38 |
-| DG+20 | Teacher › the AI panel's states | Off, paused, exhausted, failed and invalid states; Esc, focus trap and return | Q34 | T-D4.34 |
-| DG+21 | Teacher › the AI against R6 | The band form, TFNG, the word-limit fix and the matching finding wait for R6 | — | T-D4.34, T-D4.36, R6 |
+| DG-182 | Student › Take test, a recording at its play limit | The deck locks the recording; the product keeps it live and reports extra plays | Q3 | T-D4.8 |
+| DG-183 | Teacher › Question media and Shared content; Student › the recording card | "Students can pause" as one boolean, `allowPause`; "you can pause once" is read as a note | Q4 | T-D4.13, T-D4.9, T-D4.15 |
+| DG-184 | Student › Take test, a cloze | One item with n gaps on the Student page, one question per gap in the builder; the product keeps one question per gap | Q6 | T-D4.10 |
+| DG-185 | Student › Take test, numbers and counts | "Question 23 of 31" against 35; a matching counts five or one; every question has one number | Q7 | T-D4.10 |
+| DG-186 | Teacher › Test builder, the group | The deck's group carries shared content; the product keeps a section and a shared-context group | Q8 | T-D4.2a, T-D4.14 |
+| DG-187 | Teacher › Test builder, the Shared content dialog | A textarea, one passage or one recording, loose gap rules, "MP3, M4A or WAV up to 25 MB", two switches missing; "on the left" reworded | Q9, Q10, Q25 | T-D4.2b, T-D4.14 |
+| DG-188 | Teacher › the three previews | An answerable take-test screen with a running 45:00 timer and "All answers saved"; the product shows no time and claims no save | Q11 | T-D4.2c, T-D4.16 |
+| DG-189 | Student › Take test, frames with no model | The sign card, the 60px word tiles, the image caption, the per-question hint, paragraph letters | Q18 | not built |
+| DG-190 | Student › Take test, the phone drawer | No Esc, focus move, `inert`, reduced-motion form or tip rule; the recording is out of sight while answering | Q13 | T-D4.7 |
+| DG-191 | Student › Take test, navigation | The rail comes and goes from 900 to 1179; the key hint; a sheet with no title; four targets under 44px; the arrow keys bypass `go()`; Esc does not close the sheet | Q12, Q20, Q21 | T-D4.4 |
+| DG-192 | Student › Take test, section instructions | Shown above every question, while the builder says "above the group’s first question"; a group's own instructions are not drawn | Q14 | T-D4.5 |
+| DG-193 | Student › Take test, what spends a play | A start spends one and a resume none; unlimited plays read "Play 1 of 99" | Q5 | T-D4.8 |
+| DG-194 | Student › Take test, matching | Chips per row, three key styles, the nouns "pick the {pick} for each {what}", 38px chips | Q7 | R6 (T-D4.19) |
+| DG-195 | `github.md`, the sync behind the export | The sync read two migrations; the contract, the engine and the group editor were not read | Q27 | the design team's next sync |
+| DG-196 | Admin › AI credits, the pool's rules | "Allow 10% extra" and "billed on your next invoice" against D21 and the non-goal on payments; one rule, pause everyone; "Add credits" is the approval | Q31 | T-D4.31, R5 T-R5.35 |
+| DG-197 | Teacher › Make a variant; Clean up the bank | A variant "saved as a draft version"; "Merge into one"; the product makes a new draft test and merges nothing | Q32 | T-D4.34 |
+| DG-198 | Teacher › Class detail › Attendance (R8) | "Students see their own attendance"; "They count as absent until you mark them"; R8's decisions stand | — (R8) | R8 |
+| DG-199 | Admin › Roles & permissions | No AI row; two keys join the matrix | — | T-D4.32, R5 T-R5.24 |
+| DG-200 | Teacher › Settings › AI assistant | No request form while the Admin page lists requests; a form under the usage card | — | T-D4.38 |
+| DG-201 | Teacher › the AI panel's states | Off, paused, exhausted, failed and invalid states; Esc, focus trap and return | Q34 | T-D4.34 |
+| DG-202 | Teacher › the AI against R6 | The band form, TFNG, the word-limit fix and the matching finding wait for R6 | — | T-D4.34, T-D4.36, R6 |
 
 T-D4.1 also edits sixteen existing rows: DG-80 (what the export now draws, and which frames stay
 listed), DG-60, DG-63, DG-68, DG-69, DG-111, DG-113, DG-115, DG-116 and DG-36 for the fourth
@@ -3021,8 +3032,8 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
   another before T-D4.1 runs, it is read against sections 1 to 11 first and this file is
   corrected before a task starts, as before.
 - **The design team's next sync should read `server/internal/modules/ai/` and
-  `web/src/features/ai/`** once they exist, and draw the states DG+20 lists and the rows DG+18
-  and DG+19 ask for.
+  `web/src/features/ai/`** once they exist, and draw the states DG-201 lists and the rows DG-199
+  and DG-200 ask for.
 - **Builders.** The engine chain takes one builder for its whole length and, at times, a
   second for T-D4.6 or T-D4.11; the server task, the builder chain and the preview chain take
   one each. Never more than four work at once (70 §3).

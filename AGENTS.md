@@ -42,11 +42,10 @@ this file describe the code as it is and name the release that changes them.
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
   an old `/admin/*` bookmark redirects to the same path under `/teacher` until
   R5 builds the Admin console at `/admin`.
-- **The design team's exports of 2026-10-04 (the fourth) and 2026-10-10 (v2, which
-  carries the fourth) are not the deck of record.** R4 builds from
-  `docs/design/deck/` as it is, and D4 imports v2 after v0.10.0
-  (`docs/plan/74d-d4-deck-update.md`, T-D4.1). v2 also draws the AI assistant,
-  which D4 builds under D19 to D22 (`docs/plan/70-redesign-overview.md` §1).
+- **Since the fourth import (D4, T-D4.1)** the deck of record is the design team's
+  v2 export of 2026-10-10, 10:44, which carries the fourth export of 2026-10-04. D4
+  (`docs/plan/74d-d4-deck-update.md`) rebuilds the take-test engine, the builder's
+  shared content and the three previews to it, and builds the AI assistant it draws.
 
 ## Sources of truth, in order
 
