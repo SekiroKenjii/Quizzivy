@@ -86,6 +86,18 @@ describe("the bank's tag filter", () => {
     expect(box).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("draws the search box with the deck's 8px corners and its list with 10px (F-38)", async () => {
+    const { user } = renderBank();
+    await screen.findByText("Người phụ nữ đề nghị làm gì?");
+    const box = await tagBox();
+    expect(box.parentElement).toHaveClass("rounded-md");
+    expect(box.parentElement).not.toHaveClass("rounded-lg");
+    await user.click(box);
+    expect(screen.getByRole("listbox", { name: "Thẻ" }).parentElement).toHaveClass(
+      "rounded-[10px]",
+    );
+  });
+
   it("says when no tag matches", async () => {
     const { user } = renderBank();
     await screen.findByText("Người phụ nữ đề nghị làm gì?");
