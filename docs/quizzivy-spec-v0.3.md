@@ -1,13 +1,19 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.92 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.93 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.91**
+**Changes since v0.92**
 
 R4, F-68 hardening: the sweep can be switched off, and its last step survives the end of its time.
 
 - §11.2 `MEDIA_RETENTION_SWEEP` (`on`, the default, or `off`) stops the media sweep on the machines that read it. Once the sweep has deleted an object it finishes the mark, the audit row and the commit under their own time, and logs the file at ERROR if it still cannot. A bank question's write that names a removed file in that instant answers as a missing file, not a 500.
+
+**Changes since v0.91**
+
+The design team's page-width design, approved by the owner on 2026-10-12 (DG-205, Decided). Numbered v0.92 to stay clear of v0.90, the deck update on `work/deck-d4`.
+
+- §8, §12 Every route in `TeacherLayout` renders in one page frame: the full content width up to `--page-max` (1600px), centred beyond it at every width, 2560 included, inside gutters of 14, 28 and 40px. A route's handle no longer declares a width (it was 1320 by default, 1080, 860, 720 or full); the import review alone keeps `width: "full"`. Containers fill the frame; a field is at most 480px wide and prose at most 72ch. The student app's columns are unchanged.
 
 **Changes since v0.90**
 
@@ -1812,7 +1818,7 @@ flat results/reviews keep their existing payload and require no group reader.
 
 ## 8. Screens & routes — teacher (`/teacher/*`)
 
-`TeacherLayout` (R4, `layouts/TeacherLayout.tsx` and `layouts/shell/`): a sidebar, a top bar with the breadcrumb trail, the search, the bell and the theme toggle, and the page. It follows the theme. A route declares `handle: { crumb, width?, sidebar? }`: the whole breadcrumb trail, whose last crumb titles the document; the content's maximum width (1320 by default, 1080, 860, 720 or the full width); and a collapsed start for the visit (the import review asks for one).
+`TeacherLayout` (R4, `layouts/TeacherLayout.tsx` and `layouts/shell/`): a sidebar, a top bar with the breadcrumb trail, the search, the bell and the theme toggle, and the page. It follows the theme. A route declares `handle: { crumb, width?, sidebar? }`: the whole breadcrumb trail, whose last crumb titles the document; `width: "full"`, the page frame's one exception (the import review); and a collapsed start for the visit (the import review asks for one). Every other route renders in the one page frame of §12.
 
 - **The sidebar** groups the destinations as the deck does (Home; Teaching: Assignments, Grading, Classes, Students; Content: Tests, Question bank, Media), each shown only to a user with the permission its list operation declares. From 768px it is in the page's flow, 248px expanded or 60px collapsed (icons, the label as the name, no badge), as the user last chose; the choice is kept in `localStorage` under `quizzivy.sidebar` and the sidebar never collapses by itself. Below 768px it is a 272px drawer over the page that traps focus and closes on every navigation.
 - **Layout by content width, not viewport.** `<main>` is the scroller; a page lays itself out by the width of its content area (`useContentWidthAtLeast`, `useContentBand`), so collapsing the sidebar can widen a page into its next layout. The only viewport breakpoint is the shell's 768.
@@ -2246,6 +2252,12 @@ Deliberate. Do not "improve" them with trendy defaults.
   - `--danger-solid` / `--danger-solid-fg`, danger buttons, 4.5:1 or more.
 - **Deck geometry that would change an existing primitive** (control heights, `--radius` and the sm/md/lg radii, the badge and card shapes) applies only inside `data-scale="deck"`, which rebuilt surfaces set on their root. The deck's type steps are global tokens, but the pre-R1 steps keep their values, so an old screen does not shift. Sizes that exist only in the deck have their geometry everywhere (button `md`, `xl` and `icon-xl`, the new avatar sizes, the toast).
 - **Every console follows the theme.** The teacher's `TeacherLayout` is a deck surface since R4, and the student and focus layouts since R3; nothing forces light. R5 makes the deck geometry the default and removes `data-scale` (T-R5.30).
+
+**The teacher workspace's page frame** (DG-205, Decided: the design team's page-width design, `docs/design/deck/page-width-proposal/`, approved by the owner on 2026-10-12; the v2 deck drew 1320px on most screens and 1080, 860 and 720 on some, each centred).
+
+- **One frame, up to 1600px.** `TeacherLayout` puts every route in the same frame: the full content width up to `--page-max` (1600px), then centred, at every width, 2560 included. So every page, its loading, empty, error and not-found states included, starts at one left edge and has one width at each viewport and sidebar state. The one named exception is the import review, full-bleed with the sidebar collapsed (`handle.width: "full"`). The values are tokens in `src/index.css`; no other route or page sets a maximum, and `page-frame.test.ts` refuses a teacher page that centres itself in a narrower box.
+- **Gutters by width:** `--page-gutter` 14px below 768, 28px from 768 and 40px from 1920; top padding 16 / 24px.
+- **Size the content, not the page.** The page head (title, description, actions, the wizard's stepper) spans the frame, and cards, lists, tables and steppers fill it. Only text is capped: a field is at most `--field-max` (480px) wide, prose at most `--prose-max` (72ch). There are no form columns: New assignment's summary docks on the right at 300px beside a form that fills, and Settings' fields flow into columns of at most 480px. Inner reflows follow the content-width bands of §8 or a container query, never a new viewport breakpoint.
 
 **The student app and the engine, as built in R3 (v0.9.0).** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119).
 

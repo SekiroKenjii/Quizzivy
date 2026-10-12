@@ -60,7 +60,6 @@ it("the real grading leaf remains lazy and declares its deck shell metadata", as
   const grading = routes.find((route) => route.path === "grading");
   expect(grading?.handle).toEqual({
     crumb: [{ key: "teacherShell.nav.grading" }],
-    width: 1320,
   });
   expect(grading?.element).toBeUndefined();
   expect(typeof grading?.lazy).toBe("function");

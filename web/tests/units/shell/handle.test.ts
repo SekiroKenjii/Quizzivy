@@ -8,7 +8,6 @@ describe("teacherHandleOf", () => {
         { key: "teacherShell.nav.tests", to: "/teacher/tests" },
         { key: "tests.detail" },
       ],
-      width: 1080,
       sidebar: "collapsed",
     } satisfies TeacherHandle;
     expect(teacherHandleOf(handle)).toBe(handle);
