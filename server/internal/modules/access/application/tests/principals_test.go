@@ -3,6 +3,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"sync"
 	"testing"
@@ -25,7 +26,7 @@ type fakeRepo struct {
 	duringRead func()
 }
 
-func (f *fakeRepo) Principal(_ context.Context, userID string) (domain.PrincipalRow, error) {
+func (f *fakeRepo) Principal(ctx context.Context, userID string) (domain.PrincipalRow, error) {
 	f.mu.Lock()
 	f.userReads++
 	row, ok := f.users[userID]
@@ -33,6 +34,9 @@ func (f *fakeRepo) Principal(_ context.Context, userID string) (domain.Principal
 	f.mu.Unlock()
 	if hook != nil {
 		hook()
+	}
+	if err := ctx.Err(); err != nil {
+		return domain.PrincipalRow{}, fmt.Errorf("read principal: %w", err)
 	}
 	if !ok {
 		return domain.PrincipalRow{}, domain.ErrUnknownUser
@@ -247,6 +251,27 @@ func TestAnUnknownUserIsRefusedAndNotCached(t *testing.T) {
 	}
 	if users, _ := repo.reads(); users != 2 {
 		t.Errorf("%d user reads for two unknown lookups, want 2", users)
+	}
+}
+
+func TestAResolveCancelledMidReadIsNotAnUnknownUserAndCachesNothing(t *testing.T) {
+	repo := newRepo()
+	app := application.New(repo)
+	ctx, cancel := context.WithCancel(context.Background())
+	repo.duringRead = cancel
+	_, err := app.Queries.ResolvePrincipal.Handle(ctx, query.ResolvePrincipal{UserID: "teacher"})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want one that is context.Canceled: the gate tells the client's cancellation from a fault on it", err)
+	}
+	if errors.Is(err, domain.ErrUnknownUser) {
+		t.Errorf("a cancelled read answered %v: the gate would answer 401 and sign the user out", err)
+	}
+	if cached := app.Cached(); cached != 0 {
+		t.Errorf("%d principals cached after a cancelled read, want none", cached)
+	}
+	repo.duringRead = nil
+	if got := resolve(t, app, "teacher"); got.Epoch != 3 {
+		t.Errorf("the next resolve = %+v, want the teacher at epoch 3", got)
 	}
 }
 

@@ -49,6 +49,36 @@ References: [GitHub scheduled-workflow limitations](https://docs.github.com/en/a
 [notification recipients](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs),
 [Fly health checks](https://fly.io/docs/reference/health-checks/).
 
+## Request logs and what counts as a server error
+
+Every request logs one `http` line at INFO: `method`, `path`, `status`,
+`duration_ms` and `request_id`. A failure a handler returns also logs one
+`handler` line at ERROR with the same `request_id` and the error, and answers
+`500 INTERNAL`; the permission gate's and the API-reference gate's 500 log only
+the `http` line. Count 5xx from `status`.
+
+A browser that aborts a fetch (TanStack Query cancelling on navigation, a closed
+tab, a dropped connection) is not a fault. A request that fails because its own
+client went away answers and logs `status:499`, nginx's name for it, with no body
+and no ERROR line; a `client_cancelled` line at DEBUG, off in production, names
+the error. A 499 is in no 5xx count. The same holds for the permission gate, the
+API-reference gate and `/healthz`.
+
+The request's own context must be cancelled, and the error either `context
+canceled` or a network timeout. The second is what pgx reports when the cancel
+reaches it while it writes to Postgres: it expires the connection's deadline to
+interrupt the write and returns `write failed: write tcp ...: i/o timeout`,
+which does not name the cancel. The pool sets no write deadline of its own, so on
+a request the client did not cancel the same line is a real fault.
+
+What stays a server error: a `context deadline exceeded` (the pool's two-second
+ping, an upload's two-minute budget), a context the server cancelled while the
+client was still connected, an `i/o timeout` on a request nobody cancelled, and
+any other failure, even on a request the client also cancelled. The maintenance
+gate and the rate limiters have no such path: the first reads its window under a
+context the client cannot cancel, and the others decide from memory, a body they
+cannot read only costing them its key.
+
 ## Backup and recovery drill
 
 The proposed restore-history target is seven days, subject to the owner's Neon

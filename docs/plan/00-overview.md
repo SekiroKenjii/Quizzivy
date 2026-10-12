@@ -346,6 +346,12 @@ non-2xx response body is:
 
 `429` additionally carries `Retry-After` (§6.5).
 
+`499` is the one status without an envelope. A request whose client cancelled it
+(the browser aborting a fetch on navigation) and that failed because of it is
+answered `499` with no body and logged at `status:499` with no error line: it is
+not a server error, and `docs/setup/operations.md` ("Request logs") says what
+still is one. The contract does not list it, because nobody is there to read it.
+
 ## 8. Pagination
 
 Offset, uniform across list endpoints: `page` + `limit` in, `{ items, page,

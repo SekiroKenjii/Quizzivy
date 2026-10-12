@@ -25,8 +25,10 @@ type PrincipalResolver interface {
 // principal RequireAuth put in the context: without one, or when the user is
 // unknown, disabled or the token's epoch is older than the user's, it answers
 // 401 so the single-flight refresh settles the session; when the user's
-// permissions do not meet the requirement it answers 403 FORBIDDEN. On success
-// the resolved principal joins the context.
+// permissions do not meet the requirement it answers 403 FORBIDDEN. A resolve
+// that fails because the client cancelled the request answers
+// StatusClientClosedRequest, and any other failure 500. On success the
+// resolved principal joins the context.
 func RequirePermission(requirements map[string]access.Requirement, resolver PrincipalResolver) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +46,9 @@ func RequirePermission(requirements map[string]access.Requirement, resolver Prin
 			switch {
 			case errors.Is(err, ErrUnknownPrincipal):
 				writeUnauthenticated(w, r)
+				return
+			case ClientGone(r.Context(), err):
+				WriteClientGone(w)
 				return
 			case err != nil:
 				WriteError(w, r, http.StatusInternalServerError, CodeInternal,
