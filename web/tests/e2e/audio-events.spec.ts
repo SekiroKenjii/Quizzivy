@@ -27,7 +27,12 @@ async function open(page: Page, silentForMs = 0) {
       originalFilename: "unit5-listening.mp3",
       createdAt: data.serverTime,
     },
-    audio: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+    audio: {
+      maxPlays: 2,
+      allowSeek: false,
+      showTranscriptAfterSubmit: false,
+      allowPause: true,
+    },
   };
   let firstAsked: number | null = null;
   await page.route(SOURCE, async (route) => {

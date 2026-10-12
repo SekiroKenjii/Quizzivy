@@ -121,7 +121,12 @@ it("draws a question's own recording and image in the preview", () => {
             originalFilename: "q1.mp3",
             url: "https://assets.example/q1.mp3",
           },
-          audio: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+          audio: {
+            maxPlays: 2,
+            allowSeek: false,
+            showTranscriptAfterSubmit: false,
+            allowPause: true,
+          },
         },
         {
           ...previewQuestions[1]!,

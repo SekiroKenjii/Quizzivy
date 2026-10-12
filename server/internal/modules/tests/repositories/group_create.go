@@ -50,7 +50,7 @@ func (s *GroupsPostgres) create(ctx context.Context, in domain.CreateGroupInput)
 	if err := s.insertGroupMembers(ctx, tx, in); err != nil {
 		return domain.StoredGroup{}, err
 	}
-	if err := insertGroupRecordings(ctx, tx, in.Bundle.Group); err != nil {
+	if err := insertGroupRecordings(ctx, tx, in.Bundle.Group, nil); err != nil {
 		return domain.StoredGroup{}, err
 	}
 	if err := insertGroupMaterials(ctx, tx, in.Bundle.Group); err != nil {

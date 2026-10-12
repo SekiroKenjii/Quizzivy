@@ -95,7 +95,12 @@ function listening(paper: AttemptSession): AttemptSession {
       {
         id: "018f0000-0000-7000-8000-00000000d003",
         assetId: asset,
-        policy: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+        policy: {
+          maxPlays: 2,
+          allowSeek: false,
+          showTranscriptAfterSubmit: false,
+          allowPause: true,
+        },
       },
     ],
     assets: [
@@ -353,7 +358,12 @@ describe("the panes from 768", () => {
             originalFilename: "q1.mp3",
             createdAt: "2026-09-20T00:00:00Z",
           },
-          audio: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+          audio: {
+            maxPlays: 2,
+            allowSeek: false,
+            showTranscriptAfterSubmit: false,
+            allowPause: true,
+          },
         },
         ...paper.questions.slice(1),
       ],

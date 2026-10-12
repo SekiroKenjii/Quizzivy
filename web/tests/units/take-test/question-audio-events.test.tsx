@@ -37,7 +37,12 @@ const question: StudentQuestion = {
     originalFilename: "q1.mp3",
     createdAt: "2026-09-01T00:00:00.000Z",
   },
-  audio: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+  audio: {
+    maxPlays: 2,
+    allowSeek: false,
+    showTranscriptAfterSubmit: false,
+    allowPause: true,
+  },
 };
 
 let play: ReturnType<typeof vi.fn>;
@@ -145,7 +150,12 @@ it("records no seek when the teacher allowed seeking", () => {
     <QuestionAudio
       question={{
         ...question,
-        audio: { maxPlays: 2, allowSeek: true, showTranscriptAfterSubmit: false },
+        audio: {
+          maxPlays: 2,
+          allowSeek: true,
+          showTranscriptAfterSubmit: false,
+          allowPause: true,
+        },
       }}
       onExpired={() => undefined}
     />,

@@ -277,6 +277,7 @@ func ToQuestionInput(body openapi.QuestionInput) domain.Input {
 			MaxPlays:                  body.Audio.MaxPlays,
 			AllowSeek:                 body.Audio.AllowSeek,
 			ShowTranscriptAfterSubmit: body.Audio.ShowTranscriptAfterSubmit,
+			AllowPause:                body.Audio.AllowPause,
 		}
 	}
 	if body.Tags != nil {
@@ -347,6 +348,7 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 			MaxPlays:                  q.Audio.MaxPlays,
 			AllowSeek:                 q.Audio.AllowSeek,
 			ShowTranscriptAfterSubmit: q.Audio.ShowTranscriptAfterSubmit,
+			AllowPause:                httpapi.Ptr(q.Audio.PauseAllowed()),
 		}
 	}
 

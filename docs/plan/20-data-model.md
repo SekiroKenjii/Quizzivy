@@ -602,7 +602,8 @@ CREATE INDEX questions_type_id_idx
   question carries a meaningless `audio_allow_seek`, and the API layer has to
   decide when to suppress it. Nullable plus a biconditional `CHECK` makes the
   database the one that knows. Defaults from §11.1 (`maxPlays` 2, `allowSeek`
-  false, `showTranscriptAfterSubmit` true) move to the application, which is
+  false, `showTranscriptAfterSubmit` true, and `allowPause` true, the fourth
+  control, added by `00107` in §44) move to the application, which is
   where they belong — they are authoring defaults, not storage defaults.
 - `questions_sample_answer_only_short_answer` encodes §7's "`short_answer`;
   ADMIN ONLY". The column-list discipline in §11 of this document is what keeps
@@ -1368,6 +1369,7 @@ listed here matches the spec.
 | D-39 | `classes` gains a nullable `schedule_label`, 1 to 120 characters, and a nullable `room`, 1 to 60 | The deck's class card and the student's class say when and where a class meets, and the model had no field for either (T-R4.18). Free text the teacher words, not a structured timetable, so one column each. Nullable with no default, so the previous release's insert keeps working; the commands trim and store NULL for a blank value, so the checks never meet an empty string (§41) |
 | D-40 | `word_import_drafts` gains nullable `open_action_count` and `open_confirm_count`, `integer` and not negative | The history lists each import with "{n} need action" and "{n} to confirm" (T-R4.21), which are derived from the review body, and a body can be 8 MiB, so the page cannot parse one per row. The counts are written with the body in the same statement (processing result, review save, adoption), from `domain.Assess(body).Summary`. `integer` and not `smallint`, because a valid draft can exceed 32,767 derived findings and a count must not become a new authoring limit. Nullable with no default and no backfill: NULL means a draft this binary has not assessed, which is not zero, and the previous release's insert keeps working (§26) |
 | D-41 | `word_import_sources.format` admits `text`, and `characters integer` (1 to 100000) is non-null exactly for a text source | A pasted test is a fourth source format, stored as a private `.txt` like any original (T-R4.55, `17-word-import.md` §1.41). The character count is the NFC code-point count the intake measured, so the history can say "{n} characters" without reading the object; bytes and hash cannot rebuild it. Nullable with no default, so a file insert from the previous release stays valid. `00090`'s Down restores the file-only CHECK `NOT VALID`, so retained text rows do not block it. `00091`'s Down drops the column, and its Up then refuses, atomically, while any text row is retained, because `word_import_sources_characters_format` is validated at once and no count can be rebuilt: nothing invents one (§23) |
+| D-42 | `questions` and `test_version_questions` gain a nullable `audio_allow_pause`, present only with audio; `group_recordings` and `test_version_group_recordings` gain `allow_pause boolean NOT NULL DEFAULT true` | "Students can pause" is a fourth audio control, on a question's audio and on a group's recording (DG-111, DG-183, T-D4.13). The question columns are nullable and read as `COALESCE(…, true)` because the previous binary inserts those rows during the rolling deploy and writes no value, and because `questions_audio_policy_iff_audio` is a biconditional over the other two policy columns, which this one is kept out of; `questions_allow_pause_only_with_audio` and `tvq_allow_pause_only_with_audio` hold the one direction the way `questions_max_plays_only_with_audio` does. A recording always has its whole policy, so its column is NOT NULL with a constant default, which PostgreSQL stores without a rewrite. A write that leaves the field out keeps the stored value (§44), so a client that strips the key cannot switch pausing back on |
 
 ---
 
@@ -1480,6 +1482,10 @@ the file it adds.
 | `00104_add_classes_schedule_room.sql` | `classes.schedule_label` and `classes.room`, each with its check (1 to 120 and 1 to 60 characters), added with the column; 00103 is reserved for F-37, which merges first, and the second of the two renumbers if the order inverts | R4 (T-R4.18), D-39 |
 | `00105_drop_users_legacy_role.sql` | Validates `users_role_id_not_null`; drops `users_sync_legacy_role`, `users_role_active_idx`, `users.role` and `app.user_role`; `lock_timeout` 5 s | R4 (T-R4.49, T-R3.1), D-25, §42 |
 | `00106_validate_ownership.sql` | Validates the five owner constraints; drops the five fill triggers and their three functions; `lock_timeout` 5 s | R4 (T-R4.49, T-R3.2), D-22, D-23, §43 |
+| `00107_add_questions_audio_allow_pause.sql` | `questions.audio_allow_pause` (nullable, no default) and `questions_allow_pause_only_with_audio`, added with the column | D4 (T-D4.13), D-42 |
+| `00108_add_test_version_questions_audio_allow_pause.sql` | `test_version_questions.audio_allow_pause` (nullable, no default) and `tvq_allow_pause_only_with_audio`, added with the column | D4 (T-D4.13), D-42 |
+| `00109_add_group_recordings_allow_pause.sql` | `group_recordings.allow_pause boolean NOT NULL DEFAULT true` | D4 (T-D4.13), D-42 |
+| `00110_add_test_version_group_recordings_allow_pause.sql` | `test_version_group_recordings.allow_pause boolean NOT NULL DEFAULT true` | D4 (T-D4.13), D-42 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2972,3 +2978,57 @@ the objects and a bare insert is filled again; validating blocks neither a read 
 insert that omits an owner is refused; and the not-validated constraints in `app` equal an explicit
 list, which is empty once 00105 and 00106 have both run. A later expand step adds its constraint
 to that list and its contract step removes it, so a forgotten `NOT VALID` fails CI.
+
+## 44. Students can pause (T-D4.13)
+
+Four migrations add the pause rule of spec §11.1, one column and one concern each.
+Every Down drops its column, and the two constraints with theirs.
+
+```sql
+ALTER TABLE app.questions
+  ADD COLUMN audio_allow_pause boolean
+    CONSTRAINT questions_allow_pause_only_with_audio
+    CHECK (audio_allow_pause IS NULL OR media_asset_kind IS NOT DISTINCT FROM 'audio'::app.media_kind);
+-- the same on app.test_version_questions as tvq_allow_pause_only_with_audio
+
+ALTER TABLE app.group_recordings ADD COLUMN allow_pause boolean NOT NULL DEFAULT true;
+ALTER TABLE app.test_version_group_recordings ADD COLUMN allow_pause boolean NOT NULL DEFAULT true;
+```
+
+**Why two are nullable.** The previous binary inserts into both question tables while a
+release rolls out, and its insert names no such column. A nullable column with no default
+takes that insert unchanged, and a question or a version from before the control reads
+`COALESCE(audio_allow_pause, true)`, which is what every audio question did. The existing
+biconditional `questions_audio_policy_iff_audio` is not widened to this column: the previous
+binary writes no value, and a rule that required one beside every audio policy would refuse its
+rows. The new CHECKs are the one-way rule `questions_max_plays_only_with_audio` already uses,
+with `IS NOT DISTINCT FROM`, because `media_asset_kind` is NULL on a question with no media.
+**Why two are not.** A recording is a whole policy (`allow_seek` and
+`show_transcript_after_submit` are NOT NULL columns), so there is no absent case to model, and a
+constant default is stored without a rewrite.
+
+**A save that leaves the field out keeps the value.** `updateQuestion` and `updateQuestionGroup`
+replace the whole object, and three clients send no `allowPause`: a tab loaded before the
+release, whose `z.object` parsers strip a key they do not name; that tab's device-recovery
+draft; and every tab until T-D4.15 teaches those parsers the field. So the store keeps the
+stored value on an update, for a question by its id and for a group's member by its id in the
+bundle, in one statement, `audio_allow_pause = CASE WHEN <audio present> THEN
+coalesce($new, audio_allow_pause, true) END`; and the group update reads the group's recordings'
+`allow_pause` by id before it clears and rewrites them, which is the same rule for a recording.
+A policy new to a question (it had none, or an image) and a recording under a new id are
+creates, and read true. A create stores true.
+
+Publish copies the bank's `audio_allow_pause` as it is into `test_version_questions` (a NULL
+stays NULL and reads true) and a recording's `allow_pause` into
+`test_version_group_recordings`, in the statements that already freeze the question and the
+recording. The draft read, the lock order and the `media.LockForVersionUse` and
+`questions.LockForDraftUse` calls are unchanged. Restore as draft copies the frozen value back,
+and duplicating a test or copying a group carries the draft's through the bundle. The version
+preview, the student's paper and the teacher's review read `COALESCE(…, true)`; the version
+diff puts the value in a question's `media` part and in a group's recording print, so a changed
+rule is a `changed` entry, and an unset rule and true are the same rule there.
+
+Tests: `tests/application/tests/allow_pause_test.go` (a freeze that later edits do not reach, a
+version from before the column, a save that leaves the field out, a create that leaves it out, a
+recording replaced by a new id, and copy, duplicate and restore), the attempts and HTTP tests of
+the student and teacher answers, and the diff cases in `tests/domain/tests/diff_test.go`.

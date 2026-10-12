@@ -149,7 +149,7 @@ ON CONFLICT (id) DO NOTHING;
 -- jsonb spec: type, prompt, points, level, skill, tags, options, correct (1-based
 -- positions), blanks (answers, gap, caseSensitive), sample, explanation, content
 -- (the prose document of the prompt), rich (prompt and options as prose),
--- media (media n), alt, audio (maxPlays, allowSeek, showTranscript), transcript
+-- media (media n), alt, audio (maxPlays, allowSeek, showTranscript, allowPause), transcript
 -- and ageHours. A question that exists is left as the teacher has it.
 CREATE FUNCTION pg_temp.put_question(n int, spec jsonb) RETURNS void
 LANGUAGE plpgsql AS $$
@@ -169,7 +169,7 @@ BEGIN
   INSERT INTO app.questions
     (id, type, prompt, media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
      audio_show_transcript_after, transcript, points, explanation, sample_answer, tags,
-     created_by, owner_id, created_at, updated_at, prompt_content, level, skill, media_alt)
+     created_by, owner_id, created_at, updated_at, prompt_content, level, skill, media_alt, audio_allow_pause)
   VALUES (
     qid, (spec->>'type')::app.question_type, spec->>'prompt', media_id,
     (SELECT kind FROM app.media_assets WHERE id = media_id),
@@ -180,7 +180,8 @@ BEGIN
     ARRAY(SELECT jsonb_array_elements_text(coalesce(spec->'tags', '[]'::jsonb))),
     pg_temp.lan(), pg_temp.lan(), now() - age, now() - age,
     CASE WHEN rich THEN pg_temp.doc(spec->>'prompt') ELSE spec->'content' END,
-    spec->>'level', spec->>'skill', spec->>'alt')
+    spec->>'level', spec->>'skill', spec->>'alt',
+    CASE WHEN spec ? 'audio' THEN coalesce((spec#>>'{audio,allowPause}')::boolean, true) END)
   ON CONFLICT (id) DO NOTHING;
   GET DIAGNOSTICS inserted = ROW_COUNT;
   IF inserted = 0 THEN
@@ -255,7 +256,7 @@ SELECT pg_temp.put_question(24, $q$ {"type":"fill_blank","prompt":"We have lived
 
 -- Unit 4 · Listening: Directions (30 to 34), one question of each content kind.
 SELECT pg_temp.put_question(30, $q$ {"type":"single_choice","prompt":"Listen to the announcement. Which gate is the flight to Da Nang boarding from?","points":1,"level":"a2","skill":"listening","tags":["listening","audio"],"ageHours":168,
-  "media":3,"audio":{"maxPlays":1,"allowSeek":false,"showTranscript":true},
+  "media":3,"audio":{"maxPlays":1,"allowSeek":false,"showTranscript":true,"allowPause":false},
   "transcript":"Attention, please. Flight VN 160 to Da Nang is now boarding at gate 12. Passengers should have their boarding passes ready.",
   "options":["Gate 8","Gate 12","Gate 21","Gate 2"],"correct":[2]} $q$);
 SELECT pg_temp.put_question(31, $q$ {"type":"single_choice","prompt":"Look at the map and label it: where is the post office?","points":1,"level":"b1","skill":"listening","tags":["listening","map"],"ageHours":168,
@@ -385,11 +386,11 @@ BEGIN
   INSERT INTO app.test_version_questions
     (id, test_version_section_id, ordinal, source_question_id, type, prompt, media_asset_id, media_asset_kind,
      audio_max_plays, audio_allow_seek, audio_show_transcript_after, transcript, points, explanation, sample_answer,
-     prompt_content, explanation_content, level, skill, media_alt)
+     prompt_content, explanation_content, level, skill, media_alt, audio_allow_pause)
   SELECT pg_temp.did('vq:' || vid || ':' || q.id), pg_temp.did('vsection:' || vid || ':' || s.ordinal), m.ordinal, q.id,
          q.type, q.prompt, q.media_asset_id, q.media_asset_kind, q.audio_max_plays, q.audio_allow_seek,
          q.audio_show_transcript_after, q.transcript, q.points, q.explanation, q.sample_answer,
-         q.prompt_content, q.explanation_content, q.level, q.skill, q.media_alt
+         q.prompt_content, q.explanation_content, q.level, q.skill, q.media_alt, q.audio_allow_pause
     FROM app.test_sections s
     JOIN app.test_section_questions m ON m.test_section_id = s.id
     JOIN app.questions q ON q.id = m.question_id

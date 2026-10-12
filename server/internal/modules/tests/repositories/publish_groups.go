@@ -76,6 +76,7 @@ func draftGroupQuestion(q domain.GroupQuestion, ordinal int) domain.DraftQuestio
 		MediaAssetID: in.MediaAssetID, MediaAssetKind: q.MediaAssetKind, MediaAlt: in.MediaAlt, Transcript: in.Transcript, Explanation: in.Explanation, SampleAnswer: in.SampleAnswer}
 	if in.Audio != nil {
 		out.MaxPlays, out.AllowSeek, out.ShowTranscript = in.Audio.MaxPlays, &in.Audio.AllowSeek, &in.Audio.ShowTranscriptAfterSubmit
+		out.AllowPause = in.Audio.AllowPause
 	}
 	for i, option := range in.Options {
 		out.Options = append(out.Options, domain.DraftOption{Ordinal: i, Text: option.Text, Content: option.Content, IsCorrect: option.IsCorrect})

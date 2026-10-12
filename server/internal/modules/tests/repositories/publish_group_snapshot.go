@@ -85,8 +85,8 @@ func freezeGroupRecordings(ctx context.Context, tx pgx.Tx, groupID string, recor
 	byAsset := make(map[string]string, len(recordings))
 	for _, recording := range recordings {
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO app.test_version_group_recordings (group_id,media_asset_id,max_plays,allow_seek,show_transcript_after_submit,transcript)
-			VALUES ($1,$2,$3,$4,$5,$6) RETURNING id::text`, groupID, recording.AssetID, recording.Policy.MaxPlays, recording.Policy.AllowSeek, recording.Policy.ShowTranscriptAfterSubmit, recording.Transcript).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO app.test_version_group_recordings (group_id,media_asset_id,max_plays,allow_seek,show_transcript_after_submit,transcript,allow_pause)
+			VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id::text`, groupID, recording.AssetID, recording.Policy.MaxPlays, recording.Policy.AllowSeek, recording.Policy.ShowTranscriptAfterSubmit, recording.Transcript, recording.Policy.PauseAllowed()).Scan(&id); err != nil {
 			return nil, err
 		}
 		byAsset[strings.ToLower(recording.AssetID)] = id

@@ -61,7 +61,7 @@ func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]do
 	rows, err := s.Query(ctx, `
 		SELECT q.id::text, q.test_version_section_id::text, q.type::text, q.prompt, q.prompt_content, q.points::text,
 		       q.media_asset_id::text, q.media_alt, q.audio_max_plays, q.audio_allow_seek,
-		       q.audio_show_transcript_after
+		       q.audio_show_transcript_after, coalesce(q.audio_allow_pause, true)
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
 		 WHERE s.test_version_id = $1
@@ -76,7 +76,7 @@ func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]do
 	for rows.Next() {
 		var q domain.PreviewQuestion
 		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.PromptContent, &q.Points, &q.MediaAssetID, &q.MediaAlt,
-			&q.MaxPlays, &q.AllowSeek, &q.ShowScript); err != nil {
+			&q.MaxPlays, &q.AllowSeek, &q.ShowScript, &q.AllowPause); err != nil {
 			return nil, fmt.Errorf("tests: scan preview question: %w", err)
 		}
 		byID[q.ID] = len(out)
