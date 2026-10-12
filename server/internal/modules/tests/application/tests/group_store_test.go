@@ -101,7 +101,7 @@ func TestGroupStoreRoundTripKeepsContextAndProtectsMedia(t *testing.T) {
 		t.Fatal("stored graph changed answers or playback policy")
 	}
 	media := mediarepo.NewPostgres(db.NewContext(tx))
-	err = media.SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()})
+	_, err = media.SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()})
 	var blocked *mediadomain.ReferencedError
 	if !errors.As(err, &blocked) || len(blocked.Groups) != 1 || blocked.Groups[0].ID != source.Group.ID || blocked.Groups[0].TestID != nil {
 		t.Fatalf("media not protected by bank context: %+v, %v", blocked, err)
@@ -265,7 +265,7 @@ func TestGroupStoreArchivedGroupStillProtectsMemberAudio(t *testing.T) {
 		t.Fatal(err)
 	}
 	media := mediarepo.NewPostgres(db.NewContext(tx))
-	err := media.SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()})
+	_, err := media.SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()})
 	var blocked *mediadomain.ReferencedError
 	if !errors.As(err, &blocked) || len(blocked.Groups) != 1 || blocked.Groups[0].ID != bundle.Group.ID {
 		t.Fatalf("archival orphaned member audio: %+v, %v", blocked, err)

@@ -66,9 +66,19 @@ type Facets struct {
 }
 
 // Usage is the bytes one library holds by kind, beside the quota it is
-// measured against.
+// measured against. HeldBytes are the replaced or deleted files that something
+// still names, which count toward the quota until nothing does. PendingBytes are
+// the ones nothing names, which wait RetiredFileGrace for removal and count
+// toward nothing; PendingDeleteAt is the earliest time one goes, nil when none
+// waits.
 type Usage struct {
-	AudioBytes int64
-	ImageBytes int64
-	QuotaBytes int64
+	AudioBytes      int64
+	ImageBytes      int64
+	QuotaBytes      int64
+	HeldBytes       int64
+	PendingBytes    int64
+	PendingDeleteAt *time.Time
 }
+
+// CountedBytes is what the quota measures: the library and the files still held.
+func (u Usage) CountedBytes() int64 { return u.AudioBytes + u.ImageBytes + u.HeldBytes }

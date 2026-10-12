@@ -45,7 +45,8 @@ function isProfileField(name: string | undefined): name is keyof ProfileFormValu
   return name !== undefined && Object.hasOwn(FIELD_IDS, name);
 }
 
-const GRID = "grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5";
+const GRID =
+  "grid grid-cols-[repeat(auto-fit,minmax(max(min(260px,100%),calc((100%_-_2.5rem)/3)),1fr))] gap-x-5 gap-y-3.5";
 const INPUT = "bg-bg h-9.5";
 
 function savedProfile(user: User): ProfileFormOutput {
@@ -92,7 +93,7 @@ function Field({
   children: ReactNode;
 }>) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div className="flex max-w-(--field-max) min-w-0 flex-col gap-1.5">
       <Label
         htmlFor={id}
         className="text-meta in-data-[scale=deck]:text-meta leading-normal font-medium"

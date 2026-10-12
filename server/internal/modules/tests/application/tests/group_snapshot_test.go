@@ -136,7 +136,7 @@ func TestPublishedGroupGraphSurvivesDraftEditsRemovalAndMediaDeletion(t *testing
 	if after := frozenGroupDigest(t, tx, published.ID); after != before {
 		t.Fatal("source lifecycle changed frozen content, bindings, keys or recording policies")
 	}
-	err = media.SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()})
+	_, err = media.SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()})
 	var blocked *mediadomain.ReferencedError
 	if !errors.As(err, &blocked) || len(blocked.Tests) != 1 || len(blocked.Groups) != 0 || blocked.Tests[0].ID != testID {
 		t.Fatalf("frozen group lost media protection: %+v, %v", blocked, err)

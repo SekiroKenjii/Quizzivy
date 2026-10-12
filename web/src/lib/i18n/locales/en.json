@@ -747,9 +747,15 @@
     "expired": "This preview link has expired. Reload to listen.",
     "playBlocked": "Your browser did not start the audio. Press play again; if it still does not play, check this site's sound permission.",
     "deleted": "File deleted",
+    "deleteGone": "The file is deleted for good 7 days after you delete it and cannot be restored. Download it now if you want a copy.",
+    "deletedOn": "The file is deleted for good on {{date}}.",
+    "deletedHeld": "The file is kept until nothing uses it.",
     "description": "Audio and images used in questions.",
     "storage": "Storage",
     "storageUsage": "{{used}} of {{quota}} · audio {{audio}} · images {{image}}",
+    "storageHeld": "Kept for published tests · {{size}}",
+    "storagePending": "Pending deletion · {{size}} · from {{date}}",
+    "storagePendingNoDate": "Pending deletion · {{size}}",
     "filter": "Filter files",
     "tabAll": "All",
     "tabAudio": "Audio",
@@ -768,6 +774,7 @@
     "rename": "Rename",
     "replace": "Replace file",
     "download": "Download",
+    "downloadNamed": "Download {{name}}",
     "renameTitle": "Rename file",
     "name": "Name",
     "renameFailed": "Could not rename the file.",
@@ -775,6 +782,18 @@
     "replaceDescription": "Bank questions and drafts get the new file. Published versions keep theirs.",
     "replaceSubmit": "Replace",
     "replaced": "File replaced",
+    "replaceKept_one": "{{count}} published test still uses this file. It is kept for that test and deleted 7 days after no test uses it. Download it now if you want a copy.",
+    "replaceKept_other": "{{count}} published tests still use this file. It is kept for them and deleted 7 days after no test uses it. Download it now if you want a copy.",
+    "replaceGone": "No published test uses this file yet, so the old file is deleted 7 days after the replacement and cannot be restored. Download it now if you want a copy.",
+    "replaceQuotaFull": "Not enough storage to replace this file. The old file is kept for published tests and still counts toward your storage, so the library needs room for both files. Delete other files, then try again.",
+    "replaceRateLimitedSeconds_one": "You are replacing files too quickly. Try again in {{count}} second.",
+    "replaceRateLimitedSeconds_other": "You are replacing files too quickly. Try again in {{count}} seconds.",
+    "replaceRateLimitedMinutes_one": "You are replacing files too quickly. Try again in {{count}} minute.",
+    "replaceRateLimitedMinutes_other": "You are replacing files too quickly. Try again in {{count}} minutes.",
+    "replacedOn": "The old file is deleted for good on {{date}}.",
+    "replacedKept_one": "The old file is kept for {{count}} published test.",
+    "replacedKept_other": "The old file is kept for {{count}} published tests.",
+    "replacedHeld": "The old file is kept until nothing uses it.",
     "uploadTitle": "Upload media",
     "uploadDescription": "Files can be used in any question.",
     "type": "Type",
@@ -3071,7 +3090,8 @@
       "state": {
         "done": "done",
         "current": "in progress",
-        "waiting": "not started"
+        "waiting": "not started",
+        "failed": "stopped"
       },
       "current": "Current step: {{stage}}",
       "waitingToStart": "Waiting for a turn",
@@ -3596,7 +3616,9 @@
       "pastedText": "Pasted text",
       "fileNamed": "{{name}} ({{title}})",
       "characters_one": "{{n}} character",
-      "characters_other": "{{n}} characters"
+      "characters_other": "{{n}} characters",
+      "formatWord": "Word",
+      "formatPdf": "PDF"
     },
     "textFailureTitle": {
       "SOURCE_INVALID": "An import source could not be read",
@@ -3674,6 +3696,26 @@
       "pointsNone": "No questions yet",
       "cancelled": "This import was cancelled, so no draft can be created from it.",
       "failed": "This import couldn't be processed, so no draft can be created from it."
+    },
+    "workspace": {
+      "steps": "What will run",
+      "progress": "Progress",
+      "readAs": "Read as",
+      "questionLabel": "Question {{label}}",
+      "noAnswer": "No answer marked",
+      "repeated": "This number appears twice in the same part",
+      "needsCheck": "Needs checking",
+      "needsCheckList": "Items to check",
+      "pasteLead_one": "{{questions}} question recognised · {{check}} need checking",
+      "pasteLead_other": "{{questions}} questions recognised · {{check}} need checking",
+      "pasteHint": "Updates as you type. Fix the formatting in the box before you start.",
+      "pasteEmpty": "Paste the test to see what is recognised.",
+      "fileState": {
+        "waiting": "Waiting",
+        "reading": "Reading",
+        "read": "Read",
+        "failed": "Failed"
+      }
     }
   },
   "controls": {

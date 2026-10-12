@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type DragEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ComponentType,
+  type DragEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   CircleAlert,
@@ -25,7 +33,8 @@ function percent(locale: string, fraction: number): string {
 /**
  * FileSlot is one labelled source file: a native file picker, an equivalent
  * drop target, and the file's own validation and upload state beside it.
- * Choosing or removing a file keeps keyboard focus in the slot.
+ * Choosing or removing a file keeps keyboard focus in the slot. `Alert`
+ * draws a note under the slot, given `onChoose`, which opens the file picker.
  */
 export function FileSlot({
   role,
@@ -33,6 +42,7 @@ export function FileSlot({
   accept,
   required,
   disabled,
+  Alert,
   onChoose,
   onRemove,
 }: Readonly<{
@@ -41,6 +51,7 @@ export function FileSlot({
   accept: string;
   required: boolean;
   disabled: boolean;
+  Alert?: ComponentType<{ onChoose: () => void }> | undefined;
   onChoose: (file: File) => void;
   onRemove: () => void;
 }>) {
@@ -56,6 +67,7 @@ export function FileSlot({
     refocus.current = false;
     (replaceButton.current ?? chooseButton.current)?.focus();
   });
+  const openPicker = useCallback(() => input.current?.click(), []);
   const [over, setOver] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
   const label = t(`imports.upload.${role}Label`);
@@ -188,6 +200,9 @@ export function FileSlot({
           </>
         )}
       </div>
+      {Alert === undefined || slot.phase === "chosen" ? null : (
+        <Alert onChoose={openPicker} />
+      )}
       {error === null ? null : (
         <p role="alert" className="text-danger-ink flex items-start gap-1.5 text-xs">
           <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />

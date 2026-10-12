@@ -49,7 +49,7 @@ export default function ClassDetailPage() {
   if (klass.isError) {
     const missing = klass.error instanceof ApiError && klass.error.status === 404;
     return (
-      <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4">
+      <DeckScale className="flex w-full min-w-0 flex-col gap-4">
         <PageHead
           title={t(missing ? "classDetail.notFoundTitle" : "classDetail.crumb")}
           back={{ to: "/teacher/classes", label: t("teacherShell.nav.classes") }}
@@ -67,7 +67,7 @@ export default function ClassDetailPage() {
 
   const data = klass.data;
   return (
-    <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4.5">
+    <DeckScale className="flex w-full min-w-0 flex-col gap-4.5">
       <PageHead
         title={data.name}
         crumb
@@ -130,7 +130,7 @@ function DetailSkeleton() {
       role="status"
       aria-live="polite"
       aria-label={t("common.loading")}
-      className="mx-auto flex w-full max-w-[1320px] flex-col gap-4.5"
+      className="flex w-full flex-col gap-4.5"
     >
       <Skeleton className="h-14 w-72 rounded-lg" />
       <div className="grid gap-4.5 min-[1280px]:grid-cols-[2fr_1fr]">

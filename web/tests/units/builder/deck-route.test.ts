@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import i18n from "@/lib/i18n";
 
 describe("the rebuilt builder route", () => {
-  it("opts only its actual leaf into the teacher shell with translated crumbs and the deck width", () => {
+  it("opts only its actual leaf into the teacher shell with translated crumbs and the shared frame", () => {
     const source = readFileSync(
       resolve(import.meta.dirname, "../../../src/app/router.tsx"),
       "utf8",
@@ -15,7 +15,7 @@ describe("the rebuilt builder route", () => {
     );
     expect(leaf).toContain('key: "teacherShell.nav.tests", to: "/teacher/tests"');
     expect(leaf).toContain('key: "builder.titleLabel"');
-    expect(leaf).toContain("width: 1320");
+    expect(leaf).not.toContain("width:");
     expect(leaf).toContain('import("@/features/tests/pages/teacher/TestBuilderPage")');
     expect(i18n.t("teacherShell.nav.tests")).toBe("Đề thi");
     expect(i18n.t("builder.titleLabel")).toBe("Tên đề thi");

@@ -11,7 +11,7 @@ take-test screen inside the builder's preview, Test detail's preview and the imp
 **v2** (Thuong, 2026-10-10: "analyse it, and implement it in the UIUX update phase planned right
 after this one") adds the **AI assistant**: seven teacher features (Generate questions, Check this
 test, Make a variant, Write an explanation, Suggest wrong options, Suggest a score, Explain results),
-"Read with AI" on the import page, a Settings section "AI assistant" with usage and preferences, and an
+"Read with AI" on the import page (the import workspace's Sources pane), a Settings section "AI assistant" with usage and preferences, and an
 Admin page "AI credits" with a centre pool, per-teacher allowances, requests and rules. Beside the AI it
 redraws four screens R4 builds (the assignment detail's stats as a progress card that filters the
 roster, the grading pane's heights, the join-code card, a separator in the collapsed sidebar), makes
@@ -58,7 +58,7 @@ v2 reopens thirteen more (verdicts in "What the v2 export changed"):
 | T-R4.26 | The Questions tab's item-analysis list | "Explain results with AI" and the insights panel above it | T-D4.37 |
 
 The rework is T-D4.2a (S), T-D4.2b (XS), T-D4.2c (M) and the first bullet of T-D4.15 for the
-fourth export, and T-D4.20 (S), T-D4.21 (S), T-D4.22 (M) and T-D4.23 (S) for v2; the AI entry
+fourth export, and T-D4.20 (S), T-D4.21 (S, built on `develop`), T-D4.22 (M) and T-D4.23 (S) for v2; the AI entry
 points on R4's screens arrive with the AI tasks (section G). The builder, a high-risk area, is
 opened a second time and compared with the deck again at five widths in two themes. The three
 previews are filled twice: with R4's read-only `StudentPreview`, then with the engine (T-D4.16).
@@ -168,12 +168,12 @@ agent, the split noted at step 6 applies, inside 70 §3's ceiling of four.
 | 2 | T-D4.13 `allowPause`, D4's first contract pull request; it unblocks T-D4.9 and T-D4.15 | **The engine chain**: T-D4.4, T-D4.5, T-D4.6, T-D4.7. Every chain task edits `Paper` in `TakeTestPage.tsx`, so no two are open at once; T-D4.6 and T-D4.11 edit `QuestionBody.tsx` and run in the chain's order after T-D4.5 |
 | 3 | T-D4.30 the provider adapter and its configuration; T-D4.31 the credits | T-D4.8, T-D4.9 (after T-D4.13), T-D4.10, T-D4.11 |
 | 4 | T-D4.32 the AI operations, D4's second contract pull request | **The builder chain**: T-D4.20 (sticky columns, first, so T-D4.2a's comparison sees the scrolling outline), T-D4.2a, T-D4.2b, T-D4.14, T-D4.15 (after T-D4.13) |
-| 5 | T-D4.33 "Read with AI" in the import worker | **The previews**: T-D4.2c, then T-D4.16 once T-D4.8 (and T-D4.10, if built) are merged; then T-D4.21, T-D4.22, T-D4.23 |
+| 5 | T-D4.33 "Read with AI" in the import worker | **The previews**: T-D4.2c, then T-D4.16 once T-D4.8 (and T-D4.10, if built) are merged; then T-D4.22, T-D4.23 (T-D4.21 was built on `develop`, #555) |
 | 6 | T-D4.40 the documents; the migration rehearsal | **The AI surfaces**: T-D4.34, T-D4.35, T-D4.36, T-D4.37, T-D4.38, T-D4.39. With a third agent, T-D4.34 (`features/ai/` alone) runs beside the other five, which touch one feature folder each |
 | 7 | T-D4.12 suites, browser verification and documents (both lanes) | T-D4.18 the release: `work/deck-d4` → `develop` (`--no-ff`), `release/<version>` → `main` with Thuong's go |
 
 The web lane is the long one, about ten L or M tasks in series; the server lane idles after step
-6 and can take T-D4.23 and T-D4.21 from the web lane if it is ahead.
+6 and can take T-D4.23 from the web lane if it is ahead (T-D4.21 was built on `develop`, #555).
 
 **Lanes.**
 
@@ -599,7 +599,7 @@ names the D4 task, or the release and the correction T-D4.19 makes.
 | V-08 bank header | T 1077-1086 | New question, Share | "Clean up" (`wand-sparkles`, accent ink) and "Generate" (`sparkles`) before Share, outline 36px | T-R4.32 | reopens R4 + new (AI) | XS | T-D4.34 |
 | V-09 builder title bar | T 1619-1631 | Question settings, Versions, Preview, Publish | "AI check" (`scan-search`) and "Generate" before Preview; the actions row is `flex-wrap: wrap` | T-R4.31a ("keeps one row wherever the deck does") | reopens R4 + new (AI); the one-row measurement is redone with two more buttons | XS | T-D4.34 |
 | V-10 question editor | T 4560-4607, 4649-4681; `qai` T 9493-9515; `aiExplain` T 9435-9442; `aiDistract` T 9443-9450 | Add option; the Explanation textarea in a `<label>` | For single and multiple choice, beside Add option: "Suggest wrong options" (30px, muted; "Thinking…" with a spinner) and a panel "Suggested wrong options" (accent-soft) with up to four rows `{text, why}` and an "Add" button each (fills the first empty option or appends; "Added" after; the deck's toast "A question can have up to 6 options. Remove one first." is DG-63's 8 in the product), "Close suggestions", and an error line "AI didn’t respond. Try again in a minute.". Explanation: the label row gains "Write with AI" (28px; "Writing…"; "Write again" after) and the textarea takes `aria-label="Explanation"`; a panel "Suggested explanation" with the text (14px) and "Use this" (primary), "Shorter", "In Vietnamese" / "In English" (the other language than the preference), "Discard". Both guarded: "Write the question first", "Mark the correct answer first" | T-R4.33 and T-R4.66: one `QuestionEditor` for the bank and the builder (DG-108), so both pages gain it | new (AI) | server S, web M | T-D4.32, T-D4.35 |
-| V-11 "Read with AI" on the import page | T 5015-5033; `aiImp` T 9491 | One accepts line, scanned PDFs refused | A toggle card (1px border, radius 10, padding 12px 14px; a 32px sparkles tile; `role="switch"` 38 × 22): "Read with AI", "Handles scans, photos of printed tests and unusual layouts. About 400 credits per page."; on: "Accepts .docx, .doc and .pdf files up to 25 MB each, including scanned or photographed PDFs. Files with a password or macros are refused."; off: the fourth export's line. It mirrors the Settings preference "Read imports with AI" | T-R4.36; the `PDF_NO_TEXT` refusal (`17-word-import.md` §1.39); `18-word-import-ux.md` §4 (say where processing occurs and what is sent) | new (AI) | server L, web S | T-D4.33, T-D4.39 |
+| V-11 "Read with AI" on the import page (the deck draws it on Upload and setup; built in the Sources pane of the import workspace, DG-207) | T 5015-5033; `aiImp` T 9491 | One accepts line, scanned PDFs refused | A toggle card (1px border, radius 10, padding 12px 14px; a 32px sparkles tile; `role="switch"` 38 × 22): "Read with AI", "Handles scans, photos of printed tests and unusual layouts. About 400 credits per page."; on: "Accepts .docx, .doc and .pdf files up to 25 MB each, including scanned or photographed PDFs. Files with a password or macros are refused."; off: the fourth export's line. It mirrors the Settings preference "Read imports with AI" | T-R4.36; the `PDF_NO_TEXT` refusal (`17-word-import.md` §1.39); `18-word-import-ux.md` §4 (say where processing occurs and what is sent) | new (AI) | server L, web S | T-D4.33, T-D4.39 |
 | V-12 "Make a variant" | T 6206-6209; `AI_K.variant` T 7649-7661 | Version history, Share, Open builder, Assign | "Make a variant" (`sparkles`) before Share. Its panel: "A second version for another class or a retake, so students can’t share answers."; chips What to change (Reword questions, Reorder options, New wrong options; the first two on), Difficulty (Keep the same, A little easier, A little harder); an info callout "Answers, points and passages stay the same. The variant is saved as a draft version, so nothing changes for students until you publish it."; steps Reading the test / Rewriting questions / Checking that every answer still matches; items tagged "Q{n}" and Reworded / Options reordered / New wrong option with a struck-through before and an after; primary "Save {n} changes as a draft" → "Draft version saved. Review it in Version history before publishing." | T-R4.30; a test has one draft (T-R4.16) | new (AI); "saved as a draft version" is not taken (DG-197) | server M, web S | T-D4.32, T-D4.34 |
 | V-13 Settings › AI assistant | T 3861-3921; `aiu`, `aiLang`, `aiPrefs`, `setAi`, `setTabs` T 9484-9490 | Five sections | A sixth section "AI assistant" (`sparkles`) after Appearance. Card "AI usage this month": "Your school gives each teacher a monthly allowance. It resets on 1 October."; "{used} of {limit} credits" (22px) and "{left} left"; an 8px accent bar; a bordered list of five rows with icons: Generating questions and variants, Grading suggestions, Explanations and wrong options, Reading imports, Checks, word lists and insights. Card "Preferences": "Applies to every AI feature in your workspace. AI output is always a draft until you approve it."; "Explanations and feedback in" English \| Tiếng Việt ("You can still switch language on any suggestion."); switches (38 × 22) "Tag AI drafts" ("Adds an “AI draft” tag until you edit or approve the item. Only teachers see it."), "Let AI read student answers" ("Needed for grading suggestions and class insights. Student names are never sent."), "Read imports with AI" ("… About 400 credits per page."). No request control, though the Admin page lists requests (DG-200) | T-R4.43 (sections, `/teacher/settings/:section`), T-R4.7 `UserPreferences` | new (AI) | web M | T-D4.38 |
 | V-14 the AI panel | T 6540-6750; `aiVals` T 9470-9591; `AI_K` T 7577-7663; `aiOpen`, `aiStart` T 9405-9429 | not drawn | A right-side `role="dialog"` named by its title, `min(560px, 100%)` wide, full height, `--card`, a left border, `--shadow-lg`, over a `--overlay` backdrop (z 75 / 76). Header (padding 16px 16px 16px 18px): a 36px accent icon tile, the title (15px 600), the sub (12.5px muted), Close (32px). Body (padding 18, gap 18) in three stages. **Setup**: fields by type: source chips (28px pills with an icon: "Passage 1 · Urban green space", "Start empty"), a textarea (13.5px, `--bg`), a segmented control (30px), toggle chips (30px pills, `aria-pressed`, a check when on), a toggle card (border, radius 10), an info callout (`--muted`, `info` icon). **Running**: three step lines (a check in `--success`, a spinner, or a 7px dot) advancing every 1.3s, then a pulsing skeleton (`qz-pulse`); a run lasts at least 3.2s. **Done**: in the demo a warning callout "AI didn’t respond, so this is sample output. Try again in a minute."; a summary line (13px muted) and "Select all" / "Clear selection"; a dashed empty card; item cards (border, radius 12, padding 14; `--ring` border when selected): a `role="checkbox"` "Keep this" (18px) when selectable, tone pills, a right-aligned meta, a 14px 500 title, a 13px body, lettered options (the correct one in success tones with a check), an "Answer" pill, a before / after grid (the before struck through for a variant), dashed "+ {tag}" chips, a note with a bold label, action buttons (30px; the primary filled). Footer: a credit note with `coins` ("About {cost} credits · {left} left this month"; after a run "Used about {cost} credits"; or the validation sentence with `circle-alert` in warning ink), a secondary (Cancel / Stop / Start over), a primary (the run label with `sparkles`; after a run the apply label, at .5 opacity until something is selected; "Done" when the kind applies nothing). No Esc, no focus trap, no focus return (DG-36) | nothing in the product | new (AI) | web L | T-D4.34 |
@@ -1808,8 +1808,10 @@ counted (`GradingQueueItem.audio` and `StoredQuestionInput.audio`), both authori
 carry the optional field and the server sends it. The domain `questions.AudioPolicy` gains
 `AllowPause *bool` (nil is a writer that did not say) and `PauseAllowed()`; every reader selects
 `coalesce(…, true)` and fills it, so the value a repository returns is never nil. Migrations are
-00107 to 00110, in the plan's order (00106 was the highest on `develop` and on `work/deck-d4`, and
-no open pull request added one); their Down was run with goose up, down-to 106 and up. Keep-on-absent
+00107 to 00110 in the plan's order (00106 was the highest on `develop` and on `work/deck-d4`, and
+no open pull request added one); their Down was run with goose up, down-to 106 and up. F-68
+then took 00111 to 00113 on `develop`, so the develop sync of 2026-10-12 renumbered the four files
+to **00114 to 00117**, in order, and re-ran goose up, down and up on the whole set. Keep-on-absent
 is one statement for a question and for a group's member (`CASE WHEN <audio present> THEN
 coalesce($new, audio_allow_pause, true) END`), and for a recording the group update reads the
 stored `allow_pause` by id before it clears the group's recordings and rewrites them. An audio
@@ -2138,7 +2140,7 @@ with the v2 deck again at the five widths in two themes, and adds one closing li
 ### T-D4.20 — Sticky side columns, and the collapsed sidebar's separator
 **Reopens:** T-R4.4 (the sidebar), T-R4.31a (the outline), T-R4.27a, T-R4.30, T-R4.32, T-R4.33, T-R4.38, T-R4.42, T-R4.43 (their side columns)
 **Depends on:** T-D4.1; runs first on the builder chain, before T-D4.2a
-**Touches:** `web/src/layouts/shell/Sidebar.tsx`, `web/src/components/shared/StickyAside.tsx` (new), `web/src/features/tests/pages/teacher/{TestBuilderPage,TestDetailPage}.tsx`, `web/src/features/assignments/pages/teacher/AssignmentFormPage.tsx`, `web/src/features/question-bank/pages/teacher/{QuestionBankPage,QuestionEditorPage}.tsx`, `web/src/features/imports/pages/teacher/ImportReviewPage.tsx`, `web/src/features/classes/pages/teacher/ClassDetailPage.tsx`, `web/src/features/settings/pages/teacher/TeacherSettingsPage.tsx`, `web/tests/units/shell/sidebar.test.tsx`, `web/tests/units/shared/sticky-aside.test.tsx` (new), `web/tests/units/builder/` (the outline's geometry case)
+**Touches:** `web/src/layouts/shell/Sidebar.tsx`, `web/src/components/shared/StickyAside.tsx` (new), `web/src/features/tests/pages/teacher/{TestBuilderPage,TestDetailPage}.tsx`, `web/src/features/assignments/{pages/teacher/AssignmentWizardPage.tsx,components/wizard/WizardAside.tsx}`, `web/src/features/question-bank/pages/teacher/{QuestionBankPage,QuestionEditorPage}.tsx`, `web/src/features/imports/pages/teacher/ImportReviewPage.tsx`, `web/src/features/classes/pages/teacher/ClassDetailPage.tsx`, `web/src/features/settings/pages/teacher/TeacherSettingsPage.tsx`, `web/tests/units/shell/sidebar.test.tsx`, `web/tests/units/shared/sticky-aside.test.tsx` (new), `web/tests/units/builder/` (the outline's geometry case)
 **Size:** S
 **Done when:**
 - [ ] `Sidebar` draws a 1px `--border` `role="separator"` (margin 0 10px 4px) between nav groups
@@ -2146,9 +2148,14 @@ with the v2 deck again at the five widths in two themes, and adds one closing li
       the expanded sidebar are unchanged.
 - [ ] One `StickyAside` wraps every side column: `position: sticky; top: 16px; max-height:
       calc(100vh − 88px); overflow-y: auto; padding 1px 2px 2px; margin −1px −2px −2px` (the
-      deck's allowance for focus rings), from a content width the host passes (800 for the
-      wizard, 1000 for Class detail and the review, 900 for the question editor's aside, 768 for
-      the settings nav), static below it; the version history keeps its own `top: 16px` and cap;
+      deck's allowance for focus rings), from a content width the host passes (the wizard
+      keeps its `@min-[794px]/wizard` container query, which `StickyAside` takes over from
+      `WizardAside`'s `sticky top-0`; 1000 for Class detail and the review, 900 for the question
+      editor's aside, 768 for the settings nav), static below it. Every host reads its own
+      container's width, never the viewport's: the pages render in one frame up to 1600px
+      (DG-205), so the deck's per-screen widths no longer decide where a column docks. The
+      import review is full-bleed (`width: "full"`), so its 1000 is its container too;
+      the version history keeps its own `top: 16px` and cap;
       the bank's filter aside gets `top: 16px` from 1024 and stays `top: 0` below (V-02).
 - [ ] The builder's outline is sticky and scrolls inside itself whenever the builder splits
       (`outPos`, `outMaxH`, `outOv`, T 1633 and 8690); a section's "…" menu still escapes it
@@ -2162,17 +2169,37 @@ with the v2 deck again at the five widths in two themes, and adds one closing li
 ### T-D4.21 — Grading: the pane's heights
 **Reopens:** T-R4.28
 **Depends on:** T-D4.1
-**Touches:** `web/src/features/attempts/pages/teacher/GradingPage.tsx`, `web/tests/units/attempts/grading-layout.test.tsx` (new)
+**Touches:** `web/src/features/attempts/pages/teacher/{GradingPage,GradingQueueAside,GradingAnswerCard}.tsx`, `web/tests/units/attempts/grading-layout.test.tsx` (new), `web/tests/e2e/teacher-grading.spec.ts`
 **Size:** S
+**Built on `develop`, not on this branch:** #555 (merged into `develop` as `81eb1f98`, 2026-10-12)
+built it at the owner's request after a teacher escalation, so it could ship in v0.10.1. The task
+has no AI dependency; the AI "Suggest a score" stays in T-D4.36. It left this branch's work lane
+when the develop sync of 2026-10-12 brought it in.
 **Done when:**
-- [ ] From 768 the page is `calc(100vh − 120px)` high with a 560px minimum; the queue aside is a
+- [x] From 768 the page is `calc(100vh − 120px)` high with a 560px minimum; the queue aside is a
       column whose list scrolls (`flex: 1 1 auto; min-height: 0`), and the card's body scrolls
       inside it under the 3px progress bar (V-04, T 847-875). Below 768 everything is static and
       the queue keeps its 180px cap.
-- [ ] `j` / `k` keep the active queue row in view inside the scrolling list; the card's score
+- [x] `j` / `k` keep the active queue row in view inside the scrolling list; the card's score
       buttons and the footer stay reachable without scrolling the page.
-- [ ] Unit cases at `viewport("desktop")` and `viewport("phone")`; compared with the deck at 768,
+- [x] Unit cases at `viewport("desktop")` and `viewport("phone")`; compared with the deck at 768,
       1024 and 1280 with a long queue and a long answer, light and dark.
+
+**As built:** #555 touched `GradingPage.tsx`, `GradingQueueAside.tsx` and `GradingAnswerCard.tsx`.
+From 768 the header and the panes share one block of `calc(100vh - 120px)` with a 560px minimum,
+and the panes no longer wrap; the queue aside is a flex column whose list takes the rest
+(`flex: 1 1 auto; min-height: 0`) and the card's body scrolls inside the card, under the 3px
+progress bar, with the footer (Previous, "Save & next", Finish) in view. Below 768 the page is
+static and the queue keeps its 180px cap. Finish recovery is not drawn, so it stays below the
+panes, outside the viewport-high block. `j` and `k` call `scrollIntoView({ block: "nearest" })`
+on the active row. `grading-layout.test.tsx` holds five cases (the queue column and its list from
+768, the 180px cap on a phone, the active row kept in view, the card body scrolling under a fixed
+footer, and the page's block holding the header and the panes without Finish recovery);
+`teacher-grading.spec.ts` adds cases at 768, 1024 and 1280 in light and dark with 24 students and
+a 40-line answer in an 800px-high window, and one at 360. The "compared with the deck" box is met
+by those measured cases, not by a recorded side-by-side with the deck. The page frame (DG-205)
+did not change this task: the grading page fills the frame like every other, and the numeric
+score field keeps its `--field-max` cap.
 
 ### T-D4.22 — Assignment detail: the progress card and the roster filters
 **Reopens:** T-R4.25 (the four stat tiles)
@@ -2289,7 +2316,7 @@ product meters the real numbers, and the deck's costs are placeholders.
 | Suggest a score | The question's prompt, type and max points, the accepted answers or the sample answer, the allowed score set, **the student's answer text** | The student's name, email, id, class; the attempt id; other answers | capable | 0.8k / 0.3k | ≈ 5 | 30 |
 | Explain results | Per question: number, type, prompt excerpt, key, the correct rate (T-R4.13), and **the distinct wrong answer texts with their counts** (a new aggregate; the eight most frequent per question); the handed-in count | Any name, id or attempt; who wrote what | capable | 3k / 1k | ≈ 16 | 60 |
 | Clean up the bank | The caller's own questions' prompts, types and tags, in chunks (`Own()` rows only, up to 2,000) | Shared questions; usage counts | fast | 90k / 8k | ≈ 13 | 200 |
-| Read with AI | The uploaded exam's pages as images (rendered by `go-pdfium`, up to 40 pages) or the PDF document, and the recogniser's schema | Nothing else; the import page says so before upload (`18-word-import-ux.md` §4) | capable (vision) | 2k / 1.2k a page | ≈ 16 a page | 60 a page |
+| Read with AI | The uploaded exam's pages as images (rendered by `go-pdfium`, up to 40 pages) or the PDF document, and the recogniser's schema | Nothing else; the import workspace's Sources pane says so before upload (`18-word-import-ux.md` §4) | capable (vision) | 2k / 1.2k a page | ≈ 16 a page | 60 a page |
 | Generate words (R10) | The text, count, level, meaning language | — | fast | 3k / 1.5k | ≈ 2 | 20 |
 
 No feature sends a personal identifier; none needs one. The two that carry student-written text are
@@ -2519,8 +2546,8 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
       is a finding on that page, not a silent gap. A `.docx` or a PDF with a text layer is read
       as today whether or not the switch is on.
 - [ ] The processing log names the reader ("Read 12 pages with AI · 190 credits"); the history
-      row's meta shows it; the privacy callout on the import page (`18-word-import-ux.md` §4) says
-      what left the system ("The pages of this file were read by an AI service outside Quizzivy.").
+      row's meta shows it; the privacy note in the Sources pane of the import workspace
+      (`18-word-import-ux.md` §4) says what left the system ("The pages of this file were read by an AI service outside Quizzivy.").
 - [ ] Nothing of a student leaves: the import holds exam documents; the task adds a check that
       refuses a file whose metadata or first page names it as a student's submission is **not**
       attempted (a false sense of safety); the page's sentence carries the responsibility.
@@ -2648,15 +2675,21 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
 
 ### T-D4.39 — Imports: the "Read with AI" card
 **Depends on:** T-D4.33, T-D4.38 (the preference's default)
-**Touches:** `web/src/features/imports/components/SourceIntake.tsx`, `web/src/features/imports/pages/teacher/ImportNewPage.tsx`, locales, `web/tests/units/imports/intake.test.tsx`
+**Touches:** `web/src/features/imports/components/{SourceIntake,ProcessingPanel}.tsx`, `web/src/features/imports/pages/teacher/{ImportWorkspacePage,ImportsListPage}.tsx`, locales, `web/tests/units/imports/{upload-flow,workspace,processing-states,history}.test.tsx`
 **Size:** S
 **Done when:**
-- [ ] The toggle card of V-11 above the slots, prefilled from `preferences.ai.readImports`,
-      switching the accepts line; the privacy callout gains the sentence of T-D4.33 while it is
-      on; `createImport` carries `readWithAi`. Absent without `useAiAvailable()`; disabled with
-      the reason when exhausted (the 402 would otherwise arrive after upload).
-- [ ] The processing and history screens show the reader's log line and meta (T-D4.33).
-- [ ] Unit tests; compared with the deck at 360 and 1280, light and dark.
+- [ ] The toggle card of V-11 sits in the Sources pane of `ImportWorkspacePage` (DG-207) between
+      the sources and the privacy note, in the draft state only, prefilled from
+      `preferences.ai.readImports`, switching the accepts line; the privacy note gains the
+      sentence of T-D4.33 while it is on; `createImport` carries `readWithAi`. Absent without
+      `useAiAvailable()`; disabled with the reason when exhausted (the 402 would otherwise
+      arrive after upload). The card lives in `SourceIntake`, so the page frame (DG-205) and the
+      pane split are not touched.
+- [ ] The status pane (`ProcessingPanel`) and the history (`ImportsListPage`) show the reader's
+      log line and meta (T-D4.33).
+- [ ] Unit tests in `upload-flow.test.tsx` and `workspace.test.tsx`; compared with the approved
+      page-width design's import workspace (`deck/page-width-proposal/`) and the v2 deck's V-11
+      at 360 and 1280, light and dark.
 
 ### T-D4.40 — Documents for the AI assistant
 **Depends on:** T-D4.32 merged (the behaviour exists); runs before T-D4.12

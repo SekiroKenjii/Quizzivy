@@ -313,7 +313,7 @@ export default function TestsListPage() {
   };
 
   return (
-    <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4">
+    <DeckScale className="flex w-full min-w-0 flex-col gap-4">
       <PageHead
         title={t("teacherShell.nav.tests")}
         description={t("tests.description")}
