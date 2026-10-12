@@ -25,7 +25,8 @@ describe("the size a too-large file is refused for", () => {
   const LIMIT = 50 * MIB;
 
   it("keeps the usual figure when it already reads as over the limit", () => {
-    expect(formatOverLimit(51 * MIB, LIMIT)).toBe("51.0 MB");
+    expect(formatOverLimit(51 * MIB, LIMIT)).toBe("51 MB");
+    expect(formatOverLimit(Math.round(51.4 * MIB), LIMIT)).toBe("51.4 MB");
   });
 
   it("gives megabytes rounded up when the usual figure would equal the limit (F-44)", () => {

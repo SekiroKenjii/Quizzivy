@@ -144,7 +144,7 @@ describe("starting a Word import", () => {
   it("shows the server's limits before a file is chosen", async () => {
     renderPage();
     expect(
-      await screen.findByText(/Nhận tệp \.docx, \.pdf, tối đa 25\.0 MB/),
+      await screen.findByText(/Nhận tệp \.docx, \.pdf, tối đa 25 MB/),
     ).toBeInTheDocument();
   });
 
@@ -384,7 +384,7 @@ describe("starting a Word import", () => {
     expect(screen.queryByRole("link", { name: "Về mục Nhập đề" })).toBeNull();
     const files = screen.getByRole("region", { name: "Tệp" });
     expect(
-      await within(files).findByText("DOCX hoặc PDF · tối đa 25.0 MB mỗi tệp"),
+      await within(files).findByText("DOCX hoặc PDF · tối đa 25 MB mỗi tệp"),
     ).toBeInTheDocument();
     expect(within(files).getAllByText("Bắt buộc")).toHaveLength(1);
     expect(within(files).getAllByText("Kéo tệp vào đây hoặc chọn tệp")).toHaveLength(2);
