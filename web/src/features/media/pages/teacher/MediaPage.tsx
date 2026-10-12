@@ -14,6 +14,8 @@ import { PageHead } from "@/layouts/shell/PageHead";
 import { useFileDrop } from "@/hooks/useFileDrop";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
+import { dayMonthYear } from "@/lib/i18n/datetime";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
 import { listMedia, type LibraryAsset, type MediaUsage } from "@/features/media/api";
 import { DeleteMediaDialog } from "@/features/media/components/DeleteMediaDialog";
@@ -22,6 +24,7 @@ import { RenameDialog } from "@/features/media/components/RenameDialog";
 import { ReplaceDialog } from "@/features/media/components/ReplaceDialog";
 import { UploadDialog } from "@/features/media/components/UploadDialog";
 import { formatStorage } from "@/features/media/format";
+import { removalToast } from "@/features/media/retention";
 
 const PAGE_SIZES = [24, 48] as const;
 const FRESH_URL_MS = 60_000;
@@ -60,6 +63,7 @@ function menuTrigger(id: string): HTMLElement | null {
  */
 export default function MediaPage() {
   const { t } = useTranslation();
+  const locale = useLocale();
   const client = useQueryClient();
   const { params, setParams, setFilter } = useListFilters();
   const query = params.get("q") ?? "";
@@ -292,9 +296,9 @@ export default function MediaPage() {
         returnFocus={returnTo}
         asset={deleting}
         onOpenChange={(open) => !open && setDeleting(null)}
-        onDeleted={() => {
+        onDeleted={(retired) => {
           if (deleting !== null) focusBesideDeleted(deleting);
-          toast(t("media.deleted"));
+          toast(removalToast(t, locale, "deleted", retired));
           refresh();
         }}
       />
@@ -304,7 +308,10 @@ export default function MediaPage() {
 
 function StorageCard({ usage }: Readonly<{ usage: MediaUsage }>) {
   const { t } = useTranslation();
-  const used = usage.audioBytes + usage.imageBytes;
+  const locale = useLocale();
+  const held = usage.heldBytes ?? 0;
+  const pending = usage.pendingBytes ?? 0;
+  const used = usage.audioBytes + usage.imageBytes + held;
   const share = (bytes: number) =>
     `${Math.min(100, (bytes / usage.quotaBytes) * 100)}%`;
   return (
@@ -321,6 +328,7 @@ function StorageCard({ usage }: Readonly<{ usage: MediaUsage }>) {
       >
         <span className="bg-brand" style={{ width: share(usage.audioBytes) }} />
         <span className="bg-info" style={{ width: share(usage.imageBytes) }} />
+        <span className="bg-muted-fg/60" style={{ width: share(held) }} />
       </span>
       <span className="text-meta text-muted-fg min-w-0 leading-normal tabular-nums">
         {t("media.storageUsage", {
@@ -330,6 +338,33 @@ function StorageCard({ usage }: Readonly<{ usage: MediaUsage }>) {
           image: formatStorage(usage.imageBytes),
         })}
       </span>
+      {held > 0 || pending > 0 ? (
+        <ul className="text-meta text-muted-fg flex basis-full flex-col gap-0.5 leading-normal tabular-nums">
+          {held > 0 ? (
+            <li className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className="bg-muted-fg/60 size-2 flex-none rounded-full"
+              />
+              {t("media.storageHeld", { size: formatStorage(held) })}
+            </li>
+          ) : null}
+          {pending > 0 ? (
+            <li className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className="border-muted-fg/60 size-2 flex-none rounded-full border"
+              />
+              {usage.pendingDeleteAt == null
+                ? t("media.storagePendingNoDate", { size: formatStorage(pending) })
+                : t("media.storagePending", {
+                    size: formatStorage(pending),
+                    date: dayMonthYear(usage.pendingDeleteAt, locale),
+                  })}
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
     </section>
   );
 }
