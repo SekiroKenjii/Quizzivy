@@ -210,7 +210,10 @@ describe("the panes from 768", () => {
     await open(deckSession(NOW));
 
     expect(screen.queryByRole("article")).toBeNull();
-    expect(screen.getByRole("main").children).toHaveLength(1);
+    expect(screen.getByRole("main").children).toHaveLength(2);
+    expect(screen.getByRole("main").firstElementChild).toBe(
+      screen.getByRole("complementary", { name: "Các phần" }),
+    );
     expect(questionPane()).toHaveClass("bg-sidebar", "flex-[1_1_0]");
     expect(sheet()).toHaveClass("mx-auto", "max-w-150");
     expect(switcher()).toBeNull();

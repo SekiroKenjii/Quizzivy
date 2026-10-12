@@ -23,7 +23,7 @@ function eightQuestions(): Session {
 
 const footer = (page: Page) => page.getByRole("navigation", { name: "Danh sách câu" });
 const countButton = (page: Page) =>
-  footer(page).getByRole("button", { name: /^Danh sách câu:/ });
+  footer(page).getByRole("button", { name: /^Câu \d+ · đã làm / });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Danh sách câu" });
 const questionLine = (page: Page, number: number) =>
   page.getByText(`Câu ${number} trên 8 · Chọn một đáp án`, { exact: true });
@@ -36,23 +36,21 @@ async function footerHeights(page: Page) {
     );
 }
 
-test("the count button says where the student is, and opens the sheet of every question", async ({
+test("the grid button says where the student is, and opens the sheet of every question", async ({
   page,
 }) => {
   await start(page, eightQuestions());
   const next = footer(page).getByRole("button", { name: "Câu sau", exact: true });
   for (let step = 0; step < 3; step += 1) await next.tap();
   await expect(questionLine(page, 4)).toBeVisible();
-  await expect(countButton(page)).toHaveAccessibleName(
-    "Danh sách câu: 4 / 8 · đã trả lời 3",
-  );
-  await expect(countButton(page)).toContainText("4 / 8 · đã trả lời 3");
+  await expect(countButton(page)).toHaveAccessibleName("Câu 4 · đã làm 3 trên 8");
+  await expect(countButton(page)).toHaveText("4 · 3/8");
   await expect(footer(page).getByRole("button")).toHaveCount(3);
 
   await expect(sheet(page)).toHaveCount(0);
   await countButton(page).tap();
   await expect(sheet(page)).toBeVisible();
-  await expect(sheet(page)).toContainText("Đã trả lời 3 trên 8");
+  await expect(sheet(page)).toHaveAccessibleDescription("Câu 4 · đã làm 3 trên 8");
   await expect(sheet(page).getByRole("button")).toHaveCount(8);
   await expect(sheet(page).locator("[aria-current]")).toHaveCount(1);
   await expect(
@@ -71,7 +69,7 @@ test("a square in the sheet goes to its question and closes the sheet", async ({
   await sheet(page).getByRole("button", { name: "Câu 7", exact: true }).tap();
   await expect(questionLine(page, 7)).toBeVisible();
   await expect(sheet(page)).toHaveCount(0);
-  await expect(countButton(page)).toContainText("7 / 8 · đã trả lời 3");
+  await expect(countButton(page)).toHaveText("7 · 3/8");
 });
 
 test("the sheet closes on its backdrop and leaves the question where it was", async ({
@@ -94,7 +92,7 @@ test("Finish on the last question opens the Submit dialog", async ({ page }) => 
   await expect(finish).toHaveCount(0);
   await countButton(page).tap();
   await sheet(page).getByRole("button", { name: "Câu 8", exact: true }).tap();
-  await expect(countButton(page)).toContainText("8 / 8 · đã trả lời 3");
+  await expect(countButton(page)).toHaveText("8 · 3/8");
   await expect(
     footer(page).getByRole("button", { name: "Câu sau", exact: true }),
   ).toHaveCount(0);
