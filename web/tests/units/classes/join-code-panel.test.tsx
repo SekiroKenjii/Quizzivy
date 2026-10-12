@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -95,7 +95,7 @@ beforeEach(() => {
   );
 });
 
-function renderPanel(klass: Class = KLASS, canWrite = true) {
+function renderPanelWithClient(klass: Class = KLASS, canWrite = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -107,7 +107,11 @@ function renderPanel(klass: Class = KLASS, canWrite = true) {
       <Toaster />
     </QueryClientProvider>,
   );
-  return userEvent.setup();
+  return { user: userEvent.setup(), client };
+}
+
+function renderPanel(klass: Class = KLASS, canWrite = true) {
+  return renderPanelWithClient(klass, canWrite).user;
 }
 
 describe("the join code card (DG-01)", () => {
@@ -218,6 +222,36 @@ describe("an archived class", () => {
     await waitFor(() => expect(revokes).toBe(1));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("switch", { name: "Cho học viên tham gia" })).toHaveFocus();
+  });
+
+  it("says why when the class was archived elsewhere, and reads the class again", async () => {
+    server.use(
+      http.post(`${BASE}/teacher/classes/${CLASS_ID}/join-code`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "CLASS_ARCHIVED",
+              message:
+                "Lớp này đã được lưu trữ nên không thể tạo mã tham gia mới. Hãy khôi phục lớp trước.",
+              requestId: "018f0000-0000-7000-8000-0000000000f2",
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const { user, client } = renderPanelWithClient();
+    const refreshed = vi.spyOn(client, "invalidateQueries");
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    await user.click(screen.getByRole("button", { name: "Mã mới" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Tạo mã mới" }));
+    expect(
+      await within(dialog).findByText(
+        "Lớp này đã được lưu trữ nên không thể tạo mã tham gia mới. Hãy khôi phục lớp trước.",
+      ),
+    ).toBeVisible();
+    expect(refreshed).toHaveBeenCalledWith({ queryKey: ["admin-class", CLASS_ID] });
   });
 
   it("offers no Create code when it has no code", () => {

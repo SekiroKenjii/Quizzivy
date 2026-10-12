@@ -21,6 +21,7 @@ import { invalidateClass } from "@/features/classes/invalidate";
 import { useCopyJoinLink } from "@/features/classes/joinLink";
 import { downloadJoinQr } from "@/features/classes/joinQrImage";
 import { dayMonthYear, formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { ApiError } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
 
 const EXPIRY_DAYS = ["30", "7", "90"] as const;
@@ -56,7 +57,9 @@ const ACTION =
  * code says so and offers Create code, without the paused text or the
  * sharing line, which speak of a code. An archived class cannot be joined,
  * so it offers neither New code nor Create code and says to restore it
- * first; Stop stays. A code that cannot be read shows its last four
+ * first; Stop stays. A page that has not yet seen the class archived
+ * elsewhere still offers New code; the server's 409 CLASS_ARCHIVED then
+ * shows its own message in the dialog and the class is read again. A code that cannot be read shows its last four
  * characters until a new one is made. Without `canWrite` the card only
  * reads, the code masked.
  */
@@ -104,6 +107,9 @@ export function JoinCodePanel({
       setRotating(false);
       toast(t("classes.codeRenewedWith", { code: issued.code }));
       await refresh();
+    },
+    onError: (cause) => {
+      if (cause instanceof ApiError && cause.code === "CLASS_ARCHIVED") void refresh();
     },
   });
   const revoke = useMutation({
