@@ -6,13 +6,11 @@ import {
   type MaterialGap,
 } from "@/components/shared/content/GroupMaterials";
 import { Button } from "@/components/ui/button";
-import { recordSharedAudioEvent } from "@/features/integrity/useIntegrityMonitor";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { cn } from "@/lib/utils";
 import { PassageBody } from "./PassageBody";
-import { useGroupPlaybackStore, groupPlayCount } from "../groupPlayback";
-import { useTakeTestStore } from "../store";
 import { useKeptScroll } from "../panes";
+import { usePaper } from "../paper";
 import type { StudentGroup } from "../api";
 
 /**
@@ -147,17 +145,11 @@ function SharedAudio({
   onRetry: () => void;
 }>) {
   const { t } = useTranslation();
-  const attemptId = useTakeTestStore((state) => state.attemptId);
+  const paper = usePaper();
   const startedAt = useRef<number | null>(null);
-  const played = useGroupPlaybackStore((state) => groupPlayCount(state, recording.id));
-  const pending = useGroupPlaybackStore((state) =>
-    state.pending.some((play) => play.recordingId === recording.id),
-  );
-  const notePlay = useGroupPlaybackStore((state) => state.notePlay);
-  const flush = useGroupPlaybackStore((state) => state.flush);
-  const locked = useTakeTestStore(
-    (state) => state.lock !== null || state.submitState !== "idle",
-  );
+  const played = paper.recordingPlays[recording.id] ?? 0;
+  const pending = paper.pendingRecordings.has(recording.id);
+  const locked = paper.lock !== null || paper.submitState !== "idle";
   const limit = recording.policy.maxPlays;
   const limitedHint =
     played >= (limit ?? 0)
@@ -177,7 +169,7 @@ function SharedAudio({
         hint={hint}
         onPlay={() => {
           startedAt.current = Date.now();
-          notePlay(recording.id);
+          paper.noteRecordingPlay(recording.id);
         }}
         onEnded={() => {
           const durationMs =
@@ -185,13 +177,11 @@ function SharedAudio({
               ? undefined
               : Math.max(0, Date.now() - startedAt.current);
           startedAt.current = null;
-          if (attemptId !== null)
-            recordSharedAudioEvent(attemptId, "audio_ended", recording.id, durationMs);
+          paper.onRecordingEnded(recording.id, durationMs);
         }}
         onBlocked={() => {
           startedAt.current = null;
-          if (attemptId !== null)
-            recordSharedAudioEvent(attemptId, "audio_blocked", recording.id);
+          paper.onRecordingBlocked(recording.id);
         }}
         onRetry={onRetry}
       />
@@ -208,7 +198,7 @@ function SharedAudio({
             variant="ghost"
             size="sm"
             disabled={locked}
-            onClick={() => void flush()}
+            onClick={paper.flushRecordingPlays}
           >
             {t("common.retry")}
           </Button>

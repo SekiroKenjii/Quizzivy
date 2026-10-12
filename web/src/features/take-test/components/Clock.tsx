@@ -1,9 +1,9 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useEffectEvent, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Timer } from "lucide-react";
 import { countdown } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
-import { takeTestStore, useTakeTestStore } from "../store";
+import { usePaper } from "../paper";
 import { timeLeft } from "../timeLeft";
 
 const LOW_MS = 5 * 60_000;
@@ -44,16 +44,17 @@ function cells(text: string) {
  */
 export function Clock() {
   const { t } = useTranslation();
-  const deadlineAt = useTakeTestStore((s) => s.deadlineAt);
-  const offsetMs = useTakeTestStore((s) => s.offsetMs);
-  const over = useTakeTestStore((s) => s.lock === "deadline");
+  const paper = usePaper();
+  const { deadlineAt, offsetMs } = paper;
+  const over = paper.lock === "deadline";
   const [said, setSaid] = useState<number | null>(null);
   const [, repaint] = useReducer((n: number) => n + 1, 0);
+  const readTimeLeft = useEffectEvent(() => paper.timeLeft());
   useEffect(() => {
-    let before = timeLeft(takeTestStore.getState());
+    let before = readTimeLeft();
     const tick = setInterval(() => {
       const was = before;
-      const left = timeLeft(takeTestStore.getState());
+      const left = readTimeLeft();
       before = left;
       setSaid((current) => minutesToSay(was, left, current));
       repaint();

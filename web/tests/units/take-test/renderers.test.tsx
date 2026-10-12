@@ -11,6 +11,7 @@ import { useTakeTestStore } from "@/features/take-test/store";
 import type { Answer, StudentQuestion } from "@/features/take-test/api";
 import { writeLargerTestText } from "@/lib/testText";
 import i18n from "@/lib/i18n";
+import { renderWithPaper } from "./support";
 
 beforeEach(() => {
   localStorage.clear();
@@ -26,6 +27,12 @@ function question(
   over: Partial<StudentQuestion> & { type: StudentQuestion["type"] },
 ): StudentQuestion {
   return { id: "q1", sectionId: "s1", prompt: "Prompt", points: 1, ...over };
+}
+
+function renderCard(q: StudentQuestion) {
+  return renderWithPaper(
+    <QuestionCard question={q} number={1} total={1} onAudioExpired={vi.fn()} />,
+  );
 }
 
 function renderQuestion(q: StudentQuestion, answer?: Answer) {
@@ -399,7 +406,7 @@ describe("a locked paper", () => {
   });
 
   it("refuses edits through the card once the store is locked", () => {
-    render(
+    renderWithPaper(
       <QuestionCard
         question={question({ type: "single_choice", options })}
         number={1}
@@ -454,8 +461,7 @@ describe("blank ordering", () => {
  * one rule and the server applies another.
  */
 describe("what the question says it is worth", () => {
-  const render1 = (q: StudentQuestion) =>
-    render(<QuestionCard question={q} number={1} total={1} onAudioExpired={vi.fn()} />);
+  const render1 = renderCard;
 
   it("names the per-blank share, as S-05 writes it", () => {
     render1(
@@ -522,8 +528,7 @@ describe("what the question says it is worth", () => {
 });
 
 describe("the fill-blank matching rule (S-05)", () => {
-  const render1 = (q: StudentQuestion) =>
-    render(<QuestionCard question={q} number={1} total={1} onAudioExpired={vi.fn()} />);
+  const render1 = renderCard;
 
   it("says capitals do not matter when no blank is case-sensitive", () => {
     render1(
@@ -727,7 +732,7 @@ describe("a type this page has no renderer for", () => {
   });
 
   it("writes nothing to the store through the card, which keeps the flag toggle", () => {
-    render(
+    renderWithPaper(
       <QuestionCard question={unknown} number={3} total={8} onAudioExpired={vi.fn()} />,
     );
     expect(screen.getByRole("status")).toHaveTextContent(

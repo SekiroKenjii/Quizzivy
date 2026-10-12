@@ -4,11 +4,11 @@ import { Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuestionAudio } from "./QuestionAudio";
 import { QuestionSheet } from "./QuestionSheet";
-import { useTakeTestStore } from "../store";
+import { usePaper } from "../paper";
 import type { StudentQuestion } from "../api";
 
 /**
- * QuestionCard is the store-connected renderer: the one place a question is
+ * QuestionCard is the paper-connected renderer: the one place a question is
  * joined to the answer being written into it and to its flag. A locked paper
  * keeps the answers legible and refuses edits.
  */
@@ -25,9 +25,8 @@ export function QuestionCard({
   lead?: ReactNode;
   onAudioExpired: () => void;
 }>) {
-  const answer = useTakeTestStore((s) => s.answers[question.id]);
-  const setAnswer = useTakeTestStore((s) => s.setAnswer);
-  const locked = useTakeTestStore((s) => s.lock !== null);
+  const { answers, setAnswer, lock } = usePaper();
+  const locked = lock !== null;
 
   return (
     <QuestionSheet
@@ -37,7 +36,7 @@ export function QuestionCard({
       action={<FlagToggle questionId={question.id} disabled={locked} />}
       lead={lead}
       audio={<QuestionAudio question={question} onExpired={onAudioExpired} />}
-      answer={answer}
+      answer={answers[question.id]}
       onAnswer={(next) => setAnswer(question.id, next)}
       disabled={locked}
       onRetryMedia={onAudioExpired}
@@ -50,8 +49,8 @@ function FlagToggle({
   disabled,
 }: Readonly<{ questionId: string; disabled: boolean }>) {
   const { t } = useTranslation();
-  const flagged = useTakeTestStore((s) => s.flags.has(questionId));
-  const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
+  const { flags, toggleFlag } = usePaper();
+  const flagged = flags.has(questionId);
   return (
     <button
       type="button"

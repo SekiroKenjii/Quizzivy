@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Clock } from "./Clock";
 import { SaveAnnouncement, SaveState } from "./SaveState";
-import { useTakeTestStore } from "../store";
+import { usePaper } from "../paper";
 
 /**
  * EngineHeader is the engine's 60px header, as the deck draws it: the leading
@@ -30,9 +30,9 @@ export function EngineHeader({
   onSubmit?: (() => void) | undefined;
 }>) {
   const { t } = useTranslation();
-  const title = useTakeTestStore((s) => s.testTitle);
-  const locked = useTakeTestStore((s) => s.lock !== null);
-  const closed = useTakeTestStore((s) => s.lock === "closed");
+  const { title, lock } = usePaper();
+  const locked = lock !== null;
+  const closed = lock === "closed";
 
   return (
     <header
