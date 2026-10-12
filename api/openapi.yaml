@@ -516,6 +516,8 @@ components:
         - JOIN_CODE_EXPIRED
         - JOIN_CODE_EXHAUSTED
         - JOIN_CODE_REVOKED
+        # classes
+        - CLASS_ARCHIVED
         # students
         - EMAIL_TAKEN
         - STUDENT_SHARED
@@ -8762,6 +8764,15 @@ paths:
         per-class constraint cannot be violated. Previously enrolled students are
         unaffected (§6.1).
 
+        An archived class is refused with `409 CLASS_ARCHIVED` and nothing is
+        written: its current code, if any, stays as it was. Nobody can join an
+        archived class, so a code issued for one would be a dead secret that
+        reads as live. The archived check runs after the class has been found
+        for the caller, so another teacher's archived class answers 404 exactly
+        as a missing one does. Restore the class (`updateClass` with
+        `archived: false`) to rotate again. `revokeJoinCode` stays allowed on an
+        archived class.
+
         The plaintext code is returned here, and `getJoinCode` reads it again.
         It is stored encrypted under a key the database does not hold, with a
         keyed hash to find it, so a database dump does not hand over class
@@ -8820,6 +8831,11 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`CLASS_ARCHIVED` — the class is archived, so it can have no new code.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     delete:
       operationId: revokeJoinCode
       x-resource:

@@ -133,7 +133,8 @@ type RevokeInput struct {
 }
 
 // RotateRequest and RevokeRequest reach a class ActorUserID teaches, or any
-// class with All, the actor's scope.all.
+// class with All, the actor's scope.all. Rotating the code of an archived class
+// is refused with ErrClassArchived; revoking it is allowed.
 type RotateRequest struct {
 	ClassID       string
 	ActorUserID   string

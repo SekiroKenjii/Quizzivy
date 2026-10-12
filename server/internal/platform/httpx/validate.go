@@ -19,7 +19,7 @@ import (
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 )
 
-// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check. It also refuses a JSON body in which an object repeats a member name, which the schema validator reads as its last occurrence and the handler's decoder merges; a body the validator re-encoded to fill a default is passed on as the validator read it, without the repeat. A refusal names the field or parameter whose value broke its rule or, when no value did, the required top-level property the body lacks; an unknown property and a body that is not an object get the generic sentence. The sentences are Vietnamese or, when Accept-Language prefers it, English.
+// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check. It also refuses a JSON body in which an object repeats a member name, which the schema validator reads as its last occurrence and the handler's decoder merges; a body the validator re-encoded to fill a default is passed on as the validator read it, without the repeat. It also refuses the character U+0000, which PostgreSQL stores in no `text` or `jsonb` value and the schema validator does not check: in a JSON string or object member name of an `application/json` body, or of the JSON a `text/plain` body carries where the contract declares one, in a query parameter's name or value, and in a decoded path. A refusal names the field or parameter whose value broke its rule or, when no value did, the required top-level property the body lacks; an unknown property and a body that is not an object get the generic sentence. The sentences are Vietnamese or, when Accept-Language prefers it, English.
 func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error) {
 	stripped := *spec
 	stripped.Servers = nil
@@ -62,8 +62,8 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 			},
 		})
 	keys := uuidMapKeys(uuidKeyedMaps(&stripped))
-	members := uniqueMembers(jsonBodies(&stripped))
-	return func(next http.Handler) http.Handler { return validator(members(keys(next))) }, nil
+	bodies := inspectedBodies(declaredBodies(&stripped))
+	return func(next http.Handler) http.Handler { return validator(withoutNULInURL(bodies(keys(next)))) }, nil
 }
 
 // WriteMalformedBody answers 400 VALIDATION_FAILED with the generic
@@ -179,48 +179,63 @@ func uuidKeysOfMember(name string, value []byte, path []string) bool {
 	return name != path[0] || uuidKeys(value, path[1:])
 }
 
-func jsonBodies(spec *openapi3.T) map[string]struct{} {
-	bodies := map[string]struct{}{}
+type bodyMedia struct{ json, text bool }
+
+func declaredBodies(spec *openapi3.T) map[string]bodyMedia {
+	bodies := map[string]bodyMedia{}
 	for path, item := range spec.Paths.Map() {
 		for method, op := range item.Operations() {
 			if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
 				continue
 			}
-			if op.RequestBody.Value.Content.Get("application/json") != nil {
-				bodies[method+" "+path] = struct{}{}
+			content := op.RequestBody.Value.Content
+			declared := bodyMedia{json: content.Get("application/json") != nil, text: content.Get("text/plain") != nil}
+			if declared.json || declared.text {
+				bodies[method+" "+path] = declared
 			}
 		}
 	}
 	return bodies
 }
 
-func uniqueMembers(bodies map[string]struct{}) func(http.Handler) http.Handler {
+func inspectedBodies(bodies map[string]bodyMedia) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			media, _, _ := strings.Cut(r.Header.Get("Content-Type"), ";")
-			if _, declared := bodies[r.Pattern]; !declared || r.Body == nil || media != "application/json" {
+			declared := bodies[r.Pattern]
+			asJSON := declared.json && media == "application/json"
+			asText := declared.text && media == "text/plain"
+			if r.Body == nil || (!asJSON && !asText) {
 				next.ServeHTTP(w, r)
 				return
 			}
 			body, err := io.ReadAll(r.Body)
 			_ = r.Body.Close()
 			r.Body = io.NopCloser(bytes.NewReader(body))
-			if err != nil {
-				next.ServeHTTP(w, r)
+			if err == nil && refuseBody(w, r, body, asJSON) {
 				return
 			}
-			top, repeated := repeatedMember(body)
-			if !repeated {
-				next.ServeHTTP(w, r)
-				return
-			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func refuseBody(w http.ResponseWriter, r *http.Request, body []byte, asJSON bool) bool {
+	if asJSON {
+		if top, repeated := repeatedMember(body); repeated {
 			message := genericSentence(r)
 			if top != "" {
 				message = fieldSentence(r, top)
 			}
 			WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, message)
-		})
+			return true
+		}
 	}
+	if field, found := nulInBody(body); found {
+		writeNULInField(w, r, field)
+		return true
+	}
+	return false
 }
 
 func repeatedMember(body []byte) (top string, repeated bool) {

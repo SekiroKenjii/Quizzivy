@@ -25,6 +25,9 @@ type Replace struct {
 type ReplaceHandler struct{ *support.Service }
 
 func (s ReplaceHandler) Handle(ctx context.Context, cmd Replace) (domain.ReplaceResult, error) {
+	if err := support.CheckFilename(cmd.Filename); err != nil {
+		return domain.ReplaceResult{}, err
+	}
 	target, err := s.Repo.FindReplacementTarget(ctx, cmd.Scope, cmd.ID)
 	if err != nil {
 		return domain.ReplaceResult{}, err

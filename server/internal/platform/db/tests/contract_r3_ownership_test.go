@@ -86,16 +86,7 @@ func ownershipDatabase(t *testing.T) (*sql.DB, string, string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = admin.Close() })
-	t.Cleanup(func() {
-		var err error
-		for attempt := 0; attempt < 20; attempt++ {
-			if _, err = admin.Exec(`DROP DATABASE IF EXISTS ` + name + ` WITH (FORCE)`); err == nil {
-				return
-			}
-			time.Sleep(250 * time.Millisecond)
-		}
-		t.Errorf("dropping %s: %v", name, err)
-	})
+	t.Cleanup(func() { dropScratchDatabase(t, admin, name) })
 	if _, err := admin.Exec(`CREATE DATABASE ` + name); err != nil {
 		t.Fatalf("creating %s: %v", name, err)
 	}

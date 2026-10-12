@@ -27,14 +27,23 @@ func (r resolved) Resolve(_ context.Context, userID string) (access.Principal, e
 
 func contextAs(t *testing.T, principal access.Principal) context.Context {
 	t.Helper()
+	return contextAsIn(t, principal, "")
+}
+
+func contextAsIn(t *testing.T, principal access.Principal, acceptLanguage string) context.Context {
+	t.Helper()
 	var ctx context.Context
 	verify := func(string) (httpx.Principal, error) { return httpx.Principal{UserID: principal.UserID}, nil }
 	gate := httpx.RequirePermission(map[string]access.Requirement{"GET /teacher/classes": access.AnyOf(access.WorkspaceTeacher)},
 		resolved{principal.UserID: principal})
-	h := httpx.RequireAuth(nil, verify)(gate(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { ctx = r.Context() })))
+	h := httpx.WithRequestMeta(func(*http.Request) string { return "203.0.113.9" })(
+		httpx.RequireAuth(nil, verify)(gate(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { ctx = r.Context() }))))
 	req := httptest.NewRequest(http.MethodGet, "/teacher/classes", nil)
 	req.Pattern = "GET /teacher/classes"
 	req.Header.Set("Authorization", "Bearer token")
+	if acceptLanguage != "" {
+		req.Header.Set("Accept-Language", acceptLanguage)
+	}
 	h.ServeHTTP(httptest.NewRecorder(), req)
 	if ctx == nil {
 		t.Fatal("the gate did not pass the request")

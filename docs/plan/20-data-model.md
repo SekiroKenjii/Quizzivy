@@ -2390,6 +2390,14 @@ redeem one. Three columns join `app.class_join_codes`:
     `FOR NO KEY UPDATE`, then the class's active scheme-1 code row `FOR UPDATE`.
     `Rotate` and `Revoke` take the class row `FOR NO KEY UPDATE`, then update the
     code row, and take no advisory key.
+  - `Rotate` reads `archived_at` in that same locking `SELECT` (F-64), so the read
+    and the lock are one statement: an `Archive`, which holds the same row lock for
+    its plain `UPDATE`, either committed first, and the locked read returns the
+    archived row (READ COMMITTED re-reads the latest version after the wait), or
+    waits for the `Rotate`. An archived class answers `ErrClassArchived` before any
+    code row is touched, after the scope predicate has already answered
+    `ErrClassNotFound` for a class the caller does not reach. `Revoke` does not read
+    `archived_at` and stays allowed on an archived class.
   - A redemption (`EnrolNewMember`, `EnrolExisting`) takes the code row `FOR UPDATE`
     first, found by its lookup hash, and its member insert then takes `KEY SHARE`
     on the class row through the foreign key.

@@ -8,6 +8,8 @@ import (
 	"quizzivy/internal/modules/identity/application/internal/support"
 	"quizzivy/internal/modules/identity/domain"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 // resetWorkers is how many students a bulk reset works on at once, and so how
@@ -18,7 +20,8 @@ const resetWorkers = 2
 // domain.MaxBulkReset, as ResetStudentPassword resets one: each student passes
 // the same guards in the same order and is reset in a transaction of its own,
 // which revokes the student's refresh families and moves the session epoch,
-// after which the student's cached principal is forgotten.
+// after which the student's cached principal is forgotten. The audit rows of
+// one call carry one batch id, made when the call starts.
 type ResetStudentsPasswords struct {
 	Request domain.WriteRequest
 	IDs     []string
@@ -40,6 +43,13 @@ type resetOutcome struct {
 // domain.ErrResetFailed and logged with its id and the cause. When ctx ends,
 // no further student is started and the result holds what was done.
 func (s ResetStudentsPasswordsHandler) Handle(ctx context.Context, cmd ResetStudentsPasswords) (domain.BulkReset, error) {
+	batch, err := uuid.NewV7()
+	if err != nil {
+		return domain.BulkReset{}, fmt.Errorf("make a batch id: %w", err)
+	}
+	req := cmd.Request
+	req.BatchID = batch.String()
+
 	outcomes := make([]resetOutcome, len(cmd.IDs))
 	next := make(chan int)
 	var workers sync.WaitGroup
@@ -48,7 +58,7 @@ func (s ResetStudentsPasswordsHandler) Handle(ctx context.Context, cmd ResetStud
 		go func() {
 			defer workers.Done()
 			for i := range next {
-				outcomes[i] = s.resetOne(ctx, cmd.Request, cmd.IDs[i])
+				outcomes[i] = s.resetOne(ctx, req, cmd.IDs[i])
 			}
 		}()
 	}
@@ -99,6 +109,9 @@ func (s ResetStudentsPasswordsHandler) resetOne(ctx context.Context, req domain.
 	if err == nil && student.DisabledAt != nil {
 		err = domain.ErrStudentNotFound
 	}
+	if err == nil {
+		err = s.Repo.CheckResettable(ctx, req, id)
+	}
 	if err != nil {
 		outcome.err = s.classify(id, err)
 		return outcome
@@ -108,11 +121,12 @@ func (s ResetStudentsPasswordsHandler) resetOne(ctx context.Context, req domain.
 		outcome.err = s.classify(id, fmt.Errorf("make a temporary password: %w", err))
 		return outcome
 	}
-	if err := s.Repo.ResetPassword(ctx, req, id, hash, s.Now()); err != nil {
+	err = s.Repo.ResetPassword(ctx, req, id, hash, s.Now())
+	s.ForgetAfterReset(id, err)
+	if err != nil {
 		outcome.err = s.classify(id, err)
 		return outcome
 	}
-	s.Principals.Forget(id)
 	outcome.reset = domain.PasswordReset{StudentID: id, FullName: student.FullName, Email: student.Email, TemporaryPassword: password}
 	return outcome
 }

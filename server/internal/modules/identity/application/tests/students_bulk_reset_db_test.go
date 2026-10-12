@@ -13,6 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -432,5 +433,241 @@ func TestListingFiltersByAnyOfSeveralClassesAndByTheTemporaryPasswordFlag(t *tes
 				t.Errorf("the facets total %d, want %d: they must count the same students the list shows", facets.Total, len(want))
 			}
 		})
+	}
+}
+
+func TestCheckResettableAnswersWhatTheTransactionWouldWithoutLockingTheStudent(t *testing.T) {
+	w := newBulkWorld(t)
+	store := repositories.NewStudents(db.NewContext(w.pool))
+	missing := uuid.NewString()
+
+	for name, c := range map[string]struct {
+		req  domain.WriteRequest
+		id   string
+		want error
+	}{
+		"a teacher's own student":                  {w.requestA, w.mine[0], nil},
+		"a student another teacher also reaches":   {w.requestA, w.shared, domain.ErrStudentShared},
+		"another teacher's student":                {w.requestA, w.theirs, domain.ErrStudentNotFound},
+		"a disabled student":                       {w.requestA, w.disabled, domain.ErrStudentNotFound},
+		"an account that holds more than a pupil":  {w.requestA, w.grader, domain.ErrStudentNotFound},
+		"an id nobody holds":                       {w.requestA, missing, domain.ErrStudentNotFound},
+		"a shared student, for a manager":          {w.requestAB, w.shared, nil},
+		"another teacher's student, for a manager": {w.requestAB, w.theirs, nil},
+		"a disabled student, for a manager":        {w.requestAB, w.disabled, domain.ErrStudentNotFound},
+		"a grader, for a manager":                  {w.requestAB, w.grader, domain.ErrStudentNotFound},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := store.CheckResettable(context.Background(), c.req, c.id); !errors.Is(got, c.want) || (c.want == nil) != (got == nil) {
+				t.Errorf("answered %v, want %v", got, c.want)
+			}
+		})
+	}
+
+	ctx := context.Background()
+	holder, err := w.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := holder.Rollback(ctx); err != nil {
+			t.Errorf("release the lock: %v", err)
+		}
+	})
+	if _, err := holder.Exec(ctx, `SELECT 1 FROM app.users WHERE id = $1::uuid FOR UPDATE`, w.mine[0]); err != nil {
+		t.Fatal(err)
+	}
+	waited, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := store.CheckResettable(waited, w.requestA, w.mine[0]); err != nil {
+		t.Errorf("a student whose row another transaction holds answered %v, want the check to read past the lock", err)
+	}
+}
+
+func TestAStudentTheTransactionWouldRefuseCostsNoHashAndChangesNothing(t *testing.T) {
+	w := newBulkWorld(t)
+	var hashes atomic.Int64
+	w.app.SetTemporaryPasswords(func(context.Context) (string, string, error) {
+		n := hashes.Add(1)
+		return fmt.Sprintf("pw-%d", n), fmt.Sprintf("$argon2id$v=19$m=65536,t=3,p=2$c2FsdA$aGFzaA%d", n), nil
+	})
+	missing := uuid.NewString()
+	refused := []string{w.shared, w.theirs, w.disabled, w.grader, missing}
+	before := map[string]accountState{}
+	for _, id := range refused {
+		if id != missing {
+			before[id] = w.state(t, id)
+		}
+	}
+
+	result := w.resetAs(t, w.requestA, append(slices.Clone(refused), w.mine[0])...)
+
+	if got := resetIDs(result); !slices.Equal(got, []string{w.mine[0]}) {
+		t.Fatalf("reset %v, want only A's own student", got)
+	}
+	if got := hashes.Load(); got != 1 {
+		t.Errorf("a bulk reset of %d refused students and one that proceeds made %d passwords, want 1", len(refused), got)
+	}
+	for _, id := range refused {
+		if _, err := w.app.Commands.ResetStudentPassword.Handle(context.Background(), command.ResetStudentPassword{Request: w.requestA, ID: id}); err == nil {
+			t.Errorf("the single reset of %s succeeded", id)
+		}
+	}
+	if got := hashes.Load(); got != 1 {
+		t.Errorf("the single resets of the refused students made %d passwords in all, want still 1", got)
+	}
+	for id, was := range before {
+		if after := w.state(t, id); after != was {
+			t.Errorf("a refused reset changed %s: %+v became %+v", id, was, after)
+		}
+	}
+}
+
+func TestTheAuditRowsOfOneBulkResetShareABatchIDAndNothingElseDoes(t *testing.T) {
+	w := newBulkWorld(t)
+	ctx := context.Background()
+	batchOf := func(id string) (batch *string, rows int) {
+		t.Helper()
+		if err := w.pool.QueryRow(ctx, `
+			SELECT max(diff ->> 'batchId'), count(*)::int FROM app.audit_log
+			 WHERE entity_id = $1::uuid AND action = 'student.password_reset'`, id).Scan(&batch, &rows); err != nil {
+			t.Fatal(err)
+		}
+		return batch, rows
+	}
+	inBatch := func(batch string) []string {
+		t.Helper()
+		rows, err := w.pool.Query(ctx, `SELECT entity_id::text FROM app.audit_log WHERE action = 'student.password_reset' AND diff ->> 'batchId' = $1 ORDER BY 1`, batch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		var ids []string
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			ids = append(ids, id)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		return ids
+	}
+
+	first := w.resetAs(t, w.requestA, w.mine[0], w.mine[1], w.shared, w.mine[2])
+	second := w.resetAs(t, w.requestA, w.extra)
+	if _, err := w.app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: w.requestA, ID: w.mine[0]}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(first.Reset) != 3 || len(second.Reset) != 1 {
+		t.Fatalf("reset %v and %v, want three and one", resetIDs(first), resetIDs(second))
+	}
+	oneBatch, _ := batchOf(w.mine[1])
+	if oneBatch == nil {
+		t.Fatalf("the audit row of %s carries no batch id", w.mine[1])
+	}
+	if parsed, err := uuid.Parse(*oneBatch); err != nil || parsed.Version() != 7 {
+		t.Errorf("the batch id is %q (%v), want a version 7 uuid", *oneBatch, err)
+	}
+	want := resetIDs(first)
+	slices.Sort(want)
+	if got := inBatch(*oneBatch); !slices.Equal(got, want) {
+		t.Errorf("the batch holds the audit rows of %v, want exactly the students it reset, %v, and not the shared one it refused", got, want)
+	}
+	for _, r := range second.Reset {
+		other, rows := batchOf(r.StudentID)
+		if other == nil || *other == *oneBatch || rows != 1 {
+			t.Errorf("%s: batch %v in %d rows, want a batch of its own from the second call", r.StudentID, other, rows)
+		}
+	}
+	if single, rows := batchOf(w.mine[0]); rows != 2 || single == nil {
+		t.Errorf("%s has %d reset rows, want its bulk row and its single one", w.mine[0], rows)
+	}
+	var unbatched int
+	if err := w.pool.QueryRow(ctx, `SELECT count(*)::int FROM app.audit_log WHERE entity_id = $1::uuid AND action = 'student.password_reset' AND diff IS NULL`, w.mine[0]).Scan(&unbatched); err != nil {
+		t.Fatal(err)
+	}
+	if unbatched != 1 {
+		t.Errorf("%d of %s's reset rows have no diff, want the single reset's row alone", unbatched, w.mine[0])
+	}
+	var diffs string
+	if err := w.pool.QueryRow(ctx, `SELECT string_agg(diff::text, ' ') FROM app.audit_log WHERE action = 'student.password_reset' AND diff IS NOT NULL AND entity_id IN (SELECT id FROM app.users WHERE full_name LIKE '%' || $1)`, w.marker).Scan(&diffs); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range append(first.Reset, second.Reset...) {
+		if strings.Contains(diffs, r.TemporaryPassword) {
+			t.Errorf("a batch diff holds %s's temporary password", r.StudentID)
+		}
+	}
+}
+
+type commitThenCancel struct {
+	domain.Students
+	cancel context.CancelFunc
+}
+
+func (c commitThenCancel) ResetPassword(ctx context.Context, req domain.WriteRequest, id, hash string, now time.Time) error {
+	if err := c.Students.ResetPassword(ctx, req, id, hash, now); err != nil {
+		return err
+	}
+	c.cancel()
+	return fmt.Errorf("students: commit reset: %w", ctx.Err())
+}
+
+func TestAResetWhoseRequestEndedAfterTheCommitStillForgetsTheStudent(t *testing.T) {
+	w := newBulkWorld(t)
+	dbx := db.NewContext(w.pool)
+	request := func() (*application.Application, context.Context) {
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		app := application.New(nil, nil, 0, commitThenCancel{Students: repositories.NewStudents(dbx), cancel: cancel}, attemptsrepo.NewStudentStats(dbx))
+		app.SetPrincipals(w.forgets)
+		return app, ctx
+	}
+	single, bulk := w.mine[0], w.mine[1]
+	beforeSingle, beforeBulk := w.state(t, single), w.state(t, bulk)
+
+	singleApp, singleCtx := request()
+	_, err := singleApp.Commands.ResetStudentPassword.Handle(singleCtx, command.ResetStudentPassword{Request: w.requestA, ID: single})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("the single reset answered %v, want the cancellation its request ended with", err)
+	}
+	bulkApp, bulkCtx := request()
+	result, err := bulkApp.Commands.ResetStudentsPasswords.Handle(bulkCtx, command.ResetStudentsPasswords{Request: w.requestA, IDs: []string{bulk}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(result.Reset) != 0 || !errors.Is(reasonFor(result, bulk), domain.ErrResetFailed) {
+		t.Errorf("the bulk reset answered %v and %v, want its student failed, because the password could not be handed out", resetIDs(result), result.Failed)
+	}
+	for id, before := range map[string]accountState{single: beforeSingle, bulk: beforeBulk} {
+		after := w.state(t, id)
+		if after.Epoch != before.Epoch+1 || after.LiveFamilies != 0 || after.ResetAudits != before.ResetAudits+1 {
+			t.Fatalf("%s after the reset: %+v, want it committed", id, after)
+		}
+		if calls := w.forgets.of(id); len(calls) != 1 || calls[0].Epoch != after.Epoch || calls[0].ResetAudits != after.ResetAudits {
+			t.Errorf("%s was forgotten as %+v, want once, and after the commit", id, calls)
+		}
+	}
+}
+
+func TestARealDriverErrorFromAnEndedRequestIsAContextError(t *testing.T) {
+	w := newBulkWorld(t)
+	store := repositories.NewStudents(db.NewContext(w.pool))
+	before := w.state(t, w.mine[0])
+	ended, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := store.ResetPassword(ended, w.requestA, w.mine[0], "$argon2id$v=19$m=65536,t=3,p=2$c2FsdA$aGFzaA", time.Now())
+
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("a reset on an ended request answered %v, want an error that is a context.Canceled: the handlers decide to forget on it", err)
+	}
+	if after := w.state(t, w.mine[0]); after != before {
+		t.Errorf("an ended request changed the student: %+v became %+v", before, after)
 	}
 }

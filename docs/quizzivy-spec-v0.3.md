@@ -1,7 +1,41 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.82 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.84 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.83**
+
+R4, an archived class takes no new join code (F-64):
+
+- §6.4, §15 `rotateJoinCode` (`POST /teacher/classes/:id/join-code`) on an archived class is
+  `409 CLASS_ARCHIVED`, a new `ErrorCode`, and writes nothing: the class's current code, if it has
+  one, stays as it was. Nobody can join an archived class (its code answers as an unknown code, in
+  the preview and in both joins), so a code issued for one was a dead secret that read as live. The
+  class is found for the caller first and checked for archiving after, inside the transaction that
+  holds the class row, so another teacher's archived class still answers `404` as a missing class
+  does, and an archive racing a rotation is ordered with it by the row lock: one that committed
+  first is seen and refused, one that arrives later waits for the rotation. An Admin with
+  `scope.all` reaches the class and is refused with `409`. `revokeJoinCode` stays allowed on an
+  archived class, and restoring the class (`archived: false`) lets it rotate again. The web app
+  already hid the action (PR #509); the server now refuses it too.
+
+**Changes since v0.82**
+
+R4, a NUL character in a request (F-24):
+
+- §15 The character U+0000 is refused with `400 VALIDATION_FAILED`, wherever the request carries
+  text: a string or an object member name anywhere in a JSON body (the JSON a `text/plain`
+  beacon carries too), a query parameter's name or value, and a decoded path segment. PostgreSQL
+  stores it in no `text` or `jsonb` value, so every free-text field, every free-form `meta` and every
+  `q` or `tag` search answered `500` before. The refusal names the field by its dotted path
+  (`options.1.text`, `tags.0`; for a member name, the object that holds it) or the parameter, in
+  the message, as the validator's other refusals do, and in `details` as `{ field: message }`. It is decided in the one
+  place the contract is enforced: it covers the seven open operations too, after the rate limiter
+  has counted the request. A backslash followed by the characters `u0000` (JSON `\\u0000`) is ordinary
+  text and is not refused. The file name of a media upload or replacement is refused the same way
+  when it holds U+0000 (`400 VALIDATION_FAILED` naming `filename`; an RFC 2231 `filename*` could
+  carry one past the multipart parser, and `POST /teacher/media` answered `500`). A Word import's
+  file name with any control character was already `415 IMPORT_SOURCE_UNSUPPORTED`.
 
 **Changes since v0.81**
 
@@ -1295,6 +1329,7 @@ A class's code and members are managed by its teacher (`classes.teacher_id`), an
 On `/admin/classes/:id` (R4 moves the screen to `/teacher/*`):
 - Show the active code, with copy button, QR code, expiry, and uses count. `getJoinCode` reads the code back in full (§6.1); until R4 the screen shows it once when issued and then as its hint. The class cards show every code from one call, `listClasses` with `withCodes=true`, which opens a code exactly when `getJoinCode` would.
 - **Rotate code** (confirm dialog: "Mã cũ sẽ ngừng hoạt động ngay").
+- An **archived** class takes no new code: Rotate answers `409 CLASS_ARCHIVED` and leaves its current code as it is, because nobody can join an archived class (the code answers as an unknown one). Revoking stays allowed; restoring the class lets it rotate again.
 - **Disable self-join** toggle — revokes the code without issuing a new one.
 - Member list shows `joined_via` (`admin` / `join_code`) and `joined_at`, so the teacher can spot unexpected enrolments.
 - Remove member (revokes access; attempts are retained, not deleted).
@@ -2716,7 +2751,8 @@ GET    /teacher/classes/:id/join-code   → {code, hint, legacy, expiresAt, maxU
                                           sealed under a key the server no longer holds; 404 without
                                           an active code
 POST   /teacher/classes/:id/join-code   rotate {expiresInDays, maxUses} → {code, expiresAt, maxUses};
-                                          expiresAt is 23:59:59 of the last day in the caller's zone (§6.1)
+                                          expiresAt is 23:59:59 of the last day in the caller's zone (§6.1);
+                                          409 CLASS_ARCHIVED for an archived class, nothing written (§6.4)
 DELETE /teacher/classes/:id/join-code   revoke, disable self-join
 
 # admin
@@ -2776,7 +2812,8 @@ reader can swallow a read error on those four operations, so a declared body
 that ends early can still answer 400 instead of 408. Streamed uploads have
 separate handling. Every operation taking a JSON body declares the
 validator's 400 response; malformed or schema-invalid bodies are
-`400 VALIDATION_FAILED`.
+`400 VALIDATION_FAILED`, and so is a request that carries the character U+0000 in
+a body string, a body member name, a query parameter or a path segment (v0.83).
 
 **The review options and the note.** `review.release` is `on_submit` or `after_close`; `review.showClassAverage` and `studentNote` are the teacher's other two choices. On `createAssignment` an omitted field takes its default (`on_submit`, false, no note); on `updateAssignment` an omitted one keeps what is stored, every other field is replaced, and `studentNote: null` clears the note. The note is trimmed by the server and stored as NULL when nothing is left; the contract counts its 500 characters before trimming. It is plain text everywhere it is drawn and is carried to a student on the assignment's detail only.
 
