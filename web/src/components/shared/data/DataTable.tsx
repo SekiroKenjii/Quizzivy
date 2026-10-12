@@ -194,7 +194,7 @@ function HeaderRow<T extends Item>({
       style={{ gridTemplateColumns: template, paddingLeft: padX, paddingRight: padX }}
     >
       {select === undefined ? null : (
-        <div role="columnheader" className="flex">
+        <div role="columnheader" data-slot="data-table-select-page" className="flex">
           <BulkSelectAll items={rows} selection={select.selection} />
         </div>
       )}
@@ -396,7 +396,9 @@ function CardList<T extends Item>({
  * included, names the row. A click elsewhere on the row presses the link or
  * button, unless a modifier key is held or the click landed on another
  * control in the row or outside the row, as one in an open menu does. The row
- * itself is never focusable. `menuLabel` names a row's menu button, "Actions"
+ * itself is never focusable. The select-all box sits in the header cell
+ * marked `data-slot="data-table-select-page"`, where a screen can find it to
+ * give focus back. `menuLabel` names a row's menu button, "Actions"
  * otherwise. Below 768px a table that has `card` renders a
  * list of cards instead, without checkboxes, menus or asides. Content wider
  * than the table scrolls sideways inside it. Rows are dense when `dense`

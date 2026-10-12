@@ -63,7 +63,7 @@ const SEARCH =
 
 type Origin = RefObject<HTMLElement | null> | undefined;
 
-const SELECT_PAGE = 'main [role="table"] [role="columnheader"] [role="checkbox"]';
+const SELECT_PAGE = '[data-slot="data-table-select-page"] input[type="checkbox"]';
 
 /**
  * survivorOf is where focus goes when a dialog opened from the bulk bar
