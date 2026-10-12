@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef } from "react";
+import { memo, useMemo, useRef, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { ContentView } from "@/components/shared/content/ContentView";
 import {
@@ -10,17 +10,49 @@ import { Button } from "@/components/ui/button";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { cn } from "@/lib/utils";
 import { PassageBody } from "./PassageBody";
+import { DrawerBar } from "./StimulusDrawer";
 import { useKeptScroll } from "../panes";
 import { usePaper } from "../paper";
 import type { StudentGroup } from "../api";
 
 /**
+ * DrawerPane is how GroupContext lies over the question as the phone's
+ * drawer: whether it is open, where a swipe has it (`offset`, in pixels from
+ * open, or null), and the close button's ref and action.
+ */
+export interface DrawerPane {
+  open: boolean;
+  offset: number | null;
+  closeRef: Ref<HTMLButtonElement>;
+  onClose: () => void;
+}
+
+const DRAWER =
+  "bg-bg absolute inset-y-0 left-0 z-60 w-[min(88%,420px)] touch-pan-y px-4 py-4.5 will-change-transform";
+const SLIDE =
+  "transition-transform duration-[320ms] ease-[cubic-bezier(.22,.8,.24,1)] motion-reduce:transition-none";
+
+function paneClasses(wide: boolean, drawer: DrawerPane | undefined): string {
+  if (drawer === undefined) {
+    return cn("flex-[1_1_0]", wide ? "border-r px-8 py-7" : "px-4 py-4.5");
+  }
+  if (drawer.offset !== null) return cn(DRAWER, "shadow-float");
+  return cn(
+    DRAWER,
+    SLIDE,
+    drawer.open ? "translate-x-0 shadow-float" : "-translate-x-full",
+  );
+}
+
+/**
  * GroupContext is the stimulus pane: the material a group of questions
  * shares, scrolling by itself beside the question, headed as materialsHead
  * says, with the section's title as the kicker when the heading already
- * says the group's. Its text cannot be selected. A gap in the material is a button that goes to the question
- * or blank it stands for. While `hidden`, on a phone showing the question,
- * it stays mounted and keeps its place in the text.
+ * says the group's. Its text cannot be selected. A gap in the material is a
+ * button that goes to the question or blank it stands for. Given `drawer`,
+ * below 768px, it is a drawer from the left over the question, with its bar
+ * at the top; closed, it is out of sight and inert, and stays mounted, so it
+ * keeps its place in the text and a recording keeps playing.
  */
 export const GroupContext = memo(function GroupContext({
   group,
@@ -29,7 +61,7 @@ export const GroupContext = memo(function GroupContext({
   onGap,
   onRetryMedia,
   wide,
-  hidden,
+  drawer,
 }: Readonly<{
   group: StudentGroup;
   sectionTitle?: string | undefined;
@@ -37,25 +69,35 @@ export const GroupContext = memo(function GroupContext({
   onGap: (gap: MaterialGap) => void;
   onRetryMedia: () => void;
   wide: boolean;
-  hidden: boolean;
+  drawer?: DrawerPane | undefined;
 }>) {
   const { t } = useTranslation();
   const pane = useRef<HTMLElement>(null);
-  const onScroll = useKeptScroll(pane, hidden);
+  const onScroll = useKeptScroll(pane, false);
   const head = materialsHead(group, sectionTitle);
+  const closed = drawer !== undefined && !drawer.open && drawer.offset === null;
   return (
     <article
       ref={pane}
       onScroll={onScroll}
-      hidden={hidden}
+      inert={closed}
+      data-drawer-open={drawer?.open === true ? "" : undefined}
       aria-label={group.title}
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Scroll regions need keyboard access independently of their content.
       tabIndex={0}
       className={cn(
-        "min-w-0 flex-[1_1_0] overflow-y-auto -outline-offset-2! select-none",
-        wide ? "border-r px-8 py-7" : "px-4 py-4.5",
+        "min-w-0 overflow-y-auto -outline-offset-2! select-none",
+        paneClasses(wide, drawer),
       )}
+      style={
+        drawer?.offset == null
+          ? undefined
+          : { transform: `translateX(${drawer.offset}px)` }
+      }
     >
+      {drawer !== undefined && (
+        <DrawerBar closeRef={drawer.closeRef} onClose={drawer.onClose} />
+      )}
       <PassageBody kicker={head.kicker} title={head.heading}>
         <GroupMaterials
           group={group}
@@ -104,7 +146,7 @@ export const GroupListening = memo(function GroupListening({
   const standalone = group.stimuli.length === 0;
   if (!standalone && group.recordings.length === 0) return null;
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div data-shared-audio="" className="flex min-w-0 flex-col gap-3">
       {standalone && (
         <div className="flex flex-col gap-1.5">
           <h2 className="text-title font-semibold">{group.title}</h2>

@@ -353,6 +353,27 @@
   outline-offset: 2px;
 }
 
+@keyframes qz-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(7px);
+  }
+}
+
+@keyframes qz-tip {
+  from {
+    opacity: 0;
+    transform: translate(-4px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
 @keyframes qz-marquee {
   from {
     transform: translateX(0);
