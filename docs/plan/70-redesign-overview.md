@@ -397,8 +397,9 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
   a prompt or an explanation need a contract change that runs through the publish snapshot,
   the student payload and the engine. Default: built, as D1 requires, in R6; `76-r6.md` gains
   the tasks when Thuong confirms. The alternative is to build them in R4. "Students can pause"
-  (DG-111) is unbuilt until D4, which builds it as `allowPause` on its own default
-  (`74d-d4-deck-update.md`, T-D4.13 and Q4). One default leaves something drawn unbuilt in
+  (DG-111) is built in D4 as `allowPause` on its own default (`74d-d4-deck-update.md`, T-D4.13
+  and Q4, DG-183): T-D4.13 stores and serves it, T-D4.9 acts on it in the engine and T-D4.15
+  draws the switch. One default leaves something drawn unbuilt in
   every release: the review's "Markdown" mode (DG-114). If Thuong confirms it, it is a D1
   exception recorded in §2 with its DG entry; so is "Students can pause" if he declines it
   in D4.
