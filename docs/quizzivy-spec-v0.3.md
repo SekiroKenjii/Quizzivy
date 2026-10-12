@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.87 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.89 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.88**
+
+R4, M1 of the v0.10.0 release review: a device's choices from v0.9.0 move to the account once.
+
+- §5.4 After sign-in or a session restore, a theme, language or "Larger text in tests" the account does not hold, and that this browser stores as a choice made there (`quizzivy.theme`, `quizzivy.locale`, `quizzivy.testText`), is applied and saved to the account once, through the same writes Settings uses. A value the account holds always wins; nothing is written when no valid choice is stored, nor for a value the app copied there from an account; a failed save keeps the device's choice on screen, says nothing, and is tried again at the next sign-in.
 
 **Changes since v0.86**
 
@@ -1269,7 +1275,10 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`. The server revokes the family under a budget of its own, ten seconds, that the end of the request does not cancel: a tab closed or a connection lost during sign-out still ends the session, whose cookie stays in a browser that never saw the answer. A refresh does the opposite and runs on the request's own context (`docs/plan/30-risks.md` R-06).
 - The frontend applies accepted server locale/theme/display zone/larger
   text over browser mirrors, with omitted defaults `vi`/`light`/`Asia/Ho_Chi_Minh`/false
-  and no default-materialization PATCH. Anonymous choices remain local. Authenticated
+  and no default-materialization PATCH. Anonymous choices remain local until a sign-in
+  whose account lacks that key: a valid device choice (one made on this browser, not a
+  value copied from an account) is then applied and saved to the account once, and a
+  failed save retries silently at the next sign-in. Authenticated
   controls preview pending changes, restore acknowledged presentation on failure and
   retain an explicit Retry. A browser-unsupported account zone retains its exact
   server value, reports compatibility and temporarily presents Vietnam time without

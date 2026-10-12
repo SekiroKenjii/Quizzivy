@@ -36,6 +36,7 @@ const itemNames = () =>
 beforeEach(() => {
   useAuthStore.setState({ user: STUDENT });
   writeThemePreference("light");
+  localStorage.removeItem("quizzivy.theme");
 });
 
 afterEach(() => {

@@ -48,6 +48,7 @@ const items = () =>
 
 beforeEach(() => {
   writeThemePreference("light");
+  localStorage.removeItem("quizzivy.theme");
 });
 
 afterEach(() => {
