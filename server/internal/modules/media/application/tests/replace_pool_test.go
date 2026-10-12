@@ -39,7 +39,7 @@ func TestReplacementPoolRepointsOnlyEditableOwnedGraphAndCountsDistinctGroups(t 
 	w.stimulus(t, foreign, old)
 	foreignQ := w.question(t, w.b, old, domain.KindImage, &foreign)
 	foreignStandalone := w.question(t, w.b, old, domain.KindImage, nil)
-	in := w.input(old, w.a, domain.KindImage, 30, 30)
+	in := w.input(old, w.a, domain.KindImage, 30, 50)
 	out, err := w.repo.Replace(context.Background(), in)
 	if err != nil {
 		t.Fatal(err)

@@ -111,6 +111,7 @@ type found struct {
 }
 
 type scriptedRepo struct {
+	domain.Retention
 	usage     domain.Usage
 	usageOf   []access.Scope
 	inserts   []domain.InsertInput
@@ -181,7 +182,9 @@ func (r *scriptedRepo) QuestionCounts(context.Context, []string) (map[string]int
 	return r.questions, nil
 }
 
-func (r *scriptedRepo) SoftDelete(context.Context, domain.DeleteInput) error { return nil }
+func (r *scriptedRepo) SoftDelete(context.Context, domain.DeleteInput) (domain.Retired, error) {
+	return domain.Retired{}, nil
+}
 
 func (r *scriptedRepo) ReferencesFor(context.Context, []string) (map[string][]domain.TestRef, error) {
 	return r.versions, nil
@@ -388,6 +391,9 @@ func TestAFullLibraryRefusesTheFileBeforeItIsStored(t *testing.T) {
 		"one byte short":             {domain.Usage{AudioBytes: 4000, ImageBytes: 2001}, 4000, true},
 		"full of audio":              {domain.Usage{AudioBytes: quota}, 64, true},
 		"full of images":             {domain.Usage{ImageBytes: quota}, 64, true},
+		"room once held files count": {domain.Usage{AudioBytes: 4000, HeldBytes: 2000}, 4000, false},
+		"one byte short of the held": {domain.Usage{AudioBytes: 4000, HeldBytes: 2001}, 4000, true},
+		"files waiting do not count": {domain.Usage{AudioBytes: 6000, PendingBytes: quota}, 4000, false},
 	} {
 		b := newBench()
 		b.app.WithOwnerQuota(quota)
@@ -409,7 +415,8 @@ func TestAFullLibraryRefusesTheFileBeforeItIsStored(t *testing.T) {
 
 func TestTheConfiguredQuotaIsTheOneTheLibraryReports(t *testing.T) {
 	b := newBench()
-	b.repo.usage = domain.Usage{AudioBytes: 7, ImageBytes: 5}
+	waiting := time.Date(2026, 10, 19, 3, 0, 0, 0, time.UTC)
+	b.repo.usage = domain.Usage{AudioBytes: 7, ImageBytes: 5, HeldBytes: 3, PendingBytes: 2, PendingDeleteAt: &waiting}
 	scope := access.Scope{UserID: uploader}
 	for _, c := range []struct {
 		set, want int64
@@ -419,7 +426,7 @@ func TestTheConfiguredQuotaIsTheOneTheLibraryReports(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if usage != (domain.Usage{AudioBytes: 7, ImageBytes: 5, QuotaBytes: c.want}) {
+		if usage != (domain.Usage{AudioBytes: 7, ImageBytes: 5, QuotaBytes: c.want, HeldBytes: 3, PendingBytes: 2, PendingDeleteAt: &waiting}) {
 			t.Errorf("a quota set to %d reports %+v, want the library's bytes beside %d", c.set, usage, c.want)
 		}
 	}

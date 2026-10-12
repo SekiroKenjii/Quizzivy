@@ -113,7 +113,8 @@ func TestGroupMediaLockSerializesCreateBeforeSoftDelete(t *testing.T) {
 	}
 	deleted := make(chan error, 1)
 	go func() {
-		deleted <- mediarepo.NewPostgres(db.NewContext(pool)).SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()})
+		_, err := mediarepo.NewPostgres(db.NewContext(pool)).SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()})
+		deleted <- err
 	}()
 	observed := false
 	deadline := time.Now().Add(2 * time.Second)
@@ -144,7 +145,7 @@ func TestGroupMediaLockRejectsAssetDeletedBeforeCreate(t *testing.T) {
 	author := makeAuthor(t, pool)
 	asset := committedGroupAsset(t, pool, author)
 	media := mediarepo.NewPostgres(db.NewContext(pool))
-	if err := media.SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()}); err != nil {
+	if _, err := media.SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()}); err != nil {
 		t.Fatal(err)
 	}
 	bundle := storedGroupFixture(t, asset)

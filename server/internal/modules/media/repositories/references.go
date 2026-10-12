@@ -98,13 +98,14 @@ func QuestionCounts(ctx context.Context, q db.Querier, assetIDs []string) (map[s
 	return out, nil
 }
 
-// LockForVersionUse takes the row lock that makes the delete check meaningful,
-// and must be called by the publish routine before inserting a version question
-// that names the asset.
+// LockForVersionUse takes the row lock that makes the delete check and the
+// sweep meaningful, and must be called by the publish routine before inserting a
+// version question that names the asset. A deleted asset and one whose object
+// was removed answer ErrNotFound.
 func LockForVersionUse(ctx context.Context, q db.Querier, assetID string) error {
 	var deleted bool
 	err := q.QueryRow(ctx,
-		`SELECT deleted_at IS NOT NULL FROM app.media_assets WHERE id = $1 FOR UPDATE`,
+		`SELECT deleted_at IS NOT NULL OR purged_at IS NOT NULL FROM app.media_assets WHERE id = $1 FOR UPDATE`,
 		assetID).Scan(&deleted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
@@ -149,6 +150,7 @@ const readableAssets = `
 	  FROM app.media_assets a
 	 WHERE a.id = ANY($1::uuid[])
 	   AND a.deleted_at IS NULL
+	   AND a.purged_at IS NULL
 	   AND ($2::boolean
 	    OR a.owner_id = $3::uuid
 	    OR EXISTS (SELECT 1 FROM app.questions q

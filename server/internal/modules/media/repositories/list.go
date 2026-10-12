@@ -17,7 +17,7 @@ const (
 	MaxLimit     = 100
 )
 
-const inLibrary = `a.deleted_at IS NULL AND a.replaced_by IS NULL`
+const inLibrary = `a.deleted_at IS NULL AND a.replaced_by IS NULL AND a.purged_at IS NULL`
 
 const nameSearch = `app.immutable_unaccent(lower(coalesce(a.display_name, '') || ' ' || a.original_filename))` +
 	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
@@ -87,7 +87,8 @@ func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Face
 }
 
 // Usage sums the scope's whole library by kind, whatever the list is
-// filtered by. It leaves QuotaBytes zero: the quota is the application's.
+// filtered by, and the files that left it by what keeps them in storage. It
+// leaves QuotaBytes zero: the quota is the application's.
 func (s *Postgres) Usage(ctx context.Context, scope access.Scope) (domain.Usage, error) {
 	from, args := library(libraryFilter{scope: scope})
 	var u domain.Usage
@@ -97,6 +98,10 @@ func (s *Postgres) Usage(ctx context.Context, scope access.Scope) (domain.Usage,
 		Scan(&u.AudioBytes, &u.ImageBytes)
 	if err != nil {
 		return domain.Usage{}, fmt.Errorf("media: usage: %w", err)
+	}
+	u.HeldBytes, u.PendingBytes, u.PendingDeleteAt, err = retiredFigures(ctx, s.Conn(), scope)
+	if err != nil {
+		return domain.Usage{}, err
 	}
 	return u, nil
 }

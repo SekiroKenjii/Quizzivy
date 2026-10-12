@@ -43,7 +43,8 @@ func (a *Application) WithOwnerQuota(bytes int64) *Application {
 
 type Commands struct {
 	Replace cqrs.CommandHandler[command.Replace, domain.ReplaceResult]
-	Delete  cqrs.CommandHandler[command.Delete, cqrs.Nothing]
+	Delete  cqrs.CommandHandler[command.Delete, domain.Retired]
+	Sweep   cqrs.CommandHandler[command.Sweep, command.Swept]
 	Update  cqrs.CommandHandler[command.Update, domain.Asset]
 	Upload  cqrs.CommandHandler[command.Upload, domain.Asset]
 }
@@ -66,6 +67,7 @@ func New(repo domain.Repository, object ports.ObjectStore, probe ports.AudioProb
 		Commands: Commands{
 			Replace: command.ReplaceHandler{Service: service},
 			Delete:  command.DeleteHandler{Service: service},
+			Sweep:   command.SweepHandler{Service: service},
 			Update:  command.UpdateHandler{Service: service},
 			Upload:  command.UploadHandler{Service: service},
 		},

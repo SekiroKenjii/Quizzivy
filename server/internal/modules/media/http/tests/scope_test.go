@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -92,6 +93,7 @@ func TestTheLibrarysFiltersReachEveryFigureThatFollowsThem(t *testing.T) {
 	audio, search, unused := openapi.MediaKind("audio"), "sân bay", true
 	var listed, faceted domain.ListInput
 	var totalled query.TotalBytes
+	pendingDeleteAt := time.Date(2026, 10, 19, 3, 0, 0, 0, time.UTC)
 	app := &application.Application{Queries: application.Queries{
 		List: cqrs.HandlerFunc[query.List, query.ListResult](func(_ context.Context, q query.List) (query.ListResult, error) {
 			listed = q.Input
@@ -106,7 +108,7 @@ func TestTheLibrarysFiltersReachEveryFigureThatFollowsThem(t *testing.T) {
 			return domain.Facets{All: 8, Audio: 5, Image: 3, Unused: 1}, nil
 		}),
 		Usage: cqrs.HandlerFunc[query.Usage, domain.Usage](func(context.Context, query.Usage) (domain.Usage, error) {
-			return domain.Usage{AudioBytes: 11, ImageBytes: 7, QuotaBytes: 100}, nil
+			return domain.Usage{AudioBytes: 11, ImageBytes: 7, QuotaBytes: 100, HeldBytes: 5, PendingBytes: 3, PendingDeleteAt: &pendingDeleteAt}, nil
 		}),
 	}}
 	response, err := mediahttp.NewMedia(app).ListMedia(contextAs(t, principal), openapi.ListMediaRequestObject{
@@ -127,8 +129,12 @@ func TestTheLibrarysFiltersReachEveryFigureThatFollowsThem(t *testing.T) {
 	if body.Facets != (openapi.MediaFacets{All: 8, Audio: 5, Image: 3, Unused: 1}) {
 		t.Errorf("facets = %+v", body.Facets)
 	}
-	if body.Usage != (openapi.MediaUsage{AudioBytes: 11, ImageBytes: 7, QuotaBytes: 100}) || body.TotalBytes != 240_000 {
-		t.Errorf("usage = %+v and totalBytes = %d", body.Usage, body.TotalBytes)
+	usage := body.Usage
+	if usage.AudioBytes != 11 || usage.ImageBytes != 7 || usage.QuotaBytes != 100 || body.TotalBytes != 240_000 {
+		t.Errorf("usage = %+v and totalBytes = %d", usage, body.TotalBytes)
+	}
+	if usage.HeldBytes == nil || *usage.HeldBytes != 5 || usage.PendingBytes == nil || *usage.PendingBytes != 3 || usage.PendingDeleteAt == nil || !usage.PendingDeleteAt.Equal(pendingDeleteAt) {
+		t.Errorf("held, pending and the first removal = %v, %v and %v, want 5, 3 and %v", usage.HeldBytes, usage.PendingBytes, usage.PendingDeleteAt, pendingDeleteAt)
 	}
 	item := body.Items[0]
 	if item.DisplayName != "Bản đồ.png" || item.QuestionCount != 2 || item.DefaultMaxPlays != nil || item.Width == nil || *item.Width != 1200 || item.Height == nil || *item.Height != 800 {
@@ -215,9 +221,9 @@ func TestADeleteCarriesTheCallersScopeAll(t *testing.T) {
 	for name, principal := range principals() {
 		t.Run(name, func(t *testing.T) {
 			var seen domain.DeleteInput
-			app := &application.Application{Commands: application.Commands{Delete: cqrs.HandlerFunc[command.Delete, cqrs.Nothing](func(_ context.Context, in command.Delete) (cqrs.Nothing, error) {
+			app := &application.Application{Commands: application.Commands{Delete: cqrs.HandlerFunc[command.Delete, domain.Retired](func(_ context.Context, in command.Delete) (domain.Retired, error) {
 				seen = in.Input
-				return cqrs.Nothing{}, domain.ErrNotFound
+				return domain.Retired{}, domain.ErrNotFound
 			})}}
 			response, err := mediahttp.NewMedia(app).DeleteMedia(contextAs(t, principal), openapi.DeleteMediaRequestObject{Id: uuid.New()})
 			if err != nil {

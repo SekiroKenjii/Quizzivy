@@ -15,6 +15,7 @@ import (
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
 	importsworker "quizzivy/internal/modules/imports/application/worker"
+	mediaapp "quizzivy/internal/modules/media/application"
 	notificationsapp "quizzivy/internal/modules/notifications/application"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
@@ -22,7 +23,7 @@ import (
 	"quizzivy/internal/platform/imagesafe"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity and notifications applications the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity, classes, notifications and media applications and the import sweeper the background jobs drive.
 type Assembly struct {
 	Modules       router.Modules
 	Principals    *accessapp.Application
@@ -32,6 +33,7 @@ type Assembly struct {
 	Classes       *classesapp.Application
 	Notifications *notificationsapp.Application
 	ImportSweeper *importsworker.Sweeper
+	Media         *mediaapp.Application
 	Maintenance   httpx.MaintenanceSource
 }
 
@@ -95,6 +97,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},
 		ImportSweeper: sweeper,
+		Media:         mediaApp,
 		Tokens:        tokens,
 		Docs:          docs,
 		Identity:      identityApp,
