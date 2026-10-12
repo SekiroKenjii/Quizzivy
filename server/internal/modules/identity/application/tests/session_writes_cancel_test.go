@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/domain"
 )
 
 func TestARefreshCancelledBeforeItsCommitLeavesThePresentedTokenLive(t *testing.T) {
@@ -85,6 +86,9 @@ func TestALogoutTheClientAbandonsWhileItWaitsStillRevokesTheFamily(t *testing.T)
 	}
 	if n := liveTokensInFamily(t, pool, family); n != 0 {
 		t.Errorf("live tokens after an abandoned logout = %d, want 0: the cookie stays in the browser and would sign the next visitor in", n)
+	}
+	if _, err := svc.Commands.Refresh.Handle(context.Background(), command.Refresh{Token: token}); !errors.Is(err, domain.ErrRefreshRejected) {
+		t.Errorf("the abandoned logout's cookie refreshed with %v, want it refused as revoked (%v), not as reuse", err, domain.ErrRefreshRejected)
 	}
 }
 
