@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /** Shell is the console a route belongs to. */
-export type Shell = "teacher" | "admin" | "student";
+export type Shell = "teacher" | "student";
 
 const skeletons = new Map<Shell, () => ReactNode>();
 
