@@ -13,6 +13,12 @@ import { setAccountTestText, writeLargerTestText } from "@/lib/testText";
 import { previewCompactTables, setAccountCompactTables } from "@/lib/compactTables";
 import { authStore, useAuthStore, type ActorLease } from "@/stores/auth";
 import {
+  markChosen,
+  markMirrored,
+  readDeviceChoices,
+  type DeviceChoices,
+} from "./deviceChoices";
+import {
   fetchCurrentUser,
   updatePreferences,
   updateProfile,
@@ -51,6 +57,7 @@ const listeners = new Set<() => void>();
 let lane: { generation: number; tail: Promise<unknown>; count: number } | null = null;
 let compatibilityToast: string | number | undefined;
 let choiceToast: string | number | undefined;
+let migratedGeneration: number | null = null;
 
 function publish(next: AccountPreferenceStatus) {
   status = next;
@@ -62,9 +69,28 @@ function requireActor(lease: ActorLease) {
 }
 
 function applyUser(user: User) {
-  void setLocale(user.locale ?? "vi");
-  setAccountTheme(user.preferences?.theme ?? "light");
-  setAccountTestText(user.preferences?.largerTestText ?? false);
+  const device = readDeviceChoices();
+  const held = {
+    theme: user.preferences?.theme,
+    locale: user.locale ?? undefined,
+    largerTestText: user.preferences?.largerTestText,
+  };
+  const pending: DeviceChoices = {};
+  if (held.theme === undefined && device.theme !== undefined)
+    pending.theme = device.theme;
+  if (held.locale === undefined && device.locale !== undefined)
+    pending.locale = device.locale;
+  if (held.largerTestText === undefined && device.largerTestText !== undefined)
+    pending.largerTestText = device.largerTestText;
+  void setLocale(held.locale ?? pending.locale ?? "vi");
+  setAccountTheme(held.theme ?? pending.theme ?? "light");
+  setAccountTestText(held.largerTestText ?? pending.largerTestText ?? false);
+  markMirrored(
+    (["theme", "locale", "largerTestText"] as const).filter(
+      (name) => pending[name] === undefined,
+    ),
+  );
+  migrateDeviceChoices(user, pending);
   setAccountCompactTables(user.preferences?.compactTables ?? false);
   const supported = setDisplayTimeZone(user.timeZone ?? APP_TIME_ZONE);
   const unsupportedZone = supported ? null : (user.timeZone ?? null);
@@ -229,7 +255,29 @@ export function runAccountMutation(
   });
 }
 
+function migrateDeviceChoices(user: User, pending: DeviceChoices) {
+  const lease = authStore.captureActor();
+  if (lease.userId !== user.id || migratedGeneration === lease.generation) return;
+  const { locale, ...preferences } = pending;
+  if (locale === undefined && Object.keys(preferences).length === 0) return;
+  migratedGeneration = lease.generation;
+  void ordered(async () => {
+    if (Object.keys(preferences).length > 0) {
+      const saved = await updatePreferences(preferences);
+      requireActor(lease);
+      const current = useAuthStore.getState().user;
+      if (current) acceptUser({ ...current, preferences: saved }, lease);
+    }
+    if (locale !== undefined) acceptUser(await updateProfile({ locale }), lease);
+  }).catch(() => undefined);
+}
+
 function preview(intent: PreferenceIntent) {
+  if (!authStore.captureActor().userId) {
+    if ("locale" in intent) markChosen("locale");
+    else if ("theme" in intent) markChosen("theme");
+    else if ("largerTestText" in intent) markChosen("largerTestText");
+  }
   if ("locale" in intent) void setLocale(intent.locale);
   else if ("theme" in intent) writeThemePreference(intent.theme);
   else if ("compactTables" in intent) previewCompactTables(intent.compactTables);

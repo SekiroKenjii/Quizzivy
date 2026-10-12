@@ -1,7 +1,19 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.87 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.89 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.88**
+
+R4, M1 of the v0.10.0 release review: a device's choices from v0.9.0 move to the account once.
+
+- §5.4 After sign-in or a session restore, a theme, language or "Larger text in tests" the account does not hold, and that this browser stores as a choice made there (`quizzivy.theme`, `quizzivy.locale`, `quizzivy.testText`), is applied and saved to the account once, through the same writes Settings uses. A value the account holds always wins; nothing is written when no valid choice is stored, nor for a value the app copied there from an account; a failed save keeps the device's choice on screen, says nothing, and is tried again at the next sign-in.
+
+**Changes since v0.87**
+
+R4, F-67: a replaced legacy join code keeps its use count.
+
+- §6.1 The sealed code `jobs.RotateLegacyJoinCodes` issues keeps the old code's use count with its expiry, use cap and creator, and no longer starts at 0 uses. A class whose legacy code had reached its cap gets a code that is used up (`JOIN_CODE_EXHAUSTED` on the next join), not one that admits `max_uses` more students; its teacher issues a new code when they want to admit more. A code below its cap keeps what was left of it, and a stored NULL cap stays NULL with its count carried.
 
 **Changes since v0.86**
 
@@ -1269,7 +1281,10 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`. The server revokes the family under a budget of its own, ten seconds, that the end of the request does not cancel: a tab closed or a connection lost during sign-out still ends the session, whose cookie stays in a browser that never saw the answer. A refresh does the opposite and runs on the request's own context (`docs/plan/30-risks.md` R-06).
 - The frontend applies accepted server locale/theme/display zone/larger
   text over browser mirrors, with omitted defaults `vi`/`light`/`Asia/Ho_Chi_Minh`/false
-  and no default-materialization PATCH. Anonymous choices remain local. Authenticated
+  and no default-materialization PATCH. Anonymous choices remain local until a sign-in
+  whose account lacks that key: a valid device choice (one made on this browser, not a
+  value copied from an account) is then applied and saved to the account once, and a
+  failed save retries silently at the next sign-in. Authenticated
   controls preview pending changes, restore acknowledged presentation on failure and
   retain an explicit Retry. A browser-unsupported account zone retains its exact
   server value, reports compatibility and temporarily presents Vietnam time without
@@ -1315,7 +1330,7 @@ A join code belongs to a class and is a **bearer secret**: whoever holds it can 
 - Generated from a CSPRNG. Never sequential, never derived from the class ID.
 - Per-code controls: `expires_at` (default 30 days, counted to 23:59:59 of the last day in the issuer's calendar zone), `max_uses` (default null = unlimited), `uses_count`, `revoked_at`.
 - One **active** code per class at a time. Rotating issues a new code and revokes the old one; previously enrolled students are unaffected.
-- Stored encrypted, so it can be read back for its teacher and for admins (D5), and found by a keyed hash (§6.5). A code issued from v0.8.0 on is sealed under the server's `JOIN_CODE_KEY`, which the database never holds (§13.3). A code issued before v0.8.0 was held only as its SHA-256: it redeemed but could not be read back. v0.10.0 replaced every such code that was neither revoked nor expired, once, when the API started: `jobs.RotateLegacyJoinCodes`, which `Serve` runs beside the prunes and nothing else runs, under a two-minute budget and never on a timer. Each class is its own transaction, taking advisory lock `(73819, 41)`, then the class row, then re-reading the class's active code, so machines that start together rotate a class once and a second run finds nothing; a class that lost a deadlock is tried once more after the others, and a class the run could not reach waits for the next start-up. The sealed code keeps the old one's expiry and use cap (a stored NULL stays NULL) and creator, starts unused, leaves the class's self-join setting as it is, and is audited as the System (`class.join_code_rotated`, reason `legacy_rotation`, hints only, never a code). Archived classes are rotated too. Each class's teacher is told once in the app (`join_codes.rotated`, with how many of their classes and the first five names); the old code then answers as any replaced code does, "revoked" where self-join is open and as an unknown code where it is closed or the class archived. A revoked or expired scheme-1 row is left as it is, and the scheme-1 lookup that finds it stays until R5 removes it (`docs/setup/operations.md`, "Legacy join codes").
+- Stored encrypted, so it can be read back for its teacher and for admins (D5), and found by a keyed hash (§6.5). A code issued from v0.8.0 on is sealed under the server's `JOIN_CODE_KEY`, which the database never holds (§13.3). A code issued before v0.8.0 was held only as its SHA-256: it redeemed but could not be read back. v0.10.0 replaced every such code that was neither revoked nor expired, once, when the API started: `jobs.RotateLegacyJoinCodes`, which `Serve` runs beside the prunes and nothing else runs, under a two-minute budget and never on a timer. Each class is its own transaction, taking advisory lock `(73819, 41)`, then the class row, then re-reading the class's active code, so machines that start together rotate a class once and a second run finds nothing; a class that lost a deadlock is tried once more after the others, and a class the run could not reach waits for the next start-up. The sealed code keeps the old one's expiry, use cap (a stored NULL stays NULL), use count and creator, so a code that had reached its cap is used up again and the rotation admits no student the old code refused (F-67); it leaves the class's self-join setting as it is, and is audited as the System (`class.join_code_rotated`, reason `legacy_rotation`, hints only, never a code). Archived classes are rotated too. Each class's teacher is told once in the app (`join_codes.rotated`, with how many of their classes and the first five names); the old code then answers as any replaced code does, "revoked" where self-join is open and as an unknown code where it is closed or the class archived. A revoked or expired scheme-1 row is left as it is, and the scheme-1 lookup that finds it stays until R5 removes it (`docs/setup/operations.md`, "Legacy join codes").
 - The key is standard base64 of exactly 32 random bytes, kept as a Fly secret with an offline copy. The API refuses to start without it and never logs it. HKDF-SHA256 derives three values from it, each under its own label: the AES-256-GCM key, the HMAC-SHA256 lookup key and a 16-bit key id; a key whose id derives to 0 is refused.
 - Rotating the key: one deploy sets `JOIN_CODE_KEY_PREVIOUS` to the old key and `JOIN_CODE_KEY` to the new one, and codes under either key redeem and read back. `maintenance rekey-join-codes -apply` then re-seals every code under the old key with the new one, and the old key is unset (`docs/setup/operations.md`, "Join-code key"). A lost key leaves every code sealed under it unreadable and unredeemable: rotate every class's code.
 

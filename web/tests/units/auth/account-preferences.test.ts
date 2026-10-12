@@ -12,24 +12,91 @@ import { readThemePreference } from "@/lib/theme";
 import { readLargerTestText } from "@/lib/testText";
 import { getDisplayTimeZone } from "@/lib/i18n/datetime";
 import i18n from "@/lib/i18n";
-import { studentUser } from "@tests/support/fixtures";
+import { adminUser, studentUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
+
+const toastSpy = vi.hoisted(() => vi.fn());
+vi.mock("@/components/ui/sonner", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/ui/sonner")>();
+  const toast = Object.assign((...args: Parameters<typeof actual.toast>) => {
+    toastSpy(...args);
+    return actual.toast(...args);
+  }, actual.toast);
+  return { ...actual, toast };
+});
 
 afterEach(() => {
   useAuthStore.getState().clearSession();
   localStorage.clear();
   vi.restoreAllMocks();
+  toastSpy.mockClear();
 });
 
-it("hydrates effective defaults over stale storage without materializing a PATCH", async () => {
+it("applies a device's v0.9.0 choices the account lacks, and saves them once", async () => {
+  const preferenceBodies: unknown[] = [];
+  const profileBodies: unknown[] = [];
+  server.use(
+    http.patch("http://localhost:8080/me/preferences", async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      preferenceBodies.push(body);
+      return HttpResponse.json(body);
+    }),
+    http.patch("http://localhost:8080/auth/me", async ({ request }) => {
+      const body = (await request.json()) as { locale: "vi" | "en" };
+      profileBodies.push(body);
+      return HttpResponse.json({
+        ...studentUser,
+        preferences: preferenceBodies.at(-1),
+        ...body,
+      });
+    }),
+  );
+  localStorage.setItem("quizzivy.theme", "dark");
+  localStorage.setItem("quizzivy.locale", "en");
+  localStorage.setItem("quizzivy.testText", "large");
+  useAuthStore.getState().setSession("a", studentUser);
+  expect(readThemePreference()).toBe("dark");
+  expect(readLargerTestText()).toBe(true);
+  expect(getDisplayTimeZone()).toBe("Asia/Ho_Chi_Minh");
+  await vi.waitFor(() => expect(profileBodies).toHaveLength(1));
+  expect(preferenceBodies).toEqual([{ theme: "dark", largerTestText: true }]);
+  expect(profileBodies).toEqual([{ locale: "en" }]);
+  await vi.waitFor(() => expect(i18n.language).toBe("en"));
+  const user = useAuthStore.getState().user;
+  expect(user?.preferences).toEqual({ theme: "dark", largerTestText: true });
+  expect(user?.locale).toBe("en");
+  useAuthStore.getState().setUser({ ...user!, fullName: "Nguyễn Văn Bình" });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(preferenceBodies).toHaveLength(1);
+  expect(profileBodies).toHaveLength(1);
+  await i18n.changeLanguage("vi");
+});
+
+it("keeps the account's value over the device's and saves nothing", async () => {
   const writes = vi.fn(() => HttpResponse.json({}));
   server.use(
     http.patch("http://localhost:8080/auth/me", writes),
     http.patch("http://localhost:8080/me/preferences", writes),
   );
   localStorage.setItem("quizzivy.theme", "dark");
-  localStorage.setItem("quizzivy.locale", "en");
   localStorage.setItem("quizzivy.testText", "large");
+  useAuthStore.getState().setSession("a", {
+    ...studentUser,
+    locale: "vi",
+    preferences: { theme: "light", largerTestText: false },
+  });
+  expect(readThemePreference()).toBe("light");
+  expect(readLargerTestText()).toBe(false);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(writes).not.toHaveBeenCalled();
+});
+
+it("hydrates the defaults and saves nothing when the device stores no choice", async () => {
+  const writes = vi.fn(() => HttpResponse.json({}));
+  server.use(
+    http.patch("http://localhost:8080/auth/me", writes),
+    http.patch("http://localhost:8080/me/preferences", writes),
+  );
   useAuthStore.getState().setSession("a", studentUser);
   expect(readThemePreference()).toBe("light");
   expect(readLargerTestText()).toBe(false);
@@ -38,6 +105,123 @@ it("hydrates effective defaults over stale storage without materializing a PATCH
   expect(useAuthStore.getState().user?.preferences).toBeUndefined();
   await new Promise((resolve) => setTimeout(resolve, 30));
   expect(writes).not.toHaveBeenCalled();
+});
+
+it("treats an invalid stored value as no choice", async () => {
+  const writes = vi.fn(() => HttpResponse.json({}));
+  server.use(
+    http.patch("http://localhost:8080/auth/me", writes),
+    http.patch("http://localhost:8080/me/preferences", writes),
+  );
+  localStorage.setItem("quizzivy.theme", "sepia");
+  localStorage.setItem("quizzivy.locale", "fr");
+  localStorage.setItem("quizzivy.testText", "huge");
+  useAuthStore.getState().setSession("a", studentUser);
+  expect(readThemePreference()).toBe("light");
+  expect(readLargerTestText()).toBe(false);
+  expect(i18n.language).toBe("vi");
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(writes).not.toHaveBeenCalled();
+});
+
+it("keeps the device's choice when the save fails, says nothing, and tries again at the next sign-in", async () => {
+  const attempts = vi.fn(() => HttpResponse.json({}, { status: 503 }));
+  server.use(http.patch("http://localhost:8080/me/preferences", attempts));
+  localStorage.setItem("quizzivy.theme", "dark");
+  useAuthStore.getState().setSession("a", studentUser);
+  await vi.waitFor(() => expect(attempts).toHaveBeenCalledTimes(1));
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(readThemePreference()).toBe("dark");
+  expect(toastSpy).not.toHaveBeenCalled();
+  useAuthStore.getState().setUser({ ...studentUser, fullName: "Nguyễn Văn Bình" });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(attempts).toHaveBeenCalledTimes(1);
+  useAuthStore.getState().clearSession();
+  useAuthStore.getState().setSession("b", studentUser);
+  expect(readThemePreference()).toBe("dark");
+  await vi.waitFor(() => expect(attempts).toHaveBeenCalledTimes(2));
+});
+
+it("sends nothing for an actor that left before its turn, and nothing more after a departure mid-flight", async () => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const preferenceWrites = vi.fn(async () => {
+    await held;
+    return HttpResponse.json({ theme: "dark" });
+  });
+  const profileWrites = vi.fn(() => HttpResponse.json(studentUser));
+  server.use(
+    http.patch("http://localhost:8080/me/preferences", preferenceWrites),
+    http.patch("http://localhost:8080/auth/me", profileWrites),
+  );
+  localStorage.setItem("quizzivy.theme", "dark");
+  useAuthStore.getState().setSession("a", studentUser);
+  useAuthStore.getState().clearSession();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(preferenceWrites).not.toHaveBeenCalled();
+
+  localStorage.setItem("quizzivy.locale", "en");
+  localStorage.removeItem("quizzivy.preferenceMirror");
+  localStorage.setItem("quizzivy.theme", "dark");
+  useAuthStore.getState().setSession("b", studentUser);
+  await vi.waitFor(() => expect(preferenceWrites).toHaveBeenCalledTimes(1));
+  useAuthStore.getState().setSession("c", {
+    ...adminUser,
+    locale: "vi",
+    preferences: { theme: "light", largerTestText: false },
+  });
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(profileWrites).not.toHaveBeenCalled();
+  expect(useAuthStore.getState().user?.id).toBe(adminUser.id);
+  expect(useAuthStore.getState().user?.preferences).toEqual({
+    theme: "light",
+    largerTestText: false,
+  });
+  expect(readThemePreference()).toBe("light");
+  await i18n.changeLanguage("vi");
+});
+
+it("does not take another account's mirrored values for this device's choice", async () => {
+  const writes = vi.fn(() => HttpResponse.json({}));
+  server.use(
+    http.patch("http://localhost:8080/auth/me", writes),
+    http.patch("http://localhost:8080/me/preferences", writes),
+  );
+  useAuthStore.getState().setSession("a", {
+    ...adminUser,
+    locale: "vi",
+    preferences: { theme: "dark", largerTestText: true },
+  });
+  expect(localStorage.getItem("quizzivy.theme")).toBe("dark");
+  useAuthStore.getState().clearSession();
+  useAuthStore.getState().setSession("b", studentUser);
+  expect(readThemePreference()).toBe("light");
+  expect(readLargerTestText()).toBe(false);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(writes).not.toHaveBeenCalled();
+});
+
+it("saves a choice made with no account signed in at the next sign-in", async () => {
+  const bodies: unknown[] = [];
+  server.use(
+    http.patch("http://localhost:8080/me/preferences", async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      bodies.push(body);
+      return HttpResponse.json(body);
+    }),
+  );
+  useAuthStore.getState().setSession("a", {
+    ...adminUser,
+    preferences: { theme: "light" },
+  });
+  useAuthStore.getState().clearSession();
+  await chooseAccountPreference({ theme: "dark" });
+  useAuthStore.getState().setSession("b", studentUser);
+  await vi.waitFor(() => expect(bodies).toEqual([{ theme: "dark" }]));
+  expect(readThemePreference()).toBe("dark");
 });
 
 it("serializes all five profile fields while preserving null and omission", async () => {
