@@ -5,8 +5,6 @@ import { writeSidebarState } from "@/layouts/shell/sidebarState";
 import "@/layouts/TeacherLayout";
 import { TeacherSkeleton } from "@/layouts/TeacherSkeleton";
 
-const REBUILT = { crumb: [{ key: "teacherShell.nav.tests" }] };
-
 function draw() {
   const { container } = render(<TeacherSkeleton />);
   const frame = container.firstElementChild as HTMLElement;
@@ -44,24 +42,19 @@ describe("the teacher frame the splash fades onto", () => {
 });
 
 describe("the splash hand-off for a teacher route", () => {
-  it("draws the frame for a route rebuilt for the new shell", () => {
-    const { container } = render(<>{skeletonFor("/teacher/tests", REBUILT)}</>);
-    expect(
-      container.querySelector("[data-scale='deck'] [data-slot='skeleton-sidebar']"),
-    ).not.toBeNull();
+  it("draws the frame for every teacher route", () => {
+    for (const path of ["/teacher", "/teacher/tests"]) {
+      const { container, unmount } = render(<>{skeletonFor(path)}</>);
+      expect(
+        container.querySelector("[data-scale='deck'] [data-slot='skeleton-sidebar']"),
+        path,
+      ).not.toBeNull();
+      unmount();
+    }
   });
 
-  it.each([
-    ["no handle", undefined],
-    ["an empty handle", {}],
-    ["a student detail handle", { detail: { titleKey: "nav.settings", back: "/app" } }],
-  ])("draws nothing for a teacher route with %s", (_what, handle) => {
-    expect(skeletonFor("/teacher/tests", handle)).toBeNull();
-    expect(skeletonFor("/teacher", handle)).toBeNull();
-  });
-
-  it("draws nothing for a path outside the teacher tree, whatever the handle", () => {
-    expect(skeletonFor("/login", REBUILT)).toBeNull();
-    expect(skeletonFor("/teachers", REBUILT)).toBeNull();
+  it("draws nothing for a path outside the teacher tree", () => {
+    expect(skeletonFor("/login")).toBeNull();
+    expect(skeletonFor("/teachers")).toBeNull();
   });
 });

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Link, Outlet } from "react-router";
-import TeacherShell from "@/layouts/TeacherShell";
+import { Link } from "react-router";
+import TeacherLayout from "@/layouts/TeacherLayout";
 import { writeSidebarState } from "@/layouts/shell/sidebarState";
 import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
@@ -13,11 +13,10 @@ import "@/lib/i18n";
 
 const QUIET = { ...summaryBody, liveAssignments: 0, answersToGrade: 0 };
 
-const rebuilt = () => document.getElementById("teacher-sidebar");
-const legacy = () => document.getElementById("admin-sidebar");
+const sidebar = () => document.getElementById("teacher-sidebar");
 
 function tree(children: Parameters<typeof renderRoutes>[1]) {
-  return [{ path: "/teacher", element: <TeacherShell />, children }];
+  return [{ path: "/teacher", element: <TeacherLayout />, children }];
 }
 
 beforeEach(() => {
@@ -34,72 +33,38 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("the shell a teacher page renders in", () => {
-  it("is the old one, forced light and with its slots, for a route with no handle", async () => {
-    writeThemePreference("dark");
-    renderRoutes(
-      "/teacher/tests",
-      tree([{ path: "tests", element: <p>đề thi cũ</p> }]),
-      { ...teacherUser, preferences: { theme: "dark" } },
-    );
-    await screen.findByText("đề thi cũ");
-
-    expect(legacy()).not.toBeNull();
-    expect(rebuilt()).toBeNull();
-    expect(document.documentElement).not.toHaveClass("dark");
-    expect(document.querySelectorAll("[data-columns]")).toHaveLength(2);
-    expect(screen.getByRole("main").closest("[data-scale='deck']")).toBeNull();
-    expect(document.title).toBe("Quizzivy");
-  });
-
-  it("is the new one, in the chosen theme, for a route that declares a crumb", async () => {
+describe("the shell every teacher page renders in", () => {
+  it("is the deck's, in the chosen theme, titled by the route's crumb", async () => {
     writeThemePreference("dark");
     renderRoutes(
       "/teacher",
-      tree([{ index: true, handle: DASHBOARD, element: <p>tổng quan mới</p> }]),
+      tree([{ index: true, handle: DASHBOARD, element: <p>tổng quan</p> }]),
       { ...teacherUser, preferences: { theme: "dark" } },
     );
-    await screen.findByText("tổng quan mới");
+    await screen.findByText("tổng quan");
 
-    expect(rebuilt()).not.toBeNull();
-    expect(legacy()).toBeNull();
+    expect(sidebar()).not.toBeNull();
+    expect(document.getElementById("admin-sidebar")).toBeNull();
     expect(document.documentElement).toHaveClass("dark");
     expect(screen.getByRole("main").closest("[data-scale='deck']")).not.toBeNull();
     expect(document.title).toBe("Tổng quan · Quizzivy");
   });
 
-  it("swaps with the route, and the theme and the title with it", async () => {
-    const user = userEvent.setup();
+  it("is the deck's for a route with no crumb too, titled Quizzivy", async () => {
     writeThemePreference("dark");
     renderRoutes(
-      "/teacher",
-      tree([
-        {
-          index: true,
-          handle: DASHBOARD,
-          element: <Link to="/teacher/tests">sang trang cũ</Link>,
-        },
-        { path: "tests", element: <Link to="/teacher">về trang mới</Link> },
-      ]),
+      "/teacher/tests",
+      tree([{ path: "tests", element: <p>không có tên</p> }]),
       { ...teacherUser, preferences: { theme: "dark" } },
     );
-    await user.click(await screen.findByRole("link", { name: "sang trang cũ" }));
+    await screen.findByText("không có tên");
 
-    await screen.findByRole("link", { name: "về trang mới" });
-    expect(legacy()).not.toBeNull();
-    expect(rebuilt()).toBeNull();
-    expect(document.documentElement).not.toHaveClass("dark");
-    expect(document.title).toBe("Quizzivy");
-
-    await user.click(screen.getByRole("link", { name: "về trang mới" }));
-    await screen.findByRole("link", { name: "sang trang cũ" });
-    expect(rebuilt()).not.toBeNull();
-    expect(legacy()).toBeNull();
+    expect(sidebar()).not.toBeNull();
     expect(document.documentElement).toHaveClass("dark");
-    expect(document.title).toBe("Tổng quan · Quizzivy");
+    expect(document.title).toBe("Quizzivy");
   });
 
-  it("keeps one sidebar and one main across two rebuilt routes", async () => {
+  it("keeps one sidebar and one main across two routes", async () => {
     const user = userEvent.setup();
     renderRoutes(
       "/teacher",
@@ -117,71 +82,12 @@ describe("the shell a teacher page renders in", () => {
       ]),
     );
     await screen.findByRole("link", { name: "sang lớp học" });
-    const sidebar = rebuilt();
+    const before = sidebar();
     const main = screen.getByRole("main");
 
     await user.click(screen.getByRole("link", { name: "sang lớp học" }));
     await screen.findByText("các lớp");
-    expect(rebuilt()).toBe(sidebar);
+    expect(sidebar()).toBe(before);
     expect(screen.getByRole("main")).toBe(main);
-  });
-
-  it("is not moved by a handle on a parent route: only the leaf's counts", async () => {
-    renderRoutes(
-      "/teacher/imports/new",
-      tree([
-        {
-          path: "imports",
-          handle: crumbed("teacherShell.nav.tests"),
-          element: <Outlet />,
-          children: [
-            {
-              index: true,
-              handle: crumbed("teacherShell.nav.tests"),
-              element: <p>a</p>,
-            },
-            { path: "new", element: <p>nhập đề cũ</p> },
-          ],
-        },
-      ]),
-    );
-    await screen.findByText("nhập đề cũ");
-    expect(legacy()).not.toBeNull();
-    expect(rebuilt()).toBeNull();
-  });
-
-  it("follows the leaf under a parent with no handle", async () => {
-    renderRoutes(
-      "/teacher/imports",
-      tree([
-        {
-          path: "imports",
-          element: <Outlet />,
-          children: [
-            {
-              index: true,
-              handle: crumbed("teacherShell.nav.tests"),
-              element: <p>lịch sử nhập mới</p>,
-            },
-          ],
-        },
-      ]),
-    );
-    await screen.findByText("lịch sử nhập mới");
-    expect(rebuilt()).not.toBeNull();
-    expect(legacy()).toBeNull();
-  });
-
-  it.each([
-    ["a student detail handle", { detail: { titleKey: "nav.settings", back: "/app" } }],
-    ["a crumb that is one object", { crumb: { key: "nav.tests" } }],
-  ])("stays the old one for %s", async (_what, handle) => {
-    renderRoutes(
-      "/teacher/tests",
-      tree([{ path: "tests", handle, element: <p>cũ</p> }]),
-    );
-    await screen.findByText("cũ");
-    expect(legacy()).not.toBeNull();
-    expect(rebuilt()).toBeNull();
   });
 });
