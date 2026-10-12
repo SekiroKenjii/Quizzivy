@@ -7,13 +7,6 @@ import {
   type RefObject,
 } from "react";
 import { Link, useBeforeUnload, useBlocker } from "react-router";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardDescription,
-} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -174,52 +167,36 @@ export function SourceIntake({
     if (exact !== null) void intake.startText(title.trim() || fallbackTitle, exact);
   }
 
-  const files = (
-    <>
-      <LimitsLine
-        pending={limits.isPending}
-        failed={limits.isError}
-        maxBytes={limits.data?.maxBytes}
-        formats={limits.data?.formats}
-        onRetry={() => void limits.refetch()}
-      />
-      <div className="flex flex-col gap-5">
-        {SOURCE_ROLES.map((role) => (
-          <FileSlot
-            key={role}
-            role={role}
-            slot={intake.slots[role]}
-            accept={accept}
-            required={role === "exam"}
-            disabled={intake.busy}
-            onChoose={(file) => intake.choose(role, file)}
-            onRemove={() => intake.remove(role)}
-          />
-        ))}
-      </div>
-    </>
-  );
-
   return (
     <form
-      className="flex flex-col gap-6"
+      className={cn("flex flex-col", deck ? "gap-4.5" : "gap-6")}
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
     >
       <div hidden={!fileMode}>
-        {deck ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("imports.newHeading")}</CardTitle>
-              <CardDescription>{t("imports.newHint")}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-5">{files}</CardContent>
-          </Card>
-        ) : (
-          files
-        )}
+        <SourceFiles
+          deck={deck}
+          pending={limits.isPending}
+          failed={limits.isError}
+          maxBytes={limits.data?.maxBytes}
+          formats={limits.data?.formats}
+          onRetry={() => void limits.refetch()}
+        >
+          {SOURCE_ROLES.map((role) => (
+            <FileSlot
+              key={role}
+              role={role}
+              slot={intake.slots[role]}
+              accept={accept}
+              required={role === "exam"}
+              disabled={intake.busy}
+              onChoose={(file) => intake.choose(role, file)}
+              onRemove={() => intake.remove(role)}
+            />
+          ))}
+        </SourceFiles>
       </div>
       {askTitle ? (
         <>
@@ -234,6 +211,7 @@ export function SourceIntake({
             />
           </div>
           <TitleField
+            deck={deck}
             value={title}
             disabled={intake.busy}
             locked={titleLocked}
@@ -276,6 +254,7 @@ export function SourceIntake({
 }
 
 function TitleField({
+  deck,
   value,
   disabled,
   locked,
@@ -283,6 +262,7 @@ function TitleField({
   fallback,
   onChange,
 }: Readonly<{
+  deck: boolean;
   value: string;
   disabled: boolean;
   locked: boolean;
@@ -295,7 +275,13 @@ function TitleField({
   let hint = pasting ? t("imports.paste.titleHint") : t("imports.upload.titleHint");
   if (locked) hint = t("imports.upload.titleLocked");
   return (
-    <div className="flex flex-col gap-1.5">
+    <div
+      className={cn(
+        "flex flex-col gap-1.5",
+        deck &&
+          "bg-card text-card-foreground shadow-card rounded-xl border px-4.5 py-4",
+      )}
+    >
       <Label htmlFor={id}>{t("imports.upload.titleLabel")}</Label>
       <Input
         id={id}
@@ -305,8 +291,77 @@ function TitleField({
         placeholder={pasting ? fallback : t("imports.upload.titlePlaceholder")}
         onChange={(event) => onChange(event.target.value)}
       />
-      <p className="text-muted-foreground text-xs">{hint}</p>
+      <p className="text-muted-fg text-meta leading-normal">{hint}</p>
+      {deck ? (
+        <p className="text-muted-fg text-meta mt-1.5 border-t pt-2.5 leading-[1.55]">
+          {t("imports.upload.recognitionNote")}
+        </p>
+      ) : null}
     </div>
+  );
+}
+
+function SourceFiles({
+  deck,
+  pending,
+  failed,
+  maxBytes,
+  formats,
+  onRetry,
+  children,
+}: Readonly<{
+  deck: boolean;
+  pending: boolean;
+  failed: boolean;
+  maxBytes: number | undefined;
+  formats: readonly string[] | undefined;
+  onRetry: () => void;
+  children: ReactNode;
+}>) {
+  const { t } = useTranslation();
+  const locale = useLocale();
+  const headingId = useId();
+  const limits = (
+    <LimitsLine
+      pending={pending}
+      failed={failed}
+      maxBytes={maxBytes}
+      formats={formats}
+      onRetry={onRetry}
+    />
+  );
+  if (!deck)
+    return (
+      <>
+        {limits}
+        <div className="flex flex-col gap-5">{children}</div>
+      </>
+    );
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="bg-card text-card-foreground shadow-card rounded-xl border"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-3 px-4.5 pt-4 pb-1">
+        <h2 id={headingId} className="text-md font-semibold">
+          {t("imports.newHeading")}
+        </h2>
+        {maxBytes === undefined || formats === undefined ? null : (
+          <span className="text-muted-fg text-meta">
+            {t("imports.newFormats", {
+              formats: new Intl.ListFormat(locale, { type: "disjunction" }).format(
+                formats.map((format) => format.toUpperCase()),
+              ),
+              size: formatBytes(maxBytes),
+            })}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-col gap-3.5 px-4.5 pt-2.5 pb-4.5">
+        {limits}
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -350,6 +405,7 @@ function Recognition({
   replacing,
 }: Readonly<{ deck: boolean; replacing: boolean }>) {
   const { t } = useTranslation();
+  const headingId = useId();
   if (replacing) return null;
   if (!deck)
     return (
@@ -358,17 +414,34 @@ function Recognition({
       </p>
     );
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("imports.upload.recognitionHeading")}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm font-medium">{t("imports.upload.automatic")}</p>
-        <p className="text-muted-fg text-xs leading-relaxed">
-          {t("imports.upload.recognitionNote")}
-        </p>
-      </CardContent>
-    </Card>
+    <section
+      aria-labelledby={headingId}
+      className="bg-card text-card-foreground shadow-card rounded-xl border"
+    >
+      <h2 id={headingId} className="text-md px-4.5 pt-4 pb-1 font-semibold">
+        {t("imports.upload.recognitionHeading")}
+      </h2>
+      <div className="@container/modes px-4.5 pt-2.5 pb-4.5">
+        <div className="grid gap-2.5 @[490px]/modes:grid-cols-2">
+          <p className="border-primary flex items-start gap-3 rounded-[10px] border-[1.5px] px-3.5 py-3">
+            <span
+              aria-hidden="true"
+              className="border-primary mt-px grid size-4.5 shrink-0 place-items-center rounded-full border-2"
+            >
+              <span className="bg-primary size-2 rounded-full" />
+            </span>
+            <span>
+              <span className="text-ui block leading-[normal] font-medium">
+                {t("imports.upload.automatic")}
+              </span>
+              <span className="text-muted-fg text-meta block leading-[1.45]">
+                {t("imports.upload.automaticHint")}
+              </span>
+            </span>
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -389,19 +462,32 @@ function IntakeFooter({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-3",
-        deck && "bg-background sticky bottom-0 justify-end border-t py-3",
+        "flex flex-wrap items-center",
+        deck ? "bg-background sticky bottom-0 gap-2.5 border-t py-3" : "gap-3",
       )}
     >
       {deck ? (
         <>
-          <span className="text-muted-fg min-w-0 flex-[1_1_200px] text-xs">{hint}</span>
-          <Button asChild type="button" variant="outline">
+          <span className="text-muted-fg text-meta min-w-0 flex-[1_1_220px]">
+            {hint}
+          </span>
+          <Button
+            asChild
+            type="button"
+            variant="outline"
+            size="md"
+            className="leading-[normal]"
+          >
             <Link to="/teacher/imports">{t("common.cancel")}</Link>
           </Button>
         </>
       ) : null}
-      <Button type="submit" disabled={!canStart}>
+      <Button
+        type="submit"
+        size={deck ? "md" : "default"}
+        className={deck ? "px-4 leading-[normal] font-semibold" : undefined}
+        disabled={!canStart}
+      >
         {submitLabel(busy, replacing, t)}
       </Button>
       {busy ? (
@@ -448,7 +534,7 @@ function LimitsLine({
       </p>
     );
   return (
-    <p className="bg-muted/40 rounded-md p-3 text-sm">
+    <p className="bg-muted rounded-md px-3 py-2.5 text-sm leading-[1.55]">
       {t("imports.upload.limits", {
         formats: formats.map((format) => `.${format}`).join(", "),
         size: formatBytes(maxBytes),

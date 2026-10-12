@@ -62,6 +62,7 @@ const PROCESSING_STATUSES = [
 ] as const;
 const GRID =
   "@[960px]/import-history:grid-cols-[minmax(200px,2.4fr)_minmax(160px,1fr)_minmax(150px,1.4fr)_minmax(110px,1fr)_minmax(150px,1fr)_32px]";
+const CHIP = "in-data-[scale=deck]:rounded-sm in-data-[scale=deck]:px-2";
 const ALL = "all";
 const HISTORY_POLL_MS = 5000;
 
@@ -118,13 +119,13 @@ export default function ImportsListPage() {
     );
   const start = (
     <>
-      <Button asChild size="sm" variant="outline">
+      <Button asChild variant="outline">
         <Link to="/teacher/imports/new?source=paste">
           <ClipboardPaste aria-hidden="true" />
           {t("imports.pasteTest")}
         </Link>
       </Button>
-      <Button asChild size="sm">
+      <Button asChild>
         <Link to="/teacher/imports/new">
           <FileUp aria-hidden="true" />
           {t("imports.start")}
@@ -148,7 +149,7 @@ export default function ImportsListPage() {
                   <div
                     role="row"
                     className={cn(
-                      "bg-muted text-meta text-muted-fg grid items-center gap-3 px-4 py-2.5",
+                      "bg-muted text-meta text-muted-fg grid h-10 items-center gap-3 px-4 font-medium",
                       GRID,
                     )}
                   >
@@ -279,37 +280,39 @@ function HistoryRow({
   const key = item.sources.find((source) => source.role === "answer_key");
   const pasted = exam?.format === "text";
   const SourceIcon = pasted ? ClipboardPaste : FileText;
-  const sourceName = pasted ? t("imports.history.pastedText") : exam?.filename;
+  const name =
+    (pasted ? t("imports.history.pastedText") : exam?.filename) ?? item.title;
   return (
     <div
       role="row"
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_32px] items-center gap-2 px-4 py-3.5 text-sm @[960px]/import-history:gap-3",
+        "grid grid-cols-[32px_auto_minmax(0,1fr)_auto_32px] items-center gap-2.5 px-4 py-3.5 text-[13.5px]",
+        "@[960px]/import-history:min-h-[62px] @[960px]/import-history:gap-3 @[960px]/import-history:py-0",
         GRID,
       )}
     >
       <div
         role="cell"
-        className="flex min-w-0 items-start gap-2.5 @[960px]/import-history:col-start-1"
+        className="col-[1/5] row-start-1 flex min-w-0 items-start gap-2.5 @[960px]/import-history:col-[1] @[960px]/import-history:items-center"
       >
         <span className="bg-info-soft text-info-ink grid size-8 shrink-0 place-items-center rounded-lg">
           <SourceIcon aria-hidden="true" className="size-4" />
         </span>
         <div className="min-w-0">
-          {sourceName === undefined ? null : (
-            <p className="truncate font-medium" title={sourceName}>
-              {sourceName}
-            </p>
-          )}
           <Link
             to={importHref(item)}
             title={item.title}
-            className="block truncate font-medium hover:underline"
+            aria-label={
+              name === item.title
+                ? undefined
+                : t("imports.history.fileNamed", { name, title: item.title })
+            }
+            className="block truncate text-[14px] font-medium hover:underline @[960px]/import-history:text-[13.5px]"
           >
-            {item.title}
+            {name}
           </Link>
           <p
-            className="text-muted-fg text-xs break-words"
+            className="text-muted-fg text-xs leading-[1.45] break-words @[960px]/import-history:truncate @[960px]/import-history:leading-normal"
             title={formatDateTime(item.createdAt, locale)}
           >
             {creator === null ? null : <>{creator} · </>}
@@ -336,19 +339,22 @@ function HistoryRow({
       </div>
       <div
         role="cell"
-        className="col-start-1 flex min-w-0 flex-wrap @[960px]/import-history:col-start-2 @[960px]/import-history:row-start-1"
+        className="hidden min-w-0 @[960px]/import-history:col-[2] @[960px]/import-history:row-start-1 @[960px]/import-history:flex"
       >
         <ImportStatusBadge status={item.status} />
       </div>
       <div
         role="cell"
-        className="text-muted-fg col-start-1 min-w-0 text-xs @[960px]/import-history:col-start-3 @[960px]/import-history:row-start-1"
+        className="text-muted-fg col-[2/6] row-start-2 flex min-w-0 flex-wrap items-center gap-1.5 text-[12.5px] @[960px]/import-history:col-[3] @[960px]/import-history:row-start-1 @[960px]/import-history:text-[13px]"
       >
+        <span className="inline-flex @[960px]/import-history:hidden">
+          <ImportStatusBadge status={item.status} />
+        </span>
         <ReviewFindings item={item} />
       </div>
       <div
         role="cell"
-        className="col-start-1 min-w-0 @[960px]/import-history:col-start-4 @[960px]/import-history:row-start-1"
+        className="col-[2/4] row-start-3 min-w-0 truncate text-[13px] @[960px]/import-history:col-[4] @[960px]/import-history:row-start-1 @[960px]/import-history:text-[13.5px]"
       >
         <span className="text-muted-fg @[960px]/import-history:hidden">
           {t("imports.history.test")}:{" "}
@@ -357,23 +363,36 @@ function HistoryRow({
           <Link
             to={`/teacher/tests/${item.testId}/edit`}
             aria-label={t("imports.history.openTest", { title: item.title })}
-            className="block truncate font-medium hover:underline"
+            className="font-medium hover:underline"
           >
             {item.title}
           </Link>
         ) : (
-          <span className="text-muted-fg">{t("imports.history.noTest")}</span>
+          <>
+            <span className="text-muted-fg @[960px]/import-history:hidden">
+              {t("imports.history.noTest")}
+            </span>
+            <span
+              aria-hidden="true"
+              className="text-muted-fg hidden @[960px]/import-history:inline"
+            >
+              —
+            </span>
+            <span className="sr-only hidden @[960px]/import-history:inline">
+              {t("imports.history.noTest")}
+            </span>
+          </>
         )}
       </div>
       <div
         role="cell"
-        className="col-start-1 @[960px]/import-history:col-start-5 @[960px]/import-history:row-start-1"
+        className="col-[4/6] row-start-3 justify-self-end @[960px]/import-history:col-[5] @[960px]/import-history:row-start-1 @[960px]/import-history:justify-self-start"
       >
         <Button
           asChild
-          size="xs"
-          className="h-auto min-h-8 max-w-full py-1.5 whitespace-normal"
-          variant={item.status === "needs_review" ? "default" : "outline"}
+          size="sm"
+          variant="outline"
+          className="h-auto min-h-8 max-w-full rounded-md py-1 whitespace-normal in-data-[scale=deck]:h-auto in-data-[scale=deck]:rounded-md"
         >
           <Link
             to={importActionHref(item)}
@@ -385,7 +404,7 @@ function HistoryRow({
       </div>
       <div
         role="cell"
-        className="col-start-2 row-start-1 self-start @[960px]/import-history:col-start-6 @[960px]/import-history:self-center"
+        className="col-[5] row-start-1 self-start @[960px]/import-history:col-[6] @[960px]/import-history:self-center"
       >
         <ImportDownloadMenu item={item} />
       </div>
@@ -412,17 +431,17 @@ function ReviewFindings({ item }: Readonly<{ item: HistoryItem }>) {
   if (needsAction === 0 && toConfirm === 0)
     return <>{t("imports.history.nothingOpen")}</>;
   return (
-    <div className="flex min-w-0 flex-wrap gap-1.5">
+    <>
       {needsAction > 0 ? (
-        <Badge variant="danger" className="in-data-[scale=deck]:rounded-sm">
+        <Badge variant="danger" className={CHIP}>
           {t("imports.history.needsAction", { count: needsAction })}
         </Badge>
       ) : null}
       {toConfirm > 0 ? (
-        <Badge variant="warning" className="in-data-[scale=deck]:rounded-sm">
+        <Badge variant="warning" className={CHIP}>
           {t("imports.history.toConfirm", { count: toConfirm })}
         </Badge>
       ) : null}
-    </div>
+    </>
   );
 }

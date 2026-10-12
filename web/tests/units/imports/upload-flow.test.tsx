@@ -373,10 +373,25 @@ describe("starting a Word import", () => {
     expect(screen.getByRole("button", { name: "Chọn tệp đề thi" })).toHaveFocus();
   });
 
-  it("titles the card for the whole step and does not repeat the required tag", async () => {
+  it("draws the deck's head, Files card and title card in file mode", async () => {
     renderPage();
-    expect(await screen.findByText("Chọn tệp để nhập")).toBeInTheDocument();
-    expect(screen.getAllByText("Bắt buộc")).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Nhập đề từ Word/PDF",
+    );
+    expect(
+      screen.getByText(/^Tải lên đề thi Word hoặc PDF và, nếu có, tệp đáp án riêng\./),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Về mục Nhập đề" })).toBeNull();
+    const files = screen.getByRole("region", { name: "Tệp" });
+    expect(
+      await within(files).findByText("DOCX hoặc PDF · tối đa 25.0 MB mỗi tệp"),
+    ).toBeInTheDocument();
+    expect(within(files).getAllByText("Bắt buộc")).toHaveLength(1);
+    expect(within(files).getAllByText("Kéo tệp vào đây hoặc chọn tệp")).toHaveLength(2);
+    expect(
+      screen.getByText(/^Hệ thống tự nhận diện phần, nhóm câu/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Tự động nhận diện")).toBeInTheDocument();
   });
   it("reads paste mode from the URL and shows the text box in place of the files", async () => {
     const user = renderPage("/teacher/imports/new?source=paste&keep=1");
@@ -385,7 +400,7 @@ describe("starting a Word import", () => {
       "true",
     );
     expect(screen.getByRole("textbox", { name: "Nội dung đề" })).toBeVisible();
-    expect(screen.getByText("Chọn tệp để nhập")).not.toBeVisible();
+    expect(screen.getByRole("region", { name: "Tệp", hidden: true })).not.toBeVisible();
     expect(screen.getByRole("button", { name: "Bắt đầu xử lý" })).toBeDisabled();
     expect(screen.getByText("Cách đọc nội dung")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Tải tệp lên" }));

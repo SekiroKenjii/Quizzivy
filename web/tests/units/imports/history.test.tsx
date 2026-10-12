@@ -101,10 +101,13 @@ describe("the Word import history", () => {
     const table = await screen.findByRole("table");
     const row = (title: string) =>
       within(table)
-        .getByRole("link", { name: title })
+        .getByRole("button", { name: `Thao tác với ${title}` })
         .closest<HTMLElement>('[role="row"]')!;
 
-    expect(within(row("Đề A")).getByText("Sẵn sàng rà soát")).toBeInTheDocument();
+    expect(
+      within(row("Đề A")).getAllByText("Sẵn sàng rà soát"),
+      "the grid's Status cell and the card's line each draw the pill; the layout hides one",
+    ).toHaveLength(2);
     expect(
       within(row("Đề A")).getByRole("link", { name: "Tiếp tục rà soát Đề A" }),
     ).toHaveAttribute(
@@ -118,10 +121,10 @@ describe("the Word import history", () => {
       within(row("Đề C")).getByRole("link", { name: "Mở đề đã tạo từ Đề C" }),
     ).toHaveAttribute("href", `/teacher/tests/${TEST_ID}/edit`);
     expect(
-      within(table).getByRole("link", { name: "Đề C" }),
-      "the title opens the import itself, with its original files",
+      within(row("Đề C")).getByRole("link", { name: "de-thi-hk1.docx (Đề C)" }),
+      "the file name opens the import itself, with its original files",
     ).toHaveAttribute("href", "/teacher/imports/018f0000-0000-7000-8000-000000000103");
-    expect(within(row("Đề D")).getByText("Xử lý không thành công")).toBeInTheDocument();
+    expect(within(row("Đề D")).getAllByText("Không xử lý được")).toHaveLength(2);
     expect(
       within(row("Đề D")).getByRole("link", { name: "Xem lỗi của Đề D" }),
     ).toBeInTheDocument();
@@ -206,10 +209,10 @@ describe("the Word import history", () => {
     const buttons = within(filters).getAllByRole("button");
     expect(buttons).toHaveLength(6);
     expect(buttons.map((button) => button.textContent)).toEqual([
-      "Tất cả trạng thái 0",
+      "Tất cả 0",
       "Đang xử lý 0",
       "Sẵn sàng rà soát 0",
-      "Xử lý không thành công 0",
+      "Không xử lý được 0",
       "Đã tạo bản nháp 0",
       "Đã huỷ 0",
     ]);
@@ -313,7 +316,9 @@ describe("a pasted import in the history", () => {
     ];
     renderHistory();
     const pasted = (
-      await screen.findByRole("link", { name: "Unit 5 Quick Check" })
+      await screen.findByRole("link", {
+        name: "Văn bản đã dán (Unit 5 Quick Check)",
+      })
     ).closest<HTMLElement>("[role=row]")!;
     expect(within(pasted).getByText("Văn bản đã dán")).toBeInTheDocument();
     expect(within(pasted).queryByText("pasted-text.txt")).toBeNull();
@@ -322,7 +327,7 @@ describe("a pasted import in the history", () => {
     ).toBeInTheDocument();
     expect(pasted.querySelector(".lucide-clipboard-paste")).not.toBeNull();
     const file = screen
-      .getByRole("link", { name: "Đề Word" })
+      .getByRole("link", { name: "de-thi-hk1.docx (Đề Word)" })
       .closest<HTMLElement>("[role=row]")!;
     expect(within(file).getByText("de-thi-hk1.docx")).toBeInTheDocument();
     expect(within(file).queryByText(/ký tự/)).toBeNull();
