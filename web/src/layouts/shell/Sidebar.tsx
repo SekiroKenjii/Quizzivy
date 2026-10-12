@@ -126,7 +126,6 @@ function SidebarBody({
       </nav>
       <div className="flex-none border-t p-2">
         <AccountMenu
-          deck
           sidebar={collapsed ? "collapsed" : "expanded"}
           settingsTo="/teacher/settings"
         />

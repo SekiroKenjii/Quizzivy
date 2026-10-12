@@ -389,7 +389,7 @@ export const cases: Record<string, () => ReactElement> = {
       <QueryClientProvider client={client}>
         <MemoryRouter>
           <div className="flex justify-end">
-            <AccountMenu settingsTo="/app/settings" deck />
+            <AccountMenu settingsTo="/app/settings" />
           </div>
         </MemoryRouter>
       </QueryClientProvider>

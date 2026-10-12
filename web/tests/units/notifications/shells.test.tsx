@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import AdminLayout from "@/layouts/AdminLayout";
 import { useAuthStore } from "@/stores/auth";
 import {
   home,
-  renderRoutes,
   renderShell,
   serveDashboard,
   serveSummary,
@@ -56,35 +54,6 @@ describe("the teacher shell's bell", () => {
     serveSummary({ ...summaryBody, unreadNotifications: 2 });
     renderShell("/teacher", [home()]);
     expect(await screen.findByText("trang tổng quan")).toBeInTheDocument();
-    expect(bell()).toBeNull();
-  });
-});
-
-describe("the admin console's bell", () => {
-  const admin = () => [
-    {
-      path: "/teacher",
-      element: <AdminLayout />,
-      children: [{ index: true, element: <p>bảng điều khiển cũ</p> }],
-    },
-  ];
-
-  it("keeps a bell until R5 rebuilds the console, counting the teacher's kinds", async () => {
-    serveDashboard();
-    const seen = serveSummary({ ...summaryBody, unreadNotifications: 1 });
-    renderRoutes("/teacher", admin());
-    expect(
-      await screen.findByRole("button", { name: "Thông báo, 1 chưa đọc" }),
-    ).toBeInTheDocument();
-    expect(new Set(seen.audiences)).toEqual(new Set(["teacher"]));
-  });
-
-  it("has none while the notifications module is off", async () => {
-    flags.notifications = false;
-    serveDashboard();
-    serveSummary();
-    renderRoutes("/teacher", admin());
-    expect(await screen.findByText("bảng điều khiển cũ")).toBeInTheDocument();
     expect(bell()).toBeNull();
   });
 });

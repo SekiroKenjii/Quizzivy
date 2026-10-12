@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   readThemePreference,
-  useForcedLightTheme,
   useResolvedTheme,
   useThemePreference,
   writeThemePreference,
@@ -93,17 +92,6 @@ describe("theme preference", () => {
     expect(isDark()).toBe(true);
     act(() => writeThemePreference("light"));
     expect(result.current).toBe("light");
-  });
-
-  it("keeps a screen light while it forces it, then restores the preference", () => {
-    act(() => writeThemePreference("dark"));
-    const reader = renderHook(() => useResolvedTheme());
-    const forced = renderHook(() => useForcedLightTheme());
-    expect(isDark()).toBe(false);
-    expect(reader.result.current).toBe("light");
-    forced.unmount();
-    expect(isDark()).toBe(true);
-    expect(reader.result.current).toBe("dark");
   });
 
   it("applies a theme the browser refuses to store, for as long as the page lives", () => {

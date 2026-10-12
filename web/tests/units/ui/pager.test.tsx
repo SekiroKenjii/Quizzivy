@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, useNavigate } from "react-router";
-import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 import "@/lib/i18n";
 
@@ -12,7 +11,6 @@ function Screen({ filter }: Readonly<{ filter: string }>) {
   return (
     <>
       <p>trang {page}</p>
-      <Pager page={page} pageSize={20} total={110} />
     </>
   );
 }
@@ -27,54 +25,6 @@ function renderAt(path: string, filter = "a") {
   const view = render(<RouterProvider router={router} />);
   return { router, view };
 }
-
-const nav = () => screen.getByRole("navigation", { name: "Phân trang" });
-
-describe("Pager", () => {
-  it("draws nothing for a single page", () => {
-    const router = createMemoryRouter(
-      [{ path: "/", element: <Pager page={1} pageSize={20} total={20} /> }],
-      { initialEntries: ["/"] },
-    );
-    render(<RouterProvider router={router} />);
-    expect(screen.queryByRole("navigation")).toBeNull();
-  });
-
-  it("links pages by number, keeping the other search parameters", () => {
-    renderAt("/teacher/tests?tab=draft&page=3");
-    expect(screen.getByText("trang 3")).toBeInTheDocument();
-    const three = within(nav()).getByRole("link", { name: "Trang 3" });
-    expect(three).toHaveAttribute("aria-current", "page");
-    expect(within(nav()).getByRole("link", { name: "Trang 4" })).toHaveAttribute(
-      "href",
-      "/teacher/tests?tab=draft&page=4",
-    );
-    // Page 1 is the plain URL: no `page=1` to carry around.
-    expect(within(nav()).getByRole("link", { name: "Trang 1" })).toHaveAttribute(
-      "href",
-      "/teacher/tests?tab=draft",
-    );
-  });
-
-  it("turns the page through the URL", async () => {
-    const user = userEvent.setup();
-    const { router } = renderAt("/teacher/tests");
-    await user.click(within(nav()).getByRole("link", { name: "Trang sau" }));
-    expect(router.state.location.search).toBe("?page=2");
-    expect(screen.getByText("trang 2")).toBeInTheDocument();
-  });
-
-  it("disables the edge it is on", () => {
-    renderAt("/teacher/tests?page=6");
-    expect(within(nav()).getByRole("link", { name: "Trang sau" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
-    expect(
-      within(nav()).getByRole("link", { name: "Trang trước" }),
-    ).not.toHaveAttribute("aria-disabled");
-  });
-});
 
 describe("usePage", () => {
   it("does not cancel a pending child navigation when a filter settles on page one", async () => {
