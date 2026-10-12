@@ -5,6 +5,7 @@ import {
   GroupMaterials,
   type MaterialGap,
 } from "@/components/shared/content/GroupMaterials";
+import { materialsHead } from "@/components/shared/content/materials";
 import { Button } from "@/components/ui/button";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { cn } from "@/lib/utils";
@@ -14,15 +15,16 @@ import { usePaper } from "../paper";
 import type { StudentGroup } from "../api";
 
 /**
- * GroupContext is the passage pane: the reading material a group of
- * questions shares, scrolling by itself beside the question. Its text cannot
- * be selected. A gap in the material is a button that goes to the question
+ * GroupContext is the stimulus pane: the material a group of questions
+ * shares, scrolling by itself beside the question, headed as materialsHead
+ * says, with the section's title as the kicker when the heading already
+ * says the group's. Its text cannot be selected. A gap in the material is a button that goes to the question
  * or blank it stands for. While `hidden`, on a phone showing the question,
  * it stays mounted and keeps its place in the text.
  */
 export const GroupContext = memo(function GroupContext({
   group,
-  eyebrow,
+  sectionTitle,
   numbers,
   onGap,
   onRetryMedia,
@@ -30,7 +32,7 @@ export const GroupContext = memo(function GroupContext({
   hidden,
 }: Readonly<{
   group: StudentGroup;
-  eyebrow?: string | undefined;
+  sectionTitle?: string | undefined;
   numbers: ReadonlyMap<string, number>;
   onGap: (gap: MaterialGap) => void;
   onRetryMedia: () => void;
@@ -40,6 +42,7 @@ export const GroupContext = memo(function GroupContext({
   const { t } = useTranslation();
   const pane = useRef<HTMLElement>(null);
   const onScroll = useKeptScroll(pane, hidden);
+  const head = materialsHead(group, sectionTitle);
   return (
     <article
       ref={pane}
@@ -53,10 +56,10 @@ export const GroupContext = memo(function GroupContext({
         wide ? "border-r px-8 py-7" : "px-4 py-4.5",
       )}
     >
-      <PassageBody eyebrow={eyebrow} title={group.title}>
+      <PassageBody kicker={head.kicker} title={head.heading}>
         <GroupMaterials
           group={group}
-          omitTitle={group.title}
+          omitTitle={head.heading}
           onRetryMedia={onRetryMedia}
           renderAudio={(node) => <p className="text-muted-fg text-ui">{node.label}</p>}
           renderGap={(gap, label) => {

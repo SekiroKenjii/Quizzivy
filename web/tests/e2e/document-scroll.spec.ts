@@ -172,7 +172,9 @@ for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await teacher(page);
     await settle(page, `/teacher/tests/${TEST_ID}`, published.title);
-    await expect(page.getByRole("heading", { name: previewGroup.title })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: previewGroup.stimuli[0]!.title }),
+    ).toBeVisible();
     expect(await documentScroll(page)).toEqual({ down: 0, scrollbar: 0, past: 0 });
   });
 

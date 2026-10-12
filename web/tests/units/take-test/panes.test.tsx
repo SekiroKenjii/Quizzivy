@@ -182,12 +182,18 @@ describe("the panes from 768", () => {
     expect(sheet().querySelectorAll("div:empty")).toHaveLength(0);
   });
 
-  it("draws the passage as the part eyebrow, the title and the paragraphs at 16px", async () => {
+  it("draws the passage as the kicker, the heading and the paragraphs at 16px", async () => {
     await open(deckPassageSession(NOW));
     const pane = within(passage());
 
-    const eyebrow = pane.getByText("Reading passage 1");
-    expect(eyebrow).toHaveClass("text-meta", "font-semibold", "uppercase");
+    const kicker = pane.getByText("Reading passage 1");
+    expect(kicker).toHaveClass(
+      "text-meta",
+      "font-semibold",
+      "text-muted-fg",
+      "uppercase",
+      "tracking-[0.04em]",
+    );
     const title = pane.getByRole("heading", { level: 2, name: DECK_PASSAGE });
     expect(title).toHaveClass("text-stat", "leading-[1.3]", "font-semibold");
     expect(title.parentElement).toHaveClass("mx-auto", "max-w-160", "gap-3.5");
@@ -214,9 +220,19 @@ describe("the panes from 768", () => {
     expect(screen.getByRole("main").firstElementChild).toBe(
       screen.getByRole("complementary", { name: "Các phần" }),
     );
-    expect(questionPane()).toHaveClass("bg-sidebar", "flex-[1_1_0]");
-    expect(sheet()).toHaveClass("mx-auto", "max-w-150");
+    expect(questionPane()).toHaveClass("bg-bg", "flex-[1_1_0]");
+    expect(questionPane()).not.toHaveClass("bg-sidebar");
+    expect(sheet()).toHaveClass("mx-auto", "max-w-180");
+    expect(sheet()).not.toHaveClass("max-w-150");
     expect(switcher()).toBeNull();
+  });
+
+  it("puts the question pane on the sidebar surface, in a 600px column, beside shared content only", async () => {
+    await open(deckPassageSession(NOW));
+    expect(questionPane()).toHaveClass("bg-sidebar");
+    expect(questionPane()).not.toHaveClass("bg-bg");
+    expect(sheet()).toHaveClass("max-w-150");
+    expect(sheet()).not.toHaveClass("max-w-180");
   });
 
   it("names the question's position and type, one label for each type", async () => {
@@ -248,15 +264,15 @@ describe("the panes from 768", () => {
     });
     const line = () => within(sheet()).getByText(/^Câu \d trên 8/);
 
-    expect(line()).toHaveTextContent("Câu 1 trên 8 · Chọn một đáp án");
+    expect(line()).toHaveTextContent("Câu 1 trên 8 · Một đáp án");
     expect(line()).toHaveClass("text-muted-fg", "text-sm", "font-medium");
     for (const label of [
-      "Câu 2 trên 8 · Chọn một đáp án",
-      "Câu 3 trên 8 · Chọn một đáp án",
-      "Câu 4 trên 8 · Chọn nhiều đáp án",
-      "Câu 5 trên 8 · Trả lời ngắn",
-      "Câu 6 trên 8 · Đúng hay sai",
-      "Câu 7 trên 8 · Điền vào chỗ trống",
+      "Câu 2 trên 8 · Một đáp án",
+      "Câu 3 trên 8 · Một đáp án",
+      "Câu 4 trên 8 · Nhiều đáp án",
+      "Câu 5 trên 8 · Tự luận",
+      "Câu 6 trên 8 · Đúng/Sai",
+      "Câu 7 trên 8 · Điền từ",
     ]) {
       await user.click(next());
       expect(line()).toHaveTextContent(label);
@@ -270,7 +286,7 @@ describe("the panes from 768", () => {
     for (let moves = 0; moves < 3; moves++) {
       await user.click(screen.getByRole("button", { name: "Next question" }));
     }
-    expect(screen.getByText("Question 4 of 8 · Choose one or more")).toBeVisible();
+    expect(screen.getByText("Question 4 of 8 · Multiple choice")).toBeVisible();
     expect(screen.getByRole("button", { name: "Flag for review" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Flag for review" }));
     expect(screen.getByRole("button", { name: "Flagged" })).toBeVisible();
@@ -283,7 +299,7 @@ describe("the panes from 768", () => {
     expect(off).toHaveAttribute("aria-pressed", "false");
     expect(off).toHaveClass("h-8", "min-h-0", "border-border", "bg-card", "text-fg");
     expect(off.parentElement).toContainElement(
-      screen.getByText("Câu 1 trên 8 · Chọn một đáp án"),
+      screen.getByText("Câu 1 trên 8 · Một đáp án"),
     );
 
     await user.click(off);
@@ -308,36 +324,65 @@ describe("the panes from 768", () => {
     expect(screen.getByRole("button", { name: "Đánh dấu xem lại" })).toBeDisabled();
   });
 
-  it("names the part above a question with no passage, when the paper has more than one", async () => {
+  it("heads every question with its section's title and instructions on a paper of several", async () => {
     const user = userEvent.setup();
     await open(twoParts(deckSession(NOW)));
 
-    const part = within(sheet()).getByText("Phần 1 · Đọc");
-    expect(part).toHaveClass("text-meta", "font-semibold", "uppercase");
+    const head = () => sheet().firstElementChild as HTMLElement;
+    expect(head()).toHaveClass("flex", "flex-col", "gap-0.5", "border-b", "pb-3");
+    const title = within(head()).getByText("Phần 1 · Đọc");
+    expect(title).toHaveClass(
+      "text-xs",
+      "font-semibold",
+      "text-muted-fg",
+      "uppercase",
+      "tracking-[0.04em]",
+    );
+    expect(head().children).toHaveLength(1);
     expect(screen.queryByRole("note")).toBeNull();
-    for (let moves = 0; moves < 4; moves++) await user.click(next());
-    expect(within(sheet()).getByText("Phần 2 · Viết")).toBeVisible();
-    expect(screen.getByRole("note")).toHaveTextContent("Viết câu trả lời ngắn.");
     expect(
-      screen.getByRole("note").compareDocumentPosition(screen.getByRole("textbox")) &
+      head().compareDocumentPosition(within(sheet()).getByText(/^Câu 1 trên 8/)) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+
+    for (let moves = 0; moves < 4; moves++) await user.click(next());
+    expect(within(head()).getByText("Phần 2 · Viết")).toBeVisible();
+    const instructions = within(head()).getByText("Viết câu trả lời ngắn.");
+    expect(instructions).toHaveClass("text-ui", "text-muted-fg");
     await user.click(next());
-    expect(screen.queryByRole("note")).toBeNull();
+    expect(within(head()).getByText("Viết câu trả lời ngắn.")).toBeVisible();
+    expect(within(sheet()).getAllByText("Viết câu trả lời ngắn.")).toHaveLength(1);
   });
 
-  it("leaves a one-part paper's question pane without a part line", async () => {
+  it("leaves a one-part paper's question pane without a head when the part has no instructions", async () => {
     await open(deckSession(NOW));
     expect(within(sheet()).queryByText("Reading passage 1")).toBeNull();
+    expect(sheet().querySelector(".border-b")).toBeNull();
   });
 
-  it("names the part in the passage, not twice, when the question has one", async () => {
+  it("heads a one-part paper's questions when the part has instructions", async () => {
+    const user = userEvent.setup();
+    const paper = deckSession(NOW);
+    await open({
+      ...paper,
+      sections: [{ ...paper.sections[0]!, instructions: "Read, then answer 1–8." }],
+    });
+    expect(within(sheet()).getByText("Reading passage 1")).toBeVisible();
+    expect(within(sheet()).getByText("Read, then answer 1–8.")).toBeVisible();
+    await user.click(next());
+    expect(within(sheet()).getByText("Read, then answer 1–8.")).toBeVisible();
+  });
+
+  it("names the section in the passage's kicker when the heading is the group's title, and in the head", async () => {
     await open(twoParts(deckPassageSession(NOW)));
     expect(within(passage()).getByText("Phần 1 · Đọc")).toBeVisible();
-    expect(within(sheet()).queryByText("Phần 1 · Đọc")).toBeNull();
+    expect(
+      within(passage()).getByRole("heading", { level: 2, name: DECK_PASSAGE }),
+    ).toBeVisible();
+    expect(within(sheet()).getByText("Phần 1 · Đọc")).toBeVisible();
   });
 
-  it("leads a listening part with the note that names it", async () => {
+  it("states a listening part's instructions in the head, with no note", async () => {
     const paper = deckSession(NOW);
     await open({
       ...paper,
@@ -372,10 +417,10 @@ describe("the panes from 768", () => {
       ],
     });
 
-    const note = screen.getByRole("note");
-    expect(note).toHaveClass("bg-muted", "rounded-xl");
-    expect(within(note).getByText("Phần 1 · Nghe")).toHaveClass("font-medium");
-    expect(note).toHaveTextContent("Mỗi đoạn nghe được hai lần.");
+    expect(screen.queryByRole("note")).toBeNull();
+    const head = sheet().firstElementChild as HTMLElement;
+    expect(within(head).getByText("Phần 1 · Nghe")).toHaveClass("uppercase");
+    expect(head).toHaveTextContent("Mỗi đoạn nghe được hai lần.");
     const play = within(sheet()).getByRole("button", { name: "Phát" });
     expect(play).toBeVisible();
     expect(play).toHaveClass("in-data-[scale=deck]:size-10");
@@ -461,7 +506,7 @@ describe("the panes from 768", () => {
       within(passage()).getByRole("heading", { name: DECK_PASSAGE }).parentElement,
     ).toHaveClass(...recipe);
     expect(
-      screen.getByText("Câu 1 trên 8 · Chọn một đáp án").parentElement?.parentElement,
+      screen.getByText("Câu 1 trên 8 · Một đáp án").parentElement?.parentElement,
     ).toHaveClass(...recipe);
   });
 

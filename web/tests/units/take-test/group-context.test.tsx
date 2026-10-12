@@ -14,6 +14,7 @@ import {
   previewQuestions,
   previewSection,
 } from "@tests/support/groupPreview";
+import { deckListeningSession } from "./deckSession";
 import { session, viewport } from "./support";
 import "@/lib/i18n";
 
@@ -307,4 +308,37 @@ it("focuses a material's stable blank target even when its printed number differ
       await screen.findByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
     );
   expect(screen.getByRole("textbox", { name: "Chỗ trống 1" })).toHaveFocus();
+});
+
+it("gives a material that is only a recording no heading: the group's title is the kicker", async () => {
+  const paper = deckListeningSession(new Date());
+  vi.mocked(getAttempt).mockResolvedValue(paper);
+  mount();
+  const pane = await screen.findByRole("article", { name: "Part 1 · Asking the way" });
+
+  expect(within(pane).getByText("Part 1 · Asking the way")).toHaveClass(
+    "uppercase",
+    "tracking-[0.04em]",
+  );
+  expect(within(pane).queryAllByRole("heading")).toHaveLength(0);
+  expect(within(pane).queryByRole("region")).toBeNull();
+  expect(screen.queryByText(paper.groups![0]!.assets[0]!.originalFilename)).toBeNull();
+});
+
+it("keeps the heading of a material with text and a recording, under the group's title as the kicker", async () => {
+  mount();
+  const pane = await screen.findByRole("article", { name: previewGroup.title });
+
+  expect(within(pane).getByText(previewGroup.title)).toHaveClass("uppercase");
+  const heading = within(pane).getByRole("heading", { level: 2 });
+  expect(heading).toHaveTextContent(previewGroup.stimuli[0]!.title);
+  expect(heading).toHaveClass("text-stat", "font-semibold");
+  expect(within(pane).getAllByRole("heading", { level: 2 })).toHaveLength(1);
+  expect(within(pane).queryAllByRole("heading", { level: 4 })).toHaveLength(0);
+  expect(within(pane).getByText("Giữ nguyên thứ tự câu trong nhóm.")).toBeVisible();
+  expect(
+    heading.compareDocumentPosition(
+      within(pane).getByText("Giữ nguyên thứ tự câu trong nhóm."),
+    ) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
 });

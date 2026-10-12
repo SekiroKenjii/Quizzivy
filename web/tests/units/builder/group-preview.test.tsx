@@ -19,10 +19,12 @@ it("places shared material once before its members and links gaps to their displ
     />,
   );
   expect(screen.getByRole("heading", { name: previewSection.title })).toBeVisible();
-  expect(screen.getAllByRole("heading", { name: previewGroup.title })).toHaveLength(1);
-  expect(screen.getByText("Ngữ liệu dùng chung · Câu 2–3")).toBeVisible();
+  expect(screen.getAllByText(previewGroup.title)).toHaveLength(1);
+  const material = screen.getByRole("heading", {
+    level: 3,
+    name: previewGroup.stimuli[0]!.title,
+  });
   const first = screen.getByText("Nội dung câu 1");
-  const material = screen.getByRole("heading", { name: previewGroup.title });
   const member = screen.getByText("Nội dung câu 2");
   expect(
     first.compareDocumentPosition(material) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -62,16 +64,20 @@ it("draws the passage and the questions as the engine's panes, on a deck surface
   );
   expect(container.firstElementChild).toHaveAttribute("data-scale", "deck");
 
-  const title = screen.getByRole("heading", { level: 3, name: previewGroup.title });
+  const title = screen.getByRole("heading", {
+    level: 3,
+    name: previewGroup.stimuli[0]!.title,
+  });
   expect(title).toHaveClass("text-stat", "leading-[1.3]");
   expect(title.parentElement).toHaveClass("max-w-160", "[&_img]:bg-paper");
-  expect(screen.getByText("Ngữ liệu dùng chung · Câu 2–3")).toHaveClass(
-    "text-meta",
-    "uppercase",
-  );
-  expect(screen.getByText("Lịch hoạt động")).toBeVisible();
+  const kicker = screen.getByText(previewGroup.title);
+  expect(kicker).toHaveClass("text-meta", "uppercase", "tracking-[0.04em]");
+  expect(
+    kicker.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(screen.getAllByText("Lịch hoạt động")).toHaveLength(1);
 
-  const line = screen.getByText("Câu 1 trên 4 · Chọn một đáp án");
+  const line = screen.getByText("Câu 1 trên 4 · Một đáp án");
   expect(line).toHaveClass("text-muted-fg", "text-sm");
   expect(line.closest(".bg-sidebar")).toHaveClass("rounded-xl", "border");
   expect(screen.getAllByRole("radio")).toHaveLength(3);
@@ -79,12 +85,21 @@ it("draws the passage and the questions as the engine's panes, on a deck surface
     expect(radio).toBeDisabled();
     expect(radio.parentElement).toHaveClass("min-h-13", "rounded-[11px]");
   }
-  expect(screen.getByText("Câu 4 trên 4 · Trả lời ngắn")).toBeVisible();
+  expect(screen.getByText("Câu 4 trên 4 · Tự luận")).toBeVisible();
   const field = screen.getByRole("textbox", { name: "Bài làm của bạn" });
   expect(field).toBeDisabled();
   expect(field).toHaveAttribute("placeholder", "Nhập câu trả lời");
   expect(screen.getByText("2 điểm · giáo viên chấm tay")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Đánh dấu xem lại" })).toBeNull();
+});
+
+it("states a section's instructions once, above its first question, however many questions it has", () => {
+  render(<StudentPreview questions={previewQuestions} sections={[previewSection]} />);
+  expect(previewQuestions).toHaveLength(3);
+  expect(screen.getAllByText(previewSection.instructions)).toHaveLength(1);
+  expect(
+    screen.getAllByRole("heading", { level: 2, name: previewSection.title }),
+  ).toHaveLength(1);
 });
 
 it("does not repeat a material's title when it is the group's", () => {

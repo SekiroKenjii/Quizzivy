@@ -78,9 +78,11 @@ for (const width of [768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await setup(page);
     await expect(
-      page.getByRole("heading", { name: `${previewGroup.title} · v1` }),
+      page.getByText(`${previewGroup.title} · v1`, { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("Ngữ liệu dùng chung · Câu 2–3")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: previewGroup.stimuli[0]!.title }),
+    ).toBeVisible();
     const gap = page.getByRole("link", { name: "Chỗ trống A — chuyển đến câu 3" });
     await gap.focus();
     await page.keyboard.press("Enter");
@@ -100,7 +102,7 @@ for (const width of [768, 1440]) {
       await clock.evaluate((element) => element.getBoundingClientRect().height),
     ).toBeLessThan(24);
     await page
-      .getByRole("heading", { name: `${previewGroup.title} · v1` })
+      .getByText(`${previewGroup.title} · v1`, { exact: true })
       .scrollIntoViewIfNeeded();
     await page.screenshot({
       path: test.info().outputPath(`group-preview-phone-${width}.png`),
@@ -110,10 +112,10 @@ for (const width of [768, 1440]) {
     if (width > 1024) {
       await page.getByRole("button", { name: /^Phiên bản 2/ }).click();
       await expect(
-        page.getByRole("heading", { name: `${previewGroup.title} · v2` }),
+        page.getByText(`${previewGroup.title} · v2`, { exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByRole("heading", { name: `${previewGroup.title} · v1` }),
+        page.getByText(`${previewGroup.title} · v1`, { exact: true }),
       ).toHaveCount(0);
     }
   });

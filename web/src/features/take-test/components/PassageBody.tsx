@@ -13,19 +13,20 @@ const MATERIALS = [
 ].join(" ");
 
 /**
- * PassageBody is the passage pane's column, as the deck draws it: at most
- * 640px wide, the part as an eyebrow, the title at 22px, and the materials at
- * 16px with a 1.75 line, or 18px under "Larger text in tests". Images and
- * rich tables inside it keep the paper surface in dark mode.
+ * PassageBody is the stimulus pane's column, as the deck draws it: at most
+ * 640px wide, the kicker in small capitals, the heading at 22px when there is
+ * one, and the materials at 16px with a 1.75 line, or 18px under "Larger text
+ * in tests". Images and rich tables inside it keep the paper surface in dark
+ * mode.
  */
 export function PassageBody({
-  eyebrow,
+  kicker,
   title,
   heading: Heading = "h2",
   children,
 }: Readonly<{
-  eyebrow?: string | undefined;
-  title: string;
+  kicker?: string | undefined;
+  title?: string | undefined;
   heading?: "h2" | "h3";
   children: ReactNode;
 }>) {
@@ -34,14 +35,16 @@ export function PassageBody({
     <div
       className={cn("mx-auto flex w-full max-w-160 flex-col gap-3.5", PAPER_SURFACE)}
     >
-      {eyebrow ? (
-        <p className="text-muted-fg text-meta leading-normal font-semibold tracking-[0.02em] uppercase">
-          {eyebrow}
+      {kicker ? (
+        <p className="text-muted-fg text-meta leading-normal font-semibold tracking-[0.04em] uppercase">
+          {kicker}
         </p>
       ) : null}
-      <Heading className="text-stat leading-[1.3] font-semibold tracking-[-0.01em]">
-        {title}
-      </Heading>
+      {title ? (
+        <Heading className="text-stat leading-[1.3] font-semibold tracking-[-0.01em]">
+          {title}
+        </Heading>
+      ) : null}
       <div className={cn(larger ? "text-stat-sm" : "text-title", MATERIALS)}>
         {children}
       </div>

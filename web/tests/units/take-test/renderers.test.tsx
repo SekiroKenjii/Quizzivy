@@ -687,10 +687,10 @@ describe("a type this page has no renderer for", () => {
           ] as const
         ).map((type) => questionLine({ type }, 4, 8, i18n.t)),
       ).toEqual([
-        "Question 4 of 8 · Choose one",
-        "Question 4 of 8 · Choose one or more",
-        "Question 4 of 8 · True or false",
-        "Question 4 of 8 · Fill in the blanks",
+        "Question 4 of 8 · Single choice",
+        "Question 4 of 8 · Multiple choice",
+        "Question 4 of 8 · True / False",
+        "Question 4 of 8 · Fill in the blank",
         "Question 4 of 8 · Short answer",
       ]);
       expect(questionLine(unknown, 4, 8, i18n.t)).toBe("Question 4 of 8");
@@ -783,7 +783,7 @@ describe("the question sheet", () => {
       />,
     );
     expect(screen.queryByRole("button")).toBeNull();
-    const line = screen.getByText("Câu 2 trên 5 · Chọn một đáp án");
+    const line = screen.getByText("Câu 2 trên 5 · Một đáp án");
     expect(line).not.toHaveAttribute("id");
     expect(line).not.toHaveAttribute("tabindex");
   });

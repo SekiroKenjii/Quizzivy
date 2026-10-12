@@ -23,7 +23,6 @@ import { GroupContext, GroupListening } from "../components/GroupContext";
 import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
 import { QuestionCard } from "../components/QuestionCard";
 import { SaveStrip } from "../components/SaveState";
-import { SectionInstructions } from "../components/SectionInstructions";
 import { SectionRail } from "../components/SectionRail";
 import { SubmitDialog } from "../components/SubmitDialog";
 import { SubmittedScreen } from "../components/SubmittedScreen";
@@ -37,7 +36,7 @@ import { useClipboardNotice } from "@/features/integrity/useClipboardNotice";
 import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { progress } from "../answered";
 import { getAttempt, type Answer, type StudentQuestion } from "../api";
-import { groupBySection, opensSection, sectionAt } from "../sections";
+import { groupBySection, sectionAt, sectionHead, type SectionHead } from "../sections";
 import {
   clearOpenQuestion,
   readOpenQuestion,
@@ -354,7 +353,11 @@ export type PaperProps = Readonly<{
 
 /**
  * Paper is the engine's paper open at question `index`: the header, the
- * sections rail, the passage pane and the question pane with the navigator.
+ * sections rail, the stimulus pane and the question pane with the navigator.
+ * The question pane is on the sidebar surface, its column at most 600px,
+ * beside shared content from 768px, and on the page's background, its column
+ * at most 720px, alone or on a phone. Above every question the column states
+ * the section's title and instructions, as sectionHead decides.
  * The rail shows when the engine is at least 900px wide on a question with no
  * shared content and at least 1180px on one with it, and the footer then
  * names the keys; otherwise the footer's grid button opens the question
@@ -402,7 +405,6 @@ function PaperAt({
     [sections, questions],
   );
   const group = sectionAt(groups, index);
-  const sectioned = groups.length > 1;
   const dots = dotsOf(questions, answers, flags);
   const total = questions.length;
   const answerPanel = useRef<HTMLDivElement>(null);
@@ -437,10 +439,11 @@ function PaperAt({
       landOn(landing.target);
       onJump(landing.index);
     },
-    [numbers, questions, onJump, landOn],
+    [numbers, questions, onJump, landOn, setReadingFor],
   );
 
-  const part = sectioned && passage === undefined ? group?.section.title : undefined;
+  const head = sectionHead(groups, group);
+  const besideShared = wide && passage !== undefined;
   const rail = wide && (passage === undefined ? railFits : railFitsBesideShared);
 
   return (
@@ -473,7 +476,7 @@ function PaperAt({
           <GroupContext
             key={passage.id}
             group={passage}
-            eyebrow={group?.section.title}
+            sectionTitle={group?.section.title}
             numbers={numbers}
             onGap={jumpToGap}
             onRetryMedia={onReload}
@@ -483,7 +486,10 @@ function PaperAt({
         )}
         <section
           hidden={reading}
-          className="bg-sidebar flex min-w-0 flex-[1_1_0] flex-col"
+          className={cn(
+            "flex min-w-0 flex-[1_1_0] flex-col",
+            besideShared ? "bg-sidebar" : "bg-bg",
+          )}
         >
           <div
             ref={sheet}
@@ -498,34 +504,25 @@ function PaperAt({
               id={`answer-question-${question.id}`}
               tabIndex={-1}
               aria-label={t("takeTest.dotLabel", { n: index + 1 })}
-              className="mx-auto flex w-full max-w-150 flex-col gap-4.5 outline-none!"
+              className={cn(
+                "mx-auto flex w-full flex-col gap-4.5 outline-none!",
+                passage === undefined ? "max-w-180" : "max-w-150",
+              )}
             >
-              {part ? (
-                <p className="text-muted-fg text-meta leading-normal font-semibold tracking-[0.02em] uppercase">
-                  {part}
-                </p>
-              ) : null}
+              {head && <SectionHeader head={head} />}
               <QuestionCard
                 question={question}
                 number={index + 1}
                 total={total}
                 onAudioExpired={onReload}
                 lead={
-                  <>
-                    {group !== null && opensSection(group, index) && (
-                      <SectionInstructions
-                        group={group}
-                        audio={question.media?.kind === "audio"}
-                      />
-                    )}
-                    {context && (
-                      <GroupListening
-                        key={context.id}
-                        group={context}
-                        onRetryMedia={onReload}
-                      />
-                    )}
-                  </>
+                  context && (
+                    <GroupListening
+                      key={context.id}
+                      group={context}
+                      onRetryMedia={onReload}
+                    />
+                  )
                 }
               />
             </div>
@@ -544,6 +541,23 @@ function PaperAt({
           />
         </section>
       </main>
+    </div>
+  );
+}
+
+function SectionHeader({ head }: Readonly<{ head: SectionHead }>) {
+  return (
+    <div className="flex flex-col gap-0.5 border-b pb-3">
+      {head.title !== "" && (
+        <p className="text-muted-fg text-xs leading-normal font-semibold tracking-[0.04em] uppercase">
+          {head.title}
+        </p>
+      )}
+      {head.instructions !== "" && (
+        <p className="text-muted-fg text-ui leading-normal text-pretty">
+          {head.instructions}
+        </p>
+      )}
     </div>
   );
 }

@@ -26,7 +26,7 @@ const countButton = (page: Page) =>
   footer(page).getByRole("button", { name: /^Câu \d+ · đã làm / });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Danh sách câu" });
 const questionLine = (page: Page, number: number) =>
-  page.getByText(`Câu ${number} trên 8 · Chọn một đáp án`, { exact: true });
+  page.getByText(`Câu ${number} trên 8 · Một đáp án`, { exact: true });
 
 async function footerHeights(page: Page) {
   return footer(page)
@@ -110,7 +110,7 @@ test("a passage and its question take turns on the screen, and the answer is kep
   const switcher = page.getByRole("group", { name: "Xem ngữ liệu hoặc câu hỏi" });
   const passageTab = switcher.getByRole("button", { name: "Ngữ liệu", exact: true });
   const questionTab = switcher.getByRole("button", { name: "Câu 1", exact: true });
-  const passage = page.getByRole("heading", { name: previewGroup.title });
+  const passage = page.getByRole("heading", { name: previewGroup.stimuli[0]!.title });
   const prompt = page.getByText(first.prompt, { exact: true });
   const option = page.getByRole("radio", { name: first.options![0]!.text });
 

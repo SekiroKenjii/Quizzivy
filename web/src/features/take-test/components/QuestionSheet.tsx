@@ -11,7 +11,7 @@ import type { Answer, StudentQuestion } from "../api";
 
 /**
  * QuestionSheet is the question pane's column, as the deck draws it: the line
- * "Question 4 of 8 · Choose one" with `action` at its far end, then `lead`,
+ * "Question 4 of 8 · Single choice" with `action` at its far end, then `lead`,
  * the question's recording and image, the prompt and the answer, and under
  * the answer what the question is worth. A short answer says its worth beside
  * the word count. A type this page has no renderer for gets UnknownType in
