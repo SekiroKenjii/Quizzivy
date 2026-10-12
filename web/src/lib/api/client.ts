@@ -482,7 +482,7 @@ export async function uploadFile<T>(
   const lease = authStore.captureActor();
 
   const send = (token: string | null) =>
-    new Promise<{ status: number; body: string }>((resolve, reject) => {
+    new Promise<UploadResponse>((resolve, reject) => {
       const request = new XMLHttpRequest();
       request.open(options.method ?? "POST", url);
       request.withCredentials = true;
@@ -497,7 +497,11 @@ export async function uploadFile<T>(
         };
       }
       request.onload = () =>
-        resolve({ status: request.status, body: request.responseText });
+        resolve({
+          status: request.status,
+          body: request.responseText,
+          retryAfter: request.getResponseHeader("Retry-After"),
+        });
       request.onerror = () => reject(unavailable());
       request.onabort = () => reject(new DOMException("Aborted", "AbortError"));
 
@@ -536,7 +540,15 @@ export async function uploadFile<T>(
   return JSON.parse(response.body) as T;
 }
 
-function toUploadError(response: { status: number; body: string }): ApiError {
+interface UploadResponse {
+  status: number;
+  body: string;
+  retryAfter: string | null;
+}
+
+function toUploadError(response: UploadResponse): ApiError {
+  const waited = response.retryAfter ? Number(response.retryAfter) : undefined;
+  const retryAfterSeconds = Number.isFinite(waited) ? waited : undefined;
   try {
     const parsed = JSON.parse(response.body) as {
       error?: {
@@ -553,6 +565,7 @@ function toUploadError(response: { status: number; body: string }): ApiError {
         message: parsed.error.message,
         requestId: parsed.error.requestId,
         details: parsed.error.details,
+        retryAfterSeconds,
       });
     }
   } catch {
@@ -562,6 +575,7 @@ function toUploadError(response: { status: number; body: string }): ApiError {
     status: response.status,
     code: "UNKNOWN",
     message: i18n.t("api.failed"),
+    retryAfterSeconds,
   });
 }
 
