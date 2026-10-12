@@ -143,7 +143,7 @@ describe("the upload panel's client-side pre-check", () => {
     await choose(audioFileReporting("sat-nut.mp3", 52_428_900));
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("sat-nut.mp3 nặng 52.428.900 B, vượt quá 50 MB.");
+    expect(alert).toHaveTextContent("sat-nut.mp3 nặng 50.01 MB, vượt quá 50 MB.");
     expect(alert).not.toHaveTextContent("50.0 MB");
     expect(uploadCalls).toBe(0);
   });
@@ -179,11 +179,13 @@ describe("the upload panel's client-side pre-check", () => {
     await waitFor(() => expect(uploadCalls).toBe(1));
   });
 
-  it("reports a server failure rather than going quiet", async () => {
+  it("reports a server failure as the server's, not the file's (F-44)", async () => {
     stubDuration(30);
     await choose(audioFile("that-bai.mp3", 1024));
 
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Máy chủ gặp lỗi khi nhận tệp");
+    expect(alert).not.toHaveTextContent("Không dùng được tệp này");
   });
 
   it("says why a dropped folder produced nothing, instead of swallowing it", async () => {

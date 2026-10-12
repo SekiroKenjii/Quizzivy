@@ -6,10 +6,10 @@ import type { UploadState } from "@/features/media/useMediaUpload";
 
 /**
  * UploadStatus draws useMediaUpload's state: the file being checked and the
- * upload's progress, each with a cancel; a refusal or failure as an alert;
- * and a cancellation as a plain status line, which is not a refusal. Idle
- * draws nothing. `onRetry` adds "Choose another file" to the alert and to the
- * cancellation.
+ * upload's progress, each with a cancel; a refusal or failure as an alert,
+ * titled as a server error when the server caused it; and a cancellation as a
+ * plain status line, which is not a refusal. Idle draws nothing. `onRetry`
+ * adds "Choose another file" to the alert and to the cancellation.
  */
 export function UploadStatus({
   state,
@@ -80,7 +80,13 @@ export function UploadStatus({
       >
         <CircleAlert className="text-danger-ink size-5 shrink-0" aria-hidden="true" />
         <div className="min-w-0">
-          <p className="text-sm font-medium">{t("media.rejectTitle")}</p>
+          <p className="text-sm font-medium">
+            {t(
+              state.fault === "server"
+                ? "media.serverFailedTitle"
+                : "media.rejectTitle",
+            )}
+          </p>
           <p className="text-muted-fg mt-1 text-xs leading-relaxed break-words">
             {state.message}
           </p>

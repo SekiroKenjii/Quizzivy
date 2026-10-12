@@ -25,16 +25,18 @@ export function formatStorage(bytes: number): string {
   return `${Number((bytes / GIB).toFixed(2))}${NO_BREAK_SPACE}GB`;
 }
 
+const MIB = 1024 * 1024;
+
 /**
  * formatOverLimit writes the size of a file refused for exceeding `limit` so
  * that it reads as larger than the limit: formatBytes, unless that rounds to
  * the limit's own figure ("50.0 MB" for 52,428,900 bytes against 50 MB), in
- * which case the exact bytes, grouped for `locale`.
+ * which case megabytes rounded up to two decimals ("50.01 MB").
  */
-export function formatOverLimit(bytes: number, limit: number, locale: string): string {
+export function formatOverLimit(bytes: number, limit: number): string {
   const shown = formatBytes(bytes);
   if (shown !== formatBytes(limit)) return shown;
-  return `${new Intl.NumberFormat(locale).format(bytes)} B`;
+  return `${(Math.ceil((bytes / MIB) * 100) / 100).toFixed(2)} MB`;
 }
 
 /** playLimitLabel names a default play limit as the card and the upload dialog say it; 0 is unlimited. */
