@@ -34,7 +34,8 @@ export function questionKind(question: Pick<StudentQuestion, "type">): QuestionK
 }
 
 /**
- * questionLine is the line above a question, "Question 4 of 8 · Choose one".
+ * questionLine is the line above a question, "Question 4 of 8 · Single
+ * choice": the type is named as the builder's type menu names it.
  * An unknown type has no label, so its line stops at the position.
  */
 export function questionLine(

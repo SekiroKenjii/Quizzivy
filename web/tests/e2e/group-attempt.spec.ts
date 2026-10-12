@@ -8,7 +8,9 @@ for (const width of [320, 768, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: 900 });
     const seen = await startGroupPaper(page);
-    const material = page.getByRole("heading", { name: previewGroup.title });
+    const material = page.getByRole("heading", {
+      name: previewGroup.stimuli[0]!.title,
+    });
     const passageTab = page.getByRole("button", { name: "Ngữ liệu", exact: true });
     if (width === 320) {
       await expect(material).toBeHidden();

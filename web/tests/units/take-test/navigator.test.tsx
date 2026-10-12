@@ -801,7 +801,7 @@ describe("the rail", () => {
     expect(
       header.getByRole("timer", { name: "Thời gian còn lại" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Câu 1 trên 3 · Chọn một đáp án")).toBeInTheDocument();
+    expect(screen.getByText("Câu 1 trên 3 · Một đáp án")).toBeInTheDocument();
 
     expect(screen.queryByRole("separator")).toBeNull();
     expect(document.querySelector("[data-side-column]")).toBeNull();
@@ -921,7 +921,7 @@ describe("the rail", () => {
     );
   });
 
-  it("heads each part with its count, names the part in each square, and states a part's instructions on its first question", async () => {
+  it("heads each part with its count, names the part in each square, and heads each question with its part", async () => {
     const user = userEvent.setup();
     await open(twoParts);
 
@@ -943,17 +943,17 @@ describe("the rail", () => {
     expect(third).toHaveAccessibleName("Câu 3, Phần 2 · Nghe");
 
     const pane = () => within(screen.getByRole("main"));
-    expect(pane().getByText("Câu 1 trên 3 · Chọn một đáp án")).toBeInTheDocument();
-    expect(screen.queryByRole("note")).toBeNull();
+    expect(pane().getByText("Câu 1 trên 3 · Một đáp án")).toBeInTheDocument();
+    expect(panel("q1")).toHaveTextContent(/^Phần 1 · Ngữ phápCâu 1 trên 3/);
 
     await user.click(third!);
     expect(headings[0]).toHaveClass("text-muted-fg", "font-medium");
     expect(
       within(rail()).getByRole("heading", { level: 3, name: "Phần 2 · Nghe" }),
     ).toHaveClass("text-fg", "font-semibold");
-    expect(pane().getByText("Câu 3 trên 3 · Đúng hay sai")).toBeInTheDocument();
-    expect(screen.getByRole("note")).toHaveTextContent(
-      "Nghe đoạn hội thoại rồi trả lời.",
+    expect(pane().getByText("Câu 3 trên 3 · Đúng/Sai")).toBeInTheDocument();
+    expect(panel("q3")).toHaveTextContent(
+      /^Phần 2 · NgheNghe đoạn hội thoại rồi trả lời\.Câu 3 trên 3/,
     );
   });
 

@@ -4,6 +4,7 @@ import type { components } from "@/lib/api/schema";
 import { nfc } from "@/lib/nfc";
 import { ContentView, type AssetRenderer } from "./ContentView";
 import { ContentImage } from "./ContentImage";
+import { hasReading } from "./materials";
 
 type StudentGroup = components["schemas"]["StudentGroup"];
 export type MaterialGap = StudentGroup["stimuli"][number]["gaps"][number];
@@ -16,8 +17,9 @@ export type GroupAudioRenderer = (
 
 /**
  * GroupMaterials renders frozen, learner-safe content using only the group's
- * authorized asset bindings. A material whose title is `omitTitle` draws no
- * heading: the caller has already drawn those words above it.
+ * authorized asset bindings. A material whose title, in NFC, is `omitTitle`
+ * draws no heading: the caller has already drawn those words above it.
+ * Neither does a material with nothing to read.
  */
 export function GroupMaterials({
   group,
@@ -63,9 +65,9 @@ export function GroupMaterials({
           <section
             key={material.id}
             className="flex min-w-0 flex-col gap-2"
-            aria-label={material.title}
+            aria-label={hasReading(material) ? material.title : undefined}
           >
-            {material.title !== omitTitle && (
+            {nfc(material.title) !== omitTitle && hasReading(material) && (
               <h4 className="text-sm font-medium">{nfc(material.title)}</h4>
             )}
             <ContentView

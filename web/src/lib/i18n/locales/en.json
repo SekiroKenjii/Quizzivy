@@ -1058,7 +1058,7 @@
     "sectionInstructionsTitle": "Instructions for {{title}}",
     "removeSectionWithGroupsBody_one": "The question in this section leaves this test, and the section’s draft groups and their materials are deleted with it. Bank questions, published versions and bank copies are preserved.",
     "removeSectionWithGroupsBody_other": "The {{count}} questions in this section leave this test, and the section’s draft groups and their materials are deleted with them. Bank questions, published versions and bank copies are preserved.",
-    "sectionInstructionsHint": "Students read this before the questions in this section.",
+    "sectionInstructionsHint": "Students see this above every question in the section.",
     "sectionInstructionsPlaceholder": "For example: listen twice, then choose the right answer.",
     "dropFromTest": "Remove question {{number}} from the test",
     "missingExplanation": "Question {{number}} has no explanation.",
@@ -2179,10 +2179,10 @@
     "questionOf": "Question {{n}} of {{total}}",
     "questionOfType": "Question {{n}} of {{total}} · {{type}}",
     "type": {
-      "single_choice": "Choose one",
-      "multiple_choice": "Choose one or more",
-      "true_false": "True or false",
-      "fill_blank": "Fill in the blanks",
+      "single_choice": "Single choice",
+      "multiple_choice": "Multiple choice",
+      "true_false": "True / False",
+      "fill_blank": "Fill in the blank",
       "short_answer": "Short answer"
     },
     "blankRuleInsensitive": "Capital letters do not matter. Spell it exactly.",

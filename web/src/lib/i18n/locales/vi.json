@@ -1058,7 +1058,7 @@
     "sectionInstructionsTitle": "Hướng dẫn cho {{title}}",
     "removeSectionWithGroupsBody_one": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Nhóm câu và ngữ liệu trong bản nháp của phần này sẽ được xoá cùng; câu lấy từ ngân hàng, các bản đã phát hành và bản sao trong ngân hàng vẫn được giữ nguyên.",
     "removeSectionWithGroupsBody_other": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Nhóm câu và ngữ liệu trong bản nháp của phần này sẽ được xoá cùng; câu lấy từ ngân hàng, các bản đã phát hành và bản sao trong ngân hàng vẫn được giữ nguyên.",
-    "sectionInstructionsHint": "Học viên đọc hướng dẫn này trước các câu trong phần.",
+    "sectionInstructionsHint": "Học viên thấy hướng dẫn này phía trên mọi câu trong phần.",
     "sectionInstructionsPlaceholder": "Ví dụ: Nghe hai lần rồi chọn đáp án đúng.",
     "dropFromTest": "Gỡ câu {{number}} khỏi đề",
     "missingExplanation": "Câu {{number}} chưa có giải thích.",
@@ -2179,11 +2179,11 @@
     "questionOf": "Câu {{n}} trên {{total}}",
     "questionOfType": "Câu {{n}} trên {{total}} · {{type}}",
     "type": {
-      "single_choice": "Chọn một đáp án",
-      "multiple_choice": "Chọn nhiều đáp án",
-      "true_false": "Đúng hay sai",
-      "fill_blank": "Điền vào chỗ trống",
-      "short_answer": "Trả lời ngắn"
+      "single_choice": "Một đáp án",
+      "multiple_choice": "Nhiều đáp án",
+      "true_false": "Đúng/Sai",
+      "fill_blank": "Điền từ",
+      "short_answer": "Tự luận"
     },
     "blankRuleInsensitive": "Không phân biệt hoa thường. Viết đúng chính tả.",
     "blankRuleSensitive": "Phân biệt hoa thường. Viết đúng chính tả.",

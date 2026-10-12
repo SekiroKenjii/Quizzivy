@@ -163,7 +163,7 @@ describe("the header at 1280", () => {
 
   it("says the worth once, under the answer, and not in the line above the question", async () => {
     await open();
-    expect(screen.getByText("Câu 1 trên 2 · Chọn một đáp án")).toBeInTheDocument();
+    expect(screen.getByText("Câu 1 trên 2 · Một đáp án")).toBeInTheDocument();
     expect(screen.getAllByText(/1 điểm/)).toHaveLength(1);
     expect(screen.getByText("1 điểm")).not.toHaveClass("min-[768px]:hidden");
   });

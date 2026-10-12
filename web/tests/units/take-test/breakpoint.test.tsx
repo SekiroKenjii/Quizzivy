@@ -185,14 +185,14 @@ it("is the wide engine from 768px and the phone engine below it, with the rail f
   expect(rail()).toBeNull();
   expect(gridButton()).toHaveTextContent("Câu 1 · đã làm 0 trên 2");
   expect(screen.getByRole("button", { name: "Câu trước" })).toHaveTextContent("Trước");
-  expect(screen.getByText("Câu 1 trên 2 · Trả lời ngắn")).toBeInTheDocument();
+  expect(screen.getByText("Câu 1 trên 2 · Tự luận")).toBeInTheDocument();
   expect(screen.getAllByText("1 điểm · giáo viên chấm tay")).toHaveLength(1);
 
   resize(767);
   expect(rail()).toBeNull();
   expect(gridButton()).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Câu trước" })).toHaveTextContent(/^$/);
-  expect(screen.getByText("Câu 1 trên 2 · Trả lời ngắn")).toBeInTheDocument();
+  expect(screen.getByText("Câu 1 trên 2 · Tự luận")).toBeInTheDocument();
   expect(screen.getAllByText("1 điểm · giáo viên chấm tay")).toHaveLength(1);
 
   resize(899);
