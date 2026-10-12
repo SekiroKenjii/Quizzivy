@@ -40,7 +40,6 @@ vi.mock("@/features/take-test/api", () => ({
 
 const NOW = new Date("2026-09-22T05:00:00.000Z");
 const store = () => useTakeTestStore.getState();
-const SWITCHER = "Xem ngữ liệu hoặc câu hỏi";
 
 async function open(paper: AttemptSession) {
   vi.mocked(getAttempt).mockResolvedValue(paper);
@@ -56,7 +55,8 @@ async function open(paper: AttemptSession) {
 const passage = () => screen.getByRole("article", { name: DECK_PASSAGE });
 const sheet = () => document.querySelector<HTMLElement>('[id^="answer-question-"]')!;
 const questionPane = () => sheet().closest("section")!;
-const switcher = () => screen.queryByRole("group", { name: SWITCHER });
+const switcher = () =>
+  screen.queryByRole("group", { name: "Xem ngữ liệu hoặc câu hỏi" });
 const next = () => screen.getByRole("button", { name: "Câu sau" });
 const footer = () => screen.queryByRole("navigation", { name: "Danh sách câu" });
 
@@ -560,84 +560,283 @@ describe("the panes from 768", () => {
 describe("the panes below 768", () => {
   beforeEach(() => {
     viewport("phone");
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 360,
+      bottom: 700,
+      width: 360,
+      height: 700,
+      toJSON: () => ({}),
+    });
   });
 
-  it("puts the Passage | Question n switcher under the header, with the question first", async () => {
-    const user = userEvent.setup();
+  const W = Math.round(360 * 0.88);
+  const handle = () => screen.queryByRole("button", { name: "Mở ngữ liệu" });
+  const drawer = () => screen.getByRole("article", { hidden: true });
+  const backdrop = () => document.querySelector<HTMLElement>("[data-drawer-backdrop]");
+  const closer = () => screen.getByRole("button", { name: "Đóng" });
+  const panes = () => screen.getByRole("main");
+  const isClosed = () => {
+    expect(drawer()).toHaveAttribute("inert");
+    expect(drawer()).toHaveClass("-translate-x-full");
+    expect(drawer()).not.toHaveAttribute("data-drawer-open");
+    expect(backdrop()).toBeNull();
+    expect(handle()).toBeInTheDocument();
+  };
+  const swipe = (from: [number, number], to: [number, number]) => {
+    fireEvent.pointerDown(panes(), {
+      clientX: from[0],
+      clientY: from[1],
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(panes(), {
+      clientX: (from[0] + to[0]) / 2,
+      clientY: (from[1] + to[1]) / 2,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(panes(), {
+      clientX: to[0],
+      clientY: to[1],
+      pointerType: "touch",
+    });
+    fireEvent.pointerUp(panes(), {
+      clientX: to[0],
+      clientY: to[1],
+      pointerType: "touch",
+    });
+  };
+
+  it("draws the passage as a closed drawer from the left behind a handle, with the question first", async () => {
     await open(deckPassageSession(NOW));
 
-    const tabs = switcher()!;
-    expect(tabs).toHaveClass("flex-none", "gap-1.5", "border-b", "px-3.5", "py-2");
-    expect(
-      screen.getByRole("banner").compareDocumentPosition(tabs) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      tabs.compareDocumentPosition(screen.getByRole("main")) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    const [read, answer] = within(tabs).getAllByRole("button");
-    expect(read).toHaveTextContent("Ngữ liệu");
-    expect(answer).toHaveTextContent("Câu 1");
-    expect(answer).toHaveAttribute("aria-pressed", "true");
-    expect(answer).toHaveClass("h-8.5", "min-h-0", "flex-1", "bg-primary");
-    expect(read).toHaveAttribute("aria-pressed", "false");
-    expect(read).toHaveClass("bg-muted", "text-fg");
-
+    expect(switcher()).toBeNull();
     expect(questionPane()).toBeVisible();
-    expect(screen.getByRole("article", { hidden: true })).not.toBeVisible();
+    expect(panes()).toHaveClass("relative");
+    expect(panes()).toHaveStyle({ touchAction: "pan-y" });
+    expect(drawer()).toHaveClass(
+      "absolute",
+      "inset-y-0",
+      "left-0",
+      "z-60",
+      "w-[min(88%,420px)]",
+      "bg-bg",
+      "px-4",
+      "py-4.5",
+      "transition-transform",
+      "duration-[320ms]",
+      "ease-[cubic-bezier(.22,.8,.24,1)]",
+      "motion-reduce:transition-none",
+    );
+    expect(drawer()).not.toHaveClass("border-r", "flex-[1_1_0]", "shadow-float");
+    isClosed();
+    expect(handle()).toHaveClass(
+      "absolute",
+      "top-[42%]",
+      "left-0",
+      "h-21",
+      "w-7.5",
+      "min-h-0",
+      "min-w-0",
+      "rounded-r-[12px]",
+      "border",
+      "border-l-0",
+      "bg-card",
+      "shadow-float",
+    );
+    expect(handle()!.querySelectorAll("svg")).toHaveLength(2);
     expect(sheet().parentElement).toHaveClass("px-4", "py-4.5");
-
-    await user.click(read!);
-    expect(passage()).toBeVisible();
-    expect(passage()).toHaveClass("px-4", "py-4.5");
-    expect(passage()).not.toHaveClass("border-r");
-    expect(questionPane()).not.toBeVisible();
-    expect(read).toHaveAttribute("aria-pressed", "true");
-    expect(footer()).toBeNull();
-
-    await user.click(answer!);
-    expect(questionPane()).toBeVisible();
     expect(footer()).toBeInTheDocument();
   });
 
-  it("is the deck's switcher in English", async () => {
-    await i18n.changeLanguage("en");
-    await open(deckPassageSession(NOW));
-    const tabs = screen.getByRole("group", {
-      name: "Show the passage or the question",
-    });
-    expect(
-      within(tabs)
-        .getAllByRole("button")
-        .map((tab) => tab.textContent),
-    ).toEqual(["Passage", "Question 1"]);
-  });
-
-  it("names the question in the switcher as the student moves", async () => {
+  it("opens from the handle over the question, focuses its close button, and closes back to the handle", async () => {
     const user = userEvent.setup();
     await open(deckPassageSession(NOW));
-    await user.click(next());
-    expect(within(switcher()!).getByRole("button", { name: "Câu 2" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+
+    await user.click(handle()!);
+    expect(drawer()).not.toHaveAttribute("inert");
+    expect(drawer()).toHaveAttribute("data-drawer-open");
+    expect(drawer()).toHaveClass("translate-x-0", "shadow-float");
+    expect(backdrop()).toHaveClass("bg-overlay", "absolute", "inset-0");
+    expect(backdrop()).toHaveStyle({ opacity: "1" });
+    expect(handle()).toBeNull();
+    expect(
+      within(passage()).getByText("Vuốt sang trái để quay lại câu hỏi"),
+    ).toBeVisible();
+    expect(closer()).toHaveClass("size-8.5", "min-h-0", "min-w-0");
+    await waitFor(() => expect(closer()).toHaveFocus());
+    expect(questionPane()).toBeVisible();
+    expect(footer()).toBeInTheDocument();
+
+    await user.click(closer());
+    isClosed();
+    await waitFor(() => expect(handle()).toHaveFocus());
   });
 
-  it("takes no answer and no flag from the keys while the passage hides the question", async () => {
+  it("closes on Esc and on the backdrop", async () => {
+    const user = userEvent.setup();
+    await open(deckPassageSession(NOW));
+    await user.click(handle()!);
+    await waitFor(() => expect(closer()).toHaveFocus());
+    await user.keyboard("{Escape}");
+    isClosed();
+    await waitFor(() => expect(handle()).toHaveFocus());
+
+    await user.click(handle()!);
+    await user.click(backdrop()!);
+    isClosed();
+  });
+
+  it("is the deck's handle, tip and bar in English", async () => {
+    await i18n.changeLanguage("en");
+    const user = userEvent.setup();
+    await open(deckPassageSession(NOW));
+    expect(
+      screen.getByText("The passage is here. Swipe right or tap to read it."),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Open the passage" }));
+    expect(screen.getByText("Swipe left to go back to the question")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  });
+
+  it("nudges and tips until the group's drawer has been opened once, and remembers it for the attempt", async () => {
+    const user = userEvent.setup();
+    const { unmount } = await open(deckPassageSession(NOW));
+    const tip = () =>
+      screen.queryByText("Ngữ liệu ở đây. Vuốt sang phải hoặc chạm để đọc.");
+    expect(tip()).toHaveAttribute("role", "status");
+    expect(tip()).toHaveClass(
+      "bg-primary",
+      "text-primary-fg",
+      "text-meta",
+      "max-w-55",
+      "animate-[qz-tip_0.3s_ease-out_both]",
+      "motion-reduce:animate-none",
+    );
+    expect(handle()).toHaveClass(
+      "animate-[qz-nudge_1.4s_ease-in-out_0.4s_3]",
+      "motion-reduce:animate-none",
+    );
+
+    await user.click(handle()!);
+    await user.click(closer());
+    expect(tip()).toBeNull();
+    expect(handle()).not.toHaveClass("animate-[qz-nudge_1.4s_ease-in-out_0.4s_3]");
+    expect(
+      JSON.parse(sessionStorage.getItem(`quizzivy.stimulus-seen.${DECK_ATTEMPT}`)!),
+    ).toEqual([deckPassageSession(NOW).groups![0]!.id]);
+
+    unmount();
+    store().reset();
+    await open(deckPassageSession(NOW));
+    expect(tip()).toBeNull();
+  });
+
+  it("costs nothing in a browser that refuses storage", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+    await open(deckPassageSession(NOW));
+    await user.click(handle()!);
+    await user.click(closer());
+    expect(
+      screen.queryByText("Ngữ liệu ở đây. Vuốt sang phải hoặc chạm để đọc."),
+    ).toBeNull();
+  });
+
+  it("opens past a quarter of its width on a swipe right, and stays shut short of it", async () => {
+    await open(deckPassageSession(NOW));
+    swipe([4, 300], [4 + Math.round(W * 0.2), 302]);
+    isClosed();
+
+    swipe([4, 300], [4 + Math.round(W * 0.3), 302]);
+    expect(drawer()).toHaveAttribute("data-drawer-open");
+  });
+
+  it("follows the finger while it drags, with the backdrop darkening as it comes out", async () => {
+    await open(deckPassageSession(NOW));
+    fireEvent.pointerDown(panes(), { clientX: 4, clientY: 300, pointerType: "touch" });
+    fireEvent.pointerMove(panes(), { clientX: 24, clientY: 302, pointerType: "touch" });
+    fireEvent.pointerMove(panes(), {
+      clientX: 4 + W / 2,
+      clientY: 302,
+      pointerType: "touch",
+    });
+    expect(drawer()).toHaveStyle({ transform: `translateX(${-W / 2}px)` });
+    expect(drawer()).not.toHaveClass("transition-transform");
+    expect(backdrop()).toHaveStyle({ opacity: "0.5" });
+    fireEvent.pointerUp(panes(), {
+      clientX: 4 + W / 2,
+      clientY: 302,
+      pointerType: "touch",
+    });
+    expect(drawer()).toHaveAttribute("data-drawer-open");
+    expect(drawer()).toHaveClass("transition-transform");
+  });
+
+  it("closes when dragged back past 30% of its width, and stays open short of it", async () => {
+    const user = userEvent.setup();
+    await open(deckPassageSession(NOW));
+    await user.click(handle()!);
+
+    swipe([300, 300], [300 - Math.round(W * 0.25), 302]);
+    expect(drawer()).toHaveAttribute("data-drawer-open");
+
+    swipe([300, 300], [300 - Math.round(W * 0.35), 302]);
+    isClosed();
+  });
+
+  it("leaves a vertical scroll to the page and never swallows the tap after it", async () => {
+    const user = userEvent.setup();
+    const paper = deckPassageSession(NOW);
+    await open(paper);
+    swipe([100, 400], [112, 300]);
+    isClosed();
+    const option = paper.questions[0]!.options![2]!;
+    await user.click(screen.getByRole("radio", { name: option.text }));
+    expect(store().answers[paper.questions[0]!.id]).toEqual({
+      type: "choice",
+      optionIds: [option.id],
+    });
+  });
+
+  it("swallows a click that lands within 60ms of a swipe, and not one after", async () => {
+    const paper = deckPassageSession(NOW);
+    const first = paper.questions[0]!;
+    const before = paper.answers[first.id];
+    await open(paper);
+    let clock = 1_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => clock);
+    const option = () => screen.getByRole("radio", { name: first.options![2]!.text });
+    swipe([4, 300], [4 + Math.round(W * 0.3), 302]);
+    clock += 59;
+    fireEvent.click(option());
+    expect(store().answers[first.id]).toEqual(before);
+    clock += 1;
+    fireEvent.click(option());
+    expect(store().answers[first.id]).toEqual({
+      type: "choice",
+      optionIds: [first.options![2]!.id],
+    });
+  });
+
+  it("takes no answer and no flag from the keys while the drawer is open", async () => {
     const user = userEvent.setup();
     const paper = deckPassageSession(NOW);
     const fourth = paper.questions[3]!;
     await open(paper);
     for (let moves = 0; moves < 3; moves++) await user.click(next());
-    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
+    await user.click(handle()!);
 
     await user.keyboard("a");
     await user.keyboard("f");
     expect(store().answers[fourth.id]).toBeUndefined();
     expect(store().flags.has(fourth.id)).toBe(false);
 
-    await user.click(within(switcher()!).getByRole("button", { name: "Câu 4" }));
+    await user.keyboard("{Escape}");
     await user.keyboard("a");
     await user.keyboard("f");
     expect(store().answers[fourth.id]).toEqual({
@@ -647,105 +846,106 @@ describe("the panes below 768", () => {
     expect(store().flags.has(fourth.id)).toBe(true);
   });
 
-  it("still moves to the next question from the arrow keys while the passage shows, and shows it", async () => {
+  it("closes when the arrow keys move to the next question, which they still do", async () => {
     const user = userEvent.setup();
     await open(deckPassageSession(NOW));
-    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
-    expect(questionPane()).not.toBeVisible();
+    await user.click(handle()!);
 
     await user.keyboard("{ArrowRight}");
     expect(screen.getByRole("main", { name: "Câu 2" })).toBeInTheDocument();
-    expect(questionPane()).toBeVisible();
-    expect(screen.getByRole("article", { hidden: true })).not.toBeVisible();
+    isClosed();
   });
 
-  it("shows the question again on coming back to one whose passage was open", async () => {
+  it("stays closed on coming back to a question whose drawer was open", async () => {
     const user = userEvent.setup();
     await open(deckPassageSession(NOW));
-    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
+    await user.click(handle()!);
 
     await user.keyboard("{ArrowRight}");
     await user.keyboard("{ArrowLeft}");
     expect(screen.getByRole("main", { name: "Câu 1" })).toBeInTheDocument();
-    expect(questionPane()).toBeVisible();
+    isClosed();
     expect(footer()).toBeInTheDocument();
   });
 
-  it("shows the question again on coming back by touch after the window was wide", async () => {
+  it("stays closed on coming back by touch after the window was wide", async () => {
     const view = viewport("phone");
     const user = userEvent.setup();
     await open(deckPassageSession(NOW));
-    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
+    await user.click(handle()!);
 
     act(() => view.resize("desktop"));
     await user.click(next());
     act(() => view.resize("phone"));
     await user.click(screen.getByRole("button", { name: "Câu trước" }));
     expect(screen.getByRole("main", { name: "Câu 1" })).toBeInTheDocument();
-    expect(questionPane()).toBeVisible();
+    isClosed();
   });
 
-  it("shows the question when the Submit dialog goes to the one whose passage is open", async () => {
+  it("closes when the Submit dialog goes to a question, and lands on it", async () => {
     const user = userEvent.setup();
     await open(deckPassageSession(NOW));
     for (let moves = 0; moves < 3; moves++) await user.click(next());
-    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
-    expect(questionPane()).not.toBeVisible();
+    await user.click(handle()!);
 
     await user.click(screen.getByRole("button", { name: "Nộp bài" }));
     await user.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: "Câu 4" }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(questionPane()).toBeVisible();
-    expect(screen.getByRole("article", { hidden: true })).not.toBeVisible();
-    expect(within(switcher()!).getByRole("button", { name: "Câu 4" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    isClosed();
+    expect(screen.getByRole("main", { name: "Câu 4" })).toBeInTheDocument();
     expect(sheet()).toHaveFocus();
-    expect(footer()).toBeInTheDocument();
   });
 
-  it("keeps the student's place in the question while the passage is showing", async () => {
+  it("keeps the student's place in the passage and in the question while it opens and closes", async () => {
     const user = userEvent.setup();
     await open(deckPassageSession(NOW));
     const pane = sheet().parentElement!;
     pane.scrollTop = 160;
     fireEvent.scroll(pane);
+    drawer().scrollTop = 240;
+    fireEvent.scroll(drawer());
 
-    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
-    pane.scrollTop = 0;
-    await user.click(within(switcher()!).getByRole("button", { name: "Câu 1" }));
+    await user.click(handle()!);
+    expect(drawer().scrollTop).toBe(240);
+    await user.click(closer());
     expect(pane.scrollTop).toBe(160);
+    expect(drawer().scrollTop).toBe(240);
   });
 
-  it("has no switcher when the question has no passage", async () => {
+  it("has no handle when the question has no passage", async () => {
     await open(deckSession(NOW));
-    expect(switcher()).toBeNull();
+    expect(handle()).toBeNull();
+    expect(backdrop()).toBeNull();
     expect(questionPane()).toBeVisible();
   });
 
-  it("has no switcher for a group that has only recordings", async () => {
+  it("has no handle for a group that has only recordings", async () => {
     await open(listening(deckSession(NOW)));
-    expect(switcher()).toBeNull();
+    expect(handle()).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Phát" })).toBeVisible();
   });
 
-  it("shows both panes again when a phone showing the passage grows past 768", async () => {
+  it("shows both panes when an open drawer grows past 768, with the same pane element", async () => {
     const view = viewport("phone");
     const user = userEvent.setup();
     await open(deckPassageSession(NOW));
-    await user.click(within(switcher()!).getByRole("button", { name: "Ngữ liệu" }));
-    expect(questionPane()).not.toBeVisible();
+    await user.click(handle()!);
+    const element = drawer();
 
     act(() => view.resize("desktop"));
+    expect(passage()).toBe(element);
     expect(passage()).toBeVisible();
+    expect(passage()).not.toHaveAttribute("inert");
+    expect(passage()).toHaveClass("border-r", "flex-[1_1_0]");
+    expect(passage()).not.toHaveClass("absolute");
     expect(questionPane()).toBeVisible();
+    expect(backdrop()).toBeNull();
+    expect(handle()).toBeNull();
 
     act(() => view.resize("phone"));
-    expect(passage()).toBeVisible();
-    expect(questionPane()).not.toBeVisible();
+    expect(drawer()).toBe(element);
   });
 
   it("keeps an answer being typed when the window crosses 768 on a paper with a passage", async () => {
@@ -756,12 +956,12 @@ describe("the panes below 768", () => {
     await user.type(screen.getByRole("textbox"), "green space");
 
     act(() => view.resize("phone"));
-    expect(switcher()).not.toBeNull();
+    expect(handle()).not.toBeNull();
     expect(screen.getByRole("textbox")).toHaveFocus();
     expect(screen.getByRole("textbox")).toHaveValue("green space");
 
     act(() => view.resize("desktop"));
-    expect(switcher()).toBeNull();
+    expect(handle()).toBeNull();
     expect(passage()).toBeVisible();
     expect(screen.getByRole("textbox")).toHaveFocus();
   });

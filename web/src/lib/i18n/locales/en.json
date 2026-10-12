@@ -2089,6 +2089,12 @@
   "takeTest": {
     "passage": "Passage",
     "paneSwitch": "Show the passage or the question",
+    "openPassage": "Open the passage",
+    "openRecording": "Open the audio",
+    "drawerHint": "Swipe left to go back to the question",
+    "drawerClose": "Close",
+    "tipPassage": "The passage is here. Swipe right or tap to read it.",
+    "tipRecording": "The recording is here. Swipe right or tap to open it.",
     "sharedAudioLabel": "Recording {{n}}",
     "sharedAudioUnlimited": "Unlimited plays",
     "sharedAudioScope": "These questions share this recording’s play allowance.",

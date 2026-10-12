@@ -63,9 +63,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const switcher = () =>
-  within(screen.getByRole("group", { name: "Xem ngữ liệu hoặc câu hỏi" }));
 const passage = () => screen.getByRole("article", { name: previewGroup.title });
+const drawer = () => screen.getByRole("article", { hidden: true });
+const openDrawer = () => screen.getByRole("button", { name: "Mở ngữ liệu" });
 
 function mount() {
   const router = createMemoryRouter(
@@ -94,43 +94,55 @@ it("keeps one player and its position while moving between shared questions", as
   expect(container.querySelector("audio")).toBe(audio);
 });
 
-it("keeps the listening controls with the question on a phone, where the passage is behind its tab", async () => {
+it("keeps the listening controls with the question on a phone, where the passage is in the drawer", async () => {
   viewport("phone");
   const user = userEvent.setup();
   const { container } = mount();
   await screen.findByText(previewQuestions[1]!.prompt);
   const audio = container.querySelector("audio")!;
 
-  expect(switcher().getByRole("button", { name: "Câu 1" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  expect(screen.getByText("Lịch hoạt động")).not.toBeVisible();
+  expect(drawer()).toHaveAttribute("inert");
   expect(screen.getByRole("button", { name: "Phát" })).toBeVisible();
 
-  await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
-  expect(screen.getByText("Lịch hoạt động")).toBeVisible();
-  expect(screen.getByText(previewQuestions[1]!.prompt)).not.toBeVisible();
-  expect(screen.queryByRole("navigation", { name: "Danh sách câu" })).toBeNull();
+  await user.click(openDrawer());
+  expect(passage()).not.toHaveAttribute("inert");
+  expect(within(passage()).getByText("Lịch hoạt động")).toBeInTheDocument();
+  expect(screen.getByRole("navigation", { name: "Danh sách câu" })).toBeInTheDocument();
   expect(container.querySelector("audio")).toBe(audio);
 
-  await user.click(switcher().getByRole("button", { name: "Câu 1" }));
-  expect(screen.getByText("Lịch hoạt động")).not.toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Đóng" }));
+  expect(drawer()).toHaveAttribute("inert");
   expect(screen.getByRole("button", { name: "Phát" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Câu sau" }));
-  expect(switcher().getByRole("button", { name: "Câu 2" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  expect(screen.getByRole("main", { name: "Câu 2" })).toBeInTheDocument();
+  expect(drawer()).toHaveAttribute("inert");
   expect(container.querySelector("audio")).toBe(audio);
 });
 
-it("returns to the question, and to the gap's target, from a gap in the passage on a phone", async () => {
+it("marks the drawer's handle with a dot while the group's recording plays", async () => {
+  viewport("phone");
+  const { container } = mount();
+  await screen.findByText(previewQuestions[1]!.prompt);
+  const audio = container.querySelector("audio")!;
+  const dot = () => openDrawer().querySelector(".bg-brand");
+  expect(dot()).toBeNull();
+
+  let paused = false;
+  vi.spyOn(audio, "paused", "get").mockImplementation(() => paused);
+  fireEvent.play(audio);
+  expect(dot()).toHaveClass("size-[7px]", "rounded-full");
+
+  paused = true;
+  fireEvent.pause(audio);
+  expect(dot()).toBeNull();
+});
+
+it("closes the drawer and returns to the question, and to the gap's target, from a gap on a phone", async () => {
   viewport("phone");
   const user = userEvent.setup();
   mount();
   await screen.findByText(previewQuestions[1]!.prompt);
-  await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
+  await user.click(openDrawer());
   expect(
     screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
   ).toHaveClass("content-gap", "items-end");
@@ -139,7 +151,7 @@ it("returns to the question, and to the gap's target, from a gap in the passage 
   );
 
   expect(screen.getByText(previewQuestions[2]!.prompt)).toBeVisible();
-  expect(screen.getByText("Lịch hoạt động")).not.toBeVisible();
+  expect(drawer()).toHaveAttribute("inert");
   expect(document.activeElement).toHaveAttribute(
     "id",
     `answer-question-${previewQuestions[2]!.id}`,
@@ -147,37 +159,36 @@ it("returns to the question, and to the gap's target, from a gap in the passage 
   expect(screen.getByRole("navigation", { name: "Danh sách câu" })).toBeInTheDocument();
 });
 
-it("shows the question again when a gap in the passage points at the question already open", async () => {
+it("closes the drawer when a gap in it points at the question already open", async () => {
   viewport("phone");
   const user = userEvent.setup();
   mount();
   await screen.findByText(previewQuestions[1]!.prompt);
   await user.click(screen.getByRole("button", { name: "Câu sau" }));
-  await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
-  expect(screen.getByText(previewQuestions[2]!.prompt)).not.toBeVisible();
+  await user.click(openDrawer());
+  expect(drawer()).not.toHaveAttribute("inert");
 
   await user.click(
     screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
   );
-  expect(screen.getByText(previewQuestions[2]!.prompt)).toBeVisible();
+  expect(drawer()).toHaveAttribute("inert");
   expect(document.activeElement).toHaveAttribute(
     "id",
     `answer-question-${previewQuestions[2]!.id}`,
   );
 });
 
-it("keeps the student's place in the passage while the question is showing on a phone", async () => {
+it("keeps the student's place in the passage while the drawer is closed on a phone", async () => {
   viewport("phone");
   const user = userEvent.setup();
   mount();
   await screen.findByText(previewQuestions[1]!.prompt);
-  await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
+  await user.click(openDrawer());
   passage().scrollTop = 240;
   fireEvent.scroll(passage());
 
-  await user.click(switcher().getByRole("button", { name: "Câu 1" }));
-  screen.getByRole("article", { hidden: true }).scrollTop = 0;
-  await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
+  await user.click(screen.getByRole("button", { name: "Đóng" }));
+  await user.click(openDrawer());
   expect(passage().scrollTop).toBe(240);
 });
 
@@ -210,8 +221,7 @@ it("opens a gap's question at the top of its pane, not where the last question w
     .closest(".overflow-y-auto")!;
   sheet.scrollTop = 180;
   fireEvent.scroll(sheet);
-  await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
-  sheet.scrollTop = 0;
+  await user.click(openDrawer());
   await user.click(
     screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
   );

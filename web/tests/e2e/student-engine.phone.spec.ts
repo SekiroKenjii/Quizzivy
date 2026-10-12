@@ -102,43 +102,86 @@ test("Finish on the last question opens the Submit dialog", async ({ page }) => 
   await expect(submit).toContainText("Nộp bài khi còn 5 câu chưa trả lời?");
 });
 
-test("a passage and its question take turns on the screen, and the answer is kept", async ({
+async function touchSwipe(page: Page, from: [number, number], to: [number, number]) {
+  const cdp = await page.context().newCDPSession(page);
+  const point = (x: number, y: number) => [{ x, y, id: 1 }];
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: point(...from),
+  });
+  for (let step = 1; step <= 8; step += 1) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: point(
+        from[0] + ((to[0] - from[0]) * step) / 8,
+        from[1] + ((to[1] - from[1]) * step) / 8,
+      ),
+    });
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+test("the passage is a drawer from the left that the student swipes open and closed, and the answer is kept", async ({
   page,
 }) => {
   await startGroupPaper(page);
   const first = previewQuestions[1]!;
-  const switcher = page.getByRole("group", { name: "Xem ngữ liệu hoặc câu hỏi" });
-  const passageTab = switcher.getByRole("button", { name: "Ngữ liệu", exact: true });
-  const questionTab = switcher.getByRole("button", { name: "Câu 1", exact: true });
+  const handle = page.getByRole("button", { name: "Mở ngữ liệu", exact: true });
   const passage = page.getByRole("heading", { name: previewGroup.stimuli[0]!.title });
   const prompt = page.getByText(first.prompt, { exact: true });
   const option = page.getByRole("radio", { name: first.options![0]!.text });
+  const close = page.getByRole("button", { name: "Đóng", exact: true });
 
-  await expect(switcher.getByRole("button")).toHaveCount(2);
-  await expect(questionTab).toHaveAttribute("aria-pressed", "true");
-  await expect(passageTab).toHaveAttribute("aria-pressed", "false");
+  await expect(handle).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Vuốt sang phải" }),
+  ).toBeVisible();
+  await expect(passage).not.toBeInViewport();
   await expect(prompt).toBeVisible();
-  await expect(passage).toBeHidden();
   await expect(footer(page)).toBeVisible();
+  const box = (await handle.boundingBox())!;
+  expect(box.x).toBe(0);
+  expect(Math.round(box.width)).toBe(30);
+  expect(Math.round(box.height)).toBe(84);
 
   await page.locator("label").filter({ hasText: first.options![0]!.text }).tap();
   await expect(option).toBeChecked();
 
-  await passageTab.tap();
-  await expect(passageTab).toHaveAttribute("aria-pressed", "true");
-  await expect(questionTab).toHaveAttribute("aria-pressed", "false");
-  await expect(passage).toBeVisible();
-  await expect(prompt).toBeHidden();
-  await expect(footer(page)).toBeHidden();
+  const height = page.viewportSize()!.height;
+  await touchSwipe(page, [6, height * 0.7], [260, height * 0.7 + 6]);
+  await expect(passage).toBeInViewport();
+  await expect(close).toBeVisible();
+  const article = page.getByRole("article");
+  await expect.poll(async () => (await article.boundingBox())!.x).toBe(0);
+  expect(Math.round((await article.boundingBox())!.width)).toBe(
+    Math.min(Math.round(page.viewportSize()!.width * 0.88), 420),
+  );
   await engineFits(page);
 
-  await questionTab.tap();
-  await expect(questionTab).toHaveAttribute("aria-pressed", "true");
+  await touchSwipe(page, [300, height * 0.2], [40, height * 0.2 + 6]);
+  await expect(passage).not.toBeInViewport();
+  await expect(handle).toBeVisible();
+  await expect(option).toBeChecked();
+
+  await handle.tap();
+  await expect(passage).toBeInViewport();
+  await close.tap();
+  await expect(passage).not.toBeInViewport();
   await expect(prompt).toBeVisible();
-  await expect(passage).toBeHidden();
-  await expect(footer(page)).toBeVisible();
   await expect(option).toBeChecked();
   await engineFits(page);
+});
+
+test("a vertical scroll over the question never opens the drawer", async ({ page }) => {
+  await startGroupPaper(page);
+  const passage = page.getByRole("heading", { name: previewGroup.stimuli[0]!.title });
+  const height = page.viewportSize()!.height;
+  await touchSwipe(page, [120, height * 0.7], [130, height * 0.3]);
+  await expect(passage).not.toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "Mở ngữ liệu", exact: true }),
+  ).toBeVisible();
 });
 
 test("the engine does not scroll sideways, with the sheet open or closed", async ({

@@ -19,8 +19,14 @@ import { cn } from "@/lib/utils";
 import { EngineHeader, LeaveButton } from "../components/EngineHeader";
 import { LeaveDialog } from "../components/LeaveDialog";
 import { Navigator, type DotState, type KeysHint } from "../components/Navigator";
-import { GroupContext, GroupListening } from "../components/GroupContext";
+import {
+  GroupContext,
+  GroupListening,
+  type DrawerPane,
+} from "../components/GroupContext";
+import { DrawerBackdrop, DrawerHandle, DrawerTip } from "../components/StimulusDrawer";
 import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
+import { hasReading } from "@/components/shared/content/materials";
 import { QuestionCard } from "../components/QuestionCard";
 import { SaveStrip } from "../components/SaveState";
 import { SectionRail } from "../components/SectionRail";
@@ -42,7 +48,13 @@ import {
   readOpenQuestion,
   writeOpenQuestion,
 } from "../openQuestion";
-import { hasPassage, questionShowing, useKeptScroll } from "../panes";
+import {
+  hasPassage,
+  questionShowing,
+  useKeptScroll,
+  useSharedAudioPlaying,
+  useStimulusDrawer,
+} from "../panes";
 import { PaperSourceContext, useLivePaperSource, usePaper } from "../paper";
 import { questionKind } from "../questionType";
 import { useTakeTestStore } from "../store";
@@ -296,6 +308,7 @@ export default function TakeTestPage() {
     <>
       <PaperSourceContext value={paper}>
         <Paper
+          attemptId={attemptId}
           index={index}
           jumps={jumps}
           status={strikeIndicator}
@@ -336,10 +349,13 @@ function dotsOf(
 }
 
 /**
- * PaperProps is what the host of a paper decides: the open question, the
- * strike count, the fullscreen bar, and what each control does.
+ * PaperProps is what the host of a paper decides: the attempt, under which
+ * the drawers a student has opened are remembered (none, in memory only),
+ * the open question, the strike count, the fullscreen bar, and what each
+ * control does.
  */
 export type PaperProps = Readonly<{
+  attemptId?: string | undefined;
   index: number;
   jumps: number;
   status: ReactNode;
@@ -374,6 +390,7 @@ export function Paper(props: PaperProps) {
 }
 
 function PaperAt({
+  attemptId,
   index,
   jumps,
   question,
@@ -424,24 +441,48 @@ function PaperAt({
   const context = contexts.get(question.id);
   const passage = hasPassage(context) ? context : undefined;
   const visit = `${question.id}:${jumps}`;
-  const [readingFor, setReadingFor] = useState<string | null>(null);
-  if (readingFor !== null && readingFor !== visit) setReadingFor(null);
-  const reading = !wide && passage !== undefined && readingFor === visit;
+  const drawerMode = !wide && passage !== undefined;
+  const panes = useRef<HTMLElement>(null);
+  const playing = useSharedAudioPlaying(panes);
+  const {
+    open: drawerOpen,
+    out: drawerOut,
+    offset: drawerOffset,
+    progress: drawerProgress,
+    fresh,
+    show: showDrawer,
+    close: closeDrawer,
+    dismiss,
+    handlers: swipeHandlers,
+    handleRef,
+    closeRef,
+  } = useStimulusDrawer({
+    root: panes,
+    enabled: drawerMode,
+    visit,
+    groupId: passage?.id,
+    attemptId,
+  });
   const sheet = useRef<HTMLDivElement>(null);
-  const onSheetScroll = useKeptScroll(sheet, reading, question.id);
+  const onSheetScroll = useKeptScroll(sheet, false, question.id);
   const landOn = useLanding(visit, sheet, answerPanel);
 
-  const jumpToGap = useCallback(
-    (gap: MaterialGap) => {
-      const landing = gapLanding(gap, questions, numbers);
-      if (landing === null) return;
-      setReadingFor(null);
-      landOn(landing.target);
-      onJump(landing.index);
-    },
-    [numbers, questions, onJump, landOn, setReadingFor],
-  );
-
+  const jumpToGap = (gap: MaterialGap) => {
+    const landing = gapLanding(gap, questions, numbers);
+    if (landing === null) return;
+    dismiss();
+    landOn(landing.target);
+    onJump(landing.index);
+  };
+  const drawer: DrawerPane | undefined = drawerMode
+    ? {
+        open: drawerOpen,
+        offset: drawerOffset,
+        closeRef,
+        onClose: closeDrawer,
+      }
+    : undefined;
+  const kind = passage?.stimuli.some(hasReading) === false ? "recording" : "passage";
   const head = sectionHead(groups, group);
   const besideShared = wide && passage !== undefined;
   const rail = wide && (passage === undefined ? railFits : railFitsBesideShared);
@@ -456,18 +497,14 @@ function PaperAt({
       />
       <SaveStrip wide={wide} indicator={status} />
       {fullscreenBar && <FullscreenBar />}
-      {!wide && passage !== undefined && (
-        <PaneSwitch
-          number={index + 1}
-          reading={reading}
-          onRead={(on) => setReadingFor(on ? visit : null)}
-        />
-      )}
 
       <main
+        ref={panes}
         tabIndex={-1}
         aria-label={t("takeTest.dotLabel", { n: index + 1 })}
-        className="flex min-h-0 min-w-0 flex-1 outline-none!"
+        className="relative flex min-h-0 min-w-0 flex-1 outline-none!"
+        style={drawerMode ? { touchAction: "pan-y" } : undefined}
+        {...swipeHandlers}
       >
         {rail && (
           <SectionRail dots={dots} current={index} groups={groups} onJump={onJump} />
@@ -481,11 +518,10 @@ function PaperAt({
             onGap={jumpToGap}
             onRetryMedia={onReload}
             wide={wide}
-            hidden={!wide && !reading}
+            drawer={drawer}
           />
         )}
         <section
-          hidden={reading}
           className={cn(
             "flex min-w-0 flex-[1_1_0] flex-col",
             besideShared ? "bg-sidebar" : "bg-bg",
@@ -497,6 +533,7 @@ function PaperAt({
             className={cn(
               "relative min-h-0 flex-1 overflow-y-auto",
               wide ? "px-8 py-7" : "px-4 py-4.5",
+              drawerMode && "touch-pan-y",
             )}
           >
             <div
@@ -540,6 +577,19 @@ function PaperAt({
             onFinish={submit}
           />
         </section>
+        {drawerMode && drawerOut && (
+          <DrawerBackdrop progress={drawerProgress} onClose={closeDrawer} />
+        )}
+        {drawerMode && !drawerOut && (
+          <DrawerHandle
+            ref={handleRef}
+            kind={kind}
+            playing={playing}
+            nudge={fresh}
+            onOpen={showDrawer}
+          />
+        )}
+        {drawerMode && !drawerOut && fresh && <DrawerTip kind={kind} />}
       </main>
     </div>
   );
@@ -609,52 +659,6 @@ function useLanding(
     target.current = id;
     ask();
   }, []);
-}
-
-function PaneSwitch({
-  number,
-  reading,
-  onRead,
-}: Readonly<{
-  number: number;
-  reading: boolean;
-  onRead: (reading: boolean) => void;
-}>) {
-  const { t } = useTranslation();
-  return (
-    <div
-      role="group"
-      aria-label={t("takeTest.paneSwitch")}
-      className="flex flex-none gap-1.5 border-b px-3.5 py-2"
-    >
-      <PaneTab on={reading} onClick={() => onRead(true)}>
-        {t("takeTest.passage")}
-      </PaneTab>
-      <PaneTab on={!reading} onClick={() => onRead(false)}>
-        {t("takeTest.dotLabel", { n: number })}
-      </PaneTab>
-    </div>
-  );
-}
-
-function PaneTab({
-  on,
-  onClick,
-  children,
-}: Readonly<{ on: boolean; onClick: () => void; children: string }>) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      className={cn(
-        "text-ui h-8.5 min-h-0 min-w-0 flex-1 rounded-md leading-none font-medium",
-        on ? "bg-primary text-primary-fg" : "bg-muted text-fg",
-      )}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
 }
 
 function typingIn(target: EventTarget | null): boolean {
