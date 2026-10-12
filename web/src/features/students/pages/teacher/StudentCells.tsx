@@ -38,6 +38,49 @@ export function AccountPill({ student }: Readonly<{ student: Student }>) {
   );
 }
 
+const SHOWN_CLASSES = 2;
+
+/**
+ * ClassChips is a student's classes in the Classes column, on one line that
+ * never leaves its cell: the first two as chips that truncate, each with its
+ * full name as a title, then "+N" for the rest, which names them in its
+ * title and to a screen reader. A student in no class reads "No class yet".
+ */
+export function ClassChips({ student }: Readonly<{ student: Student }>) {
+  const { t } = useTranslation();
+  if (student.classes.length === 0)
+    return (
+      <span className="text-muted-fg text-[13px]">{t("students.noClassYet")}</span>
+    );
+  const shown = student.classes.slice(0, SHOWN_CLASSES);
+  const rest = student.classes.slice(SHOWN_CLASSES);
+  const restNames = rest.map((klass) => klass.name).join(", ");
+  return (
+    <span className="flex min-w-0 flex-nowrap items-center gap-1.25 overflow-hidden">
+      {shown.map((klass) => (
+        <span
+          key={klass.id}
+          title={klass.name}
+          className="min-w-0 truncate rounded-md border px-1.75 py-px text-xs whitespace-nowrap"
+        >
+          {klass.name}
+        </span>
+      ))}
+      {rest.length === 0 ? null : (
+        <span
+          title={restNames}
+          className="flex-none rounded-md border px-1.75 py-px text-xs whitespace-nowrap tabular-nums"
+        >
+          <span aria-hidden="true">{t("students.moreCount", { n: rest.length })}</span>
+          <span className="sr-only">
+            {t("students.moreClasses", { count: rest.length, names: restNames })}
+          </span>
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** Initials is a student's initials in the deck's muted circle, 32px in a row and 36 on a card. */
 export function Initials({
   name,

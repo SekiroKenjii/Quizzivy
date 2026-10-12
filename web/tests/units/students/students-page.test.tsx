@@ -64,6 +64,33 @@ describe("the Students list", () => {
     expect(await rowOf("Trần Thị Bình")).toHaveTextContent("Đã đặt lại mật khẩu");
   });
 
+  it("keeps a student's classes on one line in their cell: two chips and +N naming the rest (QA-40-2)", async () => {
+    const seven = Array.from({ length: 7 }, (_, index) => ({
+      id: `018f0000-0000-7000-8000-0000000000b${index}`,
+      name: `Lớp 14.${index + 1}`,
+    }));
+    serveStudents([
+      student("018f0000-0000-7000-8000-0000000000e7", "Học viên Lớp 14", {
+        classes: seven.map(inClass),
+      }),
+    ]);
+    renderStudents(teacherUser);
+
+    const row = await rowOf("Học viên Lớp 14");
+    expect(within(row).getByText("Lớp 14.1")).toHaveAttribute("title", "Lớp 14.1");
+    expect(within(row).getByText("Lớp 14.2")).toBeVisible();
+    expect(within(row).queryByText("Lớp 14.3")).toBeNull();
+    const more = within(row).getByText("+5").parentElement!;
+    expect(more).toHaveAttribute(
+      "title",
+      "Lớp 14.3, Lớp 14.4, Lớp 14.5, Lớp 14.6, Lớp 14.7",
+    );
+    expect(more).toHaveTextContent(
+      "và 5 lớp khác: Lớp 14.3, Lớp 14.4, Lớp 14.5, Lớp 14.6, Lớp 14.7",
+    );
+    expect(more.parentElement).toHaveClass("flex-nowrap", "overflow-hidden");
+  });
+
   it("sends the class and status facets as the list's query", async () => {
     const asked = serveStudents([AN, BINH]);
     renderStudents(

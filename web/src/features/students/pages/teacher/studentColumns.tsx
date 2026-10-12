@@ -2,13 +2,14 @@ import type { TFunction } from "i18next";
 import type { DataColumn } from "@/components/shared/data/DataTable";
 import type { Student } from "@/features/students/api";
 import type { Locale } from "@/lib/i18n";
-import { AccountPill, Initials } from "./StudentCells";
+import { AccountPill, ClassChips, Initials } from "./StudentCells";
 import { averageOf, classLineOf, lastActiveOf } from "./studentText";
 
 /**
  * studentColumns is the list as the deck draws it: Student (initials, name,
  * and a line of the email, then the classes and the last activity while
- * their columns are hidden), Classes from 780px of content width, Average,
+ * their columns are hidden), Classes from 780px of content width (two chips
+ * and "+N", on one line), Average,
  * Last active from 920 and Account from 660.
  */
 export function studentColumns(t: TFunction, locale: Locale): DataColumn<Student>[] {
@@ -41,21 +42,7 @@ export function studentColumns(t: TFunction, locale: Locale): DataColumn<Student
       header: t("students.classes"),
       track: "minmax(150px,1.6fr)",
       showFrom: 780,
-      cell: (student) =>
-        student.classes.length === 0 ? (
-          <span className="text-muted-fg text-[13px]">{t("students.noClassYet")}</span>
-        ) : (
-          <span className="flex min-w-0 flex-wrap gap-1.25">
-            {student.classes.map((klass) => (
-              <span
-                key={klass.id}
-                className="rounded-md border px-1.75 py-px text-xs whitespace-nowrap"
-              >
-                {klass.name}
-              </span>
-            ))}
-          </span>
-        ),
+      cell: (student) => <ClassChips student={student} />,
     },
     {
       id: "average",
