@@ -20,6 +20,7 @@ import { commandKeyLabel } from "@/features/search/useCommandPalette";
 import { dayMonth } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { getWordImportLimits, type WordImport, type ImportRetention } from "../api";
+import { listFormats } from "../formats";
 import { usePastedText, type PasteState } from "../usePastedText";
 import { SOURCE_ROLES, useSourceIntake } from "../useSourceIntake";
 import { FileSlot } from "./FileSlot";
@@ -319,7 +320,6 @@ function SourceFiles({
   children: ReactNode;
 }>) {
   const { t } = useTranslation();
-  const locale = useLocale();
   const headingId = useId();
   const limits = (
     <LimitsLine
@@ -349,9 +349,7 @@ function SourceFiles({
         {maxBytes === undefined || formats === undefined ? null : (
           <span className="text-muted-fg text-meta">
             {t("imports.newFormats", {
-              formats: new Intl.ListFormat(locale, { type: "disjunction" }).format(
-                formats.map((format) => format.toUpperCase()),
-              ),
+              formats: listFormats(formats, "name", "or", t),
               size: formatBytes(maxBytes),
             })}
           </span>
@@ -536,7 +534,7 @@ function LimitsLine({
   return (
     <p className="bg-muted rounded-md px-3 py-2.5 text-sm leading-[1.55]">
       {t("imports.upload.limits", {
-        formats: formats.map((format) => `.${format}`).join(", "),
+        formats: listFormats(formats, "extension", "and", t),
         size: formatBytes(maxBytes),
       })}
     </p>

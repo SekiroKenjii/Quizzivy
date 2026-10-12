@@ -144,7 +144,7 @@ describe("starting a Word import", () => {
   it("shows the server's limits before a file is chosen", async () => {
     renderPage();
     expect(
-      await screen.findByText(/Nhận tệp \.docx, \.pdf, tối đa 25 MB/),
+      await screen.findByText(/Nhận tệp \.docx và \.pdf, tối đa 25 MB/),
     ).toBeInTheDocument();
   });
 
@@ -222,7 +222,7 @@ describe("starting a Word import", () => {
 
   it("takes a PDF exam and names the test after it", async () => {
     const user = renderPage();
-    await screen.findByText(/^Nhận tệp \.docx, \.pdf,/);
+    await screen.findByText(/^Nhận tệp \.docx và \.pdf,/);
     await user.upload(
       screen.getByLabelText("Tệp đề thi"),
       new File(["%PDF-1.4"], "De thi HK2.PDF", { type: "application/pdf" }),
@@ -371,6 +371,28 @@ describe("starting a Word import", () => {
 
     await user.click(screen.getByRole("button", { name: "Bỏ tệp de-thi.docx" }));
     expect(screen.getByRole("button", { name: "Chọn tệp đề thi" })).toHaveFocus();
+  });
+
+  it("lists the formats in the deck's order when the server takes .doc (QA-51-13)", async () => {
+    server.use(
+      http.get(`${BASE}/teacher/imports/limits`, () =>
+        contractJson("/teacher/imports/limits", "get", 200, {
+          pasteMaxCharacters: 100000,
+          maxBytes: 25 * 1024 * 1024,
+          formats: ["docx", "pdf", "doc"],
+        }),
+      ),
+    );
+    renderPage();
+    const files = screen.getByRole("region", { name: "Tệp" });
+    expect(
+      await within(files).findByText("DOCX, DOC hoặc PDF · tối đa 25 MB mỗi tệp"),
+    ).toBeInTheDocument();
+    expect(
+      within(files).getByText(
+        /^Nhận tệp \.docx, \.doc và \.pdf, tối đa 25 MB mỗi tệp\./,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("draws the deck's head, Files card and title card in file mode", async () => {
