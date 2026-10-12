@@ -507,6 +507,7 @@ function listeningGroup(
   title: string,
   material: string,
   seconds: number,
+  allowPause: boolean,
   questionIds: string[],
 ): StudentGroup {
   const assetId = id(`2f${part}4`);
@@ -530,7 +531,12 @@ function listeningGroup(
       {
         id: id(`2f${part}3`),
         assetId,
-        policy: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+        policy: {
+          maxPlays: 2,
+          allowSeek: false,
+          showTranscriptAfterSubmit: false,
+          allowPause,
+        },
       },
     ],
     assets: [
@@ -551,7 +557,8 @@ function listeningGroup(
 /**
  * deckListeningSession is the deck's paper s2, "Unit 4 · Listening:
  * Directions": two listening groups, each with one material that holds only
- * its audio node and one recording of two plays. Part 1's map labelling, a
+ * its audio node and one recording of two plays; part 2's cannot be paused,
+ * as the deck draws it (`canPause: false`). Part 1's map labelling, a
  * matching question in the deck (R6), stands as five single-choice questions
  * so part 2 keeps the deck's numbers, 6 to 10. It carries no answer key.
  */
@@ -605,6 +612,7 @@ export function deckListeningSession(now: Date): AttemptSession {
           "Part 1 · Asking the way",
           "Asking the way",
           154,
+          true,
           map.map((question) => question.id),
         ),
         listeningGroup(
@@ -612,6 +620,7 @@ export function deckListeningSession(now: Date): AttemptSession {
           "Part 2 · A guided walk",
           "A guided walk",
           212,
+          false,
           [...walk, street].map((question) => question.id),
         ),
       ],

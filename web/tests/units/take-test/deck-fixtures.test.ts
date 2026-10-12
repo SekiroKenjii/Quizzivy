@@ -228,7 +228,7 @@ describe("the deck's three papers", () => {
     );
   });
 
-  it("give s2 two listening parts, each a material that is only its recording, of two plays", () => {
+  it("give s2 two listening parts, each a material that is only its recording, of two plays, the second not to be paused", () => {
     const paper = papers.s2;
     expect(paper.questions).toHaveLength(10);
     const groups = paper.groups ?? [];
@@ -242,6 +242,9 @@ describe("the deck's three papers", () => {
         2,
       ]);
     }
+    expect(
+      groups.flatMap((group) => group.recordings.map((r) => r.policy.allowPause)),
+    ).toEqual([true, false]);
     expect(paper.questions.slice(5).map((q) => q.type)).toEqual([
       ...Array(4).fill("single_choice"),
       "short_answer",

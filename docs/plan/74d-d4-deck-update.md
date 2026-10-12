@@ -1157,7 +1157,8 @@ open index and the controls and derives the rest from the source. The width sour
 `useEngineWidthAtLeast` in `take-test/width.ts`; `EngineWidthContext` holds a measured width
 for T-D4.16 and is null under `FocusLayout`. The fixture papers are `deckMockTestSession` (s9)
 and `deckListeningSession` (s2) beside `deckSession` and `deckPassageSession` (s1); cloze gaps
-are labelled 23 to 27.
+are labelled 23 to 27. s2's part 2 recording has `allowPause: false`, the deck's `canPause: false`,
+added when T-D4.13 made the field required.
 
 ### T-D4.4 — Engine: sections rail, footer, question sheet and three-state squares
 **Depends on:** T-D4.1, T-D4.3. Its tests use the numeric form of `viewport()` that T-R4.3a added (`web/tests/support/viewport.ts`, on `develop` from v0.10.0); this task writes no numeric form of its own
@@ -1518,8 +1519,8 @@ today the passage pane prints that material's heading and the node's label
       could not happen.
 - [ ] Both hosts pass `policy.allowPause`, which T-D4.13 makes required in the two student
       shapes; a payload without the field (a tab that loaded before the API) pauses freely.
-      T-D4.3's s2 session gives part 2's recording `allowPause: false` in this PR, as the deck
-      has it (`canPause: false`, S 1503).
+      T-D4.3's s2 session already gives part 2's recording `allowPause: false`, as the deck
+      has it (`canPause: false`, S 1503): it took the field when T-D4.13 made it required.
 - [ ] Spec §11.3 says what `allowPause` does, and what it cannot stop.
 - [ ] `audio-player-pause.test.tsx` covers the inert button, the two sentences and the free
       resume; the canary passes untouched.

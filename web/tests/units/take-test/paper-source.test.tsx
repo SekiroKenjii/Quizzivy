@@ -41,7 +41,12 @@ const listening: StudentQuestion = {
     { id: ID("o012"), text: "At the station" },
   ],
   media: audio(ID("m001"), "https://assets.example/q1.mp3"),
-  audio: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+  audio: {
+    maxPlays: 2,
+    allowSeek: false,
+    showTranscriptAfterSubmit: false,
+    allowPause: true,
+  },
 };
 
 const grouped: StudentQuestion = {
@@ -82,7 +87,12 @@ const group: StudentGroup = {
     {
       id: RECORDING,
       assetId: ASSET,
-      policy: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+      policy: {
+        maxPlays: 2,
+        allowSeek: false,
+        showTranscriptAfterSubmit: false,
+        allowPause: true,
+      },
     },
   ],
   assets: [audio(ASSET, "https://assets.example/walk.mp3")],
