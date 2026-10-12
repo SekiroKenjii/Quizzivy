@@ -9,7 +9,11 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { FieldControlProps, FormOption } from "./types";
-/** SelectField edits one value and dismisses its option list when disabled. */
+/**
+ * SelectField edits one value and dismisses its option list when disabled.
+ * While `locked` (its form is saving) the trigger answers `aria-disabled`,
+ * keeps focus and opens nothing, and a change is ignored (T-35).
+ */
 export function SelectField({
   id,
   label,
@@ -20,21 +24,27 @@ export function SelectField({
   disabled,
   options,
   placeholder,
+  locked = false,
 }: FieldControlProps<string> &
-  Readonly<{ options: readonly FormOption[]; placeholder?: string | undefined }>) {
-  const acceptsChanges = useRef(!disabled);
+  Readonly<{
+    options: readonly FormOption[];
+    placeholder?: string | undefined;
+    locked?: boolean | undefined;
+  }>) {
+  const still = (disabled ?? false) || locked;
+  const acceptsChanges = useRef(!still);
   useLayoutEffect(() => {
-    acceptsChanges.current = !disabled;
+    acceptsChanges.current = !still;
     return () => {
       acceptsChanges.current = false;
     };
-  }, [disabled]);
+  }, [still]);
   const [open, setOpen] = useState(false);
-  if (disabled && open) setOpen(false);
+  if (still && open) setOpen(false);
   const selected = options.findIndex((option) => option.value === value);
   return (
     <Select
-      open={open && !disabled}
+      open={open && !still}
       onOpenChange={(next) => {
         if (!next || acceptsChanges.current) setOpen(next);
       }}
@@ -51,7 +61,12 @@ export function SelectField({
         aria-label={label}
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
-        className={cn("w-full", invalid && "border-danger")}
+        aria-disabled={locked || undefined}
+        className={cn(
+          "w-full",
+          invalid && "border-danger",
+          locked && "cursor-default opacity-50",
+        )}
       >
         <SelectValue {...(placeholder === undefined ? {} : { placeholder })} />
       </SelectTrigger>

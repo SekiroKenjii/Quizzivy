@@ -186,7 +186,7 @@ describe("the classes list", () => {
     expect(lists[0]?.get("limit")).toBe("24");
   });
 
-  it("keeps an expired code's footer on one row, its note truncating with a title (QA-41-4)", async () => {
+  it("keeps an expired code's footer on one row, where the label gives way and the note never does (QA-41-4, QA-509-1)", async () => {
     serveList([
       {
         ...EVENING,
@@ -195,10 +195,36 @@ describe("the classes list", () => {
     ]);
     renderPage();
     const evening = await card("IELTS 6.5 Evening");
-    const note = within(evening).getByText("Đã hết hạn");
-    expect(note).toHaveAttribute("title", "Đã hết hạn");
-    expect(note).toHaveClass("min-w-0", "truncate");
+    const note = within(evening).getByText("Hết hạn");
+    expect(note).toHaveAttribute("title", "Hết hạn");
+    expect(note).toHaveClass("flex-none", "whitespace-nowrap");
+    expect(note).not.toHaveClass("truncate");
+    const label = within(evening).getByText("Mã tham gia");
+    expect(label).toHaveClass("min-w-0", "truncate");
+    expect(label).toHaveAttribute("title", "Mã tham gia");
     expect(note.parentElement).not.toHaveClass("flex-wrap");
+  });
+
+  it("tells an expired code from a used-up one in words that fit a 360 card without hover (QA-505-1)", async () => {
+    serveList([
+      {
+        ...EVENING,
+        joinCode: { ...EVENING.joinCode!, expiresAt: "2020-01-01T00:00:00Z" },
+      },
+      {
+        ...EVENING,
+        id: "018f0000-0000-7000-8000-0000000000c4",
+        name: "IELTS 7.0 Weekend",
+        joinCode: { ...EVENING.joinCode!, usesCount: 40 },
+      },
+    ]);
+    renderPage();
+    const expired = within(await card("IELTS 6.5 Evening")).getByText("Hết hạn");
+    const usedUp = within(await card("IELTS 7.0 Weekend")).getByText("Hết lượt");
+    for (const note of [expired, usedUp]) {
+      expect(note.textContent!.length).toBeLessThanOrEqual(8);
+      expect(note).toHaveAttribute("title", note.textContent);
+    }
   });
 
   it("asks for codes only for a reader who may change classes, and offers that reader nothing to change", async () => {

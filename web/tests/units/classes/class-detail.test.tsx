@@ -10,12 +10,13 @@ import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { assistantUser, teacherUser } from "@tests/support/fixtures";
-import "@/lib/i18n";
+import i18n, { loadLocale } from "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
 const CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
 const MINH = "018f0000-0000-7000-8000-0000000000e1";
 const HAN = "018f0000-0000-7000-8000-0000000000e2";
+const LAN = "018f0000-0000-7000-8000-0000000000e3";
 
 const klass = {
   id: CLASS_ID,
@@ -112,36 +113,37 @@ beforeEach(() => {
     http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>
       contractJson("/teacher/classes/{id}", "get", 200, stored),
     ),
-    http.get(`${BASE}/teacher/classes/${CLASS_ID}/members`, () =>
-      contractJson("/teacher/classes/{id}/members", "get", 200, {
-        items: [
-          {
-            userId: MINH,
-            fullName: "Nguyễn Đức Minh",
-            email: "minh.nguyen@gmail.com",
-            joinedVia: "admin",
-            joinedAt: "2026-07-12T01:00:00Z",
-            joinCodeHint: null,
-            stats: stats({
-              submittedCount: 14,
-              score: { earned: 86, total: 100, pendingManual: 0 },
-            }),
-          },
-          {
-            userId: HAN,
-            fullName: "Phạm Gia Hân",
-            email: "han.pham@gmail.com",
-            joinedVia: "join_code",
-            joinedAt: "2026-08-29T01:12:00Z",
-            joinCodeHint: "P9QR",
-            stats: stats({}),
-          },
-        ],
+    http.get(`${BASE}/teacher/classes/${CLASS_ID}/members`, () => {
+      const items = [
+        {
+          userId: MINH,
+          fullName: "Nguyễn Đức Minh",
+          email: "minh.nguyen@gmail.com",
+          joinedVia: "admin",
+          joinedAt: "2026-07-12T01:00:00Z",
+          joinCodeHint: null,
+          stats: stats({
+            submittedCount: 14,
+            score: { earned: 86, total: 100, pendingManual: 0 },
+          }),
+        },
+        {
+          userId: HAN,
+          fullName: "Phạm Gia Hân",
+          email: "han.pham@gmail.com",
+          joinedVia: "join_code",
+          joinedAt: "2026-08-29T01:12:00Z",
+          joinCodeHint: "P9QR",
+          stats: stats({}),
+        },
+      ].filter((member) => !removals.includes(member.userId));
+      return contractJson("/teacher/classes/{id}/members", "get", 200, {
+        items,
         page: 1,
         pageSize: 20,
-        total: 2,
-      }),
-    ),
+        total: items.length,
+      });
+    }),
     http.get(`${BASE}/teacher/assignments`, ({ request }) => {
       assignmentQueries.push(new URL(request.url).searchParams.get("classId"));
       return contractJson("/teacher/assignments", "get", 200, {
@@ -247,6 +249,16 @@ async function memberRow(name: string) {
 }
 
 describe("the class's head", () => {
+  it("counts one student in the singular", async () => {
+    await loadLocale("en");
+    const en = i18n.getFixedT("en");
+    expect(en("classDetail.studentCount", { count: 1 })).toBe("1 student");
+    expect(en("classDetail.studentCount", { count: 24 })).toBe("24 students");
+    expect(i18n.getFixedT("vi")("classDetail.studentCount", { count: 1 })).toBe(
+      "1 học viên",
+    );
+  });
+
   it("names the class with its count, and offers Add student and Assign to class", async () => {
     renderDetail();
     expect(
@@ -286,6 +298,40 @@ describe("the class's head", () => {
     expect(
       screen.getByText("Lớp này không có hoặc bạn không dạy lớp này."),
     ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
+  });
+
+  it("keeps the plain heading over a load error that is not a 404, and retries", async () => {
+    let failing = true;
+    server.use(
+      http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>
+        failing
+          ? HttpResponse.json(
+              {
+                error: {
+                  code: "INTERNAL",
+                  message: "Lỗi máy chủ.",
+                  requestId: "018f0000-0000-7000-8000-0000000000f8",
+                },
+              },
+              { status: 500 },
+            )
+          : contractJson("/teacher/classes/{id}", "get", 200, stored),
+      ),
+    );
+    const { user } = renderDetail();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Lớp" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Không tìm thấy lớp" })).toBeNull();
+    expect(
+      screen.queryByText("Lớp này không có hoặc bạn không dạy lớp này."),
+    ).toBeNull();
+    failing = false;
+    await user.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(
+      await screen.findByRole("heading", { level: 1, name: klass.name }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -305,7 +351,7 @@ describe("the members", () => {
     ).toBeVisible();
   });
 
-  it("removes a member after a confirm naming them and the class, then gives focus back to the row's menu", async () => {
+  it("removes a member after a confirm naming them and the class, then gives focus to the members' search", async () => {
     const { user } = renderDetail();
     const han = await memberRow("Phạm Gia Hân");
     const trigger = within(han).getByRole("button", {
@@ -325,7 +371,8 @@ describe("the members", () => {
     await waitFor(() => expect(removals).toEqual([HAN]));
     expect(await screen.findByText("Đã xoá Phạm Gia Hân khỏi lớp")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(screen.queryByText("Phạm Gia Hân")).toBeNull());
+    expect(screen.getByRole("searchbox", { name: "Tìm học viên" })).toHaveFocus();
   });
 
   it("tints a selected row and removes the selected members from the bar", async () => {
@@ -373,6 +420,87 @@ describe("adding students", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(opener).toHaveFocus();
   });
+
+  it("after a partial failure keeps only the one it could not add, counts only the new ones and shows the added one as a member", async () => {
+    const joined = new Set<string>();
+    let lanRefused = false;
+    const pupil = (id: string, fullName: string) => ({
+      id,
+      email: `${id.slice(-4)}@gmail.com`,
+      fullName,
+      hasPassword: true,
+      linkedProviders: [],
+      mustChangePassword: false,
+      createdAt: "2026-06-01T00:00:00Z",
+      disabledAt: null,
+      classes: joined.has(id)
+        ? [
+            {
+              id: CLASS_ID,
+              name: klass.name,
+              joinedVia: "admin",
+              joinedAt: "2026-10-11T01:00:00Z",
+            },
+          ]
+        : [],
+      stats: stats({}),
+    });
+    server.use(
+      http.post(`${BASE}/teacher/classes/${CLASS_ID}/members`, async ({ request }) => {
+        const body = (await request.json()) as { userId: string };
+        additions.push(body);
+        if (body.userId === LAN && !lanRefused) {
+          lanRefused = true;
+          return HttpResponse.json(
+            { error: { code: "NOT_FOUND", message: "Không tìm thấy học viên" } },
+            { status: 404 },
+          );
+        }
+        joined.add(body.userId);
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get(`${BASE}/teacher/students`, () =>
+        contractJson("/teacher/students", "get", 200, {
+          items: [pupil(HAN, "Phạm Gia Hân"), pupil(LAN, "Đỗ Ngọc Lan")],
+          facets: { total: 2, activeLast7Days: 0 },
+          page: 1,
+          pageSize: 20,
+          total: 2,
+        }),
+      ),
+    );
+    const { user } = renderDetail();
+    await user.click(await screen.findByRole("button", { name: "Thêm học viên" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: `Thêm học viên vào ${klass.name}`,
+    });
+    await user.click(
+      await within(dialog).findByRole("checkbox", { name: /Phạm Gia Hân/ }),
+    );
+    await user.click(within(dialog).getByRole("checkbox", { name: /Đỗ Ngọc Lan/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Thêm 2" }));
+    expect(await within(dialog).findByText(/Đỗ Ngọc Lan: /)).toBeInTheDocument();
+    const toasts = (await screen.findAllByText("Đã thêm 1 học viên")).length;
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("checkbox", { name: /Phạm Gia Hân/ }),
+      ).toHaveAttribute("aria-disabled", "true"),
+    );
+    expect(
+      within(dialog).getByRole("checkbox", { name: /Phạm Gia Hân/ }),
+    ).toHaveTextContent("đã trong lớp");
+    expect(
+      within(dialog).getByRole("checkbox", { name: /Đỗ Ngọc Lan/ }),
+    ).toHaveAttribute("aria-checked", "true");
+    await user.click(within(dialog).getByRole("button", { name: "Thêm 1" }));
+    await waitFor(() =>
+      expect(additions).toEqual([{ userId: HAN }, { userId: LAN }, { userId: LAN }]),
+    );
+    await waitFor(() =>
+      expect(screen.getAllByText("Đã thêm 1 học viên").length).toBeGreaterThan(toasts),
+    );
+    expect(screen.queryByText("Đã thêm 2 học viên")).toBeNull();
+  });
 });
 
 describe("the class's own words", () => {
@@ -414,6 +542,8 @@ describe("the class's assignments", () => {
     const rows = await within(card).findAllByRole("row");
     expect(rows[1]).toHaveTextContent("Unit 5 — Present perfect & listening");
     expect(rows[2]).toHaveTextContent("Unit 4 — Past simple review");
+    expect(within(card).getByRole("columnheader", { name: "Tiến độ" })).toBeVisible();
+    expect(within(rows[1]!).getByText("12 / 18")).toBeVisible();
     expect(within(card).getByRole("link", { name: /Xem tất cả/ })).toHaveAttribute(
       "href",
       `/teacher/assignments?classId=${CLASS_ID}`,
