@@ -246,6 +246,27 @@ describe("the Question editor's … menu", () => {
     expect(deletes).toBe(1);
   });
 
+  it("gives focus back to the … button when a dialog it opened closes (F-21)", async () => {
+    usedIn = [];
+    const { user } = renderPage();
+    await loaded();
+    const more = screen.getByRole("button", { name: "Thao tác khác" });
+
+    await user.click(more);
+    await user.click(await screen.findByRole("menuitem", { name: "Xoá câu hỏi" }));
+    const dialog = await screen.findByRole("dialog", { name: "Xoá câu hỏi này?" });
+    await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(more).toHaveFocus();
+
+    await user.click(more);
+    await user.click(await screen.findByRole("menuitem", { name: "Thêm vào đề thi" }));
+    await screen.findByRole("dialog", { name: "Thêm vào đề thi" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(more).toHaveFocus();
+  });
+
   it("refreshes the usage line when the server refuses a delete", async () => {
     usedIn = [];
     server.use(

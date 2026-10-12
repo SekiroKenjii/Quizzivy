@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -37,7 +37,8 @@ function referencingTests(cause: unknown): ReferencingTest[] | null {
  * asks first, saying no test uses the question; a question still in a draft
  * test cannot be deleted, so Delete instead names those tests (as does a
  * refusal from the server, which also refetches the question so its usage
- * line catches up). A deleted question leaves through `onDeleted`.
+ * line catches up). A deleted question leaves through `onDeleted`. Each
+ * dialog gives focus back to the "…" button that opened it (F-21).
  */
 export function QuestionEditorMenu({
   question,
@@ -52,6 +53,7 @@ export function QuestionEditorMenu({
 }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const trigger = useRef<HTMLButtonElement>(null);
   const [adding, setAdding] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [blocked, setBlocked] = useState<ReferencingTest[] | null>(null);
@@ -100,6 +102,7 @@ export function QuestionEditorMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
+            ref={trigger}
             type="button"
             variant="outline"
             size="icon"
@@ -133,6 +136,7 @@ export function QuestionEditorMenu({
         questionIds={[question.id]}
         open={adding}
         onOpenChange={setAdding}
+        returnFocus={trigger}
         onAdded={() =>
           void queryClient.invalidateQueries({
             queryKey: ["admin-question", question.id],
@@ -143,6 +147,7 @@ export function QuestionEditorMenu({
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
+        returnFocus={trigger}
         icon={Trash2}
         title={t("questionEditor.deleteTitle")}
         description={t("questionEditor.deleteUnused")}
@@ -158,6 +163,7 @@ export function QuestionEditorMenu({
         onOpenChange={(open) => {
           if (!open) setBlocked(null);
         }}
+        returnFocus={trigger}
         title={t("bank.deleteBlockedTitle")}
         description={t("bank.deleteBlockedBody")}
         confirmLabel={t("common.close")}
