@@ -53,7 +53,7 @@ describe("the Students list", () => {
         "Học viên",
         "Lớp",
         "Điểm TB",
-        "Hoạt động gần nhất",
+        "Hoạt động cuối",
         "Tài khoản",
       ]),
     );
