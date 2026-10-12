@@ -2310,30 +2310,68 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
 
 ### T-D4.30 — The provider adapter, its configuration and the tiers
 **Depends on:** T-D4.1 (for nothing but the order); v0.10.0 released
-**Touches:** `server/internal/platform/anthropic/{client.go,usage.go,errors.go}` (new), `server/internal/platform/config/ai.go` (new), `server/internal/core/adapters/ai.go` (new), `server/internal/modules/ai/application/ports/completer.go` (new), `server/internal/core/wiring/{ai.go (new),wiring.go}`, `server/internal/core/router/{modules.go,server.go}`, `server/go.mod`, `.env.example`, `docs/setup/operations.md` (the key, its rotation, the tiers), `server/internal/platform/anthropic/tests/client_test.go` (new, against an `httptest` server), `server/internal/core/tests/architecture_test.go` (the new packages' allowed imports)
+**Touches:** `server/internal/platform/anthropic/{client.go,usage.go,errors.go}` (new), `server/internal/platform/config/ai.go` (new), `server/internal/core/adapters/ai.go` (new), `server/internal/core/adapters/tests/ai_test.go` (new), `server/internal/platform/config/tests/ai_test.go` (new), `server/internal/modules/ai/application/ports/completer.go` (new), `server/internal/core/wiring/{ai.go (new),wiring.go}`, `server/go.mod`, `.env.example`, `docs/setup/operations.md` (the key, its rotation, the tiers), `server/internal/platform/anthropic/tests/client_test.go` (new, against an `httptest` server), `server/internal/core/tests/architecture_test.go` (the new packages' allowed imports)
 **Size:** M
 **Done when:**
-- [ ] `platform/config` reads `ANTHROPIC_API_KEY`, `AI_TIER_FAST_MODEL`, `AI_TIER_CAPABLE_MODEL`
+- [x] `platform/config` reads `ANTHROPIC_API_KEY`, `AI_TIER_FAST_MODEL`, `AI_TIER_CAPABLE_MODEL`
       and the six prices; with the key unset the whole block is off and nothing else is read;
       with the key set a missing tier or price refuses start-up with a sentence that names the
       variable. The key never appears in a log line, an error or a panic: `errors.go` wraps every
       SDK error and redacts the header, and a test asserts the redaction on a 401 body.
-- [ ] `ports.Completer` carries a tier, a system prompt, content blocks (text, image bytes with a
+- [x] `ports.Completer` carries a tier, a system prompt, content blocks (text, image bytes with a
       media type, a PDF document), a JSON schema and `max_tokens`, and returns the parsed object
       with the reported usage (input, output, cache read, cache write) and the provider's request
       id. The client streams when `max_tokens` exceeds 4,096, retries 429 and 5xx with back-off
       three times, never retries a 4xx, treats a refusal stop as a typed `ErrRefused`, and times
       out at 60s (120s for a document).
-- [ ] `core/adapters/ai.go` returns nil with the key unset; the module's HTTP answers
-      `501 NOT_IMPLEMENTED` for every operation then, with the envelope's code `AI_OFF`; `GET
-      /public/status` gains `ai: boolean` (a read of configuration, never of the provider).
-- [ ] `architecture_test.go` allows `platform/anthropic` to import the SDK and nothing else to;
+- [x] `core/adapters/ai.go` returns nil with the key unset, and `Assembly.AI` carries it. The
+      module's `501 NOT_IMPLEMENTED` with the envelope's code `AI_OFF` and `ai: boolean` on `GET
+      /public/status` (a read of configuration, never of the provider) move to T-D4.32: they
+      need the `AI_OFF` error code and `PublicStatus.ai` in the contract, there is no AI
+      operation to answer 501 before that task, and D4 changes the contract exactly twice
+      ("Lanes"). `Config.AIEnabled()` is the read they will use.
+- [x] `architecture_test.go` allows `platform/anthropic` to import the SDK and nothing else to;
       `modules/ai` imports no platform package but through its ports.
-- [ ] `.env.example` gains the nine names with no values and a two-line comment; `operations.md`
+- [x] `.env.example` gains the nine names with no values and a two-line comment; `operations.md`
       says how the key is set on Fly, rotated (set the new key, deploy), and that the prices are
       re-read at start-up when the provider's list price changes.
-- [ ] Unit tests against `httptest`: a happy completion with usage, a 429 then a 200, a 5xx three
-      times then the typed error, a refusal, invalid JSON, a timeout; the nil adapter's 501.
+- [x] Unit tests against `httptest`: a happy completion with usage, a 429 then a 200, a 5xx three
+      times then the typed error, a refusal, invalid JSON, a timeout; the nil adapter (its 501
+      is T-D4.32's, with the first operation).
+
+**As built:** `platform/config/ai.go` reads the nine names into `Config.AI`. The key is a
+`config.Secret`, which prints as "[redacted]" through fmt, slog and JSON, so a configuration in a
+log line, an error or a panic cannot carry it (`Reveal()` is read once, by the adapter). A price is
+a plain decimal of at most six decimals between 0.001 and 1000 dollars per million tokens, held as
+`config.MicroUSD` (millionths of a dollar), so T-D4.31's credits are integer arithmetic,
+`ceil(sum(tokens x price) / 1e9)` with no float to round across a credit; a price per token fails
+the bounds instead of silently undercounting the pool. A key with whitespace is refused without
+being echoed. `platform/anthropic` is `client.go`, `usage.go` and `errors.go` over the official SDK
+(`anthropic-sdk-go` v1.75.0, chosen for its typed errors, the SSE stream and accumulator, and the
+image and document blocks; v1.80.0 was three days old). The client builds the SDK client with
+`WithoutEnvironmentDefaults`, so no `ANTHROPIC_*` variable, profile or federation source can add a
+credential or redirect the key, and with `WithMaxRetries(0)`: the retry loop is the client's own,
+because the SDK also retries 408 and 409 and the plan says never a 4xx. It retries 429 and 5xx
+(and a stream that ends in an `overloaded_error` event) three times, 1s doubling, honouring
+`Retry-After` up to 30s and stopping at once when the wait would pass the budget. The 60s (120s with
+a PDF) is one budget for the whole call, retries included, inside the server's 120s write timeout.
+The answer is requested with `output_config.format` (a JSON schema), because forced tool choice is
+a 400 on the current models; `thinking` and `effort` are left to the model's defaults, since the
+tiers are configuration, and no server-side refusal fallback is set (the plan makes a refusal a
+typed `ErrRefused`, and the smallest tier rejects the field). Every error is an `*anthropic.Error`
+built from the provider's message with the key scrubbed, never the SDK's error (which holds the
+request and its headers); a cancelled caller gets `context.Canceled`. With `ErrRefused` and
+`ErrInvalidResponse` the response keeps the usage and the request id, because the provider billed
+those tokens and T-D4.32 should settle them rather than release. `ports` holds the `Completer`,
+its request and response types and four errors (`ErrUnavailable` for a timeout, a 429 or a 5xx
+that outlived the retries, `ErrRefused`, `ErrInvalidResponse`, `ErrRejected` for a 4xx or a bad
+key); `adapters.NewAI` returns a nil `Completer` without the key, maps a tier to its model and the
+client's kinds to the port's. `architecture_test.go` gains two tests: only `platform/anthropic`
+imports the SDK, and only `core` imports `platform/anthropic` (so the ai module reaches the
+provider through its port alone). `core/router/{modules.go,server.go}` are untouched: the AI
+transport is T-D4.32's file. No model identifier is written anywhere; the tests use placeholders.
+`.env.example` and `operations.md` ("AI provider key and tiers") are current. Not done here: the
+live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and status clauses above.
 
 ### T-D4.31 — Credits: the pool, allowances, reservations, the ledger and the maintenance command
 **Depends on:** T-D4.30
@@ -2432,6 +2470,11 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
       Every operation declares its `x-resource` kinds and has its isolation-suite entry; another
       teacher's id answers as a missing one. `make gen` is its own commit; MSW fixtures validate
       with ajv; `pnpm typecheck` passes.
+- [ ] What T-D4.30 left for the contract: `ErrorCode` gains `AI_OFF`, and with the adapter nil
+      (`Assembly.AI == nil`) every `/teacher/ai/*` and `/admin/ai/*` operation answers `501
+      NOT_IMPLEMENTED` with that code; `PublicStatus` gains `ai: boolean`, read from
+      `Config.AIEnabled()` and never from the provider; `core/router/{modules.go,server.go}` gain
+      the AI transport.
 - [ ] `PrincipalRateLimits()` gains every AI operation at 10 a minute and 100 an hour per actor,
       the clean-up at 3 an hour, the credit request at 5 an hour; `credential_limits_test.go`'s
       form of assertion lists them.
