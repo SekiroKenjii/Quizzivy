@@ -1,4 +1,4 @@
-import { useMemo, useState, type RefObject } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -63,6 +63,26 @@ const SEARCH =
 
 type Origin = RefObject<HTMLElement | null> | undefined;
 
+const SELECT_PAGE = 'main [role="table"] [role="columnheader"] [role="checkbox"]';
+
+/**
+ * survivorOf is where focus goes when a dialog opened from the bulk bar
+ * closes: the bar's own button while the selection keeps the bar, else the
+ * table's select-all box, else the page's main.
+ */
+function survivorOf(bar: RefObject<HTMLElement | null>): RefObject<HTMLElement | null> {
+  return {
+    get current() {
+      const button = bar.current?.querySelector<HTMLElement>("button");
+      if (button?.isConnected) return button;
+      return (
+        document.querySelector<HTMLElement>(SELECT_PAGE) ??
+        document.querySelector<HTMLElement>("main")
+      );
+    },
+  };
+}
+
 type Acting =
   | { kind: "move"; students: readonly Student[] }
   | { kind: "reset"; students: readonly Student[] }
@@ -93,6 +113,34 @@ function describe(
   return students === undefined
     ? t("students.descriptionLoading")
     : t("students.description", { count: students, classes: classes ?? 0 });
+}
+
+function AddStudentButton({
+  ref,
+  onClick,
+}: Readonly<{ ref?: RefObject<HTMLButtonElement | null>; onClick: () => void }>) {
+  const { t } = useTranslation();
+  return (
+    <Button ref={ref} onClick={onClick}>
+      <UserPlus aria-hidden="true" />
+      {t("students.new")}
+    </Button>
+  );
+}
+
+function EmptyLine({
+  filtered,
+  canCreate,
+  onAdd,
+}: Readonly<{ filtered: boolean; canCreate: boolean; onAdd: () => void }>) {
+  const { t } = useTranslation();
+  if (filtered) return <>{t("students.noMatches")}</>;
+  return (
+    <span className="flex flex-col items-center gap-3">
+      {t("students.empty")}
+      {canCreate ? <AddStudentButton onClick={onAdd} /> : null}
+    </span>
+  );
 }
 
 function ListSkeleton() {
@@ -169,13 +217,16 @@ function StudentMenuItems({
  * `people.students.reset_password`, for up to 40 students at once, and, with
  * `people.users.manage`, suspending the accounts and deleting suspended ones
  * as the old console did (DG-166). It is not drawn below 768px, where the
- * list has no checkboxes.
+ * list has no checkboxes. `moveRef` and `resetRef` hold the Move and Reset
+ * buttons, where focus returns after their dialogs.
  */
 function StudentsBulkBar({
   selected,
   canMove,
   canReset,
   canManage,
+  moveRef,
+  resetRef,
   onMove,
   onReset,
   onRemoved,
@@ -186,6 +237,8 @@ function StudentsBulkBar({
   canMove: boolean;
   canReset: boolean;
   canManage: boolean;
+  moveRef: RefObject<HTMLSpanElement | null>;
+  resetRef: RefObject<HTMLSpanElement | null>;
   onMove: () => void;
   onReset: () => void;
   onRemoved: (ids: string[]) => void;
@@ -236,21 +289,27 @@ function StudentsBulkBar({
       onSettled={onSettled}
     >
       {canMove ? (
-        <BulkBarButton icon={ArrowRightLeft} onClick={onMove}>
-          {t("students.bulk.move")}
-        </BulkBarButton>
+        <span ref={moveRef} className="contents">
+          <BulkBarButton icon={ArrowRightLeft} onClick={onMove}>
+            {t("students.bulk.move")}
+          </BulkBarButton>
+        </span>
       ) : null}
       {canReset ? (
-        <BulkBarButton
-          icon={KeyRound}
-          onClick={() => {
-            if (selected.length > BULK_RESET_LIMIT)
-              toast.error(t("students.bulk.resetTooMany", { count: BULK_RESET_LIMIT }));
-            else onReset();
-          }}
-        >
-          {t("students.bulk.reset")}
-        </BulkBarButton>
+        <span ref={resetRef} className="contents">
+          <BulkBarButton
+            icon={KeyRound}
+            onClick={() => {
+              if (selected.length > BULK_RESET_LIMIT)
+                toast.error(
+                  t("students.bulk.resetTooMany", { count: BULK_RESET_LIMIT }),
+                );
+              else onReset();
+            }}
+          >
+            {t("students.bulk.reset")}
+          </BulkBarButton>
+        </span>
       ) : null}
     </BulkActions>
   );
@@ -326,7 +385,9 @@ function RemoveStudentDialog({
  * whose record is open (`studentId`). Each control shows only with its
  * permission: Add student with `people.students.create`, Reset password with
  * `people.students.reset_password`, Move to class and Remove from class with
- * `teaching.classes.write`.
+ * `teaching.classes.write`. When a dialog closes, focus goes back to what
+ * opened it: the row's menu, Add student, or the bulk bar's button while the
+ * bar survives, else the table's select-all box, else the page.
  */
 export default function StudentsPage() {
   useDisplayTimeZone();
@@ -356,6 +417,9 @@ export default function StudentsPage() {
   const [created, setCreated] = useState<OneTimeCredential | null>(null);
   const [acting, setActing] = useState<Acting>(null);
   const [origin, setOrigin] = useState<Origin>(undefined);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const moveTrigger = useRef<HTMLSpanElement>(null);
+  const resetTrigger = useRef<HTMLSpanElement>(null);
 
   const students = useQuery({
     queryKey: [...QUERY_KEY, { classIds, accounts, search, page, size }],
@@ -417,19 +481,12 @@ export default function StudentsPage() {
   const selecting = canMove || canReset || canManage;
   const selectedRows = [...bulk.selected.values()];
   const filtered = search !== "" || classIds.length > 0 || accounts.length > 0;
-  const addStudent = canCreate ? (
-    <Button onClick={() => setCreating(true)}>
-      <UserPlus aria-hidden="true" />
-      {t("students.new")}
-    </Button>
-  ) : null;
-  const empty = filtered ? (
-    t("students.noMatches")
-  ) : (
-    <span className="flex flex-col items-center gap-3">
-      {t("students.empty")}
-      {addStudent}
-    </span>
+  const empty = (
+    <EmptyLine
+      filtered={filtered}
+      canCreate={canCreate}
+      onAdd={() => setCreating(true)}
+    />
   );
   const description = describe(t, data?.facets.total, classes.data?.total);
   const selectionProps = selecting
@@ -441,7 +498,11 @@ export default function StudentsPage() {
       <PageHead
         title={t("teacherShell.nav.students")}
         description={description}
-        actions={addStudent}
+        actions={
+          canCreate ? (
+            <AddStudentButton ref={addButton} onClick={() => setCreating(true)} />
+          ) : null
+        }
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -476,12 +537,14 @@ export default function StudentsPage() {
           canMove={canMove}
           canReset={canReset}
           canManage={canManage}
+          moveRef={moveTrigger}
+          resetRef={resetTrigger}
           onMove={() => {
-            setOrigin(undefined);
+            setOrigin(survivorOf(moveTrigger));
             setActing({ kind: "move", students: selectedRows });
           }}
           onReset={() => {
-            setOrigin(undefined);
+            setOrigin(survivorOf(resetTrigger));
             setActing({ kind: "reset", students: selectedRows });
           }}
           onRemoved={bulk.remove}
@@ -546,6 +609,7 @@ export default function StudentsPage() {
         open={created !== null}
         title={t("students.createdTitle")}
         credentials={created === null ? [] : [created]}
+        returnFocus={addButton}
         onDone={() => setCreated(null)}
       />
       <MoveDialog

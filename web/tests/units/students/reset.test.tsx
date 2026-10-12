@@ -310,6 +310,36 @@ describe("resetting several passwords at once", () => {
     nowhereElse("mot-hai-ba-11", client, consoles);
   });
 
+  it("gives focus back to the bulk bar's Reset passwords after Done (QA-40-1)", async () => {
+    serveStudents([AN, BINH]);
+    server.use(
+      http.post(`${BASE}/teacher/students/reset-passwords`, () =>
+        contractJson("/teacher/students/reset-passwords", "post", 200, {
+          items: [AN, BINH].map((one, index) => ({
+            studentId: one.id,
+            fullName: one.fullName,
+            email: one.email,
+            temporaryPassword: `mat-khau-${index}`,
+          })),
+          failed: [],
+        }),
+      ),
+    );
+    const { user } = renderStudents(teacherUser);
+
+    await selectAll(user);
+    const trigger = screen.getByRole("button", { name: "Đặt lại mật khẩu" });
+    await user.click(trigger);
+    const confirm = await screen.findByRole("dialog", { name: "Đặt lại 2 mật khẩu?" });
+    await user.click(within(confirm).getByRole("button", { name: "Đặt lại 2" }));
+    const sheet = await screen.findByRole("dialog", { name: "2 mật khẩu tạm" });
+    await user.click(within(sheet).getByRole("button", { name: "Xong" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("button", { name: "Đặt lại mật khẩu" })).toHaveFocus();
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it("refuses more than 40 students before asking the server", async () => {
     const many = Array.from({ length: 41 }, (_, index) =>
       student(

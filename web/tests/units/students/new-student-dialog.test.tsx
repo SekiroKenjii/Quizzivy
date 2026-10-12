@@ -110,6 +110,25 @@ describe("adding a student", () => {
     await waitFor(() => expect(document.body.innerHTML).not.toContain(SECRET));
   });
 
+  it("gives focus back to Add student after Done (QA-40-1)", async () => {
+    const { user } = renderStudents(teacherUser);
+    const form = await openForm(user);
+    await user.type(
+      within(form).getByRole("textbox", { name: "Họ và tên" }),
+      "Lê Thu Trang",
+    );
+    await user.type(
+      within(form).getByRole("textbox", { name: "Email" }),
+      "trang@example.com",
+    );
+    await user.click(within(form).getByRole("button", { name: "Tạo tài khoản" }));
+    const sheet = await screen.findByRole("dialog", { name: "Đã tạo tài khoản" });
+    await user.click(within(sheet).getByRole("button", { name: "Xong" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getAllByRole("button", { name: "Thêm học viên" })[0]).toHaveFocus();
+  });
+
   it("opens empty again after a student was added", async () => {
     const { user } = renderStudents(teacherUser);
     let form = await openForm(user);
