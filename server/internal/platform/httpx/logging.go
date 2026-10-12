@@ -25,6 +25,8 @@ func (s *statusRecorder) WriteHeader(code int) {
 	s.ResponseWriter.WriteHeader(code)
 }
 
+func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
+
 func (s *statusRecorder) Write(p []byte) (int, error) {
 	s.wroteHeader = true
 	n, err := s.ResponseWriter.Write(p)

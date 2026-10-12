@@ -57,6 +57,12 @@ Every request logs one `http` line at INFO: `method`, `path`, `status`,
 `500 INTERNAL`; the permission gate's and the API-reference gate's 500 log only
 the `http` line. Count 5xx from `status`.
 
+A streamed upload (media, a replacement, an import source, a profile photo) is given
+a 110-second read deadline in place of the server's 30 seconds. If the API cannot set
+it, the request logs a `streaming_read_deadline` line at WARN with the error and
+continues under the 30 seconds: a writer wrapped around the server's lost
+`Unwrap`. Any such line is a fault to fix.
+
 A browser that aborts a fetch (TanStack Query cancelling on navigation, a closed
 tab, a dropped connection) is not a fault. A request that fails because its own
 client went away answers and logs `status:499`, nginx's name for it, with no body
