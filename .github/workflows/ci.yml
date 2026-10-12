@@ -605,9 +605,6 @@ jobs:
       IMPORT_PROCESSING_ENABLED: "true"
       IMPORT_WORKER_WAKE_URL: http://localhost:8091/wake
       IMPORT_WORKER_WAKE_ADDR: localhost:8091
-      # seed/08 holds one run "running" on a ten-year lease, which takes the
-      # worker's single global slot, so the spec's own run would stay queued.
-      IMPORT_WORKER_GLOBAL_LIMIT: "2"
 
     steps:
       - uses: actions/checkout@v7

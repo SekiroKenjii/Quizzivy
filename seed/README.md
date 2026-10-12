@@ -87,8 +87,10 @@ docker compose run --rm --no-deps -v "$PWD/web/tests/e2e/fixtures:/fx:ro" --entr
 Rows only again: the import bucket holds no source file, artifact set or evidence. The
 history, the detail and the review (its questions, findings and counts) read the database and
 load; the review's *source* pane reads evidence from storage and answers with an error for
-these four. The *processing* import holds a lease for ten years so no worker claims it; cancel
-it from the page to clear it.
+these four. The *processing* import's run is queued at the extraction stage and not due for
+ten years, so no worker claims it and it takes none of the worker's slots; cancel it from the
+page to clear it. A database seeded before 2026-10-12 holds the old row, a run "running" on a
+ten-year lease that takes the worker's only slot; cancel that import or seed again.
 
 Still planned: a volume seed (~50 students, 10k attempts, 500k integrity
 events) for the query review, which measures p95 latency at realistic volume

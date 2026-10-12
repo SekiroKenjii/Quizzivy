@@ -174,10 +174,9 @@ starts `cmd/import-worker` beside the API, with the API's database, the
 directory under the runner's temp directory, `IMPORT_DOCKER_BINARY` and the
 image id as `IMPORT_CONVERTER_IMAGE`. The API runs with
 `IMPORT_PROCESSING_ENABLED=true` and the wake URL of the worker's listener.
-The worker runs with `IMPORT_WORKER_GLOBAL_LIMIT=2`: `seed/08` leaves one run
-"running" on a ten-year lease, which would take the single default slot and keep
-the spec's run queued for good. The job fails before the API starts when the
-build gives no image id, because
+The worker keeps its default single global slot: `seed/08` seeds its
+"processing" import as a queued run ten years out, so nothing holds the slot.
+The job fails before the API starts when the build gives no image id, because
 a worker without one would process `.docx` natively and skip the page rendition
 the live spec is there to cover. A failed job prints the worker's log beside
 the API's.
