@@ -13,7 +13,7 @@ reports `intakeEnabled` (import storage configured) and `processingEnabled`, and
 web follows it:
 
 - **Nothing configured:** no way into Word import from the tests list, and
-  `/admin/imports` says it is not enabled.
+  `/teacher/imports` says it is not enabled.
 - **Storage only:** the history stays, and finished imports can be reviewed and
   committed, but nothing new starts.
 - **Both:** the whole flow.
@@ -36,8 +36,29 @@ The compiled module is kept, so only the first PDF after start-up pays the
 roughly 2.5 s compile. A scan, a locked file, a broken file and an oversized one
 fail with `PDF_NO_TEXT`, `PDF_PROTECTED`, `PDF_INVALID` and `PDF_TOO_LARGE`.
 
-Use PostgreSQL 18 with migrations through `00052`, the application database role,
-and a separate private import bucket. The storage implementation must support
+A pasted test (`POST /teacher/imports/{id}/sources/text`, source format `text`)
+needs no converter, no sandbox and no Docker, whatever the worker's settings. The
+API stores the NFC-normalised text as a private `pasted-text.txt` in the import
+bucket, like any original. The worker reads it back and turns each non-blank line
+into a paragraph block (evidence version `text-lines-v1`); it never normalises
+or renders it. A text source is at most 100,000 Unicode code points and 20,000
+non-blank lines, and the worker refuses to read more than 400,000 bytes of it.
+A pasted import may still carry an answer-key file, which is read as its format
+says.
+
+`PipelineVersion` is `word-pipeline-v3`, and a run is claimed only by a worker of
+the version it was scheduled with. Deploy the API and the worker together: a v2
+worker leaves a text run unclaimed, and a run still queued under v2 when v3 is
+deployed fails after ten minutes with `PIPELINE_RETIRED`, so its teacher processes
+it again (the same release rule as at the PDF release).
+
+Use PostgreSQL 18 with migrations through `00091`, the application database role,
+and a separate private import bucket. `00090` lets `word_import_sources.format`
+be `text`, `00091` adds the source's `characters` column, which every source
+read names, and `00089` adds the draft's two review counters, which every draft
+write names. A worker on an older schema fails on its first source or draft query.
+(Later migrations, through `00106`, belong to the rest of the release and are
+applied by the same deploy.) The storage implementation must support
 conditional `If-None-Match: *` writes, `Content-MD5` and round-tripped
 `x-amz-meta-*` metadata; the SHA-256 digest travels as metadata and is checked by
 the code itself. No public bucket ACL or learner media URL is used. Set the storage/import variables in `.env.example` in the
