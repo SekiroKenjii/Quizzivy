@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"context"
 	"encoding/csv"
 	"io"
 	"net/http"
@@ -169,5 +170,67 @@ func TestATeacherExportsAnalysesAndDuplicatesAnAssignment(t *testing.T) {
 	only := teacher.must(http.StatusOK, http.MethodGet, "/teacher/assignments?q="+url.QueryEscape("lop hai")+"&classId="+classID+"&classId="+second, nil)
 	if got, _ := only["items"].([]any); len(got) != 1 || id(got[0].(map[string]any)) != id(copied) {
 		t.Errorf("a search for the second class's name lists %v, want only the copy", only["items"])
+	}
+}
+
+func exportedRows(t *testing.T, teacher *client, assignmentID string) map[string][]string {
+	t.Helper()
+	status, _, raw := teacher.download("/teacher/assignments/results.csv?ids=" + assignmentID)
+	if status != http.StatusOK {
+		t.Fatalf("the export answered %d: %s", status, raw)
+	}
+	records, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(string(raw), "\xEF\xBB\xBF"))).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := map[string][]string{}
+	for _, record := range records[1:] {
+		rows[record[3]] = record
+	}
+	if len(rows) != len(records)-1 {
+		t.Fatalf("the file names a student twice: %q", records)
+	}
+	return rows
+}
+
+func TestTheResultsExportLeavesOutStaffWhoOnlyJoinedAClassAndKeepsThoseWhoSat(t *testing.T) {
+	w := boot(t)
+	email, password := w.createStaff("teacher")
+	teacher := w.signedIn(email, password)
+	tag := nonce(t)
+	classID := teacher.class("Lớp có quản trị " + tag)
+	_, versionID := teacher.publishedVersion("Đề có quản trị " + tag)
+	assignment := teacher.assign(versionID, classID)
+	pupil := w.studentNamed(teacher, classID, "Trần Thị Bình")
+	pupil.sit(id(assignment))
+
+	if _, err := w.pool.Exec(context.Background(), `
+		INSERT INTO app.role_permissions (role_id, permission_key)
+		SELECT r.id, 'learning.take_tests' FROM app.roles r WHERE r.builtin_key = 'admin'
+		ON CONFLICT (role_id, permission_key) DO NOTHING`); err != nil {
+		t.Fatal(err)
+	}
+	adminEmail, adminPassword := w.createStaff("admin")
+	taker := w.signedIn(adminEmail, adminPassword)
+	code := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/classes/"+classID+"/join-code", map[string]any{})["code"].(string)
+	taker.must(http.StatusOK, http.MethodPost, "/app/classes/join", map[string]any{"joinCode": code})
+	var member bool
+	if err := w.pool.QueryRow(context.Background(), `
+		SELECT EXISTS (SELECT 1 FROM app.class_members m JOIN app.users u ON u.id = m.user_id
+		                WHERE m.class_id = $1::uuid AND u.email = $2)`, classID, adminEmail).Scan(&member); err != nil || !member {
+		t.Fatalf("the Admin who takes tests is not a member of the class: %v", err)
+	}
+
+	const staffName = "Cô Thương"
+	rows := exportedRows(t, teacher, id(assignment))
+	if _, listed := rows[staffName]; listed || len(rows) != 1 || rows["Trần Thị Bình"] == nil {
+		t.Errorf("an Admin who joined the class and has not sat the paper is in the export: %q", rows)
+	}
+
+	taker.sit(id(assignment))
+	rows = exportedRows(t, teacher, id(assignment))
+	sat := rows[staffName]
+	if sat == nil || len(rows) != 2 || sat[5] == "Chưa làm" || sat[1] == "" {
+		t.Errorf("an Admin who sat the paper reads %q among %q, want their result kept beside the student's", sat, rows)
 	}
 }

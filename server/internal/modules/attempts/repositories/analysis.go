@@ -147,13 +147,17 @@ var resultsSQL = `
 	    SELECT count(*) AS pending FROM app.attempt_answers aa
 	     WHERE aa.attempt_id = s.id AND aa.requires_manual AND aa.manual_score IS NULL
 	  ) p ON true
+	 WHERE s.id IS NOT NULL OR u.role_id IN (SELECT k.id FROM app.student_like_roles k)
 	 ORDER BY wd.ord, u.full_name, u.id
 	 LIMIT ` + fmt.Sprint(domain.MaxExportRows+1)
 
 // Results reads the roster rows of the assignments named, in the order named,
-// for the students the scope reaches. Every assignment must be one the scope
-// reaches, or none is read and the answer is ErrNotFound, as for a missing one;
-// more than domain.MaxExportRows rows answer ErrExportTooLarge.
+// for the students the scope reaches. A member of a target class who is not a
+// student (an Admin who takes tests) has a row only once they have an attempt
+// on the assignment, which the monitor, the review and the grading queue show
+// whoever sat it. Every assignment must be one the scope reaches, or none is
+// read and the answer is ErrNotFound, as for a missing one; more than
+// domain.MaxExportRows rows answer ErrExportTooLarge.
 func (s *Postgres) Results(ctx context.Context, scope access.Scope, assignmentIDs []string) ([]domain.ResultRow, error) {
 	reached, err := s.reachesAll(ctx, scope, assignmentIDs)
 	if err != nil {
