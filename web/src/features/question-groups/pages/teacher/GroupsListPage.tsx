@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -205,7 +205,9 @@ export default function GroupsListPage() {
   const selection = [...bulk.selected.values()];
   const selectedArchived = selection.every((item) => item.archivedAt !== null);
   const selectedActive = selection.every((item) => item.archivedAt === null);
-  const ask = (next: Action) => {
+  const askFrom = useRef<HTMLElement | null>(null);
+  const ask = (next: Action, from: HTMLElement | null) => {
+    askFrom.current = from;
     setError(null);
     setAction(next);
   };
@@ -316,7 +318,7 @@ export default function GroupsListPage() {
               />
             ) : null
           }
-          menu={(group) => (
+          menu={(group, { triggerRef }) => (
             <>
               <DropdownMenuItem
                 disabled={duplicate.isPending || group.archivedAt !== null}
@@ -327,20 +329,24 @@ export default function GroupsListPage() {
               </DropdownMenuItem>
               {group.archivedAt ? (
                 <>
-                  <DropdownMenuItem onSelect={() => ask({ kind: "restore", group })}>
+                  <DropdownMenuItem
+                    onSelect={() => ask({ kind: "restore", group }, triggerRef.current)}
+                  >
                     <Undo2 aria-hidden="true" />
                     {t("common.restore")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     variant="destructive"
-                    onSelect={() => ask({ kind: "delete", group })}
+                    onSelect={() => ask({ kind: "delete", group }, triggerRef.current)}
                   >
                     <Trash2 aria-hidden="true" />
                     {t("common.deletePermanently")}
                   </DropdownMenuItem>
                 </>
               ) : (
-                <DropdownMenuItem onSelect={() => ask({ kind: "archive", group })}>
+                <DropdownMenuItem
+                  onSelect={() => ask({ kind: "archive", group }, triggerRef.current)}
+                >
                   <Archive aria-hidden="true" />
                   {t("common.archive")}
                 </DropdownMenuItem>
@@ -362,6 +368,7 @@ export default function GroupsListPage() {
         onOpenChange={(open) => {
           if (!open && !mutate.isPending) setAction(null);
         }}
+        returnFocus={askFrom}
         title={t(ACTION_LABELS[action?.kind ?? "archive"].title)}
         description={t(ACTION_LABELS[action?.kind ?? "archive"].description, {
           count: 1,

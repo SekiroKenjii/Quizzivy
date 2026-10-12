@@ -118,19 +118,19 @@ test("the reason Markdown is blocked describes the button only while it is disab
       label="Nội dung câu hỏi"
       mode="rich"
       onMode={() => undefined}
-      markdownBlocked="Hãy bỏ hết ô trống."
+      markdownBlocked="Hãy bỏ hết chỗ trống."
     />,
   );
   const markdown = modes().getByRole("button", { name: "Markdown" });
   expect(markdown).toBeDisabled();
-  expect(markdown).toHaveAccessibleDescription("Hãy bỏ hết ô trống.");
+  expect(markdown).toHaveAccessibleDescription("Hãy bỏ hết chỗ trống.");
   rerender(
     <ProseModeHeader
       id="question-prompt"
       label="Nội dung câu hỏi"
       mode="markdown"
       onMode={() => undefined}
-      markdownBlocked="Hãy bỏ hết ô trống."
+      markdownBlocked="Hãy bỏ hết chỗ trống."
     />,
   );
   expect(markdown).toBeEnabled();

@@ -51,9 +51,11 @@ function revealFocused(event: FocusEvent<HTMLDivElement>) {
 
 /**
  * Segmented selects one grouped option, with optional scrolling or
- * equal-width wrapping form buttons. While `pending`, every option answers
- * `aria-disabled` and ignores a press, so the focused one keeps focus (T-35);
- * the caller decides when a request makes the control unavailable.
+ * equal-width wrapping form buttons whose labels sit centred: 30px high, or
+ * 32px with 13px labels at size `lg`, as the deck draws the assignment
+ * wizard's rule groups. While `pending`, every option answers `aria-disabled`
+ * and ignores a press, so the focused one keeps focus (T-35); the caller
+ * decides when a request makes the control unavailable.
  */
 export function Segmented({
   label,
@@ -118,8 +120,10 @@ export function Segmented({
               scroll && "shrink-0 leading-4 whitespace-nowrap outline-offset-1!",
               SIZES[size],
               (option.disabled || unavailable) && "cursor-not-allowed opacity-45",
+              fill && "flex-1 justify-center leading-normal",
               fill &&
-                "text-meta h-7.5 flex-1 px-2.5 leading-normal in-data-[scale=deck]:h-7.5",
+                size !== "lg" &&
+                "text-meta h-7.5 px-2.5 in-data-[scale=deck]:h-7.5",
               Icon !== undefined && size === "lg" && "gap-1.75",
               on
                 ? "bg-background text-foreground shadow-card in-data-[scale=deck]:bg-card in-data-[scale=deck]:text-fg in-data-[scale=deck]:ring-border in-data-[scale=deck]:ring-1"

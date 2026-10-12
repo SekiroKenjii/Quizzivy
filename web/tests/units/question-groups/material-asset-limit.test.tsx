@@ -91,3 +91,40 @@ describe("the group editor's image upload keeps the image limit", () => {
     expect(uploads).toBe(0);
   });
 });
+
+describe("an empty library names the kind it lists (F-44)", () => {
+  function open(kind: "image" | "audio") {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MaterialAssetDialog
+          kind={kind}
+          insertError={null}
+          onClose={vi.fn()}
+          onInsert={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("asks for an image in the image library", async () => {
+    open("image");
+
+    expect(
+      await screen.findByText(
+        "Chưa có hình ảnh nào. Tải lên hình ảnh đầu tiên để bắt đầu.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/tệp nghe/)).toBeNull();
+  });
+
+  it("asks for a listening file in the audio library", async () => {
+    open("audio");
+
+    expect(
+      await screen.findByText(
+        "Chưa có tệp nghe nào. Tải lên tệp nghe đầu tiên để bắt đầu.",
+      ),
+    ).toBeInTheDocument();
+  });
+});

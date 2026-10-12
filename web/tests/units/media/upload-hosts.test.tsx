@@ -152,7 +152,7 @@ for (const [host, mount] of Object.entries(hosts)) {
       await user.upload(screen.getByLabelText("Chọn tệp từ máy"), audio("loi.mp3"));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "Không dùng được tệp này",
+        "Máy chủ gặp lỗi khi nhận tệp",
       );
     });
 

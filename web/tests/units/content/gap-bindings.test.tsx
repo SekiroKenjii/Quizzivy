@@ -166,11 +166,11 @@ test("gap deletion preserves orphaned answers for undo and requires explicit con
   const onChange = vi.fn();
   render(<GapAnswers content={after} blanks={reconciled} onChange={onChange} />);
   expect(screen.getByRole("alert")).toHaveTextContent("Ô này đã được bỏ khỏi nội dung");
-  expect(screen.getByRole("group", { name: "Ô trống 2" })).toBeInTheDocument();
+  expect(screen.getByRole("group", { name: "Chỗ trống 2" })).toBeInTheDocument();
   expect(
-    screen.queryByRole("button", { name: "Xoá đáp án của ô 2" }),
+    screen.queryByRole("button", { name: "Xoá đáp án của chỗ trống 2" }),
   ).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Xoá đáp án của ô 1" }));
+  fireEvent.click(screen.getByRole("button", { name: "Xoá đáp án của chỗ trống 1" }));
   expect(onChange).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Xoá đáp án" }));
   expect(onChange).toHaveBeenCalledWith([blanks[1]]);

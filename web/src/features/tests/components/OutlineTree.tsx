@@ -150,6 +150,7 @@ export function OutlineTree({
     setInstructing(sectionIndex);
   };
   const [removing, setRemoving] = useState<number | null>(null);
+  const removeOpener = useRef<HTMLElement | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(
     null,
@@ -380,7 +381,8 @@ export function OutlineTree({
                     onRenamed={(next) => rename(key, next)}
                     onInstructions={(opener) => openInstructions(sectionIndex, opener)}
                     onMove={(direction) => move(sectionIndex, direction)}
-                    onRemove={() => {
+                    onRemove={(opener) => {
+                      removeOpener.current = opener;
                       const units = unitsOf(section);
                       if (units.length === 0) remove(sectionIndex);
                       else if (
@@ -544,6 +546,7 @@ export function OutlineTree({
       <ConfirmDialog
         open={doomed !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
+        returnFocus={removeOpener}
         title={t("builder.removeSectionTitle", { title: doomed?.title ?? "" })}
         description={t("builder.removeSectionBody", {
           count: doomed ? sectionQuestionIds(doomed, groups).length : 0,
@@ -595,7 +598,7 @@ function SectionHeader({
   onRenamed: (title: string | null) => void;
   onInstructions: (opener: HTMLElement | null) => void;
   onMove: (direction: -1 | 1) => void;
-  onRemove: () => void;
+  onRemove: (opener: HTMLElement | null) => void;
 }>) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef } = useSortable({
@@ -718,7 +721,10 @@ function SectionHeader({
                 {t("builder.moveSectionDown")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => onRemove(trigger.current)}
+              >
                 <Trash2 aria-hidden="true" />
                 {t("builder.removeSection")}
               </DropdownMenuItem>

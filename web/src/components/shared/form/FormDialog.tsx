@@ -52,9 +52,13 @@ export type FormDialogProps<V extends FormValues> = Readonly<{
   returnFocus?: RefObject<HTMLElement | null> | undefined;
 }>;
 
+const FIRST_FIELD =
+  "input:not([type='hidden']):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex='-1'])";
+
 /**
  * FormDialog edits typed values while open and unlocked, revealing visible
- * errors after submission. While `pending` the control a submit starts from
+ * errors after submission. It opens with focus on its first field, or where
+ * the dialog frame puts it when the form has none (F-50). While `pending` the control a submit starts from
  * keeps focus (T-35): the submit answers `aria-disabled` and ignores a press,
  * text fields turn read-only, a select answers `aria-disabled` and keeps
  * focus, and the other controls, which cannot start a submit, are disabled. A submit that starts while focus sits on such a
@@ -152,6 +156,12 @@ export function FormDialog<V extends FormValues>({
       width={width}
       className={className}
       returnFocus={returnFocus}
+      onOpenAutoFocus={(event) => {
+        const first = form.current?.querySelector<HTMLElement>(FIRST_FIELD);
+        if (!first) return;
+        event.preventDefault();
+        first.focus();
+      }}
     >
       <DialogShellHeader
         title={typeof title === "function" ? title(values) : title}

@@ -30,8 +30,8 @@ const expected = {
     questionPoints: "Câu {{n}} · {{max}} điểm",
     prompt: "Câu hỏi",
     accepted: "Đáp án chấp nhận",
-    score_one: "Chấm {{count}} điểm",
-    score_other: "Chấm {{count}} điểm",
+    score_one: "Chấm {{count, number}} điểm",
+    score_other: "Chấm {{count, number}} điểm",
     scoreLabel: "Điểm",
     studentAnswer: "Câu trả lời của học viên",
     numberScore: "Điểm (0–{{max}})",
@@ -105,8 +105,8 @@ const expected = {
     questionPoints: "Question {{n}} · {{max}} pt",
     prompt: "Question",
     accepted: "Accepted",
-    score_one: "Give {{count}} point",
-    score_other: "Give {{count}} points",
+    score_one: "Give {{count, number}} point",
+    score_other: "Give {{count, number}} points",
     scoreLabel: "Score",
     studentAnswer: "Student answer",
     numberScore: "Score (0–{{max}})",
@@ -241,7 +241,7 @@ it("updates mounted grading labels on a live language switch without replacing t
   expect(screen.getByRole("button", { name: expected.vi.retryFinish })).toBe(button);
 });
 
-it("names a score button in the singular for one point and the plural otherwise", () => {
+it("names a score button in the singular for one point and the plural otherwise, with the locale's decimal mark (F-26)", () => {
   const english = i18n.getFixedT("en");
   const vietnamese = i18n.getFixedT("vi");
   expect(english("grading.score", { count: 1 })).toBe("Give 1 point");
@@ -249,5 +249,6 @@ it("names a score button in the singular for one point and the plural otherwise"
   expect(english("grading.score", { count: 0.5 })).toBe("Give 0.5 points");
   expect(english("grading.score", { count: 3 })).toBe("Give 3 points");
   expect(vietnamese("grading.score", { count: 1 })).toBe("Chấm 1 điểm");
-  expect(vietnamese("grading.score", { count: 2.5 })).toBe("Chấm 2.5 điểm");
+  expect(vietnamese("grading.score", { count: 2.5 })).toBe("Chấm 2,5 điểm");
+  expect(vietnamese("grading.score", { count: 0.5 })).toBe("Chấm 0,5 điểm");
 });

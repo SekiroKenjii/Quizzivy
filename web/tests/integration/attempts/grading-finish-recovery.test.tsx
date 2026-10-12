@@ -174,7 +174,7 @@ it("score0 saves Grade only; failed explicit Finish survives empty queue and ret
 
 it("comments and appended snippets flush at the chosen score before Finish", async () => {
   const { user } = mount();
-  await user.click(await screen.findByRole("button", { name: "Chấm 0.5 điểm" }));
+  await user.click(await screen.findByRole("button", { name: "Chấm 0,5 điểm" }));
   await waitFor(() => expect(screen.getByLabelText(/^Nhận xét/)).toBeEnabled());
   await user.type(screen.getByLabelText(/^Nhận xét/), "Original");
   await user.click(screen.getByRole("button", { name: "Kiểm tra chính tả" }));

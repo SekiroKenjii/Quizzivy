@@ -89,7 +89,7 @@ describe("the builder's editor pane on its own", () => {
     for (const name of ["Một đáp án", "Nhiều đáp án", "Đúng/Sai", "Tự luận"]) {
       const item = within(menu).getByRole("menuitem", { name: new RegExp(name) });
       expect(item).toHaveAttribute("aria-disabled", "true");
-      expect(item).toHaveTextContent("Bỏ ô trống trước");
+      expect(item).toHaveTextContent("Bỏ chỗ trống trước");
     }
     expect(within(menu).getByRole("menuitem", { name: /Điền từ/ })).toHaveTextContent(
       "Đang dùng",

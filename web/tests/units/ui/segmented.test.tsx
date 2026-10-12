@@ -488,7 +488,44 @@ it("adds a wrapping equal-width form row without changing the default", () => {
   );
   expect(screen.getByRole("group")).toHaveClass("flex-wrap", "w-full");
   for (const button of screen.getAllByRole("button"))
-    expect(button).toHaveClass("flex-1", "h-7.5", "text-meta", "px-2.5");
+    expect(button).toHaveClass(
+      "flex-1",
+      "justify-center",
+      "h-7.5",
+      "text-meta",
+      "px-2.5",
+    );
+});
+
+it("draws a large form row 32px high with 13px labels, as the wizard's rule groups (F-47)", () => {
+  render(
+    <DeckScale>
+      <Segmented
+        label="Hàng"
+        value="a"
+        onChange={() => {}}
+        options={[
+          { value: "a", label: "Một" },
+          { value: "b", label: "Hai" },
+        ]}
+        size="lg"
+        fill
+      />
+    </DeckScale>,
+  );
+  for (const button of screen.getAllByRole("button")) {
+    expect(button).toHaveClass(
+      "h-8",
+      "in-data-[scale=deck]:h-8",
+      "px-3",
+      "text-[0.8125rem]",
+    );
+    expect(button).toHaveClass("flex-1", "justify-center");
+    expect(button).not.toHaveClass("h-7.5");
+    expect(button).not.toHaveClass("in-data-[scale=deck]:h-7.5");
+    expect(button).not.toHaveClass("text-meta");
+    expect(button).not.toHaveClass("px-2.5");
+  }
 });
 
 it("disables an option, says why, and leaves the others as they were", async () => {
@@ -504,12 +541,12 @@ it("disables an option, says why, and leaves the others as they were", async () 
           { value: "markdown", label: "Markdown", disabled: true, describedBy: "why" },
         ]}
       />
-      <p id="why">Hãy bỏ các ô trống trước.</p>
+      <p id="why">Hãy bỏ các chỗ trống trước.</p>
     </>,
   );
   const markdown = screen.getByRole("button", { name: "Markdown" });
   expect(markdown).toBeDisabled();
-  expect(markdown).toHaveAccessibleDescription("Hãy bỏ các ô trống trước.");
+  expect(markdown).toHaveAccessibleDescription("Hãy bỏ các chỗ trống trước.");
   expect(markdown).toHaveClass("opacity-45");
   expect(screen.getByRole("button", { name: "Văn bản định dạng" })).not.toHaveClass(
     "opacity-45",

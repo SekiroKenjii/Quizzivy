@@ -95,7 +95,7 @@ export function TimingRules({ draft, onChange }: Props) {
         <span className="flex flex-col gap-2">
           <Segmented
             fill
-            className="[&>button]:justify-center"
+            size="lg"
             label={t("assignments.wizard.timeLimit")}
             value={custom ? CUSTOM : String(draft.durationMinutes)}
             options={[

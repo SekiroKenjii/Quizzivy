@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import type { TagMatch } from "./bankFilters";
 
 const BOX =
-  "bg-card flex h-8 items-center gap-1.75 rounded-lg border px-2 focus-within:border-ring";
+  "bg-card flex h-8 items-center gap-1.75 rounded-md border px-2 focus-within:border-ring";
 
 const CHIP =
   "bg-muted text-fg inline-flex h-5.5 items-center gap-0.5 rounded-full border pr-0.75 pl-2 text-xs leading-none font-medium whitespace-nowrap";

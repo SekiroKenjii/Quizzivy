@@ -95,7 +95,9 @@ export function MaterialAssetDialog({
                 </Alert>
               ) : null}
               {!library.isPending && !library.isError && library.items.length === 0 ? (
-                <p className="text-muted-fg text-sm">{t("media.empty")}</p>
+                <p className="text-muted-fg text-sm">
+                  {t(kind === "image" ? "media.emptyImages" : "media.emptyAudio")}
+                </p>
               ) : null}
               {library.items.map((asset) => (
                 <Button

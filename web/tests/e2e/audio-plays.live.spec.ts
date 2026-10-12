@@ -51,7 +51,7 @@ async function publishListeningTest(page: Page, title: string) {
   await expect(async () => {
     const rejected = page
       .getByRole("alert")
-      .filter({ hasText: "Không dùng được tệp này" });
+      .filter({ hasText: /Không dùng được tệp này|Máy chủ gặp lỗi khi nhận tệp/ });
     if (await rejected.isVisible()) {
       throw new Error(`upload rejected: ${await rejected.innerText()}`);
     }

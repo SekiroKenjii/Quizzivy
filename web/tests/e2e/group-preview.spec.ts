@@ -81,7 +81,7 @@ for (const width of [768, 1440]) {
       page.getByRole("heading", { name: `${previewGroup.title} · v1` }),
     ).toBeVisible();
     await expect(page.getByText("Ngữ liệu dùng chung · Câu 2–3")).toBeVisible();
-    const gap = page.getByRole("link", { name: "Ô A — chuyển đến câu 3" });
+    const gap = page.getByRole("link", { name: "Chỗ trống A — chuyển đến câu 3" });
     await gap.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(":focus")).toContainText("Câu 3");

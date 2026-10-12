@@ -1,6 +1,6 @@
 import { Avatar } from "@/components/ui/avatar";
 import { givenName } from "@/features/assignments/studentTime";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import type { GradingQueueItem } from "../../api";
 import type { GradingDraft } from "./useGradingQueue";
 import { scoreOptions } from "./gradingRecovery";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
 
 /** GradingAnswerCard preserves the frozen answer and local comment while each chosen score saves immediately; when a save settles with focus lost to the page, it puts focus back on the card's score. */
@@ -43,6 +44,8 @@ export function GradingAnswerCard({
   onReview: (event: MouseEvent<HTMLAnchorElement>) => void;
 }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
+  const figure = useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const points = draft?.points ?? item.score;
   const [number, setNumber] = useState(String(points ?? ""));
   const [shownPoints, setShownPoints] = useState(points);
@@ -176,7 +179,7 @@ export function GradingAnswerCard({
                   className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums in-data-[scale=deck]:gap-2 in-data-[scale=deck]:text-[15px]"
                   onClick={() => onScore(value)}
                 >
-                  {value}
+                  {figure.format(value)}
                   <kbd
                     aria-hidden="true"
                     className="rounded border border-current px-1 font-sans text-[10.5px] font-medium opacity-60"

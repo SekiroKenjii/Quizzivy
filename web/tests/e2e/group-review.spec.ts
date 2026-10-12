@@ -166,7 +166,7 @@ for (const width of [320, 1440]) {
     await expect(page.getByRole("heading", { name: previewGroup.title })).toBeVisible();
     await page.getByRole("button", { name: /^Sai/ }).click();
     await expect(page.getByText(questions[1]!.prompt, { exact: true })).toHaveCount(0);
-    const gap = page.getByRole("button", { name: "Ô A — chuyển đến câu 2" });
+    const gap = page.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" });
     await gap.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(":focus")).toHaveAttribute(
@@ -200,7 +200,7 @@ for (const width of [768, 1440]) {
     await expect(
       page.getByRole("button", { name: "Tạm dừng", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Ô A — chuyển đến câu 2" }).click();
+    await page.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }).click();
     await expect(page.locator(":focus")).toHaveAttribute("id", "review-answer");
     await checkLayout(page, `group-review-${width}`);
     await page.getByRole("button", { name: "Chấm theo câu hỏi", exact: true }).click();

@@ -30,7 +30,9 @@ it("places shared material once before its members and links gaps to their displ
   expect(
     material.compareDocumentPosition(member) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
-  await user.click(screen.getByRole("link", { name: "Ô A — chuyển đến câu 3" }));
+  await user.click(
+    screen.getByRole("link", { name: "Chỗ trống A — chuyển đến câu 3" }),
+  );
   expect(document.activeElement).toHaveTextContent("Câu 3");
   expect(container.querySelectorAll("audio")).toHaveLength(1);
   expect(container.querySelector("audio")).toHaveAttribute("preload", "none");

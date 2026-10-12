@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import i18n, { type TFunction } from "i18next";
+import type { TFunction } from "i18next";
 import type { UploadOptions } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { audioLength } from "@/lib/i18n/datetime";
@@ -12,13 +12,13 @@ import { precheck } from "./probe";
 /**
  * UploadState is where one upload stands: checked, sent with its progress,
  * refused or failed (error), or stopped by the user (cancelled), which is not
- * a refusal.
+ * a refusal. An error the server caused (a 5xx) carries `fault: "server"`.
  */
 export type UploadState =
   | { status: "idle" }
   | { status: "checking"; name: string; bytes: number; kind: MediaKind }
   | { status: "uploading"; name: string; fraction: number }
-  | { status: "error"; message: string }
+  | { status: "error"; message: string; fault?: "server" | undefined }
   | { status: "cancelled" };
 
 /** UploadSender sends one checked file and resolves with what the server answered. */
@@ -177,10 +177,11 @@ async function checkFile(
 function uploadFailure(t: TFunction, cause: unknown): UploadState {
   if (cause instanceof DOMException && cause.name === "AbortError")
     return { status: "cancelled" };
-  return {
-    status: "error",
-    message: cause instanceof ApiError ? cause.message : t("media.uploadFailed"),
-  };
+  if (!(cause instanceof ApiError))
+    return { status: "error", message: t("media.uploadFailed") };
+  if (cause.status >= 500)
+    return { status: "error", message: cause.message, fault: "server" };
+  return { status: "error", message: cause.message };
 }
 
 function whenAborted(signal: AbortSignal): Promise<null> {
@@ -201,11 +202,7 @@ export function rejectionMessage(t: TFunction, rejection: Rejection): string {
     case "size":
       return t(image ? "media.rejectImageSize" : "media.rejectSize", {
         name: rejection.name,
-        size: formatOverLimit(
-          rejection.bytes,
-          maxBytes(rejection.kind ?? "audio"),
-          i18n.language,
-        ),
+        size: formatOverLimit(rejection.bytes, maxBytes(rejection.kind ?? "audio")),
       });
     case "duration":
       return t("media.rejectDuration", {
