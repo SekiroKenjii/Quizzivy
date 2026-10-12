@@ -62,6 +62,9 @@ func (s ReplaceHandler) Handle(ctx context.Context, cmd Replace) (domain.Replace
 		return domain.ReplaceResult{}, &domain.ReplacementError{Outcome: domain.ReplacementCommitted, Cause: err}
 	}
 	result.Asset = assets[0]
+	if result.Previous, err = s.SignRetired(ctx, result.Previous); err != nil {
+		return domain.ReplaceResult{}, &domain.ReplacementError{Outcome: domain.ReplacementCommitted, Cause: err}
+	}
 	return result, nil
 }
 func (s ReplaceHandler) replacementFailure(ctx context.Context, key string, err error) error {

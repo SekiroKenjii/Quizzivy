@@ -119,8 +119,13 @@ func TestTheMediaLibraryNamesMeasuresAndBoundsWhatATeacherUploads(t *testing.T) 
 	if usage := figures(body, "usage"); body["total"] != float64(fits+1) || usage["audioBytes"] != float64(fits*len(listening)) {
 		t.Errorf("the full library holds %v files and %v, want %d files and %d of audio", body["total"], usage, fits+1, fits*len(listening))
 	}
-	if removed := teacher.send(http.MethodDelete, "/teacher/media/"+clipID, nil); removed.status != http.StatusNoContent {
-		t.Fatalf("deleting an unused audio file: %s", answer(removed))
+	removed := teacher.send(http.MethodDelete, "/teacher/media/"+clipID, nil)
+	if removed.status != http.StatusOK || removed.json["id"] != clipID || removed.json["bytes"] != float64(len(listening)) || removed.json["deleteAt"] == nil {
+		t.Fatalf("deleting an unused audio file: %s, want 200 with the file and the time its object goes", answer(removed))
+	}
+	body, _ = library("")
+	if usage := figures(body, "usage"); usage["pendingBytes"] != float64(len(listening)) || usage["heldBytes"] != float64(0) || usage["audioBytes"] != float64((fits-1)*len(listening)) {
+		t.Errorf("after the delete the usage is %v, want its file pending and not counted against the library", usage)
 	}
 	if again := upload("", "bai-nghe.mp3", listening); again.status != http.StatusCreated {
 		t.Errorf("an upload into the room a deleted file left: %s", answer(again))

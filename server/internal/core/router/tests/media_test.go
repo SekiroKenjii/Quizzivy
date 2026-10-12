@@ -27,6 +27,7 @@ import (
 const libraryAsset = "01935000-0000-7000-8000-00000000a001"
 
 type mediaLibrary struct {
+	mediadomain.Retention
 	mu       sync.Mutex
 	stored   mediadomain.Asset
 	findErr  error
@@ -93,7 +94,9 @@ func (m *mediaLibrary) QuestionCounts(context.Context, []string) (map[string]int
 	return map[string]int{libraryAsset: 4}, nil
 }
 
-func (m *mediaLibrary) SoftDelete(context.Context, mediadomain.DeleteInput) error { return nil }
+func (m *mediaLibrary) SoftDelete(context.Context, mediadomain.DeleteInput) (mediadomain.Retired, error) {
+	return mediadomain.Retired{}, nil
+}
 
 func (m *mediaLibrary) ReferencesFor(context.Context, []string) (map[string][]mediadomain.TestRef, error) {
 	return nil, nil
@@ -428,8 +431,8 @@ func TestListMediaTakesItsFiltersFromTheQuery(t *testing.T) {
 	if body.Facets["all"] != 8 || body.Facets["audio"] != 5 || body.Facets["image"] != 3 || body.Facets["unused"] != 1 || len(body.Facets) != 4 {
 		t.Errorf("facets = %v", body.Facets)
 	}
-	if body.Usage["audioBytes"] != 1_127_428_915 || body.Usage["imageBytes"] != 214_748_364 || body.Usage["quotaBytes"] != float64(mediadomain.DefaultOwnerQuotaBytes) || len(body.Usage) != 3 {
-		t.Errorf("usage = %v, want the library's bytes beside the default quota", body.Usage)
+	if body.Usage["audioBytes"] != 1_127_428_915 || body.Usage["imageBytes"] != 214_748_364 || body.Usage["quotaBytes"] != float64(mediadomain.DefaultOwnerQuotaBytes) || body.Usage["heldBytes"] != 0 || body.Usage["pendingBytes"] != 0 || len(body.Usage) != 5 {
+		t.Errorf("usage = %v, want the library's bytes beside the default quota, with nothing held and nothing pending", body.Usage)
 	}
 	if len(body.Items) != 1 || body.Items[0]["displayName"] != "Cambridge 15 · Test 2 · Part 1.mp3" || body.Items[0]["questionCount"] != float64(4) || body.Items[0]["defaultMaxPlays"] != float64(2) {
 		t.Errorf("items = %v", body.Items)

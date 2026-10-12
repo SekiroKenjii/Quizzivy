@@ -96,6 +96,9 @@ func (a *App) Serve(ctx context.Context) error {
 	if sweeper := a.assembly.ImportSweeper; sweeper != nil {
 		go jobs.SweepImportFiles(ctx, a.logger, sweeper.Sweep, jobs.ImportRetention{Every: 24 * time.Hour, Retry: time.Hour, Budget: 5 * time.Minute})
 	}
+	if media := a.assembly.Media; media != nil {
+		go jobs.SweepRetiredMedia(ctx, a.logger, media.Commands.Sweep, jobs.MediaRetention{Every: time.Hour, Retry: 10 * time.Minute, Budget: 5 * time.Minute})
+	}
 
 	return httpserver.Serve(ctx, a.logger, a.cfg, handler)
 }

@@ -20,11 +20,11 @@ import (
 func TestDeleteMediaReportsBothPublishedAndGroupReferences(t *testing.T) {
 	asset, group, testID := uuid.New(), uuid.New(), uuid.New()
 	testRef := testID.String()
-	app := &application.Application{Commands: application.Commands{Delete: cqrs.HandlerFunc[command.Delete, cqrs.Nothing](func(_ context.Context, in command.Delete) (cqrs.Nothing, error) {
+	app := &application.Application{Commands: application.Commands{Delete: cqrs.HandlerFunc[command.Delete, domain.Retired](func(_ context.Context, in command.Delete) (domain.Retired, error) {
 		if in.Input.ID != asset.String() || in.Input.ActorID == "" {
 			t.Fatal("delete lost request identity")
 		}
-		return cqrs.Nothing{}, &domain.ReferencedError{
+		return domain.Retired{}, &domain.ReferencedError{
 			Tests:  []domain.TestRef{{ID: testRef, Title: "Published", Version: 2}},
 			Groups: []domain.GroupRef{{ID: group.String(), Title: "Shared context", TestID: &testRef}},
 		}

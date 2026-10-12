@@ -33,7 +33,7 @@ func (r *replacementRepo) Replace(_ context.Context, in domain.ReplaceInput) (do
 	if r.replaceErr != nil {
 		return domain.ReplaceResult{}, r.replaceErr
 	}
-	return domain.ReplaceResult{Asset: domain.Asset{ID: in.Asset.ID, StorageKey: in.Asset.StorageKey, Kind: in.Asset.Kind, Bytes: in.Asset.Bytes, DisplayName: *in.Asset.DisplayName, DefaultMaxPlays: in.Asset.DefaultMaxPlays}, Repointed: domain.ReplacementCounts{Questions: 2, Groups: 1}, Left: domain.ReplacementCounts{Questions: 3, Groups: 2}}, nil
+	return domain.ReplaceResult{Asset: domain.Asset{ID: in.Asset.ID, StorageKey: in.Asset.StorageKey, Kind: in.Asset.Kind, Bytes: in.Asset.Bytes, DisplayName: *in.Asset.DisplayName, DefaultMaxPlays: in.Asset.DefaultMaxPlays}, Repointed: domain.ReplacementCounts{Questions: 2, Groups: 1}, Left: domain.ReplacementCounts{Questions: 3, Groups: 2}, Previous: domain.Retired{Asset: r.target.Asset}}, nil
 }
 func (r *replacementRepo) ReferencesFor(context.Context, []string) (map[string][]domain.TestRef, error) {
 	return r.versions, r.refsErr
@@ -106,6 +106,9 @@ func TestReplacementUsesFreshIdentityAndReturnsFourCounts(t *testing.T) {
 	}
 	if out.Repointed != (domain.ReplacementCounts{Questions: 2, Groups: 1}) || out.Left != (domain.ReplacementCounts{Questions: 3, Groups: 2}) || out.Asset.URL == "" {
 		t.Fatalf("result=%+v", out)
+	}
+	if out.Previous.Asset.ID != "old-id" || out.Previous.Asset.URL == "" {
+		t.Fatalf("the old file is answered as %+v, want its id and a URL to download it", out.Previous)
 	}
 }
 func TestReplacementOutcomeControlsFreshObjectCompensation(t *testing.T) {

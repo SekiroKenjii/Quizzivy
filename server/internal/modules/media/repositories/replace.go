@@ -107,14 +107,31 @@ func replaceBody(ctx context.Context, tx pgx.Tx, in domain.ReplaceInput) (domain
 	in.Asset.OwnerID = locked.OwnerID
 	in.Asset.DisplayName = &locked.Asset.DisplayName
 	in.Asset.DefaultMaxPlays = locked.Asset.DefaultMaxPlays
-	if err := RequireQuota(ctx, tx, QuotaCheck{OwnerID: locked.OwnerID, Add: in.Asset.Bytes, Quota: in.Asset.QuotaBytes, LeaveOut: in.ID}); err != nil {
+	if err := LockQuota(ctx, tx, locked.OwnerID); err != nil {
 		return domain.ReplaceResult{}, err
 	}
 	asset, err := Insert(ctx, tx, in.Asset)
 	if err != nil {
 		return domain.ReplaceResult{}, err
 	}
-	return replacementGraph(ctx, tx, in, asset, questions, groups)
+	result, err := replacementGraph(ctx, tx, in, asset, questions, groups)
+	if err != nil {
+		return result, err
+	}
+	if result.Previous, err = retireReplaced(ctx, tx, in, locked.Asset); err != nil {
+		return result, err
+	}
+	if err := CheckQuota(ctx, tx, QuotaCheck{OwnerID: locked.OwnerID, Quota: in.Asset.QuotaBytes}); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+func retireReplaced(ctx context.Context, tx pgx.Tx, in domain.ReplaceInput, old domain.Asset) (domain.Retired, error) {
+	usedIn, err := References(ctx, tx, in.ID)
+	if err != nil {
+		return domain.Retired{}, err
+	}
+	return describeRetired(ctx, tx, old, usedIn, in.Asset.Now)
 }
 func replacementGraph(ctx context.Context, tx pgx.Tx, in domain.ReplaceInput, asset domain.Asset, questions, groups []string) (domain.ReplaceResult, error) {
 	result := domain.ReplaceResult{Asset: asset}
