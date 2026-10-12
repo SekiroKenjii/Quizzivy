@@ -188,6 +188,37 @@ explicit request. The approved policy retains audit entries unchanged. Restrict
 access to backups and record how a restore will reapply later anonymizations
 before allowing the restored system to serve users.
 
+## Media files that left a library
+
+A media file leaves a teacher's library when it is replaced or deleted, but its object stays
+in storage until seven days after nothing names it: no question, group, material or published
+test version, of any owner. Then the API removes the object for good and marks the row
+(`media_assets.purged_at`). Nothing restores it, and the teacher is told only by the answer
+to the replace or the delete and by the figures on the media page (F-68, the owner's decision
+of 2026-10-12; `docs/plan/20-data-model.md` §45).
+
+The API runs the sweep (`jobs.SweepRetiredMedia`) on every machine, only where media storage is
+configured, at start-up and then every hour. A row is taken under a lock the other machines
+skip, so a second machine removes nothing twice. It logs one line a run, with counts and no
+title or filename:
+
+| Log line | Level | Meaning |
+|---|---|---|
+| `media retention swept` | INFO | `unreferenced` files dated, `cancelled` waits cleared, `removed` objects deleted |
+| `media retention left files in place` (`MEDIA_RETENTION_INCOMPLETE`) | WARN | `failed` files stayed for the next run, ten minutes later; `err` is the first cause, an object key at most |
+| `media retention sweep failed` (`MEDIA_RETENTION_FAILED`) | WARN | the run could not read or list the files; it retries in ten minutes |
+
+A run that keeps failing means storage is unreachable or refuses the delete: nothing is lost,
+the objects stay and the rows are retried. Each removal writes an audit row `media.purged`, with
+no actor. After the first start of the release that added the sweep, a file that left a library
+earlier is dated by that run and its object goes seven days later; the first removals are
+therefore seven days after the deploy. There is no switch for the sweep. A file stays while a
+question, a group or a version names it, and naming it again before its day clears the wait.
+
+Never delete an object by hand to free space: a file the library still lists, or that a version
+holds, would answer 404 to the students who sit that test. The usage on the media page
+(`heldBytes`, `pendingBytes`) says what is counted and what waits.
+
 ## Maintenance windows
 
 A maintenance window is a period during which the API answers every request to a
