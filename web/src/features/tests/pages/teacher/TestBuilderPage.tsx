@@ -24,6 +24,7 @@ import { MarqueeText } from "@/components/shared/MarqueeText";
 import { SplitPane } from "@/components/shared/SplitPane";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
+import { useCrumbs } from "@/layouts/shell/crumbs";
 import { PageAsideSlot } from "@/layouts/slots";
 import {
   createQuestion,
@@ -135,6 +136,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(test.title);
+  useCrumbs([{ label: title.trim() || t("tests.untitled") }]);
   const wide = useMediaQuery("(min-width: 768px)");
   const room = useContentWidthAtLeast(594);
   const split = wide && room;

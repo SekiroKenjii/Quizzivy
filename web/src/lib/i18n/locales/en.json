@@ -2878,6 +2878,7 @@
     "backToTests": "Back to tests",
     "backToHistory": "Back to imports",
     "start": "Import from Word/PDF",
+    "newCrumb": "New import",
     "searchPlaceholder": "Search file or test name",
     "statusFilter": "Filter by status",
     "allStatuses": "All statuses",

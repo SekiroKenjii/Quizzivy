@@ -2878,6 +2878,7 @@
     "backToTests": "Về danh sách đề thi",
     "backToHistory": "Về mục Nhập đề",
     "start": "Nhập đề từ Word/PDF",
+    "newCrumb": "Lượt nhập mới",
     "searchPlaceholder": "Tìm tên tệp hoặc tên đề",
     "statusFilter": "Lọc theo trạng thái",
     "allStatuses": "Tất cả trạng thái",
