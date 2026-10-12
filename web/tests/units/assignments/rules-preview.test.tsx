@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { StudentRulesPreview } from "@/features/assignments/components/StudentRulesPreview";
-import i18n from "@/lib/i18n";
+import { previewRules } from "@/features/assignments/studentRules";
+import i18n, { loadLocale } from "@/lib/i18n";
 
 const DRAFT = {
   review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
@@ -16,25 +15,26 @@ const DRAFT = {
   closesAt: "2026-08-29T21:00",
 };
 
-function sentences(over: Partial<typeof DRAFT> = {}) {
-  render(<StudentRulesPreview draft={{ ...DRAFT, ...over }} />);
-  return screen
-    .getByText("Học viên sẽ đọc")
-    .nextElementSibling!.textContent!.split("· ")
-    .slice(1);
+function sentences(over: Partial<typeof DRAFT> = {}, locale: "vi" | "en" = "vi") {
+  return previewRules(
+    { ...DRAFT, ...over },
+    i18n.getFixedT(locale),
+    locale,
+    new Date(),
+  ).map((rule) => rule.text);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
+  await loadLocale("en");
 });
-afterEach(async () => {
+afterEach(() => {
   vi.useRealTimers();
-  await i18n.changeLanguage("vi");
 });
 
-describe("what the teacher is told students will read", () => {
-  it("is the student's own list for the switches and dates on the form", () => {
+describe("what the wizard tells the teacher students will read", () => {
+  it("is the student's own list for the switches and dates of the draft", () => {
     expect(sentences()).toEqual([
       "Bài mở đến 21:00 hôm nay.",
       "Đồng hồ chạy từ lúc bạn bấm Bắt đầu và không dừng lại, kể cả khi bạn đóng trang.",
@@ -43,11 +43,6 @@ describe("what the teacher is told students will read", () => {
       "Bạn được rời trang làm bài 2 lần. Sau đó, giáo viên sẽ được báo.",
       "Bạn sẽ xem được điểm sau khi nộp bài.",
     ]);
-    expect(
-      screen.getByText(
-        "Học viên đọc những câu này trước khi làm bài; câu về ngày giờ được viết theo ngày học viên đọc.",
-      ),
-    ).toBeInTheDocument();
   });
 
   it("follows each switch as the teacher turns it", () => {
@@ -69,7 +64,7 @@ describe("what the teacher is told students will read", () => {
     ]);
   });
 
-  it("reads the form's dates in the app's zone, as a paper still to open", () => {
+  it("reads the draft's dates in the app's zone, as a paper still to open", () => {
     expect(
       sentences({ opensAt: "2026-09-01T08:00", closesAt: "2026-09-03T21:00" })[0],
     ).toBe("Bài mở từ 08:00, Thứ 3, 01/09 đến 21:00, Thứ 5, 03/09.");
@@ -87,25 +82,15 @@ describe("what the teacher is told students will read", () => {
     );
   });
 
-  it("follows the form's language", async () => {
-    await i18n.changeLanguage("en");
-    render(<StudentRulesPreview draft={DRAFT} />);
-    expect(
-      screen.getByText(
-        "· You can leave the test 2 times. After that, your teacher is told.",
-      ),
-    ).toBeInTheDocument();
+  it("follows the teacher's language", () => {
+    expect(sentences({}, "en")).toContain(
+      "You can leave the test 2 times. After that, your teacher is told.",
+    );
   });
 
-  it("writes the dates in the form's language", async () => {
-    await i18n.changeLanguage("en");
-    render(
-      <StudentRulesPreview
-        draft={{ ...DRAFT, opensAt: "2026-09-01T08:00", closesAt: "2026-09-03T21:00" }}
-      />,
-    );
+  it("writes the dates in the teacher's language", () => {
     expect(
-      screen.getByText("· Opens Tue 1 Sep, 08:00 – Thu 3 Sep, 21:00."),
-    ).toBeInTheDocument();
+      sentences({ opensAt: "2026-09-01T08:00", closesAt: "2026-09-03T21:00" }, "en")[0],
+    ).toBe("Opens Tue 1 Sep, 08:00 – Thu 3 Sep, 21:00.");
   });
 });

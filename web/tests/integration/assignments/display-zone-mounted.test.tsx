@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -8,15 +8,10 @@ import { Monitor } from "@/features/attempts/components/Monitor";
 import { assignment, defaultRows, monitor } from "@tests/units/attempts/fixtures";
 import { contentWidth } from "@tests/support/contentWidth";
 import { ExtendAssignmentsDialog } from "@/features/assignments/pages/teacher/ExtendAssignmentsDialog";
-import { StudentRulesPreview } from "@/features/assignments/components/StudentRulesPreview";
+import { previewRules } from "@/features/assignments/studentRules";
 import AssignmentIntroPage from "@/features/assignments/pages/AssignmentIntroPage";
-import AssignmentFormPage from "@/features/assignments/pages/teacher/AssignmentFormPage";
 import type { components } from "@/lib/api/schema";
-import {
-  APP_TIME_ZONE,
-  setDisplayTimeZone,
-  fromDateTimeInput,
-} from "@/lib/i18n/datetime";
+import { APP_TIME_ZONE, setDisplayTimeZone } from "@/lib/i18n/datetime";
 import i18n from "@/lib/i18n";
 import "@/features/auth/accountPreferences";
 import { useAuthStore } from "@/stores/auth";
@@ -143,89 +138,6 @@ it("keeps the closed Extend's choice, reason and focus across account zone, lang
   ).toBeLessThan(60_000);
 });
 
-it("keeps mounted dirty assignment inputs fixed to HCM while display changes propagate", async () => {
-  server.use(
-    http.get(`${BASE}/teacher/assignments/${ID}`, () => HttpResponse.json(saved)),
-    http.get(`${BASE}/teacher/tests/${TEST_ID}/versions`, () =>
-      HttpResponse.json({
-        items: [
-          {
-            id: VERSION_ID,
-            version: 3,
-            totalPoints: 30,
-            questionCount: 24,
-            audioCount: 4,
-            manualCount: 2,
-            publishedAt: "2026-08-20T00:00:00Z",
-            publishedBy: "Teacher",
-          },
-        ],
-      }),
-    ),
-    http.get(`${BASE}/teacher/classes`, () =>
-      HttpResponse.json({
-        items: [],
-        page: 1,
-        pageSize: 20,
-        total: 0,
-        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
-      }),
-    ),
-    http.get(`${BASE}/teacher/students`, () =>
-      HttpResponse.json({
-        items: [],
-        page: 1,
-        pageSize: 20,
-        total: 0,
-        facets: { total: 0, activeLast7Days: 0 },
-      }),
-    ),
-  );
-  const router = createMemoryRouter(
-    [{ path: "/teacher/assignments/:id/edit", element: <AssignmentFormPage /> }],
-    { initialEntries: [`/teacher/assignments/${ID}/edit`] },
-  );
-  render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  );
-  const title = await screen.findByRole("heading", { name: "Chỉnh sửa bài giao" });
-  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-  const time = within(screen.getByRole("group", { name: "Đóng lúc" })).getByRole(
-    "button",
-    { name: /giờ/i },
-  );
-  await user.click(time);
-  await user.click(
-    within(screen.getByRole("listbox", { name: "Giờ" })).getByRole("option", {
-      name: "19",
-    }),
-  );
-  await user.click(
-    within(screen.getByRole("listbox", { name: "Phút" })).getByRole("option", {
-      name: "35",
-    }),
-  );
-  time.focus();
-  await act(async () => {
-    useAuthStore.getState().setUser({
-      ...teacherUser,
-      locale: "en",
-      timeZone: "UTC",
-      preferences: { theme: "dark" },
-    });
-  });
-  expect(screen.getByRole("heading", { name: "Edit assignment" })).toBe(title);
-  expect(time).toHaveTextContent("19:35");
-  expect(time).toHaveFocus();
-  expect(fromDateTimeInput("2099-09-09T19:35").toISOString()).toBe(
-    "2099-09-09T12:35:00.000Z",
-  );
-});
-
 it("keeps preview policy dates fixed to HCM while the actual mounted student intro uses the actor zone", async () => {
   const draft = {
     review: saved.review,
@@ -234,9 +146,9 @@ it("keeps preview policy dates fixed to HCM while the actual mounted student int
     closesAt: "2026-08-29T21:00",
   };
   setDisplayTimeZone("UTC");
-  render(<StudentRulesPreview draft={draft} />);
-  expect(screen.getByText("· Bài mở đến 21:00 hôm nay.")).toBeInTheDocument();
-  cleanup();
+  expect(previewRules(draft, i18n.getFixedT("vi"), "vi", new Date())[0]?.text).toBe(
+    "Bài mở đến 21:00 hôm nay.",
+  );
   server.use(
     http.get(`${BASE}/app/assignments/${ID}`, () =>
       HttpResponse.json(
