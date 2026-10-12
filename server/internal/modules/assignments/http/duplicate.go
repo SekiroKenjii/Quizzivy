@@ -12,7 +12,8 @@ import (
 )
 
 // DuplicateAssignment copies an assignment as a draft assigned to the classes
-// named.
+// named. A class named twice is refused with 400 whatever the spelling of its
+// id.
 func (h Assignments) DuplicateAssignment(ctx context.Context, request openapi.DuplicateAssignmentRequestObject) (openapi.DuplicateAssignmentResponseObject, error) {
 	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -20,6 +21,10 @@ func (h Assignments) DuplicateAssignment(ctx context.Context, request openapi.Du
 	req, ok := assignmentRequest(ctx, request.Id.String())
 	if !ok {
 		return nil, httpx.ErrNotImplemented
+	}
+	if httpapi.RepeatsAnID(request.Body.ClassIds) {
+		return openapi.DuplicateAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.FieldError(ctx, "classIds", httpx.Text(ctx, "Mỗi lớp chỉ được nêu một lần.", "Each class can be named only once.")))}, nil
 	}
 	classIDs := make([]string, len(request.Body.ClassIds))
 	for i, id := range request.Body.ClassIds {
