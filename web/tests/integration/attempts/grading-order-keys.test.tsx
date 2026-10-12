@@ -254,7 +254,7 @@ it("grades from the keyboard alone after each save: 2, then j, then 1", async ()
     expect(grades).toEqual([{ attemptId: NAM_PAPER, questionId: Q1, points: 0.5 }]),
   );
   await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Chấm 0.5 điểm" })).toBeEnabled(),
+    expect(screen.getByRole("button", { name: "Chấm 0,5 điểm" })).toBeEnabled(),
   );
   await user.keyboard("j");
   expect(await screen.findByText("Nam câu 2")).toBeVisible();
@@ -280,7 +280,7 @@ it("takes a key with focus on the page and then puts focus on the pressed score"
     expect(grades).toEqual([{ attemptId: NAM_PAPER, questionId: Q1, points: 0.5 }]),
   );
   await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Chấm 0.5 điểm" })).toHaveFocus(),
+    expect(screen.getByRole("button", { name: "Chấm 0,5 điểm" })).toHaveFocus(),
   );
 });
 
@@ -302,7 +302,7 @@ it("offers nine keyed buttons for a four-point answer and a number field above f
   serve([answer(NAM_PAPER, NAM, "Trần Văn Nam", Q2, 2, 4)]);
   mount("/teacher/grading?mode=question");
   expect(await screen.findByText("Bài của Trần Văn Nam")).toBeVisible();
-  const buttons = screen.getAllByRole("button", { name: /^Chấm [\d.]+ điểm$/ });
+  const buttons = screen.getAllByRole("button", { name: /^Chấm [\d,]+ điểm$/ });
   expect(buttons).toHaveLength(9);
   expect(buttons.map((button) => button.querySelector("kbd")?.textContent)).toEqual([
     "1",
