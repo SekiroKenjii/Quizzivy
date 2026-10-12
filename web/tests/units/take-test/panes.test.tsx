@@ -235,6 +235,22 @@ describe("the panes from 768", () => {
     expect(sheet()).not.toHaveClass("max-w-180");
   });
 
+  it("lays short options in columns alone, and in one column beside the passage", async () => {
+    const user = userEvent.setup();
+    const { unmount } = await open(deckSession(NOW));
+    await user.click(next());
+    await user.click(next());
+    expect(within(sheet()).getByRole("radiogroup")).toHaveClass("grid-cols-3");
+    unmount();
+    store().reset();
+    sessionStorage.clear();
+
+    await open(deckPassageSession(NOW));
+    await user.click(next());
+    await user.click(next());
+    expect(within(sheet()).getByRole("radiogroup")).toHaveClass("grid-cols-1");
+  });
+
   it("names the question's position and type, one label for each type", async () => {
     const user = userEvent.setup();
     const paper = deckSession(NOW);
