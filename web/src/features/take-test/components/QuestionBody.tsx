@@ -4,20 +4,26 @@ import { OptionText } from "@/components/shared/content/OptionText";
 import { createContext, useContext, useId, useMemo, type ComponentProps } from "react";
 import type { ExtraProps } from "react-markdown";
 import { useTranslation } from "react-i18next";
-import { Check } from "lucide-react";
 import { Markdown } from "@/components/shared/Markdown";
 import { useLargerTestText } from "@/lib/testText";
 import { cn } from "@/lib/utils";
 import { blankInputs } from "./blankInputs";
+import { PaperSourceContext } from "../paper";
 import { questionKind } from "../questionType";
+import { useEngineWidthAtLeast } from "../width";
 import { worth } from "../worth";
 import type { Answer, StudentQuestion } from "../api";
 
 const PROMPT = "leading-[1.6]! font-medium text-pretty";
+const SENTENCE = "leading-[2.1]! font-medium text-pretty";
+const SHORT_OPTION = 16;
+const COLUMNS = ["grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-4"];
 const HINT = "text-muted-fg -mt-2 text-sm";
 const CAPTION = "text-muted-fg text-meta leading-normal";
 const FIELD =
   "border-border bg-card text-fg placeholder:text-muted-fg border-[1.5px] outline-none focus:border-primary disabled:opacity-60";
+const BLANK =
+  "bg-muted text-fg placeholder:text-muted-fg mx-1 inline-block h-11 max-w-full rounded-t-[6px] rounded-b-none border-0 border-b-2 px-2 text-left align-baseline font-medium disabled:opacity-60 lg:h-9.5";
 
 const PAPER_BLANKS = [
   "[&_.content-table-scroll_input]:bg-paper [&_.content-table-scroll_input]:text-paper-fg",
@@ -27,21 +33,31 @@ const PAPER_BLANKS = [
 
 function textSizes(larger: boolean) {
   return larger
-    ? { prompt: "text-[1.1875rem]", answer: "text-lg", field: "text-lg" }
+    ? {
+        prompt: "text-[1.1875rem]",
+        sentence: "text-xl",
+        answer: "text-lg",
+        field: "text-lg",
+        blank: "text-[length:inherit]",
+      }
     : {
         prompt: "text-lg",
+        sentence: "text-[1.125rem]",
         answer: "text-md",
         field: "text-[length:var(--text-input)] lg:text-md",
+        blank: "text-[length:var(--text-input)] lg:text-[length:inherit]",
       };
 }
 
 /**
  * QuestionBody is what a student answers, one question at a time: the prompt
- * at 17px, then the options as rows with letter markers, the blanks inside
- * the sentence, or the answer field with its word count. "Larger text in
- * tests" raises the prompt to 19px and the answers to 17px. A type this page
- * has no renderer for draws nothing here and never calls `onAnswer`:
- * QuestionSheet puts UnknownType in its place.
+ * at 17px, then the options as rows with letter markers, in columns when they
+ * are all short and the question has no shared content, the blanks as the
+ * deck's underlined fields inside an 18px sentence, or the answer field with
+ * its word count. "Larger text in tests" raises the prompt to 19px, the
+ * sentence to 20px and the answers to 17px. A type this page has no renderer
+ * for draws nothing here and never calls `onAnswer`: QuestionSheet puts
+ * UnknownType in its place.
  */
 export function QuestionBody({
   question,
@@ -80,12 +96,36 @@ function optionKey(index: number): string {
   return String.fromCharCode(65 + index);
 }
 
+function useBesideShared(questionId: string): boolean {
+  const source = useContext(PaperSourceContext);
+  return (
+    source?.groups.some(
+      (group) => group.stimuli.length > 0 && group.questionIds.includes(questionId),
+    ) ?? false
+  );
+}
+
+function columnsOf(
+  options: NonNullable<StudentQuestion["options"]>,
+  besideShared: boolean,
+  wide: boolean,
+): string {
+  const short = options.every(
+    (option) => option.content == null && [...option.text].length <= SHORT_OPTION,
+  );
+  if (!short || besideShared || options.length === 0) return "grid-cols-1";
+  if (!wide) return "grid-cols-2";
+  return COLUMNS[Math.min(4, options.length) - 1] ?? "grid-cols-1";
+}
+
 function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props>) {
   const { t } = useTranslation();
   const options = question.options ?? [];
   const multiple = question.type === "multiple_choice";
   const instructionId = useId();
   const size = textSizes(larger);
+  const wide = useEngineWidthAtLeast(768);
+  const columns = columnsOf(options, useBesideShared(question.id), wide);
   const chosen = new Set(
     answer !== undefined && "optionIds" in answer ? answer.optionIds : [],
   );
@@ -112,7 +152,7 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
         {t(multiple ? "takeTest.chooseMultiple" : "takeTest.chooseSingle")}
       </p>
       <div
-        className="flex flex-col gap-2"
+        className={cn("grid gap-2", columns)}
         role={multiple ? "group" : "radiogroup"}
         aria-label={t("takeTest.answerOptions")}
         aria-describedby={instructionId}
@@ -124,7 +164,7 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
               key={option.id}
               className={cn(
                 size.answer,
-                "bg-card text-fg flex min-h-13 items-center gap-3 rounded-[11px] border-[1.5px] px-3.5 py-2.5 leading-[1.45]",
+                "bg-card text-fg flex min-h-13 min-w-0 items-center gap-3 rounded-[11px] border-[1.5px] px-3.5 py-2.5 leading-[1.4]",
                 "has-[:focus-visible]:outline-focus has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2",
                 selected ? "border-primary" : "border-border",
                 disabled ? "cursor-default" : "cursor-pointer",
@@ -143,13 +183,13 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
                 aria-hidden="true"
                 className={cn(
                   "grid size-6.5 flex-none place-items-center border-[1.5px] text-xs font-semibold",
-                  multiple ? "rounded-[6px]" : "rounded-full",
+                  multiple ? "rounded-[7px]" : "rounded-full",
                   selected
                     ? "border-primary bg-primary text-primary-fg"
                     : "border-ring text-muted-fg",
                 )}
               >
-                {selected ? <Check className="size-3.5" /> : optionKey(index)}
+                {optionKey(index)}
               </span>
               <span className="min-w-0 flex-1">
                 <OptionText
@@ -175,9 +215,21 @@ function FillBlank({ question, answer, onAnswer, disabled, larger }: Readonly<Pr
     [question.blanks],
   );
 
+  const tabled = useMemo(
+    () => tableGaps(question.promptContent, false, new Set()),
+    [question.promptContent],
+  );
+
   const write = (blankId: string, value: string) =>
     onAnswer({ type: "fill_blank", values: { ...values, [blankId]: value } });
-  const state = { blanks, values, disabled, field: size.field, write };
+  const state: BlankState = {
+    blanks,
+    values,
+    disabled,
+    field: size.blank,
+    single: (question.blanks ?? []).length === 1,
+    write,
+  };
 
   return (
     <BlankContext value={state}>
@@ -187,12 +239,18 @@ function FillBlank({ question, answer, onAnswer, disabled, larger }: Readonly<Pr
             text={question.prompt}
             content={question.promptContent}
             blanks={question.blanks ?? []}
-            className={cn(size.prompt, PROMPT)}
-            renderBlank={(blank) => <BlankInput blank={blank} state={state} />}
+            className={cn(size.sentence, SENTENCE)}
+            renderBlank={(blank) => (
+              <BlankInput
+                blank={blank}
+                state={state}
+                inTable={blank.gapId != null && tabled.has(blank.gapId)}
+              />
+            )}
           />
         ) : (
           <Markdown
-            className={cn(size.prompt, PROMPT)}
+            className={cn(size.sentence, SENTENCE)}
             plugins={[blankInputs]}
             components={blankComponents}
           >
@@ -216,8 +274,23 @@ type BlankState = {
   values: Record<string, string>;
   disabled: boolean;
   field: string;
+  single: boolean;
   write: (id: string, value: string) => void;
 };
+
+function tableGaps(node: unknown, inTable: boolean, found: Set<string>): Set<string> {
+  if (Array.isArray(node)) {
+    for (const item of node) tableGaps(item, inTable, found);
+    return found;
+  }
+  if (typeof node !== "object" || node === null) return found;
+  const record = node as Record<string, unknown>;
+  const within = inTable || record["type"] === "table";
+  if (within && record["type"] === "gap" && typeof record["id"] === "string")
+    found.add(record["id"]);
+  for (const value of Object.values(record)) tableGaps(value, within, found);
+  return found;
+}
 
 const BlankContext = createContext<BlankState | null>(null);
 
@@ -229,29 +302,36 @@ function BlankSlot({ node, ...props }: ComponentProps<"span"> & ExtraProps) {
   const blank = state.blanks.get(String(ordinal));
   const token = `{{${String(ordinal)}}}`;
   if (blank === undefined) return <span>{token}</span>;
-  return <BlankInput blank={blank} state={state} />;
+  const inTable = node?.properties["data-in-table"] != null;
+  return <BlankInput blank={blank} state={state} inTable={inTable} />;
 }
 
 function BlankInput({
   blank,
   state,
+  inTable,
 }: Readonly<{
   blank: NonNullable<StudentQuestion["blanks"]>[number];
   state: BlankState;
+  inTable: boolean;
 }>) {
   const { t } = useTranslation();
+  const value = state.values[blank.id] ?? "";
   return (
     <input
       className={cn(
         state.field,
-        FIELD,
-        "rounded-ctl mx-1 my-1 inline-block h-11 w-32 max-w-full px-2.5 text-center align-middle font-normal lg:h-10",
+        BLANK,
+        state.single && !inTable ? "w-[min(100%,340px)]" : "w-32",
+        value.trim() === "" ? "border-ring" : "border-primary",
       )}
       aria-label={t("takeTest.blankLabel", { n: blank.ordinal })}
       id={`answer-blank-${blank.id}`}
-      value={state.values[blank.id] ?? ""}
+      value={value}
       disabled={state.disabled}
+      placeholder={t("takeTest.blankPlaceholder")}
       autoComplete="off"
+      spellCheck={false}
       onChange={(event) => state.write(blank.id, event.target.value)}
     />
   );
@@ -292,6 +372,8 @@ function ShortAnswer({
           disabled={disabled}
           placeholder={t("takeTest.answerPlaceholder")}
           aria-label={t("takeTest.yourAnswer")}
+          autoComplete="off"
+          spellCheck={false}
           onChange={(event) => onAnswer({ type: "text", value: event.target.value })}
         />
         <div className="flex items-baseline justify-between gap-3">

@@ -1343,27 +1343,41 @@ untouched); the ids `answer-blank-<id>` that a gap
 lands on; the `<textarea>` (line breaks of saved answers); 16px fields below 1024; paste
 blocking; the case-rule and worth lines (DG-80).
 **Done when:**
-- [ ] A chosen option's marker keeps its letter, in `--primary-fg` on `--primary`: no check
+- [x] A chosen option's marker keeps its letter, in `--primary-fg` on `--primary`: no check
       icon. The multiple-choice marker's radius is 7px. Row line-height 1.4.
-- [ ] Options are one column, or a grid when every option is plain text of at most 16
+- [x] Options are one column, or a grid when every option is plain text of at most 16
       characters and the question has no shared content: two columns below 768, `min(4, n)`
       from 768. An option with rich content forces one column.
-- [ ] A blank is the deck's field wherever it stands: no box, a 2px bottom border (`--ring`,
+- [x] A blank is the deck's field wherever it stands: no box, a 2px bottom border (`--ring`,
       `--primary` once typed), `--muted` fill, radius 6px 6px 0 0, padding 0 8px, left-aligned,
       placeholder "type here" ("nhập ở đây"), `autocomplete="off"`, `spellcheck="false"`; 38px
       high from 1024 and 44px below; `min(100%, 340px)` wide when the question has one blank,
       128px when it has several or the blank is in a table. A fill-in prompt is 18px (20px
       larger), weight 500, line-height 2.1.
-- [ ] The short answer gains `autocomplete="off"` and `spellcheck="false"`; "1 word" is
+- [x] The short answer gains `autocomplete="off"` and `spellcheck="false"`; "1 word" is
       singular in English.
-- [ ] Larger text: the sentence 20px, options 17px, as drawn (`sentSize`, `optSize`).
-- [ ] `renderers.test.tsx` asserts the letter in a chosen marker, the column rule at 359, 768
+- [x] Larger text: the sentence 20px, options 17px, as drawn (`sentSize`, `optSize`).
+- [x] `renderers.test.tsx` asserts the letter in a chosen marker, the column rule at 359, 768
       and with one long option, the blank's two widths, and that a typed blank still writes
       `{type: "fill_blank", values}`; `draft-compat.test.ts` passes untouched.
-- [ ] Compared with s9 questions 1 (four short options: four columns at 1280, two at 360), 5,
+- [x] Compared with s9 questions 1 (four short options: four columns at 1280, two at 360), 5,
       21 and 31 (the blank; the deck's 27), and s1 question 5, at the five widths, light and
       dark. The sign
       card, the 60px word tiles and the sentence gap are known differences (DG-189, T-D4.11).
+
+**As built:** `QuestionBody` reads "no shared content" from the paper source (a group with
+stimuli holding the question; none in the teacher's preview, which has no source until
+T-D4.16) and the width from `useEngineWidthAtLeast(768)`. "Plain text" is an option with no
+`content`, counted in code points. The blank's field is `BLANK`: 16px below 1024 and the
+sentence's size from 1024 (`text-[length:inherit]`), the global focus ring kept rather than
+the deck's `outline: 0`; in a rich table the paper-surface border colour still applies.
+"Alone in its sentence" is a question with one blank; "in a table" is a slot `blankInputs`
+marks with `data-in-table`, or a rich prompt's gap found inside a table block. "1 word" was
+already singular (`takeTest.wordCount_one`). New key: `takeTest.blankPlaceholder`. `panes.test.tsx`
+gains the engine case (three columns alone, one beside the passage); `renderers.test.tsx`
+the marker letter, the column rule at 359, 768, 1280, a long option, rich content and shared
+content, the blank's two widths and the table width, the typed underline and the fill-in
+answer it still writes, the short answer's attributes and "1 word".
 
 ### T-D4.7 — Engine: the phone drawer
 **Depends on:** T-D4.5
@@ -2651,6 +2665,8 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
       "Design" carries the rules.
 - [ ] `gaps.md`: DG-80's list is trimmed as T-D4.1 says; the rows DG-182 to DG-194 say what was
       built.
+- [ ] Thuong reviews the Vietnamese type names the engine shares with the builder's type menu
+      since T-D4.5: "Tự luận" (essay) names the short answer.
 
 ### T-D4.18 — Release v0.11.0
 **Depends on:** T-D4.1 to T-D4.16, T-D4.19 to T-D4.23, T-D4.30 to T-D4.40
