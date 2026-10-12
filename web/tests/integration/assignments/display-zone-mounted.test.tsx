@@ -177,12 +177,10 @@ it("keeps the wizard's mounted dirty close time fixed to HCM while the account's
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   const closes = await screen.findByRole("button", { name: /^Đóng .*21:00$/ });
   await user.click(closes);
-  for (let step = 0; step < 2; step++)
-    await user.click(screen.getByRole("button", { name: "Giảm giờ" }));
-  for (let step = 0; step < 7; step++)
-    await user.click(screen.getByRole("button", { name: "Tăng phút" }));
+  await user.click(screen.getByRole("button", { name: "Giảm giờ" }));
+  await user.click(screen.getByRole("button", { name: "Tăng phút" }));
   await user.click(screen.getByRole("button", { name: "Xong" }));
-  expect(closes).toHaveAccessibleName(/19:35$/);
+  expect(closes).toHaveAccessibleName(/20:05$/);
   closes.focus();
   await act(async () => {
     useAuthStore.getState().setUser({
@@ -195,10 +193,10 @@ it("keeps the wizard's mounted dirty close time fixed to HCM while the account's
   expect(screen.getByRole("heading", { level: 1, name: "Edit assignment" })).toBe(
     title,
   );
-  expect(closes).toHaveAccessibleName(/^Closes .*19:35$/);
+  expect(closes).toHaveAccessibleName(/^Closes .*20:05$/);
   expect(closes).toHaveFocus();
-  expect(fromDateTimeInput("2099-09-09T19:35").toISOString()).toBe(
-    "2099-09-09T12:35:00.000Z",
+  expect(fromDateTimeInput("2099-09-09T20:05").toISOString()).toBe(
+    "2099-09-09T13:05:00.000Z",
   );
 });
 
