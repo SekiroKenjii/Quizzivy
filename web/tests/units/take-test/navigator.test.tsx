@@ -297,16 +297,21 @@ describe("the footer below 768", () => {
     expect(submitAttempt).not.toHaveBeenCalled();
   });
 
-  it("hides with the question while the passage shows", async () => {
+  it("stays where it is, under the backdrop, while the drawer is open", async () => {
     const user = userEvent.setup();
     await open(withPassage(paper(), ["q1", "q2", "q3"]));
-    expect(nav()).toBeVisible();
+    const footer = nav();
+    expect(footer).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Ngữ liệu" }));
-    expect(screen.queryByRole("navigation", { name: NAV })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Mở ngữ liệu" }));
+    const backdrop = document.querySelector("[data-drawer-backdrop]")!;
+    expect(nav()).toBe(footer);
+    expect(footer).toBeVisible();
+    expect(backdrop.parentElement).toContainElement(footer);
     expect(
-      screen.getByRole("navigation", { name: NAV, hidden: true }),
-    ).not.toBeVisible();
+      footer.compareDocumentPosition(backdrop) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(backdrop).toHaveClass("absolute", "inset-0", "z-[55]");
   });
 });
 

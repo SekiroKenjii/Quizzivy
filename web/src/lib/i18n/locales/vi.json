@@ -2087,8 +2087,12 @@
     "transcript": "Nội dung bài nghe"
   },
   "takeTest": {
-    "passage": "Ngữ liệu",
-    "paneSwitch": "Xem ngữ liệu hoặc câu hỏi",
+    "openPassage": "Mở ngữ liệu",
+    "openRecording": "Mở bài nghe",
+    "drawerHint": "Vuốt sang trái để quay lại câu hỏi",
+    "drawerClose": "Đóng",
+    "tipPassage": "Ngữ liệu ở đây. Vuốt sang phải hoặc chạm để đọc.",
+    "tipRecording": "Bài nghe ở đây. Vuốt sang phải hoặc chạm để mở.",
     "sharedAudioLabel": "Bài nghe {{n}}",
     "sharedAudioUnlimited": "Không giới hạn lượt nghe",
     "sharedAudioScope": "Lượt nghe dùng chung cho các câu trong nhóm này.",
