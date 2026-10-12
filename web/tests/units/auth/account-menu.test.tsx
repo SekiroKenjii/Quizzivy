@@ -12,13 +12,13 @@ import { useAuthStore } from "@/stores/auth";
 import { STUDENT } from "../student/support";
 import "@/lib/i18n";
 
-function renderMenu(deck: boolean) {
+function renderMenu() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <DeckScale>
-          <AccountMenu settingsTo="/app/settings" deck={deck} />
+          <AccountMenu settingsTo="/app/settings" />
         </DeckScale>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -45,7 +45,7 @@ afterEach(() => {
 
 describe("the account menu on a console built to the deck", () => {
   it("shows who is signed in, then Settings, the theme and Sign out, in that order", async () => {
-    const user = renderMenu(true);
+    const user = renderMenu();
     await user.click(trigger());
 
     const menu = screen.getByRole("menu");
@@ -60,7 +60,7 @@ describe("the account menu on a console built to the deck", () => {
   });
 
   it("opens from the keyboard, moves through its items and gives focus back on Escape", async () => {
-    const user = renderMenu(true);
+    const user = renderMenu();
     trigger().focus();
     await user.keyboard("{Enter}");
 
@@ -90,7 +90,7 @@ describe("the account menu on a console built to the deck", () => {
         return HttpResponse.json(patch);
       }),
     );
-    const user = renderMenu(true);
+    const user = renderMenu();
     await user.click(trigger());
     await user.click(screen.getByRole("menuitem", { name: "Chế độ tối" }));
     expect(document.documentElement.classList.contains("dark")).toBe(true);
@@ -125,7 +125,7 @@ describe("the account menu on a console built to the deck", () => {
       }),
     );
     writeThemePreference("system");
-    const user = renderMenu(true);
+    const user = renderMenu();
     await user.click(trigger());
     await user.click(screen.getByRole("menuitem", { name: "Chế độ tối" }));
     expect(localStorage.getItem("quizzivy.theme")).toBe("dark");
@@ -145,19 +145,11 @@ describe("signing out from the deck's menu", () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    const user = renderMenu(true);
+    const user = renderMenu();
     await user.click(trigger());
     await user.click(screen.getByRole("menuitem", { name: "Đăng xuất" }));
     await waitFor(() => expect(ended).toBe(1));
     await waitFor(() => expect(useAuthStore.getState().user).toBeNull());
-  });
-});
-
-describe("the account menu on a console not yet rebuilt", () => {
-  it("offers Settings and Sign out and no theme", async () => {
-    const user = renderMenu(false);
-    await user.click(trigger());
-    expect(itemNames()).toEqual(["Cài đặt", "Đăng xuất"]);
   });
 });
 

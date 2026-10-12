@@ -7,7 +7,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { ChevronDown, ChevronsUpDown, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { ChevronsUpDown, LogOut, Moon, Settings, Sun } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useWorkspace } from "@/features/auth/permissions";
 import { useLogout } from "@/features/auth/useSession";
-import { givenName } from "@/features/assignments/studentTime";
 import type { components } from "@/lib/api/schema";
 import { useResolvedTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -184,79 +183,22 @@ function DeckAccountMenu({
   );
 }
 
-function LegacyAccountMenu({
-  user,
-  settingsTo,
-  named,
-}: Readonly<{ user: User; settingsTo: string; named: boolean }>) {
-  const { t } = useTranslation();
-  const { pending, signOut } = useSignOut();
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={t("nav.account", { name: user.displayName ?? user.fullName })}
-        className={
-          named
-            ? "hover:bg-accent inline-flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors"
-            : "rounded-full"
-        }
-      >
-        <Avatar name={user.displayName ?? user.fullName} size="sm" />
-        {named && (
-          <>
-            {givenName(user.displayName ?? user.fullName)}
-            <ChevronDown className="text-muted-foreground size-4" aria-hidden="true" />
-          </>
-        )}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-48">
-        <div className="px-2 py-1.5">
-          <p className="truncate text-sm font-medium">
-            {user.displayName ?? user.fullName}
-          </p>
-          <p className="text-muted-foreground truncate text-xs">{user.email}</p>
-        </div>
-        <DropdownMenuItem asChild>
-          <Link to={settingsTo}>
-            <Settings aria-hidden="true" />
-            {t("nav.settings")}
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={pending} onSelect={signOut}>
-          <LogOut aria-hidden="true" />
-          {t("common.signOut")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 /**
- * AccountMenu is a console's account button and the menu it opens. `deck`
- * draws the design deck's form, for a console rebuilt to it: a 40px avatar
- * button at the end of the top bar and a 240px menu with the user's name and
- * email, Settings, a switch between the light and dark themes, and Sign out.
- * With `sidebar` the deck form is the row at the foot of the teacher sidebar
- * instead: a square avatar, and while `expanded` the name over a role line,
- * with the same menu opening above it. Without `deck` the menu is the old
- * consoles': Settings and Sign out, and with `named` the given name beside
- * the avatar.
+ * AccountMenu is a console's account button and the menu it opens, in the
+ * design deck's form: a 40px avatar button at the end of the top bar and a
+ * 240px menu with the user's name and email, Settings, a switch between the
+ * light and dark themes, and Sign out. With `sidebar` it is the row at the
+ * foot of the teacher sidebar instead: a square avatar, and while `expanded`
+ * the name over a role line, with the same menu opening above it.
  */
 export function AccountMenu({
   settingsTo = "/teacher/settings",
-  named = false,
-  deck = false,
   sidebar,
 }: Readonly<{
   settingsTo?: string;
-  named?: boolean;
-  deck?: boolean;
   sidebar?: SidebarForm;
 }>) {
   const user = useAuthStore((s) => s.user);
   if (!user) return null;
-  if (deck)
-    return <DeckAccountMenu user={user} settingsTo={settingsTo} sidebar={sidebar} />;
-  return <LegacyAccountMenu user={user} settingsTo={settingsTo} named={named} />;
+  return <DeckAccountMenu user={user} settingsTo={settingsTo} sidebar={sidebar} />;
 }

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import AssignmentAttemptsPage from "@/features/attempts/pages/teacher/AssignmentAttemptsPage";
+import { AssignmentPapersRedirect } from "@/app/LegacyTeacherRedirect";
 import AssignmentDetailPage from "@/features/assignments/pages/teacher/AssignmentDetailPage";
 import { useAuthStore } from "@/stores/auth";
 import { teacherUser } from "@tests/support/fixtures";
@@ -121,7 +121,7 @@ function renderPage(search = "") {
     [
       {
         path: "/teacher/assignments/:id/attempts",
-        element: <AssignmentAttemptsPage />,
+        element: <AssignmentPapersRedirect />,
       },
       { path: "/teacher/assignments/:id", element: <AssignmentDetailPage /> },
     ],

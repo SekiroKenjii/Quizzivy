@@ -23,8 +23,8 @@ students, one developer — not for a product with a support rota.
 
 Phase R, the redesign, adds programme risks PR-1 … PR-10 in
 `70-redesign-overview.md` §9, which records each mitigation as it lands (R2:
-PR-1, PR-2 and PR-5). Multi-teacher ownership changes the radius of several
-risks above; each release file says which.
+PR-1, PR-2 and PR-5; R4: PR-6, closed below under R-02). Multi-teacher ownership
+changes the radius of several risks above; each release file says which.
 
 ---
 
@@ -99,7 +99,8 @@ not what defends against the realistic failure.
 
 **Blast radius.** Moderate. A stranger sees class name, teacher name, and any
 assignment targeted at the class. No other student's data (§6.5 keeps the preview
-to two fields, and there is no student directory).
+to three fields, the class's id and name and its teacher's display name, and there
+is no student directory).
 
 **Cheapest mitigation.** The things that actually address forwarding: a
 `max_uses` default equal to the expected class size rather than §6.1's
@@ -111,6 +112,23 @@ decision.
 
 **Residual.** A stranger can enrol before the teacher notices. Accepted — §17.2
 judges an approval queue not worth the state machine, and I agree.
+
+**Legacy codes (PR-6, closed in R4).** A code issued before v0.8.0 is held only as
+its SHA-256, so its teacher could not read it back to see where it had gone, and
+replacing every one at once would have stopped working codes with no warning.
+R2 sealed the codes it issued (D-27); R4 replaced the rest, once, at the first
+start-up of v0.10.0 (T-R4.22, `jobs.RotateLegacyJoinCodes`, `docs/setup/operations.md`
+"Legacy join codes"). Each class is its own transaction under advisory lock
+`(73819, 41)`, so two machines rotate it once. The new code keeps the old one's
+expiry and use cap and starts unused; the class's self-join switch is not touched;
+the audit row says `legacy_rotation` and carries hints only. Each affected teacher is
+told once, in the app, by a `join_codes.rotated` notification that names how many
+classes and the first five (T-R4.41 shows the callout on Classes while it is
+unread). The old code then answers as any replaced one does. What stays open is
+the release's, not the code's: a class the run could not reach waits for the next
+start-up, a teacher whose notification failed is told only by the release note, and
+the count of classes to rotate is read once from a copy of production for that note
+(T-R4.52). The scheme-1 lookup branch stays until R5 removes it.
 
 ---
 

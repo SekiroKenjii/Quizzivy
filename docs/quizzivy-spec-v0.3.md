@@ -1,7 +1,17 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.84 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.85 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.84**
+
+R4, the sections brought level with the release (T-R4.50, server half). No behaviour changes: each line below is a body section that still described an earlier state or never described an R4 change.
+
+- §6.1, §6.4, §6.5, §13.3, §13.5 The legacy rotation is done, not planned. The text now says what `jobs.RotateLegacyJoinCodes` does at start-up (per-class transaction under advisory lock `(73819, 41)`, the two-minute budget, what the new code keeps, the audit, the teacher's notice) and what stays until R5 (the scheme-1 lookup for a revoked or expired row). The class screen shows a code in full, at `/teacher/classes/:id`.
+- §11.1 A question's media is one audio file or one image; an image carries `mediaAlt` (1 to 1000 characters), which belongs to the question, is frozen at publish, reaches students beside `media`, and is refused for any other media. Replacing a file with one of the other kind is `415 MEDIA_KIND_MISMATCH`.
+- §13.3 The media library's columns and the size limit by kind (D-29), the question and frozen level and skill (D-31), `test_versions.change_note` (D-32), the assignment's review options and note (D-34, D-35), the rule that an attempt in progress follows its window and an attempt starts under the window as it stands when it commits, the notification tables (D-28) and the import draft counters and text source columns (D-40, D-41). §13.7 records a data-only migration with a Down that does nothing (00103, D-38).
+- §15 The test versions' operations and fields (`changeNote`, `testUpdatedAt`, `assignmentCount`, the diff), `MonitorRow.extendedTo`, the Word import operations including `pasteImportSource`, and the notifications' kinds, switches and producers. The teacher's lists are offset-paginated by `page` and `limit`; the `cursor` parameter the tests, questions and media lines named does not exist, and only `GET /me/notifications` is keyset.
+- §16 The pasted-text source as built: the paste mode of the upload page, plain text only with `TEXT_MARKS_UNAVAILABLE`, the 100,000 code-point and 20,000-line bounds, the conventions `rules-v3` reads for text sources, and the one-line answer key read in Word and PDF files too (#233). Recognition is `rules-v3`, no longer `rules-v2`.
 
 **Changes since v0.83**
 
@@ -1288,7 +1298,7 @@ A join code belongs to a class and is a **bearer secret**: whoever holds it can 
 - Generated from a CSPRNG. Never sequential, never derived from the class ID.
 - Per-code controls: `expires_at` (default 30 days, counted to 23:59:59 of the last day in the issuer's calendar zone), `max_uses` (default null = unlimited), `uses_count`, `revoked_at`.
 - One **active** code per class at a time. Rotating issues a new code and revokes the old one; previously enrolled students are unaffected.
-- Stored encrypted, so it can be read back for its teacher and for admins (D5), and found by a keyed hash (§6.5). A code issued from v0.8.0 on is sealed under the server's `JOIN_CODE_KEY`, which the database never holds (§13.3). A code issued before v0.8.0 is held only as its SHA-256: it still redeems but cannot be read back, and R4 rotates every such code. At each start-up from v0.10.0 the API replaces every such code that is neither revoked nor expired with a sealed one that keeps its expiry and use cap and starts unused, leaves the class's self-join setting as it is, audits the change as the System and tells the class's teacher once in the app; the old code then answers as any replaced code does, "revoked" where self-join is open and as an unknown code where it is closed or the class archived.
+- Stored encrypted, so it can be read back for its teacher and for admins (D5), and found by a keyed hash (§6.5). A code issued from v0.8.0 on is sealed under the server's `JOIN_CODE_KEY`, which the database never holds (§13.3). A code issued before v0.8.0 was held only as its SHA-256: it redeemed but could not be read back. v0.10.0 replaced every such code that was neither revoked nor expired, once, when the API started: `jobs.RotateLegacyJoinCodes`, which `Serve` runs beside the prunes and nothing else runs, under a two-minute budget and never on a timer. Each class is its own transaction, taking advisory lock `(73819, 41)`, then the class row, then re-reading the class's active code, so machines that start together rotate a class once and a second run finds nothing; a class that lost a deadlock is tried once more after the others, and a class the run could not reach waits for the next start-up. The sealed code keeps the old one's expiry and use cap (a stored NULL stays NULL) and creator, starts unused, leaves the class's self-join setting as it is, and is audited as the System (`class.join_code_rotated`, reason `legacy_rotation`, hints only, never a code). Archived classes are rotated too. Each class's teacher is told once in the app (`join_codes.rotated`, with how many of their classes and the first five names); the old code then answers as any replaced code does, "revoked" where self-join is open and as an unknown code where it is closed or the class archived. A revoked or expired scheme-1 row is left as it is, and the scheme-1 lookup that finds it stays until R5 removes it (`docs/setup/operations.md`, "Legacy join codes").
 - The key is standard base64 of exactly 32 random bytes, kept as a Fly secret with an offline copy. The API refuses to start without it and never logs it. HKDF-SHA256 derives three values from it, each under its own label: the AES-256-GCM key, the HMAC-SHA256 lookup key and a 16-bit key id; a key whose id derives to 0 is refused.
 - Rotating the key: one deploy sets `JOIN_CODE_KEY_PREVIOUS` to the old key and `JOIN_CODE_KEY` to the new one, and codes under either key redeem and read back. `maintenance rekey-join-codes -apply` then re-seals every code under the old key with the new one, and the old key is unset (`docs/setup/operations.md`, "Join-code key"). A lost key leaves every code sealed under it unreadable and unredeemable: rotate every class's code.
 
@@ -1326,8 +1336,8 @@ So: **self-join requires Google.** Password accounts remain staff-created. If Th
 
 A class's code and members are managed by its teacher (`classes.teacher_id`), and by an Admin through `scope.all` (plan 70 §4.1). Another teacher's class answers 404, as a missing class does. The code operations and member changes need `teaching.classes.write`; the member list needs `people.students.read`.
 
-On `/admin/classes/:id` (R4 moves the screen to `/teacher/*`):
-- Show the active code, with copy button, QR code, expiry, and uses count. `getJoinCode` reads the code back in full (§6.1); until R4 the screen shows it once when issued and then as its hint. The class cards show every code from one call, `listClasses` with `withCodes=true`, which opens a code exactly when `getJoinCode` would.
+On `/teacher/classes/:id` (the v0.7.0 path `/admin/classes/:id` redirects to it):
+- Show the active code in full, with copy button, QR code, expiry, and uses count. `getJoinCode` reads the code back (§6.1), so the screen shows it whenever the teacher opens it, not only once when issued. The class cards show every code from one call, `listClasses` with `withCodes=true`, which opens a code exactly when `getJoinCode` would.
 - **Rotate code** (confirm dialog: "Mã cũ sẽ ngừng hoạt động ngay").
 - An **archived** class takes no new code: Rotate answers `409 CLASS_ARCHIVED` and leaves its current code as it is, because nobody can join an archived class (the code answers as an unknown one). Revoking stays allowed; restoring the class lets it rotate again.
 - **Disable self-join** toggle — revokes the code without issuing a new one.
@@ -1346,7 +1356,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
   - A code is counted after normalization, so respelling it buys no fresh allowance. Guessing stays at 600 codes an hour per address on each operation that checks one.
   - The signed-in operations that hand out a credential are limited per signed-in user, after the permission check and wherever the user connects from, so staff behind one address do not share a budget (T-R4.53): `resetStudentPassword` 5/min and 30/h, `resetStudentsPasswords` 2/min and 10/h, `createStudent` 30/min and 300/h, `rotateJoinCode` 10/min and 60/h, `getJoinCode` 60/min and 600/h, `listClasses` 60/min and 600/h (it can open every code of a page), `openDocsSession` 5/min and 30/h. A caller with no session or without the permission is answered `401` or `403` and spends no budget.
 - **Bounded bodies.** The four operations with a bucket keyed on a body field (login, Google sign-in, the preview and the in-app join) accept at most 8 KiB and answer `413` before any handler, so padding cannot hide the key from its bucket.
-- **Constant-time comparison** on code lookup; look up by a keyed hash (HMAC-SHA256) of the normalized code, not by plaintext equality. A code issued before v0.8.0 is found by its SHA-256 until R4 rotates it.
+- **Constant-time comparison** on code lookup; look up by a keyed hash (HMAC-SHA256) of the normalized code, not by plaintext equality. A live code issued before v0.8.0 was found by its SHA-256 until v0.10.0's start-up rotation replaced it (§6.1); a revoked or expired one still is, until R5 removes the lookup.
 - No audit row or log line carries a code, its ciphertext or its hash.
 - `POST /join/preview` returns exactly three fields: the class's id, its name and the teacher's display name. Never student names, counts, a member list or assignment titles. The id is a uuidv7: it reveals only when the class was created and grants nothing by itself. The Join dialog uses it to tell a student who is already a member (§6.2). It is an unauthenticated endpoint.
 - Log every enrolment (`class_id`, `user_id`, `ip`, `user_agent`, `at`) to the audit table.
@@ -2056,7 +2066,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 - In the library a file can be renamed, and audio can be given a default play limit: unlimited, or 1 to 3. The stored file and its original filename never change. The limit is stored with the file for the editor to start a question's own limit from; it changes no question by itself.
 - Upload goes **through the Go backend** in v1 (low volume, and the backend must validate anyway). Presigned direct-to-R2 upload is the P1 optimisation; design the API so switching does not change the client contract beyond the upload call.
 - Assets are **immutable**. Re-uploading creates a new `media_assets` row; it never overwrites an existing key. This is what lets `test_version_questions` reference an asset without copying the file.
-- A library file can be replaced only by the same kind. Replacement creates a new
+- A library file can be replaced only by the same kind (`415 MEDIA_KIND_MISMATCH` otherwise). Replacement creates a new
   immutable asset owned by the old file's owner, with its current display name and default
   play limit. In one database transaction, the retained current graph of live editable
   questions and bank or draft-owned group media of that owner points to the new asset;
@@ -2071,6 +2081,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   replaced old library ID can answer 404. Replacement does not promise idempotent retries
   or an atomic transaction with object storage.
 - Client-side pre-check before upload: read duration via an `<audio>` element and reject early, so a student's teacher does not wait 50 MB to be told no.
+- **A question's media is one audio file or one image**, attached from the library ("From Media") or uploaded in the question editor, which shows the limits above before it uploads. The audio policy and the transcript exist only for audio. An image carries optional **alt text** of 1 to 1000 characters, `mediaAlt`, that the editor asks for as a description for screen readers. It belongs to the question and not to the file, so two questions that share one image describe it in their own words, and a file replacement (which never changes the kind) keeps it. A write replaces the stored value, so an update that leaves it out clears it. The server refuses a value for a question whose media is not an image with `400 VALIDATION_FAILED` naming `mediaAlt`, and clears it when the media is removed or changed to audio. Publish copies it into the version with the rest of the question, so a later edit of the bank question never reaches a version; restoring a version as a draft and duplicating a group carry it, and the version diff counts a changed alt text as a change to the question's media. Students receive it as `mediaAlt` beside `media` in the paper, the session and the result. It is a description of the picture, not part of the answer key, and the engine, the result and the builder's preview draw the image with it as `alt` or, when there is none, a generic label.
 
 ### 11.2 Storage and delivery
 
@@ -2381,7 +2392,7 @@ CREATE TABLE app.class_members (
 CREATE INDEX ON app.class_members (user_id);
 ```
 
-The code is stored encrypted, so it can be read back for its teacher and for admins (D5). A code issued from v0.8.0 on is a scheme-2 row: `code_ciphertext` holds a 12-byte nonce, the 8-byte code and a 16-byte AES-256-GCM tag, sealed under `JOIN_CODE_KEY` with the class and code ids as additional data; `key_id` is the 16-bit id derived from that key; and `code_hash` is the HMAC-SHA256 of the normalized code under a lookup key derived from it. The key never reaches the database, so a dump does not hand over class access. A code issued before v0.8.0 is a scheme-1 row: its SHA-256 and no ciphertext. It still redeems, cannot be read back, and R4 rotates it (D5). `code_hash` stays the only lookup path (§6.5). Key derivation and rotation: §6.1 and `docs/plan/20-data-model.md` §33.
+The code is stored encrypted, so it can be read back for its teacher and for admins (D5). A code issued from v0.8.0 on is a scheme-2 row: `code_ciphertext` holds a 12-byte nonce, the 8-byte code and a 16-byte AES-256-GCM tag, sealed under `JOIN_CODE_KEY` with the class and code ids as additional data; `key_id` is the 16-bit id derived from that key; and `code_hash` is the HMAC-SHA256 of the normalized code under a lookup key derived from it. The key never reaches the database, so a dump does not hand over class access. A code issued before v0.8.0 is a scheme-1 row: its SHA-256 and no ciphertext. It redeemed and could not be read back; v0.10.0 replaced every live one at start-up with a scheme-2 code (§6.1, D5), and a revoked or expired scheme-1 row stays until R5 removes the lookup. `code_hash` stays the only lookup path (§6.5). Key derivation and rotation: §6.1 and `docs/plan/20-data-model.md` §33.
 
 **Media** (§11):
 
@@ -2391,18 +2402,31 @@ CREATE TABLE app.media_assets (
   kind              app.media_kind NOT NULL,
   storage_key       text NOT NULL UNIQUE,          -- R2 object key; immutable
   mime_type         text NOT NULL,
-  bytes             bigint NOT NULL CHECK (bytes > 0),
+  bytes             bigint NOT NULL,
   duration_ms       integer CHECK (duration_ms IS NULL OR duration_ms > 0),
   original_filename text NOT NULL,
+  display_name      text CHECK (char_length(display_name) BETWEEN 1 AND 200 AND display_name ~ '\S'),  -- NULL: the library shows original_filename; D-29
+  default_max_plays smallint CHECK (default_max_plays IS NULL
+                      OR (default_max_plays BETWEEN 0 AND 3 AND kind = 'audio')),  -- 0 is unlimited; D-29
+  replaced_by       uuid REFERENCES app.media_assets(id) ON DELETE SET NULL CHECK (replaced_by <> id),  -- the successor of a replaced file; D-29
+  width             integer,                       -- an image's pixels, both or neither; D-29
+  height            integer,
   checksum_sha256   bytea NOT NULL,                -- dedupe identical re-uploads
   uploaded_by       uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   owner_id          uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   created_at        timestamptz NOT NULL DEFAULT now(),
   deleted_at        timestamptz,
-  CHECK (kind <> 'audio' OR duration_ms IS NOT NULL)
+  CHECK (kind <> 'audio' OR duration_ms IS NOT NULL),
+  CONSTRAINT media_assets_bytes_by_kind
+    CHECK (bytes > 0 AND bytes <= CASE WHEN kind = 'audio' THEN 52428800 ELSE 10485760 END),
+  CONSTRAINT media_assets_dimensions_paired CHECK ((width IS NULL) = (height IS NULL)),
+  CONSTRAINT media_assets_dimensions_positive CHECK (width > 0 AND height > 0),
+  CONSTRAINT media_assets_dimensions_image_only CHECK (width IS NULL OR kind = 'image')
 );
 CREATE INDEX ON app.media_assets (kind, created_at DESC);
 ```
+
+The library's fields are R4's (migrations 00082 to 00084, D-29). `display_name` is what the library shows and renaming changes it alone; `original_filename` and the stored object never change. `default_max_plays` is an audio file's default play limit, 0 to 3 with 0 unlimited, which the editor starts a question's own limit from and which changes no question. `replaced_by` is set on the old row when a file is replaced: that row stays, because published versions still reference it, and it leaves the library list and the owner's quota (§11.1). `width` and `height` are read from an image's header at upload, so a row stored before 00083 has none. The size limit depends on the kind, 50 MiB for audio and 10 MiB for an image. One owner's library may hold `MEDIA_OWNER_QUOTA_MIB` (5 GiB by default); the writers of one library take advisory lock `(73820, hashtext(owner))` before they sum it (`docs/plan/20-data-model.md` §28).
 
 **Question bank** — normalize; do not stuff options into `jsonb`. Options and blanks are ordered, queried, and graded against.
 
@@ -2440,6 +2464,8 @@ CREATE TABLE app.questions (
   explanation     text,
   sample_answer   text,                            -- OQ-4; admin-only, never in a student payload
   tags            text[] NOT NULL DEFAULT '{}',
+  level           text CHECK (level IN ('pre_a1','a1','a2','b1','b2','c1','c2')),  -- D-31
+  skill           text CHECK (skill IN ('grammar','vocabulary','reading','listening','writing','speaking')),  -- D-31
   created_by      uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   owner_id        uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   created_at      timestamptz NOT NULL DEFAULT now(),
@@ -2466,20 +2492,31 @@ CREATE TABLE app.question_options (
 
 ```
 tests(id, title, description, status, current_version, last_published_version, owner_id, ...)
-test_versions(id, test_id, version, published_at, total_points, UNIQUE(test_id, version))
+test_versions(id, test_id, version, published_at, total_points, change_note, UNIQUE(test_id, version))
 test_version_sections(id, test_version_id, ordinal, title, instructions)
 test_version_questions(id, test_version_section_id, ordinal, source_question_id,
                        type, prompt, media_asset_id, media_alt, audio_max_plays, audio_allow_seek,
-                       audio_show_transcript_after, transcript, points, explanation, sample_answer)
+                       audio_show_transcript_after, transcript, points, explanation, sample_answer,
+                       level, skill)
 test_version_options(id, test_version_question_id, ordinal, text, is_correct)
 test_version_blanks / test_version_blank_answers
 ```
+
+`test_versions.change_note` is the teacher's note at publish, 1 to 200 characters, NULL when none (the command stores NULL for a blank one; D-32). `level` and `skill` (R4, D-31) are a question's optional CEFR level and skill, closed sets with no backfill; publish freezes both with the question, so a later bank edit never changes a version. Authoring accepts at most eight options for a choice question, but a stored question, a copy, a publish and a restore keep a longer array exactly as it was.
 
 Snapshotting into **normalized rows** rather than one `jsonb` blob keeps per-question analytics a plain SQL query later. `source_question_id` preserves the bank link without coupling to it. `media_asset_id` points at the same immutable asset — the file is never copied.
 
 **Ownership** (D3), from R2. `tests`, `questions`, `question_groups` and `media_assets` carry `owner_id`, and `classes` carries `teacher_id`. Each is `NOT NULL REFERENCES app.users ON DELETE RESTRICT` and names the teacher the row belongs to. `created_by` (`uploaded_by` for media) stays the provenance, so a transfer moves the owner without rewriting who made the row (`docs/plan/20-data-model.md` D-22). `classes` has no `created_by`; the backfill gave every existing class the oldest active Admin, the teacher v0.7.0 showed (D-23). Assignments and Word imports belong to their `created_by`. Migration 00106 (T-R3.2) validated the `NOT NULL` of every owner column, which R2 had added `NOT VALID`, and dropped the triggers that filled them for the v0.7.0 binary's inserts, so an insert that omits an owner fails. Repositories scope every read and write to what the caller reaches, and another teacher's row answers as a missing one does (plan 70 §4.2). Details: `docs/plan/20-data-model.md` §31–§32.
 
 **Per-student overrides** (R4). `assignment_student_overrides(assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by, created_at, updated_at)`, primary key `(assignment_id, student_id)`, both foreign keys `ON DELETE CASCADE`, `created_by` `ON DELETE SET NULL`. `closes_at` and `duration_minutes` are nullable and `extra_attempts` defaults to 0; a check requires at least one of the three to change something. A student's close is `greatest(least(closed_at, closes_at), override.closes_at)`: an override only ever lengthens, and one that reaches past an early close lifts it for that student alone. `shared/schedule` holds that rule as SQL and in Go, and the join that reads it.
+
+**Assignment options** (R4, D-34, D-35). `assignments` gains `review_release` (`on_submit` or `after_close`, default `on_submit`), `review_show_class_average` (default false) and a nullable `student_note`, 1 to 500 characters once trimmed of the whitespace JavaScript's `trim()` removes (the command stores NULL for a note that is blank by that rule, so the check never meets an empty string). The defaults are constants, so nothing is rewritten and the previous release's insert keeps its meaning. An assignment still has no `status` column: its status is a function of its window (D-18), and `shared/schedule` holds that rule once for every reader.
+
+**An attempt in progress follows its window** (R4). `extendAssignment`, `updateAssignment` (a later close), `reopenAssignment` and `setStudentOverrides` set the deadline of each attempt in progress to the earlier of its start plus its student's time limit and its student's close, in the transaction that changed the window, and only where that is later than the deadline the attempt has (`schedule.RecomputeDeadlines`). A deadline never moves earlier: removing an override, a shorter time limit or close, and closing early leave a running attempt where it is, and so does an attempt whose deadline has passed on the database's clock, which is over whether or not it has been swept and is not revived. A deadline a maintenance window pushed past the rule stays. Each attempt moved is audited as `attempt.extended` with the old and new deadline and the cause, and an override moves only the attempts of the students it names. The writers take the assignment row and then its attempts, each attempt locked as it is read, so a concurrent submit, expiry or resume of the same attempt finishes before the deadline moves or sees the new one. An attempt starts under the window as it stands when it commits: a start racing an extension stores the extended deadline, or is itself lengthened by the extension, whichever commits first.
+
+**Notifications** (R4, D-28). `notifications(id, user_id, kind, params, target, dedupe_key, created_at, updated_at, read_at)` holds what the app tells one user; `user_id` cascades with the user. `kind` is a dotted key of at most 64 characters, checked by pattern and not an enum, so a release adds a kind without a migration; `params` is a JSON object of at most 4096 bytes and `target` NULL or an object of at most 1024 bytes. No sentence is stored: the reader's console words the item from `kind` and `params`, and a name in `params` is a copy taken when the row was written. `UNIQUE (user_id, dedupe_key)` is how a second notice about the same thing merges into the row the user already holds. A row is kept 180 days from when it was first written; a daily job deletes older ones. `notification_preferences(user_id, event, in_app, email, updated_at)`, primary key `(user_id, event)`, holds the switches a user has saved for the five governed events; a missing row is the default, in the app and not by email. `email` is stored so that the release that sends email adds no column; nothing sends it yet.
+
+**Word imports** (R4, D-40, D-41; the tables are `docs/plan/20-data-model.md` §23 to §26). `word_import_drafts` gains nullable `open_action_count` and `open_confirm_count` (integers, not negative), written with the review body in the same statement, which the import history reads without parsing the body; NULL is a draft not yet assessed, not zero. `word_import_sources.format` admits `text`, and `characters` (1 to 100000) is non-null exactly for a text source (§16).
 
 **Assignments and attempts:**
 
@@ -2555,7 +2592,7 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 ### 13.5 Security in the data layer
 
 - Refresh tokens stored as SHA-256 hashes: `token_hash`, `family_id`, `user_id`, `expires_at`, `revoked_at`, `replaced_by`, `user_agent`, `ip`, `geo_label` (the place of the request that issued the token, "City, CC", or NULL; R4).
-- Join codes sealed with AES-256-GCM under a key the database never holds, and found by an HMAC-SHA256 of the normalized code under a key derived from it (§13.3). Lookup by hash, compared in constant time. A code issued before v0.8.0 keeps its SHA-256 hash until R4 rotates it.
+- Join codes sealed with AES-256-GCM under a key the database never holds, and found by an HMAC-SHA256 of the normalized code under a key derived from it (§13.3). Lookup by hash, compared in constant time. A live code issued before v0.8.0 kept its SHA-256 hash until v0.10.0's start-up rotation replaced it (§6.1); a revoked or expired one keeps it.
 - Passwords: Argon2id (bcrypt cost ≥ 12 if unavailable).
 - `sample_answer`, `transcript`, `is_correct`, and `accepted_answers` must never reach a student response. Enforce with explicit column lists — **no `SELECT *` in student-facing paths.** Add a test that asserts these keys are absent from `GET /app/attempts/:id`.
 - Least-privilege DB roles: the app connects with DML on `app` only, not as owner. Migrations run as a separate role. The app role only reads `permissions`, `roles`, `role_permissions` and `student_like_roles`; R5 grants the role commands' writes. `users_last_admin` is the schema's first `SECURITY DEFINER` function: owned by the migrate role, with `search_path = pg_catalog, app, pg_temp` and EXECUTE revoked from PUBLIC (`docs/plan/20-data-model.md` §30).
@@ -2580,6 +2617,7 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - `CREATE INDEX CONCURRENTLY` runs outside a transaction — mark those `-- +goose NO TRANSACTION`.
 - Test every migration against a copy of real data before production. On Neon, a branch per migration, reset from parent between runs.
 - Seed data in `seed/`, never in migrations. The exception is reference data the app cannot run without: the permission catalogue and the built-in roles (`docs/plan/20-data-model.md` D-21).
+- A migration that only rewrites data has a Down that does nothing, and says so. `00103_compose_text_nfc.sql` composes the plain text columns a person types to NFC (§12) without moving `updated_at`; nothing records which rows were decomposed, so nothing can be restored, and NFC and NFD are the same text to a reader (`docs/plan/20-data-model.md` D-38).
 
 ### 13.8 Query discipline
 
@@ -2685,16 +2723,25 @@ POST   /auth/sessions/revoke-others     → {revoked}; 401 as above; moves the e
 GET    /teacher/dashboard?range=7d|14d|30d → Dashboard (default 14d; own teaching)
 GET    /teacher/summary?audience=      → TeacherSummary {liveAssignments,answersToGrade,unreadNotifications};
                                           the count is of one console's kinds when audience is given
-GET    /teacher/tests?status=&q=&cursor=
+GET    /teacher/tests?status=&tag=&q=&page=&limit=
 POST   /teacher/tests | GET /:id | PATCH /:id
-POST   /teacher/tests/:id/publish       → new version; its number is the `nextVersion` the test reported
+POST   /teacher/tests/:id/publish       {changeNote?} (at most 200 characters; blank or null is none) → 201 TestVersion;
+                                          its number is the `nextVersion` the test reported, and the answer alone
+                                          carries testUpdatedAt, the test's updatedAt after the publish, which a
+                                          caller that goes on saving sends as expectedUpdatedAt or gets STALE_WRITE
+GET    /teacher/tests/:id/versions      → the versions, newest first: {version, totalPoints, questionCount, audioCount,
+                                          manualCount, skills, publishedAt, publishedBy, assignmentCount, changeNote}
+GET    /teacher/tests/:id/versions/:version/diff?against=previous|draft|<n>
+                                        → {from, to, changes}; reads only, 400 for the version itself, 404 for a missing
+                                          version or another teacher's test, 422 when a group cannot be read back
 POST   /teacher/tests/:id/duplicate
-GET    /teacher/questions?type=&tag=&tagMatch=any|all&level=&skill=&q=&cursor=
+GET    /teacher/questions?type=&tag=&tagMatch=any|all&level=&skill=&hasAudio=&q=&page=&limit=
 POST   /teacher/questions | PATCH /:id | DELETE /:id
 POST   /teacher/media?defaultMaxPlays=  multipart → MediaAsset (validates mime, size, duration, quota)
-GET    /teacher/media?kind=&unused=&q=&cursor=   rows, facets and usage against the quota
+GET    /teacher/media?kind=&unused=&q=&page=&limit=   rows, totalBytes, facets and usage against the quota
 PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the library row
-POST   /teacher/media/:id/replace       multipart → {asset, repointed: {questions, groups}, left: {questions, groups}}
+POST   /teacher/media/:id/replace       multipart → {asset, repointed: {questions, groups}, left: {questions, groups}};
+                                          415 MEDIA_KIND_MISMATCH for a file of the other kind (§11.1)
 DELETE /teacher/media/:id               409 if referenced by a published version
 GET    /teacher/assignments?status=&classId=&classId=&q=&page=&limit= | POST | GET /:id | PATCH /:id
                                         rows carry questionCount; classId repeats (any of them)
@@ -2715,7 +2762,9 @@ PUT    /teacher/assignments/:id/student-overrides   {studentIds,extendBy?|closes
                                           who is not a target the caller reaches; 409 ASSIGNMENT_CLOSED
                                           for extendBy on a student whose close has passed
 DELETE /teacher/assignments/:id/student-overrides/:studentId
-GET    /teacher/assignments/:id/attempts  → rows incl. integrity + audio summary
+GET    /teacher/assignments/:id/attempts  → rows incl. integrity + audio summary; a row carries extendedTo
+                                          when the student's own override closes later than the assignment's
+                                          effective close, and not otherwise
 POST   /teacher/attempts/:id/extend     {minutes,reason}
 POST   /teacher/attempts/:id/reset      {reason}
 POST   /teacher/attempts/:id/void       {reason}
@@ -2754,6 +2803,24 @@ POST   /teacher/classes/:id/join-code   rotate {expiresInDays, maxUses} → {cod
                                           expiresAt is 23:59:59 of the last day in the caller's zone (§6.1);
                                           409 CLASS_ARCHIVED for an archived class, nothing written (§6.4)
 DELETE /teacher/classes/:id/join-code   revoke, disable self-join
+
+# teacher: Word imports (content.tests.write; the caller's own imports, §16)
+GET    /teacher/imports/capabilities    → {intakeEnabled, processingEnabled, retention}
+GET    /teacher/imports/limits          → {maxBytes, formats, pasteMaxCharacters}
+POST   /teacher/imports                 {requestId, title} → 201 WordImport, idempotent on requestId
+GET    /teacher/imports?status=&status=&q=&page=&limit= → {items: [WordImportHistoryItem], facets}; every item
+                                          carries reviewCounts {needsAction, toConfirm} or null
+GET    /teacher/imports/:id             → WordImport with its current sources
+POST   /teacher/imports/:id/sources     multipart .docx | .doc | .pdf → 201 ImportUploadReceipt
+POST   /teacher/imports/:id/sources/text {uploadId, expectedRevision, text} → 201 ImportUploadReceipt (§16);
+                                          400 over 100000 code points as sent, 413 over 100000 after NFC or 20000
+                                          non-blank lines, 415 for a NUL or invalid UTF-8, 409 IMPORT_CONFLICT
+GET    /teacher/imports/:id/sources/:sourceId/download → a 60-second URL; 410 IMPORT_FILES_REMOVED
+POST   /teacher/imports/:id/process     → 202; 503 IMPORT_PROCESSING_UNAVAILABLE without a worker
+POST   /teacher/imports/:id/cancel
+GET    /teacher/imports/:id/review | PUT | POST /:id/review/adopt   the draft, the teacher's save, a newer machine draft
+GET    /teacher/imports/:id/source?role= → one source's extracted blocks
+POST   /teacher/imports/:id/commit      → one draft test
 
 # admin
 DELETE /admin/users/:id                 a disabled student only, else 409 RESOURCE_NOT_ARCHIVED;
@@ -2815,6 +2882,10 @@ validator's 400 response; malformed or schema-invalid bodies are
 `400 VALIDATION_FAILED`, and so is a request that carries the character U+0000 in
 a body string, a body member name, a query parameter or a path segment (v0.83).
 
+**Notifications** (R4). `GET /me/notifications`, `POST /me/notifications/read`, `GET /me/summary` and the five switches are the caller's own and need only `self`. A notification is a `kind` and its `params`; the server sends no sentence and the reader's console words it. Nine kinds exist: for a teacher `attempt.submitted`, `attempt.flagged`, `assignment.closing`, `class.joined` and `join_codes.rotated`, and for a student `assignment.opened`, `assignment.due_soon`, `assignment.extended` and `result.ready`. Five switches govern seven of them: `attempt.submitted`, `attempt.flagged`, `assignment.closing` and `result.ready` each their own kind, and `assignment.due_soon` the student kinds `assignment.opened`, `assignment.due_soon` and `assignment.extended`. `class.joined` and `join_codes.rotated` have none. A switch that is off writes nothing. A list is newest first, 20 by default and 50 at most, and is the only keyset list in the contract (`before`); every other list is offset-paginated (O-20). `audience` (v0.79) narrows a list, a count and a marking to one console's kinds.
+
+*Who is told, and when.* A notification is written after the change that caused it has committed, under a budget of its own that the end of the request does not cancel; a failure is logged and never fails the request. The teachers are the assignment's creator and the teachers of a target class the student belongs to (`visibility.PaperReaders`, the rule that lets a teacher see a paper, read the other way), each once, so a teacher of another class is told nothing about this student. `attempt.submitted` merges the papers handed in on one assignment into one notification per fifteen minutes, a timed-out paper being a hand-in; `attempt.flagged` is written once, when the integrity policy flags a paper, and never for a teacher's own flag or under `warn`; `class.joined`, which has no switch, on a join by code; `join_codes.rotated` by the start-up rotation (§6.1). The student is told `assignment.extended` when `notify` is true on an extension (everyone whose close it moved) or on an override that moves a close (those it gave time past the assignment's own close), and `result.ready` when a teacher finishes grading and the review policy shows the score at that moment; a `result.ready` notification carries the title and the attempt, never a score. *Due-time items.* `GET /me/summary` and `GET /me/notifications` first write what the passing of time has earned the caller, at most once in five minutes per caller in the serving process; there is no timer and no job. A moment older than seven days is not made up, a row the caller already holds is left as it is, read or not, and a switch that is off writes nothing. For a student: `assignment.opened` (when the assignment opened or was published, whichever is later), `assignment.due_soon` a day and an hour before the student's own close (an override and an early close included) while they have handed nothing in and have an attempt left and the test was available at that moment, and `result.ready` at the close of an `after_close` release for a paper with nothing waiting for a mark. For a teacher: `assignment.closing` an hour before the assignment's close, with the number of students they reach who have not handed in and whose own close is the assignment's. A close that moves earns its reminders again.
+
 **The review options and the note.** `review.release` is `on_submit` or `after_close`; `review.showClassAverage` and `studentNote` are the teacher's other two choices. On `createAssignment` an omitted field takes its default (`on_submit`, false, no note); on `updateAssignment` an omitted one keeps what is stored, every other field is replaced, and `studentNote: null` clears the note. The note is trimmed by the server and stored as NULL when nothing is left; the contract counts its 500 characters before trimming. It is plain text everywhere it is drawn and is carried to a student on the assignment's detail only.
 
 **The live lock.** While the derived status is `open` (from `opensAt` up to, not including, `closesAt`, and before an early close), `updateAssignment` refuses a change to `testVersionId`, `durationMinutes` or `maxAttempts` with `409 ASSIGNMENT_LOCKED`, whether or not anyone has started; sending the stored value is not a change. The check precedes the version check, so a scheduled or closed assignment that has attempts still answers `VERSION_LOCKED` for a changed version, and its timing stays editable.
@@ -2831,7 +2902,7 @@ a body string, a body member name, a query parameter or a path segment (v0.83).
 
 **The result's `sections`** are the paper's parts in test order, and every result question names its `sectionId`. Both are present under every review policy, because the attempt already showed the student its parts; the page sums a part's score from its questions' `earned`, which the policy still gates.
 
-List endpoints return `{ items, nextCursor }` (keyset, §13.8). Student payloads never include `isCorrect`, `sampleAnswer`, `acceptedAnswers`, or `transcript` (the last only per `showTranscriptAfterSubmit`, on the result endpoint).
+The teacher's lists return `{ items, page, pageSize, total }` with the list's own facets, and are offset-paginated by `page` and `limit` so a client can draw numbered pages (O-20 overrides §13.8's keyset rule for them); `GET /me/notifications` returns `{ items, nextBefore }` (keyset). Student payloads never include `isCorrect`, `sampleAnswer`, `acceptedAnswers`, or `transcript` (the last only per `showTranscriptAfterSubmit`, on the result endpoint).
 
 ---
 
@@ -2858,7 +2929,7 @@ documents, explicit answer evidence, shared context, semantic formatting,
 recoverable review and atomic draft creation are required before general release.
 Imported and manually authored exams must share rendering, publication and
 grading contracts. Missing answers remain unknown; OCR, answer generation and
-automatic publication are excluded. PDF input is limited to a text layer (D-10). Each accepted detailed
+automatic publication are excluded. PDF input is limited to a text layer (D-10), and a test pasted as plain text is accepted as an exam source too (D-11). Each accepted detailed
 contract updates the relevant sections above and OpenAPI before implementation.
 
 The native source intake checkpoint is configured separately from learner media.
@@ -2904,12 +2975,19 @@ character count; filename search excludes only their stored `pasted-text.txt` na
 while title and companion-file search remain available.
 
 The R4 upload page keeps one source-intake instance mounted across
-`?source=paste` changes, preserving selected files and the typed title. T-R4.57
-supplies paste editing and its real intake operation; before that release the
-paste mode explicitly reports its availability and cannot start an import.
-File mode retains automatic recognition, actual limits and retention, the privacy
-notice and a sticky Cancel/Start footer. Leaving during upload quietly stops
-intake, as before. Neither page infers provider policy from capability data.
+`?source=paste` changes, preserving selected files, the pasted text and the typed
+title. File mode retains automatic recognition, actual limits and retention, the
+privacy notice and a sticky Cancel/Start footer. Leaving during upload quietly
+stops intake, as before. Neither page infers provider policy from capability data.
+Paste mode is a plain textarea with a counter against `pasteMaxCharacters`
+(code points of the text as it will be sent, composed to NFC), no answer-key slot,
+and a "Found so far" count of sections, questions and answers. That count follows
+the server's recognition rules for text sources, not a rule of its own, and
+`api/testdata/pasted-text-counts.json` holds both to the same numbers; it is a
+hint, and the review is the authority. Start processing is disabled for an empty
+box, a text over the limit and a text with no numbered question, and runs the file
+flow's steps with the text in place of the exam file: create, paste, process.
+Pasted text that has not started asks before the teacher leaves.
 
 The R4 processing page uses the deck's 720px frame and five presentation rows
 mapped to the actual run stage. It retains elapsed time, attempts and retry waiting,
@@ -2918,8 +2996,7 @@ history. The actual exam source's role and format select the pasted-text header,
 character receipt and plain-text/no-formatting receipt, independently of filename
 or title. Failed text imports keep the actual error code and stage; source-invalid
 and size titles and recovery instructions remain neutral about the pasted text or
-its companion file. Restart opens the paste-mode destination, whose editor remains
-T-R4.57. Cancellation and closed states use configured retention and finality; Ready
+its companion file. Restart opens the paste mode. Cancellation and closed states use configured retention and finality; Ready
 uses the current review's real counts, severity and conflict rules. The active-stage
 spinner pauses on hover and keyboard focus and stays static under reduced motion;
 retry waiting has no active spinner. This page's source title is static.
@@ -2939,9 +3016,36 @@ Text extraction removes an initial BOM, normalizes line breaks and NFC, and emit
 plain paragraph blocks with original line-number IDs, no formatting spans and
 `TEXT_MARKS_UNAVAILABLE`. The private original and existing download, source view
 and retention operations remain available. `word-pipeline-v3` fences these runs
-from v2 workers; recognition remains `rules-v2` until T-R4.56. A companion answer-key
-file uses the existing upload operation. T-R4.55 adds the typed client operation,
-not the paste editor or T-R4.56 recognition/count corpus; T-R4.57 supplies that UI.
+from v2 workers, and a run still queued under v2 when v3 is deployed fails after ten
+minutes with `PIPELINE_RETIRED`, so its teacher processes it again. A companion
+answer-key file uses the existing upload operation. A text source is never normalised
+or converted, so a worker needs no converter to read one (`docs/setup/word-import-worker.md`).
+
+**A pasted text is plain text.** Whatever the clipboard held, only its text is stored:
+the page reads no HTML, so no bold, underline or colour exists to read, as with a PDF.
+Every pasted draft says so in an informational finding, `TEXT_MARKS_UNAVAILABLE`.
+Images and audio are not pasted; the page says so and the test builder adds them. A
+question that depends on an underline is marked by the teacher in review. The source
+view shows the one source as pasted, "Download original" returns the stored `.txt`, and
+the history names the source "Pasted text" with its character count, never by the stored
+file name.
+
+**Recognition is `rules-v3`.** For an exam whose evidence version is `text-lines-v1` the
+recognizer also reads the forms the paste page tells the teacher to type, and no others:
+`*` as the first or last non-space character of an option marks it correct (several
+starred options of one question are one answer, and a `*` anywhere else is content); an
+answer line under a question, `Answer: B`, `Ans: B`, `Answer - B`, `Key: B` or
+`Đáp án: B`; lower-case option letters; a bare `1:` as a question label; a bare roman
+numeral on its own line, and a named part such as `Part A` or `Bài tập 1`, as headings
+and never as the title; and a run of three or more underscores as a gap. `Answer: Not
+given` gives a short answer the teacher fixes in review, because true / false / not given
+is not a question type before R6. **A one-line answer key is read for every format, Word
+and PDF files too** (#233): `Answer key: 1-B 2-C`, also `Answers:`, `Key:` and `Đáp án:`
+before the pairs, whose separator is `-`, `:`, `.` or `)`, is the key's entries when it
+holds at least two pairs, so `Đáp án: 1-B 2-C` is no longer attached to the last question
+as one value. A line with fewer than two pairs keeps its old meaning. Formatting is never
+evidence of correctness; these conventions are text. `docs/plan/17-word-import.md` §1.41
+records the scope and what is measured.
 
 `/teacher/imports` creates an empty record idempotently and lists history by status,
 title or current filename. A source upload accepts exactly one native `.docx`, with

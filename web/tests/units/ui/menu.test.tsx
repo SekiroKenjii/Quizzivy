@@ -428,7 +428,7 @@ function renderStudentMenu() {
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <DeckScale>
-          <AccountMenu settingsTo="/app/settings" deck />
+          <AccountMenu settingsTo="/app/settings" />
         </DeckScale>
       </MemoryRouter>
     </QueryClientProvider>,
