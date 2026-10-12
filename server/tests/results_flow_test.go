@@ -204,12 +204,26 @@ func TestTheResultsExportLeavesOutStaffWhoOnlyJoinedAClassAndKeepsThoseWhoSat(t 
 	pupil := w.studentNamed(teacher, classID, "Trần Thị Bình")
 	pupil.sit(id(assignment))
 
-	if _, err := w.pool.Exec(context.Background(), `
+	granted := false
+	t.Cleanup(func() {
+		if !granted {
+			return
+		}
+		if _, err := w.pool.Exec(context.Background(), `
+			DELETE FROM app.role_permissions
+			 WHERE permission_key = 'learning.take_tests'
+			   AND role_id = (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'admin')`); err != nil {
+			t.Errorf("removing the Admin role's Take tests grant: %v", err)
+		}
+	})
+	grant, err := w.pool.Exec(context.Background(), `
 		INSERT INTO app.role_permissions (role_id, permission_key)
 		SELECT r.id, 'learning.take_tests' FROM app.roles r WHERE r.builtin_key = 'admin'
-		ON CONFLICT (role_id, permission_key) DO NOTHING`); err != nil {
+		ON CONFLICT (role_id, permission_key) DO NOTHING`)
+	if err != nil {
 		t.Fatal(err)
 	}
+	granted = grant.RowsAffected() > 0
 	adminEmail, adminPassword := w.createStaff("admin")
 	taker := w.signedIn(adminEmail, adminPassword)
 	code := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/classes/"+classID+"/join-code", map[string]any{})["code"].(string)
