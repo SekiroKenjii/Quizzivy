@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.86 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.87 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.86**
+
+R4, F-66: a sign-out finishes when the client has gone.
+
+- §5.4 `POST /auth/logout` revokes the refresh family under its own ten-second budget, which the end of the request does not cancel, so a tab closed during sign-out still ends the session. A refresh keeps running on the request's own context; the window it leaves (a rotation committed whose answer never arrives) is recorded under R-06 in `docs/plan/30-risks.md`.
 
 **Changes since v0.85**
 
