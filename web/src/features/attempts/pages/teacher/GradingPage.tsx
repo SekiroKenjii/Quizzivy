@@ -175,7 +175,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
           <h1
             ref={heading}
             tabIndex={-1}
-            className="text-2xl leading-[1.5] font-semibold tracking-[-0.02em] outline-none"
+            className="text-h1 outline-none"
           >
             {t("grading.title")}
           </h1>
