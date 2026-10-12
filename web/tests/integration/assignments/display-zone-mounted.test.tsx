@@ -11,11 +11,18 @@ import { ExtendAssignmentsDialog } from "@/features/assignments/pages/teacher/Ex
 import { previewRules } from "@/features/assignments/studentRules";
 import AssignmentIntroPage from "@/features/assignments/pages/AssignmentIntroPage";
 import type { components } from "@/lib/api/schema";
-import { APP_TIME_ZONE, setDisplayTimeZone } from "@/lib/i18n/datetime";
+import {
+  APP_TIME_ZONE,
+  fromDateTimeInput,
+  setDisplayTimeZone,
+} from "@/lib/i18n/datetime";
 import i18n from "@/lib/i18n";
 import "@/features/auth/accountPreferences";
 import { useAuthStore } from "@/stores/auth";
 import { teacherUser } from "@tests/support/fixtures";
+import { installWizardServer } from "@tests/support/assignmentWizard";
+import { DeckScale } from "@/components/ui/deck-scale";
+import AssignmentWizardPage from "@/features/assignments/pages/teacher/AssignmentWizardPage";
 import { server } from "@tests/support/server";
 import {
   ASSIGNMENT,
@@ -136,6 +143,63 @@ it("keeps the closed Extend's choice, reason and focus across account zone, lang
   expect(
     Math.abs(new Date(body.closesAt).getTime() - Date.parse("2026-08-30T10:00:00Z")),
   ).toBeLessThan(60_000);
+});
+
+it("keeps the wizard's mounted dirty close time fixed to HCM while the account's zone and language change", async () => {
+  installWizardServer();
+  server.use(
+    http.get(`${BASE}/teacher/assignments/${ID}`, () => HttpResponse.json(saved)),
+  );
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/teacher/assignments/:id/edit",
+        element: (
+          <DeckScale>
+            <AssignmentWizardPage />
+          </DeckScale>
+        ),
+      },
+    ],
+    { initialEntries: [`/teacher/assignments/${ID}/edit?step=3`] },
+  );
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  const title = await screen.findByRole("heading", {
+    level: 1,
+    name: "Chỉnh sửa bài giao",
+  });
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  const closes = await screen.findByRole("button", { name: /^Đóng .*21:00$/ });
+  await user.click(closes);
+  for (let step = 0; step < 2; step++)
+    await user.click(screen.getByRole("button", { name: "Giảm giờ" }));
+  for (let step = 0; step < 7; step++)
+    await user.click(screen.getByRole("button", { name: "Tăng phút" }));
+  await user.click(screen.getByRole("button", { name: "Xong" }));
+  expect(closes).toHaveAccessibleName(/19:35$/);
+  closes.focus();
+  await act(async () => {
+    useAuthStore.getState().setUser({
+      ...teacherUser,
+      locale: "en",
+      timeZone: "UTC",
+      preferences: { theme: "dark" },
+    });
+  });
+  expect(screen.getByRole("heading", { level: 1, name: "Edit assignment" })).toBe(
+    title,
+  );
+  expect(closes).toHaveAccessibleName(/^Closes .*19:35$/);
+  expect(closes).toHaveFocus();
+  expect(fromDateTimeInput("2099-09-09T19:35").toISOString()).toBe(
+    "2099-09-09T12:35:00.000Z",
+  );
 });
 
 it("keeps preview policy dates fixed to HCM while the actual mounted student intro uses the actor zone", async () => {
