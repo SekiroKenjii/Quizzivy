@@ -267,7 +267,8 @@ CREATE UNIQUE INDEX class_join_codes_one_active
   uses are judged on the row found (§33). The plaintext code is never stored
   (§13.3). From `00078` a new code is also sealed under a key the database
   never holds (D-27), so a dump does not hand it over; a legacy row's SHA-256
-  still does, in 2^20 guesses, until R4 rotates it (§33).
+  still does, in 2^20 guesses, until the start-up rotation of v0.10.0 replaces it
+  (§33); a revoked or expired one stays.
 - **The exhaustion check is in the database**, not only in the handler. §6.5
   treats the code as a bearer secret; a `uses_count > max_uses` row is a silent
   policy failure and this makes it impossible.
@@ -1365,6 +1366,8 @@ listed here matches the spec.
 | D-37 | `refresh_tokens` gains a nullable `geo_label`, 1 to 80 characters | The Signed-in devices list names where a device last signed in or refreshed (T-R4.9, DG-58). A label is the edge's city and country at the request, so it is data about the request and lives beside `ip` and `user_agent` on the token row, which each rotation rewrites; a column on `users` or a table of devices would need a second writer and a second delete path. Nullable with no default, so the previous release's insert keeps working; the command stores NULL for no label, never an empty string, so the check never meets one (§39) |
 | D-38 | `00103_compose_text_nfc.sql` has a Down that does nothing, where every other file's Down undoes its Up (§13, AGENTS "Migrations") | The file changes data and no schema, and nothing records which rows were decomposed before it ran, so there is nothing to restore: NFC and NFD are the same text, a rolled-back binary reads composed text exactly as it read decomposed text, and the one row it deletes (a decomposed accepted answer whose composed twin exists) was equal to the grader's eyes, so it is not brought back. A Down that decomposed every row would be wrong, since it would also decompose what was composed before. The file says so in the Down, and up/down/up still passes because the Down leaves the schema and every row as they are (§40) |
 | D-39 | `classes` gains a nullable `schedule_label`, 1 to 120 characters, and a nullable `room`, 1 to 60 | The deck's class card and the student's class say when and where a class meets, and the model had no field for either (T-R4.18). Free text the teacher words, not a structured timetable, so one column each. Nullable with no default, so the previous release's insert keeps working; the commands trim and store NULL for a blank value, so the checks never meet an empty string (§41) |
+| D-40 | `word_import_drafts` gains nullable `open_action_count` and `open_confirm_count`, `integer` and not negative | The history lists each import with "{n} need action" and "{n} to confirm" (T-R4.21), which are derived from the review body, and a body can be 8 MiB, so the page cannot parse one per row. The counts are written with the body in the same statement (processing result, review save, adoption), from `domain.Assess(body).Summary`. `integer` and not `smallint`, because a valid draft can exceed 32,767 derived findings and a count must not become a new authoring limit. Nullable with no default and no backfill: NULL means a draft this binary has not assessed, which is not zero, and the previous release's insert keeps working (§26) |
+| D-41 | `word_import_sources.format` admits `text`, and `characters integer` (1 to 100000) is non-null exactly for a text source | A pasted test is a fourth source format, stored as a private `.txt` like any original (T-R4.55, `17-word-import.md` §1.41). The character count is the NFC code-point count the intake measured, so the history can say "{n} characters" without reading the object; bytes and hash cannot rebuild it. Nullable with no default, so a file insert from the previous release stays valid. `00090`'s Down restores the file-only CHECK `NOT VALID`, so retained text rows do not block it. `00091`'s Down drops the column, and its Up then refuses, atomically, while any text row is retained, because `word_import_sources_characters_format` is validated at once and no count can be rebuilt: nothing invents one (§23) |
 
 ---
 
@@ -1463,9 +1466,9 @@ the file it adds.
 | `00086_add_users_preferences.sql` | `users.preferences` and object/8192-byte checks | R4 (T-R4.7), D-30 |
 | `00087_add_questions_level_skill.sql` | Nullable bank `level` and `skill`, with closed CHECK sets | R4 (T-R4.15), D-31 |
 | `00088_add_test_version_questions_level_skill.sql` | Nullable frozen `level` and `skill`, with closed CHECK sets | R4 (T-R4.15), D-31 |
-| `00089_add_word_import_draft_counts.sql` | Draft recognition counts for import-history reads | R4 (T-R4.21) |
-| `00090_allow_text_import_sources.sql` | Plaintext exam-source format | R4 (T-R4.55) |
-| `00091_add_word_import_sources_characters.sql` | Bounded character metadata exactly for text sources | R4 (T-R4.55) |
+| `00089_add_word_import_draft_counts.sql` | `word_import_drafts.open_action_count` and `open_confirm_count`, each nullable and checked not negative, no default | R4 (T-R4.21), D-40 |
+| `00090_allow_text_import_sources.sql` | `word_import_sources_format_check` admits `text`; Down restores the file-only check `NOT VALID` | R4 (T-R4.55), D-41 |
+| `00091_add_word_import_sources_characters.sql` | `word_import_sources.characters`, `word_import_sources_characters_range` (1 to 100000) and `word_import_sources_characters_format` (non-null exactly when `format = 'text'`) | R4 (T-R4.55), D-41 |
 | `00092_add_test_versions_change_note.sql` | `test_versions.change_note` and `test_versions_change_note_check` (1 to 200 characters), added with the column | R4 (T-R4.16a), D-32 |
 | `00097_add_questions_media_alt.sql` | `questions.media_alt` and `questions_media_alt_check` (1 to 1000 characters), added with the column | R4 (T-R4.62a), D-33 |
 | `00098_add_test_version_questions_media_alt.sql` | `test_version_questions.media_alt` and `test_version_questions_media_alt_check` (1 to 1000 characters), added with the column | R4 (T-R4.62a), D-33 |
@@ -2374,8 +2377,8 @@ redeem one. Three columns join `app.class_join_codes`:
 - **The keys never reach the database.** A dump yields ciphertexts and keyed
   hashes; without `JOIN_CODE_KEY` neither opens nor can be hashed through the
   code space. A legacy row's SHA-256 still can, and quickly: beside the
-  stored four-character hint only 2^20 codes remain. That is why R4 rotates
-  the legacy codes (D5).
+  stored four-character hint only 2^20 codes remain. That is why R4 replaced the
+  live legacy codes at start-up (D5, below).
 - **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
   because the previous binary looks codes up by SHA-256 alone.
 - **The API replaces the legacy rows at start-up from v0.10.0 (T-R4.22):**
@@ -2591,8 +2594,11 @@ Migrations `00097_add_questions_media_alt.sql` and
 `questions_media_alt_check` and `test_version_questions_media_alt_check`, of
 `char_length(media_alt) BETWEEN 1 AND 1000`, added with the column. There is no
 default, backfill, index, trigger or new privilege, and each Down drops its
-constraint and column. 00093 to 00096 are reserved for other R4 tasks; goose
-applies 00097 and 00098 across the gap.
+constraint and column. 00093 to 00096 were reserved for other R4 tasks and are
+unused: those tasks took the next number above the integration branch's highest when
+their pull requests opened (T-R4.11 took 00099 and 00100, T-R4.12 00101, T-R4.9
+00102), so the inventory skips from 00092 to 00097 and goose applies 00097 across
+the gap.
 
 Only an image has alt text. `Input.Validate` refuses a value unless the
 resolved media kind is `image`, with a field error on `mediaAlt` (400
