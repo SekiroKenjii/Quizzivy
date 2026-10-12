@@ -36,7 +36,7 @@ func RateLimits() *ratelimit.Registry {
 // perActor, keyed by ratelimit.PrincipalKey. They are applied after the
 // permission gate, so an entry may name only an operation that requires a
 // token; New refuses any other. The authenticated operations that mint a
-// credential are here.
+// credential are here, and so are the uploads that store a file per call.
 func PrincipalRateLimits() *ratelimit.Registry {
 	reg := ratelimit.NewRegistry()
 	const capacity = 10_000
@@ -54,6 +54,7 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("POST /auth/sessions/revoke-others", ratelimit.PerMinute(5), ratelimit.PerHour(30))
 	perActor("GET /teacher/assignments/results.csv", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("PUT /me/avatar", ratelimit.PerHour(10))
+	perActor("POST /teacher/media/{id}/replace", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	return reg
 }
 

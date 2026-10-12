@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	identitytoken "quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/shared/access"
 	"strings"
@@ -76,5 +77,43 @@ func TestReplacementRouterKindRefusalIsLocalizedAndDoesNotPut(t *testing.T) {
 		if rec.Code != 415 || code != "MEDIA_KIND_MISMATCH" || message != want || len(m.puts) != 0 || len(m.inserts) != 0 {
 			t.Fatalf("%s code=%d error=%s %q calls=%v/%v", lang, rec.Code, code, message, m.puts, m.inserts)
 		}
+	}
+}
+
+func replaceAs(t *testing.T, h http.Handler, issuer *identitytoken.Issuer, user string) *httptest.ResponseRecorder {
+	t.Helper()
+	body := &unreadReplacementBody{t: t}
+	req := httptest.NewRequest(http.MethodPost, "/teacher/media/"+libraryAsset+"/replace", body)
+	req.ContentLength = -1
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=test")
+	token, err := issuer.Issue(user, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestReplacementIsLimitedPerUserBeforeTheFileIsRead(t *testing.T) {
+	issuer := testIssuer(t)
+	h, m := mediaRouter(t, issuer)
+	m.findErr = domain.ErrNotFound
+	for call := 1; call <= 10; call++ {
+		if rec := replaceAs(t, h, issuer, teacherUser); rec.Code != http.StatusNotFound {
+			t.Fatalf("replacement %d in a minute answered %d, want it to reach the handler's 404", call, rec.Code)
+		}
+	}
+	rec := replaceAs(t, h, issuer, teacherUser)
+	code, _ := errorCodeAndMessage(t, rec)
+	if rec.Code != http.StatusTooManyRequests || code != "RATE_LIMITED" || rec.Header().Get("Retry-After") == "" {
+		t.Errorf("the eleventh replacement in a minute answered %d %s with Retry-After %q, want 429 RATE_LIMITED", rec.Code, code, rec.Header().Get("Retry-After"))
+	}
+	if rec := replaceAs(t, h, issuer, adminUser); rec.Code != http.StatusNotFound {
+		t.Errorf("another user's first replacement answered %d, want 404: the budget is per user", rec.Code)
+	}
+	if len(m.puts) != 0 || len(m.inserts) != 0 {
+		t.Errorf("a refused replacement stored a file: puts %v inserts %v", m.puts, m.inserts)
 	}
 }

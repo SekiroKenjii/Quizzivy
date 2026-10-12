@@ -2384,7 +2384,7 @@ redeem one. Three columns join `app.class_join_codes`:
 - **The API replaces the legacy rows at start-up from v0.10.0 (T-R4.22):**
   each unrevoked, unexpired scheme-1 row is revoked and a scheme-2 row is
   inserted for its class with the same `expires_at`, `max_uses` and
-  `created_by` and `uses_count` 0, in one transaction per class under
+  `created_by` and `uses_count` (F-67), in one transaction per class under
   advisory key 41 (§28), audited with a NULL actor; a revoked or expired
   scheme-1 row is left as it is.
 - **Lock order for a class and its join codes (F-23).** The transactions that

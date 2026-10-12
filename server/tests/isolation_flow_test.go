@@ -29,11 +29,22 @@ func (x *iso) view(op scopedOp, c isoCase, viewer *party, bare bool) string {
 
 var signature = regexp.MustCompile(`[?&]X-Amz-[^"]*`)
 
+func walkedView(op scopedOp) bool {
+	return op.method == http.MethodGet && (op.listing != "" || op.id == "getDashboard" || op.id == "getTeacherSummary" ||
+		strings.HasPrefix(op.id, "listMy") || strings.HasPrefix(op.path, "/me/"))
+}
+
+func filtersByAnId(op scopedOp) bool {
+	return slices.ContainsFunc(op.slots, func(s resourceSlot) bool {
+		return s.In == "query" && op.optional[s.Name] && s.Kind != "none"
+	})
+}
+
 func (x *iso) views(ops []scopedOp) map[string]string {
 	out := map[string]string{}
 	for _, op := range ops {
 		c := x.cases[op.id]
-		if op.method != http.MethodGet || op.listing == "" && op.id != "getDashboard" && op.id != "getTeacherSummary" && !strings.HasPrefix(op.id, "listMy") {
+		if !walkedView(op) {
 			continue
 		}
 		viewer := x.b
@@ -41,8 +52,11 @@ func (x *iso) views(ops []scopedOp) map[string]string {
 			viewer = x.b.student
 		}
 		out[op.id] = x.view(op, c, viewer, true)
-		if slices.ContainsFunc(op.slots, func(s resourceSlot) bool { return s.In == "query" && op.optional[s.Name] }) {
+		if filtersByAnId(op) {
 			out[op.id+" filtered"] = x.view(op, c, viewer, false)
+		}
+		if strings.HasPrefix(op.path, "/me/") && !c.student {
+			out[op.id+" as the student"] = x.view(op, c, x.b.student, true)
 		}
 	}
 	if got := x.b.c.send(http.MethodGet, "/teacher/students/"+x.shared, nil); got.status == http.StatusOK {
@@ -131,7 +145,16 @@ func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 	var shared *client
 	shared, x.shared = w.sharedStudent(x.b)
 	before := x.views(ops)
+	for _, key := range []string{"listNotifications", "getMySummary", "getNotificationPreferences", "listNotifications as the student", "getMySummary as the student", "getNotificationPreferences as the student"} {
+		if _, walked := before[key]; !walked {
+			t.Fatalf("the walk of %s is missing, so the /me reads are not compared between the two teachers", key)
+		}
+	}
+	if !strings.Contains(before["listNotifications"], x.b.id("notification")) {
+		t.Fatalf("B's own notification is not in the list the walk compares: %s", before["listNotifications"])
+	}
 	x.a = w.teacherWorld("A")
+	x.a.c.must(http.StatusOK, http.MethodPut, "/me/notification-preferences", switchesAllOff())
 	t.Cleanup(func() {
 		if _, err := w.pool.Exec(context.Background(), `
 			UPDATE app.word_imports SET status = 'cancelled'
@@ -266,4 +289,13 @@ func (x *iso) adminsOwnAssignmentNamesEveryTarget() {
 				label, row["targets"], row["targetCount"], opened["targets"], opened["targetCount"])
 		}
 	}
+}
+
+func switchesAllOff() []map[string]any {
+	events := []string{"attempt.submitted", "attempt.flagged", "assignment.closing", "assignment.due_soon", "result.ready"}
+	out := make([]map[string]any, len(events))
+	for i, event := range events {
+		out[i] = map[string]any{"event": event, "inApp": false, "email": true}
+	}
+	return out
 }
