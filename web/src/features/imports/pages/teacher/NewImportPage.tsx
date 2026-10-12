@@ -47,58 +47,56 @@ export default function NewImportPage() {
   return (
     <div className="flex w-full min-w-0 flex-col gap-4.5" data-scale="deck">
       {header}
-      <div className="max-w-column flex w-full min-w-0 flex-col gap-4.5">
-        <Segmented
-          size="lg"
-          scroll
-          className="self-start [&>button]:min-w-[168px] [&>button]:justify-center"
-          label={t("imports.upload.source")}
-          value={sourceMode}
-          options={[
-            { value: "file", label: t("imports.upload.fileMode"), icon: FileUp },
-            {
-              value: "paste",
-              label: t("imports.upload.pasteMode"),
-              icon: ClipboardPaste,
+      <Segmented
+        size="lg"
+        scroll
+        className="self-start [&>button]:min-w-[168px] [&>button]:justify-center"
+        label={t("imports.upload.source")}
+        value={sourceMode}
+        options={[
+          { value: "file", label: t("imports.upload.fileMode"), icon: FileUp },
+          {
+            value: "paste",
+            label: t("imports.upload.pasteMode"),
+            icon: ClipboardPaste,
+          },
+        ]}
+        onChange={(value) =>
+          setParams(
+            (current) => {
+              const next = new URLSearchParams(current);
+              if (value === "paste") next.set("source", "paste");
+              else next.delete("source");
+              return next;
             },
-          ]}
-          onChange={(value) =>
-            setParams(
-              (current) => {
-                const next = new URLSearchParams(current);
-                if (value === "paste") next.set("source", "paste");
-                else next.delete("source");
-                return next;
-              },
-              { replace: true },
-            )
-          }
-        />
-        <SourceIntake
-          existing={null}
-          deck
-          fileMode={!pasting}
-          retention={retention}
-          enabled={processing}
-          privacy={
-            <Callout
-              icon={ShieldCheck}
-              lead={t("imports.upload.privacyLead")}
-              className="gap-3 [&>svg]:size-[17px]"
-            >
-              {t("imports.upload.privacy", {
-                processing: processing
-                  ? t("imports.upload.processingOn")
-                  : t("imports.upload.processingUnknown"),
-              })}
-            </Callout>
-          }
-          onStarted={(started) => {
-            void storeImport(client, started);
-            void navigate(`/teacher/imports/${started.id}`);
-          }}
-        />
-      </div>
+            { replace: true },
+          )
+        }
+      />
+      <SourceIntake
+        existing={null}
+        deck
+        fileMode={!pasting}
+        retention={retention}
+        enabled={processing}
+        privacy={
+          <Callout
+            icon={ShieldCheck}
+            lead={t("imports.upload.privacyLead")}
+            className="gap-3 [&>svg]:size-[17px]"
+          >
+            {t("imports.upload.privacy", {
+              processing: processing
+                ? t("imports.upload.processingOn")
+                : t("imports.upload.processingUnknown"),
+            })}
+          </Callout>
+        }
+        onStarted={(started) => {
+          void storeImport(client, started);
+          void navigate(`/teacher/imports/${started.id}`);
+        }}
+      />
     </div>
   );
 }

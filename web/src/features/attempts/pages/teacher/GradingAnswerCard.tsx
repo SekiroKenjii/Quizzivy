@@ -194,6 +194,7 @@ export function GradingAnswerCard({
               <span>{t("grading.numberScore", { max: item.points })}</span>
               <Input
                 ref={numeric}
+                className="max-w-(--field-max)"
                 type="number"
                 min={0}
                 max={item.points}

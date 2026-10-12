@@ -137,6 +137,7 @@ const teacherTree: RouteObject = {
                   { key: "imports.historyTitle", to: "/teacher/imports" },
                   { key: "imports.review.crumb" },
                 ],
+                width: "full",
                 sidebar: "collapsed",
               },
               lazy: page(

@@ -24,6 +24,7 @@ import { TopBar } from "@/layouts/shell/TopBar";
 import { useNavCounts } from "@/layouts/shell/useNavCounts";
 import { activeNavId, navFor, reaches } from "@/layouts/teacherNav";
 import { TeacherSkeleton } from "@/layouts/TeacherSkeleton";
+import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 
 registerSkeleton("teacher", () => <TeacherSkeleton />);
@@ -40,7 +41,7 @@ type Drawer = { at: string } | "left" | null;
 /**
  * TeacherLayout is the teacher console's shell, as the design deck draws it:
  * a sidebar, a top bar and the page. It reads the leaf route's handle for
- * the breadcrumb trail and a collapsed start, and sets the document title
+ * the breadcrumb trail, the full-width exception and a collapsed start, and sets the document title
  * from the last crumb, restoring the earlier title when it unmounts. From
  * 768px the sidebar is in the page's flow, collapsed or expanded as the user
  * last chose; a route that asks for a collapsed start gets one for the visit
@@ -48,8 +49,9 @@ type Drawer = { at: string } | "left" | null;
  * closes on every navigation. `<main>` is the scroller, the containing block
  * of everything positioned in the page, so nothing in it extends the
  * document, and the element pages measure their width by. It sets the
- * page's gutters and the one page frame every route renders in: the full
- * width up to `--container-page`, centred beyond it (DG-205). It returns to
+ * page's gutters (`--page-gutter`) and the one page frame every route renders
+ * in: the full width up to `--page-max`, centred beyond it, or the full width
+ * for the one route whose handle says so (DG-205). It returns to
  * the top and takes focus when the route changes, and does neither when only
  * a parameter does. One outlet serves every width, so a page keeps its state
  * across 768.
@@ -182,10 +184,16 @@ export default function TeacherLayout() {
           <main
             ref={registerMain}
             tabIndex={-1}
-            className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3.5 pt-4 pb-8 outline-none! min-[768px]:px-7 min-[768px]:pt-6 min-[768px]:pb-10"
+            className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-(--page-gutter) pt-(--page-pad-top) pb-8 outline-none! min-[768px]:pb-10"
           >
             {registered && (
-              <div data-slot="page" className="max-w-page mx-auto w-full">
+              <div
+                data-slot="page"
+                className={cn(
+                  "mx-auto w-full",
+                  handle?.width !== "full" && "max-w-(--page-max)",
+                )}
+              >
                 <CrumbTailContext value={setTail}>
                   <Outlet />
                 </CrumbTailContext>

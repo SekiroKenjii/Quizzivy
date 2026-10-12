@@ -27,17 +27,31 @@ function centredNarrowBoxes(source: string): string[] {
 }
 
 describe("the teacher workspace's page frame (DG-205)", () => {
-  it("is one token, 1600px", () => {
-    expect(read("index.css")).toMatch(/--container-page:\s*100rem;/);
+  it("is the design's tokens: 1600px, gutters 14, 28 and 40, fields 480px, prose 72ch", () => {
+    const css = read("index.css");
+    expect(css).toMatch(/--page-max:\s*1600px;/);
+    expect(css).toMatch(/--page-gutter:\s*14px;/);
+    expect(css).toMatch(
+      /@media \(min-width: 768px\) \{\s*:root \{\s*--page-gutter:\s*28px;/,
+    );
+    expect(css).toMatch(
+      /@media \(min-width: 1920px\) \{\s*:root \{\s*--page-gutter:\s*40px;/,
+    );
+    expect(css).toMatch(/--field-max:\s*480px;/);
+    expect(css).toMatch(/--prose-max:\s*72ch;/);
   });
 
-  it("lets no route choose its own width", () => {
-    expect(read("app/router.tsx")).not.toMatch(/\bwidth:/);
-    expect(read("layouts/shell/handle.ts")).not.toMatch(/\bwidth\??:/);
+  it("lets one route, the import review, lift the maximum, and no route choose a width", () => {
+    const router = read("app/router.tsx");
+    expect(router.match(/\bwidth:[^,}]*/g)).toEqual(['width: "full"']);
+    const review = router.slice(router.indexOf('path: ":id/review"'));
+    expect(review.slice(0, review.indexOf("lazy:"))).toContain('width: "full"');
   });
 
-  it("draws the splash's page block at the frame's width", () => {
-    expect(read("layouts/TeacherSkeleton.tsx")).toContain("var(--container-page)");
+  it("draws the splash's page block at the frame's width and gutters", () => {
+    const skeleton = read("layouts/TeacherSkeleton.tsx");
+    expect(skeleton).toContain("var(--page-max)");
+    expect(skeleton).toContain("px-(--page-gutter)");
   });
 
   it("finds the teacher pages it scans", () => {

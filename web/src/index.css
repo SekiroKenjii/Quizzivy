@@ -147,6 +147,33 @@
   --radius: 0.5rem;
 }
 
+/*
+  The teacher workspace's page frame (DG-205, docs/design/deck/page-width-proposal/):
+  one frame up to --page-max at every width, centred beyond it, inside gutters
+  that step at 768 and 1920. Containers fill the frame; only text is capped, a
+  field at --field-max and prose at --prose-max. Import review alone is full-bleed.
+*/
+:root {
+  --page-max: 1600px;
+  --page-gutter: 14px;
+  --page-pad-top: 16px;
+  --field-max: 480px;
+  --prose-max: 72ch;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --page-gutter: 28px;
+    --page-pad-top: 24px;
+  }
+}
+
+@media (min-width: 1920px) {
+  :root {
+    --page-gutter: 40px;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -270,11 +297,6 @@
   --tracking-tight: -0.015em;
 
   --breakpoint-auth: 56.25rem;
-
-  /* The teacher workspace's page frame, the widest any page grows, and the
-     measure of a single-column form inside it, which keeps to its left edge (DG-205). */
-  --container-page: 100rem;
-  --container-column: 53.75rem;
 
   --font-sans:
     "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,

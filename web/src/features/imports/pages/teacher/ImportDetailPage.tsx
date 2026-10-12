@@ -132,7 +132,7 @@ export default function ImportDetailPage() {
   return (
     <div className="flex w-full min-w-0 flex-col gap-4" data-scale="deck">
       <DetailHead value={value} />
-      <div className="max-w-column flex w-full min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <p role="status" aria-live="polite" className="sr-only">
           {outcome === null
             ? t(`imports.status.${value.status}`)

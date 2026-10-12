@@ -66,7 +66,10 @@ const CLASS: TeacherHandle = {
     { key: "common.loading" },
   ],
 };
-const REVIEW = crumbed("teacherShell.nav.tests", { sidebar: "collapsed" });
+const REVIEW = crumbed("teacherShell.nav.tests", {
+  sidebar: "collapsed",
+  width: "full",
+});
 const SETTINGS = { path: "settings/:section?", handle: crumbed("nav.settings") };
 
 const sidebar = () => document.getElementById("teacher-sidebar");
@@ -127,11 +130,9 @@ describe("the teacher shell from 768", () => {
     expect(main).toHaveClass(
       "overflow-x-hidden",
       "overflow-y-auto",
-      "px-3.5",
-      "pt-4",
+      "px-(--page-gutter)",
+      "pt-(--page-pad-top)",
       "pb-8",
-      "min-[768px]:px-7",
-      "min-[768px]:pt-6",
       "min-[768px]:pb-10",
     );
   });
@@ -515,7 +516,10 @@ describe("the breadcrumb trail and the document title", () => {
 describe("the page's frame", () => {
   it.each([
     ["a list", crumbed("teacherShell.nav.tests")],
-    ["a page that starts collapsed", REVIEW],
+    [
+      "a page that starts collapsed",
+      crumbed("teacherShell.nav.tests", { sidebar: "collapsed" }),
+    ],
     ["a route with no trail", { crumb: [] }],
   ])("renders %s in the one frame every page shares", async (_, handle) => {
     serveSummary(QUIET);
@@ -523,7 +527,7 @@ describe("the page's frame", () => {
     const page = (await screen.findByText("trang")).parentElement!;
     expect(page).toHaveAttribute("data-slot", "page");
     expect(page.parentElement).toBe(screen.getByRole("main"));
-    expect(page).toHaveClass("mx-auto", "w-full", "max-w-page");
+    expect(page).toHaveClass("mx-auto", "w-full", "max-w-(--page-max)");
     expect(page.className.match(/max-w-/g)).toHaveLength(1);
   });
 
@@ -532,8 +536,16 @@ describe("the page's frame", () => {
     const handle = { ...crumbed("assignments.new"), width: 1080 };
     renderShell("/teacher", [{ index: true, handle, element: <p>trang</p> }]);
     const page = (await screen.findByText("trang")).parentElement!;
-    expect(page).toHaveClass("max-w-page");
+    expect(page).toHaveClass("max-w-(--page-max)");
     expect(page.className.match(/max-w-/g)).toHaveLength(1);
+  });
+
+  it("lifts the maximum for the one full-width page, the import review", async () => {
+    serveSummary(QUIET);
+    renderShell("/teacher", [{ index: true, handle: REVIEW, element: <p>trang</p> }]);
+    const page = (await screen.findByText("trang")).parentElement!;
+    expect(page).toHaveClass("mx-auto", "w-full");
+    expect(page.className).not.toContain("max-w-");
   });
 
   it("registers main before a page first renders, and unregisters it on the way out", async () => {
