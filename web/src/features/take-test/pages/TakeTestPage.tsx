@@ -18,12 +18,13 @@ import { LoadError } from "@/components/shared/ListState";
 import { cn } from "@/lib/utils";
 import { EngineHeader, LeaveButton } from "../components/EngineHeader";
 import { LeaveDialog } from "../components/LeaveDialog";
-import { Navigator, type DotState } from "../components/Navigator";
+import { Navigator, type DotState, type KeysHint } from "../components/Navigator";
 import { GroupContext, GroupListening } from "../components/GroupContext";
 import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
 import { QuestionCard } from "../components/QuestionCard";
 import { SaveStrip } from "../components/SaveState";
 import { SectionInstructions } from "../components/SectionInstructions";
+import { SectionRail } from "../components/SectionRail";
 import { SubmitDialog } from "../components/SubmitDialog";
 import { SubmittedScreen } from "../components/SubmittedScreen";
 import { releaseSession } from "@/features/integrity/release";
@@ -34,7 +35,7 @@ import { StrikeIndicator } from "@/features/integrity/components/StrikeIndicator
 import { strikeState } from "@/features/integrity/strikes";
 import { useClipboardNotice } from "@/features/integrity/useClipboardNotice";
 import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
-import { answered } from "../answered";
+import { progress } from "../answered";
 import { getAttempt, type Answer, type StudentQuestion } from "../api";
 import { groupBySection, opensSection, sectionAt } from "../sections";
 import {
@@ -51,20 +52,23 @@ import { useEngineWidthAtLeast } from "../width";
 
 const PICK_KEYS = "abcde";
 const WIDE_PX = 768;
+const RAIL_PX = 900;
+const RAIL_BESIDE_SHARED_PX = 1180;
+const SHORT_LABEL_PX = 420;
 
 /**
  * TakeTestPage is the engine, one question at a time, with the navigator as
- * the footer of the question pane (a strip of numbered squares from 768px, a
- * button that opens the question sheet below it) and the deck's Submit dialog
- * over it, which is the only way to hand the paper in. The header is the
- * deck's at every width; below 768px a strip under it says when a save has
- * failed or the device is offline, and is otherwise absent. The keys are the
- * deck's: the arrows move and stop at either end, A to E choose, F flags.
- * None acts in a text field, while a dialog or the question sheet is open, or
- * on a locked paper. Once the attempt is submitted, by the student, the timer
- * or an auto-submit, the page shows the submitted screen and leaves the
- * fullscreen the assignment asked for. From then on no fullscreen change is
- * recorded, so that exit is never noted as the student's.
+ * the footer of the question pane and, on a wide enough screen, the sections
+ * rail at the paper's left edge, and the deck's Submit dialog over it, which
+ * is the only way to hand the paper in. The header is the deck's at every
+ * width; below 768px a strip under it says when a save has failed or the
+ * device is offline, and is otherwise absent. The keys are the deck's: the
+ * arrows move and stop at either end, A to E choose, F flags. None acts in a
+ * text field, while a dialog or the question sheet is open, or on a locked
+ * paper. Once the attempt is submitted, by the student, the timer or an
+ * auto-submit, the page shows the submitted screen and leaves the fullscreen
+ * the assignment asked for. From then on no fullscreen change is recorded, so
+ * that exit is never noted as the student's.
  */
 export default function TakeTestPage() {
   const { t } = useTranslation();
@@ -321,11 +325,15 @@ function dotsOf(
   answers: Readonly<Record<string, Answer>>,
   flags: ReadonlySet<string>,
 ): DotState[] {
-  return questions.map((q) => ({
-    id: q.id,
-    answered: answered(q, answers[q.id]),
-    flagged: flags.has(q.id),
-  }));
+  return questions.map((q) => {
+    const done = progress(q, answers[q.id]);
+    return {
+      id: q.id,
+      answered: done === "full",
+      partly: done === "partly",
+      flagged: flags.has(q.id),
+    };
+  });
 }
 
 /**
@@ -346,9 +354,14 @@ export type PaperProps = Readonly<{
 
 /**
  * Paper is the engine's paper open at question `index`: the header, the
- * passage pane and the question pane with the navigator. It reads the paper
- * from the nearest PaperSourceContext and the width from
- * useEngineWidthAtLeast, and draws nothing for a paper with no questions.
+ * sections rail, the passage pane and the question pane with the navigator.
+ * The rail shows when the engine is at least 900px wide on a question with no
+ * shared content and at least 1180px on one with it, and the footer then
+ * names the keys; otherwise the footer's grid button opens the question
+ * sheet, and its label takes the short form beside shared content from 768px
+ * and below 420px. It reads the paper from the nearest PaperSourceContext and
+ * the width from useEngineWidthAtLeast, and draws nothing for a paper with no
+ * questions.
  */
 export function Paper(props: PaperProps) {
   const { questions } = usePaper();
@@ -371,6 +384,9 @@ function PaperAt({
 }: PaperProps & Readonly<{ question: StudentQuestion }>) {
   const { t } = useTranslation();
   const wide = useEngineWidthAtLeast(WIDE_PX);
+  const railFits = useEngineWidthAtLeast(RAIL_PX);
+  const railFitsBesideShared = useEngineWidthAtLeast(RAIL_BESIDE_SHARED_PX);
+  const narrow = !useEngineWidthAtLeast(SHORT_LABEL_PX);
   const {
     questions,
     sections,
@@ -425,6 +441,7 @@ function PaperAt({
   );
 
   const part = sectioned && passage === undefined ? group?.section.title : undefined;
+  const rail = wide && (passage === undefined ? railFits : railFitsBesideShared);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -449,6 +466,9 @@ function PaperAt({
         aria-label={t("takeTest.dotLabel", { n: index + 1 })}
         className="flex min-h-0 min-w-0 flex-1 outline-none!"
       >
+        {rail && (
+          <SectionRail dots={dots} current={index} groups={groups} onJump={onJump} />
+        )}
         {passage !== undefined && (
           <GroupContext
             key={passage.id}
@@ -512,6 +532,9 @@ function PaperAt({
           </div>
           <Navigator
             wide={wide}
+            rail={rail}
+            hint={keysHintOf(question, passage !== undefined)}
+            short={narrow || (wide && passage !== undefined)}
             dots={dots}
             current={index}
             groups={groups}
@@ -523,6 +546,13 @@ function PaperAt({
       </main>
     </div>
   );
+}
+
+function keysHintOf(question: StudentQuestion, besideShared: boolean): KeysHint {
+  const picks =
+    questionKind(question) === "choice" && (question.options ?? []).length > 0;
+  if (!picks) return "move";
+  return besideShared ? "short" : "long";
 }
 
 function gapLanding(

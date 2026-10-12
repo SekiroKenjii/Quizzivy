@@ -79,8 +79,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const strip = () => screen.queryByRole("button", { name: "Câu 2" });
-const countButton = () => screen.queryByRole("button", { name: /^Danh sách câu: / });
+const rail = () => screen.queryByRole("complementary", { name: "Các phần" });
+const gridButton = () => screen.queryByRole("button", { name: /^Câu 1 · đã làm / });
 
 function mount() {
   const router = createMemoryRouter(
@@ -90,45 +90,116 @@ function mount() {
   return render(<RouterProvider router={router} />);
 }
 
-it("keeps the answer focused when the window crosses the wide breakpoint", async () => {
+async function beside(passage: string) {
+  const paper = await getAttempt("att-1");
+  vi.mocked(getAttempt).mockResolvedValue({
+    ...paper,
+    groups: [
+      {
+        id: "g1",
+        sectionId: "s1",
+        title: "Bài đọc",
+        questionIds: ["q1", "q2"],
+        stimuli: [
+          {
+            id: "st1",
+            title: "Bài đọc",
+            content: {
+              format: "semantic_v1",
+              blocks: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: passage, marks: [] }],
+                },
+              ],
+            },
+            gaps: [],
+          },
+        ],
+        recordings: [],
+        assets: [],
+      },
+    ],
+    groupAudioPlays: {},
+  });
+}
+
+it("keeps the answer focused when the window crosses 768 and 900", async () => {
   const resize = resizableViewport(1280);
   const user = userEvent.setup();
   mount();
   await screen.findByText("Describe your weekend");
   const answer = screen.getByRole("textbox");
   await user.type(answer, "We went");
+  expect(rail()).toBeInTheDocument();
   expect(answer).toHaveFocus();
 
-  resize(600);
-  expect(countButton()).toBeInTheDocument();
-  expect(strip()).toBeNull();
+  resize(899);
+  expect(rail()).toBeNull();
+  expect(gridButton()).toBeInTheDocument();
   expect(screen.getByRole("textbox")).toHaveFocus();
 
-  resize(1280);
-  expect(countButton()).toBeNull();
-  expect(strip()).toBeInTheDocument();
+  resize(600);
+  expect(rail()).toBeNull();
+  expect(gridButton()).toBeInTheDocument();
+  expect(screen.getByRole("textbox")).toHaveFocus();
+
+  resize(900);
+  expect(rail()).toBeInTheDocument();
+  expect(gridButton()).toBeNull();
+  expect(screen.getByRole("textbox")).toHaveFocus();
+  await user.type(screen.getByRole("textbox"), " out");
+  expect(screen.getByRole("textbox")).toHaveValue("We went out");
+});
+
+it("keeps the answer focused beside shared content when the window crosses 1180 and 768", async () => {
+  await beside("Một đoạn văn.");
+  const resize = resizableViewport(1280);
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Describe your weekend");
+  const answer = screen.getByRole("textbox");
+  await user.type(answer, "We went");
+  expect(rail()).toBeInTheDocument();
+
+  resize(1179);
+  expect(rail()).toBeNull();
+  expect(gridButton()).toBeInTheDocument();
+  expect(screen.getByRole("textbox")).toHaveFocus();
+
+  resize(767);
+  expect(rail()).toBeNull();
+  expect(screen.getByRole("textbox")).toHaveFocus();
+
+  resize(1180);
+  expect(rail()).toBeInTheDocument();
+  expect(gridButton()).toBeNull();
   expect(screen.getByRole("textbox")).toHaveFocus();
   expect(screen.getByRole("textbox")).toHaveValue("We went");
 });
 
-it("is the wide engine from 768px and the phone engine below it", async () => {
+it("is the wide engine from 768px and the phone engine below it, with the rail from 900", async () => {
   const resize = resizableViewport(768);
   mount();
   await screen.findByText("Describe your weekend");
-  expect(strip()).toBeInTheDocument();
-  expect(countButton()).toBeNull();
-  expect(screen.queryByRole("complementary")).toBeNull();
+  expect(rail()).toBeNull();
+  expect(gridButton()).toHaveTextContent("Câu 1 · đã làm 0 trên 2");
+  expect(screen.getByRole("button", { name: "Câu trước" })).toHaveTextContent("Trước");
   expect(screen.getByText("Câu 1 trên 2 · Trả lời ngắn")).toBeInTheDocument();
   expect(screen.getAllByText("1 điểm · giáo viên chấm tay")).toHaveLength(1);
 
   resize(767);
-  expect(strip()).toBeNull();
-  expect(countButton()).toBeInTheDocument();
-  expect(screen.queryByRole("complementary")).toBeNull();
+  expect(rail()).toBeNull();
+  expect(gridButton()).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Câu trước" })).toHaveTextContent(/^$/);
   expect(screen.getByText("Câu 1 trên 2 · Trả lời ngắn")).toBeInTheDocument();
   expect(screen.getAllByText("1 điểm · giáo viên chấm tay")).toHaveLength(1);
 
-  resize(1023);
-  expect(strip()).toBeInTheDocument();
-  expect(countButton()).toBeNull();
+  resize(899);
+  expect(rail()).toBeNull();
+  expect(gridButton()).toBeInTheDocument();
+
+  resize(900);
+  expect(rail()).toBeInTheDocument();
+  expect(gridButton()).toBeNull();
 });

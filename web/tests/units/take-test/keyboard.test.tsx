@@ -253,7 +253,7 @@ describe("the keys", () => {
     viewport("phone");
     const user = mount();
     await screen.findByRole("radio", { name: "First answer" });
-    await user.click(screen.getByRole("button", { name: /^Danh sách câu: / }));
+    await user.click(screen.getByRole("button", { name: "Câu 1 · đã làm 0 trên 2" }));
     await screen.findByRole("dialog", { name: "Danh sách câu" });
 
     await user.keyboard("b");
@@ -268,6 +268,18 @@ describe("the keys", () => {
     expect(onQuestion(1)).toBeInTheDocument();
     await user.keyboard("{ArrowRight}");
     expect(onQuestion(2)).toBeInTheDocument();
+  });
+
+  it("are named in the footer beside the rail: A–D only on a question with options", async () => {
+    viewport(1280);
+    const user = mount();
+    await screen.findByRole("radio", { name: "First answer" });
+    const footer = () => screen.getByRole("navigation", { name: "Danh sách câu" });
+    expect(footer()).toHaveTextContent("←→để chuyển câu · A–D để chọn đáp án");
+
+    await user.keyboard("{ArrowRight}");
+    expect(onQuestion(2)).toBeInTheDocument();
+    expect(footer()).toHaveTextContent(/^Trước←→để chuyển câuHoàn tất$/);
   });
 
   it.each(["deadline", "superseded", "closed"] as const)(

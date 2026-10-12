@@ -257,6 +257,33 @@ describe("the Submit dialog", () => {
     expect(chips().map((chip) => chip.textContent)).toEqual(["4", "6", "7", "8"]);
   });
 
+  it("gives a partly answered question a chip and leaves the counts as they are", async () => {
+    const paper = deckSession(NOW);
+    const blanks = [
+      { id: "blank-1", ordinal: 1, caseSensitive: false },
+      { id: "blank-2", ordinal: 2, caseSensitive: false },
+    ];
+    await open(DECK_LEFT_MS, {
+      questions: paper.questions.map((item) =>
+        item.id === q(5)
+          ? { ...item, type: "fill_blank", prompt: "Parks {{1}} and {{2}}.", blanks }
+          : item,
+      ),
+      answers: {
+        ...paper.answers,
+        [q(5)]: { type: "fill_blank", values: { "blank-1": "matter" } },
+      },
+    });
+    expect(
+      screen.getByRole("button", { name: "Câu 5, trả lời một phần", hidden: true }),
+    ).toBeInTheDocument();
+    await ask();
+
+    expect(dialog()).toHaveAccessibleName(UNANSWERED);
+    expect(facts()["Đã trả lời"]).toHaveTextContent(/^3 \/ 8$/);
+    expect(chips().map((chip) => chip.textContent)).toEqual(["4", "5", "6", "7", "8"]);
+  });
+
   it("asks one plain question when every question is answered", async () => {
     await open();
     act(() => {
@@ -610,20 +637,22 @@ describe("the Submit dialog", () => {
     expect(onQuestion(8)).toBeInTheDocument();
   });
 
-  it("stays over the paper it was opened from, with the strip and the header still under it", async () => {
+  it("stays over the paper it was opened from, with the rail, the footer and the header still under it", async () => {
     await open();
-    const strip = () =>
+    const rail = () =>
+      within(screen.getByRole("complementary", { name: "Các phần", hidden: true }));
+    const footer = () =>
       within(screen.getByRole("navigation", { name: "Danh sách câu", hidden: true }));
-    fireEvent.click(strip().getByRole("button", { name: "Câu 8" }));
-    fireEvent.click(strip().getByRole("button", { name: "Hoàn tất" }));
+    fireEvent.click(rail().getByRole("button", { name: "Câu 8" }));
+    fireEvent.click(footer().getByRole("button", { name: "Hoàn tất" }));
     await pass(0);
 
     expect(dialog()).toHaveAccessibleName(UNANSWERED);
     expect(
-      strip().getByRole("button", { name: "Hoàn tất", hidden: true }),
+      footer().getByRole("button", { name: "Hoàn tất", hidden: true }),
     ).toBeInTheDocument();
     expect(
-      strip().getByRole("button", { name: "Câu 8, đang xem", hidden: true }),
+      rail().getByRole("button", { name: "Câu 8, đang xem", hidden: true }),
     ).toBeInTheDocument();
     expect(
       header().getByRole("button", { name: "Thoát khỏi bài làm", hidden: true }),
@@ -707,7 +736,7 @@ describe("the Submit dialog on a phone", () => {
     await pass(0);
     noDialog();
 
-    fireEvent.click(screen.getByRole("button", { name: /^Danh sách câu: / }));
+    fireEvent.click(screen.getByRole("button", { name: /^Câu 1 · đã làm 3 trên 8$/ }));
     await pass(0);
     expect(dialog()).toHaveAccessibleName("Danh sách câu");
     expect(inDialog().queryByRole("button", { name: /nộp|hoàn tất/i })).toBeNull();

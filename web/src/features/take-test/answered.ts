@@ -28,3 +28,23 @@ export function answered(
       return answer.value.trim() !== "";
   }
 }
+
+/** Progress is how far a question is answered: not at all, partly, or fully. */
+export type Progress = "none" | "partly" | "full";
+
+/**
+ * progress says how far an answer goes, for the navigator's squares. Full is
+ * exactly `answered`. Partly is a fill-in with at least one blank typed and
+ * not all of them; every other answer is full or none.
+ */
+export function progress(
+  question: StudentQuestion,
+  answer: Answer | undefined,
+): Progress {
+  if (answered(question, answer)) return "full";
+  if (answer?.type !== "fill_blank") return "none";
+  const typed = (question.blanks ?? []).some(
+    (blank) => (answer.values[blank.id] ?? "").trim() !== "",
+  );
+  return typed ? "partly" : "none";
+}

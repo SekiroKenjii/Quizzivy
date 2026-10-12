@@ -177,3 +177,52 @@ test("a reload opens the question that was open", async ({ page }) => {
   await expect(third).toBeVisible();
   await expect(page.getByText("Chọn đáp án", { exact: true })).toBeHidden();
 });
+
+for (const [width, form] of [
+  [320, "short"],
+  [419, "short"],
+  [420, "long"],
+  [899, "long"],
+  [900, "rail"],
+  [1440, "rail"],
+] as const) {
+  const drawn =
+    form === "rail"
+      ? "the rail and the key hint"
+      : `the grid button, ${form} label on one line`;
+  test(`the navigator at ${width}px is ${drawn}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await start(page);
+    const footer = page.getByRole("navigation", { name: "Danh sách câu" });
+    const rail = page.getByRole("complementary", { name: "Các phần" });
+    const grid = footer.getByRole("button", { name: "Câu 1 · đã làm 0 trên 3" });
+    if (form === "rail") {
+      await expect(rail).toBeVisible();
+      await expect(grid).toHaveCount(0);
+      await expect(footer).toContainText("để chuyển câu · A–D để chọn đáp án");
+      const box = (await rail.boundingBox())!;
+      expect(box.width).toBe(236);
+      expect(box.x).toBe(0);
+      const square = (await rail
+        .getByRole("button", { name: "Câu 1, đang xem", exact: true })
+        .boundingBox())!;
+      expect(square.height).toBe(34);
+    } else {
+      await expect(rail).toHaveCount(0);
+      await expect(grid).toHaveText(
+        form === "short" ? "1 · 0/3" : "Câu 1 · đã làm 0 trên 3",
+      );
+      const label = grid.locator("span");
+      const [button, text] = await Promise.all([
+        grid.boundingBox(),
+        label.boundingBox(),
+      ]);
+      expect(button!.height).toBe(44);
+      expect(text!.height).toBeLessThan(24);
+      expect(await label.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(
+        true,
+      );
+    }
+    await engineFits(page);
+  });
+}

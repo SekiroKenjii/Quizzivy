@@ -15,6 +15,7 @@ const IGNORABLE = /[\p{Cc}\p{Cf}\p{Zs}\p{Zl}\p{Zp}]/u;
  */
 const ALLOWED: Record<string, string> = {
   "features/notifications/kinds.ts": "\uE000\uE001",
+  "features/take-test/components/Navigator.tsx": "←→",
 };
 
 function sources(dir: string): string[] {
