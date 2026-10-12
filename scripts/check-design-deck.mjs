@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 const deck = process.argv[2] ?? 'docs/design/deck';
 const manifestName = 'MANIFEST.sha256';
@@ -67,7 +67,7 @@ try {
     assert.equal(html.match(/<x-dc>/g)?.length, 1, `${page} must hold exactly one <x-dc> template`);
     assert.equal(html.match(/data-dc-script/g)?.length, 1, `${page} must hold exactly one data-dc-script block`);
     for (const target of localReferences(html)) {
-      assert.ok(existsSync(join(deck, target)), `${page} references ${target}, which is not in the deck`);
+      assert.ok(existsSync(join(deck, dirname(page), target)), `${page} references ${target}, which is not in the deck`);
     }
   }
 

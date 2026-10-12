@@ -304,6 +304,13 @@ files in `deck/` byte for byte:
   the word list's progress card; and the persona renames. The decisions it needs are DG-196 to
   DG-202 in `gaps.md`, with DG-01 answered and notes on DG-22, DG-36, DG-63, DG-71, DG-100 and
   DG-106.
+- 2026-10-12 — The approved page-width design (DG-205), from `origin/uiux/update-uiux-v2` at
+  `c1472f4c`, in its own folder `page-width-proposal/`: `Page Width Proposal.dc.html`, its
+  `support.js` and `github.md`, and the two brand marks it loads from
+  `page-width-proposal/web/public/brand/`. The other pages are unchanged. It draws one page frame
+  for eight Teacher screens at seven widths, the tokens behind it, the workspace pager and the
+  merged import workspace (not yet built). The check script changed with this import: a page's
+  references resolve from the page's own folder.
 
 ## The brand
 

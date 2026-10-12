@@ -1,15 +1,21 @@
 import type { TFunction } from "i18next";
 import type { DataColumn } from "@/components/shared/data/DataTable";
 import type { Assignment } from "@/features/assignments/api";
-import { AssignmentCell, AssignmentStatusPill, SubmittedBar } from "./AssignmentCells";
+import {
+  AssignmentCell,
+  AssignmentStatusPill,
+  SubmittedBar,
+  ToGradeCount,
+} from "./AssignmentCells";
 import { targetsOf, windowOf, type ListTab } from "./assignmentWindow";
 
 /**
- * assignmentColumns is the list as the deck draws it: Assignment (its title,
- * "Test v{n} · {q} questions" and what is left to grade), then Assigned to
- * from 860px of content width, the tab's window column from 700, Submitted
- * from 560 and Status from 760. While Assigned to or the window column is
- * hidden, the Assignment cell adds "classes · when" on a third line.
+ * assignmentColumns is the list as the approved page-width design draws it
+ * (DG-205), by the content width: Assignment (its title, "Test v{n} · {q}
+ * questions" and, while To grade is hidden, what is left to grade), Assigned
+ * to from 1240px, the tab's window column always, Submitted from 760, To
+ * grade from 900, and Status from 760. While Assigned to is hidden, the
+ * Assignment cell names the classes on a third line.
  */
 export function assignmentColumns(
   t: TFunction,
@@ -24,19 +30,16 @@ export function assignmentColumns(
       cell: (assignment, shown) => (
         <AssignmentCell
           assignment={assignment}
-          inline={
-            shown.has("targets") && shown.has("window")
-              ? null
-              : `${targetsOf(assignment, t)} · ${windowOf(assignment, tab, now, t)}`
-          }
+          toGrade={!shown.has("toGrade")}
+          inline={shown.has("targets") ? null : targetsOf(assignment, t)}
         />
       ),
     },
     {
       id: "targets",
       header: t("assignments.list.assignedTo"),
-      track: "minmax(130px,1.3fr)",
-      showFrom: 860,
+      track: "minmax(130px,1.2fr)",
+      showFrom: 1240,
       cell: (assignment) => (
         <span className="text-muted-fg block truncate text-[13px]">
           {targetsOf(assignment, t)}
@@ -47,7 +50,6 @@ export function assignmentColumns(
       id: "window",
       header: t(`assignments.list.window_${tab}`),
       track: "120px",
-      showFrom: 700,
       cell: (assignment) => (
         <span className="text-[13px]">{windowOf(assignment, tab, now, t)}</span>
       ),
@@ -55,9 +57,16 @@ export function assignmentColumns(
     {
       id: "submitted",
       header: t("assignments.list.submitted"),
-      track: "150px",
-      showFrom: 560,
+      track: "minmax(140px,1fr)",
+      showFrom: 760,
       cell: (assignment) => <SubmittedBar assignment={assignment} />,
+    },
+    {
+      id: "toGrade",
+      header: t("assignments.detail.pending"),
+      track: "80px",
+      showFrom: 900,
+      cell: (assignment) => <ToGradeCount assignment={assignment} />,
     },
     {
       id: "status",

@@ -19,21 +19,27 @@ type ImportRetention struct {
 // which exists wherever import storage does, and logs counts only: no titles,
 // filenames or object keys.
 func SweepImportFiles(ctx context.Context, logger *slog.Logger, sweep func(context.Context, time.Time) (worker.Swept, error), schedule ImportRetention) {
-	for {
+	runEvery(ctx, func() time.Duration {
 		run, cancel := context.WithTimeout(ctx, schedule.Budget)
 		swept, err := sweep(run, time.Now())
 		cancel()
-		next := schedule.Every
 		switch {
 		case err != nil:
-			next = schedule.Retry
 			logger.Warn("import retention sweep failed", "code", "IMPORT_RETENTION_FAILED", "closed", swept.Closed, "removed", swept.Removed, "failed", swept.Failed)
+			return schedule.Retry
 		case swept.Failed > 0:
 			logger.Warn("import retention left files in place", "code", "IMPORT_RETENTION_INCOMPLETE", "closed", swept.Closed, "removed", swept.Removed, "failed", swept.Failed)
+			return schedule.Every
 		default:
 			logger.Info("import retention swept", "closed", swept.Closed, "removed", swept.Removed)
+			return schedule.Every
 		}
-		timer := time.NewTimer(next)
+	})
+}
+
+func runEvery(ctx context.Context, once func() time.Duration) {
+	for {
+		timer := time.NewTimer(once())
 		select {
 		case <-ctx.Done():
 			timer.Stop()

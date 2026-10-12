@@ -46,7 +46,7 @@ export function GroupRecoveryGate({
   if (!loaded) return <ListSkeleton rows={5} />;
   if (loaded.recovery && !chosen)
     return (
-      <div className="mx-auto flex max-w-2xl flex-col gap-4 py-8">
+      <div className="flex max-w-2xl flex-col gap-4 py-8">
         <h2 className="text-lg font-semibold">{stored.bundle.group.title}</h2>
         <Alert>
           <AlertTitle>{t("groups.recoveryTitle")}</AlertTitle>

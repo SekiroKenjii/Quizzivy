@@ -85,10 +85,12 @@ type ReplacementCounts struct {
 }
 
 // ReplaceResult is a committed replacement and its actual reference counts.
+// Previous is the old file, which has left the library.
 type ReplaceResult struct {
 	Asset     Asset
 	Repointed ReplacementCounts
 	Left      ReplacementCounts
+	Previous  Retired
 }
 
 // ReplaceInput replaces one library asset through an exclusively owned pool transaction.

@@ -260,8 +260,8 @@ function Wizard({
         }
       />
       <WizardStepper steps={steps} current={step} onOpen={open} />
-      <div className="flex flex-wrap items-start gap-3.5">
-        <section className="bg-card shadow-card border-border min-w-0 flex-[3_1_460px] rounded-xl border">
+      <div className="@container/wizard flex flex-wrap items-start gap-3.5">
+        <section className="bg-card shadow-card border-border min-w-0 flex-[1_1_480px] rounded-xl border">
           <div className="p-4.5">
             {step === 0 && (
               <TestStep

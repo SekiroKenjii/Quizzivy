@@ -36,7 +36,7 @@ func TestReplacementPublicPublishWaitKeepsV1AndNextPublishUsesV2(t *testing.T) {
 	tx := w.blocker(t)
 	pid := tx.Conn().PgConn().PID()
 	replacementExec(t, tx, `SELECT id FROM app.question_groups WHERE id=$1 FOR SHARE`, group)
-	in := w.input(old, w.a, domain.KindAudio, 30, 30)
+	in := w.input(old, w.a, domain.KindAudio, 30, 50)
 	answer := w.startReplacement(in)
 	w.blocked(t, tr, "ORDER BY g.id FOR UPDATE OF g", pid)
 	qrepo := questionsrepo.NewPostgres(db.NewContext(w.pool))

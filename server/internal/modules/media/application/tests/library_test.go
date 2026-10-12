@@ -244,16 +244,27 @@ func TestAReplacedFileLeavesTheLibraryAndKeepsServing(t *testing.T) {
 	if total := w.totalBytes(t, w.scopeA, nil); total != newer.Bytes+700 {
 		t.Errorf("the library totals %d bytes, want %d", total, newer.Bytes+700)
 	}
-	held := newer.Bytes + 700
-	for name, c := range map[string]struct {
-		add     int64
-		refused bool
-	}{"room for the rest": {100, false}, "one byte past": {101, true}} {
-		err := repositories.RequireQuota(ctx, w.tx, repositories.QuotaCheck{OwnerID: w.a, Add: c.add, Quota: held + 100})
-		if c.refused != errors.Is(err, domain.ErrQuotaExceeded) || (!c.refused && err != nil) {
-			t.Errorf("%s: %v, want refused %v: the quota counts the replaced file", name, err, c.refused)
+	if usage := w.usage(t, w.scopeA); usage.HeldBytes != old.Bytes || usage.PendingBytes != 0 || usage.PendingDeleteAt != nil {
+		t.Errorf("the usage holds %d bytes and has %d pending for %v, want the replaced file held while its question names it", usage.HeldBytes, usage.PendingBytes, usage.PendingDeleteAt)
+	}
+	quotaRoom := func(counted int64) {
+		t.Helper()
+		for name, c := range map[string]struct {
+			add     int64
+			refused bool
+		}{"room for the rest": {100, false}, "one byte past": {101, true}} {
+			err := repositories.RequireQuota(ctx, w.tx, repositories.QuotaCheck{OwnerID: w.a, Add: c.add, Quota: counted + 100})
+			if c.refused != errors.Is(err, domain.ErrQuotaExceeded) || (!c.refused && err != nil) {
+				t.Errorf("%s: %v, want refused %v", name, err, c.refused)
+			}
 		}
 	}
+	quotaRoom(newer.Bytes + 700 + old.Bytes)
+	w.exec(t, `UPDATE app.questions SET deleted_at = now() WHERE media_asset_id = $1`, old.ID)
+	if usage := w.usage(t, w.scopeA); usage.HeldBytes != 0 || usage.PendingBytes != old.Bytes || usage.PendingDeleteAt == nil {
+		t.Errorf("the usage holds %d bytes and has %d pending for %v, want the replaced file pending once nothing names it", usage.HeldBytes, usage.PendingBytes, usage.PendingDeleteAt)
+	}
+	quotaRoom(newer.Bytes + 700)
 
 	if got, err := w.svc.Queries.Get.Handle(ctx, query.Get{ID: old.ID}); err != nil || got.ID != old.ID {
 		t.Errorf("the replaced file no longer answers Get: %v", err)
@@ -661,10 +672,22 @@ func TestTheQuotaCheckAndTheInsertRunInTheCallersTransaction(t *testing.T) {
 	}{
 		"filling the library exactly":             {repositories.QuotaCheck{OwnerID: owner, Add: 400, Quota: 1000}, false},
 		"one byte past":                           {repositories.QuotaCheck{OwnerID: owner, Add: 401, Quota: 1000}, true},
-		"the old file left out":                   {repositories.QuotaCheck{OwnerID: owner, Add: 1000, Quota: 1000, LeaveOut: old.ID}, false},
-		"the old file left out, one byte past":    {repositories.QuotaCheck{OwnerID: owner, Add: 1001, Quota: 1000, LeaveOut: old.ID}, true},
-		"a file that is not there left out":       {repositories.QuotaCheck{OwnerID: owner, Add: 401, Quota: 1000, LeaveOut: uuid.NewString()}, true},
 		"the uploader's own library, still empty": {repositories.QuotaCheck{OwnerID: uploader, Add: 1000, Quota: 1000}, false},
+	} {
+		err := repositories.RequireQuota(ctx, tx, c.check)
+		if c.refused != errors.Is(err, domain.ErrQuotaExceeded) || (!c.refused && err != nil) {
+			t.Errorf("%s: %v, want refused %v", name, err, c.refused)
+		}
+	}
+	if _, err := tx.Exec(ctx, `UPDATE app.media_assets SET deleted_at = now() WHERE id = $1`, old.ID); err != nil {
+		t.Fatal(err)
+	}
+	for name, c := range map[string]struct {
+		check   repositories.QuotaCheck
+		refused bool
+	}{
+		"a deleted file nothing names is not counted":                {repositories.QuotaCheck{OwnerID: owner, Add: 1000, Quota: 1000}, false},
+		"a deleted file nothing names is not counted, one byte past": {repositories.QuotaCheck{OwnerID: owner, Add: 1001, Quota: 1000}, true},
 	} {
 		err := repositories.RequireQuota(ctx, tx, c.check)
 		if c.refused != errors.Is(err, domain.ErrQuotaExceeded) || (!c.refused && err != nil) {

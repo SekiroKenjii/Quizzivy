@@ -119,6 +119,83 @@ for (const theme of ["light", "dark"] as const) {
   }
 }
 
+const TEST_ONE = "018f0000-0000-7000-8000-0000000003d1";
+const TEST_TWO = "018f0000-0000-7000-8000-0000000003d2";
+const HELD_ITEM = asset(3, {
+  displayName: "Cambridge 15 · Test 3 · Part 2 · bản ghi âm gốc của giáo viên.mp3",
+  usageCount: 3,
+  usedIn: [
+    { id: TEST_ONE, title: "Đề nghe 7", version: 1 },
+    { id: TEST_ONE, title: "Đề nghe 7", version: 2 },
+    { id: TEST_TWO, title: "Đề nghe 8", version: 1 },
+  ],
+});
+
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [360, 768, 1024, 1280, 1440]) {
+    test(`the Replace dialog and the Storage card at ${width}px in ${theme} say what is kept and fit`, async ({
+      page,
+    }) => {
+      await prepare(page, theme, width, {
+        "GET /teacher/media": async (route) => {
+          await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify({
+              items: [HELD_ITEM, ...ITEMS],
+              page: 1,
+              pageSize: 24,
+              total: 4,
+              totalBytes: 4 * 159_711,
+              facets: { all: 4, audio: 3, image: 1, unused: 1 },
+              usage: {
+                audioBytes: Math.round(1.05 * GIB),
+                imageBytes: Math.round(0.2 * GIB),
+                quotaBytes: 5 * GIB,
+                heldBytes: 30 * MB,
+                pendingBytes: 12 * MB,
+                pendingDeleteAt: "2026-10-19T03:00:00Z",
+              },
+            }),
+          });
+        },
+      });
+      await page.goto("/teacher/media");
+
+      await expect(page.getByText("Giữ lại cho đề đã xuất bản · 30 MB")).toBeVisible();
+      await expect(
+        page.getByText("Chờ xoá hẳn · 12 MB · từ ngày 19/10/2026"),
+      ).toBeVisible();
+
+      await page
+        .getByRole("button", { name: `Thao tác với tệp ${HELD_ITEM.displayName}` })
+        .click();
+      await page.getByRole("menuitem", { name: "Thay tệp" }).click();
+      const dialog = page.getByRole("dialog", { name: "Thay tệp" });
+      await expect(
+        dialog.getByText(/^2 đề đã xuất bản vẫn dùng tệp này/),
+      ).toBeVisible();
+      const download = dialog.getByRole("link", {
+        name: `Tải xuống ${HELD_ITEM.displayName}`,
+      });
+      await expect(download).toBeVisible();
+      await expect(download).toHaveAttribute("href", SOURCE);
+
+      const box = await dialog.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      expect(
+        await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth),
+      ).toBe(true);
+      await expect
+        .poll(() =>
+          page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        )
+        .toBe(true);
+    });
+  }
+}
+
 test("a card's play button starts the recording in a real browser, one card at a time", async ({
   page,
 }) => {

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { useTranslation } from "react-i18next";
 import type { GradingQueue, GradingQueueItem } from "../../api";
@@ -37,12 +38,17 @@ export function GradingQueueAside({
         },
       );
   }
+  const activeKey = selected ? gradingGroupKey(selected, mode) : null;
+  const activeRow = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (activeKey !== null) activeRow.current?.scrollIntoView({ block: "nearest" });
+  }, [activeKey]);
   return (
-    <aside className="bg-card shadow-card w-full min-w-0 overflow-hidden rounded-xl border min-[768px]:max-w-75 min-[768px]:flex-[1_1_260px]">
+    <aside className="bg-card shadow-card w-full min-w-0 overflow-hidden rounded-xl border min-[768px]:flex min-[768px]:max-w-75 min-[768px]:flex-[1_1_260px] min-[768px]:flex-col">
       <h2 className="text-muted-foreground border-b px-3.5 py-3 text-[12.5px] leading-[1.5] font-medium">
         {t(mode === "student" ? "grading.studentsWaiting" : "grading.questionsWaiting")}
       </h2>
-      <div className="max-h-45 overflow-y-auto min-[768px]:max-h-140">
+      <div className="max-h-45 overflow-y-auto min-[768px]:max-h-140 min-[768px]:min-h-0 min-[768px]:flex-[1_1_auto]">
         {[...groups.values()].map((group) => {
           const item =
             items.find(
@@ -52,7 +58,7 @@ export function GradingQueueAside({
                   (pending) => gradingItemKey(pending) === gradingItemKey(row),
                 ),
             ) ?? items.find((row) => gradingGroupKey(row, mode) === group.key);
-          const active = selected && gradingGroupKey(selected, mode) === group.key;
+          const active = activeKey === group.key;
           const label =
             mode === "student"
               ? group.label
@@ -60,6 +66,7 @@ export function GradingQueueAside({
           return (
             <button
               key={group.key}
+              ref={active ? activeRow : undefined}
               type="button"
               disabled={busy || !item}
               onClick={() => {

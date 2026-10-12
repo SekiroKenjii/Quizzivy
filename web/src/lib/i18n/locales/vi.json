@@ -747,9 +747,15 @@
     "expired": "Đường dẫn nghe thử đã hết hạn. Tải lại để nghe.",
     "playBlocked": "Trình duyệt chưa phát được âm thanh. Hãy bấm phát lại; nếu vẫn không nghe được, hãy kiểm tra quyền phát âm thanh của trang này.",
     "deleted": "Đã xoá tệp",
+    "deleteGone": "Tệp bị xoá hẳn 7 ngày sau khi bạn xoá và không khôi phục được. Hãy tải về ngay nếu bạn muốn giữ một bản sao.",
+    "deletedOn": "Tệp bị xoá hẳn vào ngày {{date}}.",
+    "deletedHeld": "Tệp được giữ lại cho đến khi không còn gì dùng nó.",
     "description": "Âm thanh và hình ảnh dùng trong câu hỏi.",
     "storage": "Dung lượng",
     "storageUsage": "{{used}} trên {{quota}} · âm thanh {{audio}} · hình ảnh {{image}}",
+    "storageHeld": "Giữ lại cho đề đã xuất bản · {{size}}",
+    "storagePending": "Chờ xoá hẳn · {{size}} · từ ngày {{date}}",
+    "storagePendingNoDate": "Chờ xoá hẳn · {{size}}",
     "filter": "Lọc tệp",
     "tabAll": "Tất cả",
     "tabAudio": "Âm thanh",
@@ -768,6 +774,7 @@
     "rename": "Đổi tên",
     "replace": "Thay tệp",
     "download": "Tải xuống",
+    "downloadNamed": "Tải xuống {{name}}",
     "renameTitle": "Đổi tên tệp",
     "name": "Tên",
     "renameFailed": "Không đổi được tên tệp.",
@@ -775,6 +782,18 @@
     "replaceDescription": "Câu hỏi trong ngân hàng và bản nháp sẽ dùng tệp mới. Các phiên bản đã xuất bản vẫn giữ tệp cũ.",
     "replaceSubmit": "Thay tệp",
     "replaced": "Đã thay tệp",
+    "replaceKept_one": "{{count}} đề đã xuất bản vẫn dùng tệp này. Tệp được giữ lại cho đề đó và bị xoá hẳn 7 ngày sau khi không còn đề nào dùng. Hãy tải về ngay nếu bạn muốn giữ một bản sao.",
+    "replaceKept_other": "{{count}} đề đã xuất bản vẫn dùng tệp này. Tệp được giữ lại cho các đề đó và bị xoá hẳn 7 ngày sau khi không còn đề nào dùng. Hãy tải về ngay nếu bạn muốn giữ một bản sao.",
+    "replaceGone": "Chưa có đề đã xuất bản nào dùng tệp này, nên tệp cũ bị xoá hẳn 7 ngày sau khi thay và không khôi phục được. Hãy tải về ngay nếu bạn muốn giữ một bản sao.",
+    "replaceQuotaFull": "Không đủ dung lượng để thay tệp. Tệp cũ vẫn được giữ lại cho đề đã xuất bản và vẫn tính vào dung lượng, nên thư viện cần đủ chỗ cho cả hai tệp. Hãy xoá bớt tệp khác rồi thử lại.",
+    "replaceRateLimitedSeconds_one": "Bạn đang thay tệp quá nhanh. Hãy thử lại sau {{count}} giây.",
+    "replaceRateLimitedSeconds_other": "Bạn đang thay tệp quá nhanh. Hãy thử lại sau {{count}} giây.",
+    "replaceRateLimitedMinutes_one": "Bạn đang thay tệp quá nhanh. Hãy thử lại sau {{count}} phút.",
+    "replaceRateLimitedMinutes_other": "Bạn đang thay tệp quá nhanh. Hãy thử lại sau {{count}} phút.",
+    "replacedOn": "Tệp cũ bị xoá hẳn vào ngày {{date}}.",
+    "replacedKept_one": "Tệp cũ được giữ lại cho {{count}} đề đã xuất bản.",
+    "replacedKept_other": "Tệp cũ được giữ lại cho {{count}} đề đã xuất bản.",
+    "replacedHeld": "Tệp cũ được giữ lại cho đến khi không còn gì dùng nó.",
     "uploadTitle": "Tải lên media",
     "uploadDescription": "Tệp có thể dùng trong mọi câu hỏi.",
     "type": "Loại",
@@ -3067,7 +3086,8 @@
       "state": {
         "done": "đã xong",
         "current": "đang thực hiện",
-        "waiting": "chưa bắt đầu"
+        "waiting": "chưa bắt đầu",
+        "failed": "đã dừng"
       },
       "current": "Đang ở bước: {{stage}}",
       "waitingToStart": "Đang chờ đến lượt",
@@ -3592,7 +3612,9 @@
       "pastedText": "Văn bản đã dán",
       "fileNamed": "{{name}} ({{title}})",
       "characters_one": "{{n}} ký tự",
-      "characters_other": "{{n}} ký tự"
+      "characters_other": "{{n}} ký tự",
+      "formatWord": "Word",
+      "formatPdf": "PDF"
     },
     "textFailureTitle": {
       "SOURCE_INVALID": "Không đọc được một nguồn nhập đề",
@@ -3670,6 +3692,26 @@
       "pointsNone": "Chưa có câu nào",
       "cancelled": "Lần nhập này đã bị huỷ nên không thể tạo bản nháp từ đó.",
       "failed": "Lần nhập này xử lý không thành công nên không thể tạo bản nháp từ đó."
+    },
+    "workspace": {
+      "steps": "Các bước sẽ chạy",
+      "progress": "Tiến trình",
+      "readAs": "Đã đọc được",
+      "questionLabel": "Câu {{label}}",
+      "noAnswer": "Chưa có đáp án",
+      "repeated": "Số này xuất hiện hai lần trong cùng một phần",
+      "needsCheck": "Cần kiểm tra",
+      "needsCheckList": "Mục cần kiểm tra",
+      "pasteLead_one": "{{questions}} câu được nhận diện · {{check}} cần kiểm tra",
+      "pasteLead_other": "{{questions}} câu được nhận diện · {{check}} cần kiểm tra",
+      "pasteHint": "Cập nhật khi bạn gõ. Sửa định dạng trong ô dán trước khi bắt đầu.",
+      "pasteEmpty": "Dán nội dung đề để xem những gì được nhận diện.",
+      "fileState": {
+        "waiting": "Đang chờ",
+        "reading": "Đang đọc",
+        "read": "Đã đọc",
+        "failed": "Lỗi"
+      }
     }
   },
   "controls": {

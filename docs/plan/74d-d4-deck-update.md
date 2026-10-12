@@ -1779,8 +1779,10 @@ counted (`GradingQueueItem.audio` and `StoredQuestionInput.audio`), both authori
 carry the optional field and the server sends it. The domain `questions.AudioPolicy` gains
 `AllowPause *bool` (nil is a writer that did not say) and `PauseAllowed()`; every reader selects
 `coalesce(…, true)` and fills it, so the value a repository returns is never nil. Migrations are
-00107 to 00110, in the plan's order (00106 was the highest on `develop` and on `work/deck-d4`, and
-no open pull request added one); their Down was run with goose up, down-to 106 and up. Keep-on-absent
+00107 to 00110 in the plan's order (00106 was the highest on `develop` and on `work/deck-d4`, and
+no open pull request added one); their Down was run with goose up, down-to 106 and up. F-68
+then took 00111 to 00113 on `develop`, so the develop sync of 2026-10-12 renumbered the four files
+to **00114 to 00117**, in order, and re-ran goose up, down and up on the whole set. Keep-on-absent
 is one statement for a question and for a group's member (`CASE WHEN <audio present> THEN
 coalesce($new, audio_allow_pause, true) END`), and for a recording the group update reads the
 stored `allow_pause` by id before it clears the group's recordings and rewrites them. An audio

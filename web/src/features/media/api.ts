@@ -10,8 +10,11 @@ export type LibraryAsset = components["schemas"]["LibraryAsset"];
 /** MediaReplacement is what replaceMedia answers: the new file and the rows it reached. */
 export type MediaReplacement = components["schemas"]["MediaReplacement"];
 
-/** MediaUsage is the bytes a library holds, by kind, beside the owner's quota. */
+/** MediaUsage is the bytes a library holds, by kind, beside the owner's quota, the replaced or deleted files still counted, and the ones waiting for removal. */
 export type MediaUsage = components["schemas"]["MediaUsage"];
+
+/** MediaRetirement is what became of a file that left the library: who still holds it and when its object goes. */
+export type MediaRetirement = components["schemas"]["MediaRetirement"];
 
 /** MediaUpdate is the body of updateMedia: a new name, a new default play limit, or both. */
 export type MediaUpdate = components["schemas"]["MediaUpdate"];
@@ -36,7 +39,10 @@ export function listMedia(params: ListMediaParams = {}, signal?: AbortSignal) {
   return api("get", "/teacher/media", signal ? { query, signal } : { query });
 }
 
-/** deleteMedia removes a file from the library; a file in use is refused with 409. */
+/**
+ * deleteMedia removes a file from the library; a file a published version uses
+ * is refused with 409. The answer says when the file's object goes.
+ */
 export function deleteMedia(id: string) {
   return api("delete", "/teacher/media/{id}", { path: { id } });
 }

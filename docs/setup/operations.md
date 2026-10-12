@@ -188,6 +188,72 @@ explicit request. The approved policy retains audit entries unchanged. Restrict
 access to backups and record how a restore will reapply later anonymizations
 before allowing the restored system to serve users.
 
+## Media files that left a library
+
+A media file leaves a teacher's library when it is replaced or deleted, but its object stays
+in storage until seven days after nothing names it: no question, group, material or published
+test version, of any owner. Then the API removes the object for good and marks the row
+(`media_assets.purged_at`). Nothing restores it, and the teacher is told only by the answer
+to the replace or the delete and by the figures on the media page (F-68, the owner's decision
+of 2026-10-12; `docs/plan/20-data-model.md` §45).
+
+The API runs the sweep (`jobs.SweepRetiredMedia`) on every machine, only where media storage is
+configured, at start-up and then every hour. A row is taken under a lock the other machines
+skip, so a second machine removes nothing twice. It logs one line a run, with counts and no
+title or filename:
+
+| Log line | Level | Meaning |
+|---|---|---|
+| `media retention swept` | INFO | `unreferenced` files dated, `cancelled` waits cleared, `removed` objects deleted |
+| `media retention left files in place` (`MEDIA_RETENTION_INCOMPLETE`) | WARN | `failed` files stayed for the next run, ten minutes later; `err` is the first cause, an object key at most |
+| `media retention sweep failed` (`MEDIA_RETENTION_FAILED`) | WARN | the run could not read or list the files; it retries in ten minutes |
+| `media object removed but its row was not marked` (`MEDIA_RETENTION_UNMARKED`) | ERROR | the object of `asset_id` is gone and the database refused the mark, for the ten seconds the finish is given after the delete. The next run marks the row, because deleting a missing object succeeds. If the line repeats for one id, writes to `app.media_assets` are failing |
+
+A run that keeps failing means storage is unreachable or refuses the delete: nothing is lost,
+the objects stay and the rows are retried. Each removal writes an audit row `media.purged`, with
+no actor. After the first start of the release that added the sweep, a file that left a library
+earlier is dated by that run and its object goes seven days later; the first removals are
+therefore seven days after the deploy. A file stays while a question, a group or a version names it,
+and naming it again before its day clears the wait.
+
+**The switch.** `MEDIA_RETENTION_SWEEP` is `on` (the default) or `off`, nothing else, and is read
+when the API starts. Off means that machine never runs the sweep and logs `media retention sweep is
+off` at WARN once; quota counting and the dating that replace and delete do go on, so files pile up
+as pending and the usage figures still say so. Use it in an incident, to stop removals while
+something is investigated, and turn it back on afterwards:
+
+```sh
+fly secrets set MEDIA_RETENTION_SWEEP=off -a quizzivy-api     # restarts the machines
+fly secrets unset MEDIA_RETENTION_SWEEP -a quizzivy-api       # back to on
+```
+
+Keep it out of `fly.toml`, so that a secret is the only place it is set. A value other than `on`
+or `off` stops the API at start-up, naming the setting.
+
+### Rolling back past the sweep
+
+The sweep removes objects for good, and the migrations 00111 to 00113 stay on a database whose
+API goes back. If the API must go back to v0.10.0, the release before F-68, after the first
+removal:
+
+- v0.10.0 does not know `purged_at`. It still treats a purged file as a replaced or deleted one,
+  so it signs a URL to an object that is gone wherever it signs one for that row, and a bind of
+  that file (a stale media picker, an import review that names a replaced file) passes its checks
+  and reaches the database, where the trigger of 00113 refuses it. v0.10.0 does not map that
+  refusal, so the teacher gets a 500.
+- Nothing is removed further, because v0.10.0 has no sweep; and nothing restores what was removed.
+- Before rolling back, turn the switch off and count the damage:
+  `SELECT count(*) FROM app.media_assets WHERE purged_at IS NOT NULL`. A teacher whose import review
+  names a purged file re-attaches it from the library; a file a version holds is never purged.
+- Run no Down migration: v0.10.0 starts on this schema, and Down would drop the trigger that
+  keeps a writer from naming a removed file.
+
+Roll forward when you can.
+
+Never delete an object by hand to free space: a file the library still lists, or that a version
+holds, would answer 404 to the students who sit that test. The usage on the media page
+(`heldBytes`, `pendingBytes`) says what is counted and what waits.
+
 ## Maintenance windows
 
 A maintenance window is a period during which the API answers every request to a

@@ -124,7 +124,9 @@ test("a real paste event fills the box, and Ctrl+Enter starts the import", async
   await box.focus();
   await page.keyboard.press("ControlOrMeta+V");
   await expect(box).toHaveValue(TEXT);
-  await expect(page.getByText("Đã tìm thấy")).toBeVisible();
+  await expect(
+    page.getByText(/^2 câu được nhận diện · \d+ cần kiểm tra$/),
+  ).toBeVisible();
   await expect(page.getByLabel("Tên đề")).toHaveValue("Unit 5 Quick Check");
   await expect(page.getByText(/^Tìm thấy 2 câu hỏi\./)).toBeVisible();
   await box.press("ControlOrMeta+Enter");

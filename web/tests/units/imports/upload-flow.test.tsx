@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import NewImportPage from "@/features/imports/pages/teacher/NewImportPage";
+import ImportWorkspacePage from "@/features/imports/pages/teacher/ImportWorkspacePage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import {
@@ -118,7 +118,7 @@ function renderPage(entry = "/teacher/imports/new") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/teacher/imports/new", element: <NewImportPage /> },
+      { path: "/teacher/imports/new", element: <ImportWorkspacePage /> },
       { path: "/teacher/imports/:id", element: <p>detail page</p> },
     ],
     { initialEntries: [entry] },
@@ -299,7 +299,7 @@ describe("starting a Word import", () => {
     const user = userEvent.setup({ applyAccept: false });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createMemoryRouter(
-      [{ path: "/teacher/imports/new", element: <NewImportPage /> }],
+      [{ path: "/teacher/imports/new", element: <ImportWorkspacePage /> }],
       { initialEntries: ["/teacher/imports/new"] },
     );
     render(
@@ -334,7 +334,7 @@ describe("starting a Word import", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createMemoryRouter(
       [
-        { path: "/teacher/imports/new", element: <NewImportPage /> },
+        { path: "/teacher/imports/new", element: <ImportWorkspacePage /> },
         { path: "/teacher/imports/:id", element: <p>detail page</p> },
         { path: "/teacher/tests", element: <p>tests page</p> },
       ],
@@ -384,7 +384,7 @@ describe("starting a Word import", () => {
       ),
     );
     renderPage();
-    const files = screen.getByRole("region", { name: "Tệp" });
+    const files = screen.getByRole("region", { name: "Nguồn" });
     expect(
       await within(files).findByText("DOCX, DOC hoặc PDF · tối đa 25 MB mỗi tệp"),
     ).toBeInTheDocument();
@@ -395,7 +395,7 @@ describe("starting a Word import", () => {
     ).toBeInTheDocument();
   });
 
-  it("draws the deck's head, Files card and title card in file mode", async () => {
+  it("draws the workspace's head, its Sources pane and what will run in file mode (DG-207)", async () => {
     renderPage();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
       "Nhập đề từ Word/PDF",
@@ -403,23 +403,49 @@ describe("starting a Word import", () => {
     expect(
       screen.getByText(/^Tải lên đề thi Word hoặc PDF và, nếu có, tệp đáp án riêng\./),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Về mục Nhập đề" })).toBeNull();
-    const files = screen.getByRole("region", { name: "Tệp" });
+    expect(screen.getByRole("link", { name: "Lịch sử nhập" })).toHaveAttribute(
+      "href",
+      "/teacher/imports",
+    );
+    expect(screen.getByRole("button", { name: "Tải tệp lên" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const files = screen.getByRole("region", { name: "Nguồn" });
     expect(
       await within(files).findByText("DOCX hoặc PDF · tối đa 25 MB mỗi tệp"),
     ).toBeInTheDocument();
     expect(within(files).getAllByText("Bắt buộc")).toHaveLength(1);
     for (const drop of within(files).getAllByText("Kéo tệp vào đây hoặc chọn tệp"))
       expect(drop).toHaveClass("text-ui", "leading-normal");
-    expect(screen.getByText(/^Hệ thống tự nhận diện phần, nhóm câu/)).toHaveClass(
-      "text-pretty",
-    );
     expect(within(files).getAllByText("Kéo tệp vào đây hoặc chọn tệp")).toHaveLength(2);
     expect(
-      screen.getByText(/^Hệ thống tự nhận diện phần, nhóm câu/),
+      within(files).getByText("Nội dung của bạn được xử lý ở đâu."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Tự động nhận diện")).toBeInTheDocument();
+    const steps = screen.getByRole("region", { name: "Các bước sẽ chạy" });
+    expect(
+      within(steps)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "1Kiểm tra tệpchưa bắt đầu",
+      "2Đọc nội dungchưa bắt đầu",
+      "3Nhận diện cấu trúcchưa bắt đầu",
+      "4Đối chiếu đáp ánchưa bắt đầu",
+      "5Kiểm tra đềchưa bắt đầu",
+    ]);
+    expect(within(steps).getByLabelText("Tên đề")).toBeInTheDocument();
+    expect(
+      within(steps).getByText(/^Hệ thống tự nhận diện phần, nhóm câu/),
+    ).toHaveClass("text-pretty");
+    expect(within(steps).getByText("Tự động nhận diện")).toBeInTheDocument();
+    expect(within(steps).getByRole("button", { name: "Bắt đầu xử lý" })).toBeDisabled();
+    expect(within(steps).getByRole("link", { name: "Huỷ" })).toHaveAttribute(
+      "href",
+      "/teacher/imports",
+    );
   });
+
   it("reads paste mode from the URL and shows the text box in place of the files", async () => {
     const user = renderPage("/teacher/imports/new?source=paste&keep=1");
     expect(screen.getByRole("button", { name: "Dán văn bản" })).toHaveAttribute(
@@ -427,7 +453,10 @@ describe("starting a Word import", () => {
       "true",
     );
     expect(screen.getByRole("textbox", { name: "Nội dung đề" })).toBeVisible();
-    expect(screen.getByRole("region", { name: "Tệp", hidden: true })).not.toBeVisible();
+    expect(
+      screen.getByRole("group", { name: "Tải tệp đề thi", hidden: true }),
+    ).not.toBeVisible();
+    expect(screen.getByRole("region", { name: "Đã đọc được" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Bắt đầu xử lý" })).toBeDisabled();
     expect(screen.getByText("Cách đọc nội dung")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Tải tệp lên" }));
@@ -462,5 +491,8 @@ describe("starting a Word import", () => {
       calls.map((call) => (call.kind === "upload" ? call.role : call.kind)),
     ).toEqual(["create", "exam", "answer_key", "process"]);
     expect(calls[0]).toMatchObject({ title: "Đề đã sửa" });
+    expect(user.router.state.historyAction, "the draft's address is replaced").toBe(
+      "REPLACE",
+    );
   });
 });

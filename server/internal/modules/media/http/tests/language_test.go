@@ -57,8 +57,8 @@ func refusedIn(t *testing.T, acceptLanguage string, serve refusing) refused {
 
 func deleting(failure error) refusing {
 	transport := mediahttp.NewMedia(&application.Application{Commands: application.Commands{
-		Delete: cqrs.HandlerFunc[command.Delete, cqrs.Nothing](func(context.Context, command.Delete) (cqrs.Nothing, error) {
-			return cqrs.Nothing{}, failure
+		Delete: cqrs.HandlerFunc[command.Delete, domain.Retired](func(context.Context, command.Delete) (domain.Retired, error) {
+			return domain.Retired{}, failure
 		}),
 	}})
 	return func(ctx context.Context, w http.ResponseWriter) error {

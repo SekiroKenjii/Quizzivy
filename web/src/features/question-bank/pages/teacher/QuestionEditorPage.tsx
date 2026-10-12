@@ -43,8 +43,7 @@ import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
 
 const BANK = "/teacher/question-bank";
-const FRAME =
-  "@container/qe mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4.5";
+const FRAME = "@container/qe flex w-full min-w-0 flex-col gap-4.5";
 const CARD =
   "bg-card shadow-card flex min-w-0 flex-col gap-4.5 rounded-xl border p-4.5";
 const GROUP_LABEL =
@@ -72,7 +71,7 @@ export default function QuestionEditorPage() {
       (existing.error.status === 404 || existing.error.status === 400)
     )
       return (
-        <DeckScale className="mx-auto w-full max-w-[720px] min-w-0">
+        <DeckScale className="w-full min-w-0">
           <EmptyState
             action={
               <Button asChild size="sm" variant="outline">
@@ -85,7 +84,7 @@ export default function QuestionEditorPage() {
         </DeckScale>
       );
     return (
-      <DeckScale className="mx-auto w-full max-w-[720px] min-w-0">
+      <DeckScale className="w-full min-w-0">
         <LoadError error={existing.error} onRetry={() => void existing.refetch()}>
           {t("questionEditor.loadFailed")}
         </LoadError>
