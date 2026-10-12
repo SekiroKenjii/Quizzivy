@@ -488,7 +488,13 @@ it("adds a wrapping equal-width form row without changing the default", () => {
   );
   expect(screen.getByRole("group")).toHaveClass("flex-wrap", "w-full");
   for (const button of screen.getAllByRole("button"))
-    expect(button).toHaveClass("flex-1", "h-7.5", "text-meta", "px-2.5");
+    expect(button).toHaveClass(
+      "flex-1",
+      "justify-center",
+      "h-7.5",
+      "text-meta",
+      "px-2.5",
+    );
 });
 
 it("disables an option, says why, and leaves the others as they were", async () => {
