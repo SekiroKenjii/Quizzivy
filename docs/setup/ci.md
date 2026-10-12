@@ -158,6 +158,13 @@ two packages, and one of them occupies the slot on purpose, so run together
 they would pass or fail by timing. In the integration tier these tests skip,
 because `TEST_WORD_CONVERTER_IMAGE` is not set there.
 
+`APP_DATABASE_URL`, the DSN of `quizzivy_app`, is set on the Server tests job
+for `TestProfileAndPreferencesPersistWithTheActualAppRoleAndCheckedRollback`,
+which proves profile writes through the role the API connects as and skips
+without it. The step **App-role profile test ran** runs it once with `-v` and
+fails unless it passed, so removing the variable cannot turn it back into a
+silent skip. `make test-api-integration` sets it from `APP_DSN`.
+
 A test that needs the object store or the image skips when its variable is
 unset, and `go test` reports a package whose tests all skipped as `ok`. The
 image id is the one such value that comes from another step, and an expression
