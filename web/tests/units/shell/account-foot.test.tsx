@@ -93,6 +93,20 @@ describe("the account row at the foot of the teacher sidebar", () => {
     expect(within(row).queryByText("Quản trị viên")).toBeNull();
   });
 
+  it("shows the teacher's profile photo in the row and in the menu", async () => {
+    const photo = "https://media.example.com/avatars/binh.png";
+    const user = foot("expanded", { ...teacherUser, avatarUrl: photo });
+    const row = account();
+    expect(row.querySelector("[data-slot='avatar'] img")).toHaveAttribute("src", photo);
+    await user.click(row);
+    expect(
+      within(screen.getByRole("menu"))
+        .getByText("Trần Thị Bình")
+        .closest("div")!
+        .parentElement!.querySelector("[data-slot='avatar'] img"),
+    ).toHaveAttribute("src", photo);
+  });
+
   it("names the role of a user with the admin workspace Admin", () => {
     foot("expanded", adminUser);
     const row = account("Thuong");
