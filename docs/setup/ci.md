@@ -13,6 +13,7 @@ rules require; it passes only when every job did what the plan asked of it.
 | Contract | `code` | `make gen-check`: lint the contract, regenerate, fail on drift |
 | Server lint | `server` | vet, staticcheck, golangci-lint, gofmt |
 | Server tests | `server` | unit, integration and end-to-end tiers, the Word converter tests; migrations up, down, up |
+| Production image | `image` | Builds the root `Dockerfile`; starts `/app/api` and `/app/import-worker` from it as `nonroot` |
 | Web checks | `web` | `pnpm lint:ci`, typecheck, `pnpm format:ci`, integration tests, build (lint and format never read a cache) |
 | Web unit | `web` | the unit suite, in shards |
 | E2E | `web` | Playwright against a production build, API stubbed |
@@ -26,7 +27,7 @@ A job is skipped only when there is proof that it passed on the same files and
 has not failed on them since. Nothing is skipped because of what a diff looks
 like.
 
-1. `scripts/ci/plan.mjs` names four sets of files (`SETS`) and the set each job
+1. `scripts/ci/plan.mjs` names five sets of files (`SETS`) and the set each job
    reads (`JOBS`). A set is a base (`all` or `none`) with directories and files
    included or excluded; the longest rule that matches a path decides.
 2. Plan hashes the mode, blob and path of every file in a job's set. The
@@ -99,6 +100,7 @@ Today's cross-tree reads:
 | `web/tests/units/join/code.test.ts` | `server/internal/modules/classes/domain/joincode.go` |
 | `server/tests/isolation_world_test.go` | `web/tests/e2e/fixtures/unit5-listening.mp3` |
 | Server tests | `api/`, `migrations/`, `fly.toml`, `Dockerfile`, `docker/word-converter/`, `.github/workflows/deploy.yml` |
+| Production image | `Dockerfile`, `.dockerignore`, `fly.toml`, `server/`, `migrations/`, `scripts/provision-db.sh` (its set, `image`, holds these and nothing else) |
 | Web tests | `api/openapi.yaml`, `api/testdata/` |
 
 A test must not treat a missing file as a reason to skip itself: in CI that
@@ -171,6 +173,37 @@ is why **Import converter tests** checks it first. The storage settings are
 written on the steps themselves. The steps do not print each test; to see by
 name which of these tests ran, add `-v` to the step's `go test` for one run, as
 the pull request that added the steps did.
+
+## The production image
+
+Every other job runs the code on the runner's file system, so a start-up check
+that depends on the image's own (INC-5: `/home/nonroot/imports` shipped at 0755
+and the API refused it, on Fly only) passed every test. **Production image**
+builds the root `Dockerfile` and runs `scripts/ci/smoke-production-image.sh`,
+which does what a deploy does:
+
+1. Checks that the image's user is `nonroot:nonroot`.
+2. Runs `/app/migrate -dir /app/migrations up` from the image, as Fly's
+   `release_command` does, against the job's `postgres:18` service.
+3. Starts `/app/api` and `/app/import-worker` from the image, each in its own
+   container on the host network and with no `--user`, so they run as the
+   image's. The environment is `fly.toml`'s `[env]` read by the script, plus
+   throwaway values for the secrets `docs/setup/dns.md` lists, and the worker's
+   wake address and URL moved from `fly-local-6pn` to `localhost`.
+4. Waits up to 60 seconds for `GET /livez` to answer and for the worker to log
+   `import worker started`, and fails, printing both logs, when either
+   container exits first or the time runs out.
+
+MinIO is not started: neither process reaches the object store while it starts.
+The job's set is `image`, the files above plus `scripts/ci/`; a change to the
+web, the docs or the contract does not run it. It took 1 min 22 s on the first run, most
+of it the Go build inside the image; the smoke test itself takes seconds. The
+base image `golang:1.27-alpine` comes from the mirror, like the others.
+
+To run it locally, with the services of `docs/team/environment.md`: build the
+image, create a database for the run with
+`QUIZZIVY_DB_NAME=smoke scripts/provision-db.sh`, then
+`SMOKE_DATABASE=smoke scripts/ci/smoke-production-image.sh <image>`.
 
 ## The Word import worker in E2E (live API)
 
