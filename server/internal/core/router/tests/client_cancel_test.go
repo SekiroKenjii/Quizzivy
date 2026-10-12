@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +19,8 @@ import (
 	"quizzivy/internal/core/router"
 	"quizzivy/internal/modules/identity/application"
 	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/query"
+	"quizzivy/internal/modules/identity/domain"
 	identityhttp "quizzivy/internal/modules/identity/http"
 	"quizzivy/internal/shared/cqrs"
 )
@@ -286,5 +290,76 @@ func TestAHealthProbeWhosePingTimedOutIsStillServiceUnavailable(t *testing.T) {
 		if rec := healthzOn(context.Background(), h); rec.Code != http.StatusServiceUnavailable {
 			t.Errorf("%s: status = %d, want 503", name, rec.Code)
 		}
+	}
+}
+
+const oversizedAccountName = 32 << 20
+
+func oversizedAccount(t *testing.T) (*httptest.Server, *syncBuffer, string) {
+	t.Helper()
+	me := func(context.Context, query.CurrentUser) (domain.User, error) {
+		return domain.User{ID: teacherUser, Email: "lan@example.com", FullName: strings.Repeat("a", oversizedAccountName)}, nil
+	}
+	app := &application.Application{Queries: application.Queries{CurrentUser: cqrs.HandlerFunc[query.CurrentUser, domain.User](me)}}
+	issuer := testIssuer(t)
+	h, logs := debugLoggedRouter(t, router.Deps{
+		DB:      fakeDB{},
+		Tokens:  issuer,
+		Modules: router.Modules{Identity: identityhttp.NewIdentity(app, time.Hour, true, nil)},
+	})
+	token, err := issuer.Issue(teacherUser, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(h)
+	t.Cleanup(server.Close)
+	return server, logs, token
+}
+
+func resetOnceTheResponseHasBegun(t *testing.T, server *httptest.Server, token string) {
+	t.Helper()
+	conn, err := net.Dial("tcp", server.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tcp := conn.(*net.TCPConn)
+	t.Cleanup(func() { _ = tcp.Close() })
+	if _, err := fmt.Fprintf(tcp, "GET /auth/me HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\n\r\n", server.Listener.Addr(), token); err != nil {
+		t.Fatal(err)
+	}
+	if err := tcp.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bufio.NewReader(tcp).Peek(1); err != nil {
+		t.Fatalf("the response never began: %v", err)
+	}
+	if err := tcp.SetLinger(0); err != nil {
+		t.Fatal(err)
+	}
+	if err := tcp.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAClientThatResetsTheConnectionWhileTheResponseIsWrittenIsLoggedAs499(t *testing.T) {
+	server, logs, token := oversizedAccount(t)
+
+	resetOnceTheResponseHasBegun(t, server, token)
+
+	var records []logRecord
+	for deadline := time.Now().Add(20 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		records = logRecords(t, logs)
+		if len(recordsNamed(records, "http")) > 0 {
+			break
+		}
+	}
+	if errs := recordsAt(records, "ERROR"); len(errs) != 0 {
+		t.Errorf("a reset connection logged %d lines at ERROR: %v", len(errs), errs)
+	}
+	if access := accessRecord(t, records); access.Status != 499 || access.Level != "INFO" {
+		t.Errorf("access line = %+v, want status 499 at INFO: the client went away while the answer was being written", access)
+	}
+	if lines := recordsNamed(records, "client_cancelled"); len(lines) != 1 || lines[0].Level != "DEBUG" || lines[0].Request == "" {
+		t.Errorf("client_cancelled lines = %v, want one at DEBUG naming the request id", lines)
 	}
 }

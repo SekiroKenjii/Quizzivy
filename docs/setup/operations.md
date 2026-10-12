@@ -71,10 +71,22 @@ interrupt the write and returns `write failed: write tcp ...: i/o timeout`,
 which does not name the cancel. The pool sets no write deadline of its own, so on
 a request the client did not cancel the same line is a real fault.
 
+The other case is a client that resets or closes the connection while the
+response is being written (`write: broken pipe`, `write: connection reset by
+peer`, `use of closed network connection`). The write meets the lost peer before
+the server has seen the close, so the context may still be live and the error
+names no cancel. It counts when it is the error of the write to the response
+itself, as the access log middleware recorded it: the same text from the database
+connection is a fault. It answers as a cancel does, `status:499` at INFO and the
+`client_cancelled` line at DEBUG, though the connection may already carry the
+first bytes of a 200; the access line reads 499, and the server writes no second
+status to a socket that is gone.
+
 What stays a server error: a `context deadline exceeded` (the pool's two-second
 ping, an upload's two-minute budget), a context the server cancelled while the
-client was still connected, an `i/o timeout` on a request nobody cancelled, and
-any other failure, even on a request the client also cancelled. The maintenance
+client was still connected, an `i/o timeout` on a request nobody cancelled, a
+write of the response that timed out, and any other failure, even on a request
+the client also cancelled. The maintenance
 gate and the rate limiters have no such path: the first reads its window under a
 context the client cannot cancel, and the others decide from memory, a body they
 cannot read only costing them its key.
