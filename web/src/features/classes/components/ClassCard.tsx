@@ -190,7 +190,10 @@ function CodeFooter({
   const readable = code.code;
   return (
     <>
-      <span className="text-muted-fg flex-none text-xs whitespace-nowrap">
+      <span
+        title={t("classes.joinCode")}
+        className="text-muted-fg min-w-0 truncate text-xs whitespace-nowrap"
+      >
         {t("classes.joinCode")}
       </span>
       <span className="flex-none font-mono text-[0.84375rem] font-semibold tracking-[.08em] whitespace-nowrap">
@@ -199,7 +202,7 @@ function CodeFooter({
       {state === null ? null : (
         <span
           title={t(`classes.codeState.${state}`)}
-          className="text-warning-ink min-w-0 truncate text-xs"
+          className="text-warning-ink flex-none text-xs whitespace-nowrap"
         >
           {t(`classes.codeState.${state}`)}
         </span>

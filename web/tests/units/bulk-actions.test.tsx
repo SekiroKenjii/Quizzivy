@@ -1,4 +1,11 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CircleStop, Clock, Tag } from "lucide-react";
 import type { ReactNode } from "react";
@@ -245,6 +252,38 @@ describe("on a deck surface", () => {
     expect(clear.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     await userEvent.setup().click(clear);
     expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps its buttons focusable while an action runs, and ignores them (T-35)", async () => {
+    let finish: () => void = nothing;
+    const held: BulkAction<Item> = {
+      label: "Remove selected",
+      description: "Their work is kept",
+      run: () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    };
+    const onClear = vi.fn();
+    render(<Bar deck actions={[held]} onClear={onClear} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Remove selected" }));
+    await user.click(screen.getByRole("button", { name: "Xác nhận 2 mục" }));
+    const action = screen.getByRole("button", {
+      name: "Remove selected",
+      hidden: true,
+    });
+    const clear = screen.getByRole("button", { name: "Bỏ chọn", hidden: true });
+    for (const button of [action, clear]) {
+      expect(button).not.toBeDisabled();
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      button.focus();
+    }
+    fireEvent.click(clear);
+    fireEvent.click(action);
+    expect(onClear).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Xác nhận 2 mục" })).toHaveFocus();
+    await act(async () => finish());
   });
 
   it("takes the caller's class on the bar", () => {

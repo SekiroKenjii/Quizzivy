@@ -56,8 +56,8 @@ export type FormDialogProps<V extends FormValues> = Readonly<{
  * FormDialog edits typed values while open and unlocked, revealing visible
  * errors after submission. While `pending` the control a submit starts from
  * keeps focus (T-35): the submit answers `aria-disabled` and ignores a press,
- * text fields turn read-only, and the other controls, which cannot start a
- * submit, are disabled. A submit that starts while focus sits on such a
+ * text fields turn read-only, a select answers `aria-disabled` and keeps
+ * focus, and the other controls, which cannot start a submit, are disabled. A submit that starts while focus sits on such a
  * control (Safari and Firefox on macOS do not focus a clicked button, and a
  * picker returns focus to its trigger) first moves focus to the submit. `disabled`, when not pending, disables the submit and
  * the fields natively.

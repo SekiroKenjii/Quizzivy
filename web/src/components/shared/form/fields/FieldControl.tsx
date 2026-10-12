@@ -20,14 +20,14 @@ const TEXT = {
   number: NumberField,
   password: PasswordField,
 };
-const SINGLE = { select: SelectField, seg: SegField };
 const MANY = { chips: ChipsField, list: ListField };
 const DATE = { date: DateField, time: TimeField };
 /**
  * FieldControl renders the matching typed control for one form field. While
  * `locked`, a text or multiline field, and a list's search box, turn
  * read-only and stay focusable, since Enter in one of them may have
- * submitted the form, and every other control is disabled.
+ * submitted the form; a select answers `aria-disabled`, stays focusable and
+ * ignores a change; every other control is disabled.
  */
 export function FieldControl<V extends FormValues>({
   field,
@@ -79,17 +79,18 @@ export function FieldControl<V extends FormValues>({
       );
     }
     case "select":
-    case "seg": {
-      const Control = SINGLE[field.kind];
       return (
-        <Control
+        <SelectField
           {...props}
+          disabled={disabled}
+          locked={locked}
           options={field.options}
-          {...(field.kind === "select" ? { placeholder: field.placeholder } : {})}
+          placeholder={field.placeholder}
           value={text}
         />
       );
-    }
+    case "seg":
+      return <SegField {...props} options={field.options} value={text} />;
     case "list":
     case "chips": {
       const Control = MANY[field.kind];

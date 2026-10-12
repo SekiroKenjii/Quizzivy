@@ -30,10 +30,10 @@ const DECK_BAR =
 const DECK_COUNT = "mr-auto text-sm font-medium whitespace-nowrap";
 
 const DECK_BUTTON =
-  "border-muted-fg/35 hover:bg-primary-fg/10 rounded-seg text-meta inline-flex h-7.5 items-center gap-1.5 border bg-transparent px-2.5 leading-4 font-medium whitespace-nowrap disabled:pointer-events-none disabled:opacity-45";
+  "border-muted-fg/35 hover:bg-primary-fg/10 rounded-seg text-meta inline-flex h-7.5 items-center gap-1.5 border bg-transparent px-2.5 leading-4 font-medium whitespace-nowrap disabled:pointer-events-none disabled:opacity-45 aria-disabled:cursor-default aria-disabled:opacity-45 aria-disabled:hover:bg-transparent";
 
 const DECK_CLEAR =
-  "hover:bg-primary-fg/10 rounded-seg grid size-7.5 flex-none place-items-center border-0 bg-transparent disabled:pointer-events-none disabled:opacity-45";
+  "hover:bg-primary-fg/10 rounded-seg grid size-7.5 flex-none place-items-center border-0 bg-transparent aria-disabled:cursor-default aria-disabled:opacity-45 aria-disabled:hover:bg-transparent";
 
 /**
  * BulkBarButton is a button of the bulk bar, for a control a page puts in the
@@ -41,28 +41,49 @@ const DECK_CLEAR =
  * actions render through it. On a deck surface it is the deck's 30px button
  * on the inverted bar, with `icon` before the label. Elsewhere it is the
  * outline button the bar has always drawn, and `icon` is not drawn.
+ * `disabled` is a page's own reason and disables it natively; while
+ * `pending`, an action of the bar is running, and it answers `aria-disabled`
+ * and ignores a press, keeping focus (T-35).
  */
 export function BulkBarButton({
   icon: Icon,
   children,
   onClick,
   disabled,
+  pending = false,
 }: Readonly<{
   icon?: LucideIcon | undefined;
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean | undefined;
+  pending?: boolean | undefined;
 }>) {
   const deck = useDeckScale();
+  const press = () => {
+    if (!pending) onClick();
+  };
   if (!deck) {
     return (
-      <Button variant="outline" size="sm" disabled={disabled} onClick={onClick}>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={disabled}
+        aria-disabled={pending || undefined}
+        className={cn(pending && "opacity-50")}
+        onClick={press}
+      >
         {children}
       </Button>
     );
   }
   return (
-    <button type="button" className={DECK_BUTTON} disabled={disabled} onClick={onClick}>
+    <button
+      type="button"
+      className={DECK_BUTTON}
+      disabled={disabled}
+      aria-disabled={pending || undefined}
+      onClick={press}
+    >
       {Icon === undefined ? null : (
         <Icon aria-hidden="true" className="size-3.5 flex-none" />
       )}
@@ -80,7 +101,8 @@ export function BulkBarButton({
  * clears. There `className` lands on the bar, and with `hideOnPhone` the bar
  * is not drawn below 768px, for a list that has no checkboxes there, while an
  * open confirmation stays open. Off a deck surface the bar is the one the old
- * console draws, at every width, and reads neither prop.
+ * console draws, at every width, and reads neither prop. While an action
+ * runs, the bar's buttons answer `aria-disabled` and ignore a press (T-35).
  */
 export function BulkActions<T extends { id: string }>({
   selected,
@@ -149,11 +171,14 @@ export function BulkActions<T extends { id: string }>({
   }
 
   if (selected.length === 0 && confirmation === null) return null;
+  const clear = () => {
+    if (!pending) onClear();
+  };
   const buttons = actions.map((action) => (
     <BulkBarButton
       key={action.label}
       icon={action.icon}
-      disabled={pending}
+      pending={pending}
       onClick={() => {
         setFailures([]);
         setConfirmation({ action, items: [...selected] });
@@ -176,8 +201,8 @@ export function BulkActions<T extends { id: string }>({
               type="button"
               aria-label={t("common.clearSelection")}
               className={DECK_CLEAR}
-              disabled={pending}
-              onClick={onClear}
+              aria-disabled={pending || undefined}
+              onClick={clear}
             >
               <X aria-hidden="true" className="size-3.75" />
             </button>
@@ -190,7 +215,13 @@ export function BulkActions<T extends { id: string }>({
           </span>
           {children}
           {buttons}
-          <Button variant="ghost" size="sm" disabled={pending} onClick={onClear}>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-disabled={pending || undefined}
+            className={cn(pending && "opacity-50")}
+            onClick={clear}
+          >
             {t("common.clearSelection")}
           </Button>
         </div>
