@@ -68,7 +68,9 @@ const group: StudentGroup = {
         blocks: [
           {
             type: "paragraph",
-            content: [{ type: "text", text: "The walk starts at the bridge.", marks: [] }],
+            content: [
+              { type: "text", text: "The walk starts at the bridge.", marks: [] },
+            ],
           },
           { type: "audio", assetId: ASSET, label: "Tour guide" },
         ],
@@ -99,14 +101,10 @@ const calls = {
   onRecordingBlocked: vi.fn<PaperSource["onRecordingBlocked"]>(),
 };
 
-let moveDeadline: (deadlineAt: number) => void = () => undefined;
-
-function Host() {
+function Host({ deadlineAt = NOW + 10 * 60_000 }: Readonly<{ deadlineAt?: number }>) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [flags, setFlags] = useState<ReadonlySet<string>>(new Set());
-  const [deadlineAt, setDeadlineAt] = useState(NOW + 10 * 60_000);
-  moveDeadline = setDeadlineAt;
   const source: PaperSource = {
     ...calls,
     title: "Unit 4 · Listening",
@@ -239,11 +237,11 @@ describe("a paper drawn from a source with no store", () => {
   });
 
   it("shows the time the source gives, and follows a deadline it moves", () => {
-    render(<Host />);
+    const { rerender } = render(<Host />);
     const timer = screen.getByRole("timer");
     expect(timer).toHaveTextContent("10:00");
 
-    act(() => moveDeadline(NOW + 15 * 60_000));
+    rerender(<Host deadlineAt={NOW + 15 * 60_000} />);
     expect(timer).toHaveTextContent("15:00");
 
     act(() => {

@@ -3,15 +3,15 @@ import {
   recordAudioEvent,
   recordSharedAudioEvent,
 } from "@/features/integrity/useIntegrityMonitor";
-import type {
-  Answer,
-  StudentGroup,
-  StudentQuestion,
-  StudentSection,
-} from "./api";
+import type { Answer, StudentGroup, StudentQuestion, StudentSection } from "./api";
 import { groupPlayCount, useGroupPlaybackStore } from "./groupPlayback";
 import { useSaveStatus, type SaveStatus } from "./saveStatus";
-import { takeTestStore, useTakeTestStore, type LockReason, type SubmitState } from "./store";
+import {
+  takeTestStore,
+  useTakeTestStore,
+  type LockReason,
+  type SubmitState,
+} from "./store";
 import { timeLeft } from "./timeLeft";
 
 /**
