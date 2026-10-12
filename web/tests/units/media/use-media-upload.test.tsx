@@ -144,7 +144,7 @@ describe("the upload panel's client-side pre-check", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("sat-nut.mp3 nặng 50.01 MB, vượt quá 50 MB.");
-    expect(alert).not.toHaveTextContent("50.0 MB");
+    expect(alert).not.toHaveTextContent("nặng 50 MB");
     expect(uploadCalls).toBe(0);
   });
 

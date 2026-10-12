@@ -1,7 +1,14 @@
 import { useEffect, useId, useRef, useState, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { CircleAlert, CircleCheck, FileText, Upload } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import {
+  CircleAlert,
+  CircleCheck,
+  CircleX,
+  FileText,
+  KeyRound,
+  Upload,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/features/media/format";
 import { cn } from "@/lib/utils";
@@ -37,7 +44,7 @@ export function FileSlot({
   onChoose: (file: File) => void;
   onRemove: () => void;
 }>) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const chooseButton = useRef<HTMLButtonElement>(null);
@@ -77,18 +84,13 @@ export function FileSlot({
   const error = dropError ?? slot.error;
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-medium">
-          {label}
-        </label>
-        <span className="text-muted-foreground text-xs">
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <label htmlFor={id}>{label}</label>
+        <span className="text-muted-fg text-[11.5px] font-medium">
           {required ? t("imports.upload.required") : t("imports.upload.optional")}
         </span>
       </div>
-      <p className="text-muted-foreground text-xs leading-relaxed">
-        {t(`imports.upload.${role}Hint`)}
-      </p>
       <input
         ref={input}
         id={id}
@@ -115,13 +117,26 @@ export function FileSlot({
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
         className={cn(
-          "rounded-lg border border-dashed p-4 transition-colors duration-150",
-          over && "border-foreground/40 bg-secondary",
-          error !== null && "border-destructive/40",
+          "flex flex-wrap items-center rounded-[10px] transition-colors duration-150",
+          name === null
+            ? "gap-3.5 border-[1.5px] border-dashed px-4 py-3.5"
+            : "bg-card gap-3 border px-3 py-2.5",
+          over && "border-primary bg-muted",
+          error !== null && "border-danger",
+          slot.phase === "rejected" && "bg-danger-soft",
         )}
       >
+        <SlotTile role={role} filled={name !== null} />
         {name === null ? (
-          <div className="flex flex-wrap items-center gap-3">
+          <>
+            <span className="min-w-0 flex-[1_1_200px]">
+              <span className="text-ui block">
+                {over ? t("imports.upload.dropActive") : t("imports.upload.dropText")}
+              </span>
+              <span className="text-muted-fg block text-xs">
+                {t(`imports.upload.${role}Hint`)}
+              </span>
+            </span>
             <Button
               ref={chooseButton}
               type="button"
@@ -129,49 +144,25 @@ export function FileSlot({
               size="sm"
               disabled={disabled}
               aria-label={t(`imports.upload.${role}Choose`)}
+              className="h-[34px] rounded-md in-data-[scale=deck]:h-[34px] in-data-[scale=deck]:rounded-md"
               onClick={() => input.current?.click()}
             >
               <Upload aria-hidden="true" />
               {t("imports.upload.choose")}
             </Button>
-            <span className="text-muted-foreground text-xs">
-              {t("imports.upload.orDrop")}
-            </span>
-          </div>
+          </>
         ) : (
-          <div className="flex flex-wrap items-start gap-3">
-            <FileText
-              className="text-muted-foreground mt-0.5 size-5 shrink-0"
-              aria-hidden="true"
-            />
-            <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-sm font-medium break-all">{name}</p>
-              <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-                {bytes === null ? null : <span>{formatBytes(bytes)}</span>}
-                <SlotPhase slot={slot} />
-              </p>
-              {slot.phase === "uploading" ? (
-                <div className="flex items-center gap-3">
-                  <progress
-                    className="h-2 flex-1"
-                    value={slot.fraction}
-                    max={1}
-                    aria-label={t("imports.upload.uploadingNamed", { name })}
-                  />
-                  <span className="text-muted-foreground text-xs tabular-nums">
-                    {percent(i18n.language, slot.fraction)}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-2">
+          <>
+            <FileDetails name={name} bytes={bytes} slot={slot} />
+            <span className="flex items-center gap-1">
               <Button
                 ref={replaceButton}
                 type="button"
                 variant="outline"
-                size="xs"
+                size="sm"
                 disabled={disabled}
                 aria-label={t("imports.upload.replaceNamed", { name })}
+                className="text-meta in-data-[scale=deck]:text-meta h-8 px-2.5 in-data-[scale=deck]:h-8"
                 onClick={() => input.current?.click()}
               >
                 {t("imports.upload.replace")}
@@ -180,24 +171,25 @@ export function FileSlot({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="xs"
+                  size="icon-sm"
                   disabled={disabled}
                   aria-label={t("imports.upload.removeNamed", { name })}
+                  className="text-muted-fg hover:text-fg size-8 in-data-[scale=deck]:size-8"
                   onClick={() => {
                     setDropError(null);
                     refocus.current = true;
                     onRemove();
                   }}
                 >
-                  {t("imports.upload.remove")}
+                  <X aria-hidden="true" className="size-[15px]" />
                 </Button>
               )}
-            </div>
-          </div>
+            </span>
+          </>
         )}
       </div>
       {error === null ? null : (
-        <p role="alert" className="text-destructive flex items-start gap-1.5 text-xs">
+        <p role="alert" className="text-danger-ink flex items-start gap-1.5 text-xs">
           <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </p>
@@ -206,17 +198,72 @@ export function FileSlot({
   );
 }
 
+function SlotTile({
+  role,
+  filled,
+}: Readonly<{ role: ImportSourceRole; filled: boolean }>) {
+  const Icon = role === "exam" ? FileText : KeyRound;
+  return (
+    <span
+      className={cn(
+        "bg-muted grid shrink-0 place-items-center",
+        filled ? "size-[34px] rounded-[8px]" : "size-9 rounded-[9px]",
+      )}
+    >
+      <Icon aria-hidden="true" className={filled ? "size-4" : "size-[17px]"} />
+    </span>
+  );
+}
+
+function FileDetails({
+  name,
+  bytes,
+  slot,
+}: Readonly<{ name: string; bytes: number | null; slot: SourceSlot }>) {
+  const { t, i18n } = useTranslation();
+  return (
+    <span className="min-w-0 flex-[1_1_220px]">
+      <span className="text-ui block truncate font-medium" title={name}>
+        {name}
+      </span>
+      <span className="text-muted-fg flex flex-wrap items-center gap-1.5 text-xs">
+        <SlotPhase slot={slot} />
+        {bytes === null ? null : <span>· {formatBytes(bytes)}</span>}
+      </span>
+      {slot.phase === "uploading" ? (
+        <span className="mt-1 flex items-center gap-3">
+          <progress
+            className="h-2 flex-1"
+            value={slot.fraction}
+            max={1}
+            aria-label={t("imports.upload.uploadingNamed", { name })}
+          />
+          <span className="text-muted-fg text-xs tabular-nums">
+            {percent(i18n.language, slot.fraction)}
+          </span>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function SlotPhase({ slot }: Readonly<{ slot: SourceSlot }>) {
   const { t } = useTranslation();
   if (slot.phase === "uploaded")
     return (
-      <Badge variant="outline">
-        <CircleCheck aria-hidden="true" />
+      <span className="text-success-ink inline-flex items-center gap-1.5">
+        <CircleCheck aria-hidden="true" className="size-[13px]" />
         {t("imports.upload.received")}
-      </Badge>
+      </span>
     );
   if (slot.phase === "uploading")
     return <span role="status">{t("imports.upload.uploading")}</span>;
-  if (slot.phase === "rejected") return <span>{t("imports.upload.notAccepted")}</span>;
+  if (slot.phase === "rejected")
+    return (
+      <span className="text-danger-ink inline-flex items-center gap-1.5">
+        <CircleX aria-hidden="true" className="size-[13px]" />
+        {t("imports.upload.notAccepted")}
+      </span>
+    );
   return <span>{t("imports.upload.notSent")}</span>;
 }

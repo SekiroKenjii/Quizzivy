@@ -2,12 +2,16 @@ import type { TFunction } from "i18next";
 import { audioLength } from "@/lib/i18n/datetime";
 import type { MediaKind } from "./api";
 
-/** Binary units, matching what an operating system shows for the same file. */
+/**
+ * formatBytes writes a size in binary units, as an operating system shows the
+ * same file: megabytes with one decimal and no trailing ".0", as the deck
+ * writes them, so 25 MiB reads "25 MB" and 3.4 MiB "3.4 MB".
+ */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const kb = bytes / 1024;
   if (kb < 1024) return `${Math.round(kb)} KB`;
-  return `${(kb / 1024).toFixed(1)} MB`;
+  return `${Number((kb / 1024).toFixed(1))} MB`;
 }
 
 const GIB = 1024 * 1024 * 1024;
@@ -30,7 +34,7 @@ const MIB = 1024 * 1024;
 /**
  * formatOverLimit writes the size of a file refused for exceeding `limit` so
  * that it reads as larger than the limit: formatBytes, unless that rounds to
- * the limit's own figure ("50.0 MB" for 52,428,900 bytes against 50 MB), in
+ * the limit's own figure ("50 MB" for 52,428,900 bytes against 50 MB), in
  * which case megabytes rounded up to two decimals ("50.01 MB").
  */
 export function formatOverLimit(bytes: number, limit: number): string {
