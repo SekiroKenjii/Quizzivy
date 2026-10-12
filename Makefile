@@ -124,7 +124,7 @@ test-api-unit: ## Go unit tests: domain rules, transports with fakes, platform h
 	cd server && go test ./...
 
 test-api-integration: migrate ## Go integration tests: repositories and use cases against Postgres
-	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test -tags integration ./internal/... -count=1
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" APP_DATABASE_URL="$(APP_DSN)" go test -tags integration ./internal/... -count=1
 
 test-api-e2e: migrate ## Go end-to-end tests: the whole application in-process, over HTTP, against Postgres
 	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test -tags e2e ./tests/... -count=1
