@@ -148,7 +148,7 @@ export default function StudentLayout() {
           {modules.notifications ? (
             <NotificationBell audience="student" unread={unread} />
           ) : null}
-          <AccountMenu settingsTo="/app/settings" deck />
+          <AccountMenu settingsTo="/app/settings" />
         </div>
       </header>
       <main

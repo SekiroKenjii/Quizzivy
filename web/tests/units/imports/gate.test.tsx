@@ -50,7 +50,10 @@ describe("the Word import routes", () => {
       await screen.findByText("Máy chủ này chưa bật nhập đề từ Word/PDF."),
     ).toBeInTheDocument();
     expect(screen.queryByText("history")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Về danh sách đề thi" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Nhập đề từ Word/PDF" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("link", { name: "Về danh sách đề thi" }));
     expect(await screen.findByText("tests")).toBeInTheDocument();
   });
 

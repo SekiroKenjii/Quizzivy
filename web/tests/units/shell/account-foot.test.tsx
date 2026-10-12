@@ -36,7 +36,7 @@ function mount(element: React.ReactElement) {
 
 function foot(sidebar: Form, user = teacherUser) {
   useAuthStore.setState({ user });
-  return mount(<AccountMenu deck sidebar={sidebar} settingsTo="/teacher/settings" />);
+  return mount(<AccountMenu sidebar={sidebar} settingsTo="/teacher/settings" />);
 }
 
 const account = (name = "Trần Thị Bình") =>
@@ -59,7 +59,7 @@ afterEach(() => {
 describe("the student's account menu, which the teacher's form must not move", () => {
   it("is byte for byte what the student shell drew before the sidebar form existed", async () => {
     useAuthStore.setState({ user: STUDENT });
-    const user = mount(<AccountMenu settingsTo="/app/settings" deck />);
+    const user = mount(<AccountMenu settingsTo="/app/settings" />);
     const trigger = account("Nguyễn Văn An");
     expect(trigger.outerHTML).toBe(STUDENT_TRIGGER_CLOSED);
 
