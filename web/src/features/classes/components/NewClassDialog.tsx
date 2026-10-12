@@ -54,7 +54,7 @@ export function NewClassDialog({
       onOpenChange(false);
       if (code === null) toast(t("classes.createdNoCode"));
       else toast(t("classes.createdWithCode", { code }));
-      await queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-classes"] });
     },
   });
 

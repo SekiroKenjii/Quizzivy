@@ -34,7 +34,7 @@ import {
 import { emptyGroup } from "../../model";
 import { BankNavigation } from "../../components/BankNavigation";
 
-const QUERY_KEY = ["admin-groups"] as const;
+const QUERY_KEY = ["teacher-groups"] as const;
 
 const SEARCH =
   "w-auto min-w-0 flex-[1_1_240px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
@@ -174,7 +174,7 @@ export default function GroupsListPage() {
   const create = useMutation({
     mutationFn: () => createGroup({ bundle: emptyGroup(t("groups.newGroup")) }),
     onSuccess: (saved) => {
-      client.setQueryData(["admin-group", saved.bundle.group.id], saved);
+      client.setQueryData(["teacher-group", saved.bundle.group.id], saved);
       void refresh();
       void navigate(`/teacher/question-bank/groups/${saved.bundle.group.id}`);
     },

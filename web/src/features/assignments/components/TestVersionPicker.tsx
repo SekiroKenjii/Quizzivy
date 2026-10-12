@@ -40,7 +40,7 @@ export function TestVersionPicker({
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const tests = useLazyList({
-    queryKey: ["admin-tests", "picker", { status: "published" }],
+    queryKey: ["teacher-tests", "picker", { status: "published" }],
     fetchPage: (page, signal) =>
       listTests({ status: "published", page, limit: 20 }, signal),
     enabled: open,
@@ -112,7 +112,7 @@ function VersionList({
 }>) {
   const { t } = useTranslation();
   const versions = useQuery({
-    queryKey: ["admin-test-versions", testId],
+    queryKey: ["teacher-test-versions", testId],
     queryFn: ({ signal }) => listVersions(testId, signal),
   });
 

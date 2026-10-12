@@ -134,7 +134,7 @@ function previousOf(
 
 function diffOptions(id: string, version: number, previous: number) {
   return {
-    queryKey: ["admin-test-diff", id, version, previous],
+    queryKey: ["teacher-test-diff", id, version, previous],
     queryFn: ({ signal }: { signal: AbortSignal }) =>
       getVersionDiff(id, version, previous, signal),
     staleTime: Number.POSITIVE_INFINITY,
@@ -156,7 +156,7 @@ export default function TestDetailPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
   const test = useQuery({
-    queryKey: ["admin-test", id],
+    queryKey: ["teacher-test", id],
     queryFn: ({ signal }) => getTest(id, signal),
   });
   if (test.isPending) return <DetailSkeleton />;
@@ -205,7 +205,7 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
   const archived = test.status === "archived";
 
   const versions = useQuery({
-    queryKey: ["admin-test-versions", id],
+    queryKey: ["teacher-test-versions", id],
     queryFn: ({ signal }) => listVersions(id, signal),
   });
   const items = versions.data?.items;
@@ -222,14 +222,14 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
 
   const refresh = (deleted?: number) =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["admin-test", id] }),
-      queryClient.invalidateQueries({ queryKey: ["admin-test-versions", id] }),
+      queryClient.invalidateQueries({ queryKey: ["teacher-test", id] }),
+      queryClient.invalidateQueries({ queryKey: ["teacher-test-versions", id] }),
       queryClient.invalidateQueries({
-        queryKey: ["admin-test-preview", id],
+        queryKey: ["teacher-test-preview", id],
         predicate: (query) => deleted === undefined || query.queryKey[2] !== deleted,
       }),
-      queryClient.invalidateQueries({ queryKey: ["admin-tests"] }),
-      queryClient.invalidateQueries({ queryKey: ["admin-questions"] }),
+      queryClient.invalidateQueries({ queryKey: ["teacher-tests"] }),
+      queryClient.invalidateQueries({ queryKey: ["teacher-questions"] }),
     ]);
 
   const change = useMutation({
@@ -247,7 +247,7 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
       await refresh(deleted);
       if (deleted !== undefined)
         queryClient.removeQueries({
-          queryKey: ["admin-test-preview", id, deleted],
+          queryKey: ["teacher-test-preview", id, deleted],
           exact: true,
           type: "inactive",
         });
@@ -508,7 +508,7 @@ function PreviewPanel({
   const headingId = useId();
   const id = test.id;
   const preview = useQuery({
-    queryKey: ["admin-test-preview", id, selected],
+    queryKey: ["teacher-test-preview", id, selected],
     queryFn: ({ signal }) => previewTest(id, selected, signal),
     enabled: selected !== undefined,
     retry: false,

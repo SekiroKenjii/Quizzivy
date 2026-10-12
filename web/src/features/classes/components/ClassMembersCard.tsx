@@ -97,7 +97,7 @@ export function ClassMembersCard({
   const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(search);
   const members = useQuery({
-    queryKey: ["admin-class-members", klass.id, { q: search, page, size }],
+    queryKey: ["teacher-class-members", klass.id, { q: search, page, size }],
     queryFn: ({ signal }) =>
       fetchMembers(
         klass.id,
