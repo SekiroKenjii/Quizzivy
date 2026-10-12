@@ -358,6 +358,29 @@ it("plain confirm and notice keep their respective variant and single footer act
   await userEvent.setup().click(button);
   expect(close).toHaveBeenCalledWith(false);
 });
+it("opens with focus on the first field, not on Close (F-50)", () => {
+  render(<FormDialog {...base} onSubmit={() => {}} />);
+  expect(screen.getByRole("textbox", { name: "Tên" })).toHaveFocus();
+  expect(screen.getByRole("button", { name: /đóng|close/i })).not.toHaveFocus();
+});
+it("opens a form whose first field is a group with focus on its first option (F-50)", () => {
+  render(
+    <FormDialog
+      {...base}
+      fields={[
+        {
+          kind: "chips",
+          name: "choices",
+          label: "Lớp",
+          options: [{ value: "a", label: "Lớp A" }],
+        },
+        fields[0]!,
+      ]}
+      onSubmit={() => {}}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "Lớp A" })).toHaveFocus();
+});
 it("groups focus their first real control after invalid submission", async () => {
   render(
     <FormDialog
