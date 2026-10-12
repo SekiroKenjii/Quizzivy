@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -40,7 +41,8 @@ const (
 // PurgeInput is one removal. Due is the latest unreferenced_at a file may carry
 // to be removed now. Remove deletes the object under the file's key, and it
 // runs while the file's row is locked: a failure leaves the row as it was, to be
-// found by the next sweep.
+// found by the next sweep. Once Remove has succeeded the removal finishes even
+// if the context ends, and answers a PurgeMarkError if it cannot.
 type PurgeInput struct {
 	ID     string
 	Due    time.Time
@@ -64,3 +66,17 @@ type Retention interface {
 	Due(ctx context.Context, due time.Time, after string, limit int) ([]string, error)
 	Purge(ctx context.Context, in PurgeInput) (PurgeOutcome, error)
 }
+
+// PurgeMarkError is a removal that deleted the object and then could not mark
+// the row. The object of file ID is gone while its row still stands, and the
+// next sweep, whose delete of a missing object succeeds, marks it.
+type PurgeMarkError struct {
+	ID    string
+	Cause error
+}
+
+func (e *PurgeMarkError) Error() string {
+	return fmt.Sprintf("media: file %s: object removed, row not marked: %v", e.ID, e.Cause)
+}
+
+func (e *PurgeMarkError) Unwrap() error { return e.Cause }

@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"errors"
 	"quizzivy/internal/modules/media/application/internal/support"
 	"quizzivy/internal/modules/media/domain"
 	"time"
@@ -24,12 +25,22 @@ type Sweep struct {
 }
 
 // Swept counts one pass. Cause is the first failure's error, for the log.
+// Unmarked lists the files whose object was deleted and whose row could not be
+// marked, which the log reports by id.
 type Swept struct {
 	Unreferenced int
 	Cancelled    int
 	Removed      int
 	Failed       int
 	Cause        error
+	Unmarked     []*domain.PurgeMarkError
+}
+
+func (s *Swept) fail(err error) {
+	s.Failed++
+	if s.Cause == nil {
+		s.Cause = err
+	}
 }
 
 type SweepHandler struct {
@@ -73,12 +84,13 @@ func (s SweepHandler) removeDue(ctx context.Context, now time.Time, out *Swept) 
 
 func (s SweepHandler) remove(ctx context.Context, in domain.PurgeInput, out *Swept) {
 	outcome, err := s.Repo.Purge(ctx, in)
+	var unmarked *domain.PurgeMarkError
 	switch {
+	case errors.As(err, &unmarked):
+		out.Unmarked = append(out.Unmarked, unmarked)
+		out.fail(err)
 	case err != nil:
-		out.Failed++
-		if out.Cause == nil {
-			out.Cause = err
-		}
+		out.fail(err)
 	case outcome == domain.PurgeRemoved:
 		out.Removed++
 	case outcome == domain.PurgeNamed:
