@@ -1089,7 +1089,7 @@ Rules for every task in this section (AGENTS.md, "High-risk areas"):
 **Touches:** `web/src/features/take-test/pages/TakeTestPage.tsx`, `web/src/features/take-test/components/{QuestionCard,EngineHeader,Clock,GroupContext,QuestionAudio,SaveState}.tsx`, `web/src/features/take-test/{paper.ts,width.ts}` (new), `web/tests/units/take-test/{support.ts,paper-source.test.tsx (new),deckSession.ts,deck-fixtures.test.ts}`
 **Size:** M
 **Done when:**
-- [ ] `Paper` and every component under it read the paper from one context: the title, the
+- [x] `Paper` and every component under it read the paper from one context: the title, the
       questions, sections and groups, the answers and `setAnswer`, the flags and `toggleFlag`,
       the lock and the submit state, the save status, the play counts, and for a shared
       recording `notePlay`, the pending-sync flag and `flush`. `TakeTestPage` fills it from
@@ -1098,23 +1098,24 @@ Rules for every task in this section (AGENTS.md, "High-risk areas"):
       `GroupContext`, `QuestionAudio`, `QuestionCard` and `SaveState` do, and `Paper` itself
       (`TakeTestPage.tsx:347-353`). The stores are not edited. The open question's restore
       and its write (`openQuestion.ts`) stay in `TakeTestPage`, outside the source.
-- [ ] The timer comes through the source too. `Clock` reads `deadlineAt`, `offsetMs` and the
+- [x] The timer comes through the source too. `Clock` reads `deadlineAt`, `offsetMs` and the
       deadline lock from it, and its one-second tick calls a stable `timeLeft()` reader the
       source carries, so it still reads the live store on every tick and never a value
       captured at render (`Clock.tsx:47-63` today). The deadline-lock rule of #329 is not
       touched: `timer.test.ts`, `deadline.test.ts` and `header.test.tsx`'s "the timer" cases
       (373-672) pass with no edit.
-- [ ] A question's audio reaches integrity through the source, not by itself: the source
+- [x] A question's audio reaches integrity through the source, not by itself: the source
       carries three callbacks per question, `onAudioPlay`, `onAudioEnded` and `onAudioBlocked`,
       which `TakeTestPage` fills with today's calls (`notePlay` and
       `recordAudioEvent(attemptId, "audio_play" | "audio_ended" | "audio_blocked", id)`,
       `QuestionAudio.tsx:34-46`). `QuestionAudio` no longer imports
-      `features/integrity`. `question-audio-events.test.tsx` and `audio-events.spec.ts` pass
-      with no edit.
-- [ ] One hook answers a width question, `useEngineWidthAtLeast(px)`. Under `FocusLayout` it is
+      `features/integrity`. `question-audio-events.test.tsx` passes with its assertions
+      untouched, its render call moved to `renderWithPaper` (see the next bullet but one), and
+      `audio-events.spec.ts` with no edit.
+- [x] One hook answers a width question, `useEngineWidthAtLeast(px)`. Under `FocusLayout` it is
       `useMediaQuery`, so `viewport()` keeps working; a provider may replace the source with a
       measured container (T-D4.16). After this task 768 is the only threshold read.
-- [ ] `deckSession.ts` gains the deck's other two papers as sessions the contract accepts,
+- [x] `deckSession.ts` gains the deck's other two papers as sessions the contract accepts,
       beside s1, so every later task has something to compare in a browser:
       **s9** without its matching: 34 questions in four sections, the cloze as a group with
       one material holding five gaps and five single-choice members bound to them (all five
@@ -1128,17 +1129,35 @@ Rules for every task in this section (AGENTS.md, "High-risk areas"):
       index. `deck-fixtures.test.ts` validates all three with ajv and asserts the server's
       group rule in TypeScript (each recording's asset is an audio node of a material, each
       audio node has a recording). Nothing renders them yet.
-- [ ] No box, string, role or name changes. Every existing test under `tests/units/take-test`,
-      `integrity` and `media` passes with no edit beyond the render helper in `support.ts`;
+- [x] No box, string, role or name changes. Every existing test under `tests/units/take-test`,
+      `integrity` and `media` passes with no edit beyond the render helper in `support.ts`:
+      the three suites that mount a paper component bare (`renderers.test.tsx`'s `QuestionCard`
+      cases, `question-audio-events.test.tsx`, `shared-audio-events.test.tsx`) render through
+      `renderWithPaper`, which mounts the live source as `TakeTestPage` does, and change nothing
+      else, because a bare component has no source: hooks cannot live in the context value, and
+      a second store-backed source as its default would restate `saveStatus.ts`;
       `paper-source.test.tsx` renders `Paper` from a hand-built source with no store and
       asserts that an answer, a flag, a recording's play and all three audio callbacks of a
       question reach the source, and that the timer follows a deadline the source moves.
-- [ ] `pnpm e2e` (`student-interactions`, `student-engine.phone`, `group-attempt`,
+- [x] `pnpm e2e` (`student-interactions`, `student-engine.phone`, `group-attempt`,
       `stranded-draft`, `integrity-leave`, `audio-events`) and CI's `pnpm e2e:live` are green
       with no spec edited.
-- [ ] The engine is opened at 360 and 1280 before and after; the PR's two pairs of screenshots
+- [x] The engine is opened at 360 and 1280 before and after; the PR's two pairs of screenshots
       differ in nothing.
-- [ ] The PR holds no other change (a behavioural change never rides in a refactor).
+- [x] The PR holds no other change (a behavioural change never rides in a refactor).
+
+**As built:** the source is `PaperSource` in `take-test/paper.ts`, a plain value carried by
+`PaperSourceContext`, which has no default; `useLivePaperSource()` fills it from the two
+stores and `useSaveStatus`, and `TakeTestPage` provides it around `Paper` and the submitted
+screen's header. A question's audio has a fourth callback, `onAudioSeekBlocked`, for the
+`audio_seek` record `QuestionAudio` already made, and a shared recording's end and block go
+through `onRecordingEnded` and `onRecordingBlocked`, so `GroupContext` no longer imports
+`features/integrity` either. `Paper` is a named export of `TakeTestPage.tsx` that takes the
+open index and the controls and derives the rest from the source. The width source is
+`useEngineWidthAtLeast` in `take-test/width.ts`; `EngineWidthContext` holds a measured width
+for T-D4.16 and is null under `FocusLayout`. The fixture papers are `deckMockTestSession` (s9)
+and `deckListeningSession` (s2) beside `deckSession` and `deckPassageSession` (s1); cloze gaps
+are labelled 23 to 27.
 
 ### T-D4.4 — Engine: sections rail, footer, question sheet and three-state squares
 **Depends on:** T-D4.1, T-D4.3. Its tests use the numeric form of `viewport()` that T-R4.3a added (`web/tests/support/viewport.ts`, on `develop` from v0.10.0); this task writes no numeric form of its own
