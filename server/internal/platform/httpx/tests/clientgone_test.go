@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -32,11 +34,20 @@ type clientGoneCase struct {
 	want bool
 }
 
+func writeTimeout() error {
+	return fmt.Errorf("write failed: %w", &net.OpError{Op: "write", Net: "tcp", Err: os.ErrDeadlineExceeded})
+}
+
 func clientGoneCases() []clientGoneCase {
 	return []clientGoneCase{
 		{"the client cancelled and the call says so", cancelled(), fmt.Errorf("query: %w", context.Canceled), true},
 		{"the same, wrapped twice", cancelled(), fmt.Errorf("tests: %w", fmt.Errorf("query: %w", context.Canceled)), true},
 		{"the same, joined with another failure", cancelled(), errors.Join(errors.New("rollback"), context.Canceled), true},
+		{"the driver's write was interrupted by the client's cancel and reports the timeout", cancelled(), fmt.Errorf("query: %w", writeTimeout()), true},
+		{"the same, as a bare deadline error", cancelled(), fmt.Errorf("query: %w", os.ErrDeadlineExceeded), true},
+		{"a network timeout and the client is still there", context.Background(), fmt.Errorf("query: %w", writeTimeout()), false},
+		{"a network timeout on a request whose own deadline passed", pastDeadline(), fmt.Errorf("query: %w", writeTimeout()), false},
+		{"a network timeout that names a server deadline, on a request the client also cancelled", cancelled(), fmt.Errorf("query: %w", errors.Join(writeTimeout(), context.DeadlineExceeded)), false},
 		{"a context the server derived was cancelled and the client is still there", context.Background(), fmt.Errorf("query: %w", context.Canceled), false},
 		{"a deadline the server imposed passed and the client is still there", context.Background(), fmt.Errorf("query: %w", context.DeadlineExceeded), false},
 		{"a server deadline passed on a request the client also cancelled", cancelled(), fmt.Errorf("query: %w", context.DeadlineExceeded), false},

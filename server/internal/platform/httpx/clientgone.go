@@ -3,6 +3,7 @@ package httpx
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 )
 
@@ -12,13 +13,23 @@ import (
 // counts 5xx counts it.
 const StatusClientClosedRequest = 499
 
-// ClientGone reports whether err is the client ending the request: err carries
-// context.Canceled and ctx, the request's own context, is cancelled. A
-// cancellation of a context the server derived while the request is live, a
-// deadline of any context, and any other failure on a request that happens to
-// be cancelled are the server's problem and answer as one.
+// ClientGone reports whether err is the client ending the request: ctx, the
+// request's own context, is cancelled, and err is a context.Canceled or a
+// network timeout. The second is how a database driver reports a cancel that
+// reaches it while it writes: it expires the connection's deadline to
+// interrupt the write, and the error that returns names the timeout, not the
+// cancel. A context.DeadlineExceeded, a cancellation of a context the server
+// derived while the request is live, a timeout on a live request and any other
+// failure are the server's problem and answer as one.
 func ClientGone(ctx context.Context, err error) bool {
-	return errors.Is(err, context.Canceled) && errors.Is(ctx.Err(), context.Canceled)
+	if err == nil || !errors.Is(ctx.Err(), context.Canceled) {
+		return false
+	}
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+	var network net.Error
+	return errors.As(err, &network) && network.Timeout() && !errors.Is(err, context.DeadlineExceeded)
 }
 
 // WriteClientGone answers a request whose client has gone with
