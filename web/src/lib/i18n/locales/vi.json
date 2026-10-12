@@ -3060,7 +3060,8 @@
       "state": {
         "done": "đã xong",
         "current": "đang thực hiện",
-        "waiting": "chưa bắt đầu"
+        "waiting": "chưa bắt đầu",
+        "failed": "đã dừng"
       },
       "current": "Đang ở bước: {{stage}}",
       "waitingToStart": "Đang chờ đến lượt",
@@ -3663,6 +3664,26 @@
       "pointsNone": "Chưa có câu nào",
       "cancelled": "Lần nhập này đã bị huỷ nên không thể tạo bản nháp từ đó.",
       "failed": "Lần nhập này xử lý không thành công nên không thể tạo bản nháp từ đó."
+    },
+    "workspace": {
+      "steps": "Các bước sẽ chạy",
+      "progress": "Tiến trình",
+      "readAs": "Đã đọc được",
+      "questionLabel": "Câu {{label}}",
+      "noAnswer": "Chưa có đáp án",
+      "repeated": "Số này xuất hiện hai lần trong cùng một phần",
+      "needsCheck": "Cần kiểm tra",
+      "needsCheckList": "Mục cần kiểm tra",
+      "pasteLead_one": "{{questions}} câu được nhận diện · {{check}} cần kiểm tra",
+      "pasteLead_other": "{{questions}} câu được nhận diện · {{check}} cần kiểm tra",
+      "pasteHint": "Cập nhật khi bạn gõ. Sửa định dạng trong ô dán trước khi bắt đầu.",
+      "pasteEmpty": "Dán nội dung đề để xem những gì được nhận diện.",
+      "fileState": {
+        "waiting": "Đang chờ",
+        "reading": "Đang đọc",
+        "read": "Đã đọc",
+        "failed": "Lỗi"
+      }
     }
   },
   "controls": {

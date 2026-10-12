@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import ImportDetailPage from "@/features/imports/pages/teacher/ImportDetailPage";
+import ImportWorkspacePage from "@/features/imports/pages/teacher/ImportWorkspacePage";
 import { ProcessingPanel } from "@/features/imports/components/ProcessingPanel";
 import type { ImportReview, ImportRun, WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
@@ -76,7 +76,7 @@ function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/teacher/imports/:id", element: <ImportDetailPage /> },
+      { path: "/teacher/imports/:id", element: <ImportWorkspacePage /> },
       { path: "/teacher/imports/new", element: <p>paste destination</p> },
     ],
     { initialEntries: [`/teacher/imports/${IMPORT_ID}`] },
@@ -92,17 +92,14 @@ function mount() {
 describe("pasted text processing on the public detail page", () => {
   it("names the actual text exam in the header, tooltip and source download while keeping its title and companion", async () => {
     mount();
-    const heading = await screen.findByRole("heading", {
-      level: 1,
-      name: "Văn bản đã dán",
-    });
-    expect(within(heading).getByText("Văn bản đã dán")).toHaveAttribute(
-      "title",
-      "Văn bản đã dán",
+    await screen.findByRole("heading", { level: 1, name: "Văn bản đã dán" });
+    expect(screen.getByRole("link", { name: "Lịch sử nhập" })).toHaveAttribute(
+      "href",
+      "/teacher/imports",
     );
     expect(screen.getByText("Đề thi học kỳ 1")).toBeInTheDocument();
     expect(screen.getByText(/từ văn bản đã dán/)).toHaveTextContent("dap-an-hk1.docx");
-    const originals = screen.getByRole("region", { name: "Nguồn ban đầu" });
+    const originals = screen.getByRole("region", { name: "Nguồn" });
     expect(within(originals).getByText("Văn bản đã dán")).toBeInTheDocument();
     expect(
       within(originals).getByRole("button", { name: "Tải bản gốc Văn bản đã dán" }),
@@ -112,9 +109,10 @@ describe("pasted text processing on the public detail page", () => {
     ).toBeEnabled();
     expect(screen.queryByText(exam.filename)).toBeNull();
     expect(
-      heading.parentElement?.previousElementSibling?.querySelector(
-        ".lucide-clipboard-paste",
-      ),
+      within(originals)
+        .getByText("Văn bản đã dán")
+        .closest("li")
+        ?.querySelector(".lucide-clipboard-paste"),
     ).not.toBeNull();
   });
 
@@ -180,7 +178,7 @@ describe("pasted text processing on the public detail page", () => {
         "href",
         "/teacher/imports/new?source=paste",
       );
-      expect(screen.queryByRole("link", { name: "Thay tệp đề thi" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Thay tệp đề thi" })).toBeNull();
       expect(screen.queryByLabelText("Tệp đề thi")).toBeNull();
       expect(screen.getByText("Mã lỗi: SOURCE_INVALID")).toBeInTheDocument();
       const alert = screen.getByRole("alert");
@@ -538,10 +536,13 @@ describe("source-aware text failure recovery", () => {
         run: run({ status: "failed", stage: "source_validation", errorCode }),
       };
       mount();
+      const sources = await screen.findByRole("region", { name: "Nguồn" });
       expect(
-        await screen.findByText(i18n.t(`imports.runError.${errorCode}`)),
+        await within(sources).findByText(i18n.t(`imports.runError.${errorCode}`)),
       ).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Thay tệp đề thi" })).toBeInTheDocument();
+      expect(
+        within(sources).getByRole("button", { name: "Thay tệp đề thi" }),
+      ).toBeInTheDocument();
     },
   );
 });
