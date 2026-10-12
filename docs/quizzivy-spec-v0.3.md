@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.92 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.93 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.92**
+
+R4, F-68 hardening: the sweep can be switched off, and its last step survives the end of its time.
+
+- §11.2 `MEDIA_RETENTION_SWEEP` (`on`, the default, or `off`) stops the media sweep on the machines that read it. Once the sweep has deleted an object it finishes the mark, the audit row and the commit under their own time, and logs the file at ERROR if it still cannot. A bank question's write that names a removed file in that instant answers as a missing file, not a 500.
 
 **Changes since v0.91**
 
@@ -2152,7 +2158,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 - Bucket `quizzivy-media`, key `audio/{asset_id}.{ext}`. Bucket is **private**; no public listing, no public read.
 - Served via **short-lived signed URLs** (10 min), minted per request by the backend. The frontend treats `MediaAsset.url` as expiring and refetches on `403`.
 - `Cache-Control: private, max-age=600` — long enough to survive a replay, short enough that the signed URL does not outlive its cache entry.
-- **A file that left the library is kept, then removed (F-68).** The object of a deleted or replaced file stays in storage until seven days after nothing names it: no question, group, material or published version, whoever owns it. The sweep then deletes the object and marks the row `purged_at`. The row stays, the file cannot be restored, and no notification follows: the teacher is told when they act, by the answers of `replaceMedia` and `deleteMedia` (`previous` and `deleteAt`, with a URL to download the file) and by `usage` (`heldBytes`, `pendingBytes`, `pendingDeleteAt`). The API runs the sweep at start-up and every hour on every machine (`jobs.SweepRetiredMedia`). It dates the files nothing names yet, cancels the wait of a file something names again, and removes the due ones one at a time under the row's lock. A row that a second sweep or a writer holds is skipped, so no object is deleted twice, and a publish that freezes a file again before the sweep takes it keeps it. A delete that fails leaves the row for the next run, ten minutes later. A purged file can be named by nothing: `LockForVersionUse` and `Readable` answer not found, and the database refuses the row. An import review that still names a file the sweep removed fails at its commit as one that is gone.
+- **A file that left the library is kept, then removed (F-68).** The object of a deleted or replaced file stays in storage until seven days after nothing names it: no question, group, material or published version, whoever owns it. The sweep then deletes the object and marks the row `purged_at`. The row stays, the file cannot be restored, and no notification follows: the teacher is told when they act, by the answers of `replaceMedia` and `deleteMedia` (`previous` and `deleteAt`, with a URL to download the file) and by `usage` (`heldBytes`, `pendingBytes`, `pendingDeleteAt`). The API runs the sweep at start-up and every hour on every machine (`jobs.SweepRetiredMedia`). It dates the files nothing names yet, cancels the wait of a file something names again, and removes the due ones one at a time under the row's lock. A row that a second sweep or a writer holds is skipped, so no object is deleted twice, and a publish that freezes a file again before the sweep takes it keeps it. A delete that fails leaves the row for the next run, ten minutes later. A purged file can be named by nothing: `LockForVersionUse` and `Readable` answer not found, and the database refuses the row. An import review that still names a file the sweep removed fails at its commit as one that is gone. `MEDIA_RETENTION_SWEEP=off` stops the sweep on the machines that read it; the quota and the dating by replace and delete go on.
 - Honest note: `controlsList="nodownload"` and hiding the URL are **not** protection. A determined student can save the file. Signed short-lived URLs raise the cost slightly; do not invest further. If a listening file must never leak, do not put it online.
 
 ### 11.3 Player component

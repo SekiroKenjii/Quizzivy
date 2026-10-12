@@ -1487,6 +1487,11 @@ the file it adds.
 
 Notes on migration mechanics (§13.7):
 
+- **D4's `00107`–`00110` are renumbered after `00113` at D4's develop sync.** Production holds
+  `00111`–`00113` (F-68) before D4 ships, and goose refuses a migration numbered below the
+  database's version, so the four files `work/deck-d4` already holds take the next four numbers
+  when that branch merges `develop`.
+
 - Every file has a `-- +goose Down` that is actually correct. CI runs `up` then
   `down` then `up` against a clean `postgres:18` (T-0.17), so an unreversible
   migration is a red build on the day it is written.
@@ -3041,6 +3046,10 @@ remove, on every machine and only where media storage is configured. One pass:
    row, so a file that a second sweep or a writer holds is skipped. Under the lock it checks
    again that the file is due and unnamed (a file named again has its date cleared and is left),
    deletes the object, sets `purged_at` and writes the audit row `media.purged` with no actor.
+   Once the delete has succeeded, the mark, the audit row and the commit run under their own ten
+   seconds and not under the sweep's budget, so a sweep whose time ends at that moment still
+   records the removal; if they still fail, `Purge` answers a `PurgeMarkError` and the job logs
+   the file's id at ERROR.
    The object goes before the row is marked: a failure of the delete, of the mark or of the
    commit leaves the row for the next pass, whose delete of an object already gone succeeds
    (`storage.Client.Delete` treats `NoSuchKey` as success). The delete has thirty seconds, so a
@@ -3060,6 +3069,12 @@ and the sweep skips the row and finds it named. A file that is not waiting is no
 `Readable`, `Get`, `LockForVersionUse` and `SoftDelete` treat a purged file as gone, and the
 library predicate excludes it, so a replaced file cannot reappear if its successor's row is
 removed (`replaced_by` is `ON DELETE SET NULL`).
+
+**The switch.** `MEDIA_RETENTION_SWEEP` (`on` by default, or `off`; anything else stops the
+start-up) is read where `core.Serve` starts the sweep. Off starts nothing and logs a warning;
+quota counting and the dating by replace and delete are not behind it. A bank question's write
+that names a file the sweep removed in the instant between its `Readable` check and its insert
+meets the trigger, which the questions repository maps to the missing-file refusal.
 
 **Tests.** `media/application/tests/retention_test.go` (the quota with a version holding the old
 file, the dating by a replace, a delete and the sweep, the seven days and not before, a publish

@@ -31,6 +31,7 @@ func loadWith(t *testing.T, env map[string]string) (config.Config, error) {
 		"S3_FORCE_PATH_STYLE":    "",
 		"SIGNED_URL_TTL":         "",
 		"MEDIA_OWNER_QUOTA_MIB":  "",
+		"MEDIA_RETENTION_SWEEP":  "",
 		"GOOGLE_CLIENT_ID":       "",
 		"GOOGLE_CLIENT_SECRET":   "",
 		"GOOGLE_REDIRECT_URI":    "",
@@ -186,6 +187,30 @@ func TestTheMediaQuotaIsReadAndBounded(t *testing.T) {
 	for _, value := range []string{"-1", "0", "1048577", "5 GB", "5120.5"} {
 		if _, err := loadWith(t, merge(fullMedia(), map[string]string{"MEDIA_OWNER_QUOTA_MIB": value})); err == nil {
 			t.Errorf("MEDIA_OWNER_QUOTA_MIB=%q was accepted", value)
+		}
+	}
+}
+
+func TestTheMediaRetentionSweepIsOnUnlessSwitchedOff(t *testing.T) {
+	for name, env := range map[string]map[string]string{"with object storage": fullMedia(), "without it": nil} {
+		cfg, err := loadWith(t, env)
+		if err != nil || !cfg.MediaRetentionSweep {
+			t.Errorf("%s: MediaRetentionSweep = %v (%v), want on by default", name, cfg.MediaRetentionSweep, err)
+		}
+	}
+	for value, want := range map[string]bool{"on": true, "ON": true, " On ": true, "off": false, "OFF": false, " off ": false} {
+		cfg, err := loadWith(t, merge(fullMedia(), map[string]string{"MEDIA_RETENTION_SWEEP": value}))
+		if err != nil || cfg.MediaRetentionSweep != want {
+			t.Errorf("MEDIA_RETENTION_SWEEP=%q read as %v (%v), want %v", value, cfg.MediaRetentionSweep, err, want)
+		}
+	}
+}
+
+func TestTheMediaRetentionSwitchRefusesAnythingButOnOrOff(t *testing.T) {
+	for _, value := range []string{"true", "false", "0", "1", "yes", "no", "disabled", "off now"} {
+		_, err := loadWith(t, merge(fullMedia(), map[string]string{"MEDIA_RETENTION_SWEEP": value}))
+		if err == nil || !strings.Contains(err.Error(), "MEDIA_RETENTION_SWEEP") {
+			t.Errorf("MEDIA_RETENTION_SWEEP=%q gave %v, want a refusal that names the setting", value, err)
 		}
 	}
 }

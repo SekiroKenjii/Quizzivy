@@ -20,12 +20,16 @@ type MediaRetention struct {
 // schedule, retrying sooner after a failed sweep. Every API machine runs it: a
 // file is taken under a row lock that a second sweep skips, so none is removed
 // twice. It logs counts and the first failure's error, which names an object
-// key of no title or filename.
+// key of no title or filename, and at ERROR the id of each file whose object
+// was deleted and whose row could not be marked.
 func SweepRetiredMedia(ctx context.Context, logger *slog.Logger, sweep cqrs.CommandHandler[mediacommand.Sweep, mediacommand.Swept], schedule MediaRetention) {
 	runEvery(ctx, func() time.Duration {
 		run, cancel := context.WithTimeout(ctx, schedule.Budget)
 		swept, err := sweep.Handle(run, mediacommand.Sweep{})
 		cancel()
+		for _, lost := range swept.Unmarked {
+			logger.Error("media object removed but its row was not marked", "code", "MEDIA_RETENTION_UNMARKED", "asset_id", lost.ID, "err", lost.Cause)
+		}
 		switch {
 		case err != nil:
 			logger.Warn("media retention sweep failed", "code", "MEDIA_RETENTION_FAILED", "err", err, "unreferenced", swept.Unreferenced, "cancelled", swept.Cancelled, "removed", swept.Removed, "failed", swept.Failed)

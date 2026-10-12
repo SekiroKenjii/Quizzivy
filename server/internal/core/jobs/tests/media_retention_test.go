@@ -12,6 +12,7 @@ import (
 
 	"quizzivy/internal/core/jobs"
 	mediacommand "quizzivy/internal/modules/media/application/command"
+	mediadomain "quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/shared/cqrs"
 )
 
@@ -125,5 +126,19 @@ func TestTheMediaSweepStopsWhenTheProcessDoes(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 	if s.count() != after {
 		t.Error("the sweep kept running after its context ended")
+	}
+}
+
+func TestTheMediaSweepReportsAtErrorEveryFileItDeletedButCouldNotMark(t *testing.T) {
+	lost := &mediadomain.PurgeMarkError{ID: "019a0000-0000-7000-8000-00000000f68a", Cause: errors.New("connection reset")}
+	s := &mediaSweeps{results: []mediaResult{{swept: mediacommand.Swept{Failed: 1, Cause: lost, Unmarked: []*mediadomain.PurgeMarkError{lost}}}}}
+	stop, logs := runMediaSweeps(t, s, jobs.MediaRetention{Every: time.Hour, Retry: time.Hour, Budget: time.Second})
+	waitForSweeps(s, 1)
+	time.Sleep(50 * time.Millisecond)
+	stop()
+	for _, want := range []string{`"level":"ERROR"`, `"code":"MEDIA_RETENTION_UNMARKED"`, `"asset_id":"019a0000-0000-7000-8000-00000000f68a"`, "connection reset"} {
+		if !strings.Contains(logs(), want) {
+			t.Errorf("logs do not carry %s: %s", want, logs())
+		}
 	}
 }
