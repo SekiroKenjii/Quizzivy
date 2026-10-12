@@ -251,9 +251,11 @@ func (s *Postgres) LegacyCodeClasses(ctx context.Context, now time.Time) ([]doma
 // Revoke and every write to the class but not the key-share lock a member
 // insert takes: a redemption that holds the code row finishes while the
 // rotation waits for that row, and the two never wait for each other. The new
-// code keeps the old one's expiry, use cap and creator and starts unused; the
-// class's self-join switch is not written. A transaction aborted as a deadlock
-// or serialization victim answers domain.ErrRotationContended.
+// code keeps the old one's expiry, use cap, use count and creator, so a code
+// that had reached its cap is used up again and the rotation opens no join the
+// old code refused; the class's self-join switch is not written. A transaction
+// aborted as a deadlock or serialization victim answers
+// domain.ErrRotationContended.
 func (s *Postgres) RotateLegacyCode(ctx context.Context, in domain.LegacyRotationInput) (bool, error) {
 	wrote := false
 	err := s.InTx(ctx, "rotate legacy join code", func(tx pgx.Tx) error {
@@ -280,6 +282,7 @@ type legacyCode struct {
 	hint      string
 	expiresAt time.Time
 	maxUses   *int
+	usesCount int
 	createdBy string
 }
 
@@ -297,12 +300,12 @@ func lockLegacyCode(ctx context.Context, tx pgx.Tx, in domain.LegacyRotationInpu
 	}
 
 	const active = `
-		SELECT id::text, code_hint, expires_at, max_uses, created_by::text
+		SELECT id::text, code_hint, expires_at, max_uses, uses_count, created_by::text
 		  FROM app.class_join_codes
 		 WHERE class_id = $1 AND revoked_at IS NULL AND lookup_scheme = 1 AND expires_at > $2
 		   FOR UPDATE`
 	var old legacyCode
-	err = tx.QueryRow(ctx, active, in.ClassID, in.Now).Scan(&old.id, &old.hint, &old.expiresAt, &old.maxUses, &old.createdBy)
+	err = tx.QueryRow(ctx, active, in.ClassID, in.Now).Scan(&old.id, &old.hint, &old.expiresAt, &old.maxUses, &old.usesCount, &old.createdBy)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -321,11 +324,11 @@ func replaceLegacyCode(ctx context.Context, tx pgx.Tx, in domain.LegacyRotationI
 	const issue = `
 		INSERT INTO app.class_join_codes
 		       (id, class_id, code_hash, code_ciphertext, key_id, lookup_scheme,
-		        code_hint, expires_at, max_uses, created_by, created_at)
-		VALUES ($1, $2, $3, $4, $5, 2, $6, $7, $8, $9, $10)`
+		        code_hint, expires_at, max_uses, uses_count, created_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, 2, $6, $7, $8, $9, $10, $11)`
 	if _, err := tx.Exec(ctx, issue,
 		in.CodeID, in.ClassID, in.CodeHash, in.Ciphertext, in.KeyID,
-		in.Hint, old.expiresAt, old.maxUses, old.createdBy, in.Now); err != nil {
+		in.Hint, old.expiresAt, old.maxUses, old.usesCount, old.createdBy, in.Now); err != nil {
 		return fmt.Errorf("issue the sealed code: %w", err)
 	}
 

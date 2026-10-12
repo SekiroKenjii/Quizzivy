@@ -494,7 +494,7 @@ func joinedThrough(t *testing.T, pool *pgxpool.Pool, classID, userID string) str
 	return *codeID
 }
 
-func TestALegacyCodeIsReplacedByASealedOneThatKeepsItsLimits(t *testing.T) {
+func TestALegacyCodeIsReplacedByASealedOneThatKeepsItsLimitsAndItsUses(t *testing.T) {
 	pool := newPool(t)
 	ctx := context.Background()
 	open, openTeacher, _ := makeClassRow(t, pool)
@@ -507,8 +507,8 @@ func TestALegacyCodeIsReplacedByASealedOneThatKeepsItsLimits(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, created_by, created_at)
-		VALUES ($1, sha256($2::bytea), 'BBBB', now() + interval '5 days', NULL, $3, now() - interval '25 days')`,
+		INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, uses_count, created_by, created_at)
+		VALUES ($1, sha256($2::bytea), 'BBBB', now() + interval '5 days', NULL, 7, $3, now() - interval '25 days')`,
 		closed, "limits-"+closed, closedTeacher); err != nil {
 		t.Fatal(err)
 	}
@@ -543,8 +543,8 @@ func TestALegacyCodeIsReplacedByASealedOneThatKeepsItsLimits(t *testing.T) {
 		if !reflect.DeepEqual(current.maxUses, was.maxUses) {
 			t.Errorf("max_uses = %v, want the legacy code's %v", current.maxUses, was.maxUses)
 		}
-		if current.usesCount != 0 {
-			t.Errorf("uses_count = %d, want 0", current.usesCount)
+		if current.usesCount != was.usesCount {
+			t.Errorf("uses_count = %d, want the legacy code's %d", current.usesCount, was.usesCount)
 		}
 		if current.createdBy != creator || current.createdBy != was.createdBy {
 			t.Errorf("created_by = %s, want the legacy code's %s", current.createdBy, was.createdBy)
@@ -635,12 +635,58 @@ func TestARotatedLegacyCodeAnswersAsACodeItsTeacherReplaced(t *testing.T) {
 	}
 
 	current := currentCode(t, svc, classID)
-	if current.UsesCount != 0 {
-		t.Errorf("the new code starts at %d uses", current.UsesCount)
+	if current.UsesCount != 1 {
+		t.Errorf("the new code holds %d uses, want the one the legacy code counted", current.UsesCount)
 	}
 	joinsAll(t, pool, svc, classID, domain.JoinCodes.Format(current.Code))
 	if n := memberCount(t, pool, classID); n != 4 {
 		t.Errorf("the class has %d members after two joined through the new code, want 4", n)
+	}
+}
+
+func TestARotatedLegacyCodeKeepsItsUseCountSoOneAtItsCapStaysUsedUp(t *testing.T) {
+	pool := newPool(t)
+	svc := newSvc(t, pool)
+	ctx := context.Background()
+	spent, _, spentOld := legacyClassRow(t, pool)
+	below, _, _ := legacyClassRow(t, pool)
+	for class, uses := range map[string]int{spent: 40, below: 38} {
+		if _, err := pool.Exec(ctx,
+			`UPDATE app.class_join_codes SET uses_count = $2 WHERE class_id = $1 AND revoked_at IS NULL`, class, uses); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := refusalOf(t, pool, svc, spentOld); got != refusedAs(domain.PreviewExhausted) {
+		t.Fatalf("the legacy code at its cap answers %+v before the rotation, want PreviewExhausted", got)
+	}
+	spentMembers, belowMembers := memberCount(t, pool, spent), memberCount(t, pool, below)
+
+	if run := rotateLegacy(t, rotationOver(pool, nil, spent, below)); run != (domain.LegacyRotation{Found: 2, Rotated: 2}) {
+		t.Fatalf("the run answered %+v, want both classes rotated", run)
+	}
+
+	spentNew := domain.JoinCodes.Format(currentCode(t, svc, spent).Code)
+	got := refusalOf(t, pool, svc, spentNew)
+	if got != refusedAs(domain.PreviewExhausted) {
+		t.Errorf("the sealed code of a class whose legacy code was at its cap answers %+v, want PreviewExhausted on every path", got)
+	}
+	if code := classeshttp.JoinCodeError(ctx, got.preview.Outcome).Error.Code; code != "JOIN_CODE_EXHAUSTED" {
+		t.Errorf("the transport answers %s, want JOIN_CODE_EXHAUSTED", code)
+	}
+	if n, uses := memberCount(t, pool, spent), usesCount(t, pool, spent); n != spentMembers || uses != 40 {
+		t.Errorf("the refused joins left %d members and %d uses, want the %d it had and the 40 it was rotated with", n, uses, spentMembers)
+	}
+
+	belowNew := domain.JoinCodes.Format(currentCode(t, svc, below).Code)
+	if uses := usesCount(t, pool, below); uses != 38 {
+		t.Fatalf("the code below its cap holds %d uses, want the 38 it was rotated with", uses)
+	}
+	joinsAll(t, pool, svc, below, belowNew)
+	if got := refusalOf(t, pool, svc, belowNew); got != refusedAs(domain.PreviewExhausted) {
+		t.Errorf("after the two places it had left, the sealed code answers %+v, want PreviewExhausted", got)
+	}
+	if n, uses := memberCount(t, pool, below), usesCount(t, pool, below); n != belowMembers+2 || uses != 40 {
+		t.Errorf("the class holds %d members and %d uses, want %d (the two that fitted) and the cap of 40", n, uses, belowMembers+2)
 	}
 }
 
@@ -1137,6 +1183,9 @@ func TestAStudentRedeemingTheOldCodeAndTheRotationNeverLeaveALegacyCode(t *testi
 			t.Errorf("the rotation answered %+v (%v), want the class rotated", got.run, got.err)
 		}
 		onlySealedCode(t, pool, classID)
+		if uses := usesCount(t, pool, classID); uses != 1 {
+			t.Errorf("the sealed code holds %d uses, want the one the redemption counted", uses)
+		}
 		if through := joinedThrough(t, pool, classID, student); through != legacy.id {
 			t.Errorf("the student joined through %s, want the legacy row %s", through, legacy.id)
 		}
@@ -1227,6 +1276,9 @@ func TestAStudentRedeemingTheOldCodeAndTheRotationNeverLeaveALegacyCode(t *testi
 			t.Fatalf("the redemption answered %+v (%v), want the student enrolled", joined.result, joined.err)
 		}
 		onlySealedCode(t, pool, classID)
+		if uses := usesCount(t, pool, classID); uses != 1 {
+			t.Errorf("the sealed code holds %d uses, want the one the redemption counted", uses)
+		}
 		if through := joinedThrough(t, pool, classID, joined.result.UserID); through != legacy.id {
 			t.Errorf("the student joined through %s, want the legacy row %s", through, legacy.id)
 		}

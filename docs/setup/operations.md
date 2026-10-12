@@ -320,8 +320,10 @@ the job beside the prunes, and the `worker` process does not run it.
 For every class whose active code is scheme 1, not revoked and not yet expired,
 one transaction revokes that code and issues a sealed one (scheme 2, under the
 current `JOIN_CODE_KEY`). The new code keeps the old one's expiry, use cap (a
-stored NULL stays NULL) and creator, starts at 0 uses and leaves the class's
-self-join switch as it was. The old code then answers as any replaced code does:
+stored NULL stays NULL), use count and creator, and leaves the class's
+self-join switch as it was. A class whose legacy code had reached its cap
+therefore gets a code that is used up: its teacher issues a new one to admit
+more students (F-67). The old code then answers as any replaced code does:
 "revoked" where self-join is open, and as an unknown code where self-join is
 closed or the class is archived. Archived classes are rotated too. Each rotation
 is audited as `class.join_code_rotated` with no actor (the System), the diff
