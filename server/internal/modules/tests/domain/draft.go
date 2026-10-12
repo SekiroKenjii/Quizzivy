@@ -42,6 +42,7 @@ type DraftQuestion struct {
 	MaxPlays           *int
 	AllowSeek          *bool
 	ShowTranscript     *bool
+	AllowPause         *bool
 	Transcript         *string
 	Points             string
 	Explanation        *string
@@ -49,6 +50,10 @@ type DraftQuestion struct {
 	Options            []DraftOption
 	Blanks             []DraftBlank
 }
+
+// PauseAllowed reports whether a student may pause the question's audio. An
+// unset value allows it, as every question did before the control existed.
+func (q DraftQuestion) PauseAllowed() bool { return q.AllowPause == nil || *q.AllowPause }
 
 // DraftOption is a choice option as the draft holds it.
 type DraftOption struct {
@@ -79,6 +84,7 @@ type PreviewQuestion struct {
 	MaxPlays      *int
 	AllowSeek     *bool
 	ShowScript    *bool
+	AllowPause    bool
 	Options       []PreviewOption
 	Blanks        []PreviewBlank
 }

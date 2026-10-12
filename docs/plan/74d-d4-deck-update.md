@@ -1639,17 +1639,17 @@ would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
 **Touches:** `api/openapi.yaml` (`AudioPolicy`, a new `StudentAudioPolicy`, `StudentQuestion.audio`, `StudentGroupRecording.policy`, the `StudentSection` description), `server/gen/openapi/`, `web/src/lib/api/schema.d.ts`, `migrations/NNNNN_add_questions_audio_allow_pause.sql`, `NNNNN_add_test_version_questions_audio_allow_pause.sql`, `NNNNN_add_group_recordings_allow_pause.sql`, `NNNNN_add_test_version_group_recordings_allow_pause.sql` (new; numbered at merge), `server/internal/modules/questions/{domain/question.go,http/{input,questions}.go,repositories/store.go}`, `server/internal/modules/tests/{domain/{draft,publish_validation}.go,http/{tests,preview_groups}.go,repositories/{group_assets,group_frozen,group_read,preview,preview_groups,publish_groups,publish_group_snapshot,publish_load,publish_snapshot,version_draft}.go}` and the group write, duplicate and group-copy paths, `server/internal/modules/attempts/{domain/paper.go,http/{attempts,admin_attempts}.go,repositories/{store,review_review}.go}`, the import commit's default, `seed/`, the student-shaped fixtures `web/tests/support/groupPreview.ts`, `web/tests/units/take-test/{panes.test.tsx,question-audio-events.test.tsx,deckSession.ts}`, `web/tests/units/builder/group-preview.test.tsx`, `web/tests/e2e/audio-events.spec.ts` and the MSW fixtures of a session, `server/internal/modules/tests/application/tests/allow_pause_test.go` (new), `docs/plan/20-data-model.md`, `docs/quizzivy-spec-v0.3.md` §11.1, §13, §15, `docs/plan/74-r4.md` and `docs/plan/70-redesign-overview.md` (their open items on "Students can pause")
 **Size:** M
 **Done when:**
-- [ ] `make test-api-integration` and the Go unit tests of `questions`, `tests`, `attempts`
+- [x] `make test-api-integration` and the Go unit tests of `questions`, `tests`, `attempts`
       and `media` run on the branch point and on the last commit, both runs in the PR
       (high-risk area). The integration run is the one that holds `publish_snapshot_test.go`,
       `attempts/application/tests/events_test.go`,
       `TestLockForVersionUseSerialisesAgainstDelete` and
       `TestLockForDraftUseSerialisesAgainstDelete`; the PR names the four as passed.
-- [ ] The task adds a column to the rows these paths insert and changes no lock: every insert
+- [x] The task adds a column to the rows these paths insert and changes no lock: every insert
       into `app.test_version_questions` still follows `media.LockForVersionUse`, and every
       insert into `app.test_section_questions` still follows `questions.LockForDraftUse`
       (AGENTS.md, "High-risk areas").
-- [ ] Four migrations, one concern each, each with a working Down, goose up/down/up in CI:
+- [x] Four migrations, one concern each, each with a working Down, goose up/down/up in CI:
       `questions.audio_allow_pause boolean` and `test_version_questions.audio_allow_pause
       boolean`, both nullable with `CHECK (audio_allow_pause IS NULL OR media_asset_kind IS NOT
       DISTINCT FROM 'audio')` and read as `COALESCE(…, true)`; `group_recordings.allow_pause`
@@ -1658,7 +1658,7 @@ would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
       rolling deploy, and none of the four rewrites or indexes a populated table. The
       biconditional `questions_audio_policy_iff_audio` is not widened, because the previous
       binary writes no value.
-- [ ] The contract. A group has no separate read and write shape: `QuestionGroupBundle` is
+- [x] The contract. A group has no separate read and write shape: `QuestionGroupBundle` is
       the response body (`StoredQuestionGroup`, 2412) and the request body (`GroupCreateInput`
       2451, `GroupUpdateInput` 2463), and one `AudioPolicy` (1694-1709, `additionalProperties:
       false`, three required fields) is referenced five times: `AdminQuestion.audio` (2031),
@@ -1679,7 +1679,7 @@ would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
       structure-validation}.test.ts(x)`, `question-groups/model.test.ts`) compile unchanged,
       and `QuestionValuesAreAcceptedByTheContract` (`questionSchema.ts:211-218`, an
       assignability check) still holds without an edit.
-- [ ] What an absent field means, because `updateQuestion` and `updateQuestionGroup` replace
+- [x] What an absent field means, because `updateQuestion` and `updateQuestionGroup` replace
       the whole object and three clients send none: a tab loaded before the deploy, whose
       `z.object` parsers strip a key they do not name (`questionSchema.ts:14-18`); the same
       tab's device-recovery draft (`question-groups/recovery.ts:15-19`); and every tab until
@@ -1688,32 +1688,63 @@ would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
       the bundle, for a recording by its id; a recording or an audio policy that is new in
       the request is a create. "Absent means true" on update would silently turn a teacher's
       "cannot pause" back on at the next save from any of the three.
-- [ ] The value is copied wherever `allowSeek` is: publish (both snapshots), restore as draft,
+- [x] The value is copied wherever `allowSeek` is: publish (both snapshots), restore as draft,
       duplicate, group copy, the import commit (true), the teacher's preview, the student's
       session for a question's audio and for a group's recording, the teacher's review.
-- [ ] `allow_pause_test.go`: (a) publish a question and a recording with it off, edit both in
+- [x] `allow_pause_test.go`: (a) publish a question and a recording with it off, edit both in
       the bank and the draft afterwards, and read the version's frozen false; (b) a version
       published before the migration reads true; (c) save false, then save the same question
       and the same group again with the field absent, and read false both times; (d) create
       with the field absent and read true; (e) a recording replaced by a new id in the same
       update reads true.
-- [ ] No operation is added or changes its `x-permission`; `permissions.golden` and the
+- [x] No operation is added or changes its `x-permission`; `permissions.golden` and the
       isolation suite are unchanged, and the PR says so. The existing second-teacher cases for
       `updateQuestion` and `updateQuestionGroup` cover the field. No `x-resource` entry is
       added or changed: `allowPause` is a boolean, not an id.
-- [ ] Leak review in the PR: `allowPause` is a rule a student is meant to read, not a key. The
+- [x] Leak review in the PR: `allowPause` is a rule a student is meant to read, not a key. The
       four forbidden keys are unchanged; `StudentAudioPolicy` holds none of them;
       `payload_test.go`, `openapi-contract.test.ts` and E2E 9 pass with their key lists
       untouched.
-- [ ] `StudentSection`'s description reads "the engine shows it above each of the section's
+- [x] `StudentSection`'s description reads "the engine shows it above each of the section's
       questions" (T-D4.5).
-- [ ] Spec §11.1 lists the fourth control, its default and the keep-on-absent rule; §13 and
+- [x] Spec §11.1 lists the fourth control, its default and the keep-on-absent rule; §13 and
       `20-data-model.md` record the four columns and why two are nullable; §15 documents the
       two shapes.
-- [ ] `74-r4.md`'s open item ""Students can pause", "Matching" and "Not given"" and 70 §10's
+- [x] `74-r4.md`'s open item ""Students can pause", "Matching" and "Not given"" and 70 §10's
       item on the content editor say that "Students can pause" is built: both name
       `allowPause`, this task and DG-183. DG-111's row in `gaps.md` says the same.
 - [ ] Rehearsed on a Neon branch of production; the timing goes in the release PR.
+
+**As built:** the contract is `AudioPolicy.allowPause` (optional) and `StudentAudioPolicy` (all
+four required), which replaces `AudioPolicy` in `StudentQuestion.audio` and
+`StudentGroupRecording.policy`; the contract has two more `AudioPolicy` references than the plan
+counted (`GradingQueueItem.audio` and `StoredQuestionInput.audio`), both authoring-side, so they
+carry the optional field and the server sends it. The domain `questions.AudioPolicy` gains
+`AllowPause *bool` (nil is a writer that did not say) and `PauseAllowed()`; every reader selects
+`coalesce(…, true)` and fills it, so the value a repository returns is never nil. Migrations are
+00107 to 00110, in the plan's order (00106 was the highest on `develop` and on `work/deck-d4`, and
+no open pull request added one); their Down was run with goose up, down-to 106 and up. Keep-on-absent
+is one statement for a question and for a group's member (`CASE WHEN <audio present> THEN
+coalesce($new, audio_allow_pause, true) END`), and for a recording the group update reads the
+stored `allow_pause` by id before it clears the group's recordings and rewrites them. An audio
+swap on the same question with the field absent keeps the stored value: it is the same question's
+policy, and only an audio policy that is new to the question (it had none, or an image) is a create.
+Publish copies the bank's nullable column as it is, so a NULL stays NULL and reads true; the
+recording column is copied as a bool. The version diff and the group-recording print count a
+changed rule (an unset rule and true are one rule), which the plan's Touches do not list: without
+it, flipping the switch after a publish would show "nothing changed". Three places outside the
+plan's Touches changed because `pnpm typecheck` found them: `question-groups/preview.ts` and
+`tests/components/DraftPreviewDialog.tsx` turn a teacher's policy into the student shape through
+one `studentAudioPolicy()` that fills a missing `allowPause` with true, and
+`tests/units/take-test/superseded-load.test.tsx` carries a student-shaped literal. `deckSession.ts`
+and the MSW fixtures hold no policy and needed nothing. The seed reads `audio.allowPause` and its
+listening question 30 cannot be paused, so T-D4.9 has one to compare. The import commit writes no
+audio, so its default is the create default and has no code of its own. Spec v0.90 changes §7,
+§11.1, §13 and §15; `20-data-model.md` takes D-42 and §44; `74-r4.md`, 70 §10, `40-open-items.md`
+(O-R4.8) and DG-111's row in `gaps.md` name `allowPause`, T-D4.13 and DG-183 and say the engine and
+the switch follow. The Neon rehearsal is not done here: it belongs to T-D4.40's migration
+rehearsal, with the other D4 migrations. No operation was added, `x-permission` is unchanged and
+`permissions.golden` and the isolation suite are untouched.
 
 ---
 
@@ -3058,9 +3089,9 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 - **The preview's 45:00 timer.** A test has no time limit until it is assigned, so no answer
   from the design team alone makes the deck's timer buildable; it needs a field on the test
   (Q11).
-- **"Students can pause" in the other documents.** `70-redesign-overview.md` §10 says it is
-  unbuilt until D4, and `74-r4.md`'s open items say R4 does not build it. T-D4.13 corrects
-  both when it merges. If the owner declines Q4, 70 §10 records the D1 exception instead.
+- **"Students can pause" in the other documents.** `70-redesign-overview.md` §10 said it was
+  unbuilt until D4, and `74-r4.md`'s open items said R4 does not build it. T-D4.13 corrected
+  both (they now name `allowPause`, the task and DG-183). If the owner declines Q4, 70 §10 records the D1 exception instead.
 - **Migration numbers.** T-R4.49 (R2's contract steps), R4's lane and T-D4.13 all number above
   `develop`'s last file. Numbers are assigned at merge.
 - **Line numbers of code.** They are those of `develop` at `fd9c763a`. The fixes for #315 and

@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.89 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.90 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.89**
+
+D4, T-D4.13 (DG-183): a teacher can stop students pausing a recording.
+
+- §7 `AudioPolicy` gains `allowPause: boolean`, default true. A student receives `StudentAudioPolicy`, the same four fields all present, for a question's audio and for a group's recording.
+- §11.1 The audio controls are four: `maxPlays`, `allowSeek`, `showTranscriptAfterSubmit` and `allowPause` ("Students can pause", default **true**), on a question's audio and on a group's recording. A create that leaves it out stores true. An update that leaves it out keeps the stored value, of the same question by its id, of a group's member question by its id in the bundle and of a recording by its id, so a tab loaded before the release or a recovery draft from the device cannot switch pausing back on; an audio policy or a recording that is new in the request is a create. Publish, restore as a draft, duplicate and group copy carry the value, and a version freezes it.
+- §13 `questions.audio_allow_pause` and `test_version_questions.audio_allow_pause` are nullable and read as true when NULL; `group_recordings.allow_pause` and `test_version_group_recordings.allow_pause` are `boolean NOT NULL DEFAULT true` (migrations 00107 to 00110).
+- §15 `createQuestion`, `updateQuestion`, `createQuestionGroup` and `updateQuestionGroup` accept `allowPause` and answer with it; the student's paper, the preview and the result send `StudentAudioPolicy`.
 
 **Changes since v0.88**
 
@@ -1468,7 +1477,11 @@ interface AudioPolicy {
   maxPlays: number | null;              // null = unlimited
   allowSeek: boolean;                   // default false for listening
   showTranscriptAfterSubmit: boolean;
+  allowPause?: boolean;                 // default true; the server always sends it (§11.1)
 }
+
+// What a student receives: the same four fields, all present.
+interface StudentAudioPolicy extends Required<AudioPolicy> {}
 
 interface Question {
   id; type: QuestionType;
@@ -2107,7 +2120,8 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 ### 11.1 Admin: upload and attach
 
-- In the question editor, an audio question has: file upload, transcript textarea (admin-authored, optional), and the `AudioPolicy` controls (`maxPlays` default 2, `allowSeek` default **false**, `showTranscriptAfterSubmit` default true).
+- In the question editor, an audio question has: file upload, transcript textarea (admin-authored, optional), and the `AudioPolicy` controls (`maxPlays` default 2, `allowSeek` default **false**, `showTranscriptAfterSubmit` default true, `allowPause` default **true**).
+- `allowPause` is "Students can pause" (T-D4.13, DG-183). It is a rule a student is meant to read, not a key, and it applies to a question's audio and to a group's recording alike. A create that leaves it out stores true. **An update that leaves it out keeps the stored value**, for a question by its id, for a member question of a group by its id in the bundle and for a recording by its id; an audio policy that is new in the request (the question had none, or an image) and a recording under a new id are creates and read true. The rule exists because `updateQuestion` and `updateQuestionGroup` replace the whole object, and a tab loaded before this release, or a recovery draft saved on the device, sends none. Publish freezes the value in both snapshots; restoring a version as a draft, duplicating a test and copying a group carry it; the teacher's preview, the student's paper and the teacher's review read it. A question or version from before the control reads true.
 - Accepted: `audio/mpeg` (.mp3) and `audio/mp4` / `audio/aac` (.m4a). **Reject everything else** with a plain message. These two cover every current browser without transcoding; supporting `.ogg`/`.wav`/`.webm` means either transcoding or a Safari support matrix, and neither is worth it in v1.
 - Limits: audio 50 MB and 5 minutes; an image (PNG, JPEG or WebP) 10 MB (DG-63). Validate **server-side** by sniffing magic bytes and probing duration — never trust the `Content-Type` header or the file extension. The file is streamed to disk, never held in memory, and an image's size in pixels is read from its header.
 - A teacher's library holds at most 5 GB unless the deployment sets another quota (`MEDIA_OWNER_QUOTA_MIB`). An upload that would take it past the quota is refused with `MEDIA_QUOTA_EXCEEDED`. A deleted file no longer counts, and neither does a replaced one.
@@ -2497,6 +2511,8 @@ Down refuses existing rich fill-blank rows instead of silently discarding bindin
 No legacy rows are rewritten, no grading keys move, and the same read-compatible rollback floor
 applies after prose writes.
 
+Migrations `00107` to `00110` (D4, T-D4.13) add the pause rule of §11.1, one column each. `questions.audio_allow_pause` and `test_version_questions.audio_allow_pause` are nullable `boolean`s with no default, no backfill and `CHECK (audio_allow_pause IS NULL OR media_asset_kind IS NOT DISTINCT FROM 'audio')`, and every reader takes `COALESCE(…, true)`. They are nullable because the previous binary inserts these rows during a rolling deploy and writes no value, and because `questions_audio_policy_iff_audio` is a biconditional over the other two policy columns, which this column therefore stays out of. `group_recordings.allow_pause` and `test_version_group_recordings.allow_pause` are `boolean NOT NULL DEFAULT true`: a recording always has its whole policy, and a constant default is stored without a rewrite. None of the four rewrites or indexes a populated table.
+
 ```sql
 CREATE TABLE app.questions (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -2507,6 +2523,7 @@ CREATE TABLE app.questions (
   audio_max_plays integer CHECK (audio_max_plays IS NULL OR audio_max_plays > 0),
   audio_allow_seek boolean NOT NULL DEFAULT false,
   audio_show_transcript_after boolean NOT NULL DEFAULT true,
+  audio_allow_pause boolean,                       -- D4: NULL reads as true; audio only (00107)
   transcript      text,
   points          numeric(8,2) NOT NULL CHECK (points > 0),
   explanation     text,
@@ -2544,8 +2561,8 @@ test_versions(id, test_id, version, published_at, total_points, change_note, UNI
 test_version_sections(id, test_version_id, ordinal, title, instructions)
 test_version_questions(id, test_version_section_id, ordinal, source_question_id,
                        type, prompt, media_asset_id, media_alt, audio_max_plays, audio_allow_seek,
-                       audio_show_transcript_after, transcript, points, explanation, sample_answer,
-                       level, skill)
+                       audio_show_transcript_after, audio_allow_pause, transcript, points, explanation,
+                       sample_answer, level, skill)
 test_version_options(id, test_version_question_id, ordinal, text, is_correct)
 test_version_blanks / test_version_blank_answers
 ```
@@ -2785,6 +2802,9 @@ GET    /teacher/tests/:id/versions/:version/diff?against=previous|draft|<n>
 POST   /teacher/tests/:id/duplicate
 GET    /teacher/questions?type=&tag=&tagMatch=any|all&level=&skill=&hasAudio=&q=&page=&limit=
 POST   /teacher/questions | PATCH /:id | DELETE /:id
+                                        an audio policy carries allowPause (§11.1): optional in a request,
+                                        where a create stores true and an update keeps the stored value;
+                                        always sent in an answer. The group writes follow the same rule
 POST   /teacher/media?defaultMaxPlays=  multipart → MediaAsset (validates mime, size, duration, quota)
 GET    /teacher/media?kind=&unused=&q=&page=&limit=   rows, totalBytes, facets and usage against the quota
 PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the library row
@@ -2888,6 +2908,9 @@ POST   /app/assignments/:id/attempts    → create or resume → Attempt + order
                                           startOrResumeAttempt accepts resume; a Continue never
                                           starts an attempt (#237)
 GET    /app/attempts/:id                → Attempt + questions + serverTime + audioPlays
+                                       a question's audio and a group recording's policy are
+                                       StudentAudioPolicy: maxPlays, allowSeek, showTranscriptAfterSubmit
+                                       and allowPause, all present
                                        optional session names the tab's held session;
                                        a different session on a live attempt answers
                                        200 with superseded:true, that held session id,

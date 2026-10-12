@@ -298,7 +298,7 @@ func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuesti
 	if q.Audio != nil {
 		out.Audio = &openapi.AudioPolicy{
 			MaxPlays: q.Audio.MaxPlays, AllowSeek: q.Audio.AllowSeek,
-			ShowTranscriptAfterSubmit: q.Audio.ShowTranscriptAfterSubmit,
+			ShowTranscriptAfterSubmit: q.Audio.ShowTranscriptAfterSubmit, AllowPause: httpapi.Ptr(q.Audio.AllowPause),
 		}
 	}
 	options := make([]openapi.AdminQuestionOption, len(q.Options))

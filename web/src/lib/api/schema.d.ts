@@ -4181,7 +4181,11 @@ export interface components {
         QuestionLevel: "pre_a1" | "a1" | "a2" | "b1" | "b2" | "c1" | "c2";
         /** @enum {string} */
         QuestionSkill: "grammar" | "vocabulary" | "reading" | "listening" | "writing" | "speaking";
-        /** @description Present if and only if the attached asset is audio (§7). */
+        /**
+         * @description Present if and only if the attached asset is audio (§7). This is the
+         *     authoring shape, read and written by teachers; a student receives
+         *     `StudentAudioPolicy`.
+         */
         AudioPolicy: {
             /**
              * @description `null` is unlimited. Enforcement is server-side and advisory: over-limit
@@ -4192,6 +4196,31 @@ export interface components {
             /** @description Defaults to false for listening (§11.1). */
             allowSeek: boolean;
             showTranscriptAfterSubmit: boolean;
+            /**
+             * @description Whether a student may pause the recording once it is playing (§11.1);
+             *     `true` when none was ever set. The server always sends it. In a request
+             *     an absent field means "do not change it": a create stores `true`, and an
+             *     update keeps the value already stored for the same question (by its id),
+             *     for the same member question of a group (by its id in the bundle) and for
+             *     the same recording (by its id). An audio policy or a recording that is new
+             *     in the request is a create. A client that does not know the field therefore
+             *     can never switch pausing back on by saving.
+             */
+            allowPause?: boolean;
+        };
+        /**
+         * @description The audio rules a student's engine reads, for a question's audio and for a
+         *     group's recording. The shape of `AudioPolicy` with every field required,
+         *     because the engine never guesses a rule the server did not send. These are
+         *     rules the student is meant to read; nothing here is an answer key.
+         */
+        StudentAudioPolicy: {
+            /** @description `null` is unlimited. Advisory, as on `AudioPolicy` (§11.4). */
+            maxPlays: number | null;
+            allowSeek: boolean;
+            showTranscriptAfterSubmit: boolean;
+            /** @description Whether the student may pause the recording once it is playing (§11.1). */
+            allowPause: boolean;
         };
         /**
          * @description Bounded semantic prose for prompts and explanations: paragraphs, headings,
@@ -4457,8 +4486,8 @@ export interface components {
         };
         /**
          * @description One part of the paper, in test order. `instructions` is the teacher's
-         *     text to the student for this part; the engine shows it above the
-         *     section's first question and the navigator groups the numbers under
+         *     text to the student for this part; the engine shows it above each of the
+         *     section's questions and the navigator groups the numbers under
          *     `title` (S-05, S-06, S-08).
          */
         StudentSection: {
@@ -4487,7 +4516,7 @@ export interface components {
             media?: components["schemas"]["MediaAsset"] | null;
             /** @description The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key. */
             mediaAlt?: string | null;
-            audio?: components["schemas"]["AudioPolicy"] | null;
+            audio?: components["schemas"]["StudentAudioPolicy"] | null;
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
             points: components["schemas"]["Points"];
@@ -4511,7 +4540,7 @@ export interface components {
         StudentGroupRecording: {
             id: components["schemas"]["Uuid"];
             assetId: components["schemas"]["Uuid"];
-            policy: components["schemas"]["AudioPolicy"];
+            policy: components["schemas"]["StudentAudioPolicy"];
         };
         /**
          * @description Frozen material for completed-attempt results and teacher grading.

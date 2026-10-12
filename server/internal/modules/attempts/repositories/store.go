@@ -312,7 +312,7 @@ const questionsQuery = `
 	SELECT q.id, q.test_version_section_id, q.type, q.prompt, q.prompt_content, q.points,
 	       q.media_asset_id, q.media_asset_kind, q.media_alt, m.mime_type, m.original_filename,
 	       m.bytes, m.duration_ms, m.created_at,
-	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
+	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after, coalesce(q.audio_allow_pause, true),
            coalesce(gm.group_id::text,''),coalesce(gm.ordinal,0),coalesce(gm.option_order='fixed',false)
 	  FROM app.test_version_questions q
 	  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -326,6 +326,7 @@ type questionRow struct {
 	mediaBytes, durationMs, maxPlays       *int
 	createdAt                              *time.Time
 	allowSeek, showTranscript              *bool
+	allowPause                             bool
 }
 
 func (r questionRow) media() *domain.Media {
@@ -353,6 +354,7 @@ func (r questionRow) audio() *domain.AudioPolicy {
 		MaxPlays:                  r.maxPlays,
 		AllowSeek:                 *r.allowSeek,
 		ShowTranscriptAfterSubmit: *r.showTranscript,
+		AllowPause:                r.allowPause,
 	}
 }
 
@@ -392,7 +394,7 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.PromptContent, &q.Points,
 			&r.mediaID, &r.mediaKind, &q.MediaAlt, &r.mimeType, &r.filename, &r.mediaBytes,
 			&r.durationMs, &r.createdAt,
-			&r.maxPlays, &r.allowSeek, &r.showTranscript,
+			&r.maxPlays, &r.allowSeek, &r.showTranscript, &r.allowPause,
 			&q.GroupID, &q.GroupOrdinal, &q.FixedOptionOrder); err != nil {
 			return nil, fmt.Errorf("attempts: scan question: %w", err)
 		}
