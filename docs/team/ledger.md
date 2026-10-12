@@ -7,12 +7,13 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-12, 10:35 UTC.
-- **Base:** `develop` at `aa0e0d29` (#530: R4 merged in); `release/0.10.0` cut from it.
-- **Objective:** v0.10.0 to `main` and Fly, with the owner's go of 2026-10-12 ("release as
-  v0.9.0 did; what cannot be checked in the infra does not block"), then D4 (v0.11.0) (T-24).
-- **In flight:** the release PR to `main`; then the tag, the back-merge, and the read-only
-  production checks (`/livez`, `/healthz`, `legacy_join_codes_rotated` in the API log).
+- **As of:** 2026-10-12, 11:30 UTC.
+- **Base:** `main` at `e06511fc` (#531, the release, and hotfix #532); `develop` takes it back
+  through the back-merge PR.
+- **Objective:** D4 (v0.11.0) after the follow-ups below (T-24).
+- **Shipped:** v0.10.0 is on Fly and Pages since 11:21 UTC, after INC-5 (below): the API was
+  down from about 10:45 to 11:20. The tag `v0.10.0` on `e06511fc` is the owner's to push (the
+  session's proxy refuses tag pushes), as for v0.8.0 and v0.9.0.
 - **Decided by the owner today:**
   - Deploy to Fly; the VPS path (#434) is later work.
   - A rotated legacy join code keeps its use count (F-67, #527).
@@ -24,7 +25,10 @@ start at [README.md](README.md) "Resuming".
   - The media replace accounting (F-68, below).
   - The infra checks the release could not run: Neon, phone smoke, the v0.9.0 checks, compute hours.
   - Whether to delete the local-dev MinIO objects the E2E runs left.
+  - The production checks the session cannot make: `legacy_join_codes_rotated` in the API log
+    (the deploy token cannot read logs), and the smoke in `74-r4.md`.
 - **Follow-ups after the release** (one PR each, before D4 starts):
+  - F-72: a CI job that starts the production image (INC-5), first.
   - F-68: `replaceMedia`'s quota accounting, the review's option (c): count a replaced file
     while a version holds it, then a sweep. The owner's policy decides. Declare the 429 in the
     contract with it.
@@ -422,6 +426,8 @@ and any reversal of the defaults above.
 | O-R (Students) | Should Remove and Move act only on the class the Class facet filters to, when exactly one is chosen? Built: every class, named in the confirmation. | the user | open: O-R4.20 in `40-open-items.md` (#517) |
 | F-65 | `seed/08` held one import run `running` on a ten-year lease, which took the worker's only slot: a local worker at the default limit queued every new import, and #513's live job needed a limit of 2. | platform | on #518: the run is `queued` ten years out |
 | T48-1 | #515's rewritten wizard zone case clicked a stepper nine times and timed out at CI's 5 s (6.5 s). | Tech Lead | fixed on #515: two steps, 2.6 s |
+| INC-5 | The v0.10.0 deploy (run 38238171020) crash-looped the API machine: "IMPORT_WORK_DIR must be a private directory with mode 0700". The image ships `/home/nonroot/imports` through `COPY`, which lands at 0755, and `MkdirAll` leaves an existing directory's mode alone; every test made the directory itself. Migrations 00080 to 00106 had applied; the worker started; Pages was skipped and kept v0.9.0. The API was down from about 10:45 UTC. | Tech Lead | fixed: hotfix #532 (`e06511fc`), `wiring.PrivateWorkDir` narrows the image's directory at start-up; F-72 |
+| F-72 | No CI job starts the production image, so a start-up check that depends on the image's file system passes every test and fails only on Fly (INC-5). A job that builds the `Dockerfile` and runs `/app/api` and `/app/import-worker` as `nonroot` until they listen, or refuse on configuration, would have caught it. | platform | open: before D4's first deploy |
 
 ## Reviews
 
@@ -499,10 +505,6 @@ and any reversal of the defaults above.
 
 ## Next action
 
-As each hand-off arrives:
-- **#517** green → merge. **#518**: the platform engineer merges the base, removes the CI
-  workaround and its `ci.md` sentence → green → merge.
-- **Lane 2's UI-minors PR** → review → merge.
-- **T-R4.51** → the tester's matrix PR; each deviation to its owner; the DG-16 timing decides the
-  paste footer's copy.
-- Then T-R4.52's checklist to the user, with 49 A's counts.
+- The back-merge PR (`main` into `develop`) → green → merge.
+- F-72 (platform), then F-68 to F-71 and the QA-51 minors, at most three agents at once.
+- Then D4 from `74d-d4-deck-update.md`, on `work/deck-d4` cut from `develop`.
