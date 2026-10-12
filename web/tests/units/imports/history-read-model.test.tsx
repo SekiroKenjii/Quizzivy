@@ -56,7 +56,7 @@ function filters() {
 
 function row(title: string) {
   return screen
-    .getByRole("link", { name: title })
+    .getByRole("button", { name: `Thao tác với ${title}` })
     .closest<HTMLElement>('[role="row"]')!;
 }
 
@@ -73,10 +73,10 @@ it("shows every response facet including zero without counting only the filtered
       .getAllByRole("button")
       .map((button) => button.textContent),
   ).toEqual([
-    "Tất cả trạng thái 42",
+    "Tất cả 42",
     "Đang xử lý 19",
     "Sẵn sàng rà soát 7",
-    "Xử lý không thành công 0",
+    "Không xử lý được 0",
     "Đã tạo bản nháp 11",
     "Đã huỷ 5",
   ]);
@@ -192,19 +192,15 @@ it("does not relabel previous-search counts as current and adopts the new search
   );
   const { user } = mount();
   try {
-    await screen.findByRole("button", { name: "Tất cả trạng thái 42" });
+    await screen.findByRole("button", { name: "Tất cả 42" });
     await user.type(screen.getByRole("searchbox"), "khác");
     await waitFor(() => expect(searched).toBe(true));
     expect(
-      within(filters()).getByRole("button", { name: "Tất cả trạng thái" }),
+      within(filters()).getByRole("button", { name: "Tất cả" }),
     ).toBeInTheDocument();
-    expect(
-      within(filters()).queryByRole("button", { name: "Tất cả trạng thái 42" }),
-    ).toBeNull();
+    expect(within(filters()).queryByRole("button", { name: "Tất cả 42" })).toBeNull();
     release();
-    expect(
-      await screen.findByRole("button", { name: "Tất cả trạng thái 0" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Tất cả 0" })).toBeInTheDocument();
     expect(screen.getByText("Không có lần nhập nào khớp bộ lọc.")).toBeInTheDocument();
   } finally {
     release();

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/ListState";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { Segmented } from "@/components/ui/segmented";
@@ -23,16 +24,22 @@ export default function NewImportPage() {
   const header = (
     <PageHead
       title={pasting ? t("imports.paste.title") : t("imports.newTitle")}
-      description={pasting ? t("imports.paste.sub") : undefined}
+      description={pasting ? t("imports.paste.sub") : t("imports.newHint")}
       crumb={pasting}
-      back={{ to: "/teacher/imports", label: t("imports.backToHistory") }}
     />
   );
   if (availability === "reviewOnly" || availability === "off")
     return (
       <>
         {header}
-        <EmptyState hint={t("imports.availability.newOffHint")}>
+        <EmptyState
+          hint={t("imports.availability.newOffHint")}
+          action={
+            <Button asChild size="sm" variant="outline">
+              <Link to="/teacher/imports">{t("imports.backToHistory")}</Link>
+            </Button>
+          }
+        >
           {t("imports.availability.newOff")}
         </EmptyState>
       </>
@@ -44,7 +51,9 @@ export default function NewImportPage() {
     >
       {header}
       <Segmented
-        fill
+        size="lg"
+        scroll
+        className="self-start [&>button]:min-w-[168px] [&>button]:justify-center"
         label={t("imports.upload.source")}
         value={sourceMode}
         options={[
@@ -74,7 +83,11 @@ export default function NewImportPage() {
         retention={retention}
         enabled={processing}
         privacy={
-          <Callout icon={ShieldCheck} lead={t("imports.upload.privacyLead")}>
+          <Callout
+            icon={ShieldCheck}
+            lead={t("imports.upload.privacyLead")}
+            className="gap-3 [&>svg]:size-[17px]"
+          >
             {t("imports.upload.privacy", {
               processing: processing
                 ? t("imports.upload.processingOn")
