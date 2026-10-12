@@ -5,7 +5,7 @@ import { PageAside } from "@/components/shared/PageAside";
 import { PageAsideSlot, PageRailSlot } from "@/layouts/slots";
 import "@/lib/i18n";
 
-/** A shell the way AdminLayout builds one: slots either side of the scroll. */
+/** A frame with slots either side of the scroll, as the test builder provides one. */
 function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   const [rail, setRail] = useState<HTMLDivElement | null>(null);

@@ -2,8 +2,9 @@ import { useTranslation } from "react-i18next";
 import { Outlet } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { DeckScale } from "@/components/ui/deck-scale";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHead } from "@/layouts/shell/PageHead";
 import type { ImportCapabilities } from "../../api";
 import { importCapabilitiesQuery } from "../../queries";
 
@@ -15,16 +16,15 @@ export default function ImportsGate() {
   if (intake.data === true) return <Outlet />;
   if (intake.data === false)
     return (
-      <>
-        <PageHeader
+      <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4">
+        <PageHead
           title={t("imports.availability.offTitle")}
-          backTo="/teacher/tests"
-          backLabel={t("imports.backToTests")}
+          back={{ to: "/teacher/tests", label: t("imports.backToTests") }}
         />
         <EmptyState hint={t("imports.availability.offHint")}>
           {t("imports.availability.off")}
         </EmptyState>
-      </>
+      </DeckScale>
     );
   if (intake.isPending)
     return (
