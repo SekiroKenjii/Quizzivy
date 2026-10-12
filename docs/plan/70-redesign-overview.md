@@ -264,7 +264,7 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
 | `/` | Anyone (signed-in → console) | Landing (R11) |
 | `/login`, `/forgot-password`, `/join`, `/join/:code`, `/set-password`, `/change-password` | Front door | `AuthLayout` |
 | `/teacher/*` | `workspace.teacher` | `TeacherLayout` |
-| `/admin/*` | `workspace.admin` | `AdminLayout` |
+| `/admin/*` | `workspace.admin` | R5's Admin console; until then every `/admin/*` address redirects to the same path under `/teacher` (T-R4.5) |
 | `/app/*` | `learning.take_tests` | `StudentLayout`; `/app/attempts/:id` in `FocusLayout` |
 | `/403`, `*`, error boundary, maintenance | Everyone | System pages |
 
@@ -292,7 +292,7 @@ The student's browser storage in v0.9.0, as `web/src` reads and writes it:
 |---|---|---|
 | `quizzivy.theme` | local | The theme preference: light, dark or system (R1). |
 | `quizzivy.locale` | local | The language, `vi` or `en`. |
-| `quizzivy.testText` | local | "Larger text in tests", `large` or `default`, until R4's `users.preferences` takes it (`73-r3.md`). |
+| `quizzivy.testText` | local | "Larger text in tests", `large` or `default`: the anonymous choice, and since R4 a mirror of the signed-in user's `users.preferences` value (spec §12). |
 | `quizzivy.answer-draft.<attemptId>` | local | Answers the server has not confirmed. The format is v0.8.0's. |
 | `quizzivy.group-play.<playId>` | local | A play of a shared recording the server has not confirmed. |
 | `quizzivy.flags.<attemptId>` | session | The questions flagged for review. |
@@ -304,9 +304,10 @@ The student's browser storage in v0.9.0, as `web/src` reads and writes it:
 Two keys are gone since R3: `quizzivy.column.studentNavigator` (local), and
 `quizzivy.material-collapsed.<groupId>` (session), which nothing writes now
 that the phone has no collapse button. The teacher console keeps
-`quizzivy.column.sidebar`, `rail`, `panel`, `outline` and `importSource`. Since T-R4.4
-`TeacherLayout` stores its sidebar's collapsed state in `quizzivy.sidebar`;
-`quizzivy.column.sidebar` is the old `AdminLayout`'s width and goes with it at T-R4.48.
+`quizzivy.column.rail`, `panel`, `outline` and `importSource`, and stores its
+sidebar's state, `expanded` or `collapsed`, in `quizzivy.sidebar` (local, T-R4.4).
+`quizzivy.column.sidebar` was the width of the old `AdminLayout`, which T-R4.48
+deleted.
 
 ## 7. R0 — Groundwork
 
@@ -351,7 +352,7 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
 | PR-3 | The rebuilt take-test engine loses work | The five canaries before and after every PR; local drafts read unchanged; live E2E 5–8; deploy outside exam windows |
 | PR-4 | Rolling deploy breaks inserts from the old binary | Expand/contract with fill triggers; the old-binary insert test |
 | PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logs `legacy_admin_path` and lasts until v0.9.1 (T-R2.8, T-R3.3); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
-| PR-6 | Legacy join codes stop working unannounced | Rotation only at R4, with the release note and an in-app notice |
+| PR-6 | Legacy join codes stop working unannounced | Landed in R4: the API replaces every live legacy code once at start-up and tells each class's teacher in the app (T-R4.22, spec §6.1); the release note says so |
 | PR-7 | Polling keeps Neon awake | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4 and R7 |
 | PR-8 | English-only deck leaks English into the product | vi first per PR; `no-hardcoded-strings` and parity tests; a native review before v1.0 |
 | PR-9 | The deck keeps changing under the work | The manifest pins the imported version; re-imports are PRs that say which screens changed |
