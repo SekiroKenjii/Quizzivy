@@ -96,7 +96,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
 			httpx.RequirePermission(requirements, deps.Principals),
 			httpx.PrincipalRateLimit(principalLimits),
-			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20, bodyLimits),
+			httpx.LimitRequestBody(logger, httpx.StreamingBodyRoutes(spec), 1<<20, bodyLimits),
 			validate,
 		),
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {

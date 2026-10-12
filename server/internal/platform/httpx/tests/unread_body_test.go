@@ -39,7 +39,7 @@ type refusal struct {
 func throughTheLimit(r *http.Request, next http.Handler) *httptest.ResponseRecorder {
 	r.Pattern = "POST /auth/login"
 	rec := httptest.NewRecorder()
-	httpx.LimitRequestBody(nil, bodyLimit, nil)(next).ServeHTTP(rec, r)
+	httpx.LimitRequestBody(quiet, nil, bodyLimit, nil)(next).ServeHTTP(rec, r)
 	return rec
 }
 
