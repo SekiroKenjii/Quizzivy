@@ -3032,7 +3032,7 @@
       "noQuestionsHint": "Chưa thấy câu hỏi nào được đánh số. Hãy đánh số mỗi câu như “1.” hoặc “Câu 1”.",
       "foundHint_one": "Tìm thấy {{count}} câu hỏi.",
       "foundHint_other": "Tìm thấy {{count}} câu hỏi.",
-      "processingHint": "Quá trình xử lý mất khoảng một phút. Bạn có thể rời trang này.",
+      "processingHint": "Quá trình xử lý chỉ mất vài giây.",
       "shortcutHint": "Nhấn {{key}} + Enter để bắt đầu.",
       "failed": "Không gửi được văn bản. Vui lòng thử lại.",
       "leaveTitle": "Rời trang mà chưa nhập đề?",

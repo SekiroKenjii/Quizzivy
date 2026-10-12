@@ -241,7 +241,7 @@ describe("what the page finds in pasted text", () => {
     await waitFor(() => expect(start()).toBeEnabled());
     expect(
       screen.getByText(
-        "Tìm thấy 2 câu hỏi. Quá trình xử lý mất khoảng một phút. Bạn có thể rời trang này. Nhấn Ctrl + Enter để bắt đầu.",
+        "Tìm thấy 2 câu hỏi. Quá trình xử lý chỉ mất vài giây. Nhấn Ctrl + Enter để bắt đầu.",
       ),
     ).toBeInTheDocument();
   });
