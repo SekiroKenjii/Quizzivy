@@ -343,11 +343,7 @@ jobs:
       # the next step is given.
       - name: Build the Word converter image
         id: converter
-        run: |
-          scripts/ci/mirror-images.sh debian:trixie-slim
-          docker build --tag quizzivy-word-converter:ci docker/word-converter
-          image="$(docker image inspect --format '{{.Id}}' quizzivy-word-converter:ci)"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/word-converter
 
       # The tests that run LibreOffice in that image, and the pipeline test
       # that takes a paper through it; the integration tier skips them for
@@ -601,6 +597,14 @@ jobs:
       # bucket named "audio". .env sets it for the same reason; only R2 in
       # production leaves it unset.
       S3_FORCE_PATH_STYLE: "true"
+      # Word import, as `make dev` runs it: the API queues a run and wakes the
+      # worker, which docs/setup/word-import-worker.md describes. The work
+      # directory and the converter image are known only at run time, so the
+      # "Prepare the Word import worker" step adds them.
+      IMPORT_S3_BUCKET: quizzivy-imports
+      IMPORT_PROCESSING_ENABLED: "true"
+      IMPORT_WORKER_WAKE_URL: http://localhost:8091/wake
+      IMPORT_WORKER_WAKE_ADDR: localhost:8091
 
     steps:
       - uses: actions/checkout@v7
@@ -633,6 +637,29 @@ jobs:
           goose -dir migrations postgres "$MIGRATE_URL" up
           for f in seed/*.sql; do psql "$MIGRATE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 
+      # The image the Go pipeline test in Server tests runs through. The
+      # worker is given its id, because the converter refuses a tag, and the
+      # job fails here when there is none rather than start a worker that
+      # processes .docx without the page rendition.
+      - name: Build the Word converter image
+        id: converter
+        uses: ./.github/actions/word-converter
+
+      - name: Prepare the Word import worker
+        env:
+          CONVERTER_IMAGE: ${{ steps.converter.outputs.image }}
+        run: |
+          case "$CONVERTER_IMAGE" in
+            sha256:*) ;;
+            *) echo "::error::no converter image id"; exit 1 ;;
+          esac
+          install -d -m 0700 "$RUNNER_TEMP/import-work"
+          {
+            echo "IMPORT_WORK_DIR=$RUNNER_TEMP/import-work"
+            echo "IMPORT_DOCKER_BINARY=$(command -v docker)"
+            echo "IMPORT_CONVERTER_IMAGE=$CONVERTER_IMAGE"
+          } >> "$GITHUB_ENV"
+
       # Built rather than `go run`, so a compile error fails here with a clear
       # message instead of as a connection refused thirty seconds later.
       - name: Start the API
@@ -644,6 +671,18 @@ jobs:
             sleep 1
           done
           echo "API did not become healthy"; cat "$RUNNER_TEMP/api.log"; exit 1
+
+      - name: Start the Word import worker
+        run: |
+          go -C server build -o "$RUNNER_TEMP/import-worker" ./cmd/import-worker
+          "$RUNNER_TEMP/import-worker" > "$RUNNER_TEMP/import-worker.log" 2>&1 &
+          worker=$!
+          for _ in $(seq 1 40); do
+            grep -q '"msg":"import worker started"' "$RUNNER_TEMP/import-worker.log" && exit 0
+            kill -0 "$worker" 2>/dev/null || break
+            sleep 1
+          done
+          echo "Import worker did not start"; cat "$RUNNER_TEMP/import-worker.log"; exit 1
 
       - uses: ./.github/actions/web
         with:
@@ -661,6 +700,10 @@ jobs:
       - name: API log
         if: failure()
         run: cat "$RUNNER_TEMP/api.log"
+
+      - name: Import worker log
+        if: failure()
+        run: cat "$RUNNER_TEMP/import-worker.log"
 
       - uses: actions/upload-artifact@v7
         if: failure()
