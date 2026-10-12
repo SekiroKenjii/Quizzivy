@@ -65,7 +65,12 @@ export const previewGroup: components["schemas"]["StudentGroup"] = {
     {
       id: "01935000-0000-7000-8000-000000000005",
       assetId,
-      policy: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+      policy: {
+        maxPlays: 2,
+        allowSeek: false,
+        showTranscriptAfterSubmit: false,
+        allowPause: true,
+      },
     },
   ],
   assets: [

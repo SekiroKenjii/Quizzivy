@@ -12,7 +12,7 @@ import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPa
 import type { AdminQuestion } from "@/features/question-bank/api";
 import type { components } from "@/lib/api/schema";
 import type { StoredGroup } from "@/features/question-groups/api";
-import { groupPreview } from "@/features/question-groups/preview";
+import { groupPreview, studentAudioPolicy } from "@/features/question-groups/preview";
 import type { OutlineSection } from "../outline";
 import { unitsOf } from "../outlineUnits";
 
@@ -185,7 +185,7 @@ function asStudent(sectionId: string, q: AdminQuestion): StudentQuestion {
     promptContent: q.promptContent ?? null,
     points: q.points,
     media: q.media ?? null,
-    audio: q.audio ?? null,
+    audio: q.audio ? studentAudioPolicy(q.audio) : null,
     options: (q.options ?? []).map((o) => ({
       id: o.id,
       text: o.text,
