@@ -10,7 +10,11 @@ import (
 	"quizzivy/internal/shared/opt"
 )
 
-// Refresh rotates a refresh token (§5.2).
+// Refresh rotates a refresh token (§5.2). The rotation runs on the request's own
+// context, deliberately: a request cancelled before the commit rolls back and
+// leaves the presented token live for the client's retry, whereas a rotation
+// finished for a client that has gone commits a successor nobody receives, and
+// that client's next refresh presents a rotated-out token, which is reuse.
 type Refresh struct {
 	Token     string
 	UserAgent string
