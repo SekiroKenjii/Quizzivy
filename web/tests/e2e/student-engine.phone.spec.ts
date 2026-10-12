@@ -148,6 +148,13 @@ test("the passage is a drawer from the left that the student swipes open and clo
   await page.locator("label").filter({ hasText: first.options![0]!.text }).tap();
   await expect(option).toBeChecked();
 
+  await handle.tap();
+  await expect(passage).toBeInViewport();
+  await close.tap();
+  await expect(passage).not.toBeInViewport();
+  await expect(handle).toBeFocused();
+  await expect(option).toBeChecked();
+
   const height = page.viewportSize()!.height;
   await touchSwipe(page, [6, height * 0.7], [260, height * 0.7 + 6]);
   await expect(passage).toBeInViewport();
@@ -162,12 +169,6 @@ test("the passage is a drawer from the left that the student swipes open and clo
   await touchSwipe(page, [300, height * 0.2], [40, height * 0.2 + 6]);
   await expect(passage).not.toBeInViewport();
   await expect(handle).toBeVisible();
-  await expect(option).toBeChecked();
-
-  await handle.tap();
-  await expect(passage).toBeInViewport();
-  await close.tap();
-  await expect(passage).not.toBeInViewport();
   await expect(prompt).toBeVisible();
   await expect(option).toBeChecked();
   await engineFits(page);
