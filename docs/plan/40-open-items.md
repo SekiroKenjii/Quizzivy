@@ -14,7 +14,7 @@ audio probe implementation, and build order.
 Phase R (the redesign) records its eighteen decisions in
 `70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
 questions that come up during a release go into that release's plan file under
-"Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.20, below).
+"Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, below).
 
 ---
 
@@ -582,6 +582,33 @@ recognised; T-R4.51 records it with real documents.
 selected students are in, and the confirmation names those classes. The
 alternative acts only on the class the Class facet filters to when exactly one
 is chosen.
+
+---
+
+### O-R4.21 — A refresh whose answer never arrives · any release
+**Default:** no change to §5.2 (F-66, 2026-10-12). A token rotation that commits while the browser
+is closing or the network drops leaves the browser with the old token; its next refresh is reuse,
+and the session ends: a forced sign-in, rare and self-healing. Options, in order of cost:
+- `keepalive: true` on the refresh request, once a check in Chrome, Safari and Firefox shows the new
+  cookie is stored after the page has gone;
+- count the families revoked for reuse whose successor was never presented, to see how often it
+  happens;
+- a reuse interval of a few seconds, which changes §5.2 and would also close F-49's cross-tab race.
+
+`docs/plan/30-risks.md` R-06 records the residual.
+
+---
+
+### O-R4.22 — The `/admin` alias · R5
+**Default:** kept in v0.10.0. Removing it (T-R3.3) needs seven days of production
+`legacy_admin_path` logs read first. R5 removes it when it gives `/admin` to the Admin console.
+
+---
+
+### O-R4.23 — A student can read their attempt's flag through the API · R5
+**Default:** unchanged. `attempt.integrity.flagged` is in the student's attempt and result payloads
+since v0.9.0 and carries a teacher's manual flag too. The student screens never show it. R5
+decides whether the student payload drops it.
 
 ---
 
