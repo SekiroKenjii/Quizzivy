@@ -139,47 +139,95 @@ func (s *Postgres) Due(ctx context.Context, due time.Time, after string, limit i
 // or a writer binding the file leaves it to whoever holds it, and what the
 // transaction finds under the lock decides: a file that something names again
 // has its wait cancelled, and one that is no longer due is left. The object is
-// deleted before the row is marked; a failure of either leaves the file for the
-// next sweep, whose delete of an object already gone succeeds.
+// deleted before the row is marked, and once it is deleted the mark, the audit
+// row and the commit run under their own ten seconds and not ctx's, so a sweep
+// whose time ends at that moment still records what it did. If they still fail
+// the answer is a PurgeMarkError; a failure before the delete leaves the file
+// for the next sweep, whose delete of an object already gone succeeds.
 func (s *Postgres) Purge(ctx context.Context, in domain.PurgeInput) (domain.PurgeOutcome, error) {
-	outcome := domain.PurgeSkipped
-	err := s.InTx(ctx, "media: purge", func(tx pgx.Tx) error {
-		var key, kind string
-		var bytes int64
-		err := tx.QueryRow(ctx, `
-			SELECT a.storage_key, a.kind::text, a.bytes FROM app.media_assets a
-			 WHERE a.id = $1 AND `+retiredFile+` AND a.unreferenced_at <= $2
-			 FOR UPDATE SKIP LOCKED`, in.ID, in.Due).Scan(&key, &kind, &bytes)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("media: lock retired file: %w", err)
-		}
-		named, err := isNamed(ctx, tx, in.ID)
-		if err != nil {
-			return err
-		}
-		if named {
-			outcome = domain.PurgeNamed
-			_, err := tx.Exec(ctx, `UPDATE app.media_assets SET unreferenced_at = NULL WHERE id = $1`, in.ID)
-			return err
-		}
-		if err := in.Remove(ctx, key); err != nil {
-			return fmt.Errorf("media: remove object: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `UPDATE app.media_assets SET purged_at = $2 WHERE id = $1`, in.ID, in.Now); err != nil {
-			return fmt.Errorf("media: mark purged: %w", err)
-		}
-		diff, err := json.Marshal(map[string]any{"kind": kind, "bytes": bytes})
-		if err != nil {
-			return err
-		}
-		outcome = domain.PurgeRemoved
-		return audit.Write(ctx, tx, audit.Entry{Action: "media.purged", Entity: auditedEntity, EntityID: &in.ID, OccurredAt: in.Now, Diff: diff})
-	})
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return domain.PurgeSkipped, fmt.Errorf("media: purge: begin: %w", err)
+	}
+	defer func() {
+		settle, cancel := settling(ctx)
+		defer cancel()
+		_ = tx.Rollback(settle)
+	}()
+	file, found, err := lockDueFile(ctx, tx, in)
+	if err != nil || !found {
+		return domain.PurgeSkipped, err
+	}
+	named, err := isNamed(ctx, tx, in.ID)
 	if err != nil {
 		return domain.PurgeSkipped, err
 	}
-	return outcome, nil
+	if named {
+		if err := cancelWait(ctx, tx, in.ID); err != nil {
+			return domain.PurgeSkipped, err
+		}
+		return domain.PurgeNamed, nil
+	}
+	if err := in.Remove(ctx, file.key); err != nil {
+		return domain.PurgeSkipped, fmt.Errorf("media: remove object: %w", err)
+	}
+	if err := markPurged(ctx, tx, in, file); err != nil {
+		return domain.PurgeSkipped, &domain.PurgeMarkError{ID: in.ID, Cause: err}
+	}
+	return domain.PurgeRemoved, nil
+}
+
+const purgeSettleBudget = 10 * time.Second
+
+type dueFile struct {
+	key, kind string
+	bytes     int64
+}
+
+func settling(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), purgeSettleBudget)
+}
+
+func lockDueFile(ctx context.Context, tx pgx.Tx, in domain.PurgeInput) (dueFile, bool, error) {
+	var file dueFile
+	err := tx.QueryRow(ctx, `
+		SELECT a.storage_key, a.kind::text, a.bytes FROM app.media_assets a
+		 WHERE a.id = $1 AND `+retiredFile+` AND a.unreferenced_at <= $2
+		 FOR UPDATE SKIP LOCKED`, in.ID, in.Due).Scan(&file.key, &file.kind, &file.bytes)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dueFile{}, false, nil
+	}
+	if err != nil {
+		return dueFile{}, false, fmt.Errorf("media: lock retired file: %w", err)
+	}
+	return file, true, nil
+}
+
+func cancelWait(ctx context.Context, tx pgx.Tx, id string) error {
+	if _, err := tx.Exec(ctx, `UPDATE app.media_assets SET unreferenced_at = NULL WHERE id = $1`, id); err != nil {
+		return fmt.Errorf("media: cancel wait: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("media: commit cancelled wait: %w", err)
+	}
+	return nil
+}
+
+func markPurged(ctx context.Context, tx pgx.Tx, in domain.PurgeInput, file dueFile) error {
+	settle, cancel := settling(ctx)
+	defer cancel()
+	if _, err := tx.Exec(settle, `UPDATE app.media_assets SET purged_at = $2 WHERE id = $1`, in.ID, in.Now); err != nil {
+		return fmt.Errorf("media: mark purged: %w", err)
+	}
+	diff, err := json.Marshal(map[string]any{"kind": file.kind, "bytes": file.bytes})
+	if err != nil {
+		return err
+	}
+	if err := audit.Write(settle, tx, audit.Entry{Action: "media.purged", Entity: auditedEntity, EntityID: &in.ID, OccurredAt: in.Now, Diff: diff}); err != nil {
+		return err
+	}
+	if err := tx.Commit(settle); err != nil {
+		return fmt.Errorf("media: commit purge: %w", err)
+	}
+	return nil
 }

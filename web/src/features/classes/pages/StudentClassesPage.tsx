@@ -149,7 +149,12 @@ function ClassCard({ klass: c, next }: Readonly<{ klass: MyClass; next: Next }>)
         </div>
         {c.teacherName !== null && (
           <div className="flex items-center gap-2.5">
-            <Avatar name={c.teacherName} size="36" className="size-8.5 font-semibold" />
+            <Avatar
+              name={c.teacherName}
+              src={c.teacherAvatarUrl}
+              size="36"
+              className="size-8.5 font-semibold"
+            />
             <span className="min-w-0">
               <span className="text-ui block leading-normal font-medium break-words">
                 {c.teacherName}

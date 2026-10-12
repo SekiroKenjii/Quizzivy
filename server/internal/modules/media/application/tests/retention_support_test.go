@@ -23,6 +23,7 @@ type retentionStore struct {
 	entered chan string
 	release chan struct{}
 	once    sync.Once
+	after   func()
 }
 
 func newRetentionStore() *retentionStore { return &retentionStore{deletes: map[string]int{}} }
@@ -56,7 +57,11 @@ func (s *retentionStore) Delete(_ context.Context, key string) error {
 	}
 	s.mu.Lock()
 	s.deletes[key]++
+	after := s.after
 	s.mu.Unlock()
+	if after != nil {
+		after()
+	}
 	return nil
 }
 

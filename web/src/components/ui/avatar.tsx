@@ -1,4 +1,4 @@
-import type * as React from "react";
+import { useState, type ComponentProps } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
@@ -37,26 +37,51 @@ const avatarVariants = cva(
 
 interface AvatarProps
   extends
-    Omit<React.ComponentProps<"span">, "children">,
+    Omit<ComponentProps<"span">, "children">,
     VariantProps<typeof avatarVariants> {
   name: string;
+  src?: string | null | undefined;
 }
 
 /**
- * Avatar shows a person's initials, never a photo: there is no avatar upload
- * yet, and a broken image is worse than two letters. It is hidden from
- * assistive technology because the name is always written beside it. `self`
- * marks the signed-in user, in the deck's lime.
+ * Avatar shows a person's photo when `src` is given and loads, and their
+ * initials otherwise, so a missing or broken image falls back to two letters.
+ * It is hidden from assistive technology because the name is always written
+ * beside it. `self` marks the signed-in user, in the deck's lime.
  */
-export function Avatar({ name, size, shape, tone, className, ...props }: AvatarProps) {
+export function Avatar({
+  name,
+  src,
+  size,
+  shape,
+  tone,
+  className,
+  ...props
+}: AvatarProps) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const photo = src && failed !== src ? src : null;
   return (
     <span
       data-slot="avatar"
       aria-hidden="true"
-      className={cn(avatarVariants({ size, shape, tone }), className)}
+      className={cn(
+        avatarVariants({ size, shape, tone }),
+        photo !== null && "overflow-hidden",
+        className,
+      )}
       {...props}
     >
-      {initials(name)}
+      {photo === null ? (
+        initials(name)
+      ) : (
+        <img
+          src={photo}
+          alt=""
+          draggable={false}
+          className="size-full object-cover"
+          onError={() => setFailed(photo)}
+        />
+      )}
     </span>
   );
 }
