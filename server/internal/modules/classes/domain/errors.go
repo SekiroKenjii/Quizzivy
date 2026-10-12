@@ -19,6 +19,11 @@ var ErrEmailTaken = errors.New("join: email already registered")
 
 var ErrClassNotFound = errors.New("join: class not found")
 
+// ErrClassArchived is a class the caller reaches that is archived, so it takes
+// no new join code: nobody can join it. It is returned only after the caller's
+// scope has found the class, so it never tells one teacher about another's.
+var ErrClassArchived = errors.New("join: class is archived")
+
 // ErrNoActiveCode is a class the caller reaches that has no active join code.
 var ErrNoActiveCode = errors.New("join: no active code")
 

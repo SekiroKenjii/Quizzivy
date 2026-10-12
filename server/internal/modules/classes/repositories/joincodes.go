@@ -21,22 +21,28 @@ import (
 // replacement in one transaction, so a class is never left with two active
 // codes or none. Another teacher's class answers ErrClassNotFound. The class
 // row is locked for no key update, so a redemption that holds the code row
-// finishes while Rotate waits for that row, and the two never deadlock.
+// finishes while Rotate waits for that row, and the two never deadlock. That
+// lock also reads archived_at, so an Archive that committed first is seen and
+// one that arrives later waits for Rotate: an archived class answers
+// ErrClassArchived before anything is written, and keeps its current code.
 func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.IssuedCode, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.IssuedCode{}, fmt.Errorf("begin rotate: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var exists bool
+	var archived bool
 	err = tx.QueryRow(ctx,
-		`SELECT true FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR NO KEY UPDATE`,
-		in.ClassID, in.All, opt.String(in.ActorUserID)).Scan(&exists)
+		`SELECT archived_at IS NOT NULL FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR NO KEY UPDATE`,
+		in.ClassID, in.All, opt.String(in.ActorUserID)).Scan(&archived)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.IssuedCode{}, domain.ErrClassNotFound
 	}
 	if err != nil {
 		return domain.IssuedCode{}, fmt.Errorf("lock class: %w", err)
+	}
+	if archived {
+		return domain.IssuedCode{}, domain.ErrClassArchived
 	}
 
 	const revokeActive = `
