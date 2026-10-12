@@ -329,6 +329,52 @@ token's claim).
     someone dropped it. Set the owner from `created_by` (`uploaded_by` for media) and redeploy.
 - Roll forward, not back past v0.8.0: Down restores the column from what each role holds and the
   triggers for a v0.7.0 that nothing in production runs, and nothing runs either in production.
+- **`00103_compose_text_nfc.sql`** rewrites decomposed text to NFC (F-37). It disables the
+  `updated_at` trigger on eight tables by name (`tests`, `questions`, `question_groups`, `classes`,
+  `assignments`, `assignment_student_overrides`, `users`, `word_imports`), which takes SHARE ROW
+  EXCLUSIVE on each until it commits: every write to those tables waits for it, and a v0.9.0
+  transaction holding a write on one of them for more than five seconds stops it with `55P03`. Do as
+  above: find the transaction in `pg_stat_activity` and redeploy. The migration is idempotent; a
+  second run changes nothing.
+- **At start-up** the API replaces every live join code issued before v0.8.0 (`jobs.RotateLegacyJoinCodes`,
+  spec §6.1, `operations.md` "Legacy join codes"). The log shows `legacy_join_codes_rotated` with the
+  count only when there was one to rotate; a production with none logs nothing. A class not reached
+  within the two-minute budget waits for the next start-up.
+- **No import run should be queued or running at the deploy.** The v3 worker retires a v2 run that is
+  ten minutes past due (`PIPELINE_RETIRED`), and its teacher starts it again.
+- **v0.10.0 shipped without the production-branch rehearsal**, by the owner's decision of 2026-10-12,
+  as v0.9.0 did: every migration passed up, down to 00079 and up again on a seeded scratch database
+  (0.17 s in all), and none rewrites a table. The runbook for the rehearsal is
+  `docs/setup/rehearsals/r4-neon-rehearsal.md`, for the day it is run.
+
+### Rolling v0.10.0 back
+
+Prefer a hotfix. If the API must go back to v0.9.0, redeploy the v0.9.0 image (`fly releases -a
+quizzivy-api`, then `fly deploy --image <v0.9.0 image> -a quizzivy-api`) and roll Pages back to its
+previous deployment **in the same hour**: the v0.10.0 bundle calls 25 operations v0.9.0 does not
+serve (`getTeacherSummary`, `listNotifications`, `listSessions`, `setStudentOverrides`,
+`pasteImportSource`, `replaceMedia` and others), so the teacher dashboard, the bell, Settings →
+Devices, per-student extensions, text import, media rename and replace and the version diff would
+fail. Run no Down migration: v0.9.0's migrate binary sees a database at 00106 and has nothing to run,
+and v0.9.0 starts on this schema, because every change through 00104 is additive and 00105 and 00106
+remove only what v0.9.0 never names.
+
+What v0.9.0 then does with what v0.10.0 wrote:
+- Per-student overrides are ignored, so an extended student loses the extension; a review released
+  "after close" shows on submit.
+- Notifications, preferences, photos, display names and device locations are ignored; the rows stay.
+- A replaced media file is listed in the library again; audio above 10 MiB stays served.
+- Questions keep `level`, `skill` and `media_alt`, but a version published under v0.9.0 is
+  snapshotted without them.
+- A pasted-text import queued since the deploy is retired `PIPELINE_RETIRED` by the v2 worker ten
+  minutes after it falls due; its teacher runs it again after rolling forward.
+- Access tokens minted by v0.10.0 carry no `role` claim; v0.9.0 does not require one, so sessions
+  survive.
+- **Legacy join codes do not come back.** The start-up job revoked every pre-v0.8.0 code and issued
+  sealed ones, which v0.9.0 redeems. The codes teachers shared after the deploy stay valid; the old
+  printed ones stay revoked.
+- `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
+  (the join-code key).
 
 ## Interrupted index builds in v0.8.0 (R2)
 
