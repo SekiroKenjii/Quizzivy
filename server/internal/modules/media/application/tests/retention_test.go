@@ -569,3 +569,67 @@ func TestARetiredFilesFiguresBelongToItsOwnersLibraryAlone(t *testing.T) {
 		t.Errorf("scope.all sees %+v, %v, want at least both owners' figures", usage, err)
 	}
 }
+
+func TestASweepWhoseTimeEndsRightAfterTheObjectIsDeletedStillMarksTheRow(t *testing.T) {
+	w := newReplacementWorld(t, nil)
+	store := newRetentionStore()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	store.after = cancel
+	app := application.New(w.repo, store, audioProbe{})
+	old := w.asset(t, w.a, domain.KindAudio, 20)
+	w.retire(t, old, epoch)
+	key := w.key(t, old)
+
+	swept, err := app.Commands.Sweep.Handle(ctx, command.Sweep{Now: epoch.Add(domain.RetiredFileGrace)})
+	if err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
+	}
+	if ctx.Err() == nil {
+		t.Fatal("the storage delete did not end the sweep's time")
+	}
+	if store.deleted(key) != 1 || !w.purged(t, old) || len(swept.Unmarked) != 0 {
+		t.Errorf("deleted %d times, purged=%v, unmarked=%v: want the row marked although the sweep's time ended with the delete", store.deleted(key), w.purged(t, old), swept.Unmarked)
+	}
+	if audited := w.scalar(t, `SELECT count(*) FROM app.audit_log WHERE action='media.purged' AND entity_id=$1`, old); audited != 1 {
+		t.Errorf("the removal wrote %d audit rows, want 1", audited)
+	}
+}
+
+func TestAnObjectDeletedWhoseRowCannotBeMarkedIsReportedAndMarkedByTheNextSweep(t *testing.T) {
+	w := newReplacementWorld(t, nil)
+	store := newRetentionStore()
+	app := application.New(w.repo, store, audioProbe{})
+	old := w.asset(t, w.a, domain.KindAudio, 20)
+	w.retire(t, old, epoch)
+	key := w.key(t, old)
+	due := epoch.Add(domain.RetiredFileGrace)
+	store.after = func() {
+		if _, err := w.pool.Exec(context.Background(), `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=current_database() AND state='idle in transaction' AND query LIKE 'SELECT (EXISTS (SELECT 1 FROM app.questions r%'`); err != nil {
+			t.Error(err)
+		}
+	}
+
+	swept := sweepAt(t, app, due)
+	if swept.Failed != 1 || len(swept.Unmarked) != 1 {
+		t.Fatalf("the sweep counted %+v, want the one file failed and reported unmarked", swept)
+	}
+	lost := swept.Unmarked[0]
+	if lost.ID != old || lost.Cause == nil {
+		t.Errorf("the report is %+v, want the file's id and a cause", lost)
+	}
+	if store.deleted(key) != 1 || w.purged(t, old) {
+		t.Fatalf("deleted %d times, purged=%v, want the object gone and the row not marked", store.deleted(key), w.purged(t, old))
+	}
+
+	store.mu.Lock()
+	store.after = nil
+	store.mu.Unlock()
+	retried := sweepAt(t, app, due)
+	if retried.Removed < 1 || len(retried.Unmarked) != 0 || !w.purged(t, old) {
+		t.Errorf("the next sweep counted %+v purged=%v, want the row marked", retried, w.purged(t, old))
+	}
+	if store.deleted(key) != 2 {
+		t.Errorf("the object was deleted %d times in all, want the second delete of a gone object to succeed", store.deleted(key))
+	}
+}
