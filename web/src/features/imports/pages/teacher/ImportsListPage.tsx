@@ -135,58 +135,57 @@ export default function ImportsListPage() {
   );
 
   const results = (data: NonNullable<typeof list.data>) => {
+    const pager = (frame: "card" | "plain") => (
+      <Pager
+        page={data.page}
+        pageSize={data.pageSize}
+        total={data.total}
+        noun={(count) => t("imports.history.noun", { count })}
+        sizes={PAGE_SIZES}
+        frame={frame}
+      />
+    );
     if (data.total > 0)
-      return (
-        <>
-          {data.items.length > 0 ? (
-            <div className="@container/import-history min-w-0">
-              <Card
-                role="table"
-                aria-label={t("imports.historyTitle")}
-                className="gap-0 overflow-hidden py-0"
-              >
-                <div role="rowgroup" className="hidden @[960px]/import-history:block">
-                  <div
-                    role="row"
-                    className={cn(
-                      "bg-muted text-meta text-muted-fg grid h-10 items-center gap-3 px-4 font-medium",
-                      GRID,
-                    )}
-                  >
-                    <span role="columnheader">{t("imports.history.file")}</span>
-                    <span role="columnheader">{t("imports.columnStatus")}</span>
-                    <span role="columnheader">{t("imports.history.review")}</span>
-                    <span role="columnheader">{t("imports.history.test")}</span>
-                    <span role="columnheader" className="sr-only">
-                      {t("imports.columnActions")}
-                    </span>
-                    <span role="columnheader" className="sr-only">
-                      {t("common.actions")}
-                    </span>
-                  </div>
+      return data.items.length > 0 ? (
+        <div className="@container/import-history min-w-0">
+          <Card className="gap-0 overflow-hidden py-0">
+            <div role="table" aria-label={t("imports.historyTitle")}>
+              <div role="rowgroup" className="hidden @[960px]/import-history:block">
+                <div
+                  role="row"
+                  className={cn(
+                    "bg-muted text-meta text-muted-fg grid h-10 items-center gap-3 px-4 font-medium",
+                    GRID,
+                  )}
+                >
+                  <span role="columnheader">{t("imports.history.file")}</span>
+                  <span role="columnheader">{t("imports.columnStatus")}</span>
+                  <span role="columnheader">{t("imports.history.review")}</span>
+                  <span role="columnheader">{t("imports.history.test")}</span>
+                  <span role="columnheader" className="sr-only">
+                    {t("imports.columnActions")}
+                  </span>
+                  <span role="columnheader" className="sr-only">
+                    {t("common.actions")}
+                  </span>
                 </div>
-                <div role="rowgroup" className="divide-border divide-y">
-                  {data.items.map((item) => (
-                    <HistoryRow
-                      key={item.id}
-                      item={item}
-                      locale={locale}
-                      processing={canStart}
-                    />
-                  ))}
-                </div>
-              </Card>
+              </div>
+              <div role="rowgroup" className="divide-border divide-y">
+                {data.items.map((item) => (
+                  <HistoryRow
+                    key={item.id}
+                    item={item}
+                    locale={locale}
+                    processing={canStart}
+                  />
+                ))}
+              </div>
             </div>
-          ) : null}
-          <Pager
-            page={data.page}
-            pageSize={data.pageSize}
-            total={data.total}
-            noun={(count) => t("imports.history.noun", { count })}
-            sizes={PAGE_SIZES}
-            frame="plain"
-          />
-        </>
+            {pager("card")}
+          </Card>
+        </div>
+      ) : (
+        pager("plain")
       );
     if (filtered)
       return (
