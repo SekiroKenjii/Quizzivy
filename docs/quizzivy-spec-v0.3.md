@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.94 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.95 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.94**
+
+The page frame's follow-up (DG-205): the lists' columns follow the approved sketch, and Settings caps its columns.
+
+- §12 The lists follow the design's sketch: Assignments shows Assigned to from 1240px of content, Submitted from 760 and a To grade column from 900; the Imports history adds Source from 1240. Settings' fields take at most three columns.
 
 **Changes since v0.93**
 
@@ -20,7 +26,6 @@ R4, F-68 hardening: the sweep can be switched off, and its last step survives th
 The design team's page-width design, approved by the owner on 2026-10-12 (DG-205, Decided). Numbered v0.92 to stay clear of v0.90, the deck update on `work/deck-d4`.
 
 - §8, §12 Every route in `TeacherLayout` renders in one page frame: the full content width up to `--page-max` (1600px), centred beyond it at every width, 2560 included, inside gutters of 14, 28 and 40px. A route's handle no longer declares a width (it was 1320 by default, 1080, 860, 720 or full); the import review alone keeps `width: "full"`. Containers fill the frame; a field is at most 480px wide and prose at most 72ch. The student app's columns are unchanged.
-- §12 The lists follow the design's sketch: Assignments shows Assigned to from 1240px of content, Submitted from 760 and a To grade column from 900; the Imports history adds Source from 1240. Settings' fields take at most three columns.
 
 **Changes since v0.90**
 
