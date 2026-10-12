@@ -14,7 +14,7 @@ audio probe implementation, and build order.
 Phase R (the redesign) records its eighteen decisions in
 `70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
 questions that come up during a release go into that release's plan file under
-"Open items".
+"Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.20, below).
 
 ---
 
@@ -411,6 +411,177 @@ tokens from T-0.9, so it can be added later without touching components.
 Listed only so the token discipline in T-0.9 is understood as load-bearing rather
 than stylistic. Hard-coding a zinc value anywhere is what would make this
 expensive later.
+
+---
+
+## Phase R — R4's open items (v0.10.0)
+
+R4's questions, moved here from `74-r4.md` "Open items" at the release
+(T-R4.50). Each default is what v0.10.0 ships; an answer that differs becomes a
+task in the release it names. The design departures behind them are in
+`docs/design/gaps.md`.
+
+### O-R4.1 — Audio length and WAV · R6
+**Default:** every screen states DG-63's limits: MP3 or M4A, 50 MiB, five
+minutes; GIF is not taken for an image. The deck's "MP3 or WAV" is written
+"MP3 or M4A". A listening section longer than five minutes, and WAV, wait for
+this answer before the duration cap moves (spec §11.1).
+
+---
+
+### O-R4.2 — Images and audio inside a prompt or an explanation · R6
+**Default:** not built in R4 (DG-109). The editor has no Image or Audio button
+and refuses a pasted or dropped file. Building it needs a contract change,
+asset references in the publish snapshot and in media replace and delete,
+signed URLs in the student payload, and a rule for limiting inline audio. It is
+built in R6, whose track runs through those areas, once Thuong confirms.
+
+---
+
+### O-R4.3 — A pasted image is left out, not refused · R4 (built)
+**Default:** built (DG-115, T-R4.63). An image inside copied content is left
+out and counted in the paste preview; every other refusal of spec §7.1 stays.
+The alternative keeps the refusal and drops the "left out" line.
+
+---
+
+### O-R4.4 — "Choose from Media" lists the caller's own files · R7
+**Default:** the caller's own files, under "Files you uploaded." (DG-112, DG-90).
+Files other teachers share wait for R7's sharing to cover media, and for a
+drawing.
+
+---
+
+### O-R4.5 — Rich text for options · any release
+**Default:** prompts and explanations are rich for every teacher since R4, and
+`VITE_RICH_QUESTION_EDITOR` is gone (T-R4.64d). Options stay plain inputs, as
+the deck draws them, and `VITE_RICH_OPTION_EDITOR` stays off. Thuong decides
+whether rich options are ever turned on.
+
+---
+
+### O-R4.6 — What the Markdown mode is · R4 (built)
+**Default:** built (DG-110). The mode is the stored form, nothing converts
+without the teacher's confirmation, and Markdown reads tables and
+strikethrough and no other GFM syntax, for the teacher and the student.
+
+---
+
+### O-R4.7 — The bank's question editor was not redrawn · D4 or later
+**Default:** the bank's editor page uses the builder's 2026-10-04 drawing of
+the form inside the page's own frame (DG-108, T-R4.33). A later export that
+redraws the screen is followed.
+
+---
+
+### O-R4.8 — "Students can pause", "Matching" and "Not given" · R6
+**Default:** none has a model (DG-111, DG-113). "Students can pause" is not
+built and the two existing playback switches stay; "Matching" and the "Include
+“Not given”" switch arrive in R6 with their question types.
+
+---
+
+### O-R4.9 — Alt text belongs to the question · R4 (built)
+**Default:** built (DG-111, T-R4.62): one nullable column on the question and its
+snapshot, so two questions that share an image describe it in their own words.
+The alternative is alt text on the media file, set once in the library.
+
+---
+
+### O-R4.10 — The import review's editor · R4 (built)
+**Default:** built (DG-114, T-R4.38): the review keeps gaps, the stored content
+and the read-only view, and has no Markdown mode. The deck draws the opposite
+on each point, in a prototype that saves plain text.
+
+---
+
+### O-R4.11 — Join codes without a use limit · R4 (built)
+**Default:** O-06 holds: Maximum uses is 1 to 1,000, 40 by default, and the
+request field is not nullable. The deck's "Leave empty for no limit" is not
+built.
+
+---
+
+### O-R4.12 — Username sign-in · R5 or later
+**Default:** sign-in is by email (spec §5), so Add student asks for Email where
+the deck asks for "Username or email".
+
+---
+
+### O-R4.13 — Question import in the bank · R5 or R6
+**Default:** the bank's Import button stays absent. The deck's dialog (CSV,
+XLSX, `.quizzivy`, a tag for every question, "Skip questions that already
+exist") and `POST /teacher/questions/import` go to R5 after T-R5.13 brings
+XLSX, or R6 after T-R6.3 so the importer knows every type. Otherwise Thuong
+records a D1 exception in 70 and a DG entry.
+
+---
+
+### O-R4.14 — Import controls without a backend · R6 or R11
+**Default:** absent in R4 (DG-67): saved profiles, source conventions, the Word
+template and the audio slot, "Create another test from this file", "Delete
+import", "Process again" after a cancel, Move / Split / Merge and the
+processing history. Their backend and UI go to R6 beside T-R6.13 or to R11's
+reconciliation, or Thuong lists them as an approved post-1.0 exception in 70 §2.
+`18-word-import-ux.md` §12 has the kept and gated table.
+
+---
+
+### O-R4.15 — The note to students · R4 (built)
+**Default:** built (T-R4.11, T-R4.26, T-R4.27b): `assignments.student_note` and a
+plain "Note to students (optional)" field, which the Teacher deck does not
+draw and the Student deck's Test intro shows.
+
+---
+
+### O-R4.16 — Wave 2's defaults (2026-10-04) · R4 (built)
+**Default:** built, each where the plan and the deck left a choice.
+- A paste that carries a file beside HTML text (an Excel or Word selection) is
+  previewed, and Ctrl+Shift+V inserts its plain text (T-R4.63).
+- A rotated legacy code answers through today's paths: "revoked" where self-join
+  is open, an unknown code where it is closed or the class archived (T-R4.22).
+- The stepper's value can be typed, so a 47-minute limit stays possible
+  (T-R4.2c).
+- "nghe" and "nghé", and "London" and "london" under Match case, can both be
+  accepted answers, because the server grades them as different (T-R4.2c,
+  T-R4.66).
+- An import in review that names a replaced file keeps the old file and binds
+  it at commit (T-R4.17b).
+- A class still unrotated after its one retry waits for the next API start-up,
+  so the release check re-runs the count query after the deploy (T-R4.22).
+- A draft whose group graph cannot be read answers `unpublishedChanges` null,
+  and the builder shows no banner for it (T-R4.16).
+
+---
+
+### O-R4.17 — The Admin's own-row lists · R5
+**Default:** in the teacher workspace an Admin's six content lists hold only
+their own rows (DG-53, T-R4.54); everything stays reachable by id and, from R5,
+in the Admin console. An Admin who opens another teacher's draft by id cannot
+add a question to it, because a draft accepts only its owner's questions.
+Thuong may prefer an "All teachers" filter, which is a deck change.
+
+---
+
+### O-R4.18 — Student activity · R5
+**Default:** "Not signed in", a true "Last active" and the password's "Last
+changed" line wait for R5's activity tracking (DG-54).
+
+---
+
+### O-R4.19 — What a paste keeps of automatic numbering · R4 (T-R4.51)
+**Default:** nothing changes: the paste page's tips ask for typed numbers and
+letters. Whether the plain-text clipboard of Word and Google Docs keeps
+auto-numbered questions and option letters decides how well a pasted test is
+recognised; T-R4.51 records it with real documents.
+
+---
+
+### O-R4.20 — Remove and Move on Students, with one class filtered · any release
+**Default:** built (T-R4.40): Remove from class and Move act on every class the
+selected students are in, and the confirmation names those classes. The
+alternative acts only on the class the Class facet filters to when exactly one
+is chosen.
 
 ---
 

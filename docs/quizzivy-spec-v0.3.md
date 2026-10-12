@@ -1,7 +1,17 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.85 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.86 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.85**
+
+R4, the sections brought level with the release (T-R4.50, the Tech Lead's half). No behaviour changes: each line below is a body section that still described the console before R4.
+
+- §2, §3, §5.4 The teacher's tree is `/teacher/*` in `TeacherLayout`; `TeacherWorkspace` holds it, `StudentArea` and `homePathFor` send staff to `/teacher`, and a `/admin/*` address redirects to the same path under `/teacher` until R5 builds the Admin console at `/admin`. `AdminLayout` is gone.
+- §7.1 Prompts and explanations are written in the rich editor for every teacher; the opt-in `VITE_RICH_QUESTION_EDITOR` is gone. Options stay plain inputs unless `VITE_RICH_OPTION_EDITOR` is on.
+- §8 The teacher's routes and screens as R4 built them, with the shell: the sidebar, its stored state, the 768px drawer and the content-width thresholds.
+- §9, §12 The teacher console follows the theme; nothing forces light any more.
+- §10.4 The teacher's integrity view (D8): the roster's focus-loss count and flagged rows, the attempt sheet's compact timeline, the attempt page's Integrity tab, one danger tone for "Flagged".
 
 **Changes since v0.84**
 
@@ -1136,7 +1146,7 @@ Fixed unless Thuong approves a change. Do not swap libraries silently.
 | Testing | Vitest + Testing Library; Playwright e2e; MSW mocks | See §14 |
 | Lint/format | ESLint (typescript-eslint, react-hooks, jsx-a11y) + Prettier | CI fails on lint errors |
 
-**Single SPA, three route trees.** `/admin/*`, `/app/*`, and a small public tree (`/login`, `/join/*`). Split at the route level so a student never downloads admin code and an anonymous visitor downloads neither.
+**Single SPA, three route trees.** `/teacher/*`, `/app/*`, and a small public tree (`/login`, `/join/*`). Split at the route level so a student never downloads teacher code and an anonymous visitor downloads neither. A `/admin/*` address redirects to the same path under `/teacher` until R5 builds the Admin console at `/admin`.
 
 ---
 
@@ -1161,7 +1171,7 @@ web/src/
 ├─ components/
 │  ├─ ui/                    # shadcn primitives
 │  └─ shared/
-├─ layouts/                  # AdminLayout, StudentLayout, FocusLayout, PublicLayout
+├─ layouts/                  # TeacherLayout (shell/), StudentLayout, FocusLayout
 ├─ lib/                      # api/, i18n/, utils/, config.ts
 ├─ hooks/  stores/  styles/  main.tsx
 ```
@@ -1244,9 +1254,10 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 
 - `RequireSession` → `/login?next=<path>` when unauthenticated.
 - The web guards read the signed-in user's `workspaces` and `permissions` (`CurrentUser`, §7), never `role`, through `features/auth/permissions.ts` (`can` and `useCan`, `hasWorkspace` and `useWorkspace`). They decide what the SPA shows; the server enforces the permissions on every request (§5).
-  - `TeacherWorkspace` holds `/admin/*`, the teacher console until R4, for the `teacher` workspace. Anyone else gets a **403 page**, not a redirect (a redirect hides the misconfiguration).
-  - `StudentArea` holds `/app/*` for the `app` workspace. A user without it who has the `teacher` or `admin` workspace is redirected to `/admin`; a user with neither gets the 403 page.
-  - `homePathFor` sends the `teacher` or `admin` workspace to `/admin` and anyone else to `/app`. An Admin with "Take tests" turned on (R5) lands on `/admin` and may also open `/app`.
+  - `TeacherWorkspace` holds `/teacher/*`, the teacher console since R4, for the `teacher` workspace. Anyone else gets a **403 page**, not a redirect (a redirect hides the misconfiguration).
+  - `StudentArea` holds `/app/*` for the `app` workspace. A user without it who has the `teacher` or `admin` workspace is redirected to `/teacher`; a user with neither gets the 403 page.
+  - `homePathFor` sends the `teacher` or `admin` workspace to `/teacher` and anyone else to `/app`. An Admin with "Take tests" turned on (R5) lands on `/teacher` and may also open `/app`.
+  - A v0.9.x address under `/admin/*` redirects to the same path under `/teacher`, in any letter case, keeping its query and hash; `/admin/assignments/:id/attempts` and `/teacher/assignments/:id/attempts` go to the assignment's Students tab. The redirect stays until R5 builds the Admin console at `/admin`.
   - `learnsOnly` (the student app is the user's only workspace) keeps v0.7.0's rules on `/join` and the Settings role label (§6.2).
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`.
@@ -1567,13 +1578,17 @@ attempts, results and teacher review. The document cannot contain links, gaps,
 assets, source metadata or answer keys; grading remains in normalized columns.
 An omitted document on update may retain existing formatting only when the
 current option ID and text match. Stale or changed legacy writes fail atomically;
-explicit `content: null` removes formatting. `VITE_RICH_OPTION_EDITOR=true`
+explicit `content: null` removes formatting. Options are plain inputs, as the
+deck draws them; `VITE_RICH_OPTION_EDITOR=true` (off in production)
 enables the pilot affordance to format plain options; readers and editing
 existing rich options remain available. This is not an import release or final
 editor acceptance. Grouped content and shared audio remain on their existing paths until their
 separate integration gates pass.
 
-**Question prose rollout (W-05b).** Optional `promptContent` and
+**Question prose rollout (W-05b).** Since R4 (v0.10.0) a prompt and an
+explanation are written in the rich editor by every teacher, in the builder, the
+bank's question editor, the group composer and the import review; the opt-in
+`VITE_RICH_QUESTION_EDITOR` is gone. Optional `promptContent` and
 `explanationContent` support semantic paragraphs, headings, lists and tables with
 text marks, breaks and safe links. `QuestionContent` excludes assets and gaps;
 `QuestionPromptContent` additionally allows bound gaps for fill-blank questions. `prompt`/`explanation`
@@ -1759,26 +1774,32 @@ flat results/reviews keep their existing payload and require no group reader.
 
 ---
 
-## 8. Screens & routes — admin (`/admin/*`)
+## 8. Screens & routes — teacher (`/teacher/*`)
 
-`AdminLayout`: sidebar + top bar. Collapsible sidebar ≤1280px. Minimum supported width 768px.
+`TeacherLayout` (R4, `layouts/TeacherLayout.tsx` and `layouts/shell/`): a sidebar, a top bar with the breadcrumb trail, the search, the bell and the theme toggle, and the page. It follows the theme. A route declares `handle: { crumb, width?, sidebar? }`: the whole breadcrumb trail, whose last crumb titles the document; the content's maximum width (1320 by default, 1080, 860, 720 or the full width); and a collapsed start for the visit (the import review asks for one).
+
+- **The sidebar** groups the destinations as the deck does (Home; Teaching: Assignments, Grading, Classes, Students; Content: Tests, Question bank, Media), each shown only to a user with the permission its list operation declares. From 768px it is in the page's flow, 248px expanded or 60px collapsed (icons, the label as the name, no badge), as the user last chose; the choice is kept in `localStorage` under `quizzivy.sidebar` and the sidebar never collapses by itself. Below 768px it is a 272px drawer over the page that traps focus and closes on every navigation.
+- **Layout by content width, not viewport.** `<main>` is the scroller; a page lays itself out by the width of its content area (`useContentWidthAtLeast`, `useContentBand`), so collapsing the sidebar can widen a page into its next layout. The only viewport breakpoint is the shell's 768.
+- **One outlet at every width**, so a page keeps its state across 768. A route change returns `<main>` to the top and moves focus to it; a change of a parameter alone does neither.
 
 | Route | Screen | Key behaviour |
 |---|---|---|
-| `/admin` | Dashboard | Legacy figures remain; the teacher home API also supplies live taking counts, calendar submissions, today's assignments and recent activity in the caller's own teaching scope. |
-| `/admin/tests` | Tests list | Title, status, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. |
-| `/admin/tests/new`, `/admin/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **audio attach** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. |
-| `/admin/tests/:id` | Test detail | Student-eye preview of any version, with history in the shared right sidebar. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
-| `/admin/question-bank` | Question bank | Type/tag filters + full-text search. CRUD. Audio badge + inline preview. CSV import (P1). |
-| `/admin/question-bank/groups`, `/admin/question-bank/groups/:id` | Group bank/editor | Independent complete-group copies, materials and member editing, shared recording policies, revision-safe autosave and account-scoped local recovery. |
-| `/admin/media` | Media library | Uploaded audio/images: filename, duration, size, where used. Delete blocked if referenced by any published version. |
-| `/admin/assignments` | Assignments list | Test, targets, window, status, `submitted/total`, flagged count. |
-| `/admin/assignments/new` | Create assignment | Published test, targets, window, duration, attempts, shuffle, review policy, integrity policy (§10.3). |
-| `/admin/assignments/:id` | Monitor | Per-student: not started / in progress (live remaining, live focus-loss) / submitted / graded. Poll 15s while `open`. Extend deadline, reset, void — all with confirm + reason. |
-| `/admin/attempts/:id` | Review & grading | Per question; auto-graded shown; `short_answer` gets points input + comment + **sample answer panel**. Audio questions show plays used vs allowed. **Integrity timeline tab** (§10.4). "Finish grading" → `graded`. |
-| `/admin/students` | Students | Table + create/edit. Linked providers, `joined_via`. Reset password. CSV import (P1). |
-| `/admin/classes`, `/admin/classes/:id` | Classes | CRUD, members, **join-code panel** (§6.4). |
-| `/admin/settings/:section?` | Settings | Profile (default), security (password and Google) and preferences (language), with desktop section navigation and a mobile select. |
+| `/teacher` | Dashboard | Figures, submissions over 7, 14 or 30 days, today's openings and closings, recent activity with the Flagged marker, live taking counts; the teacher home API below. Polls while the user is active. |
+| `/teacher/tests` | Tests list | Cards: title, status, skills, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. A new test opens in the builder. |
+| `/teacher/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **question media** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. Publishing takes an optional change note. |
+| `/teacher/tests/:id` | Test detail | Student-eye preview of any version, with its history, the unpublished changes and the diff between versions. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
+| `/teacher/imports`, `/teacher/imports/new`, `/teacher/imports/:id`, `…/review`, `…/confirm` | Word import | History, upload or paste a test, processing, the review workspace, preview and create (§16, `docs/plan/18-word-import-ux.md`). Shown only while `GET /teacher/imports/capabilities` reports intake enabled. |
+| `/teacher/question-bank`, `/teacher/question-bank/new`, `/teacher/question-bank/:id` | Question bank and editor | Type, level, skill and tag filters + full-text search. CRUD. Media badge + inline preview. |
+| `/teacher/question-bank/groups`, `/teacher/question-bank/groups/:id` | Group bank/editor | Independent complete-group copies, materials and member editing, shared recording policies, revision-safe autosave and account-scoped local recovery. |
+| `/teacher/media` | Media library | Uploaded audio/images: name, duration, size, where used. Rename, replace with the same kind, set an audio file's default play limit (§11.1). Delete blocked if referenced by any published version. |
+| `/teacher/assignments` | Assignments list | Test, targets, window, status, `submitted/total`, flagged count. |
+| `/teacher/assignments/new`, `/teacher/assignments/:id/edit` | Assignment wizard | Test, students, schedule, rules: duration, attempts, shuffle, review options, integrity policy (§10.3) and the note to students. Starts from the teacher's assignment defaults. |
+| `/teacher/assignments/:id` | Assignment detail | Stats and the Students, Questions and Settings tabs. The roster is per student: not started / in progress (live remaining, live focus-loss) / submitted / graded; it polls every 15s while the assignment is `open` and the user is active. Extend, per-student overrides, reset, void, duplicate, reopen and close early, each with confirm. The v0.9.x `…/attempts` address opens the Students tab. |
+| `/teacher/attempts/:id` | Review & grading | Per question; auto-graded shown; `short_answer` gets points input + comment + **sample answer panel**. Audio questions show plays used vs allowed. **Integrity tab** (§10.4). "Finish grading" → `graded`. |
+| `/teacher/grading` | Grading queue | Unmarked manual answers across the caller's assignments, by student or by question (below). `teaching.grading`. |
+| `/teacher/students` | Students | Table with search, class and account (Google or password) filters; create into one's own classes; edit; reset one password or up to 40 (§5.4). |
+| `/teacher/classes`, `/teacher/classes/:id` | Classes | Cards with their codes; CRUD, schedule and room, members, **join-code card** (§6.4). |
+| `/teacher/settings/:section?` | Settings | Profile, Sign-in & security (password, Google, signed-in devices), Notifications, Assignment defaults, Appearance, and the API reference for its holders. |
 
 The teacher home API (`getDashboard`) accepts `range=7d|14d|30d`, defaulting
 to `14d`. Only `submissions` depends on this range: one zero-padded calendar day
@@ -1826,7 +1847,7 @@ statement snapshot; later immutable enrichment does not claim a whole-request
 repeatable-read snapshot. Reading or exhausting the queue never finishes grading;
 the teacher still invokes Finish explicitly. The rebuilt web queue is T-R4.28.
 
-Admin list behaviour (approved change request, 2026-09-22):
+Teacher list behaviour (approved change request, 2026-09-22):
 
 - Tests, questions, media, classes, students and assignments support explicit multi-selection and confirmed bulk removal. Class rosters support bulk membership removal. Failed items remain selected with an individual explanation; successful items are not retried. Attempt history, grading records and integrity/audit events remain retained.
 - Tests and questions expose duplication beside the row menu and inside it. A duplicate leaves the teacher on the list and marks the source and newly created row until navigation.
@@ -1881,7 +1902,7 @@ Shared:
 - **Slow:** eight seconds without a step shows "Tải lâu hơn bình thường" and "Tải lại".
 - **Offline:** a session restore that got no HTTP response shows "Mất kết nối" and retries after a ten-second countdown, or as soon as the browser is back online.
 
-**Overlays** stand over a mounted page, which becomes inert; focus moves into the overlay. Over the teacher console, which forces light until R4 rebuilds it, the overlays are light too.
+**Overlays** stand over a mounted page, which becomes inert; focus moves into the overlay. They follow the theme over every console.
 
 - **Maintenance** closes when `GET /public/status` reports no window under way. It checks on "Kiểm tra lại", and every minute while the user is active. Closing refetches everything.
 - **Sign in again** (§5.2).
@@ -1998,9 +2019,15 @@ Announced, visible, never silent.
 
 `requireFullscreen: false`, `blockCopyPaste: true`, `maxFocusLoss: 0`, `onLimitExceeded: 'flag'`. Conservative on purpose — the teacher opts into stricter modes per test.
 
-### 10.4 Admin review
+### 10.4 Teacher review
 
-`/admin/attempts/:id` → **Integrity** tab: ordered timeline with event kind, wall-clock time, offset from attempt start, duration for paired events, and the question on screen. Summary strip: total away-time, away episodes ≥ `minAwayMs`, paste count, resume count, audio replays. Neutral text — no red banners, no "CHEATING DETECTED". The teacher judges; the app reports. An audio play with no recorded end shows no duration and is not called ongoing.
+What the teacher sees, by D8 (R4). One tone marks "Flagged" everywhere, the danger tokens (`features/integrity/tones.ts`): the dashboard's figure and its Recent activity marker, the assignment's Flagged stat, the roster's row, the attempt sheet and the attempt page, and the flagged notification.
+
+- **The roster** (the assignment's Students tab) shows Focus lost as "—" or "{n}×", in danger ink after a flag icon once the attempt is flagged, on a row in the danger's soft tone. Where the column is hidden, the same mark sits under the student's name.
+- **The attempt sheet** draws a compact timeline from the start (info) to "Submitted" (success, once handed in). Leaving the test and an automatic submission are danger, with the time away on the label ("Left fullscreen · 14 s"); every other kind keeps a neutral dot.
+- **The rules** keep §10.5's honest limits beside the integrity policy in the assignment wizard.
+
+`/teacher/attempts/:id` → **Integrity** tab: ordered timeline with event kind, wall-clock time, offset from attempt start, duration for paired events, and the question on screen. Summary strip: total away-time, away episodes ≥ `minAwayMs`, paste count, resume count, audio replays. Neutral text — no red banners, no "CHEATING DETECTED". The teacher judges; the app reports. An audio play with no recorded end shows no duration and is not called ongoing.
 
 Sessions are ordered by their earliest `receivedAt`, with `sessionId` breaking
 ties. Within a session, `resume` comes first and `session_takeover` last.
@@ -2180,7 +2207,7 @@ Deliberate. Do not "improve" them with trendy defaults.
   - `--input`, input borders, 3:1 or more;
   - `--danger-solid` / `--danger-solid-fg`, danger buttons, 4.5:1 or more.
 - **Deck geometry that would change an existing primitive** (control heights, `--radius` and the sm/md/lg radii, the badge and card shapes) applies only inside `data-scale="deck"`, which rebuilt surfaces set on their root. The deck's type steps are global tokens, but the pre-R1 steps keep their values, so an old screen does not shift. Sizes that exist only in the deck have their geometry everywhere (button `md`, `xl` and `icon-xl`, the new avatar sizes, the toast).
-- **The teacher console** (the admin layout) keeps its layout and forces light (`useForcedLightTheme`) until R4 rebuilds it. The student and focus layouts are deck surfaces since R3 and follow the theme. R5 makes the deck geometry the default and removes `data-scale` (T-R5.30).
+- **Every console follows the theme.** The teacher's `TeacherLayout` is a deck surface since R4, and the student and focus layouts since R3; nothing forces light. R5 makes the deck geometry the default and removes `data-scale` (T-R5.30).
 
 **The student app and the engine, as built in R3 (v0.9.0).** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119).
 
@@ -2201,7 +2228,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
 - **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC: the server composes the text a person types before it stores it, the rich content editor composes what it writes, and a view composes what it draws, because a row saved before the server did can still be decomposed. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
-- **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows, until R4 rebuilds them. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
+- **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's pages follow the deck's tables and cards inside the content-width rules of §8. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
 - **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the count button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
 - **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. The save line says saved, saving, offline or failed; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
 - **Motion.** The deck's keyframes, and what the old consoles still carry:
