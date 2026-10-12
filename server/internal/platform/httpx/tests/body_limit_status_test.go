@@ -104,7 +104,7 @@ func TestSelectedRawBodyCapReadsAtMostLimitPlusOneAndReplaysExactBytes(t *testin
 				body := strings.Repeat(" ", length-2) + "{}"
 				reader := &capReader{Reader: strings.NewReader(body)}
 				calls := 0
-				h := httpx.LimitRequestBody(nil, 100, limits)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				h := httpx.LimitRequestBody(quiet, nil, 100, limits)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					calls++
 					raw, err := io.ReadAll(r.Body)
 					if err != nil || string(raw) != body {
@@ -145,7 +145,7 @@ func TestSelectedRawBodyCapReadsAtMostLimitPlusOneAndReplaysExactBytes(t *testin
 }
 
 func TestBodyStatusPreservesIncompleteDefaultAndStreamingBehavior(t *testing.T) {
-	h := httpx.LimitRequestBody(nil, 10, nil)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("rejected request reached handler") }))
+	h := httpx.LimitRequestBody(quiet, nil, 10, nil)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("rejected request reached handler") }))
 	req := httptest.NewRequest("POST", "/other", strings.NewReader(strings.Repeat("x", 11)))
 	req.Pattern = "POST /other"
 	rec := httptest.NewRecorder()
@@ -165,7 +165,7 @@ func TestBodyStatusPreservesIncompleteDefaultAndStreamingBehavior(t *testing.T) 
 	req = httptest.NewRequest("POST", "/stream", reader)
 	req.Pattern = "POST /stream"
 	rec = httptest.NewRecorder()
-	stream := httpx.LimitRequestBody(map[string]struct{}{"POST /stream": {}}, 10, map[string]httpx.RequestBodyLimit{"POST /stream": {Bytes: 12, ExceededStatus: 413}})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	stream := httpx.LimitRequestBody(quiet, map[string]struct{}{"POST /stream": {}}, 10, map[string]httpx.RequestBodyLimit{"POST /stream": {Bytes: 12, ExceededStatus: 413}})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if reader.read != 0 {
 			t.Fatal("stream eagerly read")
 		}

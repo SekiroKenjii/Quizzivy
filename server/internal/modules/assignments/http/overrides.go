@@ -66,7 +66,8 @@ func (h Assignments) ListStudentOverrides(ctx context.Context, request openapi.L
 }
 
 // SetStudentOverrides gives students an override on an assignment, or changes
-// the one they have.
+// the one they have. A student named twice is refused with 400 whatever the
+// spelling of the id.
 func (h Assignments) SetStudentOverrides(ctx context.Context, request openapi.SetStudentOverridesRequestObject) (openapi.SetStudentOverridesResponseObject, error) {
 	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -74,6 +75,10 @@ func (h Assignments) SetStudentOverrides(ctx context.Context, request openapi.Se
 	req, ok := assignmentRequest(ctx, request.Id.String())
 	if !ok {
 		return nil, httpx.ErrNotImplemented
+	}
+	if httpapi.RepeatsAnID(request.Body.StudentIds) {
+		return openapi.SetStudentOverrides400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.FieldError(ctx, "studentIds", httpx.Text(ctx, "Mỗi học viên chỉ được nêu một lần.", "Each student can be named only once.")))}, nil
 	}
 
 	written, err := h.app.Commands.SetOverrides.Handle(ctx, command.SetOverrides{Request: req, Input: toOverrideInput(*request.Body)})

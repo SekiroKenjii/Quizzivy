@@ -2901,6 +2901,10 @@
     "newTitle": "Nhập đề từ Word/PDF",
     "newHeading": "Tệp",
     "newFormats": "{{formats}} · tối đa {{size}} mỗi tệp",
+    "formatList": {
+      "or": "{{head}} hoặc {{last}}",
+      "and": "{{head}} và {{last}}"
+    },
     "newHint": "Tải lên đề thi Word hoặc PDF và, nếu có, tệp đáp án riêng. Bạn sẽ rà soát kết quả trước khi tạo bản nháp đề.",
     "status": {
       "awaiting_sources": "Chờ tải tệp",

@@ -75,7 +75,7 @@ func limitedBody(body func() *http.Request) func(*testing.T) (http.Handler, *htt
 	return func(*testing.T) (http.Handler, *http.Request) {
 		r := body()
 		r.Pattern = "POST /auth/login"
-		return httpx.LimitRequestBody(nil, bodyLimit, nil)(letThrough()), r
+		return httpx.LimitRequestBody(quiet, nil, bodyLimit, nil)(letThrough()), r
 	}
 }
 

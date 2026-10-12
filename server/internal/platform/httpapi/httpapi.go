@@ -130,6 +130,20 @@ func StudentStats(in stats.Student) openapi.StudentStats {
 	return out
 }
 
+// RepeatsAnID reports whether ids names one uuid more than once. The contract's
+// uniqueItems compares the ids as text, so two spellings of one uuid pass the
+// request validator and parse to the same value here.
+func RepeatsAnID(ids []openapi_types.UUID) bool {
+	seen := make(map[openapi_types.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		if _, again := seen[id]; again {
+			return true
+		}
+		seen[id] = struct{}{}
+	}
+	return false
+}
+
 func Ptr[T any](v T) *T { return &v }
 
 func Deref[T any](v *[]T) []T {
