@@ -151,7 +151,7 @@ export default function TestsListPage() {
   const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(JSON.stringify({ tab, search }));
   const tests = useQuery({
-    queryKey: ["admin-tests", { tab, search, page, size }],
+    queryKey: ["teacher-tests", { tab, search, page, size }],
     queryFn: ({ signal }) =>
       listTests(
         {
@@ -170,7 +170,7 @@ export default function TestsListPage() {
   const [deleting, setDeleting] = useState<Test | null>(null);
   const [duplicated, setDuplicated] = useState<ReadonlySet<string>>(new Set());
 
-  const invalidate = () => client.invalidateQueries({ queryKey: ["admin-tests"] });
+  const invalidate = () => client.invalidateQueries({ queryKey: ["teacher-tests"] });
   const besideRemoved = (removed: Test): HTMLElement | null => {
     const items = tests.data?.items ?? [];
     const index = items.findIndex((item) => item.id === removed.id);

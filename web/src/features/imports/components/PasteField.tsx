@@ -24,7 +24,7 @@ import { PASTE_EXAMPLE, type PasteScan } from "../paste";
 
 const SHOWN_NUMBERS = 6;
 const TOOL_BUTTON =
-  "h-8 gap-1.5 rounded-[8px] px-[11px] text-[13px] in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] [&_svg:not([class*='size-'])]:size-3.5";
+  "h-8 gap-1.5 rounded-[8px] px-[11px] text-[13px] leading-[normal] in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] [&_svg:not([class*='size-'])]:size-3.5";
 
 type Tone = "danger" | "warning" | "muted";
 

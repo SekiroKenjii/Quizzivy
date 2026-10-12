@@ -49,7 +49,7 @@ export function AddMemberDialog({
   const [touched, setTouched] = useState(false);
   const search = useDebounced(query, 250).trim();
   const students = useLazyList({
-    queryKey: ["admin-students", "picker", { q: search }],
+    queryKey: ["teacher-students", "picker", { q: search }],
     fetchPage: (page, signal) =>
       listStudents(
         search === "" ? { page, limit: 20 } : { q: search, page, limit: 20 },
@@ -83,7 +83,7 @@ export function AddMemberDialog({
       if (added.length > 0) toast(t("classDetail.addedCount", { count: added.length }));
       await Promise.all([
         invalidateClassMembership(queryClient, klass.id),
-        queryClient.invalidateQueries({ queryKey: ["admin-students"] }),
+        queryClient.invalidateQueries({ queryKey: ["teacher-students"] }),
       ]);
       if (failed.length === 0) close();
     },

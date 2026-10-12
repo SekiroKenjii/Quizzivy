@@ -139,7 +139,7 @@ describe("actual summary and home cache lifecycle", () => {
         }),
       ),
     );
-    await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
+    await act(() => client.invalidateQueries({ queryKey: ["teacher-dashboard"] }));
     await waitFor(() =>
       expect(screen.getByLabelText("counts")).toHaveTextContent(
         '{"liveAssignments":null,"toGrade":null,"unread":2}',
@@ -159,7 +159,7 @@ describe("actual summary and home cache lifecycle", () => {
         ),
       ),
     );
-    await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
+    await act(() => client.invalidateQueries({ queryKey: ["teacher-dashboard"] }));
     await waitFor(() =>
       expect(screen.getByLabelText("counts")).toHaveTextContent(/^null$/),
     );
@@ -198,7 +198,7 @@ describe("actual summary and home cache lifecycle", () => {
         });
       }),
     );
-    await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
+    await act(() => client.invalidateQueries({ queryKey: ["teacher-dashboard"] }));
     expect(summaryReads).toBe(2);
     expect(homeReads).toBe(2);
     expect(liveReads).toBe(1);

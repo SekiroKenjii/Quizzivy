@@ -2901,6 +2901,10 @@
     "newTitle": "Import from Word/PDF",
     "newHeading": "Files",
     "newFormats": "{{formats}} · up to {{size}} each",
+    "formatList": {
+      "or": "{{head}} or {{last}}",
+      "and": "{{head}} and {{last}}"
+    },
     "newHint": "Upload the Word or PDF exam and, if you have one, a separate answer key. You'll review the result before a draft test is created.",
     "status": {
       "awaiting_sources": "Awaiting files",

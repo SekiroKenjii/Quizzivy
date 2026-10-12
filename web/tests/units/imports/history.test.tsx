@@ -335,6 +335,23 @@ describe("a pasted import in the history", () => {
   });
 });
 
+describe("the history's rows", () => {
+  it("rule each row off above it, under the header in the grid as well (QA-51-12)", async () => {
+    items = [wordImport(), wordImport({ id: "018f0000-0000-7000-8000-000000000199" })];
+    renderHistory();
+    const table = await screen.findByRole("table");
+    const body = within(table).getAllByRole("rowgroup").at(-1)!;
+    const rows = within(body).getAllByRole("row");
+    expect(rows).toHaveLength(2);
+    for (const row of rows)
+      expect(row).toHaveClass(
+        "border-t",
+        "first:border-t-0",
+        "@[960px]/import-history:first:border-t",
+      );
+  });
+});
+
 describe("the history's pager (QA-F1-2)", () => {
   it("is the deck's pager with the history's sizes, a new size going back to page 1", async () => {
     items = [wordImport()];
@@ -358,6 +375,17 @@ describe("the history's pager (QA-F1-2)", () => {
     await waitFor(() => expect(router.state.location.search).toBe("?size=50"));
     await waitFor(() => expect(queries.at(-1)?.get("limit")).toBe("50"));
     expect(queries.at(-1)?.get("page")).toBe("1");
+  });
+
+  it("is the card's footer, under the table and inside its border (QA-51-11)", async () => {
+    items = [wordImport()];
+    renderHistory();
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    const table = screen.getByRole("table");
+    expect(pager.parentElement).toBe(table.parentElement);
+    expect(pager.parentElement).toHaveAttribute("data-slot", "card");
+    expect(table.nextElementSibling).toBe(pager);
+    expect(pager).toHaveClass("border-t", "px-4", "py-2.5");
   });
 
   it("still draws the pager on a page past the end, so it leads back", async () => {
