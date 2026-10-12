@@ -214,7 +214,7 @@ describe("the paste page before anything is pasted", () => {
 });
 
 describe("what the page finds in pasted text", () => {
-  it("counts in the status pane, lists what needs checking, names the kind, fills the title and folds the tips away (DG-206)", async () => {
+  it("counts in the status pane, lists what needs checking, names the kind, fills the title and folds the tips away (DG-207)", async () => {
     renderPage();
     paste(READY);
     const readAs = screen.getByRole("region", { name: "Đã đọc được" });

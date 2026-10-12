@@ -106,7 +106,12 @@ function DeckAccountMenu({
         aria-label={t("nav.account", { name: user.displayName ?? user.fullName })}
         className={cn(form.trigger, sidebar === "collapsed" && "justify-center")}
       >
-        <Avatar name={user.displayName ?? user.fullName} tone="self" {...form.avatar} />
+        <Avatar
+          name={user.displayName ?? user.fullName}
+          src={user.avatarUrl}
+          tone="self"
+          {...form.avatar}
+        />
         {sidebar === "expanded" && (
           <FootIdentity name={user.displayName ?? user.fullName} />
         )}
@@ -118,6 +123,7 @@ function DeckAccountMenu({
         <div className="mb-1 flex items-center gap-2.5 border-b px-2 pt-1.5 pb-2.5">
           <Avatar
             name={user.displayName ?? user.fullName}
+            src={user.avatarUrl}
             tone="self"
             {...form.avatar}
           />

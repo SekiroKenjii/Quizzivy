@@ -1,13 +1,19 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.95 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.96 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.95**
+
+The import workspace of the approved page-width design (DG-207, Decided).
+
+- §8 Upload and setup and Processing are one page per import: the Sources pane beside the status pane, stacked below 960px of content. `/teacher/imports/new` is the draft and starting it replaces the address with `/teacher/imports/:id`, which stays the same through every state; a committing or committed import redirects to its confirm page. Pasted text is read as it is typed in the status pane, listing only what needs checking.
 
 **Changes since v0.94**
 
-The import workspace of the approved page-width design (DG-206, Decided).
+The page frame's follow-up (DG-205): the lists' columns follow the approved sketch, and Settings caps its columns.
 
-- §8 Upload and setup and Processing are one page per import: the Sources pane beside the status pane, stacked below 960px of content. `/teacher/imports/new` is the draft and starting it replaces the address with `/teacher/imports/:id`, which stays the same through every state; a committing or committed import redirects to its confirm page. Pasted text is read as it is typed in the status pane, listing only what needs checking.
+- §12 The lists follow the design's sketch: Assignments shows Assigned to from 1240px of content, Submitted from 760 and a To grade column from 900; the Imports history adds Source from 1240. Settings' fields take at most three columns.
 
 **Changes since v0.93**
 
@@ -1842,7 +1848,7 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/teacher/tests` | Tests list | Cards: title, status, skills, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. A new test opens in the builder. |
 | `/teacher/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **question media** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. Publishing takes an optional change note. |
 | `/teacher/tests/:id` | Test detail | Student-eye preview of any version, with its history, the unpublished changes and the diff between versions. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
-| `/teacher/imports`, `/teacher/imports/new`, `/teacher/imports/:id`, `…/review`, `…/confirm` | Word import | History; one workspace per import for upload or paste and processing, its Sources pane beside its status pane (DG-206); the review workspace; preview and create (§16, `docs/plan/18-word-import-ux.md`). Shown only while `GET /teacher/imports/capabilities` reports intake enabled. |
+| `/teacher/imports`, `/teacher/imports/new`, `/teacher/imports/:id`, `…/review`, `…/confirm` | Word import | History; one workspace per import for upload or paste and processing, its Sources pane beside its status pane (DG-207); the review workspace; preview and create (§16, `docs/plan/18-word-import-ux.md`). Shown only while `GET /teacher/imports/capabilities` reports intake enabled. |
 | `/teacher/question-bank`, `/teacher/question-bank/new`, `/teacher/question-bank/:id` | Question bank and editor | Type, level, skill and tag filters + full-text search. CRUD. Media badge + inline preview. |
 | `/teacher/question-bank/groups`, `/teacher/question-bank/groups/:id` | Group bank/editor | Independent complete-group copies, materials and member editing, shared recording policies, revision-safe autosave and account-scoped local recovery. |
 | `/teacher/media` | Media library | Uploaded audio/images: name, duration, size, where used. Rename, replace with the same kind, set an audio file's default play limit (§11.1). Delete blocked if referenced by any published version. |
@@ -2270,7 +2276,7 @@ Deliberate. Do not "improve" them with trendy defaults.
 
 - **One frame, up to 1600px.** `TeacherLayout` puts every route in the same frame: the full content width up to `--page-max` (1600px), then centred, at every width, 2560 included. So every page, its loading, empty, error and not-found states included, starts at one left edge and has one width at each viewport and sidebar state. The one named exception is the import review, full-bleed with the sidebar collapsed (`handle.width: "full"`). The values are tokens in `src/index.css`; no other route or page sets a maximum, and `page-frame.test.ts` refuses a teacher page that centres itself in a narrower box.
 - **Gutters by width:** `--page-gutter` 14px below 768, 28px from 768 and 40px from 1920; top padding 16 / 24px.
-- **Size the content, not the page.** The page head (title, description, actions, the wizard's stepper) spans the frame, and cards, lists, tables and steppers fill it. Only text is capped: a field is at most `--field-max` (480px) wide, prose at most `--prose-max` (72ch). There are no form columns: New assignment's summary docks on the right at 300px beside a form that fills, and Settings' fields flow into columns of at most 480px. Inner reflows follow the content-width bands of §8 or a container query, never a new viewport breakpoint.
+- **Size the content, not the page.** The page head (title, description, actions, the wizard's stepper) spans the frame, and cards, lists, tables and steppers fill it. Only text is capped: a field is at most `--field-max` (480px) wide, prose at most `--prose-max` (72ch). There are no form columns: New assignment's summary docks on the right at 300px beside a form that fills, and Settings' fields flow into at most three columns, each field at most 480px. Assignments shows Assigned to from 1240px of content, Submitted from 760 and To grade from 900; the Imports history adds Source from 1240. Inner reflows follow the content-width bands of §8 or a container query, never a new viewport breakpoint.
 
 **The student app and the engine, as built in R3 (v0.9.0).** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119).
 

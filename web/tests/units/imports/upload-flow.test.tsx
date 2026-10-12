@@ -395,7 +395,7 @@ describe("starting a Word import", () => {
     ).toBeInTheDocument();
   });
 
-  it("draws the workspace's head, its Sources pane and what will run in file mode (DG-206)", async () => {
+  it("draws the workspace's head, its Sources pane and what will run in file mode (DG-207)", async () => {
     renderPage();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
       "Nhập đề từ Word/PDF",

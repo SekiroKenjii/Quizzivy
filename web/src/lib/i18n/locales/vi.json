@@ -3605,7 +3605,9 @@
       "pastedText": "Văn bản đã dán",
       "fileNamed": "{{name}} ({{title}})",
       "characters_one": "{{n}} ký tự",
-      "characters_other": "{{n}} ký tự"
+      "characters_other": "{{n}} ký tự",
+      "formatWord": "Word",
+      "formatPdf": "PDF"
     },
     "textFailureTitle": {
       "SOURCE_INVALID": "Không đọc được một nguồn nhập đề",

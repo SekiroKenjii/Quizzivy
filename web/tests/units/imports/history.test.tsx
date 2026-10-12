@@ -320,7 +320,7 @@ describe("a pasted import in the history", () => {
         name: "Văn bản đã dán (Unit 5 Quick Check)",
       })
     ).closest<HTMLElement>("[role=row]")!;
-    expect(within(pasted).getByText("Văn bản đã dán")).toBeInTheDocument();
+    expect(within(pasted).getAllByText("Văn bản đã dán")).toHaveLength(2);
     expect(within(pasted).queryByText("pasted-text.txt")).toBeNull();
     expect(
       within(pasted).getByText(/^Hoàng Thương · .+ · 12\.345 ký tự$/),
@@ -332,6 +332,47 @@ describe("a pasted import in the history", () => {
     expect(within(file).getByText("de-thi-hk1.docx")).toBeInTheDocument();
     expect(within(file).queryByText(/ký tự/)).toBeNull();
     expect(file.querySelector(".lucide-file-text")).not.toBeNull();
+  });
+});
+
+describe("the history's Source column (DG-205)", () => {
+  it("names each import's source kind, shown from 1240px of the history's width", async () => {
+    items = [
+      wordImport({
+        id: "018f0000-0000-7000-8000-000000000141",
+        title: "Đã dán",
+        sources: [
+          source("exam", {
+            filename: "pasted-text.txt",
+            format: "text",
+            characters: 120,
+          }),
+        ],
+      }),
+      wordImport({
+        id: "018f0000-0000-7000-8000-000000000142",
+        title: "Đề Word",
+        sources: [source("exam")],
+      }),
+      wordImport({
+        id: "018f0000-0000-7000-8000-000000000143",
+        title: "Đề PDF",
+        sources: [source("exam", { filename: "de.pdf", format: "pdf" })],
+      }),
+    ];
+    renderHistory();
+    const table = await screen.findByRole("table");
+    const header = within(table).getByRole("columnheader", { name: "Nguồn" });
+    expect(header).toHaveClass("hidden", "@[1240px]/import-history:block");
+    const kindOf = (title: string) =>
+      within(table)
+        .getByRole("link", { name: new RegExp(`\\(${title}\\)$`) })
+        .closest<HTMLElement>("[role=row]")!
+        .querySelectorAll("[role=cell]")[2];
+    expect(kindOf("Đã dán")).toHaveTextContent("Văn bản đã dán");
+    expect(kindOf("Đề Word")).toHaveTextContent("Word");
+    expect(kindOf("Đề PDF")).toHaveTextContent("PDF");
+    expect(kindOf("Đề PDF")).toHaveClass("hidden", "@[1240px]/import-history:block");
   });
 });
 

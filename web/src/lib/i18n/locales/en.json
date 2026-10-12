@@ -3605,7 +3605,9 @@
       "pastedText": "Pasted text",
       "fileNamed": "{{name}} ({{title}})",
       "characters_one": "{{n}} character",
-      "characters_other": "{{n}} characters"
+      "characters_other": "{{n}} characters",
+      "formatWord": "Word",
+      "formatPdf": "PDF"
     },
     "textFailureTitle": {
       "SOURCE_INVALID": "An import source could not be read",

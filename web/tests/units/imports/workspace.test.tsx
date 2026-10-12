@@ -59,7 +59,7 @@ function paneCell(name: string) {
   return screen.getByRole("region", { name }).parentElement!;
 }
 
-describe("the import workspace (DG-206)", () => {
+describe("the import workspace (DG-207)", () => {
   it("puts the two panes side by side from 960px of content and the Sources pane first in a draft", async () => {
     renderAt("/teacher/imports/new");
     const sources = await screen.findByRole("region", { name: "Nguồn" });

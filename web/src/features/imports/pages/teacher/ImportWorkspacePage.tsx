@@ -81,7 +81,7 @@ const FaultContext = createContext<WordImport | null>(null);
 /**
  * ImportWorkspacePage is one import's page, from the draft at
  * /teacher/imports/new to the review it hands over to, as the approved
- * page-width design draws it (DG-206): the Sources pane beside the status
+ * page-width design draws it (DG-207): the Sources pane beside the status
  * pane, stacked below 960px of content, with the status pane first once
  * processing has started. Starting a draft replaces the address with the
  * import's own, /teacher/imports/:id, which stays the same through every
