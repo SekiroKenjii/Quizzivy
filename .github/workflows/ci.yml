@@ -409,6 +409,64 @@ jobs:
         with:
           marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
 
+  # ------------------------------------------------------- production image
+  # Builds the root Dockerfile and starts the two processes fly.toml runs from
+  # it, as the image's nonroot user, so a start-up check that depends on the
+  # image's file system (INC-5: /home/nonroot/imports shipped at 0755) fails
+  # here and not on Fly. Neither process touches object storage while it
+  # starts, so MinIO is not started.
+  production-image:
+    name: Production image
+    needs: plan
+    if: fromJSON(needs.plan.outputs.plan).jobs['production-image'].run
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:18  # see server-test
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      JOB: ${{ toJSON(fromJSON(needs.plan.outputs.plan).jobs['production-image']) }}
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
+          sparse-checkout-cone-mode: false
+
+      - uses: ./.github/actions/db-tools
+
+      - name: Provision roles and database
+        run: ./scripts/provision-db.sh
+
+      - name: Build the production image
+        run: |
+          ./scripts/ci/mirror-images.sh golang:1.27-alpine
+          docker build --tag quizzivy-api:ci .
+
+      - name: Start the API and the import worker from the image
+        run: ./scripts/ci/smoke-production-image.sh quizzivy-api:ci
+
+      - uses: ./.github/actions/record
+        if: always()
+        with:
+          marker: ${{ fromJSON(env.JOB).outcomes[0][job.status] }}
+
   # ------------------------------------------------------------- web checks
   web-check:
     name: Web checks
@@ -729,7 +787,7 @@ jobs:
   # in for the merge's.
   result:
     name: ${{ github.event_name == 'pull_request' && 'CI result' || 'CI result (push)' }}
-    needs: [plan, deck, contract, server-lint, server-test, web-check, web-unit, e2e, e2e-live]
+    needs: [plan, deck, contract, server-lint, server-test, production-image, web-check, web-unit, e2e, e2e-live]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
