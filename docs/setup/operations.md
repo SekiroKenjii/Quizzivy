@@ -384,6 +384,61 @@ The lookup branch that still finds a scheme-1 row (so a revoked or expired
 legacy code answers as revoked or expired, not as unknown) stays until R5 removes
 it.
 
+## AI provider key and tiers
+
+The AI assistant (D19, `docs/plan/74d-d4-deck-update.md` section G) calls
+Anthropic's Messages API through `platform/anthropic`. It is off unless
+`ANTHROPIC_API_KEY` is set: with the key unset nothing else below is read, the
+assistant's adapter is nil, its operations answer 501 and the web draws no AI
+entry point. The API never logs the key, and no error, log line or panic the
+client produces carries it.
+
+With the key set, both tiers and all six prices are required, and the API
+refuses to start, naming the variable, when one is missing or malformed:
+
+| Variable | Holds |
+|---|---|
+| `ANTHROPIC_API_KEY` | the provider's API key |
+| `AI_TIER_FAST_MODEL`, `AI_TIER_CAPABLE_MODEL` | the provider's model identifier for each tier; the capable tier must accept images and PDF pages |
+| `AI_TIER_FAST_PRICE_INPUT`, `AI_TIER_FAST_PRICE_OUTPUT`, `AI_TIER_FAST_PRICE_CACHE_READ` | the fast tier's list price in US dollars per million tokens, such as `0.10` |
+| `AI_TIER_CAPABLE_PRICE_INPUT`, `AI_TIER_CAPABLE_PRICE_OUTPUT`, `AI_TIER_CAPABLE_PRICE_CACHE_READ` | the capable tier's |
+
+A price is a plain decimal with at most six decimals between 0.001 and 1000. A
+price per token or per thousand tokens would make a credit (0.001 US dollars)
+undercount the pool, so it is refused. No model identifier is written in the
+repository: take both from the provider's current model list.
+
+- **Set** them as Fly secrets, all nine in one command so they reach the
+  machines in the same release, and then deploy:
+  ```sh
+  fly secrets set --stage ANTHROPIC_API_KEY=<key> \
+    AI_TIER_FAST_MODEL=<model> AI_TIER_CAPABLE_MODEL=<model> \
+    AI_TIER_FAST_PRICE_INPUT=<usd> AI_TIER_FAST_PRICE_OUTPUT=<usd> AI_TIER_FAST_PRICE_CACHE_READ=<usd> \
+    AI_TIER_CAPABLE_PRICE_INPUT=<usd> AI_TIER_CAPABLE_PRICE_OUTPUT=<usd> AI_TIER_CAPABLE_PRICE_CACHE_READ=<usd>
+  ```
+  The startup log line `ai assistant enabled` names both models; `ai
+  assistant disabled` means no key was read.
+- **Rotate** the key by creating the new one in the provider console, running
+  `fly secrets set ANTHROPIC_API_KEY=<new key>` (which restarts the machines
+  on it) and revoking the old one once the log line is back. A call in flight
+  during the restart can fail once.
+- **Change a model or a price** by setting its secret and deploying. Prices and
+  models are read once, at start-up; a call is metered at the prices the
+  process started with, so re-read them whenever the provider's list price
+  changes.
+- **Never** paste the key into a log, a ticket, a chat or a workflow. No
+  GitHub workflow environment holds it, and it never appears in a test
+  fixture: a task that calls the provider for real does so on the builder's
+  machine, with the key in `.env`.
+- **Before the key is set in production**, the provider account's data
+  retention setting is the owner's to confirm
+  (`docs/plan/70-redesign-overview.md` §10).
+
+The client sends a 429 or a 5xx again up to three times with a doubling
+back-off that honours `Retry-After`, never sends a 4xx again, and gives a call
+60 seconds (120 with a PDF). A 401, 402 or 403 from the provider is the key or
+the account, not a reason to retry: read the provider console.
+
 ## Evidence still required in production
 
 - Neon project/branch and observed history window: pending access.
