@@ -147,6 +147,35 @@
   --radius: 0.5rem;
 }
 
+/*
+  The teacher workspace's page frame (DG-205, docs/design/deck/page-width-proposal/):
+  one frame up to --page-max at every width, centred beyond it, inside gutters
+  that step at 768 and 1920. Containers fill the frame; only text is capped, a
+  field at --field-max and prose at --prose-max. Import review alone is full-bleed.
+  An import's workspace splits into two equal panes, --pane-split (DG-207).
+*/
+:root {
+  --page-max: 1600px;
+  --page-gutter: 14px;
+  --page-pad-top: 16px;
+  --field-max: 480px;
+  --prose-max: 72ch;
+  --pane-split: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --page-gutter: 28px;
+    --page-pad-top: 24px;
+  }
+}
+
+@media (min-width: 1920px) {
+  :root {
+    --page-gutter: 40px;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

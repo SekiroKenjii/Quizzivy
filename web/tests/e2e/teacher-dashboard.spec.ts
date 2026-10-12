@@ -149,7 +149,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page).toHaveURL(/other=A&other=B&range=7d#work$/);
       await expect(range).toBeFocused();
       await expect(page.getByText(/7 trong 7 ngày qua/)).toBeVisible();
-      await expect(main.locator('[data-slot="page"]')).toHaveCSS("max-width", "1320px");
+      await expect(main.locator('[data-slot="page"]')).toHaveCSS("max-width", "1600px");
       await page.screenshot({
         path: info.outputPath(`dashboard-${width}-${theme}.png`),
         fullPage: true,

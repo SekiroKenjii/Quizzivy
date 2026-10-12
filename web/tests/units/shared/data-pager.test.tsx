@@ -377,6 +377,7 @@ describe("below 768px", () => {
     expect(within(nav()).getByText("Trang 3 trên 32")).toBeInTheDocument();
     expect(arrow("previous")).toHaveAttribute("href", "/teacher/assignments?page=2");
     expect(arrow("next")).toHaveAttribute("href", "/teacher/assignments?page=4");
+    expect(arrow("previous")).toHaveClass("size-11", "min-[768px]:size-8");
   });
 
   it("changes at 768 exactly", () => {

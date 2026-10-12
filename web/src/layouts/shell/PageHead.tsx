@@ -72,7 +72,12 @@ export function PageHead({
           </div>
         )}
         {description !== undefined && (
-          <p className={cn("text-muted-fg text-base text-pretty", !detail && "mt-0.5")}>
+          <p
+            className={cn(
+              "text-muted-fg max-w-(--prose-max) text-base text-pretty",
+              !detail && "mt-0.5",
+            )}
+          >
             {description}
           </p>
         )}

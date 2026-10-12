@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import ImportDetailPage from "@/features/imports/pages/teacher/ImportDetailPage";
+import ImportWorkspacePage from "@/features/imports/pages/teacher/ImportWorkspacePage";
 import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
@@ -96,7 +96,7 @@ function renderDetail(
 ) {
   const router = createMemoryRouter(
     [
-      { path: "/teacher/imports/:id", element: <ImportDetailPage /> },
+      { path: "/teacher/imports/:id", element: <ImportWorkspacePage /> },
       { path: "/teacher/imports/:id/review", element: <p>review page</p> },
       { path: "/teacher/imports/new", element: <p>new import</p> },
       { path: "/teacher/imports", element: <p>history</p> },
@@ -451,7 +451,7 @@ describe("an import while processing is switched off", () => {
 
     await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu nên chưa tải tệp lên/);
     expect(
-      within(screen.getByRole("region", { name: "Nguồn ban đầu" })).getByText(
+      within(screen.getByRole("region", { name: "Nguồn" })).getByText(
         "de-thi-hk1.docx",
       ),
     ).toBeInTheDocument();
@@ -553,7 +553,7 @@ describe("an import whose files retention removed", () => {
       await screen.findByText(/^Tệp gốc và bản rà soát đã được xoá ngày 02\/10\/2026/),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole("region", { name: "Nguồn ban đầu" })).getByText(
+      within(screen.getByRole("region", { name: "Nguồn" })).getByText(
         "de-thi-hk1.docx",
       ),
     ).toBeInTheDocument();

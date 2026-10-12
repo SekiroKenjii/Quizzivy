@@ -176,7 +176,7 @@ func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestOb
 	var out openapi.ListMedia200JSONResponse
 	out.Body.TotalBytes = int(totalBytes)
 	out.Body.Facets = openapi.MediaFacets{All: facets.All, Audio: facets.Audio, Image: facets.Image, Unused: facets.Unused}
-	out.Body.Usage = openapi.MediaUsage{AudioBytes: usage.AudioBytes, ImageBytes: usage.ImageBytes, QuotaBytes: usage.QuotaBytes}
+	out.Body.Usage = apiMediaUsage(usage)
 	out.Headers.CacheControl = cacheControlForSignedURLList
 	out.Body.Items = make([]openapi.LibraryAsset, len(assets))
 	for i, a := range assets {
@@ -184,6 +184,27 @@ func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestOb
 	}
 	out.Body.Page, out.Body.PageSize, out.Body.Total = page.Number, page.Size, page.Total
 	return out, nil
+}
+
+func apiMediaUsage(u domain.Usage) openapi.MediaUsage {
+	return openapi.MediaUsage{
+		AudioBytes:      u.AudioBytes,
+		ImageBytes:      u.ImageBytes,
+		QuotaBytes:      u.QuotaBytes,
+		HeldBytes:       &u.HeldBytes,
+		PendingBytes:    &u.PendingBytes,
+		PendingDeleteAt: u.PendingDeleteAt,
+	}
+}
+
+func apiMediaRetirement(r domain.Retired) openapi.MediaRetirement {
+	return openapi.MediaRetirement{
+		Id:       httpapi.ParseUUID(r.Asset.ID),
+		Bytes:    r.Asset.Bytes,
+		Url:      r.Asset.URL,
+		UsedIn:   ToAPIReferencingTests(r.UsedIn),
+		DeleteAt: r.DeleteAt,
+	}
 }
 
 func listInput(ctx context.Context, params openapi.ListMediaParams) domain.ListInput {
@@ -307,7 +328,7 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 		return nil, httpx.ErrNotImplemented
 	}
 
-	_, err := h.app.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{
+	retired, err := h.app.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{
 		ID:        request.Id.String(),
 		ActorID:   actor.ID,
 		All:       actor.Scope.All,
@@ -316,7 +337,7 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 	}})
 	switch {
 	case err == nil:
-		return openapi.DeleteMedia204Response{}, nil
+		return openapi.DeleteMedia200JSONResponse(apiMediaRetirement(retired)), nil
 
 	case errors.Is(err, domain.ErrReferenced):
 		resp := httpapi.Error(ctx, openapi.MEDIAREFERENCED,
@@ -422,7 +443,8 @@ func (h Media) ReplaceMedia(ctx context.Context, request openapi.ReplaceMediaReq
 	if err != nil {
 		return replacementRefused(ctx, err)
 	}
-	return openapi.ReplaceMedia201JSONResponse{Asset: ToAPILibraryAsset(result.Asset), Repointed: openapi.MediaReplacementCounts{Questions: result.Repointed.Questions, Groups: result.Repointed.Groups}, Left: openapi.MediaReplacementCounts{Questions: result.Left.Questions, Groups: result.Left.Groups}}, nil
+	previous := apiMediaRetirement(result.Previous)
+	return openapi.ReplaceMedia201JSONResponse{Asset: ToAPILibraryAsset(result.Asset), Previous: &previous, Repointed: openapi.MediaReplacementCounts{Questions: result.Repointed.Questions, Groups: result.Repointed.Groups}, Left: openapi.MediaReplacementCounts{Questions: result.Left.Questions, Groups: result.Left.Groups}}, nil
 }
 func replacementRefused(ctx context.Context, err error) (openapi.ReplaceMediaResponseObject, error) {
 	var cleanup *domain.ReplacementCleanupError

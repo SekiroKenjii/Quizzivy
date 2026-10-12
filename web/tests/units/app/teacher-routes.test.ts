@@ -19,8 +19,8 @@ const TEACHER_TREE = [
   ["/teacher/tests/:id/edit", "features/tests/pages/teacher/TestBuilderPage"],
   ["/teacher/imports", "features/imports/pages/teacher/ImportsGate"],
   ["/teacher/imports (index)", "features/imports/pages/teacher/ImportsListPage"],
-  ["/teacher/imports/new", "features/imports/pages/teacher/NewImportPage"],
-  ["/teacher/imports/:id", "features/imports/pages/teacher/ImportDetailPage"],
+  ["/teacher/imports/new", "features/imports/pages/teacher/ImportWorkspacePage"],
+  ["/teacher/imports/:id", "features/imports/pages/teacher/ImportWorkspacePage"],
   ["/teacher/imports/:id/review", "features/imports/pages/teacher/ImportReviewPage"],
   ["/teacher/imports/:id/confirm", "features/imports/pages/teacher/ImportConfirmPage"],
   ["/teacher/question-bank", "features/question-bank/pages/teacher/QuestionBankPage"],
@@ -180,7 +180,7 @@ describe("the teacher's route table", () => {
   it("still reads a route that declares a handle between its path and its page", () => {
     const withHandles = ROUTER.replace(
       /(path: "[^"]+"|index: true),/g,
-      '$1,\n          handle: { crumb: { key: "nav.tests" }, width: 1080 },',
+      '$1,\n          handle: { crumb: { key: "nav.tests" }, sidebar: "collapsed" },',
     );
     expect(withHandles).not.toBe(ROUTER);
     expect(routesOf(withHandles)).toEqual(TEACHER_TREE);

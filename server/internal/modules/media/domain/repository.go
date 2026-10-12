@@ -7,11 +7,13 @@ import (
 )
 
 // Repository persists asset rows and answers who references them. The library
-// is an owner's assets that are neither deleted nor replaced: List,
-// TotalBytes, Facets, Usage, Find, Update and the quota Insert checks see only
-// those, while Get, Readable, ReferencesFor and SoftDelete also reach a
-// replaced asset.
+// is an owner's assets that are neither deleted nor replaced: List, TotalBytes,
+// Facets, Find and Update see only those. Usage and the quota check of Insert
+// see them and the files that left it while something still names them. Get,
+// Readable and SoftDelete also reach a replaced asset, but none reaches a purged
+// one, whose object is gone. SoftDelete answers the file it retired.
 type Repository interface {
+	Retention
 	FindReplacementTarget(context.Context, access.Scope, string) (ReplacementTarget, error)
 	Replace(context.Context, ReplaceInput) (ReplaceResult, error)
 	Insert(ctx context.Context, in InsertInput) (Asset, error)
@@ -24,7 +26,7 @@ type Repository interface {
 	Facets(ctx context.Context, in ListInput) (Facets, error)
 	Usage(ctx context.Context, scope access.Scope) (Usage, error)
 	QuestionCounts(ctx context.Context, assetIDs []string) (map[string]int, error)
-	SoftDelete(ctx context.Context, in DeleteInput) error
+	SoftDelete(ctx context.Context, in DeleteInput) (Retired, error)
 	ReferencesFor(ctx context.Context, assetIDs []string) (map[string][]TestRef, error)
 	ReachableByStudent(ctx context.Context, studentID, assetID string) (bool, error)
 	Readable(ctx context.Context, scope access.Scope, assetIDs []string) (map[string]Kind, error)

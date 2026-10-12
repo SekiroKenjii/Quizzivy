@@ -78,7 +78,8 @@ const TEMPLATED: Record<string, string[]> = {
   "imports.failureTitle.": [...RUN_ERROR_KEYS],
   "imports.reprocess.": ["failed", "cancelled"],
   "imports.processing.stage.": PROCESSING_STAGES.map((stage) => stage.key),
-  "imports.processing.state.": ["done", "current", "waiting"],
+  "imports.processing.state.": ["done", "current", "waiting", "failed"],
+  "imports.workspace.fileState.": ["waiting", "reading", "read", "failed"],
   "imports.review.readOnly.": IMPORT_STATUSES.filter(
     (status) => status !== "committed" && status !== "needs_review",
   ),

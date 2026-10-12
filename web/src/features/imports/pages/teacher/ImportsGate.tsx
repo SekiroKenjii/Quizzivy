@@ -16,7 +16,7 @@ export default function ImportsGate() {
   if (intake.data === true) return <Outlet />;
   if (intake.data === false)
     return (
-      <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4">
+      <DeckScale className="flex w-full min-w-0 flex-col gap-4">
         <PageHead
           title={t("imports.availability.offTitle")}
           back={{ to: "/teacher/tests", label: t("imports.backToTests") }}

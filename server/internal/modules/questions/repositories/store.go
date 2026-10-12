@@ -20,6 +20,8 @@ func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.New
 
 var anyOwner = access.Scope{All: true}
 
+const purgedMediaBinding = "media_assets_purged_binding"
+
 const questionColumns = `
 	       q.id::text, q.type::text, q.prompt, q.prompt_content, q.explanation_content,
 	       q.media_asset_id::text, q.media_asset_kind::text, q.media_alt,
@@ -174,6 +176,16 @@ func (s *Postgres) Update(ctx context.Context, in domain.WriteInput) (domain.Que
 	return s.write(ctx, in, true, nil)
 }
 
+func writeFailure(err error) error {
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return domain.ErrNotFound
+	case db.IsCheckViolation(err, purgedMediaBinding):
+		return domain.ErrMediaNotFound
+	}
+	return fmt.Errorf("questions: write: %w", err)
+}
+
 func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool, ownership *domain.GroupOwnership) (domain.Question, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -246,11 +258,8 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent),
 			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID), in.Input.Level, in.Input.Skill, mediaAlt, allowPause).Scan(&id)
 	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Question{}, domain.ErrNotFound
-	}
 	if err != nil {
-		return domain.Question{}, fmt.Errorf("questions: write: %w", err)
+		return domain.Question{}, writeFailure(err)
 	}
 
 	if err := replaceOptions(ctx, tx, id, in.Input); err != nil {

@@ -8,10 +8,13 @@ import {
   type LibraryAsset,
   type MediaReplacement,
 } from "@/features/media/api";
+import { RetentionNote } from "@/features/media/components/RetentionNote";
 import { UploadStatus } from "@/features/media/components/UploadStatus";
 import { acceptAttribute } from "@/features/media/limits";
 import { quickCheck } from "@/features/media/probe";
+import { removalToast, replaceNote, replaceRefusal } from "@/features/media/retention";
 import { rejectionMessage, useMediaUpload } from "@/features/media/useMediaUpload";
+import { useLocale } from "@/lib/i18n/useLocale";
 
 type ReplaceValues = { file: File | null };
 
@@ -20,10 +23,14 @@ const INITIAL: ReplaceValues = { file: null };
 /**
  * ReplaceDialog replaces a library file with a new one of the same kind
  * (DG-09): bank questions and drafts get the new file, published versions keep
- * theirs. The file is checked against the kind's limits before it is sent.
- * A replacement is not idempotent, so a failure is never retried: `onSettled`
- * runs after every answer, failures included, for the caller to re-read what
- * may have changed. Focus goes to `returnFocus` when the dialog closes.
+ * theirs. Before the file is sent it says what becomes of the old one, with
+ * its download: kept for the published tests that use it, or deleted for good
+ * seven days later (DG-206). The file is checked against the kind's limits
+ * before it is sent. A replacement is not idempotent, so a failure is never
+ * retried: `onSettled` runs after every answer, failures included, for the
+ * caller to re-read what may have changed. A quota refusal for a file that
+ * published tests hold, and a rate limit, are worded for this dialog. Focus
+ * goes to `returnFocus` when the dialog closes.
  */
 export function ReplaceDialog({
   returnFocus,
@@ -37,12 +44,13 @@ export function ReplaceDialog({
   onSettled: (replacement: MediaReplacement | null) => void;
 }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   const kind = asset?.kind ?? "audio";
   const upload = useMediaUpload<MediaReplacement>({
     kind,
     onUploaded: (replacement) => {
       onOpenChange(false);
-      toast(t("media.replaced"));
+      toast(removalToast(t, locale, "replaced", replacement.previous));
       onSettled(replacement);
     },
   });
@@ -78,19 +86,22 @@ export function ReplaceDialog({
       pending={upload.busy}
       onSubmit={(values) => {
         if (values.file === null || asset === null) return;
-        const id = asset.id;
+        const replaced = asset;
         void upload.start(values.file, {
           send: async (file, options) => {
             try {
-              return await replaceMedia(id, file, options);
+              return await replaceMedia(replaced.id, file, options);
             } catch (cause) {
               onSettled(null);
-              throw cause;
+              throw replaceRefusal(t, replaced, cause);
             }
           },
         });
       }}
     >
+      {asset === null ? null : (
+        <RetentionNote asset={asset}>{replaceNote(t, asset)}</RetentionNote>
+      )}
       <UploadStatus state={upload.state} kind={kind} onCancel={upload.cancel} />
     </FormDialog>
   );

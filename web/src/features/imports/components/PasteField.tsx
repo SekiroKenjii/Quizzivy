@@ -1,102 +1,16 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
-import {
-  ChevronDown,
-  ChevronRight,
-  CircleAlert,
-  ClipboardPaste,
-  Copy,
-  Eraser,
-  ImageOff,
-  Info,
-  KeyRound,
-  Type,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardPaste, Eraser, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CopyButton } from "@/components/shared/CopyButton";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { PASTE_EXAMPLE, type PasteScan } from "../paste";
+import { PASTE_EXAMPLE } from "../paste";
 
-const SHOWN_NUMBERS = 6;
 const TOOL_BUTTON =
   "h-8 gap-1.5 rounded-[8px] px-[11px] text-[13px] leading-[normal] in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] [&_svg:not([class*='size-'])]:size-3.5";
-
-type Tone = "danger" | "warning" | "muted";
-
-interface Note {
-  id: string;
-  icon: LucideIcon;
-  tone: Tone;
-  text: string;
-}
-
-const NOTE_TONES: Record<Tone, string> = {
-  danger: "bg-danger-soft [&>svg]:text-danger-ink",
-  warning: "bg-warning-soft [&>svg]:text-warning-ink",
-  muted: "bg-muted [&>svg]:text-muted-fg",
-};
-
-function numberList(items: readonly string[], t: TFunction): string {
-  const shown = items.slice(0, SHOWN_NUMBERS);
-  const rest = items.length - shown.length;
-  const parts = rest > 0 ? [...shown, t("imports.paste.more", { count: rest })] : shown;
-  if (parts.length === 1) return parts[0]!;
-  return t("imports.paste.listAnd", {
-    head: parts.slice(0, -1).join(", "),
-    last: parts[parts.length - 1],
-  });
-}
-
-function scanNotes(scan: PasteScan, over: boolean, max: string, t: TFunction): Note[] {
-  const notes: Note[] = [];
-  if (over)
-    notes.push({
-      id: "over",
-      icon: CircleAlert,
-      tone: "danger",
-      text: t("imports.paste.overNote", { max }),
-    });
-  if (scan.questions === 0)
-    notes.push({
-      id: "none",
-      icon: Info,
-      tone: "muted",
-      text: t("imports.paste.noQuestionsNote"),
-    });
-  if (scan.missing.length > 0)
-    notes.push({
-      id: "missing",
-      icon: KeyRound,
-      tone: "warning",
-      text: t("imports.paste.missingNote", {
-        count: scan.missing.length,
-        list: numberList(scan.missing, t),
-      }),
-    });
-  if (scan.duplicates.length > 0)
-    notes.push({
-      id: "duplicates",
-      icon: Copy,
-      tone: "warning",
-      text: t("imports.paste.duplicateNote", {
-        count: scan.duplicates.length,
-        list: numberList(scan.duplicates.map(String), t),
-      }),
-    });
-  if (scan.questions > 0)
-    notes.push({
-      id: "media",
-      icon: ImageOff,
-      tone: "muted",
-      text: t("imports.paste.mediaNote"),
-    });
-  return notes;
-}
 
 function startOnShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
   if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey)) return;
@@ -106,24 +20,23 @@ function startOnShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
 }
 
 /**
- * PasteField is the "Test content" card of a pasted import: the box with its
- * character count against `max`, the clipboard and clear actions, what the
- * quick count in `scan` found, and how to lay the text out, which stays open
- * while the box is empty. `length` and `scan` describe a deferred copy of
- * `text`. Ctrl or ⌘+Enter in the box submits its form.
+ * PasteField is the "Test content" part of a pasted import's Sources pane:
+ * the box with its character count against `max`, the clipboard and clear
+ * actions, and how to lay the text out, which stays open while the box is
+ * empty. What the quick count finds is PasteFindings, in the status pane.
+ * `length` describes a deferred copy of `text`. Ctrl or ⌘+Enter in the box
+ * submits its form.
  */
 export function PasteField({
   text,
   length,
   max,
-  scan,
   busy,
   onTextChange,
 }: Readonly<{
   text: string;
   length: number;
   max: number;
-  scan: PasteScan;
   busy: boolean;
   onTextChange: (next: string) => void;
 }>) {
@@ -162,27 +75,13 @@ export function PasteField({
     [t("imports.paste.tip3Head"), t("imports.paste.tip3Body")],
     [t("imports.paste.tip4Head"), t("imports.paste.tip4Body")],
   ] as const;
-  const stats = [
-    { id: "sections", label: t("imports.paste.sections"), value: scan.sections },
-    { id: "questions", label: t("imports.paste.questions"), value: scan.questions },
-    { id: "answered", label: t("imports.paste.answered"), value: scan.answered },
-    {
-      id: "missing",
-      label: t("imports.paste.needAnswer"),
-      value: scan.missing.length,
-      warn: scan.missing.length > 0,
-    },
-  ];
 
   return (
-    <section
-      aria-labelledby={headingId}
-      className="bg-card text-card-foreground shadow-card @container/paste rounded-xl border"
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-2.5 px-4.5 pt-4 pb-1">
-        <h2 id={headingId} className="text-[15px] font-semibold">
+    <section aria-labelledby={headingId} className="@container/paste flex flex-col">
+      <div className="flex flex-wrap items-baseline justify-between gap-2.5 pb-1">
+        <h3 id={headingId} className="text-ui font-semibold">
           {t("imports.paste.contentHeading")}
-        </h2>
+        </h3>
         <span
           id={counterId}
           className={cn(
@@ -193,7 +92,7 @@ export function PasteField({
           {t("imports.paste.counter", { n: numbers.format(length), max: maxLabel })}
         </span>
       </div>
-      <div className="flex flex-col gap-3 px-4.5 pt-2.5 pb-4.5">
+      <div className="flex flex-col gap-3 pt-2">
         <Textarea
           ref={box}
           aria-labelledby={headingId}
@@ -248,42 +147,6 @@ export function PasteField({
             </span>
           ) : null}
         </div>
-        {hasText ? (
-          <div className="border-border flex flex-col gap-2.5 border-t pt-3">
-            <h3 className="text-[13px] font-semibold">{t("imports.paste.found")}</h3>
-            <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,140px),1fr))] gap-2">
-              {stats.map((stat) => (
-                <div
-                  key={stat.id}
-                  className={cn(
-                    "rounded-[10px] border px-3 py-2.5",
-                    stat.warn ? "bg-warning-soft text-warning-ink" : "bg-card",
-                  )}
-                >
-                  <dt className="text-muted-fg text-xs leading-normal">{stat.label}</dt>
-                  <dd className="text-xl leading-normal font-semibold tabular-nums">
-                    {numbers.format(stat.value)}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            {scanNotes(scan, over, maxLabel, t).map((note) => (
-              <p
-                key={note.id}
-                className={cn(
-                  "flex items-start gap-2.5 rounded-[9px] px-3 py-2.5 text-[13px] leading-normal",
-                  NOTE_TONES[note.tone],
-                )}
-              >
-                <note.icon aria-hidden="true" className="mt-0.5 size-3.75 shrink-0" />
-                <span className="min-w-0 flex-1">{note.text}</span>
-              </p>
-            ))}
-            <p className="text-muted-fg text-xs leading-normal">
-              {t("imports.paste.footnote")}
-            </p>
-          </div>
-        ) : null}
         <button
           type="button"
           aria-expanded={tipsOpen}

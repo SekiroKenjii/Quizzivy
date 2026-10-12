@@ -28,6 +28,7 @@ type Config struct {
 	S3ForcePathStyle            bool
 	SignedURLTTL                time.Duration
 	MediaOwnerQuotaMiB          int
+	MediaRetentionSweep         bool
 	ImportBucket                string
 	ImportWorkDir               string
 	ImportActorCount            int
@@ -286,7 +287,10 @@ func loadMedia(cfg *Config) error {
 		return err
 	}
 	cfg.SignedURLTTL = ttl
-	return loadMediaQuota(cfg)
+	if err := loadMediaQuota(cfg); err != nil {
+		return err
+	}
+	return loadMediaRetention(cfg)
 }
 
 func loadMediaQuota(cfg *Config) error {
@@ -298,6 +302,18 @@ func loadMediaQuota(cfg *Config) error {
 		return fmt.Errorf("MEDIA_OWNER_QUOTA_MIB must be between 1 and %d", maxMediaOwnerQuotaMiB)
 	}
 	cfg.MediaOwnerQuotaMiB = quota
+	return nil
+}
+
+func loadMediaRetention(cfg *Config) error {
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("MEDIA_RETENTION_SWEEP"))); v {
+	case "", "on":
+		cfg.MediaRetentionSweep = true
+	case "off":
+		cfg.MediaRetentionSweep = false
+	default:
+		return fmt.Errorf("MEDIA_RETENTION_SWEEP must be on or off, got %q", v)
+	}
 	return nil
 }
 

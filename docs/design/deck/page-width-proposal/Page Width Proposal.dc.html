@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<style>
+body{margin:0;-webkit-font-smoothing:antialiased}
+[data-qz]{--bg:#ffffff;--sidebar:#f7f8f8;--card:#ffffff;--muted:#f2f4f4;--hover:#eceff0;--fg:#1b2123;--muted-fg:#646c6e;--border:#e4e7e8;--primary:#252c2e;--primary-fg:#fafbfb;--shadow:0 1px 2px rgba(20,28,30,.05);--shadow-lg:0 12px 32px -8px rgba(20,28,30,.18),0 2px 6px rgba(20,28,30,.06);--brand:#a4ca3e;--brand-soft:#f1f7e0;--brand-ink:#4f6c12;--brand-fg:#1b2123;--success:oklch(.62 .14 155);--success-soft:oklch(.96 .03 155);--success-ink:oklch(.42 .1 155);--warning:oklch(.74 .15 70);--warning-soft:oklch(.96 .04 80);--warning-ink:oklch(.48 .11 60);--danger:oklch(.59 .2 27);--danger-soft:oklch(.96 .03 27);--danger-ink:oklch(.48 .17 27);--info:oklch(.6 .1 230);--info-soft:oklch(.96 .02 230);--info-ink:oklch(.45 .09 235);--input:#8a9395;--focus:var(--muted-fg);--anno:oklch(.6 .19 330);--anno-soft:oklch(.6 .19 330 / .1);color-scheme:light}
+[data-qz="dark"]{--bg:#0e1213;--sidebar:#0a0d0e;--card:#131819;--muted:#1a2022;--hover:#20282a;--fg:#ecefef;--muted-fg:#98a0a2;--border:#252d2f;--primary:#ecefef;--primary-fg:#141a1b;--shadow:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);--brand-soft:rgba(164,202,62,.13);--brand-ink:#c2e070;--success-soft:oklch(.3 .05 155);--success-ink:oklch(.8 .12 155);--warning-soft:oklch(.32 .06 70);--warning-ink:oklch(.85 .12 80);--danger-soft:oklch(.3 .08 27);--danger-ink:oklch(.78 .13 27);--info-soft:oklch(.3 .05 235);--info-ink:oklch(.8 .08 230);--input:#5d6769;--anno:oklch(.74 .17 330);--anno-soft:oklch(.74 .17 330 / .12);color-scheme:dark}
+[data-qz] *{box-sizing:border-box}
+[data-qz] :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+[data-qz] a{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+[data-qz] a:hover{color:var(--muted-fg)}
+[data-qz] button{font:inherit;color:inherit}
+[data-qz] [class^="icon-"]{line-height:1;display:inline-block}
+@keyframes qz-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){[data-qz] *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div data-qz="{{ theme }}" style="min-height:100vh;background:var(--sidebar);color:var(--fg);font-family:'Be Vietnam Pro',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:1.5">
+<div style="max-width:1440px;margin:0 auto;padding:40px clamp(16px,3vw,40px) 80px;display:flex;flex-direction:column;gap:48px">
+
+<header data-screen-label="Cover" style="display:flex;flex-direction:column;gap:16px;max-width:880px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:var(--card);border:1px solid var(--border)"><sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="web/public/brand/quizzivy-mark-color.svg" alt="" style="height:18px;width:auto"></sc-if><sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="web/public/brand/quizzivy-mark-on-dark.svg" alt="" style="height:18px;width:auto"></sc-if></span>
+    <span style="font-size:13px;color:var(--muted-fg)">Quizzivy · Teacher console · Engineering proposal for the design team · 12 Oct 2026</span>
+  </div>
+  <h1 style="margin:0;font-size:40px;line-height:1.1;font-weight:600;letter-spacing:-0.025em;text-wrap:balance">One page frame for every teacher page</h1>
+  <p style="margin:0;font-size:17px;line-height:1.55;color:var(--muted-fg);text-wrap:pretty">Today the v2 deck draws four page widths: 1320, 1080, 860 and 720px, each one centred. A teacher who moves from Assignments to New assignment sees the title jump sideways, and nothing is drawn above 1440px. This proposal replaces the four widths with one frame up to 1600px, one left edge, and one rule for text: fields and prose are capped, while cards, lists and tables fill the frame. Import upload and processing merge into one two-pane workspace. It blocks v0.10.1.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;white-space:nowrap;border-radius:999px;background:var(--warning-soft);color:var(--warning-ink);font-size:12px;font-weight:500"><i class="icon-clock" style="font-size:13px"></i>Needs a decision · blocks v0.10.1</span>
+    <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;white-space:nowrap;border-radius:999px;background:var(--card);border:1px solid var(--border);font-size:12px;color:var(--muted-fg)">Also: DG-201 · DG-203 · focus rings</span>
+  </div>
+</header>
+
+<section data-screen-label="The rule" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:24px;align-items:start">
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">The rule</h2>
+    <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px">
+      <sc-for list="{{ rules }}" as="r" hint-placeholder-count="5">
+        <li style="display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--border)">
+          <span style="display:grid;place-items:center;width:24px;height:24px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:12px;font-weight:600">{{ r.n }}</span>
+          <span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:15px;font-weight:600">{{ r.title }}</strong><span style="color:var(--muted-fg);font-size:14px;text-wrap:pretty">{{ r.body }}</span></span>
+        </li>
+      </sc-for>
+    </ol>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">Tokens</h2>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:12px;padding:10px 16px;background:var(--muted);font-size:12px;font-weight:500;color:var(--muted-fg)"><span>Token</span><span>Value</span><span>Replaces</span></div>
+      <sc-for list="{{ tokens }}" as="t" hint-placeholder-count="7">
+        <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:12px;padding:11px 16px;border-top:1px solid var(--border);font-size:13px;align-items:baseline">
+          <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;overflow-wrap:anywhere">{{ t.name }}</code>
+          <span style="font-variant-numeric:tabular-nums;font-weight:500">{{ t.value }}</span>
+          <span style="color:var(--muted-fg)">{{ t.replaces }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <p style="margin:0;font-size:13px;color:var(--muted-fg)">Sidebar 248 / 60px and top bar 56px stay as built (<code style="font-family:ui-monospace,Menlo,monospace">Sidebar.tsx</code>, <code style="font-family:ui-monospace,Menlo,monospace">TopBar.tsx</code>). The one named exception is Import review, which keeps <code style="font-family:ui-monospace,Menlo,monospace">width: "full"</code> with the sidebar collapsed.</p>
+  </div>
+</section>
+
+<section data-screen-label="Viewer" style="display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px">
+    <div style="display:flex;flex-direction:column;gap:4px;max-width:720px">
+      <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">See it on the screens</h2>
+      <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">Eight teacher screens at real pixel width, scaled to fit. Switch between the v2 deck and the proposal, and step through the seven widths. Pink marks the content frame; hatching is width nobody uses.</p>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)">
+    <div style="display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center">
+      <span style="font-size:12px;font-weight:500;color:var(--muted-fg);width:64px">Screen</span>
+      <div role="group" aria-label="Screen" style="display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;background:var(--muted);border-radius:9px">
+        <sc-for list="{{ screenOpts }}" as="o" hint-placeholder-count="8"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:30px;padding:0 12px;border:0;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;white-space:nowrap;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center">
+      <span style="font-size:12px;font-weight:500;color:var(--muted-fg);width:64px">Viewport</span>
+      <div role="group" aria-label="Viewport width" style="display:inline-flex;max-width:100%;overflow-x:auto;gap:2px;padding:3px;background:var(--muted);border-radius:9px">
+        <sc-for list="{{ bpOpts }}" as="o" hint-placeholder-count="7"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:30px;padding:0 12px;border:0;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;font-variant-numeric:tabular-nums;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for>
+      </div>
+      <div role="group" aria-label="Layout" style="display:inline-flex;gap:2px;padding:3px;background:var(--muted);border-radius:9px">
+        <sc-for list="{{ modeOpts }}" as="o" hint-placeholder-count="2"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:30px;padding:0 12px;border:0;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for>
+      </div>
+      <div role="group" aria-label="Sidebar" style="display:inline-flex;gap:2px;padding:3px;background:var(--muted);border-radius:9px">
+        <sc-for list="{{ sbOpts }}" as="o" hint-placeholder-count="2"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:30px;padding:0 12px;border:0;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for>
+      </div>
+      <div role="group" aria-label="Theme" style="display:inline-flex;gap:2px;padding:3px;background:var(--muted);border-radius:9px">
+        <sc-for list="{{ themeOpts }}" as="o" hint-placeholder-count="2"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:30px;padding:0 12px;border:0;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for>
+      </div>
+      <div role="group" aria-label="Language" style="display:inline-flex;gap:2px;padding:3px;background:var(--muted);border-radius:9px">
+        <sc-for list="{{ langOpts }}" as="o" hint-placeholder-count="2"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:30px;padding:0 12px;border:0;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for>
+      </div>
+      <button type="button" aria-pressed="{{ guides }}" onClick="{{ toggleGuides }}" style="white-space:nowrap;flex:none;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><i class="icon-ruler" style="font-size:15px"></i>{{ guidesLabel }}</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 20px;padding-top:10px;border-top:1px solid var(--border);font-size:13px;font-variant-numeric:tabular-nums">
+      <span style="white-space:nowrap"><span style="color:var(--muted-fg)">Content </span><strong style="font-weight:600">{{ m.cw }}px</strong></span>
+      <span style="white-space:nowrap"><span style="color:var(--muted-fg)">Title starts at </span><strong style="font-weight:600">x = {{ m.x }}px</strong></span>
+      <span style="white-space:nowrap"><span style="color:var(--muted-fg)">Unused </span><strong style="font-weight:600">{{ m.unused }}px</strong></span>
+      <span style="white-space:nowrap"><span style="color:var(--muted-fg)">Gutter </span><strong style="font-weight:600">{{ m.gut }}px</strong></span>
+      <sc-if value="{{ m.hasCol }}"><span style="white-space:nowrap"><span style="color:var(--muted-fg)">Form column </span><strong style="font-weight:600">{{ m.colW }}px, left-aligned</strong></span></sc-if><sc-if value="{{ is.ws }}"><span style="display:flex;align-items:center;gap:8px;flex-basis:100%"><span style="color:var(--muted-fg);white-space:nowrap">Import state</span><span role="group" aria-label="Import state" style="display:inline-flex;gap:2px;padding:3px;background:var(--muted);border-radius:9px;max-width:100%;overflow-x:auto"><sc-for list="{{ wsOpts }}" as="o" hint-placeholder-count="5"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:28px;padding:0 10px;border:0;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for></span></span></sc-if><sc-if value="{{ m.snapped }}"><span style="white-space:nowrap"><span style="color:var(--muted-fg)">Form column </span><strong style="font-weight:600">fills the frame (gap under 160px)</strong></span></sc-if>
+    </div>
+  </div>
+
+  <div ref="{{ stageRef }}" style="width:100%">
+    <div style="height:{{ st.outerH }}px;width:{{ st.outerW }}px;margin:0 auto;overflow:hidden;border-radius:10px;border:1px solid var(--border);box-shadow:var(--shadow-lg);background:var(--bg)">
+      <div data-scale="deck" style="width:{{ st.W }}px;height:{{ st.H }}px;transform:scale({{ st.scale }});transform-origin:0 0;position:relative;display:flex;overflow:hidden;background:var(--bg);color:var(--fg);font-size:14px">
+
+        <sc-if value="{{ f.sidebar }}">
+          <div style="width:{{ f.sbW }}px;flex:none;display:flex;flex-direction:column;background:var(--sidebar);border-right:1px solid var(--border)">
+            <div style="padding:10px 8px 6px">
+              <div style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:8px;justify-content:{{ f.sbJustify }}">
+                <span style="display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:8px;background:var(--card);border:1px solid var(--border)"><sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="web/public/brand/quizzivy-mark-color.svg" alt="" style="height:18px;width:auto"></sc-if><sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="web/public/brand/quizzivy-mark-on-dark.svg" alt="" style="height:18px;width:auto"></sc-if></span>
+                <sc-if value="{{ f.sbLabels }}"><span style="display:flex;flex-direction:column;min-width:0;flex:1"><span style="font-size:13.5px;font-weight:600;line-height:1.25">Quizzivy</span><span style="font-size:12px;color:var(--muted-fg);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.workspace }}</span></span></sc-if>
+              </div>
+            </div>
+            <nav style="flex:1;display:flex;flex-direction:column;gap:14px;padding:4px 8px;overflow:hidden">
+              <sc-for list="{{ nav }}" as="g" hint-placeholder-count="3">
+                <div style="display:flex;flex-direction:column;gap:1px">
+                  <sc-if value="{{ g.showLabel }}"><p style="margin:0;padding:4px 10px;font-size:11.5px;font-weight:500;color:var(--muted-fg)">{{ g.label }}</p></sc-if>
+                  <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+                    <a href="#" onClick="{{ noop }}" style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:7px;font-size:13.5px;text-decoration:none;justify-content:{{ f.sbJustify }};background:{{ it.bg }};color:{{ it.fg }};font-weight:{{ it.fw }}">
+                      <i class="{{ it.icon }}" style="font-size:16px;flex:none"></i>
+                      <sc-if value="{{ f.sbLabels }}"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:17px">{{ it.label }}</span></sc-if>
+                      <sc-if value="{{ it.hasCount }}"><span style="display:grid;place-items:center;height:20px;min-width:20px;padding:0 6px;border-radius:999px;font-size:11.5px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;background:{{ it.cBg }};color:{{ it.cFg }}">{{ it.count }}</span></sc-if>
+                    </a>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </nav>
+            <div style="border-top:1px solid var(--border);padding:8px">
+              <div style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:8px;justify-content:{{ f.sbJustify }}">
+                <span style="display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:6px;background:var(--brand-soft);color:var(--brand-ink);font-size:12px;font-weight:600">TV</span>
+                <sc-if value="{{ f.sbLabels }}"><span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-size:13px;font-weight:500;line-height:1.25">Thương Võ</span><span style="font-size:12px;color:var(--muted-fg);line-height:1.25">{{ s.role }}</span></span><i class="icon-chevrons-up-down" style="font-size:15px;color:var(--muted-fg)"></i></sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%">
+          <header style="height:56px;flex:none;display:flex;align-items:center;gap:8px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--border)">
+            <span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;flex:none"><i class="{{ f.toggleIcon }}" style="font-size:17px"></i></span>
+            <span style="width:1px;height:18px;margin:0 4px;background:var(--border);flex:none"></span>
+            <ol style="margin:0;padding:0;list-style:none;display:flex;align-items:center;gap:6px;min-width:0;font-size:13.5px">
+              <sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="2">
+                <li style="display:flex;align-items:center;gap:6px;min-width:0">
+                  <sc-if value="{{ c.sep }}"><i class="icon-chevron-right" style="font-size:14px;color:var(--muted-fg)"></i></sc-if>
+                  <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:17px;color:{{ c.fg }};font-weight:{{ c.fw }}">{{ c.label }}</span>
+                </li>
+              </sc-for>
+            </ol>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex:none">
+              <span style="display:flex;align-items:center;gap:8px;height:34px;width:{{ f.searchW }}px;padding:0 8px 0 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted-fg);font-size:13px">
+                <i class="icon-search" style="font-size:15px;flex:none"></i>
+                <sc-if value="{{ f.searchText }}"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:16px">{{ s.search }}</span><span style="display:flex;gap:2px"><kbd style="font:inherit;font-size:11px;line-height:14px;padding:1px 4px;border-radius:4px;background:var(--muted);border-bottom:1px solid var(--border)">⌘</kbd><kbd style="font:inherit;font-size:11px;line-height:14px;padding:1px 4px;border-radius:4px;background:var(--muted);border-bottom:1px solid var(--border)">K</kbd></span></sc-if>
+              </span>
+              <span style="display:grid;place-items:center;width:34px;height:34px;border-radius:8px"><i class="{{ f.themeIcon }}" style="font-size:17px"></i></span>
+              <span style="display:grid;place-items:center;width:34px;height:34px;border-radius:8px;position:relative"><i class="icon-bell" style="font-size:17px"></i><span style="position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:999px;background:var(--brand);border:1.5px solid var(--bg)"></span></span>
+            </div>
+          </header>
+
+          <main style="flex:1;min-height:0;overflow:hidden;padding:{{ f.pt }}px {{ f.gut }}px 40px">
+            <div style="max-width:{{ f.pageMax }}px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:{{ f.gap }}px">
+
+              <sc-if value="{{ is.dash }}">
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px">
+                  <div style="min-width:0"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em">{{ s.greet }}</h1><p style="margin:2px 0 0;color:var(--muted-fg)">{{ s.date }}</p></div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500"><i class="icon-plus" style="font-size:15px"></i>{{ s.newTest }}</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500"><i class="icon-send" style="font-size:15px"></i>{{ s.assignTest }}</span>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));gap:12px">
+                  <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+                    <div style="display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow)">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;line-height:16px;font-weight:500;color:var(--muted-fg);white-space:nowrap"><span style="display:flex;align-items:center;gap:7px;min-width:0"><sc-if value="{{ k.live }}"><span style="width:7px;height:7px;border-radius:999px;background:var(--success)"></span></sc-if><span style="overflow:hidden;text-overflow:ellipsis">{{ k.label }}</span></span><i class="{{ k.icon }}" style="font-size:16px;color:{{ k.tone }}"></i></div>
+                      <div style="font-size:30px;line-height:1.15;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">{{ k.value }}</div>
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;line-height:16px;color:var(--muted-fg)"><span>{{ k.hint }}</span><span style="display:flex;align-items:center;gap:3px;color:var(--fg);font-weight:500;white-space:nowrap">{{ k.action }}<i class="icon-arrow-right" style="font-size:13px"></i></span></div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:12px">
+                  <section style="flex:2 1 520px;min-width:0;padding:18px 18px 14px;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow)">
+                    <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
+                      <h2 style="margin:0;font-size:15px;font-weight:600">{{ s.submissions }}</h2>
+                      <div style="display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--muted)">
+                        <span style="height:26px;padding:0 10px;display:grid;place-items:center;border-radius:7px;font-size:12.5px;font-weight:500;background:var(--card);box-shadow:var(--shadow)">{{ s.r7 }}</span>
+                        <span style="height:26px;padding:0 10px;display:grid;place-items:center;border-radius:7px;font-size:12.5px;font-weight:500;color:var(--muted-fg)">{{ s.r14 }}</span>
+                        <span style="height:26px;padding:0 10px;display:grid;place-items:center;border-radius:7px;font-size:12.5px;font-weight:500;color:var(--muted-fg)">{{ s.r30 }}</span>
+                      </div>
+                    </div>
+                    <p style="margin:2px 0 0;font-size:13px;color:var(--muted-fg)">{{ s.subSummary }}</p>
+                    <div style="margin-top:18px;display:flex;height:180px;align-items:flex-end;gap:6px;border-bottom:1px solid var(--border);padding-bottom:4px">
+                      <sc-for list="{{ bars }}" as="b" hint-placeholder-count="7"><div style="flex:1;min-width:0;border-radius:4px 4px 2px 2px;height:{{ b.h }}%;background:{{ b.bg }}"></div></sc-for>
+                    </div>
+                    <div style="margin-top:6px;display:flex;gap:6px"><sc-for list="{{ bars }}" as="b" hint-placeholder-count="7"><span style="flex:1;min-width:0;text-align:center;font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden">{{ b.label }}</span></sc-for></div>
+                  </section>
+                  <section style="flex:1 1 300px;min-width:0;padding:18px;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow)">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 style="margin:0;font-size:15px;font-weight:600">{{ s.today }}</h2><span style="font-size:12.5px;color:var(--muted-fg)">{{ s.todayDate }}</span></div>
+                    <ul style="margin:12px 0 0;padding:0;list-style:none">
+                      <sc-for list="{{ events }}" as="e" hint-placeholder-count="3">
+                        <li style="display:flex;gap:12px;padding:10px 0;border-top:{{ e.bt }}">
+                          <span style="width:44px;flex:none;padding-top:1px;font-size:12.5px;color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ e.time }}</span>
+                          <span style="width:3px;flex:none;border-radius:2px;background:{{ e.bar }}"></span>
+                          <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">{{ e.title }}</span><sc-if value="{{ e.hasNote }}"><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ e.note }}</span></sc-if></span>
+                        </li>
+                      </sc-for>
+                    </ul>
+                  </section>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:12px">
+                  <section style="flex:2 1 520px;min-width:0;overflow:hidden;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow)">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px 12px"><h2 style="margin:0;font-size:15px;font-weight:600">{{ s.live }}</h2><span style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted-fg)">{{ s.viewAll }}<i class="icon-arrow-right" style="font-size:14px"></i></span></div>
+                    <sc-for list="{{ liveRows }}" as="r" hint-placeholder-count="3">
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:12px 18px;border-top:1px solid var(--border)">
+                        <span style="flex:1 1 220px;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">{{ r.title }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ r.meta }}</span></span>
+                        <span style="flex:0 1 180px;min-width:140px;display:flex;align-items:center;gap:10px"><span style="flex:1;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;border-radius:6px;background:var(--brand);width:{{ r.pct }}%"></span></span><span style="font-size:12.5px;color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ r.frac }}</span></span>
+                        <sc-if value="{{ r.hasGrade }}"><span style="padding:1px 8px;border-radius:999px;background:var(--warning-soft);color:var(--warning-ink);font-size:12px;font-weight:500">{{ r.grade }}</span></sc-if>
+                      </div>
+                    </sc-for>
+                  </section>
+                  <section style="flex:1 1 300px;min-width:0;padding:16px 18px;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow)">
+                    <h2 style="margin:0 0 6px;font-size:15px;font-weight:600">{{ s.activity }}</h2>
+                    <sc-for list="{{ acts }}" as="a" hint-placeholder-count="3">
+                      <div style="display:flex;gap:10px;padding:10px 0;border-top:{{ a.bt }}">
+                        <span style="display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:999px;background:var(--muted);font-size:11px;font-weight:600">{{ a.ini }}</span>
+                        <span style="flex:1;min-width:0;font-size:13px;line-height:1.45"><strong style="font-weight:500">{{ a.name }}</strong> {{ a.what }}<span style="display:block;margin-top:1px;font-size:12px;color:var(--muted-fg)">{{ a.when }}</span></span>
+                      </div>
+                    </sc-for>
+                  </section>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ is.asg }}">
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px">
+                  <div style="min-width:0"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em">{{ s.asgTitle }}</h1><p style="margin:2px 0 0;color:var(--muted-fg)">{{ s.asgDesc }}</p></div>
+                  <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500"><i class="icon-plus" style="font-size:15px"></i>{{ s.asgNew }}</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+                  <div style="display:inline-flex;gap:2px;padding:3px;border-radius:9px;background:var(--muted);max-width:100%;overflow:hidden">
+                    <sc-for list="{{ asgTabs }}" as="t" hint-placeholder-count="4"><span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;white-space:nowrap;background:{{ t.bg }};color:{{ t.fg }};box-shadow:{{ t.ring }}">{{ t.label }}<span style="display:inline-flex;align-items:center;justify-content:center;height:18px;min-width:18px;padding:0 5px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:11px;font-weight:600">{{ t.count }}</span></span></sc-for>
+                  </div>
+                  <div style="display:flex;flex:1 1 260px;justify-content:flex-end;gap:8px">
+                    <span style="flex:0 1 260px;min-width:0;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted-fg);font-size:13px;white-space:nowrap;overflow:hidden"><i class="icon-search" style="font-size:15px;flex:none"></i><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">{{ s.asgSearch }}</span></span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:8px;border:1px dashed var(--border);background:var(--card);font-size:13px;font-weight:500;white-space:nowrap"><i class="icon-circle-plus" style="font-size:14px"></i>{{ s.classFacet }}</span>
+                  </div>
+                </div>
+                <sc-if value="{{ f.cards }}">
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <sc-for list="{{ asgRows }}" as="r" hint-placeholder-count="4">
+                      <div style="padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px">
+                        <span style="font-size:13.5px;font-weight:500">{{ r.title }}</span>
+                        <span style="font-size:12.5px;color:var(--muted-fg)">{{ r.classes }} · {{ r.closes }}</span>
+                        <span style="display:flex;align-items:center;gap:10px"><span style="flex:1;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;background:var(--brand);border-radius:6px;width:{{ r.pct }}%"></span></span><span style="font-size:12.5px;color:var(--muted-fg)">{{ r.frac }}</span></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ f.table }}">
+                  <div style="border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+                    <div style="display:grid;grid-template-columns:{{ f.asgCols }};gap:16px;align-items:center;height:40px;padding:0 16px;background:var(--muted);font-size:12.5px;font-weight:500;color:var(--muted-fg)">
+                      <span style="width:16px;height:16px;border-radius:4px;border:1px solid var(--input);background:var(--card)"></span><span>{{ s.colTest }}</span><sc-if value="{{ f.colClass }}"><span>{{ s.colClass }}</span></sc-if><span>{{ s.colCloses }}</span><sc-if value="{{ f.colProgress }}"><span>{{ s.colProgress }}</span></sc-if><sc-if value="{{ f.colGrade }}"><span>{{ s.colGrade }}</span></sc-if><span></span>
+                    </div>
+                    <sc-for list="{{ asgRows }}" as="r" hint-placeholder-count="5">
+                      <div style="display:grid;grid-template-columns:{{ f.asgCols }};gap:16px;align-items:center;min-height:60px;padding:0 16px;border-top:1px solid var(--border);font-size:13.5px">
+                        <span style="width:16px;height:16px;border-radius:4px;border:1px solid var(--input);background:var(--card)"></span>
+                        <span style="min-width:0"><span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</span><sc-if value="{{ f.classUnder }}"><span style="display:block;font-size:12.5px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.classes }}</span></sc-if></span>
+                        <sc-if value="{{ f.colClass }}"><span style="color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.classes }}</span></sc-if>
+                        <span style="color:var(--muted-fg);white-space:nowrap">{{ r.closes }}</span>
+                        <sc-if value="{{ f.colProgress }}"><span style="display:flex;align-items:center;gap:10px"><span style="flex:1;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;background:var(--brand);border-radius:6px;width:{{ r.pct }}%"></span></span><span style="font-size:12.5px;color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ r.frac }}</span></span></sc-if>
+                        <sc-if value="{{ f.colGrade }}"><span style="font-variant-numeric:tabular-nums">{{ r.grade }}</span></sc-if>
+                        <i class="icon-ellipsis" style="font-size:16px;color:var(--muted-fg)"></i>
+                      </div>
+                    </sc-for>
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted-fg)">
+                      <span style="font-variant-numeric:tabular-nums">{{ s.pgRange }}</span>
+                      <span style="display:flex;flex-wrap:wrap;align-items:center;gap:16px"><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--fg);font-weight:500">{{ s.pgRows }}</span><span style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 8px 0 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--fg)">10<i class="icon-chevron-down" style="font-size:13px"></i></span></span><span style="color:var(--fg);font-weight:500">{{ s.pgOf }}</span><span style="display:flex;gap:6px"><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);opacity:.45"><i class="icon-chevrons-left" style="font-size:15px"></i></span><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);opacity:.45"><i class="icon-chevron-left" style="font-size:15px"></i></span><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--fg)"><i class="icon-chevron-right" style="font-size:15px"></i></span><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--fg)"><i class="icon-chevrons-right" style="font-size:15px"></i></span></span></span>
+                    </div>
+                  </div>
+                </sc-if>
+              </sc-if>
+
+              <sc-if value="{{ is.wiz }}">
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted-fg);white-space:nowrap;align-self:flex-start"><i class="icon-arrow-left" style="font-size:14px"></i>{{ s.asgTitle }}</span>
+                  <h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em">{{ s.asgNew }}</h1>
+                  <p style="margin:0;color:var(--muted-fg)">{{ s.wizDesc }}</p>
+                </div>
+                <div style="max-width:{{ f.colMax }};width:100%;display:flex;flex-direction:column;gap:16px">
+                  <ol style="margin:0;padding:0;list-style:none;display:grid;grid-template-columns:{{ f.stepCols }};gap:8px">
+                    <sc-for list="{{ steps }}" as="st" hint-placeholder-count="4">
+                      <li style="min-width:0"><span style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--card);border:1px solid {{ st.border }}">
+                        <span style="display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:999px;font-size:12px;font-weight:600;background:{{ st.cBg }};color:{{ st.cFg }}">{{ st.n }}</span>
+                        <span style="flex:1;min-width:0;overflow:hidden"><span style="display:block;font-size:13.5px;line-height:18px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ st.label }}</span><span style="display:block;font-size:12px;line-height:15px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ st.value }}</span></span>
+                      </span></li>
+                    </sc-for>
+                  </ol>
+                  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+                    <div style="flex:1 1 480px;min-width:0;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+                      <div style="padding:16px 18px 12px;display:flex;flex-direction:column;gap:10px"><h2 style="margin:0;font-size:15px;font-weight:600">{{ s.wizPick }}</h2><span style="display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:9px;border:1px solid var(--input);background:var(--bg);color:var(--muted-fg);font-size:13.5px"><i class="icon-search" style="font-size:15px;flex:none"></i><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.wizSearch }}</span></span></div>
+                      <sc-for list="{{ wizTests }}" as="w" hint-placeholder-count="4">
+                        <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid var(--border);background:{{ w.bg }}">
+                          <span style="width:16px;height:16px;flex:none;border-radius:999px;border:{{ w.radio }}"></span>
+                          <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">{{ w.title }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ w.meta }}</span></span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <aside style="flex:0 1 300px;min-width:240px;padding:16px 18px;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px">
+                      <h2 style="margin:0;font-size:15px;font-weight:600">{{ s.wizSummary }}</h2>
+                      <sc-for list="{{ steps }}" as="st" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;padding-top:8px;border-top:1px solid var(--border)"><span style="color:var(--muted-fg);flex:none;white-space:nowrap">{{ st.label }}</span><span style="min-width:0;text-align:right;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ st.value }}</span></div></sc-for>
+                      <span style="display:inline-flex;justify-content:center;align-items:center;gap:6px;height:36px;margin-top:6px;white-space:nowrap;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500">{{ s.wizNext }}<i class="icon-arrow-right" style="font-size:15px"></i></span>
+                    </aside>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ is.set }}">
+                <div style="min-width:0"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em">{{ s.setTitle }}</h1><p style="margin:2px 0 0;color:var(--muted-fg)">{{ s.setHint }}</p></div>
+                <div style="max-width:{{ f.colMax }};width:100%;display:flex;flex-wrap:wrap;align-items:flex-start;gap:24px">
+                  <nav style="display:flex;flex-direction:{{ f.setNavDir }};gap:2px;min-width:{{ f.setNavMin }};flex:{{ f.setNavFlex }};max-width:100%;overflow:hidden">
+                    <sc-for list="{{ setSections }}" as="x" hint-placeholder-count="6"><span style="display:flex;align-items:center;gap:10px;height:36px;padding:0 12px;flex:none;border-radius:8px;font-size:13.5px;white-space:nowrap;background:{{ x.bg }};color:{{ x.fg }};font-weight:{{ x.fw }}"><i class="{{ x.icon }}" style="font-size:16px"></i>{{ x.label }}</span></sc-for>
+                  </nav>
+                  <div style="flex:1 1 480px;min-width:0;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow)">
+                    <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px">
+                      <span style="display:grid;place-items:center;width:56px;height:56px;border-radius:999px;background:var(--brand-soft);color:var(--brand-ink);font-size:18px;font-weight:600">TV</span>
+                      <span style="flex:1;min-width:0"><h2 style="margin:0;font-size:15px;font-weight:600">{{ s.profile }}</h2><span style="font-size:13px;color:var(--muted-fg)">{{ s.profileHint }}</span></span>
+                    </div>
+                    <div style="padding:18px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:16px 20px">
+                      <sc-for list="{{ fields }}" as="fd" hint-placeholder-count="5">
+                        <label style="display:flex;flex-direction:column;gap:6px;min-width:0;max-width:480px"><span style="font-size:13px;font-weight:500">{{ fd.label }}</span><span style="display:flex;align-items:center;justify-content:space-between;height:38px;padding:0 12px;border-radius:8px;border:1px solid var(--input);background:var(--bg);font-size:13.5px;white-space:nowrap;overflow:hidden">{{ fd.value }}<sc-if value="{{ fd.select }}"><i class="icon-chevron-down" style="font-size:14px;color:var(--muted-fg)"></i></sc-if></span><sc-if value="{{ fd.hasHint }}"><span style="font-size:12px;color:var(--muted-fg)">{{ fd.hint }}</span></sc-if></label>
+                      </sc-for>
+                    </div>
+                    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500;opacity:.5">{{ s.saveChanges }}</span></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ is.imp }}">
+                <div style="min-width:0;max-width:{{ f.headMax }}"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em">{{ s.impTitle }}</h1><p style="margin:2px 0 0;color:var(--muted-fg);text-wrap:pretty">{{ s.impHint }}</p></div>
+                <div style="max-width:{{ f.colMax }};width:100%;display:flex;flex-direction:column;gap:18px">
+                  <div style="align-self:flex-start;display:inline-flex;gap:2px;padding:3px;border-radius:9px;background:var(--muted);max-width:100%">
+                    <span style="display:inline-flex;justify-content:center;align-items:center;gap:7px;min-width:168px;height:32px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;background:var(--card);box-shadow:0 0 0 1px var(--border)"><i class="icon-file-up" style="font-size:15px"></i>{{ s.fileMode }}</span>
+                    <span style="display:inline-flex;justify-content:center;align-items:center;gap:7px;min-width:168px;height:32px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;color:var(--muted-fg)"><i class="icon-clipboard-paste" style="font-size:15px"></i>{{ s.pasteMode }}</span>
+                  </div>
+                  <div style="border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:14px">
+                    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><h2 style="margin:0;font-size:15px;font-weight:600">{{ s.files }}</h2><span style="font-size:12.5px;color:var(--muted-fg)">{{ s.formats }}</span></div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;border:1.5px dashed var(--border);border-radius:10px;background:var(--bg);text-align:center">
+                      <span style="display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--muted)"><i class="icon-file-up" style="font-size:18px"></i></span>
+                      <span style="font-size:14px;font-weight:500;white-space:nowrap">{{ s.exam }}</span>
+                      <span style="font-size:13px;color:var(--muted-fg);white-space:nowrap">{{ s.dropHint }}</span>
+                      <span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500">{{ s.choose }}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px"><i class="icon-key-round" style="font-size:16px;color:var(--muted-fg)"></i><span style="flex:1;font-size:13.5px">{{ s.answerKey }}</span><span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500">{{ s.choose }}</span></div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:var(--muted);font-size:13px;line-height:1.55"><i class="icon-shield-check" style="font-size:17px;margin-top:2px"></i><div><strong style="font-weight:600">{{ s.privacyLead }}</strong> {{ s.privacy }}</div></div>
+                  <div style="display:flex;justify-content:flex-end;gap:8px"><span style="display:inline-flex;align-items:center;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500;opacity:.5">{{ s.start }}</span></div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ is.proc }}">
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted-fg);white-space:nowrap;align-self:flex-start"><i class="icon-arrow-left" style="font-size:14px"></i>{{ s.histTitle }}</span>
+                  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em">IELTS Mock 3.docx</h1><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;background:var(--info-soft);color:var(--info-ink);font-size:12px;font-weight:500"><i class="icon-loader-circle" style="font-size:12px"></i>{{ s.processing }}</span></div>
+                </div>
+                <div style="max-width:{{ f.colMax }};width:100%;display:flex;flex-direction:column;gap:16px">
+                  <div style="border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+                    <sc-for list="{{ stages }}" as="sg" hint-placeholder-count="5">
+                      <div style="display:flex;align-items:center;gap:12px;padding:13px 18px;border-top:{{ sg.bt }};font-size:13px;color:{{ sg.fg }};font-weight:{{ sg.fw }}">
+                        <span style="display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:999px;background:{{ sg.cBg }};color:{{ sg.cFg }}"><sc-if value="{{ sg.done }}"><i class="icon-check" style="font-size:14px"></i></sc-if><sc-if value="{{ sg.cur }}"><i class="icon-loader-circle" style="font-size:16px;animation:qz-spin .8s linear infinite"></i></sc-if><sc-if value="{{ sg.wait }}"><span style="font-size:12px">{{ sg.n }}</span></sc-if></span>
+                        <span style="flex:1;min-width:0">{{ sg.label }}</span>
+                      </div>
+                    </sc-for>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px 16px;padding:12px 18px;border-top:1px solid var(--border);font-size:12px;color:var(--muted-fg)"><span>{{ s.procNow }}</span><span style="font-variant-numeric:tabular-nums">{{ s.elapsed }}</span></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ is.ws }}">
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px">
+                  <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 420px">
+                    <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted-fg);white-space:nowrap;align-self:flex-start"><i class="icon-arrow-left" style="font-size:14px"></i>{{ s.histTitle }}</span>
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em;white-space:nowrap;flex:none">{{ w.title }}</h1><sc-if value="{{ w.hasPill }}"><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:{{ w.pillBg }};color:{{ w.pillFg }}"><i class="{{ w.pillIcon }}" style="font-size:12px"></i>{{ w.pill }}</span></sc-if></div>
+                    <sc-if value="{{ w.draft }}"><p style="margin:0;color:var(--muted-fg);max-width:72ch;text-wrap:pretty">{{ s.impHint }}</p></sc-if>
+                  </div>
+                  <div style="display:inline-flex;gap:2px;padding:3px;border-radius:9px;background:var(--muted);opacity:{{ w.switchOp }}">
+                    <span style="display:inline-flex;justify-content:center;align-items:center;gap:7px;min-width:150px;height:32px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;white-space:nowrap;background:{{ w.fBg }};color:{{ w.fFg }};box-shadow:{{ w.fRing }}"><i class="icon-file-up" style="font-size:15px"></i>{{ s.fileMode }}</span>
+                    <span style="display:inline-flex;justify-content:center;align-items:center;gap:7px;min-width:150px;height:32px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;white-space:nowrap;background:{{ w.pBg }};color:{{ w.pFg }};box-shadow:{{ w.pRing }}"><i class="icon-clipboard-paste" style="font-size:15px"></i>{{ s.pasteMode }}</span>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:{{ w.cols }};gap:16px;align-items:start">
+                  <section style="min-width:0;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:15px;font-weight:600;white-space:nowrap;flex:none">{{ s.wsSources }}</h2><sc-if value="{{ w.showFormats }}"><span style="font-size:12.5px;color:var(--muted-fg);white-space:nowrap">{{ s.formats }}</span></sc-if></div>
+                    <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+                      <sc-if value="{{ w.fileDraft }}">
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;border:1.5px dashed var(--border);border-radius:10px;background:var(--bg);text-align:center">
+                          <span style="display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--muted)"><i class="icon-file-up" style="font-size:18px"></i></span>
+                          <span style="font-size:14px;font-weight:500;white-space:nowrap">{{ s.exam }}</span>
+                          <span style="font-size:13px;color:var(--muted-fg);white-space:nowrap">{{ s.dropHint }}</span>
+                          <span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;white-space:nowrap;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500">{{ s.choose }}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px"><i class="icon-key-round" style="font-size:16px;color:var(--muted-fg);flex:none"></i><span style="flex:1;min-width:0;font-size:13.5px">{{ s.answerKey }}</span><span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;white-space:nowrap;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500">{{ s.choose }}</span></div>
+                      </sc-if>
+                      <sc-if value="{{ w.pasteDraft }}">
+                        <div style="border:1px solid var(--input);border-radius:9px;background:var(--bg);padding:12px 14px;font-size:13.5px;line-height:1.7;min-height:280px;display:flex;flex-direction:column">
+                          <sc-for list="{{ pasteLines }}" as="pl" hint-placeholder-count="8"><span style="white-space:pre-wrap;color:{{ pl.fg }};background:{{ pl.bg }};font-weight:{{ pl.fw }}">{{ pl.t }}</span></sc-for>
+                        </div>
+                        <span style="font-size:12px;color:var(--muted-fg)">{{ s.wsPasteCount }}</span>
+                      </sc-if>
+                      <sc-if value="{{ w.fileCards }}">
+                        <sc-for list="{{ wsFiles }}" as="fc" hint-placeholder-count="2">
+                          <div style="display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:10px;border:1px solid {{ fc.border }}">
+                            <div style="display:flex;align-items:center;gap:12px">
+                              <span style="display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:8px;background:var(--muted)"><i class="{{ fc.icon }}" style="font-size:16px"></i></span>
+                              <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fc.name }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg);white-space:nowrap">{{ fc.meta }}</span></span>
+                              <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:{{ fc.sBg }};color:{{ fc.sFg }}">{{ fc.status }}</span>
+                              <span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;white-space:nowrap;flex:none;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500;opacity:{{ fc.repOp }}">{{ s.wsReplace }}</span>
+                            </div>
+                            <sc-if value="{{ fc.err }}"><div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;background:var(--danger-soft);font-size:13px;line-height:1.5"><i class="icon-triangle-alert" style="font-size:15px;margin-top:2px;color:var(--danger-ink);flex:none"></i><span style="flex:1 1 200px;min-width:0">{{ s.wsFileErr }}</span><span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;white-space:nowrap;border-radius:7px;background:var(--primary);color:var(--primary-fg);font-size:13px;font-weight:500">{{ s.wsReplaceExam }}</span></div></sc-if>
+                          </div>
+                        </sc-for>
+                      </sc-if>
+                      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);opacity:{{ w.aiOp }}">
+                        <i class="icon-sparkles" style="font-size:16px;flex:none"></i>
+                        <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500;white-space:nowrap">{{ s.wsAi }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ s.wsAiHint }}</span></span>
+                        <span style="position:relative;width:32px;height:18px;flex:none;border-radius:999px;background:var(--primary)"><span style="position:absolute;top:2px;right:2px;width:14px;height:14px;border-radius:999px;background:var(--primary-fg)"></span></span>
+                      </div>
+                      <sc-if value="{{ w.draft }}"><div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:var(--muted);font-size:13px;line-height:1.55"><i class="icon-shield-check" style="font-size:17px;margin-top:2px;flex:none"></i><div><strong style="font-weight:600">{{ s.privacyLead }}</strong> {{ s.privacy }}</div></div></sc-if>
+                    </div>
+                  </section>
+                  <section style="min-width:0;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:15px;font-weight:600;white-space:nowrap;flex:none">{{ w.rightTitle }}</h2><sc-if value="{{ w.showElapsed }}"><span style="font-size:12.5px;color:var(--muted-fg);font-variant-numeric:tabular-nums;white-space:nowrap">{{ s.elapsed }}</span></sc-if></div>
+                    <sc-if value="{{ w.showStages }}">
+                      <sc-for list="{{ wsStages }}" as="sg" hint-placeholder-count="5">
+                        <div style="display:flex;align-items:center;gap:12px;padding:13px 18px;border-top:{{ sg.bt }};font-size:13px;color:{{ sg.fg }};font-weight:{{ sg.fw }}">
+                          <span style="display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:999px;background:{{ sg.cBg }};color:{{ sg.cFg }}"><sc-if value="{{ sg.done }}"><i class="icon-check" style="font-size:14px"></i></sc-if><sc-if value="{{ sg.cur }}"><i class="icon-loader-circle" style="font-size:16px;animation:qz-spin .8s linear infinite"></i></sc-if><sc-if value="{{ sg.fail }}"><i class="icon-x" style="font-size:14px"></i></sc-if><sc-if value="{{ sg.wait }}"><span style="font-size:12px">{{ sg.n }}</span></sc-if></span>
+                          <span style="flex:1;min-width:0">{{ sg.label }}</span>
+                          <sc-if value="{{ sg.hasNote }}"><span style="font-size:12px;color:var(--muted-fg);white-space:nowrap">{{ sg.note }}</span></sc-if>
+                        </div>
+                      </sc-for>
+                    </sc-if>
+                    <sc-if value="{{ w.pastePreview }}">
+                      <div style="padding:12px 18px;display:flex;flex-direction:column;gap:2px;border-bottom:1px solid var(--border)"><strong style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.wsPasteLead }}</strong><span style="font-size:12.5px;color:var(--muted-fg)">{{ s.wsPasteHint }}</span></div>
+                      <sc-for list="{{ pasteItems }}" as="pi" hint-placeholder-count="5">
+                        <div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-top:{{ pi.bt }};font-size:13px">
+                          <span style="width:26px;flex:none;font-variant-numeric:tabular-nums;color:var(--muted-fg)">{{ pi.n }}</span>
+                          <span style="flex:1;min-width:0"><span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pi.t }}</span><span style="display:block;font-size:12px;color:var(--muted-fg)">{{ pi.type }}</span></span>
+                          <span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:{{ pi.sBg }};color:{{ pi.sFg }}"><i class="{{ pi.icon }}" style="font-size:12px"></i>{{ pi.status }}</span>
+                        </div>
+                      </sc-for>
+                    </sc-if>
+                    <div style="display:flex;flex-direction:column;gap:12px;padding:14px 18px;border-top:1px solid var(--border)">
+                      <sc-if value="{{ w.stopped }}"><div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:10px;background:var(--danger-soft);font-size:13px;line-height:1.55"><i class="icon-triangle-alert" style="font-size:16px;margin-top:2px;color:var(--danger-ink);flex:none"></i><div><strong style="font-weight:600">{{ s.wsStopAt }}</strong> {{ s.wsStopFix }}</div></div></sc-if>
+                      <sc-if value="{{ w.ready }}"><div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:10px;background:var(--success-soft);font-size:13px;line-height:1.55"><i class="icon-circle-check" style="font-size:16px;margin-top:2px;color:var(--success-ink);flex:none"></i><div><strong style="font-weight:600">{{ s.wsReadyLead }}</strong> {{ s.wsReadyBody }}</div></div></sc-if>
+                      <sc-if value="{{ w.running }}"><span style="font-size:13px;color:var(--muted-fg)">{{ s.wsLeave }}</span></sc-if>
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+                        <span style="font-size:12.5px;color:var(--muted-fg);white-space:nowrap;flex:1 1 auto;min-width:0">{{ w.footNote }}</span>
+                        <span style="display:flex;gap:8px">
+                          <sc-if value="{{ w.running }}"><span style="display:inline-flex;align-items:center;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500">{{ s.wsCancel }}</span></sc-if>
+                          <sc-if value="{{ w.hasPrimary }}"><span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500">{{ w.primary }}<i class="icon-arrow-right" style="font-size:15px"></i></span></sc-if>
+                        </span>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ is.hist }}">
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px">
+                  <div style="min-width:0;flex:1 1 420px"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em">{{ s.histTitle }}</h1><p style="margin:2px 0 0;color:var(--muted-fg);text-wrap:pretty;max-width:760px">{{ s.histHint }}</p></div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500"><i class="icon-clipboard-paste" style="font-size:15px"></i>{{ s.pasteTest }}</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500"><i class="icon-file-up" style="font-size:15px"></i>{{ s.impShort }}</span>
+                  </div>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+                  <div style="display:inline-flex;gap:2px;padding:3px;border-radius:9px;background:var(--muted);max-width:100%;overflow:hidden">
+                    <sc-for list="{{ histTabs }}" as="t" hint-placeholder-count="5"><span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;white-space:nowrap;background:{{ t.bg }};color:{{ t.fg }};box-shadow:{{ t.ring }}">{{ t.label }}<span style="display:inline-flex;align-items:center;justify-content:center;height:18px;min-width:18px;padding:0 5px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:11px;font-weight:600">{{ t.count }}</span></span></sc-for>
+                  </div>
+                  <span style="flex:0 1 260px;min-width:0;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted-fg);font-size:13px;white-space:nowrap;overflow:hidden"><i class="icon-search" style="font-size:15px;flex:none"></i><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">{{ s.histSearch }}</span></span>
+                </div>
+                <div style="border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+                  <sc-if value="{{ f.histGrid }}">
+                    <div style="display:grid;grid-template-columns:{{ f.histCols }};gap:16px;align-items:center;height:40px;padding:0 16px;background:var(--muted);font-size:12.5px;font-weight:500;color:var(--muted-fg)"><span>{{ s.hcName }}</span><span>{{ s.hcStatus }}</span><span>{{ s.hcQ }}</span><sc-if value="{{ f.histWide }}"><span>{{ s.hcSource }}</span></sc-if><span>{{ s.hcUpdated }}</span><span></span></div>
+                  </sc-if>
+                  <sc-for list="{{ histRows }}" as="h" hint-placeholder-count="5">
+                    <div style="display:grid;grid-template-columns:{{ f.histCols }};gap:8px 16px;align-items:center;min-height:56px;padding:10px 16px;border-top:1px solid var(--border);font-size:13.5px">
+                      <span style="display:flex;align-items:center;gap:10px;min-width:0"><span style="display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:8px;background:var(--muted)"><i class="{{ h.icon }}" style="font-size:15px"></i></span><span style="min-width:0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.name }}</span></span>
+                      <span><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;background:{{ h.sBg }};color:{{ h.sFg }}">{{ h.status }}</span></span>
+                      <sc-if value="{{ f.histGrid }}"><span style="font-variant-numeric:tabular-nums;color:var(--muted-fg)">{{ h.q }}</span></sc-if>
+                      <sc-if value="{{ f.histWide }}"><span style="color:var(--muted-fg)">{{ h.source }}</span></sc-if>
+                      <sc-if value="{{ f.histGrid }}"><span style="color:var(--muted-fg);white-space:nowrap">{{ h.when }}</span></sc-if>
+                      <sc-if value="{{ f.histGrid }}"><i class="icon-ellipsis" style="font-size:16px;color:var(--muted-fg)"></i></sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ f.reducedPager }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted-fg)"><span>{{ s.redRange }}</span><span style="display:flex;align-items:center;gap:12px"><span>{{ s.redPage }}</span><span style="display:flex;gap:6px"><span style="display:grid;place-items:center;width:30px;height:30px;border-radius:7px;border:1px solid var(--border)"><i class="icon-chevron-left" style="font-size:14px"></i></span><span style="display:grid;place-items:center;width:30px;height:30px;border-radius:7px;border:1px solid var(--border)"><i class="icon-chevron-right" style="font-size:14px"></i></span></span></span></div>
+                  </sc-if>
+                  <sc-if value="{{ f.fullPager }}">
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted-fg)">
+                      <span style="font-variant-numeric:tabular-nums">{{ s.histPgRange }}</span>
+                      <span style="display:flex;flex-wrap:wrap;align-items:center;gap:16px"><sc-if value="{{ f.pagerWide }}"><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--fg);font-weight:500">{{ s.pgRows }}</span><span style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 8px 0 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--fg)">10<i class="icon-chevron-down" style="font-size:13px"></i></span></span></sc-if><span style="color:var(--fg);font-weight:500">{{ s.pgOne }}</span><span style="display:flex;gap:6px"><sc-if value="{{ f.pagerWide }}"><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);opacity:.45"><i class="icon-chevrons-left" style="font-size:15px"></i></span></sc-if><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);opacity:.45"><i class="icon-chevron-left" style="font-size:15px"></i></span><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);opacity:.45"><i class="icon-chevron-right" style="font-size:15px"></i></span><sc-if value="{{ f.pagerWide }}"><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);opacity:.45"><i class="icon-chevrons-right" style="font-size:15px"></i></span></sc-if></span></span>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ is.bld }}">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+                  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;min-width:0"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em">IELTS Reading — Mock 3</h1><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:var(--muted);color:var(--muted-fg);font-size:12px;font-weight:500">{{ s.draft }}</span><span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted-fg)"><i class="icon-check" style="font-size:13px"></i>{{ s.saved }}</span></div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500"><i class="icon-eye" style="font-size:15px"></i>{{ s.previewAs }}</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500">{{ s.publish }}</span>
+                  </div>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+                  <div style="flex:0 1 300px;min-width:240px;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+                    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2 style="margin:0;font-size:15px;font-weight:600">{{ s.outline }}</h2><span style="font-size:12.5px;color:var(--muted-fg)">{{ s.outlineSum }}</span></div>
+                    <sc-for list="{{ outline }}" as="o" hint-placeholder-count="6">
+                      <div style="display:flex;align-items:center;gap:8px;padding:{{ o.pad }};font-size:13px;background:{{ o.bg }};font-weight:{{ o.fw }};color:{{ o.fg }}">
+                        <i class="icon-grip-vertical" style="font-size:14px;color:var(--muted-fg)"></i>
+                        <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.label }}</span>
+                        <span style="font-size:12px;color:var(--muted-fg);white-space:nowrap">{{ o.meta }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="flex:1 1 420px;min-width:0;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow)">
+                    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px"><h2 style="margin:0;font-size:15px;font-weight:600">{{ s.qNum }}</h2><span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--border);font-size:13px">{{ s.qType }}<i class="icon-chevron-down" style="font-size:13px;color:var(--muted-fg)"></i></span></div>
+                    <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+                      <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500">{{ s.prompt }}</span><div style="border:1px solid var(--input);border-radius:9px;overflow:hidden"><div style="display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--border);background:var(--muted)"><sc-for list="{{ toolbar }}" as="tb" hint-placeholder-count="7"><span style="display:grid;place-items:center;width:28px;height:28px;border-radius:6px"><i class="{{ tb }}" style="font-size:15px"></i></span></sc-for></div><div style="padding:12px;font-size:14.5px;line-height:1.6;min-height:84px">{{ s.promptText }}</div></div></div>
+                      <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:500">{{ s.options }}</span>
+                        <sc-for list="{{ opts }}" as="op" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border-radius:9px;border:1px solid {{ op.border }};background:{{ op.bg }};font-size:13.5px"><span style="width:16px;height:16px;border-radius:999px;flex:none;border:{{ op.radio }}"></span><span style="font-weight:600;color:var(--muted-fg)">{{ op.l }}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ op.t }}</span></div></sc-for>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+            </div>
+          </main>
+        </div>
+
+        <sc-if value="{{ guides }}">
+          <div style="position:absolute;top:56px;bottom:0;left:{{ f.sbW }}px;width:{{ g.leftHatch }}px;background:repeating-linear-gradient(135deg,var(--anno-soft) 0 6px,transparent 6px 12px);pointer-events:none"></div>
+          <div style="position:absolute;top:56px;bottom:0;left:{{ g.rightStart }}px;right:0;background:repeating-linear-gradient(135deg,var(--anno-soft) 0 6px,transparent 6px 12px);pointer-events:none"></div>
+          <div style="position:absolute;top:56px;bottom:0;left:{{ m.x }}px;width:{{ m.cw }}px;border-left:{{ g.lw }}px solid var(--anno);border-right:{{ g.lw }}px dashed var(--anno);pointer-events:none"></div>
+          <sc-if value="{{ m.hasCol }}"><div style="position:absolute;top:{{ g.colTop }}px;bottom:0;left:{{ m.x }}px;width:{{ m.colW }}px;border-right:{{ g.lw }}px dotted var(--anno);pointer-events:none"></div><div style="position:absolute;top:{{ g.colTop }}px;bottom:0;left:{{ g.colEnd }}px;width:{{ g.colGap }}px;background:radial-gradient(var(--anno-soft) 1.5px,transparent 1.6px) 0 0/10px 10px;pointer-events:none"></div><div style="position:absolute;top:{{ g.colLabelTop }}px;left:{{ g.colGapMid }}px;transform:translateX(-50%);padding:{{ g.lp }}px {{ g.lp2 }}px;border-radius:{{ g.lr }}px;border:{{ g.lw }}px solid var(--anno);background:var(--bg);color:var(--anno);font:600 {{ g.fs }}px/1.2 ui-monospace,Menlo,monospace;white-space:nowrap;pointer-events:none">{{ g.colGapLabel }}</div></sc-if>
+          <div style="position:absolute;bottom:{{ g.labelBottom }}px;left:{{ m.x }}px;transform:translateX(-50%);padding:{{ g.lp }}px {{ g.lp2 }}px;border-radius:{{ g.lr }}px;background:var(--anno);color:#fff;font:600 {{ g.fs }}px/1.2 ui-monospace,Menlo,monospace;white-space:nowrap;pointer-events:none">x {{ m.x }}</div>
+          <div style="position:absolute;bottom:{{ g.labelBottom }}px;left:{{ g.midX }}px;transform:translateX(-50%);padding:{{ g.lp }}px {{ g.lp2 }}px;border-radius:{{ g.lr }}px;background:var(--anno);color:#fff;font:600 {{ g.fs }}px/1.2 ui-monospace,Menlo,monospace;white-space:nowrap;pointer-events:none">{{ m.cw }} px</div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="Left edge" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:4px;max-width:760px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">Where each page starts at {{ m.W }}px</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">The same eight pages, side by side. Grey is the sidebar and each bar is the content frame. In the v2 deck the left edge moves between pages; with the proposal it does not move. Follows the viewport and sidebar picked above.</p>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:6px 18px 14px">
+    <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 92px;gap:14px;padding:10px 0 6px;font-size:12px;font-weight:500;color:var(--muted-fg)"><span>Screen</span><span>Viewport, 0 to {{ m.W }}px</span><span style="text-align:right">Title x</span></div>
+    <sc-for list="{{ edges }}" as="e" hint-placeholder-count="8">
+      <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 92px;gap:14px;align-items:center;padding:8px 0;border-top:1px solid var(--border)">
+        <span style="font-size:13px;font-weight:500">{{ e.name }}</span>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="position:relative;height:12px;border-radius:3px;background:var(--muted)"><div style="position:absolute;top:0;bottom:0;left:0;width:{{ e.sb }}%;background:var(--hover);border-radius:3px 0 0 3px"></div><div style="position:absolute;top:2px;bottom:2px;left:{{ e.vx }}%;width:{{ e.vw }}%;border-radius:2px;background:var(--input);opacity:.7"></div></div>
+          <div style="position:relative;height:12px;border-radius:3px;background:var(--muted)"><div style="position:absolute;top:0;bottom:0;left:0;width:{{ e.sb }}%;background:var(--hover);border-radius:3px 0 0 3px"></div><div style="position:absolute;top:2px;bottom:2px;left:{{ e.px }}%;width:{{ e.pw }}%;border-radius:2px;background:var(--anno)"></div><sc-if value="{{ e.hasCol }}"><div style="position:absolute;top:2px;bottom:2px;left:{{ e.px }}%;width:{{ e.pc }}%;border-radius:2px;background:var(--anno);filter:brightness(.8)"></div></sc-if></div>
+        </div>
+        <span style="text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;line-height:1.35"><span style="display:block;color:var(--muted-fg)">v2 {{ e.vxPx }}</span><span style="display:block;color:var(--anno);font-weight:600">new {{ e.pxPx }}</span></span>
+      </div>
+    </sc-for>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted-fg)">
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:8px;border-radius:2px;background:var(--input);opacity:.7"></span>v2 deck</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:8px;border-radius:2px;background:var(--anno)"></span>Proposed frame</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:8px;border-radius:2px;background:var(--anno);filter:brightness(.8)"></span>Form column inside it</span>
+      <span>Left edge positions at this width: v2 has {{ m.v2Edges }}, the proposal has 1.</span>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="Using wide space" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:4px;max-width:780px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">Why the form pages no longer leave a gap</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">A narrow column with empty space beside it is accepted practice for a single focused task, such as signing in, checking out or uploading one file. On a working page like New assignment or Settings, a 244px empty band at 1440 (sidebar collapsed), or 512px at 1920 with the sidebar open, looks unfinished. It also wastes room the stepper, the test list and the summary could use. The width limit exists to keep text readable, not to make containers narrow. So the proposal caps text and lets containers fill the frame.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:14px">
+    <sc-for list="{{ wideOpts }}" as="o" hint-placeholder-count="4">
+      <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:12px;border:1px solid {{ o.border }};background:var(--card);box-shadow:var(--shadow)">
+        <div style="position:relative;height:96px;border-radius:8px;background:var(--muted);overflow:hidden">
+          <div style="position:absolute;top:10px;left:8%;right:8%;height:8px;border-radius:3px;background:var(--input);opacity:.6"></div>
+          <div style="position:absolute;top:26px;bottom:10px;left:{{ o.aL }}%;width:{{ o.aW }}%;border-radius:4px;background:{{ o.aBg }}"></div>
+          <sc-if value="{{ o.hasB }}"><div style="position:absolute;top:26px;bottom:10px;left:{{ o.bL }}%;width:{{ o.bW }}%;border-radius:4px;background:{{ o.bBg }}"></div></sc-if>
+          <sc-if value="{{ o.hasGap }}"><div style="position:absolute;top:26px;bottom:10px;left:{{ o.gL }}%;right:8%;border-radius:4px;background:repeating-linear-gradient(135deg,var(--anno-soft) 0 5px,transparent 5px 10px)"></div></sc-if>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px"><strong style="font-size:14px;font-weight:600;white-space:nowrap">{{ o.title }}</strong><sc-if value="{{ o.rec }}"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:var(--anno);color:#fff;font-size:11.5px;font-weight:600;white-space:nowrap">Proposed</span></sc-if></div>
+        <span style="font-size:13px;color:var(--muted-fg);text-wrap:pretty">{{ o.body }}</span>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section data-screen-label="Import workspace" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:4px;max-width:780px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">Upload and Processing become one import workspace</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">Today one import spans five pages at three widths, and the two narrowest belong to a single task. In the proposal Upload and Processing are one page with two panes. The page changes state; its address stays the same. Review stays its own full-width screen. In the viewer above, pick Import and step through its states.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr));gap:16px;align-items:start">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.3fr);gap:12px;padding:10px 16px;background:var(--muted);font-size:12px;font-weight:500;color:var(--muted-fg)"><span>Step</span><span>v2 deck</span><span>Proposed</span></div>
+      <sc-for list="{{ flowRows }}" as="fr" hint-placeholder-count="5">
+        <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.3fr);gap:12px;padding:11px 16px;border-top:1px solid var(--border);font-size:13px;align-items:baseline">
+          <span style="font-weight:500">{{ fr.step }}</span><span style="color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ fr.v2 }}</span><span style="color:{{ fr.pFg }};font-weight:{{ fr.pFw }}">{{ fr.p }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column">
+      <sc-for list="{{ wsWhy }}" as="y" hint-placeholder-count="4">
+        <li style="display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--border)">
+          <span style="display:grid;place-items:center;width:24px;height:24px;border-radius:999px;background:var(--anno);color:#fff;font-size:12px;font-weight:600">{{ y.n }}</span>
+          <span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:14.5px;font-weight:600">{{ y.t }}</strong><span style="font-size:13.5px;color:var(--muted-fg);text-wrap:pretty">{{ y.b }}</span></span>
+        </li>
+      </sc-for>
+    </ul>
+  </div>
+</section>
+
+<section data-screen-label="Breakpoints" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:4px;max-width:760px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">What happens at each width</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">Content widths are for a list page with the sidebar expanded. Below 768 the sidebar is a 272px drawer, as built.</p>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow-x:auto">
+    <div style="min-width:860px">
+      <div style="display:grid;grid-template-columns:76px 82px 70px 116px 116px minmax(260px,1fr);gap:14px;padding:10px 18px;background:var(--muted);font-size:12px;font-weight:500;color:var(--muted-fg)"><span>Viewport</span><span>Sidebar</span><span>Gutter</span><span>v2 content</span><span>Proposed</span><span>What reflows</span></div>
+      <sc-for list="{{ bpRows }}" as="b" hint-placeholder-count="7">
+        <div style="display:grid;grid-template-columns:76px 82px 70px 116px 116px minmax(260px,1fr);gap:14px;padding:12px 18px;border-top:1px solid var(--border);font-size:13px;align-items:baseline;background:{{ b.bg }}">
+          <strong style="font-weight:600;font-variant-numeric:tabular-nums">{{ b.w }}</strong>
+          <span style="color:var(--muted-fg)">{{ b.sb }}</span>
+          <span style="font-variant-numeric:tabular-nums">{{ b.gut }}</span>
+          <span style="font-variant-numeric:tabular-nums"><span>{{ b.v2 }}</span><span style="display:block;font-size:12px;color:var(--muted-fg)">{{ b.v2u }}</span></span>
+          <span style="font-variant-numeric:tabular-nums;color:var(--anno);font-weight:600"><span>{{ b.p }}</span><span style="display:block;font-size:12px;font-weight:400;color:var(--muted-fg)">{{ b.pu }}</span></span>
+          <span style="color:var(--muted-fg);text-wrap:pretty">{{ b.note }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="Pager" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:4px;max-width:760px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">One pager for every list <span style="font-size:13px;font-weight:500;color:var(--muted-fg)">DG-203</span></h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">Imports history draws a reduced pager whose first figure counts filtered rows and whose "Page 1 of 1" never changes. It becomes the workspace pager (<code style="font-family:ui-monospace,Menlo,monospace">data/Pager</code>, card frame), which every other list already uses.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(520px,100%),1fr));gap:16px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:12px;font-weight:500;color:var(--muted-fg)">v2 deck · Imports history only</span>
+      <div style="border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+        <div style="height:44px;background:repeating-linear-gradient(135deg,var(--muted) 0 6px,transparent 6px 12px)"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted-fg)"><span>{{ s.redRange }}</span><span style="display:flex;align-items:center;gap:12px"><span>{{ s.redPage }}</span><span style="display:flex;gap:6px"><span style="display:grid;place-items:center;width:30px;height:30px;border-radius:7px;border:1px solid var(--border)"><i class="icon-chevron-left" style="font-size:14px"></i></span><span style="display:grid;place-items:center;width:30px;height:30px;border-radius:7px;border:1px solid var(--border)"><i class="icon-chevron-right" style="font-size:14px"></i></span></span></span></div>
+      </div>
+      <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--muted-fg);display:flex;flex-direction:column;gap:2px"><li>No rows-per-page and no first or last</li><li>Its count reads filtered rows as the total</li><li>Its arrows page nothing</li></ul>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:12px;font-weight:500;color:var(--muted-fg)">Every list · from 768px</span>
+      <div style="border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+        <div style="height:44px;background:repeating-linear-gradient(135deg,var(--muted) 0 6px,transparent 6px 12px)"></div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted-fg)">
+          <span style="font-variant-numeric:tabular-nums">{{ s.pgRange }}</span>
+          <span style="display:flex;flex-wrap:wrap;align-items:center;gap:16px"><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--fg);font-weight:500">{{ s.pgRows }}</span><span style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 8px 0 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--fg)">10<i class="icon-chevron-down" style="font-size:13px"></i></span></span><span style="color:var(--fg);font-weight:500">{{ s.pgOf }}</span><span style="display:flex;gap:6px"><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);opacity:.45"><i class="icon-chevrons-left" style="font-size:15px"></i></span><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);opacity:.45"><i class="icon-chevron-left" style="font-size:15px"></i></span><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--fg)"><i class="icon-chevron-right" style="font-size:15px"></i></span><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--fg)"><i class="icon-chevrons-right" style="font-size:15px"></i></span></span></span>
+        </div>
+      </div>
+      <span style="font-size:12px;font-weight:500;color:var(--muted-fg);margin-top:6px">Every list · below 768px</span>
+      <div style="max-width:360px;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);overflow:hidden">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;font-size:13px;color:var(--muted-fg)"><span style="font-variant-numeric:tabular-nums">{{ s.pgRange }}</span><span style="display:flex;align-items:center;gap:16px"><span style="color:var(--fg);font-weight:500">{{ s.pgOf }}</span><span style="display:flex;gap:6px"><span style="display:grid;place-items:center;width:44px;height:44px;border-radius:7px;border:1px solid var(--border);opacity:.45"><i class="icon-chevron-left" style="font-size:15px"></i></span><span style="display:grid;place-items:center;width:44px;height:44px;border-radius:7px;border:1px solid var(--border);color:var(--fg)"><i class="icon-chevron-right" style="font-size:15px"></i></span></span></span></div>
+      </div>
+      <span style="font-size:12.5px;color:var(--muted-fg)">Phone arrows grow to the 44px touch target the product already sets for student surfaces.</span>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="Focus rings" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:4px;max-width:760px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">Focus rings, drawn once</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">The deck draws no focus state. The product uses one ring everywhere: 2px solid <code style="font-family:ui-monospace,Menlo,monospace">--focus</code> (muted-fg), offset 2px. It measures 5.4:1 on white and 7.1:1 on the dark page, well above the 3:1 needed for a non-text indicator. Below, each control shows it. Press Tab to try the live ones.</p>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:28px 32px;align-items:center;padding:24px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)">
+    <sc-for list="{{ focusSpecs }}" as="fs" hint-placeholder-count="7">
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+        <span style="font-size:12px;color:var(--muted-fg)">{{ fs.name }}</span>
+        <sc-if value="{{ fs.isBtn }}"><button type="button" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;cursor:pointer;font-size:13.5px;font-weight:500;outline:2px solid var(--focus);outline-offset:2px;border:{{ fs.border }};background:{{ fs.bg }};color:{{ fs.fg }}">{{ fs.label }}</button></sc-if>
+        <sc-if value="{{ fs.isNav }}"><span style="display:flex;align-items:center;gap:10px;height:34px;width:200px;padding:0 10px;border-radius:7px;font-size:13.5px;color:var(--muted-fg);background:var(--sidebar);outline:2px solid var(--focus);outline-offset:-2px"><i class="icon-clipboard-list" style="font-size:16px"></i>{{ s.navAsg }}</span></sc-if>
+        <sc-if value="{{ fs.isSeg }}"><span style="display:inline-flex;gap:2px;padding:3px;border-radius:9px;background:var(--muted)"><span style="height:30px;padding:0 12px;display:grid;place-items:center;border-radius:7px;font-size:13px;font-weight:500;background:var(--card);box-shadow:0 0 0 1px var(--border)">{{ s.tabOpen }}</span><span style="height:30px;padding:0 12px;display:grid;place-items:center;border-radius:7px;font-size:13px;font-weight:500;color:var(--muted-fg);outline:2px solid var(--focus);outline-offset:1px">{{ s.tabSched }}</span></span></sc-if>
+        <sc-if value="{{ fs.isInput }}"><span style="display:flex;align-items:center;width:220px;height:38px;padding:0 12px;border-radius:8px;border:1px solid var(--input);background:var(--bg);font-size:13.5px;outline:2px solid var(--focus);outline-offset:2px">Thương Võ</span></sc-if>
+        <sc-if value="{{ fs.isArrow }}"><span style="display:grid;place-items:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--card);outline:2px solid var(--focus);outline-offset:2px"><i class="icon-chevron-right" style="font-size:15px"></i></span></sc-if>
+        <sc-if value="{{ fs.isRow }}"><span style="display:flex;align-items:center;gap:12px;width:280px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);font-size:13.5px;outline:2px solid var(--focus);outline-offset:-2px"><span style="flex:1;font-weight:500">IELTS Reading — Mock 3</span><i class="icon-ellipsis" style="font-size:16px;color:var(--muted-fg)"></i></span></sc-if>
+      </div>
+    </sc-for>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding-left:24px;border-left:1px solid var(--border)">
+      <span style="font-size:12px;color:var(--muted-fg)">Live: Tab through these</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;border:0;cursor:pointer;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500">{{ s.assignTest }}</button>
+        <button type="button" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;flex:none;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:var(--card);font-size:13.5px;font-weight:500">{{ s.newTest }}</button>
+        <input aria-label="Name" value="Thương Võ" style="height:38px;width:180px;padding:0 12px;border-radius:8px;border:1px solid var(--input);background:var(--bg);color:var(--fg);font:inherit;font-size:13.5px">
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="AI panel states" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:4px;max-width:760px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">AI panel: the states v2 does not draw <span style="font-size:13px;font-weight:500;color:var(--muted-fg)">DG-201</span></h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">Three states engineering needs before D4. The panel frame here is assembled from deck primitives (card, callout, button) as a stand-in. Please redraw these inside the v2 panel. The copy follows the rules recorded in DG-201.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr));gap:16px;align-items:start">
+    <sc-for list="{{ aiStates }}" as="ai" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px"><strong style="font-size:14px;font-weight:600;white-space:nowrap">{{ ai.title }}</strong><span style="font-size:12.5px;color:var(--muted-fg)">{{ ai.when }}</span></span>
+        <div style="border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-lg);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;border-bottom:1px solid var(--border)"><i class="icon-sparkles" style="font-size:16px"></i><span style="flex:1;font-size:14px;font-weight:600">{{ s.aiTitle }}</span><span style="display:grid;place-items:center;width:28px;height:28px;border-radius:7px"><i class="icon-x" style="font-size:15px;color:var(--muted-fg)"></i></span></div>
+          <div style="padding:14px;display:flex;flex-direction:column;gap:12px;min-height:170px">
+            <sc-if value="{{ ai.off }}">
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:10px;background:var(--muted);font-size:13px;line-height:1.55"><i class="icon-info" style="font-size:16px;margin-top:2px"></i><div><strong style="font-weight:600">{{ s.aiOff }}</strong> {{ s.aiOffBody }}</div></div>
+              <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:var(--muted-fg)">{{ s.aiOffToolbar }}</span><div style="display:flex;gap:6px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;white-space:nowrap;border-radius:7px;border:1px solid var(--border);font-size:13px"><i class="icon-eye" style="font-size:14px"></i>{{ s.previewAs }}</span><span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;white-space:nowrap;border-radius:7px;border:1px dashed var(--anno);color:var(--anno);font-size:13px;text-decoration:line-through"><i class="icon-sparkles" style="font-size:14px"></i>{{ s.aiCheck }}</span></div></div>
+            </sc-if>
+            <sc-if value="{{ ai.used }}">
+              <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;position:relative">
+                <span style="position:relative;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;white-space:nowrap;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500;opacity:.5;cursor:not-allowed"><i class="icon-sparkles" style="font-size:15px"></i>{{ s.aiSuggest }}</span>
+                <span style="max-width:260px;padding:7px 10px;border-radius:7px;background:var(--primary);color:var(--primary-fg);font-size:12px;line-height:1.4;box-shadow:var(--shadow-lg)">{{ s.aiUsed }}</span>
+              </div>
+              <div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted-fg)">{{ s.aiUsed }}</div>
+            </sc-if>
+            <sc-if value="{{ ai.fail }}">
+              <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:10px;background:var(--warning-soft);font-size:13px;line-height:1.55"><i class="icon-triangle-alert" style="font-size:16px;margin-top:2px;color:var(--warning-ink)"></i><div style="flex:1 1 200px;min-width:0"><strong style="font-weight:600">{{ s.aiFail }}</strong> {{ s.aiFailBody }}</div><span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;white-space:nowrap;flex:none;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500">{{ s.retry }}</span></div>
+              <span style="font-size:12.5px;color:var(--muted-fg)">{{ s.aiFailNote }}</span>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section data-screen-label="Asks" style="display:flex;flex-direction:column;gap:12px;max-width:880px">
+  <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">What we need back</h2>
+  <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column">
+    <sc-for list="{{ asks }}" as="a" hint-placeholder-count="4">
+      <li style="display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--border)">
+        <span style="width:18px;height:18px;margin-top:2px;border-radius:5px;border:1.5px solid var(--input)"></span>
+        <span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:14.5px;font-weight:600">{{ a.t }}</strong><span style="font-size:13.5px;color:var(--muted-fg);text-wrap:pretty">{{ a.b }}</span></span>
+      </li>
+    </sc-for>
+  </ol>
+  <p style="margin:0;font-size:12.5px;color:var(--muted-fg)">Shell, tokens and components rebuilt from <code style="font-family:ui-monospace,Menlo,monospace">web/src</code> on <code style="font-family:ui-monospace,Menlo,monospace">main</code>. Fixture rows and a few labels (table headers, Imports filters, AI copy) are illustrative.</p>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showGuides&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;startMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;proposed&quot;,&quot;v2&quot;],&quot;default&quot;:&quot;proposed&quot;,&quot;tsType&quot;:&quot;\&quot;proposed\&quot; | \&quot;v2\&quot;&quot;}}">
+const BP = [
+  { w: 360, h: 780 }, { w: 768, h: 1024 }, { w: 1024, h: 768 }, { w: 1280, h: 800 },
+  { w: 1440, h: 900 }, { w: 1920, h: 1080 }, { w: 2560, h: 1440 },
+];
+const SCREENS = ["dash", "asg", "wiz", "set", "imp", "proc", "hist", "bld"];
+const NAMES = { dash: "Dashboard", asg: "Assignments", wiz: "New assignment", set: "Settings", imp: "Import · upload", proc: "Import · processing", hist: "Imports history", bld: "Test builder" };
+const V2W = { dash: 1320, asg: 1320, wiz: 1080, set: 1080, imp: 860, proc: 720, hist: 1320, bld: 1320 };
+const MEAS = {};
+const PAGE_MAX = 1600;
+const ACTIVE = { dash: "dashboard", asg: "assignments", wiz: "assignments", set: null, imp: "tests", proc: "tests", hist: "tests", bld: "tests" };
+
+const L = {
+  vi: {
+    workspace: "Không gian giáo viên", role: "Giáo viên", search: "Tìm kiếm…",
+    grpTeaching: "Giảng dạy", grpContent: "Nội dung",
+    navDash: "Tổng quan", navAsg: "Bài giao", navGrade: "Chấm bài", navClasses: "Lớp học", navStudents: "Học viên", navTests: "Đề thi", navBank: "Ngân hàng câu hỏi", navMedia: "Thư viện media", settings: "Cài đặt",
+    greet: "Chào buổi chiều, Thương", date: "Thứ Hai, 12 tháng 10, 2026", newTest: "Đề thi mới", assignTest: "Giao bài",
+    kToGrade: "Chờ chấm", kFlagged: "Bài bị gắn cờ", kClosing: "Đóng trong 24 giờ", kTaking: "Đang làm bài",
+    hToGrade: "8 học viên · lâu nhất 2 giờ trước", hFlagged: "Rời trang trong lúc làm bài", hClosing: "Reading Mock 3 · 14/20 đã nộp", hTaking: "Trong 2 bài giao",
+    aGrade: "Chấm", aReview: "Xem lại", aMonitor: "Theo dõi", aWatch: "Xem",
+    submissions: "Bài nộp", r7: "7 ngày", r14: "14 ngày", r30: "30 ngày", subSummary: "142 trong 7 ngày qua · điểm trung bình 74%",
+    today: "Hôm nay", todayDate: "T2 12", live: "Bài đang mở", viewAll: "Xem tất cả", activity: "Hoạt động gần đây",
+    ev: [["09:00", "Mở: Listening Practice 12", null], ["17:00", "Đóng: IELTS Reading — Mock 3", "6 học viên chưa nộp"], ["20:30", "Đóng: Grammar Unit 5 Quiz", "2 học viên chưa nộp"]],
+    closesIn: "đóng sau 2 giờ", toGradeN: "3 chờ chấm",
+    actSubmitted: "đã nộp Reading Mock 3", actFlag: "rời trang 3 lần", actStarted: "bắt đầu Listening Practice 12", ago: ["5 phút trước", "12 phút trước", "20 phút trước"],
+    asgTitle: "Bài giao", asgDesc: "Các đề bạn đã giao cho lớp và học viên.", asgNew: "Giao bài mới", asgSearch: "Tìm bài giao", classFacet: "Lớp",
+    tabOpen: "Đang mở", tabSched: "Đã lên lịch", tabClosed: "Đã đóng", tabDraft: "Bản nháp",
+    colTest: "Đề thi", colClass: "Lớp", colCloses: "Đóng", colProgress: "Đã nộp", colGrade: "Chờ chấm",
+    pgRange: "1–5 trên 6 bài giao", pgRows: "Số dòng mỗi trang", pgOf: "Trang 1 trên 2", pgOne: "Trang 1 trên 1",
+    wizDesc: "Chưa có gì được gửi đi cho tới khi bạn bấm Giao bài. Mặc định là lựa chọn an toàn.", wizPick: "Chọn đề thi", wizSearch: "Tìm đề thi", wizSummary: "Tóm tắt", wizNext: "Tiếp tục",
+    stTest: "Đề thi", stStudents: "Học viên", stSchedule: "Lịch", stRules: "Quy định",
+    stTestV: "IELTS Reading — Mock 3", stStudentsV: "Chưa chọn", stScheduleV: "Chưa đặt", stRulesV: "Mặc định",
+    setTitle: "Cài đặt", setHint: "Hồ sơ, đăng nhập và cách Quizzivy làm việc cùng bạn.",
+    sProfile: "Hồ sơ", sSecurity: "Đăng nhập & bảo mật", sNotif: "Thông báo", sDefaults: "Mặc định khi giao bài", sAppearance: "Giao diện", sApi: "Tài liệu API",
+    profile: "Hồ sơ", profileHint: "Học viên thấy tên và ảnh của bạn.", saveChanges: "Lưu thay đổi",
+    fName: "Họ và tên", fDisplay: "Tên học viên thấy", fDisplayHint: "Hiện trên đề thi và tin nhắn", fEmail: "Email", fEmailHint: "Dùng để đăng nhập", fPhone: "Số điện thoại", fZone: "Múi giờ", zone: "TP. Hồ Chí Minh",
+    impTitle: "Nhập đề từ Word/PDF", impHint: "Tải lên đề thi Word hoặc PDF và, nếu có, tệp đáp án riêng. Bạn sẽ rà soát kết quả trước khi tạo bản nháp đề.",
+    fileMode: "Tải tệp lên", pasteMode: "Dán văn bản", files: "Tệp", formats: "DOCX hoặc PDF · tối đa 25 MB mỗi tệp", exam: "Đề thi", dropHint: "Kéo tệp vào đây, hoặc", choose: "Chọn tệp", answerKey: "Đáp án (không bắt buộc)",
+    privacyLead: "Nội dung của bạn được xử lý ở đâu.", privacy: "Tệp và văn bản đã dán chỉ thuộc lượt nhập của bạn, không phải tài liệu học viên.", start: "Bắt đầu",
+    processing: "Đang xử lý", stages: ["Kiểm tra tệp", "Đọc nội dung", "Nhận diện cấu trúc", "Đối chiếu đáp án", "Kiểm tra đề"], procNow: "Đang: Nhận diện cấu trúc", elapsed: "Đã chạy 0:42",
+    wsSources: "Nguồn", wsSteps: "Các bước sẽ chạy", wsHappens: "Tiến trình", wsReadAs: "Đã đọc được",
+    wsAi: "Đọc bằng AI", wsAiHint: "Tốt hơn với đề scan và bố cục phức tạp.", wsCost: "Dùng 1 tín dụng AI · còn 18", wsUsed: "Đã dùng 1 tín dụng AI",
+    wsStart: "Bắt đầu xử lý", wsStartReview: "Bắt đầu rà soát", wsLeave: "Bạn có thể rời trang này. Tiến trình vẫn hiện trong Lịch sử nhập.", wsCancel: "Huỷ",
+    wsReplace: "Thay tệp", wsStopped: "Đã dừng", wsReady: "Sẵn sàng rà soát", wsStopAt: "Dừng ở “Kiểm tra tệp”.", wsStopFix: "Thay tệp đề ở cột Nguồn rồi chạy lại.", wsStopShort: "Tệp đề",
+    wsReadyNote: "2 cần xử lý", wsFileErr: "Không mở được tệp: tệp đang đặt mật khẩu.", wsReplaceExam: "Thay tệp đề",
+    wsReadyLead: "Đã nhận diện 34 câu.", wsReadyBody: "2 câu cần bạn xử lý trong lúc rà soát.",
+    wsPasteLead: "34 câu được nhận diện · 2 cần kiểm tra", wsPasteHint: "Cập nhật khi bạn gõ. Sửa định dạng ở đây trước khi bắt đầu.", wsPasteCount: "1.186 ký tự · văn bản thuần",
+    wsNeedsCheck: "Cần kiểm tra", wsOk: "Ổn", wsFailed: "Lỗi", wsReading: "Đang đọc", wsDone: "Đã đọc", wsQueued: "Đang chờ", answerKeyShort: "Đáp án",
+    pasteSample: [["Phần 1 — Reading", "h"], ["1. Ý chính của đoạn A là gì?", ""], ["A. Giao thông   B. Nhà ở   C. Việc làm   D. Thời tiết", ""], ["Đáp án: A", ""], ["2. Từ 'rapid' gần nghĩa nhất với ___", ""], ["Đáp án: quick", ""], ["7. Đoạn C nói thành phố đã đóng tuyến tàu điện. (Đúng/Sai)", "w"], ["12. Vì sao số người đi xe buýt tăng?", ""], ["A. Vé rẻ hơn   B. Tuyến mới   C. Ít xe hơn", "w"]],
+    pasteItems: [["1", "Ý chính của đoạn A là gì?", "Một đáp án · 4 lựa chọn", true], ["2", "Từ 'rapid' gần nghĩa nhất với ___", "Điền từ · 1 đáp án", true], ["7", "Đoạn C nói thành phố đã đóng…", "Đúng/Sai · chưa có đáp án", false], ["12", "Vì sao số người đi xe buýt tăng?", "Một đáp án · chỉ có 3 lựa chọn", false], ["13", "Năm nào mạng lưới được mở rộng?", "Điền từ · 1 đáp án", true]],
+    histTitle: "Lịch sử nhập", histHint: "Các tệp Word, PDF và văn bản đã dán bạn đang chuyển thành đề. Mỗi lượt nhập giữ nội dung gốc, tiến trình và bản rà soát để bạn có thể quay lại bất cứ lúc nào.",
+    pasteTest: "Dán đề", impShort: "Nhập từ Word/PDF", histSearch: "Tìm lượt nhập",
+    htAll: "Tất cả", htRun: "Đang xử lý", htReview: "Cần rà soát", htDone: "Đã tạo đề", htFail: "Lỗi",
+    hcName: "Tên", hcStatus: "Trạng thái", hcQ: "Câu hỏi", hcSource: "Nguồn", hcUpdated: "Cập nhật",
+    redRange: "9 trên 9 lượt nhập", redPage: "Trang 1 trên 1", histPgRange: "1–9 trên 9 lượt nhập",
+    srcWord: "Word", srcPdf: "PDF", srcPaste: "Văn bản đã dán",
+    draft: "Bản nháp", saved: "Đã lưu 14:02", previewAs: "Xem như học viên", publish: "Phát hành", outline: "Dàn bài", outlineSum: "12 câu · 15 điểm",
+    sec1: "Phần 1", sec2: "Phần 2", qNum: "Câu 3 · Phần 1", qType: "Một đáp án", prompt: "Nội dung câu hỏi", options: "Lựa chọn",
+    promptText: "Theo đoạn văn, vì sao thành phố quyết định mở rộng mạng lưới xe buýt vào năm 2019?",
+    optT: ["Để giảm ùn tắc giờ cao điểm", "Vì dân số tăng nhanh", "Để thay thế tuyến tàu điện", "Do yêu cầu của chính phủ"],
+    aiTitle: "AI", aiSuggest: "Gợi ý điểm", aiCheck: "Kiểm tra đề này",
+    aiOff: "Trường chưa bật AI.", aiOffBody: "Quản trị viên bật AI trong Cài đặt hệ thống. Khi AI tắt, các nút AI được ẩn.", aiOffToolbar: "Thanh công cụ trình soạn đề, AI tắt",
+    aiUsed: "Bạn đã dùng hết hạn mức. Xin thêm trong Cài đặt.",
+    aiFail: "AI chưa trả lời được.", aiFailBody: "Yêu cầu mất quá nhiều thời gian. Nội dung của bạn không bị thay đổi.", aiFailNote: "Cùng callout cho lời từ chối, với lý do thay cho câu hết thời gian.", retry: "Thử lại",
+  },
+  en: {
+    workspace: "Teacher workspace", role: "Teacher", search: "Search…",
+    grpTeaching: "Teaching", grpContent: "Content",
+    navDash: "Dashboard", navAsg: "Assignments", navGrade: "Grading", navClasses: "Classes", navStudents: "Students", navTests: "Tests", navBank: "Question bank", navMedia: "Media", settings: "Settings",
+    greet: "Good afternoon, Thương", date: "Monday, 12 October 2026", newTest: "New test", assignTest: "Assign test",
+    kToGrade: "To grade", kFlagged: "Flagged attempts", kClosing: "Closing in 24 h", kTaking: "Taking a test now",
+    hToGrade: "8 students · oldest 2 hours ago", hFlagged: "Focus lost during a test", hClosing: "Reading Mock 3 · 14/20 in", hTaking: "Across 2 assignments",
+    aGrade: "Grade", aReview: "Review", aMonitor: "Monitor", aWatch: "Watch",
+    submissions: "Submissions", r7: "7 days", r14: "14 days", r30: "30 days", subSummary: "142 in the last 7 days · average score 74%",
+    today: "Today", todayDate: "Mon 12", live: "Live assignments", viewAll: "View all", activity: "Recent activity",
+    ev: [["09:00", "Opens: Listening Practice 12", null], ["17:00", "Closes: IELTS Reading — Mock 3", "6 students not submitted"], ["20:30", "Closes: Grammar Unit 5 Quiz", "2 students not submitted"]],
+    closesIn: "closes in 2 hours", toGradeN: "3 to grade",
+    actSubmitted: "submitted Reading Mock 3", actFlag: "left the page 3 times", actStarted: "started Listening Practice 12", ago: ["5 min ago", "12 min ago", "20 min ago"],
+    asgTitle: "Assignments", asgDesc: "Tests you have sent to classes and students.", asgNew: "New assignment", asgSearch: "Search assignments", classFacet: "Class",
+    tabOpen: "Live", tabSched: "Scheduled", tabClosed: "Closed", tabDraft: "Drafts",
+    colTest: "Test", colClass: "Class", colCloses: "Closes", colProgress: "Submitted", colGrade: "To grade",
+    pgRange: "1–5 of 6 assignments", pgRows: "Rows per page", pgOf: "Page 1 of 2", pgOne: "Page 1 of 1",
+    wizDesc: "Nothing is sent until you press Assign. Defaults are the safe choice.", wizPick: "Choose a test", wizSearch: "Search tests", wizSummary: "Summary", wizNext: "Continue",
+    stTest: "Test", stStudents: "Students", stSchedule: "Schedule", stRules: "Rules",
+    stTestV: "IELTS Reading — Mock 3", stStudentsV: "None chosen", stScheduleV: "Not set", stRulesV: "Defaults",
+    setTitle: "Settings", setHint: "Your profile, sign-in and how Quizzivy works for you.",
+    sProfile: "Profile", sSecurity: "Sign-in & security", sNotif: "Notifications", sDefaults: "Assignment defaults", sAppearance: "Appearance", sApi: "API reference",
+    profile: "Profile", profileHint: "Students see your name and photo.", saveChanges: "Save changes",
+    fName: "Full name", fDisplay: "Name students see", fDisplayHint: "Shown on tests and messages", fEmail: "Email", fEmailHint: "Used to sign in", fPhone: "Phone", fZone: "Time zone", zone: "Ho Chi Minh City",
+    impTitle: "Import from Word/PDF", impHint: "Upload the Word or PDF exam and, if you have one, a separate answer key. You'll review the result before a draft test is created.",
+    fileMode: "Upload a file", pasteMode: "Paste text", files: "Files", formats: "DOCX or PDF · up to 25 MB each", exam: "Exam", dropHint: "Drop a file here, or", choose: "Choose file", answerKey: "Answer key (optional)",
+    privacyLead: "Where your content goes.", privacy: "Files and pasted text belong only to your import, not to learner media.", start: "Start",
+    processing: "Processing", stages: ["Check the files", "Read the content", "Recognise the structure", "Match the answers", "Check the test"], procNow: "Now: Recognise the structure", elapsed: "Elapsed 0:42",
+    wsSources: "Sources", wsSteps: "What will run", wsHappens: "Progress", wsReadAs: "Read as",
+    wsAi: "Read with AI", wsAiHint: "Better for scans and complex layouts.", wsCost: "Uses 1 AI credit · 18 left", wsUsed: "Used 1 AI credit",
+    wsStart: "Start processing", wsStartReview: "Start review", wsLeave: "You can leave this page. Progress stays visible in Imports.", wsCancel: "Cancel",
+    wsReplace: "Replace", wsStopped: "Stopped", wsReady: "Ready for review", wsStopAt: "Stopped at “Check the files”.", wsStopFix: "Replace the exam file under Sources, then run it again.", wsStopShort: "Exam file",
+    wsReadyNote: "2 need action", wsFileErr: "This file can't be opened: it is password-protected.", wsReplaceExam: "Replace exam file",
+    wsReadyLead: "34 questions recognised.", wsReadyBody: "2 need your action during review.",
+    wsPasteLead: "34 questions recognised · 2 need checking", wsPasteHint: "Updates as you type. Fix formatting here before you start.", wsPasteCount: "1,186 characters · plain text",
+    wsNeedsCheck: "Needs checking", wsOk: "OK", wsFailed: "Failed", wsReading: "Reading", wsDone: "Read", wsQueued: "Waiting", answerKeyShort: "Answer key",
+    pasteSample: [["Section 1 — Reading", "h"], ["1. What is the main idea of paragraph A?", ""], ["A. Transport   B. Housing   C. Jobs   D. Weather", ""], ["Answer: A", ""], ["2. The word 'rapid' is closest in meaning to ___", ""], ["Answer: quick", ""], ["7. Paragraph C says the city closed its tram line. (True/False)", "w"], ["12. Why did bus ridership grow?", ""], ["A. Cheaper fares   B. New routes   C. Fewer cars", "w"]],
+    pasteItems: [["1", "What is the main idea of paragraph A?", "Single choice · 4 options", true], ["2", "The word 'rapid' is closest in meaning to ___", "Fill in the blank · 1 answer", true], ["7", "Paragraph C says the city closed…", "True/False · no answer given", false], ["12", "Why did bus ridership grow?", "Single choice · only 3 options", false], ["13", "In which year was the network expanded?", "Fill in the blank · 1 answer", true]],
+    histTitle: "Imports", histHint: "Word and PDF files and pasted text you are turning into tests. Each import keeps its original content, its progress and your review, so you can come back at any time.",
+    pasteTest: "Paste a test", impShort: "Import from Word/PDF", histSearch: "Search imports",
+    htAll: "All", htRun: "Processing", htReview: "To review", htDone: "Created", htFail: "Failed",
+    hcName: "Name", hcStatus: "Status", hcQ: "Questions", hcSource: "Source", hcUpdated: "Updated",
+    redRange: "9 of 9 imports", redPage: "Page 1 of 1", histPgRange: "1–9 of 9 imports",
+    srcWord: "Word", srcPdf: "PDF", srcPaste: "Pasted text",
+    draft: "Draft", saved: "Saved 14:02", previewAs: "Preview as student", publish: "Publish", outline: "Outline", outlineSum: "12 questions · 15 points",
+    sec1: "Section 1", sec2: "Section 2", qNum: "Question 3 · Section 1", qType: "Single choice", prompt: "Prompt", options: "Options",
+    promptText: "According to the passage, why did the city expand its bus network in 2019?",
+    optT: ["To reduce rush-hour congestion", "Because the population grew quickly", "To replace a tram line", "Because the government required it"],
+    aiTitle: "AI", aiSuggest: "Suggest a score", aiCheck: "Check this test",
+    aiOff: "AI is not turned on for this school.", aiOffBody: "An admin turns it on in System settings. While it is off, AI buttons are hidden.", aiOffToolbar: "Builder toolbar, AI off",
+    aiUsed: "Your allowance is used up. Ask for more in Settings.",
+    aiFail: "AI couldn't answer.", aiFailBody: "The request took too long. Nothing in your work was changed.", aiFailNote: "Same callout for a refusal, with its reason in place of the timeout line.", retry: "Try again",
+  },
+};
+
+const seg = (on) => ({ bg: on ? "var(--card)" : "transparent", fg: on ? "var(--fg)" : "var(--muted-fg)", ring: on ? "0 0 0 1px var(--border)" : "none" });
+
+function layout(W, mode, screen, collapsed) {
+  const sbW = W < 768 ? 0 : collapsed ? 60 : 248;
+  const gut = W < 768 ? 14 : mode === "p" && W >= 1920 ? 40 : 28;
+  const avail = W - sbW - 2 * gut;
+  const max = mode === "p" ? PAGE_MAX : V2W[screen];
+  const cw = Math.min(max, avail);
+  const x = Math.round(sbW + gut + (avail - cw) / 2);
+  const meas = mode === "p" ? MEAS[screen] : null;
+  const snap = !!meas && cw - meas < 160;
+  const colW = meas && !snap ? meas : cw;
+  return { sbW, gut, avail, cw, x, colW, hasCol: !!meas && !snap, snapped: snap, unused: Math.max(0, avail - cw) };
+}
+
+class Component extends DCLogic {
+  state = {
+    screen: "asg", bp: 4, mode: this.props.startMode === "v2" ? "v2" : "p", collapsed: false,
+    theme: "light", lang: "vi", guides: this.props.showGuides ?? true, stageW: 1100, ws: "draft",
+  };
+  stageRef = React.createRef();
+
+  componentDidMount() {
+    const el = this.stageRef.current;
+    if (!el) return;
+    const measure = () => this.setState({ stageW: el.clientWidth || 1100 });
+    measure();
+    if (typeof ResizeObserver === "function") {
+      this.ro = new ResizeObserver(measure);
+      this.ro.observe(el);
+    }
+  }
+  componentWillUnmount() { this.ro?.disconnect(); }
+
+  renderVals() {
+    const { screen, bp, mode, collapsed, theme, lang, guides, stageW, ws } = this.state;
+    const s = L[lang];
+    const { w: W, h: H } = BP[bp];
+    const lay = layout(W, mode, screen, collapsed);
+    const phone = W < 768;
+    const set = (k, v) => () => this.setState({ [k]: v });
+
+    const scale = Math.min(1, stageW / W);
+    const st = { W, H, scale, outerW: Math.round(W * scale), outerH: Math.round(H * scale) };
+
+    const colW = lay.colW;
+    const f = {
+      sidebar: !phone, sbW: lay.sbW, sbLabels: !collapsed, sbJustify: collapsed ? "center" : "flex-start",
+      toggleIcon: phone ? "icon-menu" : "icon-panel-left", themeIcon: theme === "dark" ? "icon-sun" : "icon-moon",
+      searchW: phone ? 34 : W >= 1100 ? 260 : 200, searchText: !phone,
+      pt: phone ? 16 : 24, gut: lay.gut, gap: 16,
+      pageMax: mode === "p" ? PAGE_MAX : V2W[screen],
+      colMax: lay.hasCol ? lay.colW + "px" : "none",
+      headMax: "none",
+      cards: phone, table: !phone,
+      colClass: colW >= 1240, classUnder: colW < 1240, colProgress: colW >= 760, colGrade: colW >= 900,
+      stepCols: phone ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))",
+      setNavDir: phone ? "row" : "column", setNavMin: phone ? "0" : "200px", setNavFlex: phone ? "0 1 100%" : "none",
+      histGrid: colW >= 960, histWide: colW >= 1240,
+      reducedPager: mode === "v2", fullPager: mode === "p", pagerWide: !phone,
+    };
+    const cols = ["16px", "minmax(0,2fr)"];
+    if (f.colClass) cols.push("minmax(0,1.2fr)");
+    cols.push("120px");
+    if (f.colProgress) cols.push("minmax(140px,1fr)");
+    if (f.colGrade) cols.push("80px");
+    cols.push("20px");
+    f.asgCols = cols.join(" ");
+    f.histCols = f.histGrid ? (f.histWide ? "minmax(0,2.2fr) 130px 90px 140px 130px 20px" : "minmax(0,2fr) 130px 90px 130px 20px") : "minmax(0,1fr) auto";
+
+    const is = Object.fromEntries(SCREENS.map((k) => [k, k === screen]));
+    const importScreen = screen === "imp" || screen === "proc";
+    is.ws = importScreen && mode === "p";
+    if (is.ws) { is.imp = false; is.proc = false; }
+    const wsState = ws;
+    const isDraft = wsState === "draft" || wsState === "paste";
+    const w = {
+      draft: isDraft, fileDraft: wsState === "draft", pasteDraft: wsState === "paste", fileCards: !isDraft,
+      stopped: wsState === "stopped", ready: wsState === "ready", running: wsState === "running",
+      title: isDraft ? s.impTitle : "IELTS Mock 3.docx",
+      hasPill: !isDraft,
+      pill: { running: s.processing, stopped: s.wsStopped, ready: s.wsReady }[wsState] || "",
+      pillIcon: { running: "icon-loader-circle", stopped: "icon-circle-alert", ready: "icon-circle-check" }[wsState] || "",
+      pillBg: { running: "var(--info-soft)", stopped: "var(--danger-soft)", ready: "var(--success-soft)" }[wsState] || "transparent",
+      pillFg: { running: "var(--info-ink)", stopped: "var(--danger-ink)", ready: "var(--success-ink)" }[wsState] || "inherit",
+      switchOp: isDraft ? 1 : 0.5,
+      ...Object.fromEntries(Object.entries(seg(wsState !== "paste")).map(([k, v]) => ["f" + k[0].toUpperCase() + k.slice(1), v])),
+      ...Object.fromEntries(Object.entries(seg(wsState === "paste")).map(([k, v]) => ["p" + k[0].toUpperCase() + k.slice(1), v])),
+      cols: lay.cw < 960 ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)",
+      showFormats: wsState === "draft", aiOp: isDraft ? 1 : 0.6,
+      rightTitle: wsState === "paste" ? s.wsReadAs : isDraft ? s.wsSteps : s.wsHappens,
+      showStages: wsState !== "paste", pastePreview: wsState === "paste", showElapsed: wsState === "running",
+      hasPrimary: wsState !== "running" && wsState !== "stopped",
+      primary: wsState === "ready" ? s.wsStartReview : s.wsStart,
+      footNote: isDraft ? s.wsCost : wsState === "ready" ? s.wsUsed : "",
+    };
+    const stageState = (i) => {
+      if (wsState === "running") return i < 2 ? "done" : i === 2 ? "cur" : "wait";
+      if (wsState === "stopped") return i === 0 ? "fail" : "wait";
+      if (wsState === "ready") return "done";
+      return "wait";
+    };
+    const wsStages = s.stages.map((label, i) => {
+      const k = stageState(i);
+      return { label, n: i + 1, done: k === "done", cur: k === "cur", fail: k === "fail", wait: k === "wait",
+        hasNote: k === "fail" || (wsState === "ready" && i === 4), note: k === "fail" ? s.wsStopShort : s.wsReadyNote,
+        bt: i ? "1px solid var(--border)" : "0", fg: k === "wait" ? "var(--muted-fg)" : k === "fail" ? "var(--danger-ink)" : "var(--fg)", fw: k === "cur" || k === "fail" ? 500 : 400,
+        cBg: k === "done" ? "var(--success-soft)" : k === "fail" ? "var(--danger-soft)" : k === "wait" ? "var(--muted)" : "transparent",
+        cFg: k === "done" ? "var(--success-ink)" : k === "fail" ? "var(--danger-ink)" : "var(--muted-fg)" };
+    });
+    const fileTone = wsState === "stopped" ? ["var(--danger-soft)", "var(--danger-ink)", s.wsFailed] : wsState === "running" ? ["var(--info-soft)", "var(--info-ink)", s.wsReading] : ["var(--success-soft)", "var(--success-ink)", s.wsDone];
+    const wsFiles = [
+      { name: "IELTS Mock 3.docx", meta: s.exam + " · DOCX · 1,2 MB", icon: "icon-file-text", err: wsState === "stopped", border: wsState === "stopped" ? "var(--danger)" : "var(--border)", sBg: fileTone[0], sFg: fileTone[1], status: fileTone[2], repOp: wsState === "running" ? 0.45 : 1 },
+      { name: "IELTS Mock 3 — key.pdf", meta: s.answerKeyShort + " · PDF · 340 KB", icon: "icon-key-round", err: false, border: "var(--border)", sBg: wsState === "stopped" ? "var(--muted)" : fileTone[0], sFg: wsState === "stopped" ? "var(--muted-fg)" : fileTone[1], status: wsState === "stopped" ? s.wsQueued : fileTone[2], repOp: wsState === "running" ? 0.45 : 1 },
+    ];
+    const pasteLines = s.pasteSample.map(([t, k]) => ({ t, fg: k === "h" ? "var(--fg)" : k === "w" ? "var(--warning-ink)" : "var(--fg)", bg: k === "w" ? "var(--warning-soft)" : "transparent", fw: k === "h" ? 600 : 400 }));
+    const pasteItems = s.pasteItems.map(([n, t, type, ok], i) => ({ n, t, type, bt: i ? "1px solid var(--border)" : "0",
+      status: ok ? s.wsOk : s.wsNeedsCheck, icon: ok ? "icon-check" : "icon-triangle-alert",
+      sBg: ok ? "var(--success-soft)" : "var(--warning-soft)", sFg: ok ? "var(--success-ink)" : "var(--warning-ink)" }));
+
+    const active = ACTIVE[screen];
+    const item = (id, label, icon, count, urgent) => {
+      const on = id === active;
+      return { label, icon, bg: on ? "var(--hover)" : "transparent", fg: on ? "var(--fg)" : "var(--muted-fg)", fw: on ? 500 : 400,
+        hasCount: !!count && !collapsed, count, cBg: urgent ? "var(--brand)" : "var(--muted)", cFg: urgent ? "var(--brand-fg)" : "var(--muted-fg)" };
+    };
+    const nav = [
+      { showLabel: false, items: [item("dashboard", s.navDash, "icon-layout-dashboard")] },
+      { showLabel: !collapsed, label: s.grpTeaching, items: [item("assignments", s.navAsg, "icon-clipboard-list", 6), item("grading", s.navGrade, "icon-square-pen", 12, true), item("classes", s.navClasses, "icon-graduation-cap"), item("students", s.navStudents, "icon-users")] },
+      { showLabel: !collapsed, label: s.grpContent, items: [item("tests", s.navTests, "icon-file-text"), item("bank", s.navBank, "icon-library"), item("media", s.navMedia, "icon-audio-lines")] },
+    ];
+    const CR = {
+      dash: [s.navDash], asg: [s.navAsg], wiz: [s.navAsg, s.asgNew], set: [s.settings],
+      imp: [s.navTests, s.histTitle, lang === "vi" ? "Lượt nhập mới" : "New import"], proc: [s.navTests, s.histTitle, lang === "vi" ? "Lượt nhập" : "Import"],
+      hist: [s.navTests, s.histTitle], bld: [s.navTests, lang === "vi" ? "Tên đề thi" : "Test title"],
+    }[screen];
+    const crumbs = CR.map((label, i) => ({ label, sep: i > 0 && !phone, last: i === CR.length - 1, fg: i === CR.length - 1 ? "var(--fg)" : "var(--muted-fg)", fw: i === CR.length - 1 ? 500 : 400 }))
+      .filter((c) => !phone || c.last);
+
+    const kpis = [
+      { label: s.kToGrade, icon: "icon-square-pen", tone: "var(--warning)", value: "12", hint: s.hToGrade, action: s.aGrade },
+      { label: s.kFlagged, icon: "icon-flag", tone: "var(--danger)", value: "3", hint: s.hFlagged, action: s.aReview },
+      { label: s.kClosing, icon: "icon-clock", tone: "var(--muted-fg)", value: "2", hint: s.hClosing, action: s.aMonitor },
+      { label: s.kTaking, icon: "icon-activity", tone: "var(--success)", value: "17", hint: s.hTaking, action: s.aWatch, live: true },
+    ];
+    const vals = [12, 18, 9, 22, 30, 15, 36];
+    const days = lang === "vi" ? ["T3", "T4", "T5", "T6", "T7", "CN", "T2"] : ["Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Mon"];
+    const bars = vals.map((v, i) => ({ h: Math.round((v / 36) * 100), bg: i === vals.length - 1 ? "var(--brand)" : "var(--hover)", label: days[i] }));
+    const events = s.ev.map(([time, title, note], i) => ({ time, title, note, hasNote: !!note, bar: note ? "var(--warning)" : "var(--brand)", bt: i ? "1px solid var(--border)" : "0" }));
+    const liveRows = [
+      { title: "IELTS Reading — Mock 3", meta: "IELTS Foundation T3/T5 · " + s.closesIn, pct: 70, frac: "14/20", hasGrade: true, grade: s.toGradeN },
+      { title: "Listening Practice 12", meta: (lang === "vi" ? "Lớp tối T2/T4" : "Evening class Mon/Wed") + " · " + s.closesIn, pct: 35, frac: "6/17", hasGrade: false },
+      { title: "Grammar Unit 5 Quiz", meta: "IELTS Foundation T3/T5 · " + s.closesIn, pct: 90, frac: "18/20", hasGrade: false },
+    ];
+    const acts = [
+      { ini: "MA", name: "Nguyễn Minh Anh", what: s.actSubmitted, when: s.ago[0] },
+      { ini: "HB", name: "Trần Hải Bình", what: s.actFlag, when: s.ago[1] },
+      { ini: "LC", name: "Lê Thu Chi", what: s.actStarted, when: s.ago[2] },
+    ].map((a, i) => ({ ...a, bt: i ? "1px solid var(--border)" : "0" }));
+
+    const asgTabs = [[s.tabOpen, 6, true], [s.tabSched, 3], [s.tabClosed, 24], [s.tabDraft, 2]].map(([label, count, on]) => ({ label, count, ...seg(!!on) }));
+    const cls = ["IELTS Foundation T3/T5", lang === "vi" ? "Lớp tối T2/T4" : "Evening class Mon/Wed", "IELTS Intensive"];
+    const asgRows = [
+      ["IELTS Reading — Mock 3", 0, "17:00", 70, "14/20", 3], ["Listening Practice 12", 1, "20:30", 35, "6/17", 0],
+      ["Grammar Unit 5 Quiz", 0, lang === "vi" ? "13 thg 10" : "13 Oct", 90, "18/20", 0], ["Writing Task 2 — Essay 4", 2, lang === "vi" ? "15 thg 10" : "15 Oct", 20, "3/15", 3],
+      ["Vocabulary Check 8", 1, lang === "vi" ? "18 thg 10" : "18 Oct", 0, "0/17", 0],
+    ].map(([title, c, closes, pct, frac, grade]) => ({ title, classes: cls[c], closes, pct, frac, grade: grade || "—" }));
+
+    const steps = [[s.stTest, s.stTestV], [s.stStudents, s.stStudentsV], [s.stSchedule, s.stScheduleV], [s.stRules, s.stRulesV]].map(([label, value], i) => ({
+      n: i + 1, label, value, border: i === 0 ? "var(--primary)" : "var(--border)", cBg: i === 0 ? "var(--primary)" : "var(--muted)", cFg: i === 0 ? "var(--primary-fg)" : "var(--muted-fg)",
+    }));
+    const wizTests = [["IELTS Reading — Mock 3", true], ["Listening Practice 12"], ["Grammar Unit 5 Quiz"], ["Writing Task 2 — Essay 4"]].map(([title, on]) => ({
+      title, meta: lang === "vi" ? "12 câu · 15 điểm · Đã phát hành" : "12 questions · 15 points · Published",
+      bg: on ? "var(--muted)" : "transparent", radio: on ? "5px solid var(--primary)" : "1px solid var(--input)",
+    }));
+    const setSections = [[s.sProfile, "icon-user", true], [s.sSecurity, "icon-lock"], [s.sNotif, "icon-bell"], [s.sDefaults, "icon-sliders-horizontal"], [s.sAppearance, "icon-palette"], [s.sApi, "icon-book-open"]]
+      .map(([label, icon, on]) => ({ label, icon, bg: on ? "var(--hover)" : "transparent", fg: on ? "var(--fg)" : "var(--muted-fg)", fw: on ? 500 : 400 }));
+    const fields = [[s.fName, "Võ Văn Thương"], [s.fDisplay, "Thương Võ", s.fDisplayHint], [s.fEmail, "thuong@quizzivy.com", s.fEmailHint], [s.fPhone, "+84 90 123 4567"], [s.fZone, s.zone, null, true]]
+      .map(([label, value, hint, select]) => ({ label, value, hint, hasHint: !!hint, select: !!select }));
+    const stages = s.stages.map((label, i) => {
+      const done = i < 2, cur = i === 2, wait = i > 2;
+      return { label, n: i + 1, done, cur, wait, bt: i ? "1px solid var(--border)" : "0", fg: wait ? "var(--muted-fg)" : "var(--fg)", fw: cur ? 500 : 400,
+        cBg: done ? "var(--success-soft)" : wait ? "var(--muted)" : "transparent", cFg: done ? "var(--success-ink)" : "var(--muted-fg)" };
+    });
+    const histTabs = [[s.htAll, 9, true], [s.htRun, 1], [s.htReview, 2], [s.htDone, 5], [s.htFail, 1]].map(([label, count, on]) => ({ label, count, ...seg(!!on) }));
+    const tone = { run: ["var(--info-soft)", "var(--info-ink)", s.htRun], rev: ["var(--warning-soft)", "var(--warning-ink)", s.htReview], done: ["var(--success-soft)", "var(--success-ink)", s.htDone], fail: ["var(--danger-soft)", "var(--danger-ink)", s.htFail] };
+    const histRows = [
+      ["IELTS Mock 3.docx", "run", "—", s.srcWord, "icon-file-text", lang === "vi" ? "Vừa xong" : "Just now"],
+      ["Listening 12 — key.pdf", "rev", "40", s.srcPdf, "icon-file", lang === "vi" ? "Hôm qua" : "Yesterday"],
+      [lang === "vi" ? "Đề dán · 10 thg 10" : "Pasted test · 10 Oct", "rev", "25", s.srcPaste, "icon-clipboard-paste", "10 Oct"],
+      ["Grammar Unit 5.docx", "done", "30", s.srcWord, "icon-file-text", "8 Oct"],
+      ["Reading Mock 2.pdf", "fail", "—", s.srcPdf, "icon-file", "6 Oct"],
+    ].map(([name, k, q, source, icon, when]) => ({ name, q, source, icon, when, sBg: tone[k][0], sFg: tone[k][1], status: tone[k][2] }));
+    const outline = [
+      [s.sec1, "6 · 7đ", "sec"], ["1. " + (lang === "vi" ? "Ý chính của đoạn A" : "Main idea of paragraph A"), "1đ"], ["2. " + (lang === "vi" ? "Từ đồng nghĩa với 'rapid'" : "Synonym for 'rapid'"), "1đ"],
+      ["3. " + (lang === "vi" ? "Vì sao mở rộng xe buýt" : "Why the bus network grew"), "1đ", "on"], ["4. " + (lang === "vi" ? "Điền từ: năm 2019" : "Fill in: 2019"), "2đ"],
+      [s.sec2, "6 · 8đ", "sec"], ["7. " + (lang === "vi" ? "Đúng/Sai: đoạn C" : "True/False: paragraph C"), "1đ"],
+    ].map(([label, meta, k]) => ({ label, meta: lang === "vi" ? meta : meta.replace("đ", " pt"), pad: k === "sec" ? "10px 14px" : "8px 14px 8px 26px", bg: k === "on" ? "var(--hover)" : k === "sec" ? "var(--muted)" : "transparent", fw: k === "sec" || k === "on" ? 500 : 400, fg: "var(--fg)" }));
+    const toolbar = ["icon-bold", "icon-italic", "icon-underline", "icon-heading-2", "icon-list", "icon-list-ordered", "icon-link"];
+    const opts = s.optT.map((t, i) => ({ l: "ABCD"[i], t, border: i === 0 ? "var(--success)" : "var(--border)", bg: i === 0 ? "var(--success-soft)" : "transparent", radio: i === 0 ? "5px solid var(--success)" : "1px solid var(--input)" }));
+
+    const lw = Math.max(2, Math.round(2 / scale));
+    const fs = Math.round(12 / scale);
+    const g = {
+      lw, fs, lp: Math.round(3 / scale), lp2: Math.round(7 / scale), lr: Math.round(4 / scale),
+      leftHatch: Math.max(0, lay.x - lay.sbW), rightStart: lay.x + lay.cw,
+      labelTop: 56 + Math.round(4 / scale), labelBottom: Math.round(10 / scale), labelTop2: 56 + Math.round(30 / scale), midX: lay.x + Math.round(lay.cw / 2), colTop: 56 + 80,
+      colEnd: lay.x + lay.colW, colGap: lay.cw - lay.colW, colGapMid: lay.x + lay.colW + Math.round((lay.cw - lay.colW) / 2), colLabelTop: 56 + Math.round(120 / scale),
+      colGapLabel: "free " + (lay.cw - lay.colW),
+    };
+    const m = { W, x: lay.x, cw: lay.cw, unused: lay.unused, gut: lay.gut, colW: lay.colW, hasCol: lay.hasCol, snapped: lay.snapped };
+
+    const edges = SCREENS.map((k) => {
+      const v = layout(W, "v2", k, collapsed), p = layout(W, "p", k, collapsed);
+      const pc = (n) => +((n / W) * 100).toFixed(3);
+      return { name: NAMES[k], sb: pc(v.sbW), vx: pc(v.x), vw: pc(v.cw), px: pc(p.x), pw: pc(p.cw), pc: pc(p.colW), hasCol: p.hasCol, vxPx: v.x, pxPx: p.x };
+    });
+    m.v2Edges = new Set(edges.map((e) => e.vxPx)).size;
+
+    const NOTES = [
+      "Drawer sidebar; only the last crumb; tables become cards; stepper in 2 columns; pager drops rows-per-page, first and last.",
+      "Sidebar joins the page; settings links become a column; tables show the core columns; stepper in 4 columns.",
+      "Dashboard rows stack (each needs 832px for two cards); forms already fill their column.",
+      "Dashboard returns to two cards per row; Assignments gains the Submitted column.",
+      "Assignments gains To grade; Imports history switches to its grid at 960px of content.",
+      "Gutter grows to 40. Today 296px sits empty; the proposal fills it, so tables show every column and the builder's editor widens.",
+      "Content stops at 1600px and centres. Today's 1320px leaves 936px empty.",
+    ];
+    const bpRows = BP.map((b, i) => {
+      const v = layout(b.w, "v2", "asg", false), p = layout(b.w, "p", "asg", false);
+      return { w: b.w, sb: b.w < 768 ? "drawer" : "248", gut: v.gut === p.gut ? String(p.gut) : v.gut + " → " + p.gut, v2: v.cw, v2u: v.unused ? v.unused + " unused" : "fills",
+        p: p.cw, pu: p.unused ? p.unused + " unused" : "fills", note: NOTES[i], bg: i === bp ? "var(--anno-soft)" : "transparent" };
+    });
+
+    const focusSpecs = [
+      { name: "Primary button", isBtn: true, label: s.assignTest, bg: "var(--primary)", fg: "var(--primary-fg)", border: "0" },
+      { name: "Outline button", isBtn: true, label: s.newTest, bg: "var(--card)", fg: "var(--fg)", border: "1px solid var(--border)" },
+      { name: "Sidebar link (inset)", isNav: true }, { name: "Segmented option", isSeg: true },
+      { name: "Text field", isInput: true }, { name: "Pager arrow", isArrow: true }, { name: "List row (inset)", isRow: true },
+    ];
+    const aiStates = [
+      { title: "Provider off", when: "School has AI turned off", off: true },
+      { title: "Allowance used", when: "Teacher is paused or out of credits", used: true },
+      { title: "Refused or timed out", when: "Request fails", fail: true },
+    ];
+
+    const opt = (list, cur, key) => list.map(([v, label]) => ({ label, on: v === cur, pick: set(key, v), ...seg(v === cur) }));
+    return {
+      theme, s, st, f, is, m, g, nav, crumbs, guides,
+      isLight: theme !== "dark", isDark: theme === "dark",
+      stageRef: this.stageRef, noop: (e) => e.preventDefault(),
+      screenOpts: SCREENS.map((k) => ({ label: mode === "p" && k === "imp" ? "Import · workspace" : NAMES[k], on: k === screen, ...seg(k === screen),
+        pick: () => this.setState(k === "imp" ? { screen: k, ws: "draft" } : k === "proc" ? { screen: k, ws: "running" } : { screen: k }) })).filter((o, i) => !(mode === "p" && SCREENS[i] === "proc")),
+      wsOpts: opt([["draft", "Draft · file"], ["paste", "Draft · paste"], ["running", "Processing"], ["stopped", "Stopped"], ["ready", "Ready"]], ws, "ws"),
+      w, wsStages, wsFiles, pasteLines, pasteItems,
+      flowRows: [
+        { step: "Imports list", v2: "1320px", p: "Frame", pFg: "var(--fg)", pFw: 400 },
+        { step: "Upload and setup", v2: "860px", p: "Import workspace, draft", pFg: "var(--anno)", pFw: 600 },
+        { step: "Processing", v2: "720px", p: "Import workspace, running", pFg: "var(--anno)", pFw: 600 },
+        { step: "Review", v2: "full", p: "Full width (unchanged)", pFg: "var(--fg)", pFw: 400 },
+        { step: "Preview and create", v2: "1320px", p: "Frame", pFg: "var(--fg)", pFw: 400 },
+      ],
+      wsWhy: [
+        { n: 1, t: "One task, one place", b: "The teacher keeps their context. An error such as \u201cStopped at Check the files\u201d sits beside the file that caused it, with Replace right there." },
+        { n: 2, t: "The width does real work", b: "The second pane carries steps, cost and live progress. Stretching one column to 1600px would only make a huge drop zone and lines too long to read." },
+        { n: 3, t: "Paste gets a live preview", b: "In paste mode the right pane shows what was recognised as you type, so formatting is fixed before Start, not after." },
+        { n: 4, t: "Review stays separate", b: "Review is long, careful work that needs the whole screen. Below 960px of content the two panes stack: sources first, then progress." },
+      ],
+      bpOpts: opt(BP.map((b, i) => [i, String(b.w)]), bp, "bp"),
+      modeOpts: opt([["v2", "v2 deck"], ["p", "Proposed"]], mode, "mode"),
+      sbOpts: opt([[false, "Sidebar open"], [true, "Collapsed"]], collapsed, "collapsed"),
+      themeOpts: opt([["light", "Light"], ["dark", "Dark"]], theme, "theme"),
+      langOpts: opt([["vi", "VI"], ["en", "EN"]], lang, "lang"),
+      toggleGuides: () => this.setState({ guides: !guides }), guidesLabel: guides ? "Hide guides" : "Show guides",
+      kpis, bars, events, liveRows, acts, asgTabs, asgRows, steps, wizTests, setSections, fields, stages, histTabs, histRows, outline, toolbar, opts,
+      edges, bpRows, focusSpecs, aiStates,
+      wideOpts: [
+        { title: "Leave the gap", body: "The v2 approach: a fixed column with empty space beside it. Fine for one focused task, but it looks unfinished on working pages and the gap grows with the screen.", aL: 8, aW: 52, hasGap: true, gL: 61, aBg: "var(--input)", border: "var(--border)" },
+        { title: "Centre the column", body: "Spreads the empty space evenly on both sides, but the left edge moves between pages again. That is the problem we are trying to solve.", aL: 24, aW: 52, aBg: "var(--input)", border: "var(--border)" },
+        { title: "Stretch everything", body: "Fills the space, but fields 1300px wide and lines of 200 characters are hard to read and look wrong. A width limit is still needed somewhere.", aL: 8, aW: 84, aBg: "var(--input)", border: "var(--border)" },
+        { title: "Containers fill, text is capped", body: "The stepper, list and cards use the frame; the summary docks on the right. Fields stay at most 480px wide and prose at most 72 characters per line. Settings fields flow into 2 to 3 columns.", aL: 8, aW: 60, hasB: true, bL: 70, bW: 22, aBg: "var(--anno)", bBg: "var(--anno)", rec: true, border: "var(--anno)" },
+      ],
+      rules: [
+        { n: 1, title: "One frame, up to 1600px", body: "Every teacher page uses one content frame. It fills the space beside the sidebar and stops growing at 1600px, then centres." },
+        { n: 2, title: "One left edge", body: "Title, toolbar and content start at the frame's left edge on every page, so nothing jumps sideways when you move between pages." },
+        { n: 3, title: "Size the content, not the page", body: "Cards, lists, tables and steppers fill the frame. Only text is capped: a field is at most 480px wide and prose at most 72 characters per line. No page is narrow on purpose: import upload and processing merge into one two-pane workspace that fills the frame." },
+        { n: 4, title: "Gutters by width", body: "14px below 768, 28px from 768, 40px from 1920. Top padding stays 16 / 24px." },
+        { n: 5, title: "One named exception", body: "Import review stays full-bleed with the sidebar collapsed. Any new exception needs a name and a reason in the deck." },
+      ],
+      tokens: [
+        { name: "--page-max", value: "1600px", replaces: "1320 · 1080 · 860 · 720 as page widths" },
+        { name: "--page-gutter", value: "14 / 28 / 40", replaces: "px-3.5 · px-7 (no wide step today)" },
+        { name: "--field-max", value: "480px", replaces: "Fields that stretch with the page; prose capped at 72ch" },
+        { name: "--pane-split", value: "1fr 1fr", replaces: "Import upload 860 + Processing 720; panes stack below 960px of content" },
+        { name: "--page-pad-top", value: "16 / 24", replaces: "pt-4 · pt-6 (unchanged)" },
+        { name: "--page-full", value: "none", replaces: "width: \"full\", Import review only" },
+      ],
+      asks: [
+        { t: "Approve or amend the page-width rule", b: "One frame up to 1600px, one left edge, two form columns, gutters 14 / 28 / 40. Blocks v0.10.1. Please redraw the eight screens above at 1440 and 1920." },
+        { t: "One pager design, Imports history included", b: "Confirm the workspace pager for the history (DG-203), and draw its phone form." },
+        { t: "The missing states", b: "AI panel with the provider off, allowance used, and refused or timed out (DG-201); focus rings on every control; errors on each new screen." },
+        { t: "From the next export on", b: "A changelog, an updated MANIFEST.sha256, and no prototype controls in production frames." },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
