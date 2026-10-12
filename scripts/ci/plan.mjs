@@ -27,6 +27,11 @@ const NOT_CODE = [
  */
 export const SETS = {
   deck: { base: 'none', include: ['docs/design/', 'scripts/check-design-deck.mjs'], exclude: [] },
+  image: {
+    base: 'none',
+    include: ['Dockerfile', '.dockerignore', 'fly.toml', 'server/', 'migrations/', 'scripts/provision-db.sh'],
+    exclude: [],
+  },
   server: { base: 'all', include: ['web/tests/e2e/fixtures/', 'api/testdata/pasted-text-counts.json'], exclude: [...NOT_CODE, 'web/'] },
   web: {
     base: 'all',
@@ -46,6 +51,7 @@ export const JOBS = [
   { id: 'contract', set: 'code' },
   { id: 'server-lint', set: 'server' },
   { id: 'server-test', set: 'server' },
+  { id: 'production-image', set: 'image' },
   { id: 'web-check', set: 'web' },
   { id: 'web-unit', set: 'web', shards: 2 },
   { id: 'e2e', set: 'web' },
