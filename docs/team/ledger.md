@@ -7,24 +7,42 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-12, 04:25 UTC.
-- **Base:** `work/redesign-r4` at `a598a44d` (#513 merged).
-- **Objective:** unchanged: R4 to v0.10.0, then D4 (v0.11.0) (T-24). The Tech Lead merges into
-  `work/redesign-r4` on green CI (T-37); a release to `main` needs the user.
-- **In flight** (at most three agents, T-36):
-
-  | Task | PR | Owner | State |
-  |---|---|---|---|
-  | T-R4.50, the Tech Lead's half, and this checkpoint | #517 | Tech Lead | merge on green |
-  | F-65, the seed's import holding the worker's slot | #518 | platform | drops #513's CI workaround (`IMPORT_WORKER_GLOBAL_LIMIT: "2"`), then green |
-  | UI minors (F-21, F-50, F-15, F-47, F-38, F-25, F-26, F-44) | not yet | frontend, lane 2, `/home/user/wt-minors` | building |
-  | T-R4.51, the deck comparison of every `/teacher/*` route | not yet | tester, `/home/user/wt-r451` | sweep running |
-
-- **Waiting on the user:** the seven days of production `legacy_admin_path` counts for
-  T-R4.49 A; the release to `main` at T-R4.52; O-R4.20 (Remove and Move on Students); whether
-  to delete the local-dev MinIO objects the E2E runs left (about 72 in `quizzivy-imports`, ids in
-  `/tmp/claude-0/imports-ids-139.txt`, and the five audio files in `quizzivy-media`); the
-  T-R4.51 items that need Firefox, WebKit, Word or Google Docs.
+- **As of:** 2026-10-12, 11:30 UTC.
+- **Base:** `main` at `e06511fc` (#531, the release, and hotfix #532); `develop` takes it back
+  through the back-merge PR.
+- **Objective:** D4 (v0.11.0) after the follow-ups below (T-24).
+- **Shipped:** v0.10.0 is on Fly and Pages since 11:21 UTC, after INC-5 (below): the API was
+  down from about 10:45 to 11:20. The tag `v0.10.0` on `e06511fc` is the owner's to push (the
+  session's proxy refuses tag pushes), as for v0.8.0 and v0.9.0.
+- **Decided by the owner today:**
+  - Deploy to Fly; the VPS path (#434) is later work.
+  - A rotated legacy join code keeps its use count (F-67, #527).
+  - No Neon rehearsal; the `api` record stays grey.
+  - The `/admin` alias stays (T-R4.49 A to R5).
+- **Waiting on the user:**
+  - O-R4.20: Remove and Move on Students.
+  - O-R4.21: the refresh window (keepalive or a reuse interval).
+  - The media replace accounting (F-68, below).
+  - The infra checks the release could not run: Neon, phone smoke, the v0.9.0 checks, compute hours.
+  - Whether to delete the local-dev MinIO objects the E2E runs left.
+  - The production checks the session cannot make: `legacy_join_codes_rotated` in the API log
+    (the deploy token cannot read logs), and the smoke in `74-r4.md`.
+- **Follow-ups after the release** (one PR each, before D4 starts):
+  - F-72: a CI job that starts the production image (INC-5), first.
+  - F-68: `replaceMedia`'s quota accounting, the review's option (c): count a replaced file
+    while a version holds it, then a sweep. The owner's policy decides. Declare the 429 in the
+    contract with it.
+  - F-69: the class monitor lists a non-student member who has not sat; the export no longer does.
+  - F-70: other `uniqueItems` uuid arrays (`duplicateAssignment.classIds`, the overrides'
+    `studentIds`) may repeat under case variants.
+  - F-71: `APP_DATABASE_URL` is unset in CI, so one app-role test skips there (platform).
+  - QA-51-9: the Brand dev warning.
+  - QA-51-10's rest: a reset socket on the response write is still a 500.
+  - QA-51-11: the Imports pager in the card.
+  - QA-51-12: line-heights.
+  - QA-51-13: the formats line.
+  - The `admin-*` query-key rename (T-R4.48).
+  - O-R4.23: the student payload's flag.
 
 ## Roster and models
 
@@ -408,6 +426,8 @@ and any reversal of the defaults above.
 | O-R (Students) | Should Remove and Move act only on the class the Class facet filters to, when exactly one is chosen? Built: every class, named in the confirmation. | the user | open: O-R4.20 in `40-open-items.md` (#517) |
 | F-65 | `seed/08` held one import run `running` on a ten-year lease, which took the worker's only slot: a local worker at the default limit queued every new import, and #513's live job needed a limit of 2. | platform | on #518: the run is `queued` ten years out |
 | T48-1 | #515's rewritten wizard zone case clicked a stepper nine times and timed out at CI's 5 s (6.5 s). | Tech Lead | fixed on #515: two steps, 2.6 s |
+| INC-5 | The v0.10.0 deploy (run 38238171020) crash-looped the API machine: "IMPORT_WORK_DIR must be a private directory with mode 0700". The image ships `/home/nonroot/imports` through `COPY`, which lands at 0755, and `MkdirAll` leaves an existing directory's mode alone; every test made the directory itself. Migrations 00080 to 00106 had applied; the worker started; Pages was skipped and kept v0.9.0. The API was down from about 10:45 UTC. | Tech Lead | fixed: hotfix #532 (`e06511fc`), `wiring.PrivateWorkDir` narrows the image's directory at start-up; F-72 |
+| F-72 | No CI job starts the production image, so a start-up check that depends on the image's file system passes every test and fails only on Fly (INC-5). A job that builds the `Dockerfile` and runs `/app/api` and `/app/import-worker` as `nonroot` until they listen, or refuse on configuration, would have caught it. | platform | open: before D4's first deploy |
 
 ## Reviews
 
@@ -485,10 +505,6 @@ and any reversal of the defaults above.
 
 ## Next action
 
-As each hand-off arrives:
-- **#517** green → merge. **#518**: the platform engineer merges the base, removes the CI
-  workaround and its `ci.md` sentence → green → merge.
-- **Lane 2's UI-minors PR** → review → merge.
-- **T-R4.51** → the tester's matrix PR; each deviation to its owner; the DG-16 timing decides the
-  paste footer's copy.
-- Then T-R4.52's checklist to the user, with 49 A's counts.
+- The back-merge PR (`main` into `develop`) → green → merge.
+- F-72 (platform), then F-68 to F-71 and the QA-51 minors, at most three agents at once.
+- Then D4 from `74d-d4-deck-update.md`, on `work/deck-d4` cut from `develop`.

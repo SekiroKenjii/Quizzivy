@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"os"
 	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/modules/imports/domain"
@@ -20,7 +19,7 @@ import (
 // ImportWorker assembles a single synchronous pipeline, with database leases bounding concurrency across processes.
 func ImportWorker(ctx context.Context, cfg config.ImportWorker, dbx db.Context) (worker.Runner, error) {
 	base := cfg.Base
-	if err := os.MkdirAll(base.ImportWorkDir, 0o700); err != nil {
+	if err := PrivateWorkDir(base.ImportWorkDir); err != nil {
 		return worker.Runner{}, err
 	}
 	var converter *wordconvert.Converter
