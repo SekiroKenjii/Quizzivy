@@ -182,7 +182,7 @@ function KeyHint({ hint }: Readonly<{ hint: KeysHint }>) {
 
 function Key({ children }: Readonly<{ children: string }>) {
   return (
-    <kbd className="bg-card text-fg inline-flex h-5.5 min-w-5.5 items-center justify-center rounded-[5px] border border-b-2 px-[5px]">
+    <kbd className="bg-card text-fg inline-flex h-5.5 min-w-5.5 items-center justify-center rounded-[5px] border border-b-2 px-[5px] font-mono">
       {children}
     </kbd>
   );
