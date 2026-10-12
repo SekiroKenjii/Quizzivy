@@ -93,6 +93,9 @@ func (a *App) Serve(ctx context.Context) error {
 	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity)
 	go jobs.PruneNotifications(ctx, a.logger, a.assembly.Notifications)
 	go jobs.RotateLegacyJoinCodes(ctx, a.logger, a.assembly.Classes)
+	if a.assembly.AI != nil {
+		go jobs.ReleaseStaleAiReservations(ctx, a.logger, a.assembly.AICredits)
+	}
 	if sweeper := a.assembly.ImportSweeper; sweeper != nil {
 		go jobs.SweepImportFiles(ctx, a.logger, sweeper.Sweep, jobs.ImportRetention{Every: 24 * time.Hour, Retry: time.Hour, Budget: 5 * time.Minute})
 	}

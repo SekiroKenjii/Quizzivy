@@ -126,6 +126,35 @@ func TestTheProviderClientIsReachedOnlyThroughTheCompositionRoot(t *testing.T) {
 	}
 }
 
+func TestTheAIModuleKeepsToItsLayers(t *testing.T) {
+	cases := []struct {
+		from, to string
+		allowed  bool
+	}{
+		{"modules/ai/domain/credits.go", "shared/actor", true},
+		{"modules/ai/domain/credits.go", "shared/validation", true},
+		{"modules/ai/domain/credits.go", "platform/config", false},
+		{"modules/ai/application/command/settle.go", "platform/config", false},
+		{"modules/ai/application/command/settle.go", "platform/db", false},
+		{"modules/ai/application/command/reserve.go", "modules/ai/repositories", false},
+		{"modules/ai/application/internal/support/service.go", "modules/notifications/application/command", true},
+		{"modules/ai/application/internal/support/service.go", "modules/notifications/domain", true},
+		{"modules/ai/application/internal/support/service.go", "modules/notifications/repositories", false},
+		{"modules/ai/repositories/credits.go", "platform/db", true},
+		{"modules/ai/repositories/credits.go", "modules/notifications/domain", true},
+		{"modules/ai/repositories/credits.go", "modules/notifications/application", false},
+		{"modules/ai/http/ai.go", "modules/ai/repositories", false},
+		{"core/maintenance/ai.go", "modules/ai/repositories", true},
+		{"core/wiring/ai.go", "modules/ai/repositories", true},
+		{"core/jobs/ai_reservations.go", "modules/ai/application", true},
+	}
+	for _, c := range cases {
+		if got := forbidden(c.from, c.to) == ""; got != c.allowed {
+			t.Errorf("%s importing %s: allowed = %v, want %v", c.from, c.to, got, c.allowed)
+		}
+	}
+}
+
 func TestOnlyThePlatformClientImportsTheProviderSDK(t *testing.T) {
 	var offences []string
 	for _, root := range []struct{ dir, prefix string }{{filepath.Join("..", ".."), ""}, {filepath.Join("..", "..", "..", "cmd"), "cmd/"}} {
