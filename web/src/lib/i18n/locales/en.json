@@ -2095,6 +2095,7 @@
     "sharedAudioPending": "Listening activity is waiting to sync.",
     "answerOptions": "Answer options",
     "blankLabel": "Blank {{n}}",
+    "blankPlaceholder": "type here",
     "yourAnswer": "Your answer",
     "answerPlaceholder": "Type your answer",
     "wordCount_one": "{{count}} word",
