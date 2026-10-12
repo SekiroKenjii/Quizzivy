@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { RouteObject } from "react-router";
+import { teacherHandleOf } from "@/layouts/shell/handle";
 
 const ROUTER = readFileSync(
   resolve(import.meta.dirname, "../../../src/app/router.tsx"),
@@ -183,5 +185,38 @@ describe("the teacher's route table", () => {
     expect(withHandles).not.toBe(ROUTER);
     expect(routesOf(withHandles)).toEqual(TEACHER_TREE);
     expect(depthsOf(withHandles)).toEqual(depthsOf(ROUTER));
+  });
+
+  it("gives every page a teacher handle; only the attempts redirect, which renders no page, has none", async () => {
+    const { router } = await import("@/app/router");
+    const leaves: { path: string; route: RouteObject }[] = [];
+    const walk = (route: RouteObject, base: string) => {
+      const path = route.index
+        ? `${base} (index)`
+        : [base, route.path].filter(Boolean).join("/");
+      if (route.children === undefined || route.children.length === 0)
+        leaves.push({ path, route });
+      for (const child of route.children ?? []) walk(child, route.index ? base : path);
+    };
+    const find = (routes: readonly RouteObject[]): RouteObject | undefined => {
+      for (const route of routes) {
+        if (route.path === "teacher") return route;
+        const found = find(route.children ?? []);
+        if (found !== undefined) return found;
+      }
+      return undefined;
+    };
+    const teacher = find(router.routes);
+    expect(teacher).toBeDefined();
+    walk(teacher!, "");
+
+    const redirect = "teacher/assignments/:id/attempts";
+    expect(leaves.map((leaf) => leaf.path)).toContain(redirect);
+    const unnamed = leaves
+      .filter((leaf) => leaf.path !== redirect)
+      .filter((leaf) => teacherHandleOf(leaf.route.handle) === null)
+      .map((leaf) => leaf.path);
+    expect(unnamed).toEqual([]);
+    expect(leaves.length).toBeGreaterThanOrEqual(TEACHER_TREE.length - 2);
   });
 });
