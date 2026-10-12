@@ -15,6 +15,12 @@ func msgNoActiveCode(ctx context.Context) string {
 	return httpx.Text(ctx, "Lớp này chưa có mã tham gia.", "This class has no join code yet.")
 }
 
+func msgClassArchived(ctx context.Context) string {
+	return httpx.Text(ctx,
+		"Lớp này đã được lưu trữ nên không thể tạo mã tham gia mới. Hãy khôi phục lớp trước.",
+		"This class is archived, so it cannot have a new join code. Restore the class first.")
+}
+
 // GetJoinCode implements GET /teacher/classes/{id}/join-code (D5): the active
 // code of a class the caller reaches, never cached. Another teacher's class
 // answers 404 exactly as a missing one does.
@@ -73,12 +79,14 @@ func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinC
 	}
 
 	rotated, err := h.app.Commands.Rotate.Handle(ctx, command.Rotate{Request: req})
-	if err != nil {
-		if errors.Is(err, domain.ErrClassNotFound) {
-			return openapi.RotateJoinCode404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound(ctx))),
-			}, nil
-		}
+	switch {
+	case errors.Is(err, domain.ErrClassNotFound):
+		return openapi.RotateJoinCode404JSONResponse{
+			NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgClassNotFound(ctx))),
+		}, nil
+	case errors.Is(err, domain.ErrClassArchived):
+		return openapi.RotateJoinCode409JSONResponse(httpapi.Error(ctx, openapi.CLASSARCHIVED, msgClassArchived(ctx))), nil
+	case err != nil:
 		return nil, err
 	}
 
@@ -166,6 +174,8 @@ func ToAPIClass(c domain.EnrolledClass) openapi.Class {
 		Id:              httpapi.ParseUUID(c.ID),
 		Name:            c.Name,
 		Description:     c.Description,
+		ScheduleLabel:   c.ScheduleLabel,
+		Room:            c.Room,
 		StudentCount:    c.StudentCount,
 		SelfJoinEnabled: c.SelfJoinEnabled,
 		CreatedAt:       c.CreatedAt,

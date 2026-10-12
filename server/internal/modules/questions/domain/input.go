@@ -9,15 +9,23 @@ import (
 	"quizzivy/internal/shared/validation"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
+
+// MaxMediaAltLength is the most characters the alt text of a question's image
+// holds: the bound ContentImage.alt has and the check on both media_alt columns.
+const MaxMediaAltLength = 1000
 
 // Input is a create or update body, already parsed but not yet validated.
 type Input struct {
 	PromptContent      json.RawMessage
 	ExplanationContent json.RawMessage
 	Type               Type
+	Level              *Level
+	Skill              *Skill
 	Prompt             string
 	MediaAssetID       *string
+	MediaAlt           *string
 	Audio              *AudioPolicy
 	Transcript         *string
 	Options            []OptionInput
@@ -84,6 +92,9 @@ type BlankInput struct {
 // questions, or every teacher's under scope.all; a zero Scope matches nothing.
 type ListInput struct {
 	Types    []Type
+	Levels   []Level
+	Skills   []Skill
+	TagMatch string
 	Tags     []string
 	HasAudio *bool
 	Query    string
@@ -101,6 +112,12 @@ func (in Input) Validate(assetKind *string) error {
 		add("type", "Loại câu hỏi không hợp lệ.")
 		return &ValidationError{Fields: errs}
 	}
+	if in.Level != nil && !validLevel(*in.Level) {
+		add("level", "Trình độ không hợp lệ.")
+	}
+	if in.Skill != nil && !validSkill(*in.Skill) {
+		add("skill", "Kỹ năng không hợp lệ.")
+	}
 	if strings.TrimSpace(in.Prompt) == "" {
 		add("prompt", "Nội dung câu hỏi không được để trống.")
 	}
@@ -114,6 +131,7 @@ func (in Input) Validate(assetKind *string) error {
 	validateOptions(in, add)
 	validateBlanks(in, add)
 	validateMedia(in, assetKind, add)
+	validateMediaAlt(in, assetKind, add)
 
 	if in.SampleAnswer != nil && *in.SampleAnswer != "" && in.Type != ShortAnswer {
 		add("sampleAnswer", "Đáp án mẫu chỉ dùng cho câu trả lời ngắn.")
@@ -266,6 +284,22 @@ func validateMedia(in Input, assetKind *string, add func(string, string)) {
 	}
 	if in.MediaAssetID == nil && in.Audio != nil {
 		add("audio", "Chưa chọn tệp âm thanh.")
+	}
+}
+
+func validateMediaAlt(in Input, assetKind *string, add func(string, string)) {
+	if in.MediaAlt == nil {
+		return
+	}
+	switch {
+	case assetKind == nil || *assetKind != "image":
+		add("mediaAlt", "Chỉ câu hỏi có hình ảnh mới có văn bản thay thế.")
+	case strings.TrimSpace(*in.MediaAlt) == "":
+		add("mediaAlt", "Văn bản thay thế không được để trống.")
+	case utf8.RuneCountInString(*in.MediaAlt) > MaxMediaAltLength:
+		add("mediaAlt", "Văn bản thay thế không được dài quá 1000 ký tự.")
+	case !utf8.ValidString(*in.MediaAlt) || strings.ContainsRune(*in.MediaAlt, 0):
+		add("mediaAlt", "Văn bản thay thế chứa ký tự không hợp lệ.")
 	}
 }
 

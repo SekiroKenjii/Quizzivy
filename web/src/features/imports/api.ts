@@ -74,6 +74,18 @@ export function uploadImportSource(
   );
 }
 
+export function pasteImportSource(
+  id: string,
+  body: Schemas["PasteImportSource"],
+  signal?: AbortSignal,
+) {
+  return api("post", "/teacher/imports/{id}/sources/text", {
+    path: { id },
+    body,
+    ...(signal ? { signal } : {}),
+  });
+}
+
 export function downloadImportSource(id: string, sourceId: string) {
   return api("get", "/teacher/imports/{id}/sources/{sourceId}/download", {
     path: { id, sourceId },

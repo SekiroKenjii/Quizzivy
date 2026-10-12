@@ -8,6 +8,7 @@ const MACHINERY = ['.github/workflows/ci.yml', '.github/actions/', 'scripts/ci/'
 const NOT_CODE = [
   'docs/',
   '.claude/',
+  'scripts/dev/',
   'AGENTS.md',
   'CONTRIBUTING.md',
   'README.md',
@@ -26,10 +27,15 @@ const NOT_CODE = [
  */
 export const SETS = {
   deck: { base: 'none', include: ['docs/design/', 'scripts/check-design-deck.mjs'], exclude: [] },
-  server: { base: 'all', include: ['web/tests/e2e/fixtures/'], exclude: [...NOT_CODE, 'web/'] },
+  image: {
+    base: 'none',
+    include: ['Dockerfile', '.dockerignore', 'fly.toml', 'server/', 'migrations/', 'scripts/provision-db.sh'],
+    exclude: [],
+  },
+  server: { base: 'all', include: ['web/tests/e2e/fixtures/', 'api/testdata/pasted-text-counts.json'], exclude: [...NOT_CODE, 'web/'] },
   web: {
     base: 'all',
-    include: ['server/internal/modules/classes/domain/joincode.go'],
+    include: ['server/internal/modules/classes/domain/joincode.go', 'api/testdata/pasted-text-counts.json'],
     exclude: [...NOT_CODE, 'server/', 'migrations/', 'seed/', 'docker/'],
   },
   code: { base: 'all', include: [], exclude: NOT_CODE },
@@ -45,6 +51,7 @@ export const JOBS = [
   { id: 'contract', set: 'code' },
   { id: 'server-lint', set: 'server' },
   { id: 'server-test', set: 'server' },
+  { id: 'production-image', set: 'image' },
   { id: 'web-check', set: 'web' },
   { id: 'web-unit', set: 'web', shards: 2 },
   { id: 'e2e', set: 'web' },

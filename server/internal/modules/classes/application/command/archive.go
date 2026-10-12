@@ -19,8 +19,12 @@ type ArchiveHandler struct {
 }
 
 func (s ArchiveHandler) Handle(ctx context.Context, cmd Archive) (domain.Class, error) {
-	return s.Repo.Archive(ctx, domain.ArchiveInput{
+	class, err := s.Repo.Archive(ctx, domain.ArchiveInput{
 		ClassID: cmd.ClassID, Archived: cmd.Archived, ActorUserID: cmd.Actor.ID, All: cmd.Actor.Scope.All,
 		Now: s.Now(), IP: opt.String(cmd.Actor.IP), UserAgent: opt.String(cmd.Actor.UserAgent),
 	})
+	if err != nil {
+		return domain.Class{}, err
+	}
+	return class, s.AttachAverage(ctx, &class)
 }

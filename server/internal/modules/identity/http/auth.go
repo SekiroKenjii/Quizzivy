@@ -27,6 +27,7 @@ func (h Identity) Login(ctx context.Context, request openapi.LoginRequestObject)
 		Password:  request.Body.Password,
 		UserAgent: meta.UserAgent,
 		IP:        meta.IP,
+		GeoLabel:  GeoLabelFromContext(ctx),
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidCredentials) {
@@ -39,7 +40,7 @@ func (h Identity) Login(ctx context.Context, request openapi.LoginRequestObject)
 		Body: openapi.AuthSuccess{
 			AccessToken: session.AccessToken,
 			ExpiresIn:   session.ExpiresIn,
-			User:        toCurrentUser(session.User, session.Permissions),
+			User:        h.currentUser(ctx, session.User, session.Permissions),
 		},
 		Headers: openapi.Login200ResponseHeaders{
 			SetCookie: httpapi.Ptr(refreshCookie(session.RefreshToken, h.refreshTTL, h.cookieSecure).String()),
@@ -72,6 +73,7 @@ func (h Identity) RefreshSession(ctx context.Context, _ openapi.RefreshSessionRe
 	res, err := h.app.Commands.Refresh.Handle(ctx, command.Refresh{Token: refreshTokenFromContext(ctx),
 		UserAgent: meta.UserAgent,
 		IP:        meta.IP,
+		GeoLabel:  GeoLabelFromContext(ctx),
 	})
 	switch {
 	case errors.Is(err, domain.ErrRefreshReused):
@@ -125,11 +127,16 @@ func toCurrentUser(u domain.User, permissions access.Set) openapi.CurrentUser {
 	for _, w := range access.Workspaces(permissions) {
 		workspaces = append(workspaces, openapi.Workspace(w))
 	}
+	prefs := toAPIPreferences(u.Preferences)
 	return openapi.CurrentUser{
 		Id:                 httpapi.ParseUUID(u.ID),
 		Email:              openapi_types.Email(u.Email),
 		FullName:           u.FullName,
-		Role:               openapi.Role(u.Role),
+		DisplayName:        u.DisplayName,
+		Phone:              u.Phone,
+		Locale:             (*openapi.CurrentUserLocale)(u.Locale),
+		TimeZone:           u.TimeZone,
+		Preferences:        &prefs,
 		HasPassword:        u.HasPassword(),
 		LinkedProviders:    providers,
 		MustChangePassword: u.MustChangePassword,

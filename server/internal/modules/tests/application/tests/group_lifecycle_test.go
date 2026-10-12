@@ -175,7 +175,7 @@ func TestGroupUpdateChecksParentDraftAndCannotArchiveOwnedGroup(t *testing.T) {
 	tx, author, repo := groupTransaction(t)
 	var testID, sectionID string
 	var updated time.Time
-	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by) VALUES ('Draft',$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by,owner_id) VALUES ('Draft',$1,$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.QueryRow(ctx, `INSERT INTO app.test_sections (test_id,ordinal,title) VALUES ($1,0,'Part') RETURNING id::text`, testID).Scan(&sectionID); err != nil {
@@ -223,7 +223,7 @@ func TestGroupCopyAndSectionRemovalKeepIndependentContext(t *testing.T) {
 	source := createStoredFixture(t, tx, author, repo)
 	var testID, sectionID string
 	var updated time.Time
-	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by) VALUES ('Destination',$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO app.tests (title,created_by,owner_id) VALUES ('Destination',$1,$1) RETURNING id::text,updated_at`, author).Scan(&testID, &updated); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.QueryRow(ctx, `INSERT INTO app.test_sections (test_id,ordinal,title) VALUES ($1,0,'Part') RETURNING id::text`, testID).Scan(&sectionID); err != nil {

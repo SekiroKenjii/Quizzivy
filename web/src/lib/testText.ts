@@ -6,6 +6,7 @@ const DEFAULT = "default";
 
 const listeners = new Set<() => void>();
 let unsaved: boolean | null = null;
+let accountValue: boolean | null = null;
 
 /**
  * readLargerTestText reports whether the student chose "Larger text in
@@ -14,6 +15,7 @@ let unsaved: boolean | null = null;
  * lives.
  */
 export function readLargerTestText(): boolean {
+  if (accountValue !== null) return accountValue;
   if (unsaved !== null) return unsaved;
   try {
     return localStorage.getItem(STORAGE_KEY) === LARGER;
@@ -27,6 +29,7 @@ export function readLargerTestText(): boolean {
  * as `large` or `default`, and tells every reader on the page at once.
  */
 export function writeLargerTestText(larger: boolean): void {
+  if (accountValue !== null) accountValue = larger;
   try {
     localStorage.setItem(STORAGE_KEY, larger ? LARGER : DEFAULT);
     unsaved = null;
@@ -38,7 +41,8 @@ export function writeLargerTestText(larger: boolean): void {
 
 function subscribe(listener: () => void) {
   const onStorage = (event: StorageEvent) => {
-    if (event.key === STORAGE_KEY || event.key === null) listener();
+    if (accountValue === null && (event.key === STORAGE_KEY || event.key === null))
+      listener();
   };
   listeners.add(listener);
   window.addEventListener("storage", onStorage);
@@ -54,4 +58,11 @@ function subscribe(listener: () => void) {
  */
 export function useLargerTestText(): boolean {
   return useSyncExternalStore(subscribe, readLargerTestText, () => false);
+}
+
+/** setAccountTestText applies authoritative account presentation while leaving anonymous storage behavior intact. */
+export function setAccountTestText(value: boolean | null) {
+  accountValue = value;
+  if (value !== null) writeLargerTestText(value);
+  for (const listener of listeners) listener();
 }

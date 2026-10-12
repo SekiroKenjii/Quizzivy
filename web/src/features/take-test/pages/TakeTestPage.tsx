@@ -450,7 +450,7 @@ function Paper({
             ref={sheet}
             onScroll={onSheetScroll}
             className={cn(
-              "min-h-0 flex-1 overflow-y-auto",
+              "relative min-h-0 flex-1 overflow-y-auto",
               wide ? "px-8 py-7" : "px-4 py-4.5",
             )}
           >

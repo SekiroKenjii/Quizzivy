@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/attempts/application/internal/support"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/content"
 )
 
 type Void struct {
@@ -17,5 +18,5 @@ type VoidHandler struct {
 }
 
 func (s VoidHandler) Handle(ctx context.Context, cmd Void) (domain.Attempt, error) {
-	return s.Store.Void(ctx, cmd.Request, cmd.AttemptID, cmd.Reason, s.Now())
+	return s.Store.Void(ctx, cmd.Request, cmd.AttemptID, content.NFC(cmd.Reason), s.Now())
 }

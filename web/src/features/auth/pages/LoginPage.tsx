@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
@@ -21,7 +22,12 @@ import { destinationAfterSignIn } from "@/features/auth/home";
 import { loginSchema, type LoginValues } from "@/features/auth/loginSchema";
 import { readJoinContext } from "@/features/join/context";
 import { ApiError } from "@/lib/api/errors";
-import { useAuthStore } from "@/stores/auth";
+import { authStore } from "@/stores/auth";
+import { useAppState } from "@/stores/appState";
+import { signInAccount } from "@/features/auth/accountPreferences";
+import { TransitionPendingError, transitionStatus } from "@/lib/api/authTransition";
+import { accountDepartureNeedsRetry } from "@/features/auth/accountDeparture";
+import { checkLogoutCleanup } from "@/features/auth/useSession";
 
 /**
  * LoginPage is §5.1's password sign-in and §5.3's Google entry point. When a
@@ -31,8 +37,16 @@ import { useAuthStore } from "@/stores/auth";
 export default function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [params] = useSearchParams();
-  const setSession = useAuthStore((s) => s.setSession);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const [indeterminate, setIndeterminate] = useState(false);
   const google = useGoogleSignIn();
   const [error, setError] = useState<string | null>(null);
   const [joining] = useState(readJoinContext);
@@ -49,13 +63,35 @@ export default function LoginPage() {
   const onValid = async (values: LoginValues) => {
     setError(null);
     try {
-      const result = await login(values.email, values.password);
-      setSession(result.accessToken, result.user);
+      const operation = signInAccount(
+        "login",
+        (ticket) => login(values.email, values.password, ticket),
+        queryClient,
+        () => mounted.current,
+      );
+      const failedLease = authStore.captureActor();
+      const result = await operation.catch((cause: unknown) => {
+        if (!authStore.isCurrent(failedLease)) {
+          throw new DOMException("Superseded", "AbortError");
+        }
+        throw cause;
+      });
+      if (!mounted.current || !authStore.isCurrent(result.actor)) return;
+      useAppState.getState().setBootPhase("ready");
       await navigate(
         joining ? `/join/${joining.code}` : destinationAfterSignIn(next, result.user),
         { replace: true },
       );
     } catch (cause) {
+      if (
+        !mounted.current ||
+        (cause instanceof DOMException && cause.name === "AbortError")
+      )
+        return;
+      setIndeterminate(
+        cause instanceof TransitionPendingError ||
+          transitionStatus().phase === "cleanup",
+      );
       setError(messageFor(cause));
     }
   };
@@ -64,9 +100,19 @@ export default function LoginPage() {
       errors.email?.message === "login.errors.emailRequired" || errors.password;
     setError(t(missing ? "login.missingFields" : "login.errors.emailInvalid"));
   };
-  const onSubmit = form.handleSubmit(onValid, onInvalid);
 
   function messageFor(cause: unknown) {
+    if (cause instanceof TransitionPendingError) {
+      if (cause.phase === "cleanup" && accountDepartureNeedsRetry())
+        return t("auth.transition.cleanupFailed");
+      return t(
+        cause.phase === "cleanup"
+          ? "auth.transition.cleanupPending"
+          : "auth.transition.accountPending",
+      );
+    }
+    if (transitionStatus().phase === "cleanup")
+      return t("auth.transition.cleanupFailed");
     if (!(cause instanceof ApiError)) return t("login.failed");
     return cause.code === "INVALID_CREDENTIALS"
       ? t("login.invalidCredentials")
@@ -104,14 +150,17 @@ export default function LoginPage() {
             type="button"
             variant="outline"
             size="xl"
-            className="bg-card shadow-card hover:bg-muted text-body w-full gap-2.5 font-medium"
+            className="group/login-busy bg-card shadow-card hover:bg-muted text-body w-full gap-2.5 font-medium"
             aria-busy={google.pending || undefined}
             onClick={() => {
               if (!google.pending) void google.start({ next, joinCode: joining?.code });
             }}
           >
             {google.pending ? (
-              <LoaderCircle aria-hidden="true" className="size-[18px] animate-spin" />
+              <LoaderCircle
+                aria-hidden="true"
+                className="size-[18px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused] motion-reduce:animate-none"
+              />
             ) : (
               <GoogleMark className="size-[18px]" />
             )}
@@ -129,6 +178,44 @@ export default function LoginPage() {
         <Alert variant="danger" className="text-ui flex gap-2.5">
           <CircleAlert aria-hidden="true" className="mt-px size-4 shrink-0" />
           <span>{shown}</span>
+          {indeterminate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const lease = authStore.captureActor();
+                const cleanup = checkLogoutCleanup();
+                if (
+                  mounted.current &&
+                  authStore.isCurrent(lease) &&
+                  transitionStatus().phase === "cleanup"
+                )
+                  setError(t("auth.transition.cleanupPending"));
+                void cleanup
+                  .then(() => {
+                    if (!mounted.current || !authStore.isCurrent(lease)) {
+                      return;
+                    }
+                    if (transitionStatus().kind === "idle") {
+                      setIndeterminate(false);
+                      setError(null);
+                    }
+                  })
+                  .catch((cause: unknown) => {
+                    if (!mounted.current || !authStore.isCurrent(lease)) return;
+                    setIndeterminate(true);
+                    setError(messageFor(cause));
+                  });
+              }}
+            >
+              {t(
+                accountDepartureNeedsRetry()
+                  ? "common.retry"
+                  : "auth.transition.checkStatus",
+              )}
+            </Button>
+          )}
         </Alert>
       )}
 
@@ -138,7 +225,7 @@ export default function LoginPage() {
             e.preventDefault();
             return;
           }
-          void onSubmit(e);
+          void form.handleSubmit(onValid, onInvalid)(e);
         }}
         className="flex flex-col gap-5"
         noValidate
@@ -179,11 +266,14 @@ export default function LoginPage() {
         <Button
           type="submit"
           size="xl"
-          className="w-full"
+          className="group/login-busy w-full"
           aria-busy={submitting || undefined}
         >
           {submitting && (
-            <LoaderCircle aria-hidden="true" className="size-[17px] animate-spin" />
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-[17px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused] motion-reduce:animate-none"
+            />
           )}
           {t(submitting ? "login.submitting" : "login.submit")}
         </Button>

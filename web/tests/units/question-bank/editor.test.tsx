@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
@@ -24,6 +24,29 @@ const AUDIO: MediaAsset = {
   createdAt: "2026-01-01T00:00:00Z",
   url: "https://example.test/unit5-listening-2.mp3",
 };
+
+function stubDuration(seconds: number) {
+  Object.defineProperty(HTMLMediaElement.prototype, "duration", {
+    configurable: true,
+    get: () => seconds,
+  });
+  Object.defineProperty(HTMLMediaElement.prototype, "src", {
+    configurable: true,
+    set(this: HTMLMediaElement) {
+      setTimeout(() => this.onloadedmetadata?.(new Event("loadedmetadata")), 0);
+    },
+  });
+}
+
+function dropOnWindow(file: File) {
+  const event = new Event("drop", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", {
+    value: { types: ["Files"], files: [file] },
+  });
+  act(() => {
+    window.dispatchEvent(event);
+  });
+}
 
 /**
  * §7's five types, one test each, driven through the real controlled component
@@ -93,7 +116,7 @@ describe("the question editor, per question type", () => {
     for (const box of screen.getAllByRole("checkbox")) expect(box).toBeChecked();
   });
 
-  it("true_false offers exactly True and False, with nothing to add or remove", () => {
+  it("true_false is a radio group of two cards, with nothing to add, remove or rename", () => {
     renderEditor({
       type: "true_false",
       options: [
@@ -102,10 +125,17 @@ describe("the question editor, per question type", () => {
       ],
     });
 
-    expect(screen.getByDisplayValue("True")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("False")).toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", {
+      name: "Đáp án đúng · học viên chọn một",
+    });
+    expect(within(group).getAllByRole("radio")).toHaveLength(2);
+    expect(within(group).getByRole("radio", { name: "Đúng" })).toBeChecked();
+    expect(
+      within(group).getByRole("radio", { name: "Đúng" }),
+    ).toHaveAccessibleDescription("Đáp án đúng");
+    expect(screen.queryByRole("textbox", { name: /Lựa chọn/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Thêm lựa chọn" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Xoá lựa chọn" })).toBeNull();
+    expect(screen.getByText("Chấm tự động khi học viên nộp bài.")).toBeInTheDocument();
   });
 
   it("fill_blank edits blanks rather than options", async () => {
@@ -124,12 +154,17 @@ describe("the question editor, per question type", () => {
     ).toBeInTheDocument();
   });
 
-  it("short_answer exposes a sample answer labelled as admin-only", () => {
+  it("short_answer offers an optional sample answer for graders and says it is graded by hand", () => {
     renderEditor({ type: "short_answer", options: [] });
 
-    const label = screen.getByText(/Đáp án mẫu/);
-    expect(label).toHaveTextContent("chỉ bạn nhìn thấy");
-    expect(screen.getByText(/cần bạn chấm tay/)).toBeInTheDocument();
+    const field = screen.getByRole("textbox", { name: "Đáp án mẫu" });
+    expect(field).toHaveAccessibleDescription(
+      "Không bắt buộc. Người chấm thấy đáp án này cạnh câu trả lời của từng học viên.",
+    );
+    expect(field).toHaveAttribute("placeholder", "Viết một câu trả lời mẫu");
+    expect(
+      screen.getByText("Chấm tay. Mỗi câu trả lời được đưa vào hàng chờ chấm."),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("radio")).toBeNull();
   });
 
@@ -154,30 +189,127 @@ describe("the question editor, per question type", () => {
       http.get("http://localhost:8080/teacher/media", () =>
         contractJson("/teacher/media", "get", 200, {
           totalBytes: 2_400_000,
+          facets: { all: 1, audio: 1, image: 0, unused: 1 },
+          usage: { audioBytes: 2_400_000, imageBytes: 0, quotaBytes: 5_368_709_120 },
           page: 1,
           pageSize: 50,
           total: 0,
-          items: [AUDIO],
+          items: [
+            {
+              ...AUDIO,
+              displayName: AUDIO.originalFilename,
+              defaultMaxPlays: null,
+              width: null,
+              height: null,
+              questionCount: 0,
+            },
+          ],
           nextCursor: null,
         }),
       ),
     );
     const user = renderEditor();
 
-    expect(screen.queryByLabelText("Số lần được nghe")).toBeNull();
+    expect(screen.queryByRole("radiogroup", { name: "Số lần nghe" })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Chọn từ thư viện" }));
+    await user.click(screen.getByRole("button", { name: "Từ Media" }));
     await user.click(
       await screen.findByRole("button", { name: /unit5-listening-2\.mp3/ }),
     );
+    await user.click(screen.getByRole("button", { name: "Đính kèm" }));
 
     // §11.1: 2 plays, no seek, transcript after submit.
-    expect(await screen.findByLabelText("Số lần được nghe")).toHaveTextContent("2 lần");
-    expect(screen.getByRole("switch", { name: "Cho tua" })).not.toBeChecked();
+    const plays = await screen.findByRole("radiogroup", { name: "Số lần nghe" });
+    expect(within(plays).getByRole("radio", { name: "Hai lần" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Cho tua tới" })).not.toBeChecked();
     expect(
       screen.getByRole("switch", { name: "Hiện lời thoại sau khi nộp" }),
     ).toBeChecked();
   });
+
+  it.each(["removed", "replaced by a recording"])(
+    "drops an image's alt text when the image is %s, as the server requires",
+    async (change) => {
+      const IMAGE: MediaAsset = {
+        id: "018f0000-0000-7000-8000-000000000002",
+        kind: "image",
+        originalFilename: "map.png",
+        bytes: 24_000,
+        mimeType: "image/png",
+        createdAt: "2026-01-01T00:00:00Z",
+        url: "https://example.test/map.png",
+      };
+      server.use(
+        http.get("http://localhost:8080/teacher/media", () =>
+          contractJson("/teacher/media", "get", 200, {
+            totalBytes: 2_400_000,
+            facets: { all: 1, audio: 1, image: 0, unused: 1 },
+            usage: { audioBytes: 2_400_000, imageBytes: 0, quotaBytes: 5_368_709_120 },
+            page: 1,
+            pageSize: 50,
+            total: 0,
+            items: [
+              {
+                ...AUDIO,
+                displayName: AUDIO.originalFilename,
+                defaultMaxPlays: null,
+                width: null,
+                height: null,
+                questionCount: 0,
+              },
+            ],
+            nextCursor: null,
+          }),
+        ),
+        http.post("http://localhost:8080/teacher/media", () =>
+          contractJson("/teacher/media", "post", 201, AUDIO),
+        ),
+      );
+      stubDuration(30);
+      const seen: QuestionValues[] = [];
+      function Harness() {
+        const [value, setValue] = useState<QuestionValues>({
+          ...emptyQuestion(),
+          mediaAssetId: IMAGE.id,
+          mediaAlt: "Bản đồ thị trấn",
+        });
+        const [current, setCurrent] = useState<MediaAsset | null>(IMAGE);
+        return (
+          <QuestionEditor
+            value={value}
+            asset={current}
+            onChange={(next) => {
+              seen.push(next);
+              setValue(next);
+            }}
+            onAssetChange={setCurrent}
+          />
+        );
+      }
+      render(
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <Harness />
+        </QueryClientProvider>,
+      );
+      const user = userEvent.setup();
+
+      if (change === "removed") {
+        await user.click(screen.getByRole("button", { name: "Gỡ media" }));
+      } else {
+        dropOnWindow(new File([new Uint8Array(64)], "unit5-listening-2.mp3"));
+        await waitFor(() =>
+          expect(seen.at(-1)).toMatchObject({ mediaAssetId: AUDIO.id }),
+        );
+      }
+
+      expect(seen.at(-1)).toMatchObject({
+        mediaAssetId: change === "removed" ? null : AUDIO.id,
+        mediaAlt: null,
+      });
+    },
+  );
 
   it("names the attached file with its length and size", () => {
     renderEditor({ mediaAssetId: AUDIO.id }, AUDIO);

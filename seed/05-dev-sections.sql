@@ -10,12 +10,13 @@
 -- Relies on 01: the Admin (…00a1) and the class (…00c1). Fixed uuids, ON
 -- CONFLICT DO NOTHING, like every other seed file.
 
-INSERT INTO app.tests (id, title, description, status, current_version, created_by)
+INSERT INTO app.tests (id, title, description, status, current_version, created_by, owner_id)
 VALUES (
   '01935000-0000-7000-8000-000000005e01'::uuid,
   'Unit 6 — Reported speech & writing',
   'Đề mẫu ba phần cho môi trường phát triển.',
   'published', 1,
+  '01935000-0000-7000-8000-0000000000a1',
   '01935000-0000-7000-8000-0000000000a1'
 )
 ON CONFLICT (id) DO NOTHING;

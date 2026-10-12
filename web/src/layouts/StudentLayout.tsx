@@ -15,6 +15,8 @@ import { modules } from "@/app/modules";
 import { BrandMark } from "@/components/shared/Brand";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { AccountMenu } from "@/features/auth/AccountMenu";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
+import { useNotificationSummary } from "@/features/notifications/useNotificationSummary";
 import { useDueSoonCount } from "@/features/assignments/dueSoon";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
@@ -46,10 +48,12 @@ interface Destination {
  * below that the destinations move to a bottom tab bar, and a detail route
  * swaps the logo for a back arrow and its title and hides the tab bar. One
  * outlet serves both, so a page keeps its state when the width crosses 768.
- * `<main>` is the scroller. When the route changes it returns to the top and
- * takes focus, so the keyboard scrolls the new page; it does neither when a
- * page moves between its own sections.
- * A destination whose module has not shipped is absent (`app/modules`).
+ * `<main>` is the scroller and the containing block of everything positioned
+ * in the page, so nothing in it extends the document. When the route changes
+ * it returns to the top and takes focus, so the keyboard scrolls the new
+ * page; it does neither when a page moves between its own sections.
+ * A destination whose module has not shipped is absent (`app/modules`), and
+ * so is the bell while notifications are off; the bell polls `/me/summary`.
  */
 export default function StudentLayout() {
   const { t } = useTranslation();
@@ -58,6 +62,7 @@ export default function StudentLayout() {
   const route = matches.at(-1)?.id;
   const detail = detailOf(matches);
   const dueSoon = useDueSoonCount();
+  const { unread } = useNotificationSummary("student", modules.notifications);
   const [own, setTitle] = useState<string | null>(null);
   const context = useMemo(() => ({ setTitle }) satisfies DetailShell, []);
   const main = useRef<HTMLElement>(null);
@@ -141,14 +146,17 @@ export default function StudentLayout() {
           </nav>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <AccountMenu settingsTo="/app/settings" deck />
+          {modules.notifications ? (
+            <NotificationBell audience="student" unread={unread} />
+          ) : null}
+          <AccountMenu settingsTo="/app/settings" />
         </div>
       </header>
       <main
         ref={main}
         tabIndex={-1}
         className={cn(
-          "student-surface min-h-0 w-full min-w-0 flex-1 overflow-y-auto outline-none!",
+          "student-surface relative min-h-0 w-full min-w-0 flex-1 overflow-y-auto outline-none!",
           wide ? "px-6 pt-8 pb-12" : "px-4 pt-4.5 pb-7",
         )}
       >

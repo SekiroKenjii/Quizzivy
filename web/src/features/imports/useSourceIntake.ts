@@ -7,6 +7,7 @@ import { formatBytes } from "@/features/media/format";
 import {
   createWordImport,
   getWordImport,
+  pasteImportSource,
   processWordImport,
   uploadImportSource,
   type ImportLimits,
@@ -15,6 +16,7 @@ import {
   type WordImport,
 } from "./api";
 import { refreshAvailability } from "./availability";
+import { listFormats } from "./formats";
 import { importCapabilitiesQuery } from "./queries";
 
 /** SOURCE_ROLES orders the upload: the exam first, then its optional key. */
@@ -37,6 +39,14 @@ interface Pinned {
 }
 
 const UNPINNED: Pinned = { uploadId: null, expectedRevision: null };
+
+interface PinnedText {
+  text: string;
+  uploadId: string;
+  expectedRevision: number;
+}
+
+type Send = (into: WordImport, signal: AbortSignal) => Promise<WordImport | null>;
 
 const EMPTY: SourceSlot = {
   file: null,
@@ -65,7 +75,7 @@ export function precheckFile(
   if (!limits.formats.some((format) => name.endsWith(`.${format}`)))
     return t("imports.upload.rejectType", {
       name: file.name,
-      formats: limits.formats.map((format) => `.${format}`).join(", "),
+      formats: listFormats(limits.formats, "extension", "or", t),
     });
   if (file.size > limits.maxBytes)
     return t("imports.upload.rejectSize", {
@@ -82,9 +92,10 @@ const FILE_FAULTS: ReadonlySet<number> = new Set([400, 413, 415]);
 
 /**
  * useSourceIntake creates the import when there is none, uploads the exam and
- * then the key against the revision the exam produced, and queues processing.
- * Each step keeps its request identity across retries until its input
- * changes, and a conflict re-reads the import first. Every import an upload
+ * then the key against the revision the exam produced, or with `startText`
+ * sends pasted text as the exam, and queues processing. Each step keeps its
+ * request identity across retries until its input changes, and a conflict
+ * re-reads the import first. Every import an upload
  * or a re-read returns is reported through `onChanged`. With `replacing`,
  * starting requires a newly chosen file. Unmounting aborts an intake in
  * progress without reporting it.
@@ -121,6 +132,8 @@ export function useSourceIntake({
     answer_key: null,
   });
   const running = useRef<AbortController | null>(null);
+  const pinnedText = useRef<PinnedText | null>(null);
+  const sentText = useRef<string | null>(null);
 
   useLayoutEffect(() => () => running.current?.abort(), []);
 
@@ -227,7 +240,55 @@ export function useSourceIntake({
     }
   }
 
-  async function start(title: string) {
+  async function sendFiles(
+    into: WordImport,
+    signal: AbortSignal,
+  ): Promise<WordImport | null> {
+    let target = into;
+    for (const role of SOURCE_ROLES) {
+      const next = await upload(role, target, signal);
+      if (next === null || signal.aborted) return null;
+      target = next;
+    }
+    return target;
+  }
+
+  async function sendText(
+    text: string,
+    into: WordImport,
+    signal: AbortSignal,
+  ): Promise<WordImport | null> {
+    if (sentText.current === text && into.sources.some((item) => item.role === "exam"))
+      return into;
+    if (pinnedText.current?.text !== text)
+      pinnedText.current = {
+        text,
+        uploadId: crypto.randomUUID(),
+        expectedRevision: into.revision,
+      };
+    const { uploadId, expectedRevision } = pinnedText.current;
+    try {
+      const receipt = await pasteImportSource(
+        into.id,
+        { uploadId, expectedRevision, text },
+        signal,
+      );
+      sentText.current = text;
+      current.current = receipt.import;
+      onChanged?.(receipt.import);
+      return receipt.import;
+    } catch (cause) {
+      if (signal.aborted) return null;
+      const status = cause instanceof ApiError ? cause.status : 0;
+      if (REFUSED.has(status)) pinnedText.current = null;
+      if (status === 409) await refresh(into);
+      setError(failureMessage(cause, t("imports.paste.failed")));
+      refreshAvailability(client, cause);
+      return null;
+    }
+  }
+
+  async function run(title: string, send: Send) {
     const controller = new AbortController();
     running.current = controller;
     const { signal } = controller;
@@ -239,12 +300,8 @@ export function useSourceIntake({
         staleTime: 0,
       });
       if (!capabilities.processingEnabled || signal.aborted) return;
-      let target = await ensureImport(title, signal);
-      for (const role of SOURCE_ROLES) {
-        const next = await upload(role, target, signal);
-        if (next === null || signal.aborted) return;
-        target = next;
-      }
+      const target = await send(await ensureImport(title, signal), signal);
+      if (target === null || signal.aborted) return;
       if (!target.sources.some((source) => source.role === "exam")) {
         setError(t("imports.upload.examRequired"));
         return;
@@ -288,7 +345,9 @@ export function useSourceIntake({
     error,
     choose,
     remove,
-    start,
+    start: (title: string) => run(title, sendFiles),
+    startText: (title: string, text: string) =>
+      run(title, (into, signal) => sendText(text, into, signal)),
     ready: examReady && keyReady && !busy && (!replacing || changed),
   };
 }

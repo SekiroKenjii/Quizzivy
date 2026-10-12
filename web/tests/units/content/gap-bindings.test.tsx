@@ -5,13 +5,11 @@ import { questionSchema, emptyQuestion } from "@/features/question-bank/question
 import {
   bindLegacyBlanks,
   reconcileGapBlanks,
-  blankMarkdownProjection,
 } from "@/features/question-bank/blankContent";
 import { markdownToQuestionContent } from "@/components/shared/content/editor/markdown";
-import { contentPlainText } from "@/components/shared/content/plainText";
 import { questionGaps } from "@/components/shared/content/gaps";
 import type { QuestionPromptContent } from "@/components/shared/content/questionContent";
-import { BlanksEditor } from "@/features/question-bank/components/BlanksEditor";
+import { GapAnswers } from "@/features/question-bank/components/GapAnswers";
 import { publishProblem } from "@/features/tests/publishProblem";
 import { t } from "i18next";
 import "@/lib/i18n";
@@ -119,6 +117,8 @@ test("form validation requires a complete unique binding set and refuses gaps in
 
 test("the publish outline validates rich bindings without requiring Markdown markers", () => {
   const question = {
+    level: null,
+    skill: null,
     id: "q",
     type: "fill_blank" as const,
     prompt: "[2]\t[1]",
@@ -145,9 +145,6 @@ test("legacy conversion retains answer associations and blocks repeated or missi
   expect(converted.blanks[0]?.gapId).toBe("g2");
   expect(converted.blanks[1]?.gapId).toBe("g1");
   expect(converted.blanks[0]?.acceptedAnswers).toEqual(["one"]);
-  expect(
-    contentPlainText(blankMarkdownProjection(converted.content, converted.blanks)),
-  ).toBe("They {{2}}, she {{1}}.");
   for (const text of [
     "{{1}} {{1}} {{2}}",
     "[{{1}}](https://example.com) {{1}} {{2}}",
@@ -167,17 +164,13 @@ test("gap deletion preserves orphaned answers for undo and requires explicit con
   expect(reconciled).toEqual(blanks);
   expect(reconcileGapBlanks(content, reconciled)).toEqual(blanks);
   const onChange = vi.fn();
-  render(
-    <BlanksEditor
-      prompt="[2]"
-      content={after}
-      blanks={reconciled}
-      onChange={onChange}
-    />,
-  );
+  render(<GapAnswers content={after} blanks={reconciled} onChange={onChange} />);
   expect(screen.getByRole("alert")).toHaveTextContent("Ô này đã được bỏ khỏi nội dung");
-  expect(screen.getByRole("button", { name: "Xoá chỗ trống 2" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "Xoá chỗ trống 1" }));
+  expect(screen.getByRole("group", { name: "Chỗ trống 2" })).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Xoá đáp án của chỗ trống 2" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Xoá đáp án của chỗ trống 1" }));
   expect(onChange).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Xoá đáp án" }));
   expect(onChange).toHaveBeenCalledWith([blanks[1]]);

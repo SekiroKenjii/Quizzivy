@@ -136,7 +136,7 @@ func validMemberAsset(question GroupQuestion) bool {
 
 func validGroupQuestionStrings(in questions.Input) bool {
 	values := []string{in.Prompt, in.Points}
-	for _, value := range []*string{in.Transcript, in.Explanation, in.SampleAnswer} {
+	for _, value := range []*string{in.Transcript, in.Explanation, in.SampleAnswer, in.MediaAlt} {
 		if value != nil {
 			values = append(values, *value)
 		}

@@ -161,6 +161,40 @@ func TestEachCreatorListsAndSearchesOnlyTheirOwnImports(t *testing.T) {
 	}
 }
 
+func TestTheAdminsHistoryHoldsOnlyTheAdminsOwnImports(t *testing.T) {
+	a, admin := setup(t), setup(t)
+	ctx := context.Background()
+	theirs, mine := a.create(t), admin.create(t)
+	held := access.Scope{UserID: admin.actor.ID, All: true}
+	for name, search := range map[string]string{"the whole history": "", "a search both titles match": theirs.Title} {
+		listed, err := admin.repo.List(ctx, domain.Filter{Search: search, Scope: held.Own(), Limit: 100})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := importIDs(listed.Items); !sameSet(got, []string{mine.ID}) || listed.Page.Total != 1 {
+			t.Errorf("the Admin's history, %s, lists %v (total %d), want only the Admin's %s", name, got, listed.Page.Total, mine.ID)
+		}
+	}
+	if _, err := admin.repo.Get(ctx, held, theirs.ID); err != nil {
+		t.Errorf("the Admin opening A's import by id: %v", err)
+	}
+	if _, err := admin.repo.Get(ctx, held.Own(), theirs.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("A's import in the scope the history passes: %v, want ErrNotFound", err)
+	}
+
+	own := access.Scope{UserID: a.actor.ID}
+	if own.Own() != own {
+		t.Fatalf("a teacher's own scope is %+v, want it unchanged %+v", own.Own(), own)
+	}
+	listed, err := a.repo.List(ctx, domain.Filter{Scope: own.Own(), Limit: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := importIDs(listed.Items); !sameSet(got, []string{theirs.ID}) || listed.Page.Total != 1 {
+		t.Errorf("A's history lists %v (total %d), want only A's %s", got, listed.Page.Total, theirs.ID)
+	}
+}
+
 func TestScopeAllActsOnAnotherCreatorsImportAsItsActor(t *testing.T) {
 	a, admin := setup(t), setup(t)
 	ctx := context.Background()

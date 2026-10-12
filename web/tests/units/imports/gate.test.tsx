@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import ImportsGate from "@/features/imports/pages/ImportsGate";
+import ImportsGate from "@/features/imports/pages/teacher/ImportsGate";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { BASE } from "./fixtures";
@@ -19,13 +19,13 @@ function renderGate() {
   const router = createMemoryRouter(
     [
       {
-        path: "/admin/imports",
+        path: "/teacher/imports",
         element: <ImportsGate />,
         children: [{ index: true, element: <p>history</p> }],
       },
-      { path: "/admin/tests", element: <p>tests</p> },
+      { path: "/teacher/tests", element: <p>tests</p> },
     ],
-    { initialEntries: ["/admin/imports"] },
+    { initialEntries: ["/teacher/imports"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -50,7 +50,10 @@ describe("the Word import routes", () => {
       await screen.findByText("Máy chủ này chưa bật nhập đề từ Word/PDF."),
     ).toBeInTheDocument();
     expect(screen.queryByText("history")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Về danh sách đề thi" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Nhập đề từ Word/PDF" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("link", { name: "Về danh sách đề thi" }));
     expect(await screen.findByText("tests")).toBeInTheDocument();
   });
 

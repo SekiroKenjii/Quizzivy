@@ -100,19 +100,6 @@ export function reconcileGapBlanks(
   return [...blanks, ...added];
 }
 
-/** blankMarkdownProjection restores ordinal markers before explicitly removing rich formatting. */
-export function blankMarkdownProjection(
-  document: QuestionPromptContent,
-  blanks: Blank[],
-): QuestionPromptContent {
-  const ordinals = new Map(blanks.map((blank) => [blank.gapId, blank.ordinal]));
-  return mapInlines(document, (node) =>
-    node.type === "gap"
-      ? [{ type: "text", text: `{{${ordinals.get(node.id)}}}`, marks: [] }]
-      : [node],
-  );
-}
-
 /** nextBlankOrdinal finds an unused answer label without changing existing identities. */
 export function nextBlankOrdinal(blanks: Blank[]): number {
   const used = new Set(blanks.map((blank) => blank.ordinal));

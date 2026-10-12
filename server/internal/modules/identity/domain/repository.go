@@ -19,9 +19,15 @@ type Users interface {
 	WriteAudit(ctx context.Context, e audit.Entry) error
 	Rotate(ctx context.Context, tokenHash []byte, next RefreshTokenRecord, now time.Time) (RotateResult, error)
 	RevokeFamilyByToken(ctx context.Context, tokenHash []byte, now time.Time) (string, error)
+	ListSessions(ctx context.Context, q SessionsQuery) ([]Session, error)
+	RevokeSession(ctx context.Context, in RevokeSessionRecord) error
+	RevokeOtherSessions(ctx context.Context, in RevokeOtherSessionsRecord) (int, error)
 	DeleteExpired(ctx context.Context, before time.Time) (int64, error)
 	ChangePassword(ctx context.Context, in ChangePasswordRecord) error
-	Rename(ctx context.Context, in RenameRecord) (User, error)
+	UpdateProfile(ctx context.Context, in ProfileRecord) (User, error)
+	SetAvatar(ctx context.Context, in AvatarRecord) (AvatarWrite, error)
+	UpdatePreferences(ctx context.Context, in PreferencesRecord) (Preferences, error)
+	EffectiveZone(ctx context.Context, userID string) (string, error)
 }
 
 // Students is the roster of student accounts, each teacher reaching the
@@ -36,4 +42,5 @@ type Students interface {
 	Create(ctx context.Context, req WriteRequest, in NewStudent) (Student, error)
 	Update(ctx context.Context, req WriteRequest, in StudentPatch) (Student, error)
 	ResetPassword(ctx context.Context, req WriteRequest, id, hash string, now time.Time) error
+	CheckResettable(ctx context.Context, req WriteRequest, id string) error
 }

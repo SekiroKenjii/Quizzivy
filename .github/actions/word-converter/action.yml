@@ -1,0 +1,21 @@
+name: Word converter
+description: >-
+  Builds docker/word-converter from its pinned Debian base, taken from Google's
+  mirror, and outputs the image id. The converter refuses a tag, so the id is
+  what a test or the import worker is given.
+
+outputs:
+  image:
+    description: The local image id, sha256:...
+    value: ${{ steps.build.outputs.image }}
+
+runs:
+  using: composite
+  steps:
+    - id: build
+      shell: bash
+      run: |
+        scripts/ci/mirror-images.sh debian:trixie-slim
+        docker build --tag quizzivy-word-converter:ci docker/word-converter
+        image="$(docker image inspect --format '{{.Id}}' quizzivy-word-converter:ci)"
+        echo "image=$image" >> "$GITHUB_OUTPUT"

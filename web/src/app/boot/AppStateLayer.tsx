@@ -1,3 +1,4 @@
+import { transitionStatus } from "@/lib/api/authTransition";
 import {
   useCallback,
   useEffect,
@@ -15,7 +16,7 @@ import { MaintenancePage } from "@/app/pages/MaintenancePage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAppState, type MaintenanceWindow } from "@/stores/appState";
-import { useAuthStore } from "@/stores/auth";
+import { authStore, useAuthStore } from "@/stores/auth";
 import { isActive } from "./activity";
 import { readStatus } from "./status";
 import { SplashFrame, SplashText } from "./SplashFrame";
@@ -119,7 +120,16 @@ function FocusOnOpen({
 function MaintenanceOverlay({
   window: current,
 }: Readonly<{ window: MaintenanceWindow }>) {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const { startsAt, endsAt } = current;
   const check = useCallback(async () => {
+    const lease = authStore.captureActor();
     let status: Awaited<ReturnType<typeof readStatus>>;
     try {
       status = await readStatus();
@@ -127,6 +137,15 @@ function MaintenanceOverlay({
       return;
     }
     const state = useAppState.getState();
+    const shown = state.overlay;
+    if (
+      !mounted.current ||
+      !authStore.isCurrent(lease) ||
+      shown.kind !== "maintenance" ||
+      shown.window.startsAt !== startsAt ||
+      shown.window.endsAt !== endsAt
+    )
+      return;
     if (status.kind === "maintenance") {
       state.showOverlay(status);
       return;
@@ -135,7 +154,7 @@ function MaintenanceOverlay({
     if (useAuthStore.getState().expired) state.showOverlay({ kind: "expired" });
     if (state.bootPhase !== "ready") state.retryBoot();
     void queryClient.invalidateQueries();
-  }, []);
+  }, [startsAt, endsAt]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -150,13 +169,21 @@ function MaintenanceOverlay({
 function ExpiredCard({ router }: Readonly<{ router: DataRouter }>) {
   const { t } = useTranslation();
   const signIn = () => {
+    if (transitionStatus().kind !== "idle") return;
     const { pathname, search } = router.state.location;
     useAuthStore.getState().clearSession();
+    const lease = authStore.captureActor();
     queryClient.clear();
     useAppState.getState().closeOverlay();
     window.setTimeout(() => {
       const now = router.state.location;
-      if (now.pathname !== pathname || now.search !== search) return;
+      if (
+        !authStore.isCurrent(lease) ||
+        transitionStatus().kind !== "idle" ||
+        now.pathname !== pathname ||
+        now.search !== search
+      )
+        return;
       void router.navigate(`/login?next=${encodeURIComponent(pathname + search)}`, {
         replace: true,
       });

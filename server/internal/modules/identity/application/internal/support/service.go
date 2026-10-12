@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	classescommand "quizzivy/internal/modules/classes/application/command"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/application/model"
 	"quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/shared/opt"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,6 +26,19 @@ type Service struct {
 	Google     ports.GoogleProvider
 	Enroller   ports.SelfEnroller
 	Principals ports.Principals
+	Avatars    ports.ObjectStore
+	Photos     ports.PhotoProcessor
+	Log        *slog.Logger
+}
+
+// SetAvatars wires profile photos: the store that keeps them and the processor
+// that makes them. Either nil leaves photos unavailable rather than
+// half-configured; a failure the service survives is logged to logger.
+func (s *Service) SetAvatars(store ports.ObjectStore, photos ports.PhotoProcessor, logger *slog.Logger) {
+	if store == nil || photos == nil {
+		return
+	}
+	s.Avatars, s.Photos, s.Log = store, photos, logger
 }
 
 // SetGoogle wires the provider. Nil leaves Google sign-in unavailable rather
@@ -90,7 +105,7 @@ func (s *Service) GoogleSession(ctx context.Context, user domain.User, in Google
 	if user.Disabled() {
 		return model.GoogleSignInResult{}, domain.ErrAccountDisabled
 	}
-	session, err := s.IssueSession(ctx, user, in.UserAgent, in.IP)
+	session, err := s.IssueSession(ctx, user, in.Origin())
 	if errors.Is(err, domain.ErrAccountChanged) {
 		user, err = s.Users.FindUserByID(ctx, user.ID)
 		if err != nil {
@@ -99,7 +114,7 @@ func (s *Service) GoogleSession(ctx context.Context, user domain.User, in Google
 		if user.Disabled() {
 			return model.GoogleSignInResult{}, domain.ErrAccountDisabled
 		}
-		session, err = s.IssueSession(ctx, user, in.UserAgent, in.IP)
+		session, err = s.IssueSession(ctx, user, in.Origin())
 	}
 	if err != nil {
 		return model.GoogleSignInResult{}, err
@@ -122,12 +137,12 @@ func NewService(users domain.Users, tokens *token.Issuer, refreshTTL time.Durati
 // SetClock replaces the time source. Tests only.
 func (s *Service) SetClock(now func() time.Time) { s.Now = now }
 
-func (s *Service) IssueSession(ctx context.Context, user domain.User, userAgent, ip string) (model.Session, error) {
+func (s *Service) IssueSession(ctx context.Context, user domain.User, origin Origin) (model.Session, error) {
 	principal, err := s.Principals.Resolve(ctx, user.ID)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("resolve permissions: %w", err)
 	}
-	access, err := s.Tokens.Issue(user.ID, user.Role, user.SessionEpoch)
+	access, err := s.Tokens.Issue(user.ID, user.SessionEpoch)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("issue access token: %w", err)
 	}
@@ -145,12 +160,9 @@ func (s *Service) IssueSession(ctx context.Context, user domain.User, userAgent,
 		IssuedAt:  now,
 		ExpiresAt: now.Add(s.RefreshTTL),
 	}
-	if userAgent != "" {
-		rec.UserAgent = &userAgent
-	}
-	if ip != "" {
-		rec.IP = &ip
-	}
+	rec.UserAgent = opt.String(origin.UserAgent)
+	rec.IP = opt.String(origin.IP)
+	rec.GeoLabel = opt.String(origin.GeoLabel)
 	if err := s.Users.CreateRefreshToken(ctx, rec, domain.SessionBasis{Epoch: user.SessionEpoch, PasswordHash: user.PasswordHash}); err != nil {
 		return model.Session{}, fmt.Errorf("store refresh token: %w", err)
 	}

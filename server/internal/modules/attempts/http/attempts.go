@@ -190,6 +190,7 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 		Type:          openapi.QuestionType(q.Type),
 		Prompt:        q.Prompt,
 		PromptContent: q.PromptContent,
+		MediaAlt:      q.MediaAlt,
 		Points:        q.Points,
 	}
 	if len(q.Options) > 0 {

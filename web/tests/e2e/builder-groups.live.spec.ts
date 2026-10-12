@@ -2,9 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { signInAsAdmin } from "./support/live";
 
 async function saved(page: Page) {
-  await expect(
-    page.getByRole("status").filter({ hasText: /^Đã lưu \d/ }),
-  ).toBeVisible();
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 }
 
@@ -13,22 +11,26 @@ test("mixed builder saves new sections, moves complete groups, copies context an
 }, testInfo) => {
   test.setTimeout(150_000);
   await signInAsAdmin(page);
-  await page.goto("/admin/tests");
+  await page.goto("/teacher/tests");
   await page.getByRole("button", { name: "Đề thi mới", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+\/edit$/);
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
   const builderPath = new URL(page.url()).pathname;
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Tên đề thi", exact: true })
     .fill(`Đề nhóm ${Date.now()}`);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   const sections = page.locator("[data-outline-section]");
   await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
   await saved(page);
   const sectionCount = await sections.count();
   expect(sectionCount).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
   await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("End");
   await page
     .getByRole("textbox", { name: "Tên đề thi", exact: true })
     .pressSequentially(" kiểm tra");
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await saved(page);
   await expect(sections).toHaveCount(sectionCount);
   await page
@@ -64,7 +66,7 @@ test("mixed builder saves new sections, moves complete groups, copies context an
   await expect(
     sections.last().locator(`[data-outline-group="${originalId}"]`),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Xem như học viên", exact: true }).click();
+  await page.getByRole("button", { name: "Xem trước", exact: true }).click();
   const preview = page.getByRole("dialog");
   await expect(
     preview.getByText("Câu lạc bộ mở cửa vào thứ Bảy.", { exact: true }),
@@ -81,7 +83,7 @@ test("mixed builder saves new sections, moves complete groups, copies context an
       .getByRole("status")
       .filter({ hasText: "Đã lưu bản sao độc lập vào ngân hàng." }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Lấy từ ngân hàng", exact: true }).click();
+  await page.getByRole("button", { name: "Từ ngân hàng câu hỏi", exact: true }).click();
   await page.getByRole("button", { name: "Chọn cả nhóm câu hỏi", exact: true }).click();
   const picker = page.getByRole("dialog");
   await picker.getByRole("textbox").fill(title);
@@ -123,7 +125,7 @@ test("mixed builder saves new sections, moves complete groups, copies context an
   await expect(page.locator("[data-outline-group]")).toHaveCount(1);
   await page.reload();
   await expect(page.locator("[data-outline-group]")).toHaveCount(1);
-  await page.getByRole("button", { name: "Xem như học viên", exact: true }).click();
+  await page.getByRole("button", { name: "Xem trước", exact: true }).click();
   await expect(
     page
       .getByRole("dialog")
@@ -135,7 +137,7 @@ test("mixed builder saves new sections, moves complete groups, copies context an
     .last()
     .getByRole("button", { name: "Thao tác với phần", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Xoá phần", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Gỡ phần", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
   await expect(sections).toHaveCount(beforeRemoval - 1);
   await saved(page);
@@ -145,6 +147,12 @@ test("mixed builder saves new sections, moves complete groups, copies context an
       new URL(response.url()).pathname.endsWith("/publish"),
   );
   await page.getByRole("button", { name: "Phát hành", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Phát hành đề thi?", exact: true })
+    .getByRole("button", { name: "Phát hành", exact: true })
+    .click();
   expect((await published).status()).toBe(201);
+  await expect(page.getByText("Đã phát hành. Giờ bạn có thể giao bài.")).toBeVisible();
+  await page.goto(builderPath.replace(/\/edit$/, ""));
   await expect(page).toHaveURL(builderPath.replace(/\/edit$/, ""));
 });

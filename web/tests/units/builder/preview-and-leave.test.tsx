@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import TestBuilderPage from "@/features/tests/pages/TestBuilderPage";
+import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -14,11 +14,15 @@ const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 const QUESTION_ID = "018f0000-0000-7000-8000-0000000000b1";
 
 const test = {
+  skills: [],
+  assignments: { live: 0, scheduled: 0, closed: 0 },
+  unpublishedChanges: null,
   id: TEST_ID,
   title: "Unit 5",
   description: null,
   status: "draft" as const,
   currentVersion: 0,
+  nextVersion: 1,
   totalPoints: 1,
   questionCount: 1,
   audioCount: 0,
@@ -36,6 +40,8 @@ const test = {
 };
 
 const question = {
+  level: null,
+  skill: null,
   id: QUESTION_ID,
   type: "single_choice" as const,
   prompt: "They ___ to the museum.",
@@ -89,20 +95,24 @@ async function renderBuilder() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/tests/:id/edit", element: <TestBuilderPage /> },
-      { path: "/admin/tests/:id", element: <p>detail page</p> },
-      { path: "/admin/tests", element: <p>tests list</p> },
+      { path: "/teacher/tests/:id/edit", element: <TestBuilderPage /> },
+      { path: "/teacher/tests/:id", element: <p>detail page</p> },
+      { path: "/teacher/tests", element: <p>tests list</p> },
     ],
-    { initialEntries: [`/admin/tests/${TEST_ID}/edit`] },
+    { initialEntries: [`/teacher/tests/${TEST_ID}/edit`] },
   );
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(await screen.findByRole("button", { name: "Tên đề thi" }));
+  const title = screen.getByRole<HTMLInputElement>("textbox", { name: "Tên đề thi" });
+  title.setSelectionRange(title.value.length, title.value.length);
   return {
-    user: userEvent.setup({ advanceTimers: vi.advanceTimersByTime }),
-    title: await screen.findByLabelText("Tên đề thi"),
+    user,
+    title,
     router,
   };
 }
@@ -112,7 +122,7 @@ describe("the builder's bar", () => {
     const { user } = await renderBuilder();
     await screen.findByText("They ___ to the museum.");
 
-    await user.click(screen.getByRole("button", { name: "Xem như học viên" }));
+    await user.click(screen.getByRole("button", { name: "Xem trước" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("They ___ to the museum.")).toBeInTheDocument();
@@ -128,7 +138,7 @@ describe("the builder's bar", () => {
     await user.click(screen.getByRole("button", { name: "Phiên bản" }));
 
     await waitFor(() => expect(router.state.location.hash).toBe("#versions"));
-    expect(router.state.location.pathname).toBe(`/admin/tests/${TEST_ID}`);
+    expect(router.state.location.pathname).toBe(`/teacher/tests/${TEST_ID}`);
   });
 
   it("asks before leaving while a save is still in flight, and stays on Ở lại", async () => {
@@ -144,12 +154,12 @@ describe("the builder's bar", () => {
     ).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Ở lại" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(router.state.location.pathname).toBe(`/admin/tests/${TEST_ID}/edit`);
+    expect(router.state.location.pathname).toBe(`/teacher/tests/${TEST_ID}/edit`);
 
     await user.click(screen.getByRole("button", { name: "Quay lại" }));
     await user.click(
       within(await screen.findByRole("dialog")).getByRole("button", { name: "Rời đi" }),
     );
-    await waitFor(() => expect(router.state.location.pathname).toBe("/admin/tests"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/teacher/tests"));
   });
 });

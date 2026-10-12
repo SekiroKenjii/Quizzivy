@@ -16,6 +16,7 @@ type Question struct {
 	Prompt           string
 	Points           float64
 	Media            *Media
+	MediaAlt         *string
 	Audio            *AudioPolicy
 	Options          []Option
 	Blanks           []Blank

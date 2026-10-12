@@ -65,7 +65,7 @@ func (q *questionBuilder) gaps() []gap {
 	}
 	var out []gap
 	for _, s := range q.stem {
-		out = append(out, scanGaps(s.line.text, s.start, s.end)...)
+		out = append(out, q.rules.gaps(s.line.text, s.start, s.end)...)
 	}
 	return out
 }
@@ -209,7 +209,7 @@ func (b *builder) group(g *groupBuilder) domain.DraftGroup {
 		out.Gaps = append(out.Gaps, link)
 		return id, gp.label, true
 	}
-	out.Stimulus = b.valid(richContent(g.stimulus, richOptions{name: name, joinWraps: true}), content.Parse, g.id)
+	out.Stimulus = b.valid(richContent(g.stimulus, richOptions{name: name, joinWraps: true, rules: b.exam.rules}), content.Parse, g.id)
 	if out.Stimulus == nil {
 		out.Gaps = out.Gaps[:0]
 		for _, q := range g.questions {
@@ -307,6 +307,8 @@ func decideType(q *questionBuilder, tasks taskSet, gaps int, values []keyValue) 
 		return trueFalse
 	case len(q.options) >= 1:
 		return singleChoice
+	case q.rules.text && anyValue(values, isNotGiven):
+		return shortAnswer
 	case tasks.has(taskTrueFalse) || anyValue(values, isTrueFalseWord):
 		return trueFalse
 	case anyValue(values, isLetter):
@@ -587,7 +589,7 @@ func (b *builder) prompt(q *questionBuilder, withBlanks bool) (json.RawMessage, 
 func (b *builder) sourcePrompt(q *questionBuilder, withBlanks bool) json.RawMessage {
 	segments := q.stem
 	if !withBlanks {
-		segments = withoutAnswerLine(segments)
+		segments = withoutAnswerLine(segments, q.rules)
 	}
 	if q.instruction != nil && b.exam.explicit {
 		segments = append([]segment{*q.instruction}, segments...)
@@ -595,7 +597,7 @@ func (b *builder) sourcePrompt(q *questionBuilder, withBlanks bool) json.RawMess
 	if len(segments) == 0 {
 		return nil
 	}
-	o := richOptions{dropUniformMark: true, joinWraps: true}
+	o := richOptions{dropUniformMark: true, joinWraps: true, rules: q.rules}
 	parse := content.ParseQuestion
 	if withBlanks {
 		o.name, parse = blankNaming(q.instruction), content.ParseQuestionPrompt
@@ -615,11 +617,11 @@ func blankNaming(instruction *segment) gapNaming {
 	}
 }
 
-func withoutAnswerLine(segments []segment) []segment {
+func withoutAnswerLine(segments []segment, rules examRules) []segment {
 	out := slices.Clone(segments)
 	for len(out) > 0 {
 		last := out[len(out)-1]
-		cut, trailing := answerLineStart(last)
+		cut, trailing := answerLineStart(last, rules)
 		if !trailing {
 			break
 		}
@@ -632,9 +634,9 @@ func withoutAnswerLine(segments []segment) []segment {
 	return out
 }
 
-func answerLineStart(s segment) (int, bool) {
+func answerLineStart(s segment, rules examRules) (int, bool) {
 	start, end := trimmed(s.line.text, s.start, s.end)
-	gaps := scanGaps(s.line.text, start, end)
+	gaps := rules.gaps(s.line.text, start, end)
 	if len(gaps) == 0 {
 		return end, false
 	}

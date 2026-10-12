@@ -27,34 +27,58 @@ func (a *Application) WithSignedURLTTL(ttl time.Duration) *Application {
 	return a
 }
 
+// WithImageProbe sets what reads an image's pixel size at upload; without
+// one an image is stored with no size.
+func (a *Application) WithImageProbe(images ports.ImageProbe) *Application {
+	a.service.WithImageProbe(images)
+	return a
+}
+
+// WithOwnerQuota sets the bytes one owner's library may hold. A non-positive
+// value keeps the domain's default.
+func (a *Application) WithOwnerQuota(bytes int64) *Application {
+	a.service.WithOwnerQuota(bytes)
+	return a
+}
+
 type Commands struct {
-	Delete cqrs.CommandHandler[command.Delete, cqrs.Nothing]
-	Upload cqrs.CommandHandler[command.Upload, domain.Asset]
+	Replace cqrs.CommandHandler[command.Replace, domain.ReplaceResult]
+	Delete  cqrs.CommandHandler[command.Delete, cqrs.Nothing]
+	Update  cqrs.CommandHandler[command.Update, domain.Asset]
+	Upload  cqrs.CommandHandler[command.Upload, domain.Asset]
 }
 
 type Queries struct {
-	Get            cqrs.QueryHandler[query.Get, domain.Asset]
-	List           cqrs.QueryHandler[query.List, query.ListResult]
-	MintForStudent cqrs.QueryHandler[query.MintForStudent, model.SignedURLResult]
-	Readable       cqrs.QueryHandler[query.Readable, map[string]domain.Kind]
-	SignedURL      cqrs.QueryHandler[query.SignedURL, string]
-	TotalBytes     cqrs.QueryHandler[query.TotalBytes, int64]
+	ReplacementTarget cqrs.QueryHandler[query.ReplacementTarget, domain.ReplacementTarget]
+	Facets            cqrs.QueryHandler[query.Facets, domain.Facets]
+	Get               cqrs.QueryHandler[query.Get, domain.Asset]
+	List              cqrs.QueryHandler[query.List, query.ListResult]
+	MintForStudent    cqrs.QueryHandler[query.MintForStudent, model.SignedURLResult]
+	Readable          cqrs.QueryHandler[query.Readable, map[string]domain.Kind]
+	SignedURL         cqrs.QueryHandler[query.SignedURL, string]
+	TotalBytes        cqrs.QueryHandler[query.TotalBytes, int64]
+	Usage             cqrs.QueryHandler[query.Usage, domain.Usage]
 }
 
 func New(repo domain.Repository, object ports.ObjectStore, probe ports.AudioProbe) *Application {
 	service := support.NewService(repo, object, probe)
 	return &Application{
 		Commands: Commands{
-			Delete: command.DeleteHandler{Service: service},
-			Upload: command.UploadHandler{Service: service},
+			Replace: command.ReplaceHandler{Service: service},
+			Delete:  command.DeleteHandler{Service: service},
+			Update:  command.UpdateHandler{Service: service},
+			Upload:  command.UploadHandler{Service: service},
 		},
 		Queries: Queries{
-			Get:            query.GetHandler{Service: service},
-			List:           query.ListHandler{Service: service},
-			MintForStudent: query.MintForStudentHandler{Service: service},
-			Readable:       query.ReadableHandler{Service: service},
-			SignedURL:      query.SignedURLHandler{Service: service},
-			TotalBytes:     query.TotalBytesHandler{Service: service},
+			ReplacementTarget: query.ReplacementTargetHandler{Service: service},
+			Facets:            query.FacetsHandler{Service: service},
+			Get:               query.GetHandler{Service: service},
+			List:              query.ListHandler{Service: service},
+			MintForStudent:    query.MintForStudentHandler{Service: service},
+			Readable:          query.ReadableHandler{Service: service},
+			SignedURL:         query.SignedURLHandler{Service: service},
+			TotalBytes:        query.TotalBytesHandler{Service: service},
+			Usage:             query.UsageHandler{Service: service},
 		},
 		service: service,
 	}

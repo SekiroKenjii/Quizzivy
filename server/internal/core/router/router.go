@@ -23,9 +23,18 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		return nil, err
 	}
 
+	bodyLimits, err := httpx.RequestBodyLimits(spec)
+	if err != nil {
+		return nil, err
+	}
+
 	limits := RateLimits()
+	principalLimits := PrincipalRateLimits()
 
 	if err := httpx.AssertPublicRoutesLimited(spec, limits); err != nil {
+		return nil, err
+	}
+	if err := httpx.AssertPrincipalRoutesGated(spec, "bearerAuth", principalLimits); err != nil {
 		return nil, err
 	}
 	if deps.Principals == nil {
@@ -43,7 +52,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		return nil, err
 	}
 
-	server := &Server{Imports: deps.Modules.Imports, Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Questions: deps.Modules.Questions, Media: deps.Modules.Media, Tests: deps.Modules.Tests, Assignments: deps.Modules.Assignments, Attempts: deps.Modules.Attempts, Availability: deps.Modules.Availability, Deps: deps, Logger: logger}
+	server := &Server{Imports: deps.Modules.Imports, Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Questions: deps.Modules.Questions, Media: deps.Modules.Media, Tests: deps.Modules.Tests, Assignments: deps.Modules.Assignments, Attempts: deps.Modules.Attempts, Availability: deps.Modules.Availability, Notifications: deps.Modules.Notifications, Deps: deps, Logger: logger}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
 			httpx.WriteMalformedBody(w, r)
@@ -52,6 +61,11 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			if errors.Is(err, httpx.ErrNotImplemented) {
 				httpx.WriteError(w, r, http.StatusNotImplemented, httpx.CodeInternal,
 					httpx.TextFor(r, "Chức năng này chưa được xây dựng.", "This feature has not been built yet."))
+				return
+			}
+			if httpx.ClientGone(r.Context(), err) {
+				logger.Debug("client_cancelled", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+				httpx.WriteClientGone(w)
 				return
 			}
 			logger.Error("handler", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -78,9 +92,11 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			httpx.RateLimit(limits, ratelimit.ClientIP(clientIPHeader), deps.Modules.Identity.ClearSessionOnRefusedLogout),
 			httpx.WithRequestMeta(ratelimit.ClientIP(clientIPHeader)),
 			identityhttp.WithRefreshCookie,
+			identityhttp.WithGeoLabel(clientIPHeader),
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
 			httpx.RequirePermission(requirements, deps.Principals),
-			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20, httpx.RequestBodyLimits(spec)),
+			httpx.PrincipalRateLimit(principalLimits),
+			httpx.LimitRequestBody(logger, httpx.StreamingBodyRoutes(spec), 1<<20, bodyLimits),
 			validate,
 		),
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
@@ -213,10 +229,14 @@ func livez(w http.ResponseWriter, _ *http.Request) {
 
 func healthz(database DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case database == nil:
+		if database == nil {
 			writeHealth(w, http.StatusOK, health{Status: "ok", Database: "not configured"})
-		case database.Ping(r.Context()) != nil:
+			return
+		}
+		switch err := database.Ping(r.Context()); {
+		case httpx.ClientGone(r.Context(), err):
+			httpx.WriteClientGone(w)
+		case err != nil:
 			writeHealth(w, http.StatusServiceUnavailable, health{Status: "degraded", Database: "unreachable"})
 		default:
 			writeHealth(w, http.StatusOK, health{Status: "ok", Database: "ok"})

@@ -18,10 +18,23 @@ import (
 type Service struct {
 	Store        domain.Repository
 	Groups       ports.GroupContexts
+	Zones        ports.Zones
 	Now          func() time.Time
 	NewSessionID func() string
 	NewSeed      func() (int64, error)
 	NewBeacon    func() (string, []byte, error)
+	Announcer    *Announcer
+}
+
+// Expire closes the attempt if its time has run out, and tells whom the
+// closed paper concerns when it did.
+func (s *Service) Expire(ctx context.Context, attemptID string) error {
+	reached, err := s.Store.ExpireIfDue(ctx, attemptID, s.Now())
+	if err != nil {
+		return err
+	}
+	s.Announcer.Announce(ctx, reached)
+	return nil
 }
 
 // ExpireDue closes every attempt on the assignment whose time has run out, so
@@ -32,7 +45,7 @@ func (s *Service) ExpireDue(ctx context.Context, scope access.Scope, assignmentI
 		return err
 	}
 	for _, id := range ids {
-		if err := s.Store.ExpireIfDue(ctx, id, s.Now()); err != nil {
+		if err := s.Expire(ctx, id); err != nil {
 			return err
 		}
 	}
@@ -93,7 +106,7 @@ func (s *Service) ResumeIfLive(ctx context.Context, assignmentID, studentID, res
 	}
 
 	if s.Now().After(live.DeadlineAt) {
-		if err := s.Store.ExpireIfDue(ctx, live.ID, s.Now()); err != nil {
+		if err := s.Expire(ctx, live.ID); err != nil {
 			return domain.Session{}, false, err
 		}
 		return domain.Session{}, false, nil
@@ -107,16 +120,7 @@ func (s *Service) ResumeIfLive(ctx context.Context, assignmentID, studentID, res
 }
 
 func (s *Service) CanStart(r domain.Rules) error {
-	now := s.Now()
-	switch {
-	case r.PublishedAt == nil:
-		return domain.ErrNotFound
-	case now.Before(r.OpensAt), !now.Before(r.ClosesAt):
-		return domain.ErrAssignmentClosed
-	case r.ClosedAt != nil && !now.Before(*r.ClosedAt):
-		return domain.ErrAssignmentClosed
-	}
-	return nil
+	return r.CanStartAt(s.Now())
 }
 
 func (s *Service) Create(ctx context.Context, assignmentID, studentID string, attemptNo int, r domain.Rules) (domain.Session, error) {
@@ -130,21 +134,20 @@ func (s *Service) Create(ctx context.Context, assignmentID, studentID string, at
 	}
 	now := s.Now()
 
-	created, err := s.Store.Create(ctx, domain.CreateInput{
-		AssignmentID:  assignmentID,
-		TestVersionID: r.TestVersionID,
-		StudentID:     studentID,
-		AttemptNo:     attemptNo,
-		SessionID:     s.NewSessionID(),
-		Seed:          seed,
-		BeaconHash:    hash,
-		StartedAt:     now,
-		DeadlineAt:    r.Deadline(now),
+	created, committed, err := s.Store.Create(ctx, domain.CreateInput{
+		AssignmentID:       assignmentID,
+		StudentID:          studentID,
+		AttemptNo:          attemptNo,
+		SessionID:          s.NewSessionID(),
+		Seed:               seed,
+		BeaconHash:         hash,
+		StartedAt:          now,
+		ExpectedDeadlineAt: r.Deadline(now),
 	})
 	if err != nil {
 		return domain.Session{}, err
 	}
-	return s.Session(ctx, created, beacon, r)
+	return s.Session(ctx, created, beacon, committed)
 }
 
 func (s *Service) Resume(ctx context.Context, live domain.AttemptRecord, r domain.Rules) (domain.Session, error) {

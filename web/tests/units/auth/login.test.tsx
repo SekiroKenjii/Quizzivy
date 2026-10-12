@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -15,12 +16,18 @@ const BASE = "http://localhost:8080";
 function renderLogin(initialEntry = "/login") {
   const routes: RouteObject[] = [
     { path: "/login", element: <LoginPage /> },
-    { path: "/admin", element: <p>admin home</p> },
+    { path: "/teacher", element: <p>admin home</p> },
     { path: "/app", element: <p>student home</p> },
     { path: "/join/:code", element: <p>join page</p> },
   ];
   const router = createMemoryRouter(routes, { initialEntries: [initialEntry] });
-  render(<RouterProvider router={router} />);
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
   return router;
 }
 
@@ -134,7 +141,7 @@ describe("/login", () => {
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
 
     // The default handler answers with adminUser.
-    await waitFor(() => expect(router.state.location.pathname).toBe("/admin"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/teacher"));
   });
 
   it("refuses an off-site ?next=", async () => {
@@ -145,7 +152,7 @@ describe("/login", () => {
     await user.type(screen.getByLabelText("Mật khẩu"), "quizzivy-dev");
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/admin"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/teacher"));
     expect(router.state.location.pathname).not.toContain("evil.test");
   });
 

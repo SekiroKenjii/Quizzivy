@@ -36,7 +36,7 @@ func (h Imports) GetWordImportLimits(ctx context.Context, _ openapi.GetWordImpor
 	if err != nil {
 		return nil, err
 	}
-	out := openapi.GetWordImportLimits200JSONResponse{MaxBytes: v.MaxBytes}
+	out := openapi.GetWordImportLimits200JSONResponse{MaxBytes: v.MaxBytes, PasteMaxCharacters: v.PasteMaxCharacters}
 	for _, f := range v.Formats {
 		out.Formats = append(out.Formats, openapi.ImportLimitsFormats(f))
 	}

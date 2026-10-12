@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { CircleCheck, EyeOff, Timer, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatTime, shortDate } from "@/lib/i18n/datetime";
+import { formatTime, shortDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import type { SubmitReason } from "../store";
 import { EndState } from "./EndState";
 
@@ -37,6 +37,7 @@ export function SubmittedScreen({
   onHome: () => void;
   onResult: () => void;
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
   const { icon, tone } = LOOK[reason];
   return (

@@ -243,9 +243,12 @@ queries never read explanations. Result SQL gates both explanation columns with
 the existing review policy. Rollback after rich writes retains these columns
 and capable readers; destructive Down is only for disposable/pre-rollout data.
 
-The lazy authoring affordance is controlled by `VITE_RICH_QUESTION_EDITOR`
-(default false); existing rich documents remain editable. Markdown conversion
-is explicit and refuses unsupported nodes rather than dropping them. Media,
+Since T-R4.64 every prompt and explanation is written in the form it is
+stored in: rich content in the rich editor, a Markdown string in the Markdown
+editor, and a new field is rich text, the builder's and the group composer's
+starter prompt included (T-R4.31b, T-R4.34). Markdown conversion is explicit and refuses
+unsupported nodes rather than dropping them (for example a table's column
+alignment, raw HTML, code, images, quotations and links that are not HTTPS). Media,
 gap bindings, structured clipboard import, IME/teacher acceptance and full
 five-type rich prompt authoring remain later gates.
 

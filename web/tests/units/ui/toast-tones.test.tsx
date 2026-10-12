@@ -37,6 +37,13 @@ describe("where the toast sits", () => {
   });
 });
 
+describe("the toast's font", () => {
+  it("sets the brand font on the card, over the system stack Sonner gives its container", async () => {
+    const card = await show(() => toast("Đã lưu họ và tên."));
+    expect(card).toHaveClass("font-sans");
+  });
+});
+
 describe("toast tones", () => {
   it.each([
     ["success", "text-success"],

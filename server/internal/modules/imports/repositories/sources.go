@@ -53,9 +53,9 @@ func reserveSource(ctx context.Context, tx pgx.Tx, in domain.Reserve, quotas dom
 	}
 	v := in.Source
 	out, err := scanSource(tx.QueryRow(ctx, `WITH identity AS (SELECT uuidv7() AS id)
- INSERT INTO app.word_import_sources(id,import_id,upload_id,expected_revision,role,filename,format,bytes,checksum_sha256,storage_key,uploaded_by)
- SELECT id,$1::uuid,$2,$3,$4,$5,$6,$7,$8,'originals/' || $1::uuid::text || '/' || id::text,$9 FROM identity RETURNING `+sourceColumns,
-		v.ImportID, v.UploadID, v.ExpectedRevision, v.Role, v.Filename, v.Format, v.Bytes, v.SHA256, in.Actor.ID))
+ INSERT INTO app.word_import_sources(id,import_id,upload_id,expected_revision,role,filename,format,characters,bytes,checksum_sha256,storage_key,uploaded_by)
+ SELECT id,$1::uuid,$2,$3,$4,$5,$6,$10,$7,$8,'originals/' || $1::uuid::text || '/' || id::text,$9 FROM identity RETURNING `+sourceColumns,
+		v.ImportID, v.UploadID, v.ExpectedRevision, v.Role, v.Filename, v.Format, v.Bytes, v.SHA256, in.Actor.ID, v.Characters))
 	if err != nil {
 		return domain.Source{}, err
 	}
@@ -87,7 +87,8 @@ func sourceQuota(ctx context.Context, tx pgx.Tx, in domain.Reserve, quotas domai
 }
 
 func sameUpload(a, b domain.Source) bool {
-	return a.Role == b.Role && a.Filename == b.Filename && a.Format == b.Format && a.Bytes == b.Bytes && a.ExpectedRevision == b.ExpectedRevision && bytes.Equal(a.SHA256, b.SHA256)
+	charactersEqual := a.Characters == nil && b.Characters == nil || a.Characters != nil && b.Characters != nil && *a.Characters == *b.Characters
+	return charactersEqual && a.Role == b.Role && a.Filename == b.Filename && a.Format == b.Format && a.Bytes == b.Bytes && a.ExpectedRevision == b.ExpectedRevision && bytes.Equal(a.SHA256, b.SHA256)
 }
 
 func (s *Postgres) Finish(ctx context.Context, in domain.Finish) (domain.Receipt, error) {

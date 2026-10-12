@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/shared/answered"
+	"quizzivy/internal/shared/schedule"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -41,7 +42,9 @@ var studentCardColumns = `
 	                                  AND m.user_id = $1::uuid
 	         WHERE ac.assignment_id = a.id),
 	       a.opens_at, a.closes_at, a.closed_at, a.published_at,
-	       a.duration_minutes, a.max_attempts, a.review_show_score,
+	       a.duration_minutes, a.max_attempts,
+	       (a.review_show_score
+	        AND (a.review_release = 'on_submit' OR now() >= ` + schedule.CloseOf("o") + `)),
 	       (SELECT count(*) FROM app.test_version_questions q
 	          JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
 	         WHERE sec.test_version_id = a.test_version_id),
@@ -70,12 +73,13 @@ var studentCardColumns = `
 	           AND at.status = 'in_progress' AND at.deadline_at > now()
 	         ORDER BY at.deadline_at DESC LIMIT 1),
 	       last.id::text, last.status::text, last.submitted_at,
-	       last.earned, last.total, last.pending`
+	       last.earned, last.total, last.pending, ` + schedule.OverrideSelect
 
-const studentCardFrom = `
+var studentCardFrom = `
 	  FROM app.assignments a
 	  JOIN app.tests t ON t.id = a.test_id
 	  JOIN app.test_versions v ON v.id = a.test_version_id
+	  ` + schedule.OverrideJoin("$1::uuid") + `
 	  LEFT JOIN LATERAL (
 	       SELECT at.id, at.status, at.submitted_at,
 	              at.score_earned::float8 AS earned,
@@ -108,21 +112,32 @@ func (l lastAttempt) apply(c *domain.StudentCard, showScore bool) {
 	}
 }
 
+func applyOverride(c *domain.StudentCard, oc schedule.OverrideColumns) {
+	w := schedule.Window{
+		OpensAt: c.OpensAt, ClosesAt: c.ClosesAt, ClosedAt: c.ClosedAt,
+		DurationMin: c.DurationMin, MaxAttempts: c.MaxAttempts,
+	}.WithOverride(oc.Override())
+	c.ClosesAt, c.ClosedAt, c.DurationMin, c.MaxAttempts = w.ClosesAt, w.ClosedAt, w.DurationMin, w.MaxAttempts
+}
+
 func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 	var (
 		c         domain.StudentCard
 		showScore bool
 		l         lastAttempt
+		oc        schedule.OverrideColumns
 	)
 	err := row.Scan(&c.ID, &c.TestTitle, &c.ClassName, &c.ClassID, &c.ClassIDs,
 		&c.OpensAt, &c.ClosesAt, &c.ClosedAt, &c.PublishedAt,
 		&c.DurationMin, &c.MaxAttempts, &showScore,
 		&c.QuestionCount, &c.TotalPoints,
 		&c.AttemptsUsed, &c.HasLiveAttempt, &c.LiveDeadlineAt, &c.LiveAnsweredCount,
-		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending)
+		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending,
+		&oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts)
 	if err != nil {
 		return domain.StudentCard{}, err
 	}
+	applyOverride(&c, oc)
 	l.apply(&c, showScore)
 	return c, nil
 }
@@ -131,7 +146,7 @@ func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 func (s *Postgres) ForStudent(ctx context.Context, studentID string, now time.Time) (domain.StudentSections, error) {
 	rows, err := s.Query(ctx, studentCardColumns+studentCardFrom+`
 	 WHERE a.published_at IS NOT NULL AND `+targeted+`
-	 ORDER BY a.closes_at ASC, a.id DESC`, studentID)
+	 ORDER BY `+schedule.CloseOf("o")+` ASC, a.id DESC`, studentID)
 	if err != nil {
 		return domain.StudentSections{}, fmt.Errorf("assignments: list for student: %w", err)
 	}
@@ -166,13 +181,15 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		d         domain.StudentDetail
 		showScore bool
 		l         lastAttempt
+		oc        schedule.OverrideColumns
 		onLimit   string
 		maxPlays  *int
 	)
 
 	err := s.QueryRow(ctx, studentCardColumns+`,
-	       (SELECT au.full_name FROM app.users au WHERE au.id = a.created_by),
+	       (SELECT coalesce(au.display_name, au.full_name) FROM app.users au WHERE au.id = a.created_by),
 	       a.review_show_correct_answers, a.review_show_explanations,
+	       a.review_show_score, a.review_release, a.review_show_class_average, a.student_note,
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 	       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
 	       a.integrity_min_away_ms,
@@ -186,8 +203,10 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		&d.QuestionCount, &d.TotalPoints,
 		&d.AttemptsUsed, &d.HasLiveAttempt, &d.LiveDeadlineAt, &d.LiveAnsweredCount,
 		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending,
+		&oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts,
 		&d.TeacherName,
 		&d.Review.ShowCorrectAnswers, &d.Review.ShowExplanations,
+		&d.Review.ShowScore, &d.Review.Release, &d.Review.ShowClassAverage, &d.StudentNote,
 		&d.Integrity.RequireFullscreen, &d.Integrity.BlockCopyPaste,
 		&d.Integrity.MaxFocusLoss, &onLimit, &d.Integrity.MinAwayMs,
 		&d.HasAudio, &d.HasSharedAudio, &d.ShowsTranscript, &maxPlays)
@@ -197,8 +216,8 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 	if err != nil {
 		return domain.StudentDetail{}, fmt.Errorf("assignments: student detail: %w", err)
 	}
-	d.Review.ShowScore = showScore
 	d.Integrity.OnLimitExceeded = onLimit
+	applyOverride(&d.StudentCard, oc)
 	l.apply(&d.StudentCard, showScore)
 	if d.HasAudio {
 		d.AudioMaxPlays = maxPlays

@@ -152,7 +152,11 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
                 {selected ? <Check className="size-3.5" /> : optionKey(index)}
               </span>
               <span className="min-w-0 flex-1">
-                <OptionText text={option.text} content={option.content} />
+                <OptionText
+                  text={option.text}
+                  content={option.content}
+                  type={question.type}
+                />
               </span>
             </label>
           );

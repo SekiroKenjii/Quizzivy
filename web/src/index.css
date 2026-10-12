@@ -4,6 +4,10 @@
 @import "@fontsource/be-vietnam-pro/500.css";
 @import "@fontsource/be-vietnam-pro/600.css";
 @import "@fontsource/be-vietnam-pro/700.css";
+@import "@fontsource/be-vietnam-pro/400-italic.css";
+@import "@fontsource/be-vietnam-pro/500-italic.css";
+@import "@fontsource/be-vietnam-pro/600-italic.css";
+@import "@fontsource/be-vietnam-pro/700-italic.css";
 
 /*
   Design tokens: the deck's (docs/design/deck/, spec §12), under the deck's own
@@ -63,6 +67,11 @@
   --qr-fg: #1b2123;
   --swatch-light: #ffffff;
   --swatch-dark: #0e1213;
+  --swatch-light-side: #f2f4f4;
+  --swatch-light-line: #e4e7e8;
+  --swatch-dark-side: #1a2022;
+  --swatch-dark-line: #252d2f;
+  --swatch-device: #9aa3a5;
   --qz-shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.2);
 
   /* Beyond the deck, for contrast (DG-30, DG-31): the focus ring, input borders and destructive buttons. */
@@ -195,6 +204,11 @@
   --color-qr-fg: var(--qr-fg);
   --color-swatch-light: var(--swatch-light);
   --color-swatch-dark: var(--swatch-dark);
+  --color-swatch-light-side: var(--swatch-light-side);
+  --color-swatch-light-line: var(--swatch-light-line);
+  --color-swatch-dark-side: var(--swatch-dark-side);
+  --color-swatch-dark-line: var(--swatch-dark-line);
+  --color-swatch-device: var(--swatch-device);
 
   --shadow-card: var(--qz-shadow);
   --shadow-float: var(--qz-shadow-lg);
@@ -371,7 +385,7 @@
 
 .qz-marquee:hover .qz-marquee-track,
 .qz-marquee:focus-within .qz-marquee-track,
-:focus-visible .qz-marquee-track {
+:is(button, a[href], [role="button"], [role="link"]):focus-visible .qz-marquee-track {
   animation-play-state: paused;
 }
 
@@ -411,6 +425,10 @@
   animation: qz-shimmer 1.4s linear infinite;
 }
 
+[data-slot="teacher-skeleton"]:is(:hover, :focus-within) [data-slot="skeleton"] {
+  animation-play-state: paused;
+}
+
 .qz-breath {
   animation: qz-breath 1.8s ease-in-out infinite;
 }
@@ -436,21 +454,6 @@
   }
 }
 
-@keyframes settings-enter {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.settings-panel:not([hidden]) {
-  animation: settings-enter 150ms ease-out;
-}
-
 .surface-lift {
   transition:
     box-shadow 150ms ease-out,
@@ -465,10 +468,33 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settings-panel:not([hidden]) {
-    animation: none;
-  }
   .surface-lift {
     transition: none;
+  }
+}
+
+/* A sheet of one-time passwords prints alone: everything else on the page is
+   hidden, and the dialog is laid out as a plain page. */
+@media print {
+  body:has([data-print="credentials"]) * {
+    visibility: hidden;
+  }
+  body:has([data-print="credentials"]) [data-print="credentials"],
+  body:has([data-print="credentials"]) [data-print="credentials"] * {
+    visibility: visible;
+  }
+  [data-print="credentials"] {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    --tw-translate-x: 0;
+    --tw-translate-y: 0;
+    border: 0;
+    box-shadow: none;
+  }
+  [data-print="credentials"] button {
+    display: none;
   }
 }

@@ -5,6 +5,7 @@ import (
 
 	"quizzivy/internal/core/adapters"
 	attemptsapp "quizzivy/internal/modules/attempts/application"
+	attemptsports "quizzivy/internal/modules/attempts/application/ports"
 	attemptshttp "quizzivy/internal/modules/attempts/http"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	identityapp "quizzivy/internal/modules/identity/application"
@@ -12,8 +13,8 @@ import (
 	"quizzivy/internal/platform/db"
 )
 
-func attempts(dbx db.Context) *attemptsapp.Application {
-	return attemptsapp.New(attemptsrepo.NewTimelines(dbx), attemptsrepo.NewReviews(dbx), attemptsrepo.NewPostgres(dbx, adapters.AttemptStartGuard{}))
+func attempts(dbx db.Context, notifier attemptsports.Notifier, logger *slog.Logger) *attemptsapp.Application {
+	return attemptsapp.New(attemptsrepo.NewTimelines(dbx), attemptsrepo.NewReviews(dbx), attemptsrepo.NewPostgres(dbx, adapters.AttemptStartGuard{})).WithNotifier(notifier, logger)
 }
 
 func attemptsTransport(app *attemptsapp.Application, media *mediaapp.Application, identity *identityapp.Application, logger *slog.Logger) attemptshttp.Attempts {

@@ -1,165 +1,86 @@
-import { useState } from "react";
+import { useMemo, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { GraduationCap } from "lucide-react";
+import { FormDialog } from "@/components/shared/form/FormDialog";
 import { toast } from "@/components/ui/sonner";
-import { createClass } from "@/features/classes/api";
-import { newClassSchema, type NewClassValues } from "@/features/classes/newClassSchema";
-import { ApiError, fieldMessages } from "@/lib/api/errors";
+import { createClass, rotateJoinCode } from "@/features/classes/api";
+import {
+  blankAsNull,
+  classFields,
+  saveError,
+  type ClassFieldValues,
+} from "@/features/classes/classFields";
 
-/** G-08's "Lớp mới": two fields and a switch. The join code is issued on the class page. */
+const EMPTY: ClassFieldValues = { name: "", schedule: "", room: "" };
+const FIRST_CODE = { expiresInDays: 30, maxUses: 40 } as const;
+
+/**
+ * NewClassDialog is the deck's "New class": a name, a schedule and a room.
+ * It creates the class open to joining, then issues its first code for 30
+ * days and 40 uses (O-06) and toasts "Class created · join code {code}". A
+ * class whose code could not be issued is still created, and the toast says
+ * to make one from its card.
+ */
 export function NewClassDialog({
   open,
   onOpenChange,
+  returnFocus,
 }: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
 }>) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [error, setError] = useState<string | null>(null);
-  const form = useForm<NewClassValues>({
-    resolver: zodResolver(newClassSchema),
-    defaultValues: { name: "", description: "", selfJoinEnabled: false },
-    mode: "onTouched",
-  });
+  const fields = useMemo(() => classFields(t), [t]);
 
   const create = useMutation({
-    mutationFn: (values: NewClassValues) =>
-      createClass({
-        name: values.name,
-        description:
-          values.description.trim() === "" ? null : values.description.trim(),
-        selfJoinEnabled: values.selfJoinEnabled,
-      }),
-    onSuccess: async (created) => {
-      await queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
-      close();
-      toast(t("classes.created"));
-      void navigate(`/admin/classes/${created.id}`);
+    mutationFn: async (values: ClassFieldValues) => {
+      const created = await createClass({
+        name: values.name.trim(),
+        scheduleLabel: blankAsNull(values.schedule),
+        room: blankAsNull(values.room),
+        selfJoinEnabled: true,
+      });
+      try {
+        const issued = await rotateJoinCode(created.id, FIRST_CODE);
+        return issued.code;
+      } catch {
+        return null;
+      }
     },
-    onError: (cause) => {
-      setError(
-        fieldMessages(cause)[0] ??
-          (cause instanceof ApiError ? cause.message : t("classes.createFailed")),
-      );
+    onSuccess: async (code) => {
+      onOpenChange(false);
+      if (code === null) toast(t("classes.createdNoCode"));
+      else toast(t("classes.createdWithCode", { code }));
+      await queryClient.invalidateQueries({ queryKey: ["teacher-classes"] });
     },
   });
 
-  function close() {
-    form.reset();
-    setError(null);
-    onOpenChange(false);
-  }
-
-  const nameError = form.formState.errors.name?.message;
+  const error = create.isError
+    ? saveError(create.error, t("classes.createFailed"))
+    : null;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
-      <DialogContent>
-        <form
-          onSubmit={form.handleSubmit((values) => create.mutate(values))}
-          noValidate
-        >
-          <DialogHeader>
-            <DialogTitle>{t("classes.new")}</DialogTitle>
-            <DialogDescription>{t("classes.newHint")}</DialogDescription>
-          </DialogHeader>
-
-          <div className="mt-4 space-y-3">
-            <div>
-              <Label htmlFor="class-name">{t("classes.name")}</Label>
-              <Input
-                id="class-name"
-                className="mt-1.5"
-                placeholder={t("classes.namePlaceholder")}
-                aria-invalid={nameError !== undefined}
-                aria-describedby={
-                  nameError === undefined ? "class-name-hint" : "class-name-error"
-                }
-                {...form.register("name")}
-              />
-              {nameError === undefined ? (
-                <p
-                  id="class-name-hint"
-                  className="text-muted-foreground mt-1.5 text-xs"
-                >
-                  {t("classes.nameHint")}
-                </p>
-              ) : (
-                <p id="class-name-error" className="text-destructive mt-1.5 text-xs">
-                  {t(nameError)}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="class-description">
-                {t("classes.description")}{" "}
-                <span className="text-muted-foreground font-normal">
-                  — {t("classes.optional")}
-                </span>
-              </Label>
-              <Textarea
-                id="class-description"
-                className="mt-1.5 min-h-14"
-                placeholder={t("classes.descriptionPlaceholder")}
-                {...form.register("description")}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <Label htmlFor="class-self-join" className="font-normal">
-                  {t("classes.selfJoin")}
-                </Label>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  {t("classes.selfJoinHint")}
-                </p>
-              </div>
-              <Controller
-                control={form.control}
-                name="selfJoinEnabled"
-                render={({ field }) => (
-                  <Switch
-                    id="class-self-join"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-            </div>
-            {error === null ? null : (
-              <p role="alert" className="text-destructive text-sm">
-                {error}
-              </p>
-            )}
-          </div>
-
-          <DialogFooter className="mt-5">
-            <Button type="button" variant="outline" className="flex-1" onClick={close}>
-              {t("common.cancel")}
-            </Button>
-            <Button type="submit" className="flex-1" disabled={create.isPending}>
-              {t("classes.create")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) create.reset();
+        onOpenChange(next);
+      }}
+      title={t("classes.new")}
+      description={t("classes.newHint")}
+      icon={GraduationCap}
+      initial={EMPTY}
+      fields={fields}
+      submitLabel={t("classes.create")}
+      pending={create.isPending}
+      error={error}
+      returnFocus={returnFocus}
+      onSubmit={(values) => {
+        if (!create.isPending) create.mutate(values);
+      }}
+    />
   );
 }

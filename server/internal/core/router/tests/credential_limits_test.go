@@ -11,14 +11,16 @@ import (
 )
 
 var theCredentialMinters = map[string]bool{
-	"Login":                true,
-	"GoogleAuth":           true,
-	"RefreshSession":       true,
-	"ResetStudentPassword": true,
-	"CreateStudent":        true,
-	"RotateJoinCode":       true,
-	"GetJoinCode":          true,
-	"OpenDocsSession":      true,
+	"Login":                  true,
+	"GoogleAuth":             true,
+	"RefreshSession":         true,
+	"ResetStudentPassword":   true,
+	"ResetStudentsPasswords": true,
+	"CreateStudent":          true,
+	"RotateJoinCode":         true,
+	"GetJoinCode":            true,
+	"ListClasses":            true,
+	"OpenDocsSession":        true,
 }
 
 const joinCodeShape = "{code, expiresAt}"
@@ -68,7 +70,7 @@ func mintsACredential(op *openapi3.Operation) bool {
 
 func TestEveryCredentialMinterHasARateLimit(t *testing.T) {
 	spec := freshSpec(t)
-	limits := router.RateLimits()
+	byAddress, byPrincipal := router.RateLimits(), router.PrincipalRateLimits()
 	found := map[string]string{}
 	eachOperation(spec, func(pattern string, op *openapi3.Operation) {
 		if theCredentialMinters[op.OperationID] {
@@ -81,7 +83,9 @@ func TestEveryCredentialMinterHasARateLimit(t *testing.T) {
 			t.Errorf("%s is not in the contract", id)
 			continue
 		}
-		if _, limited := limits.Lookup(pattern); !limited {
+		_, perAddress := byAddress.Lookup(pattern)
+		_, perActor := byPrincipal.Lookup(pattern)
+		if !perAddress && !perActor {
 			t.Errorf("%s (%s) mints a credential and has no rate limit", id, pattern)
 		}
 	}
@@ -104,7 +108,7 @@ func TestNoOperationMintsACredentialOffTheList(t *testing.T) {
 		t.Errorf("these operations return a temporary password, an access token or a join code but are not credential minters with a rate limit: %v", unlisted)
 	}
 	sort.Strings(detected)
-	want := []string{"CreateStudent", "GetJoinCode", "GoogleAuth", "Login", "RefreshSession", "ResetStudentPassword", "RotateJoinCode"}
+	want := []string{"CreateStudent", "GetJoinCode", "GoogleAuth", "ListClasses", "Login", "RefreshSession", "ResetStudentPassword", "ResetStudentsPasswords", "RotateJoinCode"}
 	if strings.Join(detected, ",") != strings.Join(want, ",") {
 		t.Errorf("detected minters %v, want %v: the detector is looking at the wrong thing", detected, want)
 	}

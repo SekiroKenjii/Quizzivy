@@ -13,6 +13,7 @@ import (
 	identityhttp "quizzivy/internal/modules/identity/http"
 	importshttp "quizzivy/internal/modules/imports/http"
 	mediahttp "quizzivy/internal/modules/media/http"
+	notificationshttp "quizzivy/internal/modules/notifications/http"
 	questionshttp "quizzivy/internal/modules/questions/http"
 	testshttp "quizzivy/internal/modules/tests/http"
 	"quizzivy/internal/platform/httpx"
@@ -30,6 +31,7 @@ type Server struct {
 	assignmentshttp.Assignments
 	attemptshttp.Attempts
 	availabilityhttp.Availability
+	notificationshttp.Notifications
 	Deps Deps
 	// Logger is nil in tests; read it through logOf.
 	Logger *slog.Logger

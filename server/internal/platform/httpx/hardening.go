@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -31,23 +32,27 @@ func SecurityHeaders(next http.Handler) http.Handler {
 const StreamingReadTimeout = 110 * time.Second
 
 // LimitRequestBody bounds non-streaming requests before the contract validator buffers them; a body it cannot finish
-// reading answers 408 REQUEST_INCOMPLETE, whatever stopped the read.
-func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLimits map[string]int64) func(http.Handler) http.Handler {
+// reading answers 408 REQUEST_INCOMPLETE, whatever stopped the read. A streamed upload gets StreamingReadTimeout
+// through http.ResponseController, which reaches the connection only if every writer wrapped around the server's
+// implements Unwrap; when it cannot, logger records a WARN named streaming_read_deadline and the upload is held to
+// the server-wide read timeout.
+func LimitRequestBody(logger *slog.Logger, streaming map[string]struct{}, defaultLimit int64, routeLimits map[string]RequestBodyLimit) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if streamingRequestBody(w, r, streaming, routeLimits) {
+			if streamingRequestBody(logger, w, r, streaming, routeLimits) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			limit := requestBodyLimit(r.Pattern, defaultLimit, routeLimits)
+			budget := requestBodyLimit(r.Pattern, defaultLimit, routeLimits)
+			limit := budget.Bytes
 			if r.ContentLength > limit {
-				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, bodyTooLarge(r, limit))
+				WriteError(w, r, budget.ExceededStatus, CodeValidationFailed, bodyTooLarge(r, limit))
 				return
 			}
 			body, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
 			_ = r.Body.Close()
 			if int64(len(body)) > limit {
-				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, bodyTooLarge(r, limit))
+				WriteError(w, r, budget.ExceededStatus, CodeValidationFailed, bodyTooLarge(r, limit))
 				return
 			}
 			if err != nil {
@@ -65,28 +70,34 @@ func bodyTooLarge(r *http.Request, limit int64) string {
 	return fmt.Sprintf(TextFor(r, "Dữ liệu gửi lên vượt quá giới hạn %g MiB.", "The submitted data exceeds the %g MiB limit."), float64(limit)/(1<<20))
 }
 
-func streamingRequestBody(w http.ResponseWriter, r *http.Request, streaming map[string]struct{}, limits map[string]int64) bool {
+func streamingRequestBody(logger *slog.Logger, w http.ResponseWriter, r *http.Request, streaming map[string]struct{}, limits map[string]RequestBodyLimit) bool {
 	if r.Body == nil {
 		return true
 	}
 	if _, ok := streaming[r.Pattern]; !ok {
 		return false
 	}
-	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(StreamingReadTimeout))
-	if limit := limits[r.Pattern]; limit > 0 {
+	if err := http.NewResponseController(w).SetReadDeadline(time.Now().Add(StreamingReadTimeout)); err != nil {
+		logger.Warn("streaming_read_deadline", "err", err, "path", r.URL.Path, "request_id", RequestIDFromContext(r.Context()))
+	}
+	if limit := limits[r.Pattern].Bytes; limit > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 	}
 	return true
 }
 
-func requestBodyLimit(pattern string, fallback int64, limits map[string]int64) int64 {
-	if configured := limits[pattern]; configured > 0 {
-		return configured
+func requestBodyLimit(pattern string, fallback int64, limits map[string]RequestBodyLimit) RequestBodyLimit {
+	configured := limits[pattern]
+	if configured.Bytes <= 0 {
+		configured.Bytes = fallback
 	}
-	return fallback
+	if configured.ExceededStatus == 0 {
+		configured.ExceededStatus = http.StatusRequestEntityTooLarge
+	}
+	return configured
 }
 
-var privateTrees = []string{"/auth/", "/app/", "/teacher/", "/admin/"}
+var privateTrees = []string{"/auth/", "/app/", "/teacher/", "/admin/", "/me/"}
 
 func privateTree(path string) bool {
 	for _, prefix := range privateTrees {

@@ -221,7 +221,7 @@ describe("true_false", () => {
         ],
       }),
     );
-    await userEvent.click(screen.getByRole("radio", { name: "False" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Sai" }));
     expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["f"] });
     expect(onAnswer).toHaveBeenCalledOnce();
   });

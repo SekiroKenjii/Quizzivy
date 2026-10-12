@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/answered"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/schedule"
 	"quizzivy/internal/shared/visibility"
 	"sort"
 	"time"
@@ -19,13 +20,15 @@ import (
 // one per student (§13.8). The roster is the left side: a student who has not
 // started is a AttemptRecord, not an absence. It reads only an assignment the
 // scope reaches, and lists only the target classes the scope teaches and the
-// individual targets it reaches.
+// individual targets it reaches. A member who is not a student (an Admin who
+// takes tests) has a row only once they have an attempt on the assignment, as
+// in Results.
 func (s *Postgres) Monitor(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) (domain.Monitor, error) {
 	out := domain.Monitor{ServerTime: now}
 
 	rows, err := s.Query(ctx, `
 		WITH a AS (
-		  SELECT id, test_version_id FROM app.assignments
+		  SELECT id, test_version_id, `+schedule.CloseOf("")+` AS closes FROM app.assignments a
 		   WHERE id = $1::uuid AND ($2::boolean OR id IN `+visibility.AssignmentIDs(3)+`)
 		), n AS (
 		  SELECT count(*) AS questions
@@ -44,10 +47,14 @@ func (s *Postgres) Monitor(ctx context.Context, scope access.Scope, assignmentID
 		    JOIN app.assignment_students ast ON ast.assignment_id = a.id
 		     AND ($2::boolean OR ast.user_id IN `+visibility.StudentIDs(3)+`)
 		)
-		SELECT u.id::text, u.full_name, n.questions
+		SELECT u.id::text, u.full_name, n.questions,
+		       CASE WHEN ov.closes_at > a.closes THEN ov.closes_at END
 		  FROM a, n
 		  LEFT JOIN roster ON true
 		  LEFT JOIN app.users u ON u.id = roster.user_id AND u.disabled_at IS NULL
+		   AND (u.role_id IN (SELECT k.id FROM app.student_like_roles k)
+		        OR EXISTS (SELECT 1 FROM app.attempts at WHERE at.assignment_id = $1::uuid AND at.student_id = u.id))
+		  LEFT JOIN app.assignment_student_overrides ov ON ov.assignment_id = $1::uuid AND ov.student_id = u.id
 		 ORDER BY u.full_name, u.id`, assignmentID, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return domain.Monitor{}, fmt.Errorf("attempts: monitor roster: %w", err)
@@ -58,15 +65,16 @@ func (s *Postgres) Monitor(ctx context.Context, scope access.Scope, assignmentID
 	at := map[string]int{}
 	for rows.Next() {
 		var id, name *string
+		var extendedTo *time.Time
 		found = true
-		if err := rows.Scan(&id, &name, &out.QuestionCount); err != nil {
+		if err := rows.Scan(&id, &name, &out.QuestionCount, &extendedTo); err != nil {
 			return domain.Monitor{}, fmt.Errorf("attempts: scan roster: %w", err)
 		}
 		if id == nil {
 			continue
 		}
 		at[*id] = len(out.Rows)
-		out.Rows = append(out.Rows, domain.MonitorRow{StudentID: *id, FullName: *name, State: "not_started"})
+		out.Rows = append(out.Rows, domain.MonitorRow{StudentID: *id, FullName: *name, State: "not_started", ExtendedTo: extendedTo})
 	}
 	if err := rows.Err(); err != nil {
 		return domain.Monitor{}, fmt.Errorf("attempts: monitor roster: %w", err)

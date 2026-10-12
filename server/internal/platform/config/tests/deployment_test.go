@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +29,7 @@ var configuredBy = []string{
 	"IMPORT_S3_BUCKET", "IMPORT_WORK_DIR", "IMPORT_LEGACY_DOC", "IMPORT_PROCESSING_ENABLED", "IMPORT_WORKER_WAKE_URL",
 	"IMPORT_WORKER_WAKE_ADDR", "IMPORT_WORKER_IDLE_POLL", "IMPORT_DOCKER_BINARY", "IMPORT_CONVERTER_IMAGE",
 	"IMPORT_ACTOR_COUNT", "IMPORT_GLOBAL_COUNT", "IMPORT_SOURCES_PER_ITEM", "IMPORT_ACTOR_MIB",
-	"IMPORT_GLOBAL_MIB",
+	"IMPORT_GLOBAL_MIB", "MEDIA_OWNER_QUOTA_MIB",
 }
 
 // What `fly secrets set` supplies, by name, per docs/setup/dns.md. Values are
@@ -125,6 +126,9 @@ func TestTheCommittedFlyConfigBootsWithTheDocumentedSecrets(t *testing.T) {
 	}
 	if cfg.DocsPublic {
 		t.Error("the API reference is open to anyone; production must keep the docs gate on")
+	}
+	if declared := flyEnv(t)["MEDIA_OWNER_QUOTA_MIB"]; declared == "" || declared != strconv.Itoa(cfg.MediaOwnerQuotaMiB) {
+		t.Errorf("fly.toml sets MEDIA_OWNER_QUOTA_MIB to %q and the API runs with %d MiB; production must name its media quota", declared, cfg.MediaOwnerQuotaMiB)
 	}
 }
 

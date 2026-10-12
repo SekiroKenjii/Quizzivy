@@ -1,0 +1,1402 @@
+import { publishProblem } from "../../publishProblem";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
+import type { RefObject } from "react";
+import type { TFunction } from "i18next";
+import { useBlocker, useNavigate, useParams } from "react-router";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Eye, FolderInput as FolderInputIcon, History } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { MarqueeText } from "@/components/shared/MarqueeText";
+import { SplitPane } from "@/components/shared/SplitPane";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
+import { useCrumbs } from "@/layouts/shell/crumbs";
+import { PageAsideSlot } from "@/layouts/slots";
+import {
+  createQuestion,
+  duplicateQuestion,
+  getQuestion,
+  toFormValues,
+  updateQuestion,
+} from "@/features/question-bank/api";
+import {
+  questionSchema,
+  type QuestionValues,
+} from "@/features/question-bank/questionSchema";
+import type { MediaAsset } from "@/features/media/api";
+import {
+  getTest,
+  publishTest,
+  saveMixedOutline,
+  type PublishViolation,
+  type Test,
+} from "@/features/tests/api";
+import {
+  BuilderQuestionEditor,
+  type BuilderQuestionActions,
+} from "@/features/tests/components/BuilderQuestionEditor";
+import { DraftPreviewDialog } from "@/features/tests/components/DraftPreviewDialog";
+import { PublishDialog } from "@/features/tests/components/PublishDialog";
+import {
+  AutosaveFailureNote,
+  AutosaveStatusLabel,
+} from "@/features/tests/components/AutosaveStatusLabel";
+import { QuestionPickerDialog } from "@/features/tests/components/QuestionPickerDialog";
+import {
+  mergeAutosave,
+  useAutosave,
+  type AutosaveStatus,
+} from "@/features/tests/useAutosave";
+import type { OutlineSection } from "@/features/tests/outline";
+import type { OutlineQuestion } from "@/features/tests/components/OutlineTree";
+import {
+  createGroup,
+  copyGroup,
+  deleteGroup,
+  getGroup,
+  updateGroup,
+  type GroupBundle,
+  type GroupSummary,
+  type StoredGroup,
+} from "@/features/question-groups/api";
+import { emptyGroup } from "@/features/question-groups/model";
+import {
+  BuilderGroupPane,
+  type GroupPaneBridge,
+} from "../../components/BuilderGroupPane";
+import { GroupPickerDialog } from "../../components/GroupPickerDialog";
+import { BuilderWrites } from "../../BuilderWrites";
+import {
+  editableOutline,
+  findUnit,
+  groupOwners,
+  moveUnit,
+  reconcileSections,
+  removeUnit,
+  sectionQuestionIds,
+  unitsOf,
+  withUnits,
+} from "../../outlineUnits";
+import { ApiError } from "@/lib/api/errors";
+import { notify } from "@/lib/toast";
+import { FormDialog } from "@/components/shared/form/FormDialog";
+
+/**
+ * §2 asks for dnd-kit to be split out: it is ~40 kB that only the one admin
+ * who is reordering an outline ever needs, and every student pays for it
+ * otherwise.
+ */
+const OutlineTree = lazy(() =>
+  import("@/features/tests/components/OutlineTree").then((m) => ({
+    default: m.OutlineTree,
+  })),
+);
+
+export default function TestBuilderPage() {
+  const { t } = useTranslation();
+  const { id = "" } = useParams();
+
+  const test = useQuery({
+    queryKey: ["teacher-test", id],
+    queryFn: ({ signal }) => getTest(id, signal),
+  });
+
+  if (test.isPending) {
+    return <ListSkeleton rows={8} />;
+  }
+
+  if (test.isError) {
+    return (
+      <LoadError error={test.error} onRetry={() => void test.refetch()}>
+        {t("builder.loadFailed")}
+      </LoadError>
+    );
+  }
+
+  return <Builder key={test.data.id} test={test.data} />;
+}
+
+function Builder({ test }: Readonly<{ test: Test }>) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const [title, setTitle] = useState(test.title);
+  useCrumbs([{ label: title.trim() || t("tests.untitled") }]);
+  const wide = useMediaQuery("(min-width: 768px)");
+  const room = useContentWidthAtLeast(594);
+  const split = wide && room;
+  const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
+  const [sections, setSections] = useState<OutlineSection[]>(() =>
+    editableOutline(test),
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    test.sections[0]?.units?.[0]?.kind === "group"
+      ? null
+      : (test.sections[0]?.questionIds[0] ?? null),
+  );
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() =>
+    test.sections[0]?.units?.[0]?.kind === "group"
+      ? test.sections[0].units[0].id
+      : null,
+  );
+  const [activeBundle, setActiveBundle] = useState<GroupBundle | null>(null);
+  const [pickingGroup, setPickingGroup] = useState(false);
+  const [removing, setRemoving] = useState<
+    { groupId: string } | { sectionIndex: number } | null
+  >(null);
+  const groupBridge = useRef<GroupPaneBridge | null>(null);
+  const [writes] = useState(() => new BuilderWrites());
+  const savedOutline = useRef(editableOutline(test));
+  const sectionIds = useRef(
+    new Map(test.sections.map((section) => [section.id, section.id])),
+  );
+  const [violations, setViolations] = useState<PublishViolation[] | null>(null);
+  const [picking, setPicking] = useState(false);
+  const pickerOpener = useRef<HTMLElement | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+
+  const selectionRequest = useRef(0);
+  const [starterIds, setStarterIds] = useState<ReadonlySet<string>>(new Set());
+  const flushQuestion = useRef<(() => Promise<void>) | null>(null);
+  const retryQuestion = useRef<(() => void) | null>(null);
+  const latestOutline = useRef<OutlineSection[]>(sections);
+  const [questionStatus, setQuestionStatus] = useState<AutosaveStatus>({
+    kind: "idle",
+  });
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [publishFailure, setPublishFailure] = useState<string | null>(null);
+  const [leaveBusy, setLeaveBusy] = useState(false);
+
+  // The version guard moves with each save.
+  const version = useRef(test.updatedAt);
+
+  const coordinate = useCallback(
+    (operation: () => Promise<void>) => writes.run(operation),
+    [writes],
+  );
+
+  async function stopGroupReads() {
+    const ids = [...groupOwners(savedOutline.current).keys()];
+    const known = new Map<string, StoredGroup>();
+    for (const id of ids) {
+      const group = queryClient.getQueryData<StoredGroup>(["teacher-group", id]);
+      if (group) {
+        await queryClient.cancelQueries({ queryKey: ["teacher-group", id] });
+        known.set(id, group);
+      }
+    }
+    return known;
+  }
+
+  function acknowledge(
+    saved: Test,
+    submitted: OutlineSection[],
+    known: Map<string, StoredGroup>,
+  ) {
+    const previous = groupOwners(savedOutline.current);
+    const next = editableOutline(saved);
+    const owners = groupOwners(next);
+    for (const [index, section] of submitted.entries()) {
+      const id = saved.sections[index]?.id;
+      if (id) sectionIds.current.set(section.clientId ?? section.id ?? id, id);
+    }
+    for (const [id, ownerSectionId] of owners) {
+      const moved = previous.has(id) && previous.get(id) !== ownerSectionId;
+      const group = known.get(id);
+      if (group)
+        queryClient.setQueryData<StoredGroup>(["teacher-group", id], {
+          ...group,
+          ownerSectionId,
+          revision: group.revision + (moved ? 1 : 0),
+          testUpdatedAt: saved.updatedAt,
+        });
+      else void queryClient.invalidateQueries({ queryKey: ["teacher-group", id] });
+      if (id === groupBridge.current?.id)
+        groupBridge.current.advanceOwner(moved, saved.updatedAt);
+    }
+    savedOutline.current = next;
+    version.current = saved.updatedAt;
+    latestOutline.current = reconcileSections(latestOutline.current, submitted, saved);
+    setSections(latestOutline.current);
+    queryClient.setQueryData(["teacher-test", test.id], saved);
+  }
+
+  const outline = useAutosave<{ title: string; sections: OutlineSection[] }>({
+    save: (draft) =>
+      writes.run(async () => {
+        const known = await stopGroupReads();
+        const resolved = draft.sections.map((section) => ({
+          ...section,
+          id:
+            sectionIds.current.get(section.clientId ?? section.id ?? "") ?? section.id,
+        }));
+        const saved = await saveMixedOutline(
+          test.id,
+          version.current,
+          draft.title,
+          resolved.map((section) => ({
+            id: section.id,
+            title: section.title,
+            instructions: section.instructions,
+            units: unitsOf(section),
+          })),
+        );
+        acknowledge(saved, resolved, known);
+      }),
+  });
+
+  const questionIds = useMemo(
+    () => sections.flatMap((section) => section.questionIds),
+    [sections],
+  );
+
+  const loaded = useQueries({
+    queries: questionIds.map((questionId) => ({
+      queryKey: ["teacher-question", questionId],
+      queryFn: ({ signal }: { signal: AbortSignal }) => getQuestion(questionId, signal),
+      staleTime: 60_000,
+    })),
+  });
+
+  const groupIds = useMemo(
+    () =>
+      sections.flatMap((section) =>
+        unitsOf(section)
+          .filter((unit) => unit.kind === "group")
+          .map((unit) => unit.id),
+      ),
+    [sections],
+  );
+  const loadedGroups = useQueries({
+    queries: groupIds.map((id) => ({
+      queryKey: ["teacher-group", id],
+      refetchOnWindowFocus: false,
+      queryFn: ({ signal }: { signal: AbortSignal }) => getGroup(id, signal),
+      staleTime: 60_000,
+    })),
+  });
+  const groups = new Map(
+    loadedGroups.flatMap((result) =>
+      result.data ? [[result.data.bundle.group.id, result.data.bundle] as const] : [],
+    ),
+  );
+  if (activeBundle && groupIds.includes(activeBundle.group.id))
+    groups.set(activeBundle.group.id, activeBundle);
+
+  const byId = useMemo(() => {
+    const map = new Map<string, OutlineQuestion>();
+    for (const [index, result] of loaded.entries()) {
+      const questionId = questionIds[index];
+      if (questionId === undefined || !result.data) continue;
+      map.set(questionId, {
+        id: questionId,
+        prompt: result.data.prompt,
+        points: result.data.points,
+        type: result.data.type,
+        hasAudio: result.data.media?.kind === "audio",
+        problem: publishProblem(result.data, t) ?? problemFor(violations, questionId),
+      });
+    }
+    return map;
+  }, [loaded, questionIds, violations, t]);
+
+  const updateOutline = useCallback(
+    (next: OutlineSection[]) => {
+      latestOutline.current = next;
+      setSections(next);
+      setSelectedId((current) => {
+        const groupSelected =
+          selectedGroupId !== null &&
+          findUnit(next, `group:${selectedGroupId}`) !== null;
+        if (
+          current === null ||
+          groupSelected ||
+          next.some((s) => s.questionIds.includes(current))
+        ) {
+          return current;
+        }
+        setQuestionStatus({ kind: "idle" });
+        return null;
+      });
+      outline.schedule({ title, sections: next });
+    },
+    [outline, title, selectedGroupId],
+  );
+
+  function updateTitle(next: string) {
+    setTitle(next);
+    outline.schedule({ title: next, sections: latestOutline.current });
+  }
+
+  async function selectQuestion(questionId: string) {
+    const group = [...groups.values()].find((bundle) =>
+      bundle.group.members.some((member) => member.questionId === questionId),
+    );
+    if (group) {
+      await selectGroup(group.group.id, questionId);
+      return;
+    }
+    const request = ++selectionRequest.current;
+    try {
+      await flushQuestion.current?.();
+      if (selectionRequest.current === request) {
+        setSelectedGroupId(null);
+        setActiveBundle(null);
+        setSelectedId(questionId);
+      }
+    } catch (cause) {
+      setPublishError(
+        cause instanceof ApiError ? cause.message : t("builder.saveBeforeSwitchFailed"),
+      );
+    }
+  }
+
+  function appendQuestions(added: readonly string[]) {
+    const first = added[0];
+    if (first === undefined) return;
+    const current = latestOutline.current;
+    const last = destinationIndex();
+    updateOutline(
+      current.map((section, i) =>
+        i === last
+          ? withUnits(section, [
+              ...unitsOf(section),
+              ...added.map((id) => ({ kind: "question" as const, id })),
+            ])
+          : section,
+      ),
+    );
+    void selectQuestion(first);
+  }
+
+  async function onCreateQuestion() {
+    setPublishError(null);
+    setCreating(true);
+    try {
+      const created = await createQuestion(starterQuestion(t));
+      queryClient.setQueryData(["teacher-question", created.id], created);
+      setStarterIds((current) => new Set([...current, created.id]));
+      appendQuestions([created.id]);
+    } catch (cause) {
+      setPublishError(
+        cause instanceof ApiError ? cause.message : t("builder.addFailed"),
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function onAddSection() {
+    updateOutline([
+      ...sections,
+      {
+        id: null,
+        clientId: crypto.randomUUID(),
+        units: [],
+        title: t("builder.newSection", { n: sections.length + 1 }),
+        instructions: null,
+        questionIds: [],
+      },
+    ]);
+  }
+
+  async function openPublish() {
+    setPublishError(null);
+    setPublishFailure(null);
+    setViolations(null);
+    try {
+      await flushQuestion.current?.();
+      await outline.flush();
+      setChecking(true);
+    } catch (cause) {
+      report(cause);
+    }
+  }
+
+  async function onPublish(changeNote: string) {
+    setPublishFailure(null);
+    setPublishing(true);
+    try {
+      const published = await publishTest(test.id, changeNote);
+      if (published.testUpdatedAt) version.current = published.testUpdatedAt;
+      setChecking(false);
+      setViolations(null);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["teacher-test", test.id],
+          refetchType: "all",
+        }),
+        queryClient.invalidateQueries({ queryKey: ["teacher-test-versions", test.id] }),
+        queryClient.invalidateQueries({ queryKey: ["teacher-test-preview", test.id] }),
+        queryClient.invalidateQueries({ queryKey: ["teacher-tests"] }),
+      ]);
+      notify.success(t("builder.publishDone"), {
+        action: {
+          label: t("builder.assign"),
+          onClick: () => void navigate(`/teacher/assignments/new?test=${test.id}`),
+        },
+      });
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.code === "PUBLISH_VALIDATION_FAILED") {
+        setViolations(cause.violations);
+        return;
+      }
+      setPublishFailure(
+        cause instanceof ApiError ? cause.message : t("builder.publishFailed"),
+      );
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function duplicateSelected(questionId: string) {
+    setCreating(true);
+    setPublishError(null);
+    try {
+      await flushQuestion.current?.();
+      const copy = await duplicateQuestion(questionId);
+      queryClient.setQueryData(["teacher-question", copy.id], copy);
+      const current = latestOutline.current;
+      updateOutline(
+        current.map((section) => {
+          const units = unitsOf(section);
+          const at = units.findIndex(
+            (unit) => unit.kind === "question" && unit.id === questionId,
+          );
+          if (at < 0) return section;
+          const next = [...units];
+          next.splice(at + 1, 0, { kind: "question", id: copy.id });
+          return withUnits(section, next);
+        }),
+      );
+      void selectQuestion(copy.id);
+    } catch (cause) {
+      setPublishError(
+        cause instanceof ApiError ? cause.message : t("builder.addFailed"),
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function moveSelected(questionId: string, sectionIndex: number) {
+    const current = latestOutline.current;
+    const from = findUnit(current, `question:${questionId}`);
+    const target = current[sectionIndex];
+    if (!from || !target || from.sectionIndex === sectionIndex) return;
+    updateOutline(
+      moveUnit(current, from, { sectionIndex, index: unitsOf(target).length }),
+    );
+  }
+
+  function deleteSelected(questionId: string) {
+    const current = latestOutline.current;
+    const order = current.flatMap((section) => section.questionIds);
+    const index = order.indexOf(questionId);
+    const next = order[index + 1] ?? order[index - 1] ?? null;
+    updateOutline(removeUnit(current, `question:${questionId}`));
+    setSelectedId(next);
+    notify.success(t("builder.removedFromTest"));
+  }
+
+  async function selectGroup(groupId: string, questionId?: string) {
+    const request = ++selectionRequest.current;
+    if (selectedGroupId === groupId) {
+      setSelectedId(questionId ?? null);
+      return;
+    }
+    try {
+      await flushQuestion.current?.();
+      if (selectionRequest.current !== request) return;
+      setSelectedGroupId(groupId);
+      setSelectedId(questionId ?? null);
+      setActiveBundle(null);
+      setQuestionStatus({ kind: "idle" });
+    } catch (cause) {
+      report(cause);
+    }
+  }
+
+  function report(cause: unknown) {
+    setPublishError(
+      cause instanceof ApiError ? cause.message : t("builder.saveBeforeSwitchFailed"),
+    );
+  }
+
+  async function saveGroup(bundle: GroupBundle, revision: number) {
+    await queryClient.cancelQueries({ queryKey: ["teacher-group", bundle.group.id] });
+    const saved = await updateGroup(bundle.group.id, {
+      bundle,
+      expectedRevision: revision,
+      expectedTestUpdatedAt: version.current,
+    });
+    version.current = saved.testUpdatedAt ?? version.current;
+    queryClient.setQueryData(["teacher-group", bundle.group.id], saved);
+    return saved;
+  }
+
+  async function insertGroup(source?: GroupSummary, sectionIndex = destinationIndex()) {
+    setCreating(true);
+    setPublishError(null);
+    try {
+      await flushQuestion.current?.();
+      await outline.flush();
+      await writes.run(async () => {
+        const section = latestOutline.current[sectionIndex];
+        if (!section?.id) throw new Error("Destination section is not persisted");
+        const destination = {
+          ownerSectionId: section.id,
+          expectedTestUpdatedAt: version.current,
+        };
+        const saved = source
+          ? await copyGroup(source.id, {
+              ...destination,
+              expectedRevision: source.revision,
+            })
+          : await createGroup({
+              ...destination,
+              bundle: emptyGroup(t("groups.newGroup")),
+            });
+        version.current = saved.testUpdatedAt ?? version.current;
+        groupBridge.current?.advanceOwner(false, version.current);
+        queryClient.setQueryData(["teacher-group", saved.bundle.group.id], saved);
+        const next = latestOutline.current.map((item, index) =>
+          index === sectionIndex
+            ? withUnits(item, [
+                ...unitsOf(item),
+                { kind: "group", id: saved.bundle.group.id },
+              ])
+            : item,
+        );
+        latestOutline.current = next;
+        savedOutline.current = next;
+        setSections(next);
+        setPickingGroup(false);
+        setSelectedGroupId(saved.bundle.group.id);
+        setSelectedId(null);
+        setActiveBundle(null);
+        setQuestionStatus({ kind: "idle" });
+      });
+    } catch (cause) {
+      report(cause);
+      throw cause;
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function destinationIndex() {
+    const index = sections.findIndex((section) =>
+      unitsOf(section).some((unit) =>
+        selectedGroupId
+          ? unit.kind === "group" && unit.id === selectedGroupId
+          : unit.kind === "question" && unit.id === selectedId,
+      ),
+    );
+    return index < 0 ? sections.length - 1 : index;
+  }
+
+  const doomedSection =
+    removing && "sectionIndex" in removing
+      ? sections[removing.sectionIndex]
+      : undefined;
+
+  async function removeContent() {
+    if (!removing) return;
+    setCreating(true);
+    setPublishError(null);
+    try {
+      await flushQuestion.current?.();
+      await outline.flush();
+      const removedSectionId =
+        "sectionIndex" in removing
+          ? latestOutline.current[removing.sectionIndex]?.id
+          : null;
+      const ids =
+        "groupId" in removing
+          ? [removing.groupId]
+          : unitsOf(latestOutline.current[removing.sectionIndex]!)
+              .filter((unit) => unit.kind === "group")
+              .map((unit) => unit.id);
+      for (const id of ids) await removeOwnedGroup(id);
+      if ("sectionIndex" in removing)
+        updateOutline(
+          latestOutline.current.filter((section) => section.id !== removedSectionId),
+        );
+      setRemoving(null);
+    } catch (cause) {
+      report(cause);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function removeOwnedGroup(id: string) {
+    await writes.run(async () => {
+      const group =
+        queryClient.getQueryData<StoredGroup>(["teacher-group", id]) ??
+        (await getGroup(id));
+      await deleteGroup(id, group.revision, version.current);
+      const fresh = await getTest(test.id);
+      version.current = fresh.updatedAt;
+      groupBridge.current?.advanceOwner(false, fresh.updatedAt);
+      const next = editableOutline(fresh);
+      latestOutline.current = next;
+      savedOutline.current = next;
+      setTitle(fresh.title);
+      setSections(next);
+      queryClient.setQueryData(["teacher-test", test.id], fresh);
+      if (selectedGroupId === id) {
+        setSelectedGroupId(null);
+        setSelectedId(null);
+        setActiveBundle(null);
+        setQuestionStatus({ kind: "idle" });
+      }
+    });
+  }
+
+  async function openPreview() {
+    setPublishError(null);
+    try {
+      await flushQuestion.current?.();
+      await outline.flush();
+      await Promise.all([
+        ...questionIds.map((id) =>
+          queryClient.query({
+            staleTime: 60_000,
+            queryKey: ["teacher-question", id],
+            queryFn: ({ signal }) => getQuestion(id, signal),
+          }),
+        ),
+        ...groupIds.map((id) =>
+          queryClient.query({
+            staleTime: 60_000,
+            queryKey: ["teacher-group", id],
+            queryFn: ({ signal }) => getGroup(id, signal),
+          }),
+        ),
+      ]);
+      setPreviewing(true);
+    } catch (cause) {
+      report(cause);
+    }
+  }
+
+  const saveStatus = mergeAutosave([outline.status, questionStatus]);
+  const stale = saveStatus.kind === "stale";
+  // Typed but not yet on the server: leaving now would lose it (F-14).
+  const unsaved =
+    saveStatus.kind === "dirty" ||
+    saveStatus.kind === "saving" ||
+    saveStatus.kind === "failed" ||
+    saveStatus.kind === "stale";
+  const leaving = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      unsaved &&
+      nextLocation.pathname !== "/login" &&
+      currentLocation.pathname !== nextLocation.pathname,
+  );
+  useEffect(() => {
+    if (!unsaved) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsaved]);
+
+  const draftQuestions = sections.flatMap((section) =>
+    section.questionIds.flatMap((questionId) => {
+      const found = loaded[questionIds.indexOf(questionId)]?.data;
+      return found ? [{ sectionId: section.id ?? "", question: found }] : [];
+    }),
+  );
+
+  function activeEditor() {
+    if (selectedGroupId)
+      return (
+        <BuilderGroupPane
+          key={selectedGroupId}
+          id={selectedGroupId}
+          selectedQuestionId={selectedId}
+          onSelectedQuestionChange={setSelectedId}
+          coordinate={coordinate}
+          save={saveGroup}
+          onChange={setActiveBundle}
+          flushRef={flushQuestion}
+          retryRef={retryQuestion}
+          bridgeRef={groupBridge}
+          onStatus={setQuestionStatus}
+        />
+      );
+    if (selectedId === null)
+      return (
+        <p className="text-muted-foreground text-sm">
+          {questionIds.length === 0 ? t("builder.empty") : t("builder.noSelection")}
+        </p>
+      );
+    const questionId = selectedId;
+    return (
+      <QuestionPane
+        key={questionId}
+        questionId={questionId}
+        number={positionOf(sections, questionId, groups)}
+        clearStarterPrompt={starterIds.has(questionId)}
+        flushRef={flushQuestion}
+        retryRef={retryQuestion}
+        onStatus={setQuestionStatus}
+        actions={{
+          onDuplicate: () => void duplicateSelected(questionId),
+          onMove: () => setMoving(true),
+          onDelete: () => setDeleting(true),
+        }}
+      />
+    );
+  }
+
+  return (
+    <fieldset
+      disabled={creating || publishing}
+      data-scale="deck"
+      className="flex min-w-0 flex-col gap-3.5"
+    >
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-[1_1_320px] items-center gap-2.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t("common.back")}
+            title={t("common.back")}
+            onClick={() => void navigate("/teacher/tests")}
+          >
+            <ArrowLeft aria-hidden="true" />
+          </Button>
+          <BuilderTitle title={title} onChange={updateTitle} />
+          <StatusBadge
+            kind="test"
+            status={test.status}
+            className={
+              test.status === "draft"
+                ? "border-border text-muted-fg h-5.5 shrink-0 rounded-full bg-transparent px-2 text-xs leading-[18px] font-medium in-data-[scale=deck]:px-2"
+                : "shrink-0"
+            }
+          />
+          <AutosaveStatusLabel status={saveStatus} deck />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
+            aria-label={t("builder.versions")}
+            title={t("builder.versions")}
+            onClick={() => void navigate(`/teacher/tests/${test.id}#versions`)}
+          >
+            <History aria-hidden="true" />
+          </Button>
+          <Button
+            variant="outline"
+            size="md"
+            className="shadow-card h-9"
+            onClick={() => void openPreview()}
+          >
+            <Eye aria-hidden="true" />
+            {t("builder.preview")}
+          </Button>
+          <Button
+            size="md"
+            className="h-9"
+            disabled={publishing || stale}
+            onClick={() => void openPublish()}
+          >
+            {t("builder.publish")}
+          </Button>
+        </div>
+      </div>
+
+      <AutosaveFailureNote
+        status={saveStatus}
+        onRetry={() => {
+          outline.retry();
+          retryQuestion.current?.();
+        }}
+      />
+
+      {stale ? (
+        <div
+          role="alert"
+          className="flex shrink-0 items-center gap-3 border-b px-4 py-2"
+        >
+          <p className="text-sm">{t("builder.staleBody")}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => window.location.reload()}
+          >
+            {t("builder.reload")}
+          </Button>
+        </div>
+      ) : null}
+
+      {publishError === null ? null : (
+        <p role="alert" className="text-destructive border-b px-4 py-2 text-sm">
+          {publishError}
+        </p>
+      )}
+
+      <SplitPane
+        label={t("builder.outlineWidth")}
+        unit="px"
+        defaultSize={300}
+        min={220}
+        max={Number.MAX_SAFE_INTEGER}
+        minSecond={360}
+        storageKey="quizzivy.builder.outline"
+        split={split}
+        className="items-stretch gap-y-3.5"
+        firstClassName="self-start"
+        secondClassName="flex min-w-0 items-start"
+        first={
+          <fieldset disabled={creating} className="contents">
+            <Suspense fallback={<ListSkeleton rows={5} />}>
+              <OutlineTree
+                sections={sections}
+                groups={groups}
+                selectedGroupId={selectedGroupId}
+                onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
+                onCreateGroup={() => void insertGroup().catch(() => undefined)}
+                onRemoveGroup={(id) => setRemoving({ groupId: id })}
+                onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
+                questions={byId}
+                selectedId={selectedId}
+                creating={creating}
+                onSelect={(questionId) => void selectQuestion(questionId)}
+                onChange={updateOutline}
+                onCreateQuestion={() => void onCreateQuestion()}
+                onPickFromBank={(opener) => {
+                  pickerOpener.current = opener;
+                  setPicking(true);
+                }}
+                onAddSection={onAddSection}
+              />
+            </Suspense>
+          </fieldset>
+        }
+        second={
+          <div data-columns className="flex min-w-0 flex-1 items-start">
+            <div
+              data-resize-middle
+              className={cn(
+                "bg-card shadow-card min-w-0 flex-1 rounded-xl border",
+                selectedId === null && !selectedGroupId ? "p-4" : "p-0",
+              )}
+            >
+              <PageAsideSlot.Provider value={asideSlot}>
+                {activeEditor()}
+              </PageAsideSlot.Provider>
+            </div>
+            <div ref={setAsideSlot} className="contents" />
+          </div>
+        }
+      />
+
+      <QuestionPickerDialog
+        open={picking}
+        excluded={new Set(questionIds)}
+        returnFocus={pickerOpener}
+        onOpenChange={setPicking}
+        destination={sections[destinationIndex()]?.title ?? null}
+        onPick={appendQuestions}
+        onPickGroup={() => {
+          setPicking(false);
+          setPickingGroup(true);
+        }}
+      />
+
+      <GroupPickerDialog
+        open={pickingGroup}
+        sections={sections}
+        onOpenChange={setPickingGroup}
+        onPick={(group, sectionIndex) => insertGroup(group, sectionIndex)}
+      />
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(open) => !open && !creating && setRemoving(null)}
+        title={
+          doomedSection
+            ? t("builder.removeSectionTitle", { title: doomedSection.title })
+            : t("builder.removeGroupTitle")
+        }
+        description={
+          doomedSection
+            ? t("builder.removeSectionWithGroupsBody", {
+                count: sectionQuestionIds(doomedSection, groups).length,
+              })
+            : t("builder.removeGroupBody")
+        }
+        confirmLabel={t("common.delete")}
+        destructive
+        pending={creating}
+        error={publishError}
+        onConfirm={() => void removeContent()}
+      />
+
+      <PublishDialog
+        open={checking}
+        pending={publishing}
+        error={publishFailure}
+        problems={loaded.flatMap((result) => {
+          const question = result.data;
+          const problem = question ? publishProblem(question, t) : null;
+          return question && problem
+            ? [
+                {
+                  questionId: question.id,
+                  message: problem,
+                  location: describePosition(sections, question.id, t, groups),
+                },
+              ]
+            : [];
+        })}
+        violations={violations}
+        groupCount={groupIds.length}
+        warnings={loaded.flatMap((result) =>
+          result.data && !result.data.explanation?.trim()
+            ? [
+                {
+                  questionId: result.data.id,
+                  message: t("builder.missingExplanation", {
+                    number: positionOf(sections, result.data.id, groups) ?? 0,
+                  }),
+                },
+              ]
+            : [],
+        )}
+        location={(violation) =>
+          violation.questionId
+            ? describePosition(sections, violation.questionId, t, groups)
+            : (sections.find((section) => section.id === violation.sectionId)?.title ??
+              null)
+        }
+        onGoToSection={(sectionId) => {
+          setChecking(false);
+          requestAnimationFrame(() => {
+            const section = document.querySelector(
+              `[data-outline-section="${CSS.escape(sectionId)}"]`,
+            );
+            const control = section?.querySelector<HTMLButtonElement>(
+              "button[aria-expanded]",
+            );
+            if (control?.getAttribute("aria-expanded") === "false") control.click();
+            control?.focus();
+            control?.scrollIntoView({ block: "nearest" });
+          });
+        }}
+        onOpenChange={(open) => {
+          if (open || publishing) return;
+          setChecking(false);
+          setViolations(null);
+        }}
+        onGoTo={(questionId) => {
+          setChecking(false);
+          setViolations(null);
+          void selectQuestion(questionId);
+        }}
+        onPublish={(note) => void onPublish(note)}
+      />
+
+      <FormDialog
+        open={moving && selectedId !== null}
+        onOpenChange={setMoving}
+        title={t("builder.editor.moveTitle", {
+          number: positionOf(sections, selectedId, groups) ?? "",
+        })}
+        icon={FolderInputIcon}
+        initial={{
+          section: String(
+            Math.max(
+              0,
+              sections.findIndex((section) =>
+                selectedId === null ? false : section.questionIds.includes(selectedId),
+              ),
+            ),
+          ),
+        }}
+        fields={[
+          {
+            kind: "select",
+            name: "section",
+            label: t("builder.editor.moveTo"),
+            options: sections.map((section, index) => ({
+              value: String(index),
+              label: section.title,
+            })),
+          },
+        ]}
+        submitLabel={t("builder.editor.moveSubmit")}
+        onSubmit={({ section }) => {
+          if (selectedId !== null) moveSelected(selectedId, Number(section));
+          setMoving(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleting && selectedId !== null}
+        onOpenChange={setDeleting}
+        title={t("builder.editor.deleteTitle")}
+        description={t("builder.editor.deleteBody")}
+        confirmLabel={t("common.delete")}
+        destructive
+        onConfirm={() => {
+          if (selectedId !== null) deleteSelected(selectedId);
+          setDeleting(false);
+        }}
+      />
+
+      <DraftPreviewDialog
+        open={previewing}
+        questions={draftQuestions}
+        sections={sections}
+        groups={loadedGroups.flatMap((result) => (result.data ? [result.data] : []))}
+        startAt={selectedId}
+        onOpenChange={setPreviewing}
+      />
+
+      <ConfirmDialog
+        open={leaving.state === "blocked"}
+        onOpenChange={(open) => !open && !leaveBusy && leaving.reset?.()}
+        title={t("builder.leaveTitle")}
+        description={t("builder.leaveBody")}
+        confirmLabel={t("builder.leave")}
+        cancelLabel={t("builder.stay")}
+        destructive
+        pending={leaveBusy}
+        error={publishError}
+        onConfirm={() => {
+          if (!groupBridge.current) {
+            leaving.proceed?.();
+            return;
+          }
+          setLeaveBusy(true);
+          void groupBridge.current
+            .persist()
+            .then((ok) => {
+              if (ok) leaving.proceed?.();
+              else setPublishError(t("groups.localUnavailable"));
+            })
+            .finally(() => setLeaveBusy(false));
+        }}
+      >
+        <Button
+          variant="outline"
+          disabled={leaveBusy || stale}
+          onClick={() => {
+            setLeaveBusy(true);
+            void (async () => {
+              try {
+                await flushQuestion.current?.();
+                await outline.flush();
+                leaving.proceed?.();
+              } catch (cause) {
+                report(cause);
+              } finally {
+                setLeaveBusy(false);
+              }
+            })();
+          }}
+        >
+          {t("groups.saveAndLeave")}
+        </Button>
+      </ConfirmDialog>
+    </fieldset>
+  );
+}
+
+function BuilderTitle({
+  title,
+  onChange,
+}: Readonly<{ title: string; onChange: (value: string) => void }>) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
+  useEffect(() => {
+    if (editing) {
+      input.current?.focus();
+      input.current?.select();
+    } else if (returnFocus.current) {
+      returnFocus.current = false;
+      trigger.current?.focus();
+    }
+  }, [editing]);
+  return (
+    <div
+      className={cn(
+        "min-w-16 flex-[0_1_auto]",
+        !editing &&
+          "group/builder-title hover:bg-hover hover:border-border -ml-2 rounded-[8px] border border-transparent transition-[background-color,border-color] duration-150 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none",
+      )}
+    >
+      {editing ? (
+        <Input
+          ref={input}
+          value={title}
+          aria-label={t("builder.titleLabel")}
+          className="text-stat h-9 w-full px-2 py-0 leading-[34px] font-semibold tracking-[-0.02em]"
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={() => {
+            const next = title.trim() || t("tests.untitled");
+            if (next !== title) onChange(next);
+            setEditing(false);
+          }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key !== "Enter" && event.key !== "Escape") return;
+            event.preventDefault();
+            returnFocus.current = true;
+            event.currentTarget.blur();
+          }}
+        />
+      ) : (
+        <button
+          ref={trigger}
+          type="button"
+          aria-label={t("builder.titleLabel")}
+          className="text-stat relative block h-[34px] w-full min-w-0 rounded-[7px] py-0 pr-[calc(0.5rem+0.21em)] pl-2 text-left leading-[34px] font-semibold tracking-[-0.02em]"
+          onClick={() => setEditing(true)}
+        >
+          <MarqueeText
+            text={title || t("tests.untitled")}
+            gapPx={48}
+            maskPx={16}
+            className="group-focus-within/builder-title:[&_.qz-marquee-track]:[animation-play-state:paused]! group-hover/builder-title:[&_.qz-marquee-track]:[animation-play-state:paused]!"
+          />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function QuestionPane({
+  questionId,
+  number,
+  clearStarterPrompt,
+  flushRef,
+  retryRef,
+  onStatus,
+  actions,
+}: Readonly<{
+  questionId: string;
+  number: number | null;
+  clearStarterPrompt: boolean;
+  flushRef: RefObject<(() => Promise<void>) | null>;
+  retryRef: RefObject<(() => void) | null>;
+  onStatus: (status: AutosaveStatus) => void;
+  actions: BuilderQuestionActions;
+}>) {
+  const { t } = useTranslation();
+  const question = useQuery({
+    queryKey: ["teacher-question", questionId],
+    queryFn: ({ signal }) => getQuestion(questionId, signal),
+  });
+
+  if (question.isPending) {
+    return (
+      <p role="status" aria-live="polite" className="text-muted-foreground p-4 text-sm">
+        {t("common.loading")}
+      </p>
+    );
+  }
+  if (question.isError) {
+    return (
+      <p role="alert" className="text-destructive p-4 text-sm">
+        {t("questionEditor.loadFailed")}
+      </p>
+    );
+  }
+
+  return (
+    <QuestionForm
+      questionId={questionId}
+      number={number}
+      clearStarterPrompt={clearStarterPrompt}
+      initial={question.data}
+      flushRef={flushRef}
+      retryRef={retryRef}
+      onStatus={onStatus}
+      actions={actions}
+      onRefresh={() => void question.refetch()}
+    />
+  );
+}
+
+function QuestionForm({
+  questionId,
+  number,
+  clearStarterPrompt,
+  initial,
+  flushRef,
+  retryRef,
+  onStatus,
+  actions,
+  onRefresh,
+}: Readonly<{
+  questionId: string;
+  number: number | null;
+  clearStarterPrompt: boolean;
+  initial: Parameters<typeof toFormValues>[0];
+  flushRef: RefObject<(() => Promise<void>) | null>;
+  retryRef: RefObject<(() => void) | null>;
+  onStatus: (status: AutosaveStatus) => void;
+  actions: BuilderQuestionActions;
+  onRefresh: () => void;
+}>) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
+  const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
+  const refuse = useCallback(
+    (next: QuestionValues) => {
+      const parsed = questionSchema.safeParse(next);
+      const issue = parsed.success ? undefined : parsed.error.issues[0];
+      return issue ? t(issue.message) : null;
+    },
+    [t],
+  );
+
+  const autosave = useAutosave<QuestionValues>({
+    refuse,
+    save: async (next) => {
+      await queryClient.cancelQueries({ queryKey: ["teacher-question", questionId] });
+      const saved = await updateQuestion(questionId, next);
+      queryClient.setQueryData(["teacher-question", questionId], saved);
+      void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
+    },
+  });
+
+  const { flush, retry, status } = autosave;
+  useEffect(() => {
+    flushRef.current = flush;
+    retryRef.current = retry;
+    return () => {
+      flushRef.current = null;
+      retryRef.current = null;
+    };
+  }, [flush, retry, flushRef, retryRef]);
+
+  useEffect(() => {
+    onStatus(status);
+  }, [onStatus, status]);
+
+  return (
+    <BuilderQuestionEditor
+      value={values}
+      asset={asset}
+      number={number}
+      clearPromptOnFocus={clearStarterPrompt}
+      actions={actions}
+      onChange={(next) => {
+        setValues(next);
+        autosave.schedule(next);
+      }}
+      onAssetChange={setAsset}
+      onRefresh={onRefresh}
+    />
+  );
+}
+
+/** A question the API will accept, not a blank form. */
+function starterQuestion(t: TFunction): QuestionValues {
+  return {
+    type: "single_choice",
+    level: null,
+    skill: null,
+    prompt: t("builder.starterPrompt"),
+    promptContent: {
+      format: "semantic_v1",
+      blocks: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: t("builder.starterPrompt"), marks: [] }],
+        },
+      ],
+    },
+    mediaAssetId: null,
+    mediaAlt: null,
+    audio: null,
+    transcript: null,
+    options: [
+      { id: null, text: t("builder.starterOption", { n: 1 }), isCorrect: true },
+      { id: null, text: t("builder.starterOption", { n: 2 }), isCorrect: false },
+    ],
+    blanks: [],
+    points: 1,
+    explanation: null,
+    sampleAnswer: null,
+    tags: [],
+  };
+}
+
+function describePosition(
+  sections: OutlineSection[],
+  questionId: string | null,
+  t: TFunction,
+  groups: Map<string, GroupBundle>,
+): string | null {
+  if (questionId === null) return null;
+  let number = 0;
+  for (const section of sections) {
+    const ids = unitsOf(section).flatMap((unit) =>
+      unit.kind === "question"
+        ? [unit.id]
+        : (groups.get(unit.id)?.group.members.map((member) => member.questionId) ?? []),
+    );
+    for (const id of ids) {
+      number += 1;
+      if (id === questionId) {
+        return t("builder.position", { number, section: section.title });
+      }
+    }
+  }
+  return null;
+}
+
+function positionOf(
+  sections: OutlineSection[],
+  questionId: string | null,
+  groups: Map<string, GroupBundle>,
+): number | null {
+  if (questionId === null) return null;
+  const index = sections
+    .flatMap((section) => sectionQuestionIds(section, groups))
+    .indexOf(questionId);
+  return index < 0 ? null : index + 1;
+}
+
+function problemFor(
+  violations: PublishViolation[] | null,
+  questionId: string,
+): string | null {
+  return violations?.find((v) => v.questionId === questionId)?.message ?? null;
+}

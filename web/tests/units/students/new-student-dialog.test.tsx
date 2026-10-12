@@ -1,121 +1,156 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http } from "msw";
-import { useState } from "react";
-import { NewStudentDialog } from "@/features/students/components/NewStudentDialog";
-import { server } from "@tests/support/server";
+import { useAuthStore } from "@/stores/auth";
 import { contractJson } from "@tests/support/contractResponse";
+import { server } from "@tests/support/server";
+import { teacherUser } from "@tests/support/fixtures";
+import {
+  BASE,
+  CLASS_A,
+  inClass,
+  renderStudents,
+  serveStudents,
+  student,
+} from "./support";
 import "@/lib/i18n";
 
-const BASE = "http://localhost:8080";
-
-const CREATED = {
-  id: "018f0000-0000-7000-8000-0000000000e9",
+const SECRET = "dua-hau-xanh-07";
+const TRANG = student("018f0000-0000-7000-8000-0000000000e9", "Lê Thu Trang", {
   email: "trang@example.com",
-  fullName: "Lê Thu Trang",
-  hasPassword: true,
-  linkedProviders: [],
   mustChangePassword: true,
-  createdAt: "2026-01-01T00:00:00Z",
-  disabledAt: null,
-  classes: [],
-  stats: {
-    submittedCount: 0,
-    flaggedCount: 0,
-    activity: { live: false, lastAttemptAt: null },
-  },
-};
+});
+
+let bodies: unknown[] = [];
 
 beforeEach(() => {
+  bodies = [];
+  serveStudents([]);
   server.use(
-    http.get(`${BASE}/teacher/classes`, () =>
-      contractJson("/teacher/classes", "get", 200, {
-        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
-        page: 1,
-        pageSize: 50,
-        total: 0,
-        items: [],
-      }),
-    ),
-    http.post(`${BASE}/teacher/students`, () =>
-      contractJson("/teacher/students", "post", 201, {
-        user: CREATED,
-        temporaryPassword: "tho-vang-42",
-      }),
-    ),
+    http.post(`${BASE}/teacher/students`, async ({ request }) => {
+      const body = (await request.json()) as { classIds?: string[] };
+      bodies.push(body);
+      return contractJson("/teacher/students", "post", 201, {
+        user: { ...TRANG, classes: body.classIds ? [inClass(CLASS_A)] : [] },
+        temporaryPassword: SECRET,
+      });
+    }),
   );
 });
 
-/** Mirrors the page: the dialog's `open` is controlled from outside. */
-function Harness() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        mở
-      </button>
-      <NewStudentDialog open={open} onOpenChange={setOpen} />
-    </>
-  );
-}
+afterEach(() => {
+  useAuthStore.getState().clearSession();
+});
 
-function renderHarness() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={client}>
-      <Harness />
-    </QueryClientProvider>,
-  );
-  return userEvent.setup();
+async function openForm(user: ReturnType<typeof renderStudents>["user"]) {
+  await screen.findByText("Chưa có học viên nào.");
+  await user.click(screen.getAllByRole("button", { name: "Thêm học viên" })[0]!);
+  return screen.findByRole("dialog", { name: "Thêm học viên" });
 }
 
 describe("adding a student", () => {
-  it("does not reopen showing the last student's password", async () => {
-    const user = renderHarness();
+  it("asks for the full name, the email and a class, with No class yet first", async () => {
+    const { user } = renderStudents(teacherUser);
+    const form = await openForm(user);
 
-    await user.click(screen.getByRole("button", { name: "mở" }));
-    await user.type(screen.getByLabelText("Họ và tên"), "Lê Thu Trang");
-    await user.type(screen.getByLabelText("Email"), "trang@example.com");
-    await user.click(screen.getByRole("button", { name: "Tạo tài khoản" }));
-
-    expect(await screen.findByText("tho-vang-42")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Xong" }));
-
-    await user.click(screen.getByRole("button", { name: "mở" }));
-    expect(await screen.findByLabelText("Họ và tên")).toHaveValue("");
-    expect(screen.queryByText("tho-vang-42")).toBeNull();
+    expect(within(form).getByRole("textbox", { name: "Họ và tên" })).toBeVisible();
+    expect(within(form).getByRole("textbox", { name: "Email" })).toBeVisible();
+    const klass = within(form).getByRole("combobox", { name: "Lớp" });
+    expect(klass).toHaveTextContent("Chưa vào lớp");
+    await user.click(klass);
+    expect(
+      (await screen.findAllByRole("option")).map((option) => option.textContent),
+    ).toEqual(["Chưa vào lớp", CLASS_A.name, "IELTS Nền tảng A"]);
   });
 
-  it("clears a half-typed form when cancelled", async () => {
-    const user = renderHarness();
+  it("shows the temporary password in a dialog of its own, never in a toast", async () => {
+    const { user } = renderStudents(teacherUser);
+    const form = await openForm(user);
 
-    await user.click(screen.getByRole("button", { name: "mở" }));
-    await user.type(screen.getByLabelText("Họ và tên"), "Nhập nhầm");
-    await user.click(screen.getByRole("button", { name: "Huỷ" }));
+    await user.type(
+      within(form).getByRole("textbox", { name: "Họ và tên" }),
+      "Lê Thu Trang",
+    );
+    await user.type(
+      within(form).getByRole("textbox", { name: "Email" }),
+      "trang@example.com",
+    );
+    await user.click(within(form).getByRole("combobox", { name: "Lớp" }));
+    await user.click(await screen.findByRole("option", { name: CLASS_A.name }));
+    await user.click(within(form).getByRole("button", { name: "Tạo tài khoản" }));
 
-    await user.click(screen.getByRole("button", { name: "mở" }));
-    expect(await screen.findByLabelText("Họ và tên")).toHaveValue("");
+    const sheet = await screen.findByRole("dialog", { name: "Đã tạo tài khoản" });
+    expect(within(sheet).getByText(SECRET)).toBeVisible();
+    expect(within(sheet).getByText("Lê Thu Trang")).toBeVisible();
+    expect(bodies).toEqual([
+      { fullName: "Lê Thu Trang", email: "trang@example.com", classIds: [CLASS_A.id] },
+    ]);
+    const toasts = document.querySelector("[data-sonner-toaster]");
+    expect(toasts?.textContent ?? "").not.toContain(SECRET);
   });
-});
 
-/** The password is returned once; a stray Esc must not be the way it is lost. */
-describe("while the temporary password is shown", () => {
-  it("ignores Escape and closes only through Xong", async () => {
-    const user = renderHarness();
-
-    await user.click(screen.getByRole("button", { name: "mở" }));
-    await user.type(screen.getByLabelText("Họ và tên"), "Lê Thu Trang");
-    await user.type(screen.getByLabelText("Email"), "trang@example.com");
-    await user.click(screen.getByRole("button", { name: "Tạo tài khoản" }));
-    expect(await screen.findByText("tho-vang-42")).toBeInTheDocument();
+  it("ignores Escape while the password is shown, and forgets it on Xong", async () => {
+    const { user } = renderStudents(teacherUser);
+    const form = await openForm(user);
+    await user.type(
+      within(form).getByRole("textbox", { name: "Họ và tên" }),
+      "Lê Thu Trang",
+    );
+    await user.type(
+      within(form).getByRole("textbox", { name: "Email" }),
+      "trang@example.com",
+    );
+    await user.click(within(form).getByRole("button", { name: "Tạo tài khoản" }));
+    const sheet = await screen.findByRole("dialog", { name: "Đã tạo tài khoản" });
 
     await user.keyboard("{Escape}");
-    expect(screen.getByText("tho-vang-42")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Đóng" })).toBeNull();
+    expect(within(sheet).getByText(SECRET)).toBeVisible();
+    await user.click(within(sheet).getByRole("button", { name: "Xong" }));
 
-    await user.click(screen.getByRole("button", { name: "Xong" }));
-    expect(screen.queryByText("tho-vang-42")).toBeNull();
+    await waitFor(() => expect(document.body.innerHTML).not.toContain(SECRET));
+  });
+
+  it("gives focus back to Add student after Done (QA-40-1)", async () => {
+    const { user } = renderStudents(teacherUser);
+    const form = await openForm(user);
+    await user.type(
+      within(form).getByRole("textbox", { name: "Họ và tên" }),
+      "Lê Thu Trang",
+    );
+    await user.type(
+      within(form).getByRole("textbox", { name: "Email" }),
+      "trang@example.com",
+    );
+    await user.click(within(form).getByRole("button", { name: "Tạo tài khoản" }));
+    const sheet = await screen.findByRole("dialog", { name: "Đã tạo tài khoản" });
+    await user.click(within(sheet).getByRole("button", { name: "Xong" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getAllByRole("button", { name: "Thêm học viên" })[0]).toHaveFocus();
+  });
+
+  it("opens empty again after a student was added", async () => {
+    const { user } = renderStudents(teacherUser);
+    let form = await openForm(user);
+    await user.type(
+      within(form).getByRole("textbox", { name: "Họ và tên" }),
+      "Lê Thu Trang",
+    );
+    await user.type(
+      within(form).getByRole("textbox", { name: "Email" }),
+      "trang@example.com",
+    );
+    await user.click(within(form).getByRole("button", { name: "Tạo tài khoản" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "Đã tạo tài khoản" })).getByRole(
+        "button",
+        { name: "Xong" },
+      ),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await user.click(screen.getAllByRole("button", { name: "Thêm học viên" })[0]!);
+    form = await screen.findByRole("dialog", { name: "Thêm học viên" });
+    expect(within(form).getByRole("textbox", { name: "Họ và tên" })).toHaveValue("");
   });
 });

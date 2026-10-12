@@ -207,11 +207,14 @@ func TestAnOversizedUploadIsCutOffBeforeAnythingParsesIt(t *testing.T) {
 	svc := newService(t, pool, objects)
 
 	_, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: "khong-lo.mp3",
-		Body:       bytes.NewReader(make([]byte, domain.MaxBytes+1024)),
+		Body:       io.LimitReader(zeros{}, domain.MaxAudioBytes+1024),
 		UploaderID: uploader,
 	})
 	if !errors.Is(err, domain.ErrTooLarge) {
 		t.Fatalf("error = %v, want ErrTooLarge", err)
+	}
+	if len(objects.puts) != 0 {
+		t.Errorf("an oversized file reached the object store: %v", objects.puts)
 	}
 }
 

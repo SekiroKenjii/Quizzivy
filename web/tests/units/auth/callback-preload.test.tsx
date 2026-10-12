@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { http } from "msw";
@@ -22,7 +23,6 @@ const STUDENT = {
   id: "018f0000-0000-7000-8000-0000000000e9",
   email: "an@example.com",
   fullName: "Nguyễn Văn An",
-  role: "student",
   hasPassword: false,
   linkedProviders: ["google"],
   mustChangePassword: false,
@@ -44,7 +44,13 @@ function arrive(pending: { joinCode?: string }) {
     ],
     { initialEntries: [`/auth/google/callback?code=abc&state=${state}`] },
   );
-  render(<RouterProvider router={router} />);
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 }
 
 beforeEach(() => {

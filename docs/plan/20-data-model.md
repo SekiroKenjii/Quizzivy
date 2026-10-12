@@ -237,6 +237,8 @@ CREATE TRIGGER classes_set_updated_at BEFORE UPDATE ON app.classes
 No index beyond the PK. There will be single-digit classes; §8's list is a seq
 scan and that is the correct plan.
 
+R4 adds `schedule_label` and `room` (T-R4.18, D-39, §41).
+
 ### `00006` (cont.) — `class_join_codes`
 
 ```sql
@@ -265,7 +267,8 @@ CREATE UNIQUE INDEX class_join_codes_one_active
   uses are judged on the row found (§33). The plaintext code is never stored
   (§13.3). From `00078` a new code is also sealed under a key the database
   never holds (D-27), so a dump does not hand it over; a legacy row's SHA-256
-  still does, in 2^20 guesses, until R4 rotates it (§33).
+  still does, in 2^20 guesses, until the start-up rotation of v0.10.0 replaces it
+  (§33); a revoked or expired one stays.
 - **The exhaustion check is in the database**, not only in the handler. §6.5
   treats the code as a bearer secret; a `uses_count > max_uses` row is a silent
   policy failure and this makes it impossible.
@@ -410,6 +413,105 @@ CREATE INDEX media_assets_checksum_idx
   when `test_version_questions` still references it; only unreferenced assets
   get a `deleted_at`. **R2 object lifecycle after soft delete is deliberately
   out of scope for v1** — the object stays. See `40-open-items.md`.
+
+### `00082`–`00084` — the library's fields (T-R4.17a, D-29)
+
+Three files on a populated table. Every new column is nullable with no
+default, so the v0.9.0 binary's insert, which names none of them, keeps
+working during the rolling deploy. None adds an index.
+
+```sql
+-- 00082_add_media_assets_library_fields.sql
+ALTER TABLE app.media_assets
+  ADD COLUMN display_name text,
+  ADD COLUMN default_max_plays smallint,
+  ADD COLUMN replaced_by uuid,
+  ADD CONSTRAINT media_assets_display_name_check
+    CHECK (char_length(display_name) BETWEEN 1 AND 200 AND display_name ~ '\S'),
+  ADD CONSTRAINT media_assets_default_max_plays_check
+    CHECK (default_max_plays IS NULL
+           OR (default_max_plays BETWEEN 0 AND 3 AND kind = 'audio')),
+  ADD CONSTRAINT media_assets_replaced_by_fkey
+    FOREIGN KEY (replaced_by) REFERENCES app.media_assets(id) ON DELETE SET NULL,
+  ADD CONSTRAINT media_assets_replaced_by_check CHECK (replaced_by <> id);
+
+-- 00083_add_media_assets_dimensions.sql
+ALTER TABLE app.media_assets
+  ADD COLUMN width integer,
+  ADD COLUMN height integer,
+  ADD CONSTRAINT media_assets_dimensions_paired CHECK ((width IS NULL) = (height IS NULL)),
+  ADD CONSTRAINT media_assets_dimensions_positive CHECK (width > 0 AND height > 0),
+  ADD CONSTRAINT media_assets_dimensions_image_only CHECK (width IS NULL OR kind = 'image');
+
+-- 00084_widen_media_assets_audio_bytes.sql
+ALTER TABLE app.media_assets
+  ADD CONSTRAINT media_assets_bytes_by_kind
+    CHECK (bytes > 0 AND bytes <= CASE WHEN kind = 'audio' THEN 52428800 ELSE 10485760 END)
+    NOT VALID;
+ALTER TABLE app.media_assets VALIDATE CONSTRAINT media_assets_bytes_by_kind;
+ALTER TABLE app.media_assets DROP CONSTRAINT media_assets_bytes_check;
+```
+
+- **`display_name`** is the name the library shows; NULL means the original
+  filename, which never changes. The server stores it trimmed, so
+  `media_assets_display_name_check` asks for 1 to 200 characters and one that
+  is not white space. Readers select
+  `coalesce(display_name, original_filename)`.
+- **`default_max_plays`** is the play limit a new question starts from: NULL
+  is "not set" and leaves the editor's own default, 0 is unlimited, 1 to 3 a
+  limit. `media_assets_default_max_plays_check` keeps it off an image, as
+  `questions_audio_policy_iff_audio` keeps an audio policy off a question
+  without audio. Nothing in the server applies it to a question: the editor
+  reads it (T-R4.65).
+- **`replaced_by`** names the file that took this one's place. T-R4.17b
+  writes it; T-R4.17a only reads it. **The library is the rows with
+  `deleted_at IS NULL AND replaced_by IS NULL`**, one predicate
+  (`media/repositories/list.go`, `library`) under the list, its total, the
+  facets, the usage and the quota sum. `Get`, `Readable`, `ReferencesFor`,
+  `LockForVersionUse` and `SoftDelete` do not ask it, so a replaced file keeps
+  serving the published versions and the other owners' rows that still point
+  at it. `ON DELETE SET NULL`: removing the newer row returns the older one to
+  the library. `media_assets_replaced_by_check` refuses a file replaced by
+  itself. No index on the column: a row is hard-deleted only by a test, and
+  the release adds no index to a populated table.
+  Replacement uses the existing 00082–00084 fields and constraints; T-R4.17b
+  adds no migration or index. It locks owner-eligible groups and current
+  questions in sorted order, then the old asset and its owner's existing quota
+  advisory lock. After waiting it rechecks owner, library eligibility, kind,
+  name and play limit; an owner change aborts rather than acquiring another
+  owner's locks. It inserts with explicit locked owner and acting uploader,
+  repoints only the retained current graph and audits the counts. Published
+  versions, import review JSON, foreign bindings and test timestamps stay
+  unchanged. Its repository entry accepts a concrete pool and owns the outer
+  transaction; raw/acquired connections, wrappers and nested transactions are
+  refused before mutation.
+- **`width` and `height`** are an image's pixels, read from its header at
+  upload (`platform/probe/image.go`). Both are NULL for audio, for an image
+  whose header could not be read, and for every row stored before 00083:
+  there is no backfill. Three checks, so a violation names its rule: both or
+  neither, positive, images only.
+- **The size limit depends on the kind.** 00010's unnamed column CHECK, which
+  PostgreSQL named `media_assets_bytes_check`, held every file to 10 MiB.
+  `media_assets_bytes_by_kind` allows audio 52428800 bytes (50 MiB) and an
+  image 10485760 (DG-63). It is added `NOT VALID` and validated before the
+  old constraint is dropped, so no moment has neither rule. Down re-adds the
+  old CHECK `NOT VALID`: audio above 10 MiB may exist by then, and the
+  constraint still binds every row written afterwards.
+- **`questionCount` is computed, not stored.** A file is used by a question
+  that is not deleted and attaches it (`questions.media_asset_id`), and by
+  every member of a group whose `group_recordings` or `group_stimulus_assets`
+  name it, each question once and whoever owns it. A member cannot be
+  soft-deleted (`questions_context_complete`, 00035), so every member is live.
+  The `unused` filter and the facet of that name are `NOT EXISTS` over the
+  same subquery (`questionsUsing`), so a tab and a card cannot disagree. A
+  published version and a group without members add nothing: such a file is
+  "not used" and its delete is still refused.
+- **The search** is
+  `app.immutable_unaccent(lower(coalesce(display_name, '') || ' ' || original_filename)) LIKE '%' || app.immutable_unaccent(lower($n)) || '%' ESCAPE '\'`,
+  the term through `db.EscapeLike`. No index: the rows are one owner's,
+  behind `media_assets_owner_idx`.
+- **The quota** is checked inside the insert's transaction, under an
+  advisory lock keyed by the owner (§28).
 
 ---
 
@@ -1246,12 +1348,26 @@ listed here matches the spec.
 | D-19 | `attempt_answers`: add `requires_manual`, `graded_by`, `graded_at` | `final_score` is VIRTUAL and unindexable, so `pendingManual` needs a real-column predicate |
 | D-20 | Add `maintenance_windows`, read-only for the app role; written only through `cmd/maintenance`, whose extensions are audited as System | §13 has no maintenance state; the API must be able to answer 503 without being able to schedule, move or cancel a window itself (T-R1.12) |
 | D-21 | Reference data the app cannot run without is written by a migration, not `seed/`: the permission catalogue (`permissions`), the four built-in `roles` and their grants (`role_permissions`) | §13.7 keeps seed data out of migrations, but a production database with no roles cannot sign anyone in; plan 70 §3 (T-R2.1) |
-| D-22 | `tests`, `questions`, `question_groups` and `media_assets` gain `owner_id` beside `created_by` / `uploaded_by`; `users` gains a nullable `created_by` | Ownership is who a row belongs to and provenance is who made it. R5's ownership transfer and R7's co-editing move the first and must not rewrite the second (T-R2.9) |
-| D-23 | `classes.teacher_id` is backfilled from the oldest active Admin, with no `classes.created_by` | `app.classes` never recorded a creator, and the oldest active Admin is who v0.7.0 shows as every class's teacher, so no teacher changes; a class's creator from R2 on is its `class.created` audit row (Thuong, 2026-09-28; T-R2.9) |
+| D-22 | `tests`, `questions`, `question_groups` and `media_assets` gain `owner_id` beside `created_by` / `uploaded_by`; `users` gains a nullable `created_by` | Ownership is who a row belongs to and provenance is who made it. R5's ownership transfer and R7's co-editing move the first and must not rewrite the second (T-R2.9). Expand half (00060 to 00063): each owner column is `NOT NULL NOT VALID`, with a fill trigger for the v0.7.0 binary. Contract half (00106, T-R4.49, §43): the constraints validated and the triggers and their functions dropped |
+| D-23 | `classes.teacher_id` is backfilled from the oldest active Admin, with no `classes.created_by` | `app.classes` never recorded a creator, and the oldest active Admin is who v0.7.0 shows as every class's teacher, so no teacher changes; a class's creator from R2 on is its `class.created` audit row (Thuong, 2026-09-28; T-R2.9). Expand half (00065): `classes_teacher_id_not_null` `NOT VALID` and the trigger `classes_fill_teacher`. Contract half (00106, §43): validated, and trigger and function dropped |
 | D-24 | Add the view `app.student_like_roles`, the one strict-student predicate: the built-in Student, or a custom role holding nothing but `learning.take_tests`; the other built-in roles are excluded by key | The Admin stores only its "Take tests" cell, so a predicate on grants alone would make it a student target; every student read and write, the legacy-role sync and the anonymiser use this one definition (plan 70 §4.3, T-R2.1) |
-| D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum, expand half: added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step until v0.9.1 (T-R3.1) drops the column and the enum | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
+| D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum. Expand half (00056): added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step. Contract half (00105, T-R4.49, §42): the constraint validated, and the trigger, `role`, its index and the enum dropped | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
 | D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
 | D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
+| D-28 | Add `notifications` and `notification_preferences`. `notifications.params` and `target` are `jsonb`, bounded objects rather than columns, and `kind` is a checked dotted `text`, not an enum | §13.3 has no notification. Each kind carries its own few fields and every release adds kinds, so columns would be mostly NULL and an enum a migration per kind; the contract's closed `NotificationParams` and the Go type per kind are the schema. A name in `params` is a copy, not a reference: R5's anonymisation (T-R5.17a) deletes or scrubs the notifications that name an anonymised user (§34, T-R4.10a) |
+| D-29 | `media_assets` gains `display_name`, `default_max_plays`, `replaced_by`, `width` and `height`, and its size limit depends on the kind: audio 50 MiB, an image 10 MiB | §13.3's row is a stored file and nothing else, and §11.1 allowed 10 MB for either kind. The deck's Media page names a file, gives it a play limit, shows an image's size and replaces a file in place (DG-63, DG-09); a replaced row stays, because published versions still point at it (§6, T-R4.17a, T-R4.17b) |
+| D-30 | `users` gains nullable profile fields and bounded object `preferences` | The caller's private profile and account settings are required by T-R4.7; student-facing teacher names use the chosen display name without exposing private account fields |
+| D-31 | Questions and frozen version questions gain nullable level and skill; the choice cap applies to authoring only | DG-62/DG-63 and T-R4.15 preserve historical question content while adding teacher metadata and filters |
+| D-32 | `test_versions` gains a nullable `change_note`, 1 to 200 characters | The test detail's version history shows what the teacher said changed when publishing (DG-66, T-R4.16a). Nullable with no default and no backfill, so the previous release's insert keeps working and a version published before it reads NULL; the command stores NULL for a blank note, so the check never meets an empty string |
+| D-33 | `questions` and `test_version_questions` gain a nullable `media_alt`, 1 to 1000 characters | The deck's builder draws "Alt text: describe the image for screen readers" under a question's image and the model had no field for it (DG-111, T-R4.62a). The bound is `ContentImage.alt`'s. It lives on the question and is frozen at publish like every other part of the question, so a later edit of the bank question never reaches a version. Nullable with no default and no backfill, so the previous release's insert keeps working and a row written before it reads NULL. No check ties it to an image in R4: the write path refuses it for any other media (a field error on `mediaAlt`) and the bank store keeps it only beside an image, and a database check would make an R3 write that swaps an image for audio fail during the rolling deploy. The rule becomes a database invariant one release later, as a contract step (§37) |
+| D-34 | `assignments` gains `review_release` (`on_submit` or `after_close`, default `on_submit`) and `review_show_class_average` (default false) | The deck's Review step releases results after submitting or after the window closes, and shows the class average only on request (DG-65, T-R4.11). Constant defaults, so the previous release's insert keeps its meaning (results at once, no average) and nothing is rewritten; no fill trigger |
+| D-35 | `assignments` gains a nullable `student_note`, 1 to 500 characters once trimmed of the whitespace JavaScript's `trim()` removes (the set of `shared/answered`, not `btrim`'s space alone) | The Student deck's Test intro draws a note from the teacher and the Teacher deck had no field for it (DG-71, T-R4.11). Nullable with no default, so the previous release's insert keeps working; the command trims the same set and stores NULL for a note that is blank once trimmed, so the check never meets an empty string, and a note of a tab, a newline or a no-break space is refused by the check as it is dropped by the command |
+| D-36 | Add `assignment_student_overrides (assignment_id, student_id, closes_at, duration_minutes, extra_attempts, reason, created_by, created_at, updated_at)` | §13.3 has no per-student accommodation, and R4 lets a teacher give one student more time, more attempts or a reopened window without touching the assignment everyone else has (T-R4.12). A separate table, not columns on `assignments`, because the rows are per student and optional: no row is the assignment as it is. A new table adds nothing the previous release reads or writes, so the rolling deploy needs no expand step (§38) |
+| D-37 | `refresh_tokens` gains a nullable `geo_label`, 1 to 80 characters | The Signed-in devices list names where a device last signed in or refreshed (T-R4.9, DG-58). A label is the edge's city and country at the request, so it is data about the request and lives beside `ip` and `user_agent` on the token row, which each rotation rewrites; a column on `users` or a table of devices would need a second writer and a second delete path. Nullable with no default, so the previous release's insert keeps working; the command stores NULL for no label, never an empty string, so the check never meets one (§39) |
+| D-38 | `00103_compose_text_nfc.sql` has a Down that does nothing, where every other file's Down undoes its Up (§13, AGENTS "Migrations") | The file changes data and no schema, and nothing records which rows were decomposed before it ran, so there is nothing to restore: NFC and NFD are the same text, a rolled-back binary reads composed text exactly as it read decomposed text, and the one row it deletes (a decomposed accepted answer whose composed twin exists) was equal to the grader's eyes, so it is not brought back. A Down that decomposed every row would be wrong, since it would also decompose what was composed before. The file says so in the Down, and up/down/up still passes because the Down leaves the schema and every row as they are (§40) |
+| D-39 | `classes` gains a nullable `schedule_label`, 1 to 120 characters, and a nullable `room`, 1 to 60 | The deck's class card and the student's class say when and where a class meets, and the model had no field for either (T-R4.18). Free text the teacher words, not a structured timetable, so one column each. Nullable with no default, so the previous release's insert keeps working; the commands trim and store NULL for a blank value, so the checks never meet an empty string (§41) |
+| D-40 | `word_import_drafts` gains nullable `open_action_count` and `open_confirm_count`, `integer` and not negative | The history lists each import with "{n} need action" and "{n} to confirm" (T-R4.21), which are derived from the review body, and a body can be 8 MiB, so the page cannot parse one per row. The counts are written with the body in the same statement (processing result, review save, adoption), from `domain.Assess(body).Summary`. `integer` and not `smallint`, because a valid draft can exceed 32,767 derived findings and a count must not become a new authoring limit. Nullable with no default and no backfill: NULL means a draft this binary has not assessed, which is not zero, and the previous release's insert keeps working (§26) |
+| D-41 | `word_import_sources.format` admits `text`, and `characters integer` (1 to 100000) is non-null exactly for a text source | A pasted test is a fourth source format, stored as a private `.txt` like any original (T-R4.55, `17-word-import.md` §1.41). The character count is the NFC code-point count the intake measured, so the history can say "{n} characters" without reading the object; bytes and hash cannot rebuild it. Nullable with no default, so a file insert from the previous release stays valid. `00090`'s Down restores the file-only CHECK `NOT VALID`, so retained text rows do not block it. `00091`'s Down drops the column, and its Up then refuses, atomically, while any text row is retained, because `word_import_sources_characters_format` is validated at once and no count can be rebuilt: nothing invents one (§23) |
 
 ---
 
@@ -1341,6 +1457,29 @@ the file it adds.
 | `00077_index_assignments_creator.sql` | `assignments_creator_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00078_add_join_code_encryption.sql` | `class_join_codes.code_ciphertext`, `key_id`, `lookup_scheme` and their four checks; Down refuses a live scheme-2 code | R2 (T-R2.14a), D5, D-27 |
 | `00079_revoke_temporary_from_public.sql` | revokes `TEMPORARY` on the database from `PUBLIC`; a no-op with a notice where the migration role does not own the database | fix for #194 |
+| `00080_create_notifications.sql` | `notifications`, its four checks, `UNIQUE (user_id, dedupe_key)`, three indexes and the `updated_at` trigger | R4 (T-R4.10a), D-28 |
+| `00081_create_notification_preferences.sql` | `notification_preferences`, `notification_preferences_event_check` and the `updated_at` trigger | R4 (T-R4.10a), D-28 |
+| `00082_add_media_assets_library_fields.sql` | `media_assets.display_name`, `default_max_plays`, `replaced_by` and their four constraints | R4 (T-R4.17a), D-29 |
+| `00083_add_media_assets_dimensions.sql` | `media_assets.width`, `height` and their three checks | R4 (T-R4.17a), D-29 |
+| `00084_widen_media_assets_audio_bytes.sql` | `media_assets_bytes_by_kind` in place of `media_assets_bytes_check`; Down re-adds the old rule `NOT VALID` | R4 (T-R4.17a), D-29, DG-63 |
+| `00085_add_users_profile_fields.sql` | `users.display_name`, `phone`, `avatar_key`, `locale`, `time_zone` and four checks | R4 (T-R4.7), D-30 |
+| `00086_add_users_preferences.sql` | `users.preferences` and object/8192-byte checks | R4 (T-R4.7), D-30 |
+| `00087_add_questions_level_skill.sql` | Nullable bank `level` and `skill`, with closed CHECK sets | R4 (T-R4.15), D-31 |
+| `00088_add_test_version_questions_level_skill.sql` | Nullable frozen `level` and `skill`, with closed CHECK sets | R4 (T-R4.15), D-31 |
+| `00089_add_word_import_draft_counts.sql` | `word_import_drafts.open_action_count` and `open_confirm_count`, each nullable and checked not negative, no default | R4 (T-R4.21), D-40 |
+| `00090_allow_text_import_sources.sql` | `word_import_sources_format_check` admits `text`; Down restores the file-only check `NOT VALID` | R4 (T-R4.55), D-41 |
+| `00091_add_word_import_sources_characters.sql` | `word_import_sources.characters`, `word_import_sources_characters_range` (1 to 100000) and `word_import_sources_characters_format` (non-null exactly when `format = 'text'`) | R4 (T-R4.55), D-41 |
+| `00092_add_test_versions_change_note.sql` | `test_versions.change_note` and `test_versions_change_note_check` (1 to 200 characters), added with the column | R4 (T-R4.16a), D-32 |
+| `00097_add_questions_media_alt.sql` | `questions.media_alt` and `questions_media_alt_check` (1 to 1000 characters), added with the column | R4 (T-R4.62a), D-33 |
+| `00098_add_test_version_questions_media_alt.sql` | `test_version_questions.media_alt` and `test_version_questions_media_alt_check` (1 to 1000 characters), added with the column | R4 (T-R4.62a), D-33 |
+| `00099_add_assignment_review_options.sql` | `assignments.review_release`, `assignments_review_release_check` and `review_show_class_average`, constant defaults | R4 (T-R4.11), D-34 |
+| `00100_add_assignments_student_note.sql` | `assignments.student_note` and `assignments_student_note_check` (1 to 500 characters once trimmed of the `shared/answered` whitespace set), added with the column | R4 (T-R4.11), D-35 |
+| `00101_create_assignment_student_overrides.sql` | `assignment_student_overrides`, its four checks, `assignment_student_overrides_student_idx` and the `updated_at` trigger | R4 (T-R4.12), D-36 |
+| `00102_add_refresh_tokens_geo_label.sql` | `refresh_tokens.geo_label` and `refresh_tokens_geo_label_check` (1 to 80 characters), added with the column | R4 (T-R4.9), D-37 |
+| `00103_compose_text_nfc.sql` | Data only: composes to NFC the plain columns a person types, deletes a decomposed accepted answer whose composed twin exists, and keeps `updated_at` by disabling the eight named `set_updated_at` triggers for the transaction. The Down does nothing | R4 (F-37), D-38 |
+| `00104_add_classes_schedule_room.sql` | `classes.schedule_label` and `classes.room`, each with its check (1 to 120 and 1 to 60 characters), added with the column; 00103 is reserved for F-37, which merges first, and the second of the two renumbers if the order inverts | R4 (T-R4.18), D-39 |
+| `00105_drop_users_legacy_role.sql` | Validates `users_role_id_not_null`; drops `users_sync_legacy_role`, `users_role_active_idx`, `users.role` and `app.user_role`; `lock_timeout` 5 s | R4 (T-R4.49, T-R3.1), D-25, §42 |
+| `00106_validate_ownership.sql` | Validates the five owner constraints; drops the five fill triggers and their three functions; `lock_timeout` 5 s | R4 (T-R4.49, T-R3.2), D-22, D-23, §43 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1756,6 +1895,24 @@ Local Docker verification uses the migration owner for fixture setup and the
 verified on a disposable database. Automatic source retention remains undecided;
 this migration does not infer it from the integrity-event retention policy.
 
+### R4 pasted-text source extension (T-R4.55)
+
+`00090_allow_text_import_sources.sql` extends the existing format CHECK to
+`docx`, `doc`, `pdf` and `text`. Its Down restores the file-only CHECK `NOT VALID`,
+so existing text rows remain retained while new text writes are refused.
+`00091_add_word_import_sources_characters.sql` adds nullable integer `characters`
+with named range 1–100000 and format constraints: it is non-null exactly for text
+sources and null for files. Existing file inserts using the old column list remain
+valid. No owner, grant, index, source-set or append-only audit policy changes.
+
+Intake writes the NFC Unicode code-point count; bytes, hash and private-original
+metadata keep their existing meaning. Migration 91 Down drops the character
+column. Empty-purpose 90/91 up/down/up is reversible. After retained text loses
+its counts through 91 Down, 91 Up must refuse atomically: bytes and hash cannot
+reconstruct truthful character counts. There is no invented count, backfill or
+retained-row repair. A separate disposable purpose verifies this refusal and is
+ordinarily disposed only under its exact lifecycle authorization.
+
 
 ## 24. Durable import runs (W-11a)
 
@@ -1831,7 +1988,8 @@ parsing. A stage manifest grants no learner media authorization.
 ## 26. Review drafts and commits (W-18, W-20)
 
 Migrations: `00045_create_word_import_drafts.sql`, `00046_create_word_import_commits.sql`,
-`00047_add_word_import_run_profile.sql`, `00048_allow_legacy_word_sources.sql`.
+`00047_add_word_import_run_profile.sql`, `00048_allow_legacy_word_sources.sql`,
+`00089_add_word_import_draft_counts.sql`.
 
 `word_import_drafts` holds exactly one review copy per import (the primary key is the
 import). `revision` is the optimistic-concurrency token for teacher saves: an update
@@ -1843,6 +2001,17 @@ draft is kept in `candidate`/`candidate_run_id` and never overwrites the edits. 
 body is bounded to 8 MiB as JSONB. The application role may update drafts but not
 delete them; draft saves are not audited individually because autosave would flood
 the log.
+
+`00089` adds nullable `open_action_count integer` and
+`open_confirm_count integer`, each checked nonnegative, without a default or
+backfill. They store `domain.Assess(current body).Summary` (`Blocking` and
+`NeedsDecision`) in the same write as the body. A pending candidate preserves
+the current counters; adoption computes them from the locked candidate. NULL
+means a historical current draft has not been assessed by this binary, not zero.
+Valid existing draft shapes can exceed32767 findings, so SMALLINT would impose
+an unrelated new authoring limit; the existing8MiB body limit remains unchanged.
+History reads these counters with its facets and rows in one repeatable-read
+snapshot. Down drops only the two reporting columns.
 
 `word_import_commits` is append-only (no UPDATE or DELETE for the application role)
 and has one row per import. It records the request identity, the committed draft
@@ -1920,18 +2089,34 @@ advisory lock below: the window, the moved `attempts.deadline_at` and
 `assignments.closes_at` (PG18 `RETURNING old.…, new.…`, so each audit row
 carries only the column that moved), and their audit rows with a NULL actor.
 
-## 28. Advisory-lock registry (namespace 73819)
+## 28. Advisory-lock registry
 
-Every transaction advisory lock this codebase takes is
-`pg_advisory_xact_lock(73819, <key>)`. Add a key here before it is used.
+Every transaction advisory lock this codebase takes is in one of two
+namespaces. `pg_advisory_xact_lock(73819, <key>)` holds the fixed keys of the
+table below: add a key here before it is used. `73820` holds one lock per
+media owner, described under the table.
 
 | Key | Holder | Serialises |
 |---|---|---|
 | 10 | Word imports (W-10a, W-13b) | Upload quota reservation |
 | 11 | Word imports (W-11a) | Run capacity allocation and renewal |
-| 40 | Maintenance windows (T-R1.12, T-R1.13) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions |
-| 41 | Reserved: R4's legacy join-code rotation | Confirmed by R4 |
+| 40 | Maintenance windows (T-R1.12, T-R1.13, T-R4.12b) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions. `extendAssignment`, `updateAssignment`, `reopenAssignment`, `setStudentOverrides` and `deleteStudentOverride` take it shared too, before they lock the assignment row (`schedule.LockWindows`), so none of them runs between a window's scheduling and its extensions, and none can wait on a row that `window-schedule` holds while it waits on theirs |
+| 41 | Legacy join-code rotation (T-R4.22) | Each class's rotation across API machines |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
+
+**Namespace 73820: one media library's quota (T-R4.17a).**
+`pg_advisory_xact_lock(73820, hashtext(<owner id>::uuid::text))` serialises
+the writers of one owner's media library. `media/repositories.RequireQuota`
+takes it first, then sums the owner's library bytes (§6: not deleted, not
+replaced), and the insert follows in the same transaction, so two uploads
+that each fit alone cannot both land. The second key is a hash of the owner,
+which is why it has a namespace of its own: in 73819 a hash could land on
+one of the fixed keys. Two owners whose hashes collide wait for
+each other and nothing else. The uuid is cast before it is hashed, so the
+same owner written in another letter case takes the same lock. T-R4.17b's
+replace takes this lock for the old file's owner, with the old file left out
+of the sum. An upload holds no other lock when it takes this one, and its
+only row is the one it inserts.
 
 ## 29. Roles and permissions (T-R2.1)
 
@@ -1990,8 +2175,8 @@ from `quizzivy_app`. `access.IsStudentLike` is the same predicate in Go.
 ## 30. A role per user, the session epoch and the last Admin (T-R2.2)
 
 The expand half of moving users from `users.role` to `users.role_id` (plan 70
-§3, D-25). v0.9.1 (73-r3.md T-R3.1) validates the constraint, drops the sync
-trigger, `users.role`, `users_role_active_idx` and `app.user_role`.
+§3, D-25). 00105 (73-r3.md T-R3.1, §42) validated the constraint and dropped the
+sync trigger, `users.role`, `users_role_active_idx` and `app.user_role`.
 
 - `00056_add_users_role_id.sql` adds `role_id uuid REFERENCES app.roles ON
   DELETE RESTRICT`, nullable, and backfills it: `admin` → the Admin role,
@@ -2036,7 +2221,7 @@ trigger, `users.role`, `users_role_active_idx` and `app.user_role`.
     another Admin's departure (and two transfers cannot deadlock).
   - No column list: the v0.7.0 binary demotes by writing `role`, and a column
     list matches the columns an UPDATE names, not those a BEFORE trigger sets.
-    Naming `role` would also make v0.9.1's `DROP COLUMN role` depend on the trigger.
+    Naming `role` would also have made 00105's `DROP COLUMN role` depend on the trigger.
 - **The schema's first `SECURITY DEFINER` function (D-26).** The row lock
   needs UPDATE privilege on `app.roles`, which `00054` revokes from
   `quizzivy_app`. Running as the invoker, R5's demote and disable would fail
@@ -2061,9 +2246,9 @@ is set, as CI does.
 
 ## 31. Ownership (T-R2.9)
 
-The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). v0.9.1
-validates every constraint below and drops the fill triggers and their
-functions (73-r3.md T-R3.2).
+The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). 00106
+(73-r3.md T-R3.2, §43) validated every constraint below and dropped the fill
+triggers and their functions.
 
 - `00060`–`00063` add `owner_id uuid` to `tests`, `questions`,
   `question_groups` and `media_assets`, beside the provenance column each
@@ -2089,8 +2274,8 @@ functions (73-r3.md T-R3.2).
   shows for every class. It raises if no active Admin exists and a class does.
   `classes_fill_teacher` (BEFORE INSERT) applies the same rule to the old
   binary's inserts; it and its function `app.classes_fill_teacher()` share the
-  name. It reads `users.role_id`, not the legacy `role`, so v0.9.1's `DROP COLUMN
-  role` cannot break it before v0.9.1 drops it.
+  name. It reads `users.role_id`, not the legacy `role`, so 00105's `DROP COLUMN
+  role` could not break it.
 - `00066`–`00070` add the foreign keys, `<table>_owner_id_fkey` and
   `classes_teacher_id_fkey`, each `REFERENCES app.users ON DELETE RESTRICT`
   and each in its own file after the columns. A column file holds ACCESS
@@ -2105,8 +2290,8 @@ functions (73-r3.md T-R3.2).
   EXCLUSIVE on the referencing table, which reads and foreign-key checks do
   not conflict with, so it simply waits for such a transaction to commit.
   `00064` keeps its inline reference: it references its own table.
-- The new binary names every owner itself; the triggers exist only for the
-  deploy overlap:
+- The new binary names every owner itself; the triggers existed only for the
+  deploy overlap and 00106 dropped them:
 
   | Row | Owner written |
   |---|---|
@@ -2126,11 +2311,14 @@ functions (73-r3.md T-R3.2).
   package's delete of that user would then fail one side on the foreign key.
   The shared fixture in `constraints_test.go` also runs on scratch databases
   migrated to versions before `00065`, so it names `teacher_id` only when the
-  column exists.
+  column exists. Since 00106 every fixture and seed insert into `tests`,
+  `questions`, `question_groups` and `media_assets` names `owner_id` too: a
+  fixture that omits it fails with `23502`.
 
 `platform/db/tests/expand_r2_test.go` (`TestTheOwnershipExpandKeepsTheOldBinaryWorking`)
 writes a legacy dataset at v0.7.0's schema by two authors, with an older,
-disabled Admin, and migrates. It checks that every row went to its author and
+disabled Admin, and migrates to the version before 00106, the end of the expand
+half. It checks that every row went to its author and
 the class to the oldest active Admin, with `updated_at` unmoved. It also
 checks the old binary's inserts are filled, an explicit owner is kept, an
 account's creator is optional and cleared when the creator goes, and each
@@ -2189,7 +2377,598 @@ redeem one. Three columns join `app.class_join_codes`:
 - **The keys never reach the database.** A dump yields ciphertexts and keyed
   hashes; without `JOIN_CODE_KEY` neither opens nor can be hashed through the
   code space. A legacy row's SHA-256 still can, and quickly: beside the
-  stored four-character hint only 2^20 codes remain. That is why R4 rotates
-  the legacy codes (D5).
+  stored four-character hint only 2^20 codes remain. That is why R4 replaced the
+  live legacy codes at start-up (D5, below).
 - **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
   because the previous binary looks codes up by SHA-256 alone.
+- **The API replaces the legacy rows at start-up from v0.10.0 (T-R4.22):**
+  each unrevoked, unexpired scheme-1 row is revoked and a scheme-2 row is
+  inserted for its class with the same `expires_at`, `max_uses` and
+  `created_by` and `uses_count` (F-67), in one transaction per class under
+  advisory key 41 (§28), audited with a NULL actor; a revoked or expired
+  scheme-1 row is left as it is.
+- **Lock order for a class and its join codes (F-23).** The transactions that
+  lock a class row and one of its code rows take them in these modes and orders:
+  - The start-up rotation takes advisory `(73819, 41)` (§28), then the class row
+    `FOR NO KEY UPDATE`, then the class's active scheme-1 code row `FOR UPDATE`.
+    `Rotate` and `Revoke` take the class row `FOR NO KEY UPDATE`, then update the
+    code row, and take no advisory key.
+  - `Rotate` reads `archived_at` in that same locking `SELECT` (F-64), so the read
+    and the lock are one statement: an `Archive`, which holds the same row lock for
+    its plain `UPDATE`, either committed first, and the locked read returns the
+    archived row (READ COMMITTED re-reads the latest version after the wait), or
+    waits for the `Rotate`. An archived class answers `ErrClassArchived` before any
+    code row is touched, after the scope predicate has already answered
+    `ErrClassNotFound` for a class the caller does not reach. `Revoke` does not read
+    `archived_at` and stays allowed on an archived class.
+  - A redemption (`EnrolNewMember`, `EnrolExisting`) takes the code row `FOR UPDATE`
+    first, found by its lookup hash, and its member insert then takes `KEY SHARE`
+    on the class row through the foreign key.
+  - `NO KEY UPDATE` conflicts with itself, with `SHARE` and with `UPDATE`, and not
+    with `KEY SHARE`. A redemption and the three writers above therefore never wait
+    for each other in a cycle: the writer waits for the code row and goes on when the
+    redemption commits. `Update` and `Archive` (a plain `UPDATE` of the class) and
+    `AddMember` (`FOR SHARE`) still wait for those writers, and the writers for them.
+  - `Delete` takes the class row `FOR UPDATE`, as every `DELETE` does, and removes the
+    code rows by the cascade: the inverse of a redemption's order. It meets one only
+    when the class was archived and deleted between the redemption's claim and its
+    member insert, because a redemption of an archived class is refused before it
+    takes a class lock. That window exists because the claim reads `archived_at` and
+    `self_join_enabled` from the class row without a lock (`repositories/enrol.go`,
+    `claimCode`), so an `Archive` can commit between a claim and its insert; this
+    predates F-23 and is unchanged. `Delete` stays as it is: taking the code rows first
+    would invert it against `Rotate` and `Revoke`.
+  - A contender outside this list can still abort the rotation as a deadlock or
+    serialization victim; the repository answers `domain.ErrRotationContended` and
+    the command tries that class once more (T-R4.22).
+
+## 34. Notifications (T-R4.10a)
+
+Two tables, both new and empty at release, so every column is `NOT NULL`
+inline where it must be and no index is built `CONCURRENTLY`. The app role
+gets SELECT, INSERT, UPDATE and DELETE on both through `00009`'s default
+privileges; neither file writes a grant.
+
+```sql
+CREATE TABLE app.notifications (
+  id         uuid PRIMARY KEY DEFAULT uuidv7(),
+  user_id    uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+  kind       text NOT NULL,                       -- dotted key, at most 64 characters
+  params     jsonb NOT NULL DEFAULT '{}'::jsonb,  -- an object, at most 4096 bytes as text
+  target     jsonb,                               -- NULL, or an object of at most 1024 bytes
+  dedupe_key text NOT NULL,                       -- 1 to 200 characters
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  read_at    timestamptz,
+  CONSTRAINT notifications_user_dedupe_key UNIQUE (user_id, dedupe_key)
+);
+
+CREATE TABLE app.notification_preferences (
+  user_id    uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+  event      text NOT NULL,
+  in_app     boolean NOT NULL,
+  email      boolean NOT NULL DEFAULT false,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, event),
+  CONSTRAINT notification_preferences_event_check CHECK (event IN (
+    'attempt.submitted', 'attempt.flagged', 'assignment.closing', 'assignment.due_soon', 'result.ready'))
+);
+```
+
+- **No sentence is stored.** The reader's console words a row from `kind` and
+  `params` in the reader's language. `kind` is checked for its shape only
+  (`notifications_kind_check`), so a release adds a kind in the contract and
+  the domain without a migration.
+- **`params` and `target` are bounded objects** (D-28): `notifications_params_shape`
+  and `notifications_target_shape` require `jsonb_typeof(…) = 'object'` and
+  bound `octet_length(…::text)`, as `00047` does. The text length is what
+  the constraint measures because it is the same for a value whatever its
+  storage: `pg_column_size` moves with compression and TOAST. A NULL
+  `target` passes its check; the JSON value `null` does not.
+- **`UNIQUE (user_id, dedupe_key)` is what a merge conflicts on.** `Notify`
+  is one `INSERT … ON CONFLICT (user_id, dedupe_key) DO UPDATE`: a second
+  notice about the same thing updates the row, makes it unread again
+  (`read_at = NULL`) and, when asked to add, sums `count` and `toGrade` with
+  the stored values inside the statement. Nothing reads the row first, so a
+  class handing in within the same seconds loses no increment. The same key
+  for two users is two rows.
+- **A switch that is off stops the write.** The same statement inserts only
+  when no `notification_preferences` row for the user and the kind's event has
+  `in_app = false`; a missing row means the default, which is on. `email` is
+  stored and read by nothing until R7.
+- **`updated_at` moves by the trigger** on both tables (§13.2), on a merge
+  and on a mark-read alike. `created_at` never moves: a merged row keeps its
+  id, its place in the list and its retention.
+- **Retention is 180 days from `created_at`.** `PruneNotifications` runs at
+  API start-up and then daily and deletes `WHERE created_at < now − 180
+  days`; it is idempotent and takes no lock beyond its rows.
+- **`ON DELETE CASCADE` from `users`** on both tables: a deleted account
+  takes its notifications and switches with it. Names inside another user's
+  `params` stay, which is the hand-off in D-28.
+- **Later releases replace `notification_preferences_event_check` by name** to
+  add switches (R7, R10). The constraint name is part of the interface.
+
+Indexes, and the statement each exists for:
+
+| Index | Serves |
+|---|---|
+| `notifications_user_recent_idx (user_id, id DESC)` | The reader's list: `WHERE user_id = $1 AND id < $2 ORDER BY id DESC LIMIT n`, a keyset on the time-ordered uuidv7 id. The statement orders by the column, not by the `id::text` it returns, or the index cannot give the order. Its leading column also serves the cascade from `users` |
+| `notifications_unread_idx (user_id) WHERE read_at IS NULL` | The unread count the shell polls (`GET /me/summary`) and "mark all read". Partial, so it holds unread rows only |
+| `notifications_created_at_idx (created_at)` | The daily prune |
+| `notifications_user_dedupe_key (user_id, dedupe_key)`, unique | The merge's conflict target |
+| `notification_preferences_pkey (user_id, event)` | The five switches of one user, and the switch lookup inside `Notify` |
+
+`repositories/tests/plan_test.go` seeds 50,000 rows for 200 users inside a
+transaction it rolls back and asserts that the list reads
+`notifications_user_recent_idx` alone, with the cursor as an index condition
+and no sort, and that the count uses `notifications_unread_idx`.
+
+A bell that names an audience (DG-170, spec v0.80) adds `kind = ANY($n::text[])` to the list, the count
+and both markings, where the array holds that console's kinds (`notifications/domain/audience.go`). It
+adds no column, index or migration: the list reads the same index in the same order and applies the kind
+as a filter, and the count finds the user's unread rows through `notifications_unread_idx` and reads
+their kind from the few rows it returns. The markings add the same filter to statements that already
+select by `user_id`. The plan test asserts the audience list and count as it asserts the others.
+
+## 35. Caller profile and preferences (T-R4.7)
+
+`00085_add_users_profile_fields.sql` adds five nullable text columns to
+`app.users`. The display-name check accepts 1–80 characters after `btrim`;
+the application stores the trimmed value. Phone accepts 6–20 digits, spaces
+and plus signs. Locale is `vi` or `en`. A non-null time zone has 1–64
+characters; the application additionally validates it with `time.LoadLocation`.
+`avatar_key` holds the storage key of the photo (`avatars/{userId}/{uuid}.png`),
+written and cleared by T-R4.8 (`PUT` and `DELETE /me/avatar`) with an audit row each;
+this migration adds no photo operation and T-R4.8 adds no column. Down drops the five columns and their checks.
+
+`00086_add_users_preferences.sql` adds `preferences jsonb NOT NULL DEFAULT
+'{}'`. Named checks require an object and at most 8192 bytes of normalized
+`preferences::text`, measured by `octet_length`. This is the stored UTF8
+representation limit, separate from the HTTP body limit. Down drops the
+column and both checks. No new index or privilege is needed. Existing inserts
+that omit these columns retain nullable fields and an empty object.
+
+The contract restricts preference keys and nested assignment-default fields.
+A PATCH merges top-level keys; a supplied nested object replaces that key's
+previous object. An empty object is a no-op. Read defaults do not materialize
+locale, zone or preference keys in the row. The effective display zone is
+`Asia/Ho_Chi_Minh` until the caller explicitly stores another valid zone.
+
+Both profile and preference writes lock and read the current row before
+merging. Mutation and audit insertion use one data-modifying CTE. Only actual
+changed fields are audited, with sorted private field names; no-op writes
+produce no audit. Invalid audit metadata rolls back the mutation as well.
+Concurrent disjoint writes therefore retain both changes, while the same key
+follows lock acquisition order. Disabled callers are rechecked against the
+locked row. The legacy full-name rename audit remains compatible.
+
+Private fields appear only in the caller's `CurrentUser`. Public `User`
+projections exclude phone, locale, zone and preferences. Student class, intro
+and join-preview teacher names use `coalesce(display_name, full_name)` and
+add no private field. `/join/preview` still exposes only the teacher's chosen
+student-facing name through its existing field. Contract and hosted API/isolation
+checks cover these public/private projection boundaries.
+
+The independently verified fixture helpers register cleanup before insert,
+use only newly allocated ordinary Student IDs, drain repository writers before
+releasing locks, and check exact removal. Audit rows are retained; deleting
+the owned user leaves the audit actor null through the existing foreign key.
+Failure coverage requires real reached-stage markers and canceled-Commit
+proof; successful cleanup cannot stand in for an intended failure branch.
+No legacy user, role, owner trigger or compatibility alias is removed here.
+
+## 36. Question level, skill and legacy choice compatibility (T-R4.15)
+
+Migrations `00087_add_questions_level_skill.sql` and
+`00088_add_test_version_questions_level_skill.sql` add nullable text columns
+`level` and `skill` to the bank and frozen question tables. Named CHECK sets
+accept the seven CEFR levels and six skills recorded in spec §7.1; null remains
+valid. There is no backfill, index, new privilege or trigger. Each Down removes
+only its two columns and matching checks.
+
+New teacher authoring rejects a choice array above eight. Storage and frozen
+read contracts remain uncapped so historical nine-option content can be read,
+bodylessly copied, published and restored. Included import questions undergo
+the same authoring refusal; a late refusal rolls back earlier writes in the
+commit transaction. These restrictions do not delete or rewrite old content.
+
+Bank writes, standalone and grouped snapshots, structural copies and restored
+drafts carry both fields. Snapshot values are independent of subsequent bank
+edits; existing question/media row-lock ordering is unchanged. Draft list skills
+combine both standalone and group-member arms, drop nulls and return a distinct
+sorted array. Metadata facets retain the other dimensions and owner scope while
+omitting their own dimension. The existing accent-folded search expression is
+unchanged. No representative query-plan or runtime performance claim is made.
+
+The combined candidate contains the full migration inventory 00001–00091.
+Its purpose-database app/migrate tests, the isolated 87/88 down/up rehearsal and
+the separate historical oversized-choice Neon inventory remain acceptance gates.
+A synthetic nine-option fixture is compatibility evidence, not a count of real
+historical rows.
+
+## 37. Alt text for a question's image (T-R4.62a)
+
+Migrations `00097_add_questions_media_alt.sql` and
+`00098_add_test_version_questions_media_alt.sql` add one nullable `text` column,
+`media_alt`, to the bank and frozen question tables. Each carries a named CHECK,
+`questions_media_alt_check` and `test_version_questions_media_alt_check`, of
+`char_length(media_alt) BETWEEN 1 AND 1000`, added with the column. There is no
+default, backfill, index, trigger or new privilege, and each Down drops its
+constraint and column. 00093 to 00096 were reserved for other R4 tasks and are
+unused: those tasks took the next number above the integration branch's highest when
+their pull requests opened (T-R4.11 took 00099 and 00100, T-R4.12 00101, T-R4.9
+00102), so the inventory skips from 00092 to 00097 and goose applies 00097 across
+the gap.
+
+Only an image has alt text. `Input.Validate` refuses a value unless the
+resolved media kind is `image`, with a field error on `mediaAlt` (400
+`VALIDATION_FAILED`, `details.mediaAlt`), and also refuses a blank one and one
+over 1000 characters; publish validates again. The bank store writes the value
+only beside an image, so clearing the media, or changing it to audio, leaves
+NULL. A write replaces the stored value, as it does for `level` and `skill`, so
+an update that leaves `mediaAlt` out clears it. A file replacement keeps the
+question's alt text, because it never changes the kind.
+
+Publish copies the bank value into `test_version_questions.media_alt` in the
+statement that freezes the question; the draft read, the lock order and the
+`media.LockForVersionUse` and `questions.LockForDraftUse` calls are unchanged.
+Restore as draft copies it back from the version, a duplicated group copies the
+draft's, and the version preview, the student's paper and the result read the
+frozen value. The version diff puts it in the `media` part of a question, so a
+changed alt text is one `changed` entry and raises `unpublishedChanges`.
+
+### Contract step for the image rule (R5, after v0.10.0)
+
+R4 enforces "alt text only beside an image" in the write path and nowhere in the
+schema, because an R3 binary can still change an image to audio without touching
+`media_alt`, and a check would turn that write into an error during the rolling
+deploy. Once v0.10.0 is the only binary, the rule moves into the schema, in three
+files that follow expand then contract:
+
+1. **Clear what the rule would refuse, on `questions` only.**
+   `UPDATE app.questions SET media_alt = NULL WHERE media_alt IS NOT NULL AND
+   media_asset_kind IS DISTINCT FROM 'image'::app.media_kind`. A bank row is
+   editable, and the only rows it can touch are ones an R3 binary left behind. On
+   `test_version_questions` there is no UPDATE: a published version does not change,
+   and none can hold the pair, because publish validation refuses alt text beside
+   other media and an R3 publish writes NULL. The step runs `SELECT count(*) FROM
+   app.test_version_questions WHERE media_alt IS NOT NULL AND media_asset_kind IS
+   DISTINCT FROM 'image'::app.media_kind` first and stops for a decision on any
+   other answer than 0, instead of rewriting a version.
+2. **Add the checks without validating them.**
+   `ALTER TABLE app.questions ADD CONSTRAINT questions_media_alt_image_check CHECK
+   (media_alt IS NULL OR media_asset_kind IS NOT DISTINCT FROM 'image'::app.media_kind)
+   NOT VALID`, and the same on `app.test_version_questions` as
+   `test_version_questions_media_alt_image_check`. New and changed rows are checked
+   from here on.
+3. **Validate.** `ALTER TABLE ... VALIDATE CONSTRAINT` for each, which scans the table
+   under a `SHARE UPDATE EXCLUSIVE` lock and blocks no write.
+
+The kind needs no trigger and no join: both tables already hold it as
+`media_asset_kind`, tied to the asset by the composite foreign key
+`(media_asset_id, media_asset_kind)` to `media_assets(id, kind)` and to
+`media_asset_id` by `questions_media_pair_complete` and `tvq_media_pair_complete`.
+The predicate must say `IS NOT DISTINCT FROM`, as `00011` does for audio: with a plain
+`= 'image'` a NULL kind makes the whole check NULL, and a CHECK passes on NULL, so alt
+text with no media at all would be accepted. Each Down drops its constraint, and the
+three files are numbered when R5 plans them.
+
+## 38. Per-student overrides (T-R4.12)
+
+`00101_create_assignment_student_overrides.sql` adds one table. Down drops it.
+
+```sql
+CREATE TABLE app.assignment_student_overrides (
+  assignment_id    uuid NOT NULL REFERENCES app.assignments(id) ON DELETE CASCADE,
+  student_id       uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+  closes_at        timestamptz,
+  duration_minutes integer,
+  extra_attempts   smallint NOT NULL DEFAULT 0,
+  reason           text NOT NULL,
+  created_by       uuid REFERENCES app.users(id) ON DELETE SET NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (assignment_id, student_id)
+  -- and the four named checks in the table below
+);
+```
+
+| Constraint or index | What it holds |
+|---|---|
+| `assignment_student_overrides_pkey (assignment_id, student_id)` | One override per student and assignment; its leading column serves the cascade from `app.assignments` and every read of one assignment's overrides |
+| `assignment_student_overrides_student_idx (student_id)` | The cascade from `app.users` |
+| `..._duration_check` | `duration_minutes BETWEEN 1 AND 600`, the assignment's own bound |
+| `..._extra_attempts_check` | `extra_attempts BETWEEN 0 AND 10` |
+| `..._reason_check` | `char_length(reason) BETWEEN 1 AND 500`; the command stores the trimmed reason, so a reason of only whitespace never reaches the check |
+| `..._changes_check` | `closes_at IS NOT NULL OR duration_minutes IS NOT NULL OR extra_attempts > 0`: a row that changes nothing is a DELETE |
+
+`created_by` is `ON DELETE SET NULL`, so removing a teacher's account keeps the
+accommodation they gave. The previous release neither reads nor writes the table, so
+the table needs no expand step, and a rolled-back binary leaves its rows alone. The
+app role holds the usual `SELECT, INSERT, UPDATE, DELETE` through the default
+privileges. R5's `grant_maintenance_role` grants `quizzivy_maintenance` `SELECT,
+UPDATE (closes_at)` on it for the maintenance extension (T-R4.12b).
+
+**The merge.** `setStudentOverrides` computes the merged row in its `wanted`
+CTE, from the existing override, and inserts that row: PostgreSQL checks the
+CHECKs on the proposed row before it looks for the conflict, so a candidate
+that carried only the request's fields would fail `..._changes_check` on a
+student whose stored row holds the rest. `ON CONFLICT DO UPDATE` then takes the
+merged values from `EXCLUDED`. The assignment row is held `FOR NO KEY UPDATE`
+for the transaction, which serialises writers of one assignment's window and
+overrides and does not block an attempt's insert (its foreign-key check takes
+`FOR KEY SHARE`).
+
+**Reading the student's window.** `schedule.OverrideJoin` is the `LEFT JOIN` on the
+student, `schedule.CloseOf("o")` the close it yields, and `schedule.Window.WithOverride`
+its Go twin; `attempts.Rules`, `attempts.RulesFor`, `LoadResult` and the student's card
+and intro all read through them. An override's `closes_at` never closes a student
+sooner: the close is `greatest(least(closed_at, closes_at), o.closes_at)`.
+
+**Moving the deadlines in progress (12b).** `extendAssignment`, `updateAssignment`,
+`reopenAssignment` and `setStudentOverrides` end by calling `schedule.RecomputeDeadlines` in the
+transaction that changed the window; `deleteStudentOverride` takes the same two locks and
+recomputes nothing, because removing an override can only shorten a student's window and a
+deadline never moves earlier. An update or a reopening recomputes the whole assignment
+unconditionally, and a shorter close or a Close now moves nothing for the same reason. An
+attempt whose `deadline_at` is not after the database's `now()` is over, swept or not, and is
+skipped, so no writer revives it. The recompute sets `deadline_at` of each `in_progress` attempt to `least(started_at +
+coalesce(o.duration_minutes, a.duration_minutes), CloseOf("o"))` where that is later than the
+deadline the attempt has, and writes one `attempt.extended` audit entry per attempt moved
+(`deadline_at` old and new, the cause, the assignment) through a data-modifying CTE. A deadline
+never moves earlier: removing an override, or a time limit shorter than the one an attempt
+started under, leaves a running attempt alone, and a deadline that a maintenance window pushed
+past the rule stays where it is. The recompute is limited to `studentIds` for an override and
+runs over every attempt of the assignment for an extension.
+
+*Lock order, always:* the maintenance-windows advisory lock `(73819, 40)` shared, then the
+assignment row, then the attempt rows in id order. An attempt start takes the lock and the
+assignment row `FOR SHARE` before it inserts; the five writers above take the assignment row
+`FOR NO KEY UPDATE` (`updateAssignment` its long-standing `FOR UPDATE`), both of which conflict
+with `FOR SHARE`, so a start waits for them; a plain `NO KEY` lock does not conflict with the
+`FOR KEY SHARE` an attempt's foreign key takes. A start therefore either commits before the writer reads the
+attempts, and the recompute moves the attempt it inserted, or reads the rules after the writer
+committed, and computes its deadline from the new window. `window-schedule` takes the lock
+exclusively and updates assignments and attempts in one statement, so it never runs among them.
+
+*The start race (R12a-5).* `attempts.Store.Create` re-reads the rules inside its transaction,
+after the maintenance guard, with `FOR SHARE OF a`, and stores the deadline it computes from
+that read. The service's earlier read, outside the transaction, decides what the first
+maintenance check covers and nothing else: the transaction checks again that the student is
+targeted and that the committed window is open, and when the deadline it computes is later than
+the one the first check covered, it runs the maintenance check a second time over the longer span. `FOR SHARE OF o` is not taken: an override is written under the assignment row
+lock, so the assignment lock already orders a start against every override write, and a lock on
+the override row would only add a second, unordered path. The override join is a `LEFT JOIN`,
+and `FOR SHARE` on its nullable side is refused by PostgreSQL in any case.
+
+## 39. Where a device last refreshed (T-R4.9)
+
+`00102_add_refresh_tokens_geo_label.sql` adds one nullable column. Down drops the constraint,
+then the column.
+
+```sql
+ALTER TABLE app.refresh_tokens
+  ADD COLUMN geo_label text
+    CONSTRAINT refresh_tokens_geo_label_check
+    CHECK (char_length(geo_label) BETWEEN 1 AND 80);
+```
+
+The server builds the label as "City, CC" from `CF-IPCity` and `CF-IPCountry`, only when
+`CLIENT_IP_HEADER` names `CF-Connecting-IP` and the request carries it. A sign-in stores it, and a
+rotation stores the label of its own request when it has one and copies the predecessor's when it
+has none, so a family's head row says where the device last signed in or refreshed. The check
+scans the table once while the column is added; `refresh_tokens` is pruned by expiry, so the scan is
+cheap, and a nullable column with no default rewrites nothing. The label reaches no log and no
+`audit_log` row, and leaves the server only in `GET /auth/sessions`, to the owner of the family.
+
+A session is a family with an unrevoked, unexpired row. The list reads it through
+`refresh_tokens_user_live_idx (user_id) WHERE revoked_at IS NULL`, and the current session's
+lookup by `token_hash` and `refresh_tokens_family_idx`; neither needed a new index.
+
+## 40. Composed text (F-37)
+
+`00103_compose_text_nfc.sql` changes data and no schema. Be Vietnam Pro draws the precomposed
+Vietnamese letters, so text a person typed in a decomposed form (Unikey's "Unicode tổ hợp", a file
+name from a Mac, a paste from a PDF) fell back to another font in a title or a name. From this
+release the server composes the text it stores (spec §12), and this file brings the rows written
+before to the same form.
+
+**What it rewrites.** Each plain column below is set to `normalize(col, NFC)` where it
+`IS NOT NFC NORMALIZED`, one `UPDATE` per column from a single list in a `DO` block:
+`tests` (`title`, `description`), `test_sections` (`title`, `instructions`), `questions`
+(`sample_answer`, `transcript`, `media_alt`, `tags`, and `prompt` and `explanation` only where
+`prompt_content` / `explanation_content` is null), `question_options.text` where `content` is null,
+`question_blank_answers.answer`, `question_groups.title`, `group_stimuli.title`,
+`group_recordings.transcript`, `classes` (`name`, `description`), `users` (`full_name`,
+`display_name`), `media_assets` (`display_name`, `original_filename`), `word_imports.title`,
+`word_import_sources.filename`, `assignments.student_note`, `assignment_student_overrides.reason`
+and `attempts` (`teacher_note`, `void_reason`). A tag array is composed element by element, a
+repeat that composing makes of two spellings is dropped, and the order of first appearance is kept.
+A value is left as it is when composing would take it past the `CHECK` that bounds its column
+(`tests.title` 200, `classes.name` 120, `attempts.teacher_note` 2000 and the rest of the list), which
+only a few scripts can do (U+0958 grows to two characters): no row can stop the deploy.
+
+**What it leaves, and why.** The published versions (`test_version_*`, `test_versions.change_note`)
+are frozen. `attempt_answers` is a student's saved work, and the server composes new saves.
+`attempt_events` and `audit_log` are append-only. Every prose document (`prompt_content`,
+`explanation_content`, `question_options.content`, `question_groups.instructions`,
+`group_stimuli.content`) and the plain text kept beside one are left together: a write checks that
+the text equals the document's projection, SQL cannot derive that projection, and composing the two
+apart breaks the equality where a combining mark opens a text node. The next save of such a row
+composes the pair, and the web composes it where it draws. Emails, passwords, tokens, join codes, ids,
+keys, kinds, statuses and URLs are never composed.
+
+**The accepted answers.** `UNIQUE (blank_id, answer)` would refuse composing a decomposed answer
+whose composed twin exists, so the file first deletes, per blank and per composed form, every row but
+one, preferring the row that is already composed. The grader folds the two spellings into one
+(`normalise` composes both sides), so the answer the deleted row gave is still accepted. The write
+path de-duplicates the same way.
+
+**`updated_at`.** `app.set_updated_at()` sets `updated_at := now()` on every `UPDATE`, unconditionally.
+`tests.updated_at` is the token an open editor sends back with its autosave (a moved one is a 409),
+the lists sort on it, and `word_imports.updated_at` is the clock idle retention reads. So for each of the eight
+tables that has such a trigger (`tests`, `questions`, `question_groups`, `classes`, `assignments`,
+`assignment_student_overrides`, `users`, `word_imports`) the file runs `ALTER TABLE … DISABLE TRIGGER
+<name>` before the rewrite and `ENABLE TRIGGER <name>` after it, in the same transaction. It names the
+trigger: never `ALL`, never `session_replication_role`. The other tables the file touches have no such
+trigger.
+
+**Lock and duration.** One transaction, no batching, no table rewrite, no index build. `DISABLE
+TRIGGER` takes `SHARE ROW EXCLUSIVE` on its table until the transaction commits: a write to one of
+those eight tables (the autosave of a test, a profile edit) waits, and a read does not. The
+`UPDATE`s take `ROW EXCLUSIVE` and block no reader and no writer of another row. Production holds tens
+of questions and a handful of accounts (T-R4.15), so the transaction lasts milliseconds to seconds.
+`SET LOCAL lock_timeout = '5s'` makes it fail instead of wait: a transaction that holds a conflicting
+lock for longer than five seconds makes the migration fail at its first `ALTER TABLE`, rather than queue
+every writer behind it. A failure rolls the whole transaction back, the disabled triggers included
+(`DISABLE TRIGGER` is transactional), so nothing is left half done or disabled, and the deploy is
+retried; the file is idempotent, so a retry, or a second run after the old binary has written
+decomposed text, changes only the rows that are not composed.
+
+**The deploy log.** The `DO` block raises `NOTICE`s: how many decomposed duplicate accepted answers
+were folded, the rows per column that the `CHECK` guard left (with the table and column, nonzero
+counts only), or that every listed column is composed. `TestTheComposeMigration*` captures them
+through pgx's `OnNotice`.
+
+**Down.** A no-op with a comment, a deliberate deviation (D-38). The file is data only and
+forward-safe.
+## 41. When and where a class meets (T-R4.18)
+
+`00104_add_classes_schedule_room.sql` adds two nullable columns. Down drops the two constraints,
+then the two columns. The number follows 00102 because 00103 is reserved for F-37, and the order
+of merging is the rule: F-37 (00103) merges before T-R4.18 (00104). If the order ever inverts, the
+second pull request renumbers its migration before it merges. goose refuses a database that has
+applied 00104 when 00103 is missing ("found 1 missing migrations"), and a deploy never passes
+`-allow-missing` to get past it.
+
+```sql
+ALTER TABLE app.classes
+  ADD COLUMN schedule_label text
+    CONSTRAINT classes_schedule_label_check
+    CHECK (char_length(schedule_label) BETWEEN 1 AND 120),
+  ADD COLUMN room text
+    CONSTRAINT classes_room_check
+    CHECK (char_length(room) BETWEEN 1 AND 60);
+```
+
+The commands trim both and store NULL for a value that is blank once trimmed, so a check never
+meets an empty string. The checks scan `classes` once while the columns are added; a nullable column
+with no default rewrites nothing. Both columns are read by the teacher's class reads, by the class a
+student joins and by the student's own classes; neither reaches an index, a log or an audit row.
+
+The class average (`Class.averageScore`) is derived, not stored. It reads the best graded attempt of
+each live member on each assignment that targets the class, through
+`attempts_student_started_idx (student_id, started_at DESC)`, `assignment_classes_class_idx` and
+`attempt_answers_pending_idx`; on 25 classes with 3,000 attempts each (75,000 attempts) the plan is an
+index scan of `attempts` with no sequential scan and takes 173 ms for the page and 6.8 ms for one class,
+so no index was added.
+
+## 42. The legacy role goes (T-R4.49, T-R3.1)
+
+The contract half of §30 (D-25). `00105_drop_users_legacy_role.sql` takes the legacy role out
+once nothing older than v0.8.0 can still be serving. v0.8.0 and the previous binary, v0.9.0,
+never name `users.role`, insert `role_id` themselves, derive what they need from
+`student_like_roles`, and accept a token with or without a `role` claim.
+
+One transaction, `SET LOCAL lock_timeout = '5s'`, in this order:
+
+1. `VALIDATE CONSTRAINT users_role_id_not_null` under SHARE UPDATE EXCLUSIVE, so reads and writes
+   continue. A row without a role stops the migration here with `23502`, before anything is
+   dropped. The constraint has refused every new and updated row since 00056, so a row inserted
+   meanwhile cannot make the validation fail.
+2. `DROP TRIGGER users_sync_legacy_role` and its function. The trigger goes first: its
+   `UPDATE OF role` list depends on the column, and dropping the column first fails.
+3. `DROP INDEX users_role_active_idx`, `DROP COLUMN role`, `DROP TYPE app.user_role`. There is no
+   `IF EXISTS` anywhere, so a wrong name fails the migration rather than leaving an object.
+
+Steps 2 and 3 hold ACCESS EXCLUSIVE on `app.users` to commit. Nothing is rewritten, because a
+dropped column is only marked, so the window is milliseconds at any size. What waits is a read or
+write of `app.users` in those milliseconds. A query already running on the table delays the lock
+request, and every later query queues behind the request, so `lock_timeout` turns a lock that does
+not arrive within five seconds into a failed migration: the release stops with the schema as it
+was (`55P03`), instead of a sign-in queue. The app role's grants on `app.users` are table level, so
+a column added back by Down inherits them.
+
+A deploy that fails after the migration leaves v0.9.0 serving the contracted schema, which it
+reads. A rollback as far as v0.8.0 works for this migration too; v0.7.0 names the column
+(`docs/setup/deploy.md` says roll forward).
+
+Down restores the enum (and `USAGE` for the app role, granted explicitly rather than left to default
+privileges), the column, backfilled with `users_set_updated_at` disabled so no `updated_at` moves,
+then `NOT NULL DEFAULT 'student'`, the index, the function and the trigger. The backfill reads
+`app.student_like_roles`: a rule over grants alone would call an Admin with "Take tests" on a
+student. The constraint stays validated, because Down never weakens a valid `NOT NULL`. Nothing
+runs it in production.
+
+Tests: `contract_r3_test.go` (what is gone and what is kept, the refusal of a user without
+`role_id`, the stop at a user without a role, the give-up under a held lock, and the Down), the
+two expand tests in `expand_r2_test.go`, which stop at the migration before this one because they
+prove the old binary on the expand schema, and `core/tests/legacy_role_test.go`, which fails on
+the legacy role anywhere in `server/`, `seed/` and `docker/` except the directory of migration tests.
+
+## 43. Ownership is validated and the fill triggers go (T-R4.49, T-R3.2)
+
+The contract half of §31 (D-22, D-23). `00106_validate_ownership.sql` takes the expand half's
+scaffolding out once nothing older than v0.8.0 can still be serving. v0.8.0 and the previous
+binary, v0.9.0, name the owner in every insert: a test, a question, a group and a media asset
+carry `owner_id`, a class `teacher_id`. The `BEFORE INSERT` triggers filled it only for v0.7.0.
+The five constraints have refused a NULL owner for every new and updated row since 00060 to
+00065, so a row written meanwhile cannot make the validation fail.
+
+One transaction, `SET LOCAL lock_timeout = '5s'`, in this order:
+
+1. A `DO` block counts, for `classes.teacher_id` and `owner_id` of `tests`, `questions`,
+   `question_groups` and `media_assets`, the rows still NULL. The first table that has any stops
+   the migration with `23502`, whose message, `TABLE` and `COLUMN` name it, before anything
+   changes. Without it `VALIDATE` would stop too, naming a relation and no more.
+2. `VALIDATE CONSTRAINT` on `classes_teacher_id_not_null`, `tests_owner_id_not_null`,
+   `questions_owner_id_not_null`, `question_groups_owner_id_not_null` and
+   `media_assets_owner_id_not_null`. PG18 validates a `NOT NULL` this way, under SHARE UPDATE
+   EXCLUSIVE with one scan of the table, so reads and writes continue.
+3. `DROP TRIGGER` on `tests`, `questions` and `question_groups`, then `app.fill_owner_from_created_by()`;
+   on `media_assets`, then `app.fill_owner_from_uploaded_by()`; on `classes`, then
+   `app.classes_fill_teacher()`. A trigger goes before its function, and there is no `IF EXISTS`
+   anywhere, so a wrong name fails the migration instead of leaving an object.
+
+The locks, read from `pg_locks` after each phase on a migrated scratch database: the check holds
+ACCESS SHARE on the five tables, the validations add SHARE UPDATE EXCLUSIVE, and the drops add
+ACCESS EXCLUSIVE, all released at commit. The drops come last and touch the catalog only, so the
+window in which a table refuses a read or a write is milliseconds at any size. What can wait in
+it is a statement that arrives, or a transaction that is open, at that moment: a query already
+running on a table delays the lock request, and every later query on the table queues behind the
+request.
+
+The migration stops in three ways, and each rolls everything back and leaves the schema, the
+version row and the v0.9.0 binary as they were; the release stops, and a redeploy retries:
+
+- `23502`, from the check in step 1, naming the table that holds a row without an owner.
+- `55P03`, when `lock_timeout` turns a request that does not arrive within five seconds into a
+  failed migration.
+- `40P01`, when the deadlock detector ends the migration. A transaction of the previous binary that
+  touches two of the five tables in the opposite order to the migration, and is open at that
+  millisecond, deadlocks with it, and the detector ends one of the two after `deadlock_timeout`
+  (1 s): the one whose wait the check reaches first, which the release does not choose. The other
+  transaction can be the victim, and one v0.9.0 request then fails with a server error while the
+  migration proceeds. The rollout notes
+  (`docs/setup/deploy.md`, "Rolling out v0.10.0") say what to do in each case.
+
+The previous binary is safe on both sides of the migration. Its seven `INSERT` statements name the owner
+(`classes/repositories/postgres.go`, `media/repositories/store.go`, `questions/repositories/store.go`,
+`tests/repositories/{store,duplicate,group_create,version_draft}.go`; a grep of the `v0.9.0` tag finds
+no other `INSERT` into the five tables outside `seed/` and tests), so the triggers it never needed
+going changes nothing for it, and a rollback to it after 00106 is safe. v0.7.0 does need them: it
+inserts a test without `owner_id`, which now fails with `23502`. Roll forward, not back past v0.8.0.
+
+Down recreates the three functions and the five triggers byte for byte as 00060, 00063 and 00065
+created them (a test compares `pg_get_functiondef`, `pg_get_triggerdef`, owner and ACL before 00106
+and after Down). The constraints stay validated, because Down never weakens a valid `NOT NULL`.
+Nothing runs it in production.
+
+Tests, in `platform/db/tests/contract_r3_ownership_test.go` and `constraints_test.go`: what is gone
+and what is kept; a row without an owner, in each of the five tables, stops the migration naming
+that table and leaves everything as it was; a held lock makes it give up with `55P03`; the previous
+binary's inserts, reads and class inserts run through the migration without an error; Down restores
+the objects and a bare insert is filled again; validating blocks neither a read nor a write; an
+insert that omits an owner is refused; and the not-validated constraints in `app` equal an explicit
+list, which is empty once 00105 and 00106 have both run. A later expand step adds its constraint
+to that list and its contract step removes it, so a forgotten `NOT VALID` fails CI.

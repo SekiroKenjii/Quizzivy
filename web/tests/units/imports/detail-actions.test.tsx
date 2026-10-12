@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import ImportDetailPage from "@/features/imports/pages/ImportDetailPage";
+import ImportDetailPage from "@/features/imports/pages/teacher/ImportDetailPage";
 import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
@@ -31,9 +31,26 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/teacher/imports/limits`, () =>
       contractJson("/teacher/imports/limits", "get", 200, {
+        pasteMaxCharacters: 100000,
         maxBytes: 25 * 1024 * 1024,
         formats: ["docx"],
       }),
+    ),
+    http.get(`${BASE}/teacher/imports/:id/review`, () =>
+      contractJson(
+        "/teacher/imports/{id}/review",
+        "get",
+        200,
+        review(
+          [
+            section([
+              question({ id: "q1", label: "1" }),
+              question({ id: "q2", label: "2" }),
+            ]),
+          ],
+          [],
+        ),
+      ),
     ),
     capabilities(),
     http.get(`${BASE}/teacher/imports/:id`, () =>
@@ -79,12 +96,12 @@ function renderDetail(
 ) {
   const router = createMemoryRouter(
     [
-      { path: "/admin/imports/:id", element: <ImportDetailPage /> },
-      { path: "/admin/imports/:id/review", element: <p>review page</p> },
-      { path: "/admin/imports/new", element: <p>new import</p> },
-      { path: "/admin/imports", element: <p>history</p> },
+      { path: "/teacher/imports/:id", element: <ImportDetailPage /> },
+      { path: "/teacher/imports/:id/review", element: <p>review page</p> },
+      { path: "/teacher/imports/new", element: <p>new import</p> },
+      { path: "/teacher/imports", element: <p>history</p> },
     ],
-    { initialEntries: [`/admin/imports/${IMPORT_ID}`] },
+    { initialEntries: [`/teacher/imports/${IMPORT_ID}`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -141,7 +158,7 @@ describe("closing an import that is not running", () => {
   it("warns that a closed review can no longer become a draft test, and when its files go", async () => {
     current = wordImport({ status: "needs_review", draftRevision: 2 });
     const user = renderDetail();
-    await screen.findByText(/sẽ tự đóng và xoá tệp/);
+    await screen.findByText(/sẽ tự đóng và xoá nội dung gốc/);
     await user.click(await screen.findByRole("button", { name: "Huỷ lần nhập" }));
     expect(
       within(await screen.findByRole("dialog")).getByText(
@@ -278,7 +295,7 @@ describe("an import back under review", () => {
       review([section([question({ id: "q1", label: "1" })])], []),
     );
     renderDetail(client);
-    await screen.findByRole("link", { name: "Tiếp tục rà soát" });
+    await screen.findByRole("link", { name: "Bắt đầu rà soát" });
     await waitFor(() =>
       expect(client.getQueryData(["word-import-review", IMPORT_ID])).toBeUndefined(),
     );
@@ -289,7 +306,7 @@ describe("an import back under review", () => {
     renderDetail();
     expect(
       await screen.findByRole("link", { name: "Xem bản rà soát hiện tại" }),
-    ).toHaveAttribute("href", `/admin/imports/${IMPORT_ID}/review`);
+    ).toHaveAttribute("href", `/teacher/imports/${IMPORT_ID}/review`);
   });
 });
 
@@ -433,7 +450,11 @@ describe("an import while processing is switched off", () => {
     renderDetail();
 
     await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu nên chưa tải tệp lên/);
-    expect(screen.getByText("de-thi-hk1.docx")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Nguồn ban đầu" })).getByText(
+        "de-thi-hk1.docx",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("explains a withheld retry after a failed reprocess", async () => {
@@ -531,7 +552,11 @@ describe("an import whose files retention removed", () => {
     expect(
       await screen.findByText(/^Tệp gốc và bản rà soát đã được xoá ngày 02\/10\/2026/),
     ).toBeInTheDocument();
-    expect(screen.getByText("de-thi-hk1.docx")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Nguồn ban đầu" })).getByText(
+        "de-thi-hk1.docx",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.queryByText("Tệp gốc vẫn được giữ theo chính sách lưu trữ."),
     ).toBeNull();
@@ -550,7 +575,7 @@ describe("an import whose files retention removed", () => {
 
     expect(
       await screen.findByText(
-        "Lượt nhập không có thay đổi trong 60 ngày sẽ tự đóng và xoá tệp.",
+        "Lượt nhập không có thay đổi trong 60 ngày sẽ tự đóng và xoá nội dung gốc.",
       ),
     ).toBeInTheDocument();
   });

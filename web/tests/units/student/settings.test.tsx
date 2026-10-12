@@ -10,11 +10,12 @@ import {
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import StudentLayout from "@/layouts/StudentLayout";
 import StudentSettingsPage from "@/features/auth/pages/StudentSettingsPage";
 import type { User } from "@/features/auth/api";
 import i18n, { setLocale } from "@/lib/i18n";
+import en from "@/lib/i18n/locales/en.json";
 import { readLargerTestText, writeLargerTestText } from "@/lib/testText";
 import { readThemePreference, writeThemePreference } from "@/lib/theme";
 import { notify } from "@/lib/toast";
@@ -673,6 +674,14 @@ describe("profile", () => {
   });
 
   it("switches the language at once, stores it, and is never an unsaved change", async () => {
+    const patches: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/auth/me`, async ({ request }) => {
+        const patch = await request.json();
+        patches.push(patch);
+        return contractJson("/auth/me", "patch", 200, account({ locale: "en" }));
+      }),
+    );
     const user = userEvent.setup();
     open();
     const trigger = await screen.findByRole("combobox", { name: "Ngôn ngữ" });
@@ -694,6 +703,43 @@ describe("profile", () => {
       "English",
     );
     expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+    await waitFor(() => expect(useAuthStore.getState().user?.locale).toBe("en"));
+    expect(patches).toEqual([{ locale: "en" }]);
+  });
+});
+
+describe("the language select", () => {
+  it("shows a language whose strings are still loading, so picking Vietnamese back wins", async () => {
+    server.use(
+      http.patch(`${BASE}/auth/me`, async ({ request }) => {
+        const patch = (await request.json()) as { locale: "vi" | "en" };
+        return contractJson("/auth/me", "patch", 200, account(patch));
+      }),
+    );
+    i18n.removeResourceBundle("en", "translation");
+    const user = userEvent.setup();
+    open();
+    const trigger = await screen.findByRole("combobox", { name: "Ngôn ngữ" });
+
+    let english = Promise.resolve();
+    act(() => {
+      english = setLocale("en");
+    });
+
+    expect(i18n.language).toBe("vi");
+    expect(trigger).toHaveTextContent("English");
+
+    await user.click(trigger);
+    await user.click(
+      within(await screen.findByRole("listbox")).getByRole("option", {
+        name: "Tiếng Việt",
+      }),
+    );
+    await english;
+
+    expect(i18n.language).toBe("vi");
+    expect(localStorage.getItem("quizzivy.locale")).toBe("vi");
+    i18n.addResourceBundle("en", "translation", en, true, true);
   });
 });
 
@@ -1212,6 +1258,16 @@ describe("sign-in: Google", () => {
 
 describe("appearance", () => {
   it("draws the three themes with the stored one on, and applies a choice at once", async () => {
+    const patches: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/me/preferences`, async ({ request }) => {
+        const patch = (await request.json()) as {
+          theme: "light" | "dark" | "system";
+        };
+        patches.push(patch);
+        return contractJson("/me/preferences", "patch", 200, patch);
+      }),
+    );
     const user = userEvent.setup();
     open("/app/settings/appearance");
     const card = within(await screen.findByRole("region", { name: "Giao diện" }));
@@ -1243,12 +1299,29 @@ describe("appearance", () => {
       "false",
     );
 
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("dark"),
+    );
     await user.click(themes.getByRole("button", { name: "Sáng" }));
     expect(readThemePreference()).toBe("light");
     expect(document.documentElement).not.toHaveClass("dark");
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("light"),
+    );
+    expect(patches).toEqual([{ theme: "dark" }, { theme: "light" }]);
   });
 
   it("follows the device when Device is chosen, and keeps Device on", async () => {
+    const patches: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/me/preferences`, async ({ request }) => {
+        const patch = (await request.json()) as {
+          theme: "light" | "dark" | "system";
+        };
+        patches.push(patch);
+        return contractJson("/me/preferences", "patch", 200, patch);
+      }),
+    );
     vi.stubGlobal(
       "matchMedia",
       (query: string) =>
@@ -1274,6 +1347,10 @@ describe("appearance", () => {
       "aria-pressed",
       "false",
     );
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("system"),
+    );
+    expect(patches).toEqual([{ theme: "system" }]);
   });
 
   it("follows the account menu's theme item", async () => {
@@ -1308,6 +1385,14 @@ describe("appearance", () => {
   });
 
   it("turns larger text in tests on and off, in the key the engine reads", async () => {
+    const patches: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/me/preferences`, async ({ request }) => {
+        const patch = (await request.json()) as { largerTestText: boolean };
+        patches.push(patch);
+        return contractJson("/me/preferences", "patch", 200, patch);
+      }),
+    );
     const user = userEvent.setup();
     open("/app/settings/appearance");
     const larger = await screen.findByRole("switch", {
@@ -1321,15 +1406,22 @@ describe("appearance", () => {
     expect(localStorage.getItem("quizzivy.testText")).toBe("large");
     expect(readLargerTestText()).toBe(true);
 
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.largerTestText).toBe(true),
+    );
     await user.click(larger);
     expect(larger).not.toBeChecked();
     expect(localStorage.getItem("quizzivy.testText")).toBe("default");
     expect(readLargerTestText()).toBe(false);
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.largerTestText).toBe(false),
+    );
+    expect(patches).toEqual([{ largerTestText: true }, { largerTestText: false }]);
   });
 
   it("opens with larger text on when it was chosen before", async () => {
     localStorage.setItem("quizzivy.testText", "large");
-    open("/app/settings/appearance");
+    open("/app/settings/appearance", { preferences: { largerTestText: true } });
     expect(
       await screen.findByRole("switch", { name: "Chữ lớn hơn khi làm bài" }),
     ).toBeChecked();
@@ -1384,8 +1476,8 @@ describe("in English", () => {
         () => new Response(null, { status: 204 }),
       ),
     );
-    meServes(account({ linkedProviders: [] }));
-    open("/app/settings", { linkedProviders: ["google"] });
+    meServes(account({ linkedProviders: [], locale: "en" }));
+    open("/app/settings", { linkedProviders: ["google"], locale: "en" });
     expect(
       await screen.findByRole("heading", { level: 1, name: "Settings" }),
     ).toBeInTheDocument();
@@ -1450,5 +1542,134 @@ describe("in English", () => {
     expect(
       screen.getByRole("switch", { name: "Larger text in tests" }),
     ).toHaveAccessibleDescription("Reading passages and questions at 18px");
+  });
+});
+
+describe("the notifications section", () => {
+  afterEach(() => {
+    flags.notifications = false;
+  });
+
+  function preferences(failSave = false) {
+    const puts: unknown[] = [];
+    server.use(
+      http.put(`${BASE}/me/notification-preferences`, async ({ request }) => {
+        const body = (await request.json()) as unknown[];
+        puts.push(body);
+        if (failSave)
+          return HttpResponse.json(failure("INTERNAL", "Máy chủ gặp lỗi."), {
+            status: 500,
+          });
+        return contractJson("/me/notification-preferences", "put", 200, body);
+      }),
+    );
+    return puts;
+  }
+
+  it("sits between Sign-in and Appearance once the module ships", async () => {
+    flags.notifications = true;
+    open("/app/settings/notifications");
+    await screen.findByRole("heading", { level: 1 });
+    expect(
+      switcher()
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Hồ sơ", "Đăng nhập", "Thông báo", "Giao diện"]);
+    const section = await screen.findByRole("region", { name: "Thông báo" });
+    expect(
+      await within(section).findByRole("switch", { name: "Bài sắp hết hạn" }),
+    ).toBeChecked();
+    expect(
+      within(section).getByRole("switch", { name: "Đã có kết quả" }),
+    ).toBeChecked();
+  });
+
+  it("turns an update off in the app and by email at once, and keeps every other row", async () => {
+    flags.notifications = true;
+    const puts = preferences();
+    const user = userEvent.setup();
+    open("/app/settings/notifications");
+    const section = await screen.findByRole("region", { name: "Thông báo" });
+    await user.click(
+      await within(section).findByRole("switch", { name: "Bài sắp hết hạn" }),
+    );
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual([
+      { event: "attempt.submitted", inApp: true, email: false },
+      { event: "attempt.flagged", inApp: true, email: false },
+      { event: "assignment.closing", inApp: true, email: false },
+      { event: "assignment.due_soon", inApp: false, email: false },
+      { event: "result.ready", inApp: true, email: false },
+    ]);
+    await waitFor(() =>
+      expect(
+        within(section).getByRole("switch", { name: "Bài sắp hết hạn" }),
+      ).not.toBeChecked(),
+    );
+  });
+
+  it("keeps focus on a switch while it saves, and takes no other change until then (QA-43-1)", async () => {
+    flags.notifications = true;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const puts: unknown[] = [];
+    server.use(
+      http.put(`${BASE}/me/notification-preferences`, async ({ request }) => {
+        const body = (await request.json()) as unknown[];
+        puts.push(body);
+        await gate;
+        return contractJson("/me/notification-preferences", "put", 200, body);
+      }),
+    );
+    const user = userEvent.setup();
+    open("/app/settings/notifications");
+    const section = await screen.findByRole("region", { name: "Thông báo" });
+    const dueSoon = await within(section).findByRole("switch", {
+      name: "Bài sắp hết hạn",
+    });
+    const result = within(section).getByRole("switch", { name: "Đã có kết quả" });
+    await user.click(dueSoon);
+
+    await waitFor(() => expect(dueSoon).toHaveAttribute("aria-disabled", "true"));
+    expect(dueSoon).toBeEnabled();
+    expect(dueSoon).toHaveFocus();
+    expect(dueSoon).not.toBeChecked();
+    await user.click(result);
+    expect(result).toHaveFocus();
+    expect(result).toBeChecked();
+
+    release();
+    await waitFor(() => expect(result).not.toHaveAttribute("aria-disabled"));
+    expect(result).toHaveFocus();
+    expect(result).toBeChecked();
+    expect(dueSoon).not.toBeChecked();
+    expect(puts).toHaveLength(1);
+  });
+
+  it("puts the saved value back and says so when the save fails", async () => {
+    flags.notifications = true;
+    preferences(true);
+    const user = userEvent.setup();
+    open("/app/settings/notifications");
+    const section = await screen.findByRole("region", { name: "Thông báo" });
+    const result = await within(section).findByRole("switch", {
+      name: "Đã có kết quả",
+    });
+    await user.click(result);
+
+    expect(await within(section).findByRole("alert")).toHaveTextContent(
+      "Chưa lưu được thay đổi. Hãy thử lại.",
+    );
+    expect(result).toBeChecked();
+  });
+
+  it("sends the notifications address to Profile while the module is off", async () => {
+    const router = open("/app/settings/notifications");
+    expect(await screen.findByRole("region", { name: "Hồ sơ" })).toBeVisible();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/app/settings"));
+    expect(screen.queryByRole("region", { name: "Thông báo" })).toBeNull();
   });
 });

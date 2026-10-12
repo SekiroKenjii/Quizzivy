@@ -14,13 +14,34 @@ type Test struct {
 	Description    *string
 	Status         Status
 	CurrentVersion int
-	TotalPoints    string
-	QuestionCount  int
-	AudioCount     int
-	Sections       []Section
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      *time.Time
+	// NextVersion is the number the next publish takes; see NextVersion.
+	NextVersion   int
+	TotalPoints   string
+	QuestionCount int
+	AudioCount    int
+	Skills        []string
+	Assignments   AssignmentCounts
+	// UnpublishedChanges is how many changes the draft holds against the
+	// latest version; nil where it was not computed or cannot be.
+	UnpublishedChanges *int
+	Sections           []Section
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	DeletedAt          *time.Time
+}
+
+// NextVersion is the number the next publish of a test takes: one more than
+// lastPublished, the highest version ever published, which tests keeps even
+// after that version is deleted. The publisher numbers a version with it and
+// every read of a Test reports it, so the two cannot disagree.
+func NextVersion(lastPublished int) int { return lastPublished + 1 }
+
+// AssignmentCounts is how many non-draft assignments name any version of a
+// test, by derived status: Live counts the open ones.
+type AssignmentCounts struct {
+	Live      int
+	Scheduled int
+	Closed    int
 }
 
 // Section is one part of the draft outline, with its questions in order.
@@ -56,15 +77,22 @@ const (
 )
 
 // Version is one published snapshot, newest first in a history.
+// AssignmentCount is every assignment that names it, drafts included.
+// TestUpdatedAt is set only on the Version that Publish returns: the test's
+// update time after the publish moved it.
 type Version struct {
-	ID            string
-	Version       int
-	TotalPoints   string
-	QuestionCount int
-	AudioCount    int
-	ManualCount   int
-	PublishedAt   time.Time
-	PublishedBy   string
+	ID              string
+	Version         int
+	TotalPoints     string
+	QuestionCount   int
+	AudioCount      int
+	ManualCount     int
+	Skills          []string
+	PublishedAt     time.Time
+	PublishedBy     string
+	AssignmentCount int
+	ChangeNote      *string
+	TestUpdatedAt   *time.Time
 }
 
 func (s Status) valid() bool {

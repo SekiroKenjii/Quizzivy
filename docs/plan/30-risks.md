@@ -23,8 +23,8 @@ students, one developer — not for a product with a support rota.
 
 Phase R, the redesign, adds programme risks PR-1 … PR-10 in
 `70-redesign-overview.md` §9, which records each mitigation as it lands (R2:
-PR-1, PR-2 and PR-5). Multi-teacher ownership changes the radius of several
-risks above; each release file says which.
+PR-1, PR-2 and PR-5; R4: PR-6, closed below under R-02). Multi-teacher ownership
+changes the radius of several risks above; each release file says which.
 
 ---
 
@@ -99,7 +99,8 @@ not what defends against the realistic failure.
 
 **Blast radius.** Moderate. A stranger sees class name, teacher name, and any
 assignment targeted at the class. No other student's data (§6.5 keeps the preview
-to two fields, and there is no student directory).
+to three fields, the class's id and name and its teacher's display name, and there
+is no student directory).
 
 **Cheapest mitigation.** The things that actually address forwarding: a
 `max_uses` default equal to the expected class size rather than §6.1's
@@ -111,6 +112,24 @@ decision.
 
 **Residual.** A stranger can enrol before the teacher notices. Accepted — §17.2
 judges an approval queue not worth the state machine, and I agree.
+
+**Legacy codes (PR-6, closed in R4).** A code issued before v0.8.0 is held only as
+its SHA-256, so its teacher could not read it back to see where it had gone, and
+replacing every one at once would have stopped working codes with no warning.
+R2 sealed the codes it issued (D-27); R4 replaced the rest, once, at the first
+start-up of v0.10.0 (T-R4.22, `jobs.RotateLegacyJoinCodes`, `docs/setup/operations.md`
+"Legacy join codes"). Each class is its own transaction under advisory lock
+`(73819, 41)`, so two machines rotate it once. The new code keeps the old one's
+expiry, use cap and use count (F-67), so a code at its cap is used up again; the class's
+self-join switch is not touched;
+the audit row says `legacy_rotation` and carries hints only. Each affected teacher is
+told once, in the app, by a `join_codes.rotated` notification that names how many
+classes and the first five (T-R4.41 shows the callout on Classes while it is
+unread). The old code then answers as any replaced one does. What stays open is
+the release's, not the code's: a class the run could not reach waits for the next
+start-up, a teacher whose notification failed is told only by the release note, and
+the count of classes to rotate is read once from a copy of production for that note
+(T-R4.52). The scheme-1 lookup branch stays until R5 removes it.
 
 ---
 
@@ -214,6 +233,42 @@ promise in `client.ts`, with `client.refresh.test.ts` asserting five concurrent
 **Residual.** Two browser tabs racing on separate JS contexts can still collide.
 Rare, self-corrects on the next login, and the alternative (a cross-tab lock via
 `BroadcastChannel`) is not worth it at this scale.
+
+**Residual added by T-R4.9 (2026-10-10).** Signing out a device, or every other device,
+moves the caller's session epoch, so the access token of every tab the caller has open
+is refused on its next request, all at the same moment. Tabs of one browser share one
+cookie and have separate single-flights, so two visible tabs of a device can send
+`POST /auth/refresh` inside one round trip; the second presents a token the first just
+rotated, reuse detection fires, and that device's family is revoked and its user signs
+in again. The estimate is the overlap window over the poll interval, per extra visible
+tab on a device: about 0.3 s of round trip over the 60 s of `useNavCounts` and
+`useNotificationSummary`, so about 0.5% per revoke. A hidden or idle tab does not poll
+and meets its 401 on resume, staggered. `ChangePassword` and every other write that
+ends access carry the same exposure; the revoke only makes it voluntary. A second
+revoke started while the first one's refresh is in flight can also leave a retried
+request with a second 401, which shows the sign-in overlay; T-R4.43 disables the revoke
+buttons while one is pending. The durable fix is a cross-tab refresh lock in the client
+(Web Locks or a `BroadcastChannel`), tracked as F-49 because `client.refresh.test.ts` is
+a canary.
+
+**Residual added by F-66 (2026-10-12).** A rotation commits in the database but its answer
+never reaches the client when the connection ends from the moment the `COMMIT` is sent to the
+moment the answer arrives: a tab closed or reloaded, or a network drop, in that round trip. A
+cancel during the commit's own round trip can leave the successor committed while the handler
+reports `context.Canceled`. The client keeps the old
+cookie, and its next refresh presents a rotated-out token, which is reuse and revokes the
+family. The web client never aborts the refresh fetch (`performRefresh` takes no signal,
+`api()` strips the caller's signal from cookie operations, `waitForTransition` stops waiting
+without aborting), so only the browser unloading the page or the network can do it.
+Finishing the rotation on a context the request's end cannot cancel would make it worse: it
+would commit a successor for every client that has gone. A request cancelled before the
+commit is sent rolls back and leaves the old token live, which `session_writes_cancel_test.go`
+pins for a cancel while the rotation waits for its lock.
+Only a reuse interval closes the window (a predecessor presented within seconds of its
+rotation, with its successor unused, is a retry), and that changes §5.2's rule that
+presenting a rotated token revokes the family; it is Thuong's decision and is not built.
+A logout is the other way round: its revoke runs under `command.LogoutBudget`, so it
+finishes for a client that has gone.
 
 ---
 

@@ -34,7 +34,7 @@ function Toaster() {
         closeButtonAriaLabel: t("toast.close"),
         classNames: {
           toast:
-            "bg-card text-fg shadow-float flex w-auto max-w-[calc(100vw-2rem)] items-center gap-2.5 rounded-[10px] border px-3.5 py-3 text-ui",
+            "bg-card text-fg shadow-float flex w-auto max-w-[calc(100vw-2rem)] items-center gap-2.5 rounded-[10px] border px-3.5 py-3 font-sans text-ui",
           icon: "flex size-4 shrink-0 items-center justify-center",
           title: "min-w-0 flex-1 font-normal",
           actionButton:

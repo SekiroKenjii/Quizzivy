@@ -157,7 +157,7 @@ func TestListsFacetsAndTagsOmitAnotherTeachersTests(t *testing.T) {
 	for name, c := range map[string]struct {
 		scope access.Scope
 		sees  bool
-	}{"another teacher": {w.scopeB, false}, "the owner": {w.scopeA, true}, "the Admin": {w.anyone, true}, "no scope": {access.Scope{}, false}} {
+	}{"another teacher": {w.scopeB, false}, "the owner": {w.scopeA, true}, "the Admin's list": {w.anyone.Own(), false}, "scope.all": {w.anyone, true}, "no scope": {access.Scope{}, false}} {
 		found, _, err := w.tests.List(ctx, domain.ListInput{Limit: 100, Query: "A's test", Scope: c.scope})
 		if err != nil {
 			t.Fatal(err)
@@ -175,6 +175,93 @@ func TestListsFacetsAndTagsOmitAnotherTeachersTests(t *testing.T) {
 		if listed != c.sees || tagged != c.sees || (facets.All > 0) != c.sees {
 			t.Errorf("%s: listed %v, tag offered %v, facets %d; want the test seen: %v", name, listed, tagged, facets.All, c.sees)
 		}
+	}
+}
+
+func TestTheAdminsListsHoldOnlyTheAdminsOwnTestsAndGroups(t *testing.T) {
+	ctx := context.Background()
+	w := newScopeWorld(t)
+	listed := w.anyone.Own()
+	tag := "tag-of-admin-" + groupIdentity(t)
+	created, err := w.tests.Create(ctx, domain.CreateInput{Title: "A's test, the Admin's own", ActorID: w.admin, Now: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mine, err := w.tests.Update(ctx, domain.UpdateRequest{ID: created.ID, ActorID: w.admin, Now: time.Now(), Scope: w.anyone,
+		Input: domain.UpdateInput{ExpectedUpdatedAt: created.UpdatedAt, SetSections: true, Sections: []domain.SectionInput{{Title: "Part 1", QuestionIDs: []string{scopedQuestion(t, w.tx, w.admin, tag)}}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	group, err := w.groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, ""), ActorID: w.admin, Now: time.Now(), Scope: w.anyone, Grants: bothKeys})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holds := func(found []domain.Test, id string) bool {
+		return slices.ContainsFunc(found, func(test domain.Test) bool { return test.ID == id })
+	}
+	holdsGroup := func(found []domain.GroupSummary, id string) bool {
+		return slices.ContainsFunc(found, func(g domain.GroupSummary) bool { return g.ID == id })
+	}
+
+	in := domain.ListInput{Limit: 100, Query: "A's test", Scope: listed}
+	found, page, err := w.tests.List(ctx, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 1 || !holds(found, mine.ID) || holds(found, w.testA) {
+		t.Errorf("the Admin's list totals %d, holds the Admin's test: %v, holds A's: %v; want 1, true, false", page.Total, holds(found, mine.ID), holds(found, w.testA))
+	}
+	facets, err := w.tests.Facets(ctx, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facets.All != 1 || facets.Draft != 1 || facets.Published != 0 {
+		t.Errorf("the Admin's tabs count %+v, want the Admin's one draft and not A's published test", facets)
+	}
+	tags, err := w.tests.Tags(ctx, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(tags, []string{tag}) {
+		t.Errorf("the Admin's tag filter offers %v, want only %q", tags, tag)
+	}
+	groups, groupPage, err := w.groups.List(ctx, domain.GroupListInput{Status: "all", Limit: 100, Scope: listed})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if groupPage.Total != 1 || !holdsGroup(groups, group.Bundle.Group.ID) || holdsGroup(groups, w.bankGroupA.Bundle.Group.ID) {
+		t.Errorf("the Admin's bank totals %d groups, holds the Admin's: %v, holds A's: %v; want 1, true, false",
+			groupPage.Total, holdsGroup(groups, group.Bundle.Group.ID), holdsGroup(groups, w.bankGroupA.Bundle.Group.ID))
+	}
+
+	if _, err := w.tests.Get(ctx, w.anyone, w.testA); err != nil {
+		t.Errorf("the Admin opening A's test by id: %v", err)
+	}
+	if _, err := w.groups.Get(ctx, w.anyone, w.bankGroupA.Bundle.Group.ID); err != nil {
+		t.Errorf("the Admin opening A's group by id: %v", err)
+	}
+	_, err = w.tests.Get(ctx, listed, w.testA)
+	expectNotFound(t, "A's test in the scope the list passes", err)
+	_, err = w.groups.Get(ctx, listed, w.bankGroupA.Bundle.Group.ID)
+	expectNotFound(t, "A's group in the scope the list passes", err)
+
+	if w.scopeA.Own() != w.scopeA {
+		t.Fatalf("a teacher's own scope is %+v, want it unchanged %+v", w.scopeA.Own(), w.scopeA)
+	}
+	found, _, err = w.tests.List(ctx, domain.ListInput{Limit: 100, Query: "A's test", Scope: w.scopeA.Own()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !holds(found, w.testA) || holds(found, mine.ID) {
+		t.Errorf("A's list holds A's test: %v, the Admin's: %v; want true, false", holds(found, w.testA), holds(found, mine.ID))
+	}
+	groups, _, err = w.groups.List(ctx, domain.GroupListInput{Status: "all", Limit: 100, Scope: w.scopeA.Own()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !holdsGroup(groups, w.bankGroupA.Bundle.Group.ID) || holdsGroup(groups, group.Bundle.Group.ID) {
+		t.Errorf("A's bank holds A's group: %v, the Admin's: %v; want true, false",
+			holdsGroup(groups, w.bankGroupA.Bundle.Group.ID), holdsGroup(groups, group.Bundle.Group.ID))
 	}
 }
 

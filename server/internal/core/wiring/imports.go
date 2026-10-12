@@ -21,16 +21,33 @@ import (
 	"quizzivy/internal/platform/storage"
 )
 
+// PrivateWorkDir prepares path as the import work directory: it creates it
+// with mode 0700 when it is missing and narrows an existing directory of this
+// process to 0700, since an image or a fresh volume may ship it wider. It
+// refuses anything that is not a directory, or that stays readable by group or
+// others.
+func PrivateWorkDir(path string) error {
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		return fmt.Errorf("imports: prepare private work directory: %w", err)
+	}
+	info, err := os.Lstat(path)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("IMPORT_WORK_DIR must be a private directory with mode 0700")
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		if err := os.Chmod(path, 0o700); err != nil {
+			return fmt.Errorf("IMPORT_WORK_DIR must be a private directory with mode 0700: %w", err)
+		}
+	}
+	return nil
+}
+
 func imports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context, mediaApp *mediaapp.Application) (importshttp.Imports, *importsworker.Sweeper, error) {
 	if cfg.ImportBucket == "" {
 		return importshttp.New(nil), nil, nil
 	}
-	if err := os.MkdirAll(cfg.ImportWorkDir, 0700); err != nil {
-		return importshttp.Imports{}, nil, fmt.Errorf("imports: prepare private work directory: %w", err)
-	}
-	info, err := os.Lstat(cfg.ImportWorkDir)
-	if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
-		return importshttp.Imports{}, nil, fmt.Errorf("IMPORT_WORK_DIR must be a private directory with mode 0700")
+	if err := PrivateWorkDir(cfg.ImportWorkDir); err != nil {
+		return importshttp.Imports{}, nil, err
 	}
 	store, err := storage.New(ctx, storage.Config{Endpoint: cfg.S3Endpoint, Region: cfg.S3Region, Bucket: cfg.ImportBucket, AccessKeyID: cfg.S3AccessKeyID, SecretAccessKey: cfg.S3SecretAccessKey, ForcePathStyle: cfg.S3ForcePathStyle})
 	if err != nil {

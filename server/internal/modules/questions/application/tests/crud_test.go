@@ -355,7 +355,7 @@ func newDraftSection(t *testing.T, pool *pgxpool.Pool, author string) string {
 
 	var testID string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.tests (title, created_by) VALUES ('Đề nháp', $1) RETURNING id::text`,
+		`INSERT INTO app.tests (title, created_by, owner_id) VALUES ('Đề nháp', $1, $1) RETURNING id::text`,
 		author).Scan(&testID); err != nil {
 		t.Fatal(err)
 	}

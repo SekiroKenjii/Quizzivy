@@ -4,6 +4,8 @@ import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+type PlayerSize = "default" | "sm" | "row";
+
 interface AudioPlayerProps {
   src: string;
   label: string;
@@ -14,8 +16,12 @@ interface AudioPlayerProps {
   allowSeek?: boolean;
   /** Right-hand hint, e.g. "Còn 1 lượt nghe". Read from the server, never counted here. */
   hint?: string | undefined;
-  /** A-05 puts a smaller one inside the question editor's chosen-audio card. */
-  size?: "default" | "sm";
+  /**
+   * "sm" is a smaller card; "row" draws no frame of its own, with a 32px
+   * button and the time beside the track, for a host that is the frame (the
+   * question media block's player row).
+   */
+  size?: PlayerSize;
   // §11.3 asks for `metadata` so the duration renders without downloading the file.
   preload?: "none" | "metadata";
   // Fired synchronously as playback starts, inside the gesture.
@@ -136,7 +142,7 @@ export function AudioPlayer({
         className={cn(
           "border-destructive/25 bg-destructive/5 flex items-center gap-3 rounded-lg border",
           "in-data-[scale=deck]:border-danger/25 in-data-[scale=deck]:bg-danger-soft in-data-[scale=deck]:rounded-[11px] in-data-[scale=deck]:border-[1.5px]",
-          size === "sm" ? "px-3 py-2.5" : PADDING,
+          size === "default" ? PADDING : "px-3 py-2.5",
         )}
       >
         <p className="in-data-[scale=deck]:text-meta min-w-0 flex-1 text-xs leading-relaxed">
@@ -158,14 +164,9 @@ export function AudioPlayer({
     );
   }
 
+  const row = size === "row";
   return (
-    <div
-      className={cn(
-        "bg-background flex items-center gap-3.5 rounded-lg border",
-        "in-data-[scale=deck]:bg-card in-data-[scale=deck]:gap-3 in-data-[scale=deck]:rounded-[11px] in-data-[scale=deck]:border-[1.5px]",
-        size === "sm" ? "px-3 py-2.5" : PADDING,
-      )}
-    >
+    <div className={frameClass(size)}>
       <button
         type="button"
         onClick={toggle}
@@ -173,7 +174,7 @@ export function AudioPlayer({
         aria-label={playing ? t("media.pause") : t("media.play")}
         className={cn(
           "bg-primary text-primary-foreground grid flex-none place-content-center rounded-full",
-          size === "sm" ? "size-9" : "size-11 in-data-[scale=deck]:size-10",
+          buttonSize(size),
         )}
       >
         {playing ? (
@@ -219,26 +220,14 @@ export function AudioPlayer({
           ) : null}
         </div>
 
-        <div
-          className={cn(
-            "flex flex-wrap items-center justify-between gap-x-3 gap-y-1",
-            size === "sm" ? "mt-1.5" : "mt-2",
-          )}
-        >
-          <span className="text-muted-foreground in-data-[scale=deck]:text-meta shrink-0 text-xs whitespace-nowrap tabular-nums">
-            {clock(shownPosition)}
-            {" / "}
-            {clock(shownTotal)}
-          </span>
-          {hint === undefined ? null : (
-            <span
-              aria-live="polite"
-              className="text-muted-foreground in-data-[scale=deck]:text-meta text-xs wrap-break-word"
-            >
-              {hint}
-            </span>
-          )}
-        </div>
+        {row ? null : (
+          <Readout
+            size={size}
+            hint={hint}
+            position={shownPosition}
+            total={shownTotal}
+          />
+        )}
 
         {blocked ? (
           <p
@@ -249,6 +238,8 @@ export function AudioPlayer({
           </p>
         ) : null}
       </div>
+
+      {row ? <Clock position={shownPosition} total={shownTotal} /> : null}
 
       {/* eslint-disable-next-line jsx-a11y/media-has-caption -- the transcript is a field on the question (§11.1) */}
       <audio
@@ -270,7 +261,63 @@ export function AudioPlayer({
   );
 }
 
-function iconSize(size: "default" | "sm"): string {
+function Readout({
+  size,
+  hint,
+  position,
+  total,
+}: Readonly<{
+  size: PlayerSize;
+  hint: string | undefined;
+  position: number;
+  total: number;
+}>) {
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-x-3 gap-y-1",
+        size === "sm" ? "mt-1.5" : "mt-2",
+      )}
+    >
+      <Clock position={position} total={total} />
+      {hint === undefined ? null : (
+        <span
+          aria-live="polite"
+          className="text-muted-foreground in-data-[scale=deck]:text-meta text-xs wrap-break-word"
+        >
+          {hint}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Clock({ position, total }: Readonly<{ position: number; total: number }>) {
+  return (
+    <span className="text-muted-foreground in-data-[scale=deck]:text-meta shrink-0 text-xs whitespace-nowrap tabular-nums">
+      {clock(position)}
+      {" / "}
+      {clock(total)}
+    </span>
+  );
+}
+
+function frameClass(size: PlayerSize): string {
+  if (size === "row") return "flex items-center gap-2.5";
+  return cn(
+    "bg-background flex items-center gap-3.5 rounded-lg border",
+    "in-data-[scale=deck]:bg-card in-data-[scale=deck]:gap-3 in-data-[scale=deck]:rounded-[11px] in-data-[scale=deck]:border-[1.5px]",
+    size === "sm" ? "px-3 py-2.5" : PADDING,
+  );
+}
+
+function buttonSize(size: PlayerSize): string {
+  if (size === "row") return "size-8";
+  return size === "sm" ? "size-9" : "size-11 in-data-[scale=deck]:size-10";
+}
+
+function iconSize(size: PlayerSize): string {
+  if (size === "row") return "size-3.5 fill-current";
   return size === "sm"
     ? "size-4 fill-current"
     : "size-5 fill-current in-data-[scale=deck]:size-[17px]";

@@ -1,14 +1,24 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import ImportsListPage from "@/features/imports/pages/ImportsListPage";
+import ImportsListPage from "@/features/imports/pages/teacher/ImportsListPage";
 import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { BASE, TEST_ID, capabilities, run, wordImport } from "./fixtures";
+import { useAuthStore } from "@/stores/auth";
+import { STUDENT } from "../student/support";
+import {
+  BASE,
+  TEST_ID,
+  USER_ID,
+  capabilities,
+  run,
+  source,
+  wordImport,
+} from "./fixtures";
 import "@/lib/i18n";
 
 let items: WordImport[] = [];
@@ -26,7 +36,15 @@ beforeEach(() => {
       if (failing) return new Response(null, { status: 503 });
       const visible = query.has("status") || query.has("q") ? [] : items;
       return contractJson("/teacher/imports", "get", 200, {
-        items: visible,
+        items: visible.map((item) => ({ ...item, reviewCounts: null })),
+        facets: {
+          all: items.length,
+          processing: 0,
+          needsReview: 0,
+          failed: 0,
+          committed: 0,
+          cancelled: 0,
+        },
         page: 1,
         pageSize: 20,
         total: visible.length,
@@ -35,12 +53,12 @@ beforeEach(() => {
   );
 });
 
-function renderHistory(entry = "/admin/imports") {
+function renderHistory(entry = "/teacher/imports") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/imports", element: <ImportsListPage /> },
-      { path: "/admin/imports/new", element: <p>new import</p> },
+      { path: "/teacher/imports", element: <ImportsListPage /> },
+      { path: "/teacher/imports/new", element: <p>new import</p> },
     ],
     { initialEntries: [entry] },
   );
@@ -82,26 +100,31 @@ describe("the Word import history", () => {
     renderHistory();
     const table = await screen.findByRole("table");
     const row = (title: string) =>
-      within(table).getByRole("link", { name: title }).closest("tr")!;
+      within(table)
+        .getByRole("button", { name: `Thao tác với ${title}` })
+        .closest<HTMLElement>('[role="row"]')!;
 
-    expect(within(row("Đề A")).getByText("Sẵn sàng rà soát")).toBeInTheDocument();
+    expect(
+      within(row("Đề A")).getAllByText("Sẵn sàng rà soát"),
+      "the grid's Status cell and the card's line each draw the pill; the layout hides one",
+    ).toHaveLength(2);
     expect(
       within(row("Đề A")).getByRole("link", { name: "Tiếp tục rà soát Đề A" }),
     ).toHaveAttribute(
       "href",
-      "/admin/imports/018f0000-0000-7000-8000-000000000101/review",
+      "/teacher/imports/018f0000-0000-7000-8000-000000000101/review",
     );
     expect(
       within(row("Đề B")).getByRole("link", { name: "Xem tiến trình của Đề B" }),
     ).toBeInTheDocument();
     expect(
       within(row("Đề C")).getByRole("link", { name: "Mở đề đã tạo từ Đề C" }),
-    ).toHaveAttribute("href", `/admin/tests/${TEST_ID}/edit`);
+    ).toHaveAttribute("href", `/teacher/tests/${TEST_ID}/edit`);
     expect(
-      within(table).getByRole("link", { name: "Đề C" }),
-      "the title opens the import itself, with its original files",
-    ).toHaveAttribute("href", "/admin/imports/018f0000-0000-7000-8000-000000000103");
-    expect(within(row("Đề D")).getByText("Xử lý không thành công")).toBeInTheDocument();
+      within(row("Đề C")).getByRole("link", { name: "de-thi-hk1.docx (Đề C)" }),
+      "the file name opens the import itself, with its original files",
+    ).toHaveAttribute("href", "/teacher/imports/018f0000-0000-7000-8000-000000000103");
+    expect(within(row("Đề D")).getAllByText("Không xử lý được")).toHaveLength(2);
     expect(
       within(row("Đề D")).getByRole("link", { name: "Xem lỗi của Đề D" }),
     ).toBeInTheDocument();
@@ -127,6 +150,7 @@ describe("the Word import history", () => {
     ).toBeInTheDocument();
     expect(await screen.findByRole("table")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Nhập đề từ Word/PDF" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Dán đề" })).toBeNull();
   });
 
   it("offers to view, not continue uploading, an import waiting for files while processing is switched off", async () => {
@@ -147,11 +171,12 @@ describe("the Word import history", () => {
     expect(await screen.findByText("Chưa có lần nhập đề nào.")).toBeInTheDocument();
     await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu/);
     expect(screen.queryByRole("link", { name: "Nhập đề từ Word/PDF" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Dán đề" })).toBeNull();
   });
 
   it("reads its filters from the URL and offers to clear them when nothing matches", async () => {
     items = [wordImport()];
-    const { user, router } = renderHistory("/admin/imports?status=failed&q=hk1");
+    const { user, router } = renderHistory("/teacher/imports?status=failed&q=hk1");
     expect(
       await screen.findByText("Không có lần nhập nào khớp bộ lọc."),
     ).toBeInTheDocument();
@@ -176,5 +201,221 @@ describe("the Word import history", () => {
     items = [wordImport()];
     await user.click(screen.getByRole("button", { name: "Thử lại" }));
     expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+  it("offers six honest status filters, both entry links and resets page while preserving search and size", async () => {
+    const { user, router } = renderHistory("/teacher/imports?q=hk1&page=3&size=30");
+    await screen.findByText("Không có lần nhập nào khớp bộ lọc.");
+    const filters = screen.getByRole("group", { name: "Lọc theo trạng thái" });
+    const buttons = within(filters).getAllByRole("button");
+    expect(buttons).toHaveLength(6);
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "Tất cả 0",
+      "Đang xử lý 0",
+      "Sẵn sàng rà soát 0",
+      "Không xử lý được 0",
+      "Đã tạo bản nháp 0",
+      "Đã huỷ 0",
+    ]);
+    expect(queries[0]?.get("page")).toBe("3");
+    expect(queries[0]?.get("limit")).toBe("30");
+    expect(screen.getByRole("link", { name: "Dán đề" })).toHaveAttribute(
+      "href",
+      "/teacher/imports/new?source=paste",
+    );
+    await user.click(
+      within(filters).getByRole("button", { name: "Sẵn sàng rà soát 0" }),
+    );
+    await waitFor(() =>
+      expect(router.state.location.search).toBe("?q=hk1&size=30&status=needs_review"),
+    );
+    await waitFor(() => expect(queries.at(-1)?.get("status")).toBe("needs_review"));
+    expect(queries.at(-1)?.get("page")).toBe("1");
+    expect(queries.at(-1)?.get("limit")).toBe("30");
+  });
+
+  it("requests originals only on a menu action and reports a download refusal", async () => {
+    items = [wordImport()];
+    const requested: string[] = [];
+    server.use(
+      http.get(
+        `${BASE}/teacher/imports/:id/sources/:sourceId/download`,
+        ({ params }) => {
+          requested.push(String(params.sourceId));
+          return new Response(null, { status: 503 });
+        },
+      ),
+    );
+    const { user } = renderHistory();
+    await screen.findByRole("table");
+    expect(requested).toEqual([]);
+    await user.click(
+      screen.getByRole("button", { name: "Thao tác với Đề thi học kỳ 1" }),
+    );
+    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
+    await user.click(
+      screen.getByRole("menuitem", { name: "Tải bản gốc de-thi-hk1.docx" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không tải được tệp gốc.",
+    );
+    expect(requested).toEqual([items[0]!.sources[0]!.id]);
+  });
+
+  it("keeps removed source metadata and disables every original download", async () => {
+    items = [
+      wordImport({
+        status: "committed",
+        testId: TEST_ID,
+        filesRemovedAt: "2026-10-01T00:00:00Z",
+      }),
+    ];
+    const { user } = renderHistory();
+    await screen.findByRole("table");
+    expect(screen.getByText("de-thi-hk1.docx")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tệp đã được xoá theo chính sách lưu trữ."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Mở đề Đề thi học kỳ 1" })).toHaveAttribute(
+      "href",
+      `/teacher/tests/${TEST_ID}/edit`,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Thao tác với Đề thi học kỳ 1" }),
+    );
+    for (const item of screen.getAllByRole("menuitem"))
+      expect(item).toHaveAttribute("data-disabled");
+  });
+});
+
+describe("a pasted import in the history", () => {
+  afterEach(() => {
+    useAuthStore.setState({ user: null });
+  });
+
+  it("draws the clipboard tile, Pasted text and the character count", async () => {
+    useAuthStore.setState({
+      user: { ...STUDENT, id: USER_ID, fullName: "Hoàng Thương" },
+    });
+    items = [
+      wordImport({
+        id: "018f0000-0000-7000-8000-000000000131",
+        title: "Unit 5 Quick Check",
+        sources: [
+          source("exam", {
+            filename: "pasted-text.txt",
+            format: "text",
+            characters: 12345,
+          }),
+        ],
+      }),
+      wordImport({
+        id: "018f0000-0000-7000-8000-000000000132",
+        title: "Đề Word",
+        sources: [source("exam")],
+      }),
+    ];
+    renderHistory();
+    const pasted = (
+      await screen.findByRole("link", {
+        name: "Văn bản đã dán (Unit 5 Quick Check)",
+      })
+    ).closest<HTMLElement>("[role=row]")!;
+    expect(within(pasted).getByText("Văn bản đã dán")).toBeInTheDocument();
+    expect(within(pasted).queryByText("pasted-text.txt")).toBeNull();
+    expect(
+      within(pasted).getByText(/^Hoàng Thương · .+ · 12\.345 ký tự$/),
+    ).toBeInTheDocument();
+    expect(pasted.querySelector(".lucide-clipboard-paste")).not.toBeNull();
+    const file = screen
+      .getByRole("link", { name: "de-thi-hk1.docx (Đề Word)" })
+      .closest<HTMLElement>("[role=row]")!;
+    expect(within(file).getByText("de-thi-hk1.docx")).toBeInTheDocument();
+    expect(within(file).queryByText(/ký tự/)).toBeNull();
+    expect(file.querySelector(".lucide-file-text")).not.toBeNull();
+  });
+});
+
+describe("the history's rows", () => {
+  it("rule each row off above it, under the header in the grid as well (QA-51-12)", async () => {
+    items = [wordImport(), wordImport({ id: "018f0000-0000-7000-8000-000000000199" })];
+    renderHistory();
+    const table = await screen.findByRole("table");
+    const body = within(table).getAllByRole("rowgroup").at(-1)!;
+    const rows = within(body).getAllByRole("row");
+    expect(rows).toHaveLength(2);
+    for (const row of rows)
+      expect(row).toHaveClass(
+        "border-t",
+        "first:border-t-0",
+        "@[960px]/import-history:first:border-t",
+      );
+  });
+});
+
+describe("the history's pager (QA-F1-2)", () => {
+  it("is the deck's pager with the history's sizes, a new size going back to page 1", async () => {
+    items = [wordImport()];
+    const { user, router } = renderHistory("/teacher/imports?page=2&size=30");
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    expect(queries[0]?.get("limit")).toBe("30");
+    expect(queries[0]?.get("page")).toBe("2");
+    expect(within(pager).getByText("1–1 trên 1 lượt nhập")).toBeInTheDocument();
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
+
+    await user.click(
+      within(pager).getByRole("combobox", { name: "Số dòng mỗi trang" }),
+    );
+    const sizes = await screen.findByRole("listbox");
+    expect(
+      within(sizes)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["20", "30", "50"]);
+    await user.click(within(sizes).getByRole("option", { name: "50" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?size=50"));
+    await waitFor(() => expect(queries.at(-1)?.get("limit")).toBe("50"));
+    expect(queries.at(-1)?.get("page")).toBe("1");
+  });
+
+  it("is the card's footer, under the table and inside its border (QA-51-11)", async () => {
+    items = [wordImport()];
+    renderHistory();
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    const table = screen.getByRole("table");
+    expect(pager.parentElement).toBe(table.parentElement);
+    expect(pager.parentElement).toHaveAttribute("data-slot", "card");
+    expect(table.nextElementSibling).toBe(pager);
+    expect(pager).toHaveClass("border-t", "px-4", "py-2.5");
+  });
+
+  it("still draws the pager on a page past the end, so it leads back", async () => {
+    server.use(
+      http.get(`${BASE}/teacher/imports`, () =>
+        contractJson("/teacher/imports", "get", 200, {
+          items: [],
+          facets: {
+            all: 30,
+            processing: 0,
+            needsReview: 0,
+            failed: 0,
+            committed: 30,
+            cancelled: 0,
+          },
+          page: 3,
+          pageSize: 20,
+          total: 30,
+        }),
+      ),
+    );
+    renderHistory("/teacher/imports?page=3");
+    const pager = await screen.findByRole("navigation", { name: "Phân trang" });
+    expect(within(pager).getByText("Trang 2 trên 2")).toBeInTheDocument();
+    expect(within(pager).getByRole("link", { name: "Trang đầu" })).toHaveAttribute(
+      "href",
+      "/teacher/imports",
+    );
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByText("Chưa có lần nhập đề nào.")).toBeNull();
+    expect(screen.queryByText("Không có lần nhập nào khớp bộ lọc.")).toBeNull();
   });
 });

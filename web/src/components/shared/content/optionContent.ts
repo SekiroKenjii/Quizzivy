@@ -38,3 +38,19 @@ export function plainOptionContent(text: string): OptionContent {
     ],
   };
 }
+
+/**
+ * isPlainOptionContent says whether content is one paragraph of unmarked text
+ * (and line breaks) that reads exactly `text`: the shape plainOptionContent
+ * writes and the Word import commits for an unformatted option.
+ */
+export function isPlainOptionContent(content: unknown, text: string): boolean {
+  if (!isOptionContent(content)) return false;
+  let plain = "";
+  for (const node of content.blocks[0]!.content) {
+    if (node.type === "break") plain += "\n";
+    else if (node.type === "text" && node.marks.length === 0) plain += node.text;
+    else return false;
+  }
+  return plain === text;
+}

@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ContentImage } from "@/components/shared/content/ContentImage";
 import { PAPER_SURFACE } from "@/components/shared/content/paperSurface";
 import { cn } from "@/lib/utils";
 import { QuestionBody } from "./QuestionBody";
+import { QuestionImage } from "./QuestionImage";
 import { UnknownType } from "./UnknownType";
 import { questionKind, questionLine } from "../questionType";
 import { worth } from "../worth";
@@ -61,13 +61,7 @@ export function QuestionSheet({
       </div>
       {lead}
       {audio}
-      {question.media?.kind === "image" && question.media.url ? (
-        <ContentImage
-          src={question.media.url}
-          alt={t("takeTest.imageLabel")}
-          onRetry={onRetryMedia}
-        />
-      ) : null}
+      <QuestionImage question={question} onRetry={onRetryMedia} />
       {kind === "unknown" ? (
         <UnknownType number={number} />
       ) : (
