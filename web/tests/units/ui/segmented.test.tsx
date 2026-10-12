@@ -541,12 +541,12 @@ it("disables an option, says why, and leaves the others as they were", async () 
           { value: "markdown", label: "Markdown", disabled: true, describedBy: "why" },
         ]}
       />
-      <p id="why">Hãy bỏ các ô trống trước.</p>
+      <p id="why">Hãy bỏ các chỗ trống trước.</p>
     </>,
   );
   const markdown = screen.getByRole("button", { name: "Markdown" });
   expect(markdown).toBeDisabled();
-  expect(markdown).toHaveAccessibleDescription("Hãy bỏ các ô trống trước.");
+  expect(markdown).toHaveAccessibleDescription("Hãy bỏ các chỗ trống trước.");
   expect(markdown).toHaveClass("opacity-45");
   expect(screen.getByRole("button", { name: "Văn bản định dạng" })).not.toHaveClass(
     "opacity-45",

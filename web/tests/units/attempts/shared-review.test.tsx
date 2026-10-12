@@ -85,7 +85,9 @@ it("shows a teacher the group's material, transcript and attempt allowance while
   ).toBeVisible();
   await user.click(screen.getByText("Nội dung bài nghe"));
   expect(screen.getByText("Teacher-only shared transcript.")).toBeVisible();
-  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 1" }));
+  await user.click(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 1" }),
+  );
   expect(screen.getByText("Thủ đô của Việt Nam?")).toBeVisible();
   expect(screen.getByText(group.title)).toBeVisible();
 });

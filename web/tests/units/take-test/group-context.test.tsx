@@ -130,11 +130,12 @@ it("returns to the question, and to the gap's target, from a gap in the passage 
   mount();
   await screen.findByText(previewQuestions[1]!.prompt);
   await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
-  expect(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" })).toHaveClass(
-    "content-gap",
-    "items-end",
+  expect(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
+  ).toHaveClass("content-gap", "items-end");
+  await user.click(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
   );
-  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
 
   expect(screen.getByText(previewQuestions[2]!.prompt)).toBeVisible();
   expect(screen.getByText("Lịch hoạt động")).not.toBeVisible();
@@ -154,7 +155,9 @@ it("shows the question again when a gap in the passage points at the question al
   await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
   expect(screen.getByText(previewQuestions[2]!.prompt)).not.toBeVisible();
 
-  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+  await user.click(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
+  );
   expect(screen.getByText(previewQuestions[2]!.prompt)).toBeVisible();
   expect(document.activeElement).toHaveAttribute(
     "id",
@@ -208,7 +211,9 @@ it("opens a gap's question at the top of its pane, not where the last question w
   fireEvent.scroll(sheet);
   await user.click(switcher().getByRole("button", { name: "Ngữ liệu" }));
   sheet.scrollTop = 0;
-  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+  await user.click(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
+  );
   expect(sheet.scrollTop).toBe(0);
 });
 
@@ -221,7 +226,9 @@ it("opens a gap's question at the top of its pane beside the passage too", async
     .closest(".overflow-y-auto")!;
   sheet.scrollTop = 180;
   fireEvent.scroll(sheet);
-  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+  await user.click(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
+  );
   expect(sheet.scrollTop).toBe(0);
 });
 
@@ -231,7 +238,9 @@ it("jumps from a material gap to its question and preserves the prior answer", a
   await user.click(
     await screen.findByRole("radio", { name: previewQuestions[1]!.options![0]!.text }),
   );
-  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+  await user.click(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
+  );
   expect(screen.getByText(previewQuestions[2]!.prompt)).toBeVisible();
   expect(document.activeElement).toHaveAttribute(
     "id",
@@ -294,6 +303,8 @@ it("focuses a material's stable blank target even when its printed number differ
   mount();
   await userEvent
     .setup()
-    .click(await screen.findByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+    .click(
+      await screen.findByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
+    );
   expect(screen.getByRole("textbox", { name: "Chỗ trống 1" })).toHaveFocus();
 });

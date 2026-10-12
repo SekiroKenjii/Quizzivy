@@ -46,7 +46,7 @@ for (const width of [320, 768, 1440]) {
       await passageTab.click();
       await expect(page.getByText("Lịch hoạt động", { exact: true })).toBeVisible();
     }
-    const gap = page.getByRole("button", { name: "Ô A — chuyển đến câu 2" });
+    const gap = page.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" });
     await gap.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(":focus")).toHaveAttribute(

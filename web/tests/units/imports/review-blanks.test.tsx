@@ -106,6 +106,6 @@ describe("a fill-blank question's prompt", () => {
     expect(
       await screen.findByRole("textbox", { name: "Nội dung câu 1" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Thêm ô trống/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Thêm chỗ trống/ })).toBeInTheDocument();
   });
 });

@@ -15,7 +15,7 @@ function promptTools(page: Page) {
 /** answers are the accepted-answer chips on gap `label`'s row. */
 function answers(page: Page, label: string) {
   return page
-    .getByRole("group", { name: `Ô trống ${label}`, exact: true })
+    .getByRole("group", { name: `Chỗ trống ${label}`, exact: true })
     .locator('[data-slot="chip"]');
 }
 
@@ -85,12 +85,12 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
     .click();
   await prompt.locator("th").first().click();
   await promptTools(page)
-    .getByRole("button", { name: "Thêm ô trống", exact: true })
+    .getByRole("button", { name: "Thêm chỗ trống", exact: true })
     .click();
   await expect(prompt.locator("table .content-gap")).toHaveText("3");
   await expect(prompt.locator(".content-gap")).toHaveText(["2", "1", "3"]);
   const third = page.getByRole("textbox", {
-    name: "Đáp án được chấp nhận cho ô 3",
+    name: "Đáp án được chấp nhận cho chỗ trống 3",
     exact: true,
   });
   await third.fill("three");

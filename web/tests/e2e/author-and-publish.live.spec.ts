@@ -93,9 +93,12 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await page
     .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
     .press("End");
-  await page.getByRole("button", { name: "Thêm ô trống", exact: true }).last().click();
+  await page
+    .getByRole("button", { name: "Thêm chỗ trống", exact: true })
+    .last()
+    .click();
   const answer = page.getByRole("textbox", {
-    name: "Đáp án được chấp nhận cho ô 1",
+    name: "Đáp án được chấp nhận cho chỗ trống 1",
     exact: true,
   });
   await answer.fill("lived");

@@ -44,7 +44,7 @@ test("retains semantic marks, gap identity and merged table layout", () => {
   );
   expect(container.querySelector("sub")).toHaveTextContent("2");
   expect(container.querySelector("sup")).toHaveTextContent("2");
-  expect(screen.getByLabelText("Ô trống 1")).toBeVisible();
+  expect(screen.getByLabelText("Chỗ trống 1")).toBeVisible();
   rerender(<ContentView document={tableSample} />);
   expect(container.querySelector("th")).toHaveAttribute("colspan", "2");
   expect(screen.getByText("Thứ hai").closest("td")).toHaveAttribute("rowspan", "2");
@@ -268,8 +268,8 @@ describe("the content editor's frame", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   test.each([
-    ["prompt", [...MARKS, ...BLOCKS, "Thêm ô trống", ...HISTORY], true],
-    ["document", [...MARKS, ...BLOCKS, "Thêm ô trống", ...HISTORY], true],
+    ["prompt", [...MARKS, ...BLOCKS, "Thêm chỗ trống", ...HISTORY], true],
+    ["document", [...MARKS, ...BLOCKS, "Thêm chỗ trống", ...HISTORY], true],
     ["question", [...MARKS, ...BLOCKS, ...HISTORY], true],
     ["option", [...MARKS, ...HISTORY], false],
   ] as const)("orders the %s toolbar as the deck does", (profile, names, footer) => {
@@ -305,7 +305,7 @@ describe("the content editor's frame", () => {
     expect(buttons.filter((button) => button.tabIndex === 0)).toEqual([buttons[0]]);
     act(() => buttons[0]!.focus());
     fireEvent.keyDown(buttons[0]!, { key: "ArrowLeft" });
-    const gap = screen.getByRole("button", { name: "Thêm ô trống" });
+    const gap = screen.getByRole("button", { name: "Thêm chỗ trống" });
     expect(gap).toHaveFocus();
     expect(gap.tabIndex).toBe(0);
     fireEvent.keyDown(gap, { key: "Home" });

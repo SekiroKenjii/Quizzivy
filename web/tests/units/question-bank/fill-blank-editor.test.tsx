@@ -169,8 +169,8 @@ describe("the rich prompt's gap answers", () => {
 
     const groups = screen.getAllByRole("group");
     expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual([
-      "Ô trống 2",
-      "Ô trống 1",
+      "Chỗ trống 2",
+      "Chỗ trống 1",
     ]);
     expect(answersOf(groups[0]!)).toEqual(["go"]);
     expect(answersOf(groups[1]!)).toEqual(["lives"]);
@@ -182,7 +182,7 @@ describe("the rich prompt's gap answers", () => {
       gapBlank("b", 2, []),
     ]);
     const input = screen.getByRole("textbox", {
-      name: "Đáp án được chấp nhận cho ô 2",
+      name: "Đáp án được chấp nhận cho chỗ trống 2",
     });
     expect(input).toHaveAttribute("placeholder", "Nhập đáp án rồi nhấn Enter");
 
@@ -191,7 +191,7 @@ describe("the rich prompt's gap answers", () => {
     await user.type(input, "goes");
     await user.click(screen.getByRole("button", { name: "Tiếp" }));
 
-    expect(answersOf(screen.getByRole("group", { name: "Ô trống 2" }))).toEqual([
+    expect(answersOf(screen.getByRole("group", { name: "Chỗ trống 2" }))).toEqual([
       "go",
       "went",
       "goes",
@@ -209,16 +209,16 @@ describe("the rich prompt's gap answers", () => {
       gapBlank("a", 1, ["London"]),
       gapBlank("b", 2, ["go"]),
     ]);
-    const group = screen.getByRole("group", { name: "Ô trống 1" });
+    const group = screen.getByRole("group", { name: "Chỗ trống 1" });
     const input = screen.getByRole("textbox", {
-      name: "Đáp án được chấp nhận cho ô 1",
+      name: "Đáp án được chấp nhận cho chỗ trống 1",
     });
 
     await user.type(input, "london{Enter}");
     expect(answersOf(group)).toEqual(["London"]);
 
     await user.click(
-      screen.getByRole("switch", { name: "Phân biệt hoa thường cho ô 1" }),
+      screen.getByRole("switch", { name: "Phân biệt hoa thường cho chỗ trống 1" }),
     );
     await user.type(input, "london{Enter}");
     await user.type(input, "London{Enter}");
@@ -234,7 +234,7 @@ describe("the rich prompt's gap answers", () => {
     expect(screen.getByText(sentence)).toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("switch", { name: "Phân biệt hoa thường cho ô 2" }),
+      screen.getByRole("switch", { name: "Phân biệt hoa thường cho chỗ trống 2" }),
     );
     expect(screen.queryByText(sentence)).toBeNull();
   });
@@ -243,14 +243,14 @@ describe("the rich prompt's gap answers", () => {
     renderGaps(TWO_GAPS, [gapBlank("a", 1, ["lives"]), gapBlank("b", 2, [])]);
 
     const input = screen.getByRole("textbox", {
-      name: "Đáp án được chấp nhận cho ô 2",
+      name: "Đáp án được chấp nhận cho chỗ trống 2",
     });
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input).toHaveAccessibleDescription(
-      "Hãy thêm ít nhất một đáp án được chấp nhận cho ô 2.",
+      "Hãy thêm ít nhất một đáp án được chấp nhận cho chỗ trống 2.",
     );
     expect(
-      screen.getByRole("textbox", { name: "Đáp án được chấp nhận cho ô 1" }),
+      screen.getByRole("textbox", { name: "Đáp án được chấp nhận cho chỗ trống 1" }),
     ).not.toHaveAttribute("aria-invalid");
   });
 
@@ -258,8 +258,8 @@ describe("the rich prompt's gap answers", () => {
     const onInsertGap = vi.fn();
     const { user } = renderGaps(null, [], onInsertGap);
 
-    expect(screen.getByText("Đề bài chưa có ô trống nào")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Thêm ô trống" }));
+    expect(screen.getByText("Đề bài chưa có chỗ trống nào")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Thêm chỗ trống" }));
     expect(onInsertGap).toHaveBeenCalledTimes(1);
   });
 });
@@ -284,19 +284,19 @@ describe("the question editor page, on a new fill_blank question", () => {
     const prompt = await screen.findByRole("textbox", { name: "Câu hỏi" });
     await user.click(prompt);
     await user.keyboard("She ");
-    const title = await screen.findByText("Đề bài chưa có ô trống nào");
+    const title = await screen.findByText("Đề bài chưa có chỗ trống nào");
     const card = title.parentElement!.parentElement!;
-    await user.click(within(card).getByRole("button", { name: "Thêm ô trống" }));
+    await user.click(within(card).getByRole("button", { name: "Thêm chỗ trống" }));
 
     await waitFor(() =>
       expect(prompt.querySelectorAll(".content-gap")).toHaveLength(1),
     );
     expect(prompt).toHaveTextContent("She 1");
-    expect(screen.queryByText("Đề bài chưa có ô trống nào")).toBeNull();
+    expect(screen.queryByText("Đề bài chưa có chỗ trống nào")).toBeNull();
     expect(
-      screen.getByRole("textbox", { name: "Đáp án được chấp nhận cho ô 1" }),
+      screen.getByRole("textbox", { name: "Đáp án được chấp nhận cho chỗ trống 1" }),
     ).toHaveAccessibleDescription(
-      "Hãy thêm ít nhất một đáp án được chấp nhận cho ô 1.",
+      "Hãy thêm ít nhất một đáp án được chấp nhận cho chỗ trống 1.",
     );
   });
 });

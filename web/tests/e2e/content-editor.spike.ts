@@ -22,7 +22,9 @@ test("edits, previews, switches documents and isolates undo history", async ({
   await expect(
     page.getByRole("button", { name: "Hoàn tác", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Định dạng & ô trống", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Định dạng & chỗ trống", exact: true })
+    .click();
   await expect(editor).toContainText("CHINH SUA");
   await expect(editor.locator("[data-gap-id='gap-synthetic-1']")).toHaveText("1");
 });

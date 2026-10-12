@@ -240,7 +240,9 @@ it("keeps shared material under a result filter and follows gaps to a hidden que
   );
   expect(screen.getByText(group.title)).toBeVisible();
   expect(screen.queryByText(body.questions[1]!.prompt)).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+  await user.click(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
+  );
   expect(screen.getByText(body.questions[1]!.prompt)).toBeVisible();
   expect(screen.getByRole("button", { name: "Tất cả" })).toHaveAttribute(
     "aria-pressed",

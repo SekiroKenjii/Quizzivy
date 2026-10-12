@@ -247,7 +247,7 @@ test("bank previews Markdown conversion, preserves tables and explanations after
   const prompt = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
   await expect(prompt.locator("strong")).toHaveText("Đọc kỹ");
   await expect(
-    promptTools(page).getByRole("button", { name: "Thêm ô trống", exact: true }),
+    promptTools(page).getByRole("button", { name: "Thêm chỗ trống", exact: true }),
   ).toHaveCount(0);
   await prompt.click();
   await page.keyboard.press("Control+End");

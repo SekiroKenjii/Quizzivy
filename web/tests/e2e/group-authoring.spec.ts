@@ -371,8 +371,8 @@ test("material assets, links and stable gap bindings survive preview and undo", 
   });
   await material.click();
   await page.keyboard.press("Control+End");
-  await page.getByRole("button", { name: "Thêm ô trống", exact: true }).click();
-  const target = page.getByRole("combobox", { name: "Ô 1", exact: true });
+  await page.getByRole("button", { name: "Thêm chỗ trống", exact: true }).click();
+  const target = page.getByRole("combobox", { name: "Chỗ trống 1", exact: true });
   await target.click();
   await page.getByRole("option", { name: "Câu 1", exact: true }).click();
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
@@ -403,7 +403,9 @@ test("material assets, links and stable gap bindings survive preview and undo", 
   await page.getByRole("button", { name: "Xem như học viên", exact: true }).click();
   await page.getByRole("radio", { name: "Điện thoại", exact: true }).click();
   await expect(
-    page.getByRole("dialog").getByRole("link", { name: "Ô 1 — chuyển đến câu 1" }),
+    page
+      .getByRole("dialog")
+      .getByRole("link", { name: "Chỗ trống 1 — chuyển đến câu 1" }),
   ).toBeVisible();
   await expect(page.locator('[data-preview-viewport="phone"]')).toHaveCSS(
     "width",
