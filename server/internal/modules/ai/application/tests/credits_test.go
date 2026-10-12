@@ -376,7 +376,7 @@ func TestACustomAllowanceAndAPauseFollowTheTeacherIntoTheNextMonth(t *testing.T)
 	second := first.AddDate(0, 1, 0)
 	w.track(second)
 	teacher := w.teacher()
-	admin := domain.Author{UserID: w.user("admin")}
+	admin := domain.Author{UserID: w.teacher()}
 	yes := true
 
 	if _, err := w.app.Commands.SetAllowance.Handle(context.Background(), command.SetAllowance{By: admin, UserID: teacher, Custom: &yes, Credits: 30_000, Paused: &yes}); err != nil {

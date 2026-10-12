@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/modules/ai/application"
@@ -38,7 +39,7 @@ func init() {
 
 type world struct {
 	t      *testing.T
-	pool   *pgxpool.Pool
+	pool   db.Conn
 	app    *application.Application
 	clock  atomic.Pointer[time.Time]
 	mu     sync.Mutex
@@ -57,7 +58,7 @@ func nonce(t *testing.T) string {
 	return hex.EncodeToString(b)
 }
 
-func newWorld(t *testing.T) *world {
+func connect(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
@@ -67,18 +68,43 @@ func newWorld(t *testing.T) *world {
 	if err != nil {
 		t.Fatalf("pool: %v", err)
 	}
-	w := &world{t: t, pool: pool}
 	t.Cleanup(pool.Close)
-	t.Cleanup(w.remove)
+	return pool
+}
 
-	dbx := db.NewContext(pool)
+func newWorld(t *testing.T) *world {
+	t.Helper()
+	w := &world{t: t, pool: connect(t)}
+	t.Cleanup(w.remove)
+	w.build()
+	return w
+}
+
+func newTxWorld(t *testing.T) *world {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := connect(t).Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			t.Errorf("rollback: %v", err)
+		}
+	})
+	w := &world{t: t, pool: tx}
+	w.build()
+	return w
+}
+
+func (w *world) build() {
+	dbx := db.NewContext(w.pool)
 	notifications := notificationsapp.New(notificationsrepo.NewPostgres(dbx))
 	w.app = application.New(repositories.NewPostgres(dbx), application.Options{
 		Prices: testPrices, Zone: saigon, Notifier: notifications.Commands.Notify, Logger: slog.New(slog.DiscardHandler),
 	})
 	w.app.SetClock(func() time.Time { return *w.clock.Load() })
 	w.rememberRules()
-	return w
 }
 
 func (w *world) exec(sql string, args ...any) {

@@ -162,7 +162,7 @@ func TestOtherRulesChangeWithoutTouchingAnyAllowance(t *testing.T) {
 }
 
 func TestARequestIsApprovedRaisingTheAllowanceTellingBothSidesAndWritingTheAuditRow(t *testing.T) {
-	w := newWorld(t)
+	w := newTxWorld(t)
 	month := w.newMonth()
 	teacher, admin := w.teacher(), w.user("admin")
 	rules := w.rules()
@@ -312,7 +312,7 @@ func TestRequestsAreRefusedWhileTheRuleIsToPauseAndForPeopleWhoAreNotTeachers(t 
 func TestSetAllowanceChangesTheAllowanceAndThePauseAndAuditsEach(t *testing.T) {
 	w := newWorld(t)
 	month := w.newMonth()
-	admin := domain.Author{UserID: w.user("admin"), IP: "203.0.113.8", UserAgent: "tests"}
+	admin := domain.Author{UserID: w.teacher(), IP: "203.0.113.8", UserAgent: "tests"}
 	teacher := w.teacher()
 	rules := w.rules()
 	yes, no := true, false
@@ -410,7 +410,7 @@ func TestAddedCreditsAreTheApprovalToSpendBeyondThePlan(t *testing.T) {
 	w := newWorld(t)
 	month := w.newMonth()
 	w.period(month, 300)
-	teacher, admin := w.teacher(), domain.Author{UserID: w.user("admin"), IP: "203.0.113.6"}
+	teacher, admin := w.teacher(), domain.Author{UserID: w.teacher(), IP: "203.0.113.6"}
 
 	w.mustReserve(teacher, domain.FeatureGenerate, 300)
 	if _, err := w.reserve(teacher, domain.FeatureGenerate, 100); !isScope(err, domain.ScopePool) {
