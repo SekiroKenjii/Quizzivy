@@ -24,7 +24,7 @@ export async function signIn(page: Page, who: typeof ADMIN, landing: RegExp) {
 }
 
 export const signInAsStudent = (page: Page) => signIn(page, STUDENT, /\/app$/);
-export const signInAsAdmin = (page: Page) => signIn(page, ADMIN, /\/admin$/);
+export const signInAsAdmin = (page: Page) => signIn(page, ADMIN, /\/teacher$/);
 
 /**
  * Opens an assignment by id and starts or resumes it, returning the attempt id.
@@ -115,31 +115,56 @@ export async function chooseOption(page: Page, text: string) {
 }
 
 /**
- * Assigns a published test to the seeded class and lands on the list.
- *
- * Two steps in the picker: the test expands, then a version is picked, because
- * an assignment pins a version rather than a test.
+ * Assigns a published test to the seeded class through the wizard, with
+ * every other choice left at its default, and lands on the list.
  */
 export async function assignToClass(page: Page, title: string) {
-  await page.goto("/admin/assignments/new");
-  await page.getByRole("button", { name: "Chọn đề thi" }).click();
-  const picker = page.getByRole("dialog");
-  await picker.getByText(title).click();
-  await picker
-    .getByRole("button", { name: /Dùng bản này/ })
-    .first()
-    .click();
-  await expect(page.getByRole("button", { name: "Đổi đề" })).toBeVisible();
+  await pickInWizard(page, title);
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  await page.getByRole("button", { name: /^Giao (cho \d+ học viên|bài)$/ }).click();
+  await expect(page).toHaveURL(/\/teacher\/assignments\?status=(open|scheduled)$/, {
+    timeout: 30_000,
+  });
+  await page.goto("/teacher/assignments");
+}
 
-  await page.getByPlaceholder("thêm lớp").fill("Tiếng Anh");
-  // Scoped to the combobox's own listbox: the duration <select> further down the
-  // form carries options too.
+/**
+ * Opens the new-assignment wizard with `query` (such as `?test=<id>`), picks
+ * `title` unless the query preselected it, ticks the seeded class and stops
+ * on the Students step.
+ */
+export async function pickInWizard(page: Page, title: string, query = "") {
+  await page.goto(`/teacher/assignments/new${query}`);
+  const test = page.getByRole("radio", { name: new RegExp(title) });
+  if (query.includes("test=")) await expect(test).toBeChecked();
+  else await test.click();
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
   await page
-    .getByRole("listbox")
-    .getByRole("option", { name: /Tiếng Anh giao tiếp/ })
+    .getByRole("checkbox", { name: /Tiếng Anh giao tiếp/ })
     .first()
     .click();
+}
 
-  await page.getByRole("button", { name: "Giao bài", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/assignments$/, { timeout: 30_000 });
+/** Types `value` into the stepper named `name` and commits it with Enter. */
+export async function fillStepper(page: Page, name: string, value: string) {
+  const field = page.getByRole("spinbutton", { name });
+  await field.fill(value);
+  await field.press("Enter");
+  await expect(field).toHaveAttribute("aria-valuenow", value);
+}
+
+/**
+ * publishInBuilder publishes the open builder's draft through "Publish test?",
+ * waits for the builder to say so, and opens the test's own page.
+ */
+export async function publishInBuilder(page: Page) {
+  const id = new URL(page.url()).pathname.split("/").at(-2);
+  await page.getByRole("button", { name: "Phát hành", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Phát hành đề thi?", exact: true });
+  await dialog.getByRole("button", { name: "Phát hành", exact: true }).click();
+  await expect(page.getByText("Đã phát hành. Giờ bạn có thể giao bài.")).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.goto(`/teacher/tests/${id}`);
 }

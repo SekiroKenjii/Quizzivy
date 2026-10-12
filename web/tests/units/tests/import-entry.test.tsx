@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import TestsListPage from "@/features/tests/pages/TestsListPage";
+import TestsListPage from "@/features/tests/pages/teacher/TestsListPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -46,8 +46,8 @@ function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   rendered = client;
   const router = createMemoryRouter(
-    [{ path: "/admin/tests", element: <TestsListPage /> }],
-    { initialEntries: ["/admin/tests"] },
+    [{ path: "/teacher/tests", element: <TestsListPage /> }],
+    { initialEntries: ["/teacher/tests"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -58,6 +58,7 @@ function renderList() {
 
 const history = () => screen.queryByRole("link", { name: "Lịch sử nhập" });
 const importWord = () => screen.queryByRole("link", { name: "Nhập đề từ Word/PDF" });
+const paste = () => screen.queryByRole("link", { name: "Dán đề" });
 
 describe("the tests list's way into Word import", () => {
   it("is absent where the server has no import storage", async () => {
@@ -74,6 +75,7 @@ describe("the tests list's way into Word import", () => {
     expect(checks).toBe(1);
     expect(history()).toBeNull();
     expect(importWord()).toBeNull();
+    expect(paste()).toBeNull();
   });
 
   it("keeps only the history where no worker processes imports", async () => {
@@ -82,9 +84,10 @@ describe("the tests list's way into Word import", () => {
 
     expect(await screen.findByRole("link", { name: "Lịch sử nhập" })).toHaveAttribute(
       "href",
-      "/admin/imports",
+      "/teacher/imports",
     );
     expect(importWord()).toBeNull();
+    expect(paste()).toBeNull();
   });
 
   it("offers both where import runs end to end", async () => {
@@ -93,7 +96,25 @@ describe("the tests list's way into Word import", () => {
 
     expect(
       await screen.findByRole("link", { name: "Nhập đề từ Word/PDF" }),
-    ).toHaveAttribute("href", "/admin/imports/new");
+    ).toHaveAttribute("href", "/teacher/imports/new");
+    expect(paste()).toHaveAttribute("href", "/teacher/imports/new?source=paste");
     expect(history()).toBeInTheDocument();
+  });
+
+  it("orders the header as the deck does: Imports, Word/PDF, Paste, New test", async () => {
+    serve(true, true);
+    renderList();
+    await screen.findByRole("link", { name: "Dán đề" });
+
+    const order = [
+      history(),
+      importWord(),
+      paste(),
+      screen.getAllByRole("button", { name: "Đề thi mới" })[0],
+    ];
+    for (const [index, element] of order.slice(1).entries())
+      expect(order[index]!.compareDocumentPosition(element!)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
   });
 });

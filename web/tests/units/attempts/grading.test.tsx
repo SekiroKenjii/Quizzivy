@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import AttemptReviewPage from "@/features/attempts/pages/AttemptReviewPage";
+import AttemptReviewPage from "@/features/attempts/pages/teacher/AttemptReviewPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -41,8 +41,8 @@ function serve() {
 function renderReview() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/attempts/:id", element: <AttemptReviewPage /> }],
-    { initialEntries: [`/admin/attempts/${ATTEMPT_ID}`] },
+    [{ path: "/teacher/attempts/:id", element: <AttemptReviewPage /> }],
+    { initialEntries: [`/teacher/attempts/${ATTEMPT_ID}`] },
   );
   render(
     <QueryClientProvider client={client}>

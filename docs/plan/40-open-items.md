@@ -14,7 +14,7 @@ audio probe implementation, and build order.
 Phase R (the redesign) records its eighteen decisions in
 `70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
 questions that come up during a release go into that release's plan file under
-"Open items".
+"Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, below).
 
 ---
 
@@ -286,6 +286,124 @@ refuses the switch as a Fly secret.
 
 ---
 
+### O-25 — A malformed option id in an autosave · any phase
+**Default:** keep it. A student mid-test never loses a batch because one entry
+is malformed, and the web app cannot send one.
+
+What happens: `saveAnswers` accepts a choice answer whose option id is not a
+uuid, answers 200, saves the rest of the batch and drops that answer. The server
+logs a warning with the dropped question ids
+(`server/internal/modules/attempts/http/attempts.go`, "autosave dropped answers
+not on the paper"); the client is not told.
+`TestTheValidatorRefusesNoIdTheDecoderAccepts`
+(`server/internal/core/router/tests/validate_test.go`) pins it.
+
+Accepted with it: a malformed uuid inside an answer names no field in a refusal,
+because it is not refused (the rest of issue 280's gap).
+
+The alternatives, for when he answers:
+
+- Refuse the request, with a `uuid` format validator in
+  `platform/httpx/validate.go`. One bad id then refuses the whole batch.
+- Keep 200 and report the dropped ids, which is a contract change to the
+  response.
+
+Issue #307.
+
+---
+
+### O-26 — A tab another device took over, after a reload · round 5
+**Default:** stay read-only until the student continues there. This default is
+built by the merged session-claim fixes; it is not an owner decision.
+
+What happens: each tab names its held session on every attempt read. A tab
+naming an old session gets 200 with `superseded: true`, its own session id and
+an empty beacon token, without changing the attempt. Reload or refetch keeps
+it read-only; it ignores local drafts and removes one only if its session
+wrote it. A tab holding no session gets the current one.
+
+Accepted with that last default: two tabs of one browser can share a session.
+A read naming no session still replaces the attempt's beacon token, so the
+holding tab's closing events can be refused. The superseded read fixes this
+only for a tab that names an old session.
+
+The alternatives, for when the owner answers:
+
+- Return 409 to a superseded reader, or always resume on a read. The latter
+  makes GET write, rotates sessions on reload, and needs draft handling first.
+- Require a tab holding no session to obtain one by a recorded resume before
+  writing. This ends both remaining costs but changes engine load, its mocked
+  tests, and records a resume whenever an attempt is reopened by its address.
+
+Issue #337; round 5 questions 1 and 1b.
+
+---
+
+### O-27 — When a session counts as still open · round 5
+**Default:** nothing is built until the owner answers. The candidate is that a
+session which said it was leaving, and has not returned, is no longer live.
+
+What happens today: any ordinary event received within two minutes makes the
+session live, including `page_hide`. Continuing elsewhere can therefore report
+"resumed from another device" after an intentional Leave.
+
+The candidate reads the latest event by received time, then sequence, and
+recognises `page_hide` or a new Leave event as farewell. Its cost: farewell
+alone misreads reload or back-forward restoration as a tab that left. The
+engine must also record an arrival on mount and restored `pageshow`, deliver
+it immediately with the bearer token, and add event labels in both languages.
+There remains a short farewell-to-arrival interval in which another Continue
+is recorded as resume.
+
+Three integration cases must prove the change: farewell then Continue within
+two minutes is resume without takeover; ordinary events without farewell still
+produce takeover; farewell then reload arrival then Continue elsewhere still
+produces takeover. The lead also observes one live case.
+
+The sub-question is whether Leave needs a new kind. Default: `engine_leave`,
+"Rời khỏi bài làm" / "Left the test", because the page was not closed. This
+is a candidate, not a merged signal or an approved owner decision.
+
+The alternatives are a shorter live window, a heartbeat, or treating a
+session-naming read as liveness. The last requires GET to stamp a new column
+and a migration; none is built here.
+
+Issue #341; round 5 question 2.
+
+---
+
+### O-28 — A play that never started is counted · round 5
+**Default:** keep counting; no compensation is built. This awaits the owner.
+
+What happens: a play refused by the browser or paused before it starts can
+already have spent a server play. The player stays enabled at the limit; the
+teacher can see an extra count beside the reported block.
+
+The alternative is an idempotent compensation for a refused start: a play id,
+a receipts table and migration, a server call, and a client able to claim a
+block it did not have. D4's separate T-D4.8 proposal stops a resume spending a
+play; it runs after v0.10.0 and does not resolve this default now.
+
+Issue #339, count only; round 5 question 3.
+
+---
+
+### O-29 — A paper the server has called out of time · round 5
+**Default:** submit at the device's recorded deadline, not at once. This
+default is built; it remains open to an owner decision.
+
+What happens: a deadline refusal from a save or play rearms the deadline
+submission even if another refusal follows. It does not replace a closed or
+superseded lock. Submission failures can still retry.
+
+The alternative is immediate submission after the server refusal. It covers a
+device clock set back, but rewrites the six existing time-up cases and makes
+the time-up bar transient online.
+
+Issue #353; round 5 question 5.
+
+---
+
 ### O-12 — Dark mode · post-v1
 **Default:** not in v1, per §12. Theming goes through CSS variables and Tailwind
 tokens from T-0.9, so it can be added later without touching components.
@@ -293,6 +411,204 @@ tokens from T-0.9, so it can be added later without touching components.
 Listed only so the token discipline in T-0.9 is understood as load-bearing rather
 than stylistic. Hard-coding a zinc value anywhere is what would make this
 expensive later.
+
+---
+
+## Phase R — R4's open items (v0.10.0)
+
+R4's questions, moved here from `74-r4.md` "Open items" at the release
+(T-R4.50). Each default is what v0.10.0 ships; an answer that differs becomes a
+task in the release it names. The design departures behind them are in
+`docs/design/gaps.md`.
+
+### O-R4.1 — Audio length and WAV · R6
+**Default:** every screen states DG-63's limits: MP3 or M4A, 50 MiB, five
+minutes; GIF is not taken for an image. The deck's "MP3 or WAV" is written
+"MP3 or M4A". A listening section longer than five minutes, and WAV, wait for
+this answer before the duration cap moves (spec §11.1).
+
+---
+
+### O-R4.2 — Images and audio inside a prompt or an explanation · R6
+**Default:** not built in R4 (DG-109). The editor has no Image or Audio button
+and refuses a pasted or dropped file. Building it needs a contract change,
+asset references in the publish snapshot and in media replace and delete,
+signed URLs in the student payload, and a rule for limiting inline audio. It is
+built in R6, whose track runs through those areas, once Thuong confirms.
+
+---
+
+### O-R4.3 — A pasted image is left out, not refused · R4 (built)
+**Default:** built (DG-115, T-R4.63). An image inside copied content is left
+out and counted in the paste preview; every other refusal of spec §7.1 stays.
+The alternative keeps the refusal and drops the "left out" line.
+
+---
+
+### O-R4.4 — "Choose from Media" lists the caller's own files · R7
+**Default:** the caller's own files, under "Files you uploaded." (DG-112, DG-90).
+Files other teachers share wait for R7's sharing to cover media, and for a
+drawing.
+
+---
+
+### O-R4.5 — Rich text for options · any release
+**Default:** prompts and explanations are rich for every teacher since R4, and
+`VITE_RICH_QUESTION_EDITOR` is gone (T-R4.64d). Options stay plain inputs, as
+the deck draws them, and `VITE_RICH_OPTION_EDITOR` stays off. Thuong decides
+whether rich options are ever turned on.
+
+---
+
+### O-R4.6 — What the Markdown mode is · R4 (built)
+**Default:** built (DG-110). The mode is the stored form, nothing converts
+without the teacher's confirmation, and Markdown reads tables and
+strikethrough and no other GFM syntax, for the teacher and the student.
+
+---
+
+### O-R4.7 — The bank's question editor was not redrawn · D4 or later
+**Default:** the bank's editor page uses the builder's 2026-10-04 drawing of
+the form inside the page's own frame (DG-108, T-R4.33). A later export that
+redraws the screen is followed.
+
+---
+
+### O-R4.8 — "Students can pause", "Matching" and "Not given" · R6
+**Default:** none has a model (DG-111, DG-113). "Students can pause" is not
+built and the two existing playback switches stay; "Matching" and the "Include
+“Not given”" switch arrive in R6 with their question types.
+
+---
+
+### O-R4.9 — Alt text belongs to the question · R4 (built)
+**Default:** built (DG-111, T-R4.62): one nullable column on the question and its
+snapshot, so two questions that share an image describe it in their own words.
+The alternative is alt text on the media file, set once in the library.
+
+---
+
+### O-R4.10 — The import review's editor · R4 (built)
+**Default:** built (DG-114, T-R4.38): the review keeps gaps, the stored content
+and the read-only view, and has no Markdown mode. The deck draws the opposite
+on each point, in a prototype that saves plain text.
+
+---
+
+### O-R4.11 — Join codes without a use limit · R4 (built)
+**Default:** O-06 holds: Maximum uses is 1 to 1,000, 40 by default, and the
+request field is not nullable. The deck's "Leave empty for no limit" is not
+built.
+
+---
+
+### O-R4.12 — Username sign-in · R5 or later
+**Default:** sign-in is by email (spec §5), so Add student asks for Email where
+the deck asks for "Username or email".
+
+---
+
+### O-R4.13 — Question import in the bank · R5 or R6
+**Default:** the bank's Import button stays absent. The deck's dialog (CSV,
+XLSX, `.quizzivy`, a tag for every question, "Skip questions that already
+exist") and `POST /teacher/questions/import` go to R5 after T-R5.13 brings
+XLSX, or R6 after T-R6.3 so the importer knows every type. Otherwise Thuong
+records a D1 exception in 70 and a DG entry.
+
+---
+
+### O-R4.14 — Import controls without a backend · R6 or R11
+**Default:** absent in R4 (DG-67): saved profiles, source conventions, the Word
+template and the audio slot, "Create another test from this file", "Delete
+import", "Process again" after a cancel, Move / Split / Merge and the
+processing history. Their backend and UI go to R6 beside T-R6.13 or to R11's
+reconciliation, or Thuong lists them as an approved post-1.0 exception in 70 §2.
+`18-word-import-ux.md` §12 has the kept and gated table.
+
+---
+
+### O-R4.15 — The note to students · R4 (built)
+**Default:** built (T-R4.11, T-R4.26, T-R4.27b): `assignments.student_note` and a
+plain "Note to students (optional)" field, which the Teacher deck does not
+draw and the Student deck's Test intro shows.
+
+---
+
+### O-R4.16 — Wave 2's defaults (2026-10-04) · R4 (built)
+**Default:** built, each where the plan and the deck left a choice.
+- A paste that carries a file beside HTML text (an Excel or Word selection) is
+  previewed, and Ctrl+Shift+V inserts its plain text (T-R4.63).
+- A rotated legacy code answers through today's paths: "revoked" where self-join
+  is open, an unknown code where it is closed or the class archived (T-R4.22).
+- The stepper's value can be typed, so a 47-minute limit stays possible
+  (T-R4.2c).
+- "nghe" and "nghé", and "London" and "london" under Match case, can both be
+  accepted answers, because the server grades them as different (T-R4.2c,
+  T-R4.66).
+- An import in review that names a replaced file keeps the old file and binds
+  it at commit (T-R4.17b).
+- A class still unrotated after its one retry waits for the next API start-up,
+  so the release check re-runs the count query after the deploy (T-R4.22).
+- A draft whose group graph cannot be read answers `unpublishedChanges` null,
+  and the builder shows no banner for it (T-R4.16).
+
+---
+
+### O-R4.17 — The Admin's own-row lists · R5
+**Default:** in the teacher workspace an Admin's six content lists hold only
+their own rows (DG-53, T-R4.54); everything stays reachable by id and, from R5,
+in the Admin console. An Admin who opens another teacher's draft by id cannot
+add a question to it, because a draft accepts only its owner's questions.
+Thuong may prefer an "All teachers" filter, which is a deck change.
+
+---
+
+### O-R4.18 — Student activity · R5
+**Default:** "Not signed in", a true "Last active" and the password's "Last
+changed" line wait for R5's activity tracking (DG-54).
+
+---
+
+### O-R4.19 — What a paste keeps of automatic numbering · R4 (T-R4.51)
+**Default:** nothing changes: the paste page's tips ask for typed numbers and
+letters. Whether the plain-text clipboard of Word and Google Docs keeps
+auto-numbered questions and option letters decides how well a pasted test is
+recognised; T-R4.51 records it with real documents.
+
+---
+
+### O-R4.20 — Remove and Move on Students, with one class filtered · any release
+**Default:** built (T-R4.40): Remove from class and Move act on every class the
+selected students are in, and the confirmation names those classes. The
+alternative acts only on the class the Class facet filters to when exactly one
+is chosen.
+
+---
+
+### O-R4.21 — A refresh whose answer never arrives · any release
+**Default:** no change to §5.2 (F-66, 2026-10-12). A token rotation that commits while the browser
+is closing or the network drops leaves the browser with the old token; its next refresh is reuse,
+and the session ends: a forced sign-in, rare and self-healing. Options, in order of cost:
+- `keepalive: true` on the refresh request, once a check in Chrome, Safari and Firefox shows the new
+  cookie is stored after the page has gone;
+- count the families revoked for reuse whose successor was never presented, to see how often it
+  happens;
+- a reuse interval of a few seconds, which changes §5.2 and would also close F-49's cross-tab race.
+
+`docs/plan/30-risks.md` R-06 records the residual.
+
+---
+
+### O-R4.22 — The `/admin` alias · R5
+**Default:** kept in v0.10.0. Removing it (T-R3.3) needs seven days of production
+`legacy_admin_path` logs read first. R5 removes it when it gives `/admin` to the Admin console.
+
+---
+
+### O-R4.23 — A student can read their attempt's flag through the API · R5
+**Default:** unchanged. `attempt.integrity.flagged` is in the student's attempt and result payloads
+since v0.9.0 and carries a teacher's manual flag too. The student screens never show it. R5
+decides whether the student payload drops it.
 
 ---
 

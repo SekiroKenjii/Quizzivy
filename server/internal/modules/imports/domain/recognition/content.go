@@ -45,6 +45,7 @@ type documentNode struct {
 type gapNaming func(s segment, g gap) (id, label string, ok bool)
 
 type richOptions struct {
+	rules           examRules
 	name            gapNaming
 	joinWraps       bool
 	dropUniformMark bool
@@ -126,7 +127,7 @@ func inlineNodes(s segment, o richOptions) []any {
 	start, end := trimmed(s.line.text, s.start, s.end)
 	var gaps []gap
 	if o.name != nil {
-		gaps = scanGaps(s.line.text, start, end)
+		gaps = o.rules.gaps(s.line.text, start, end)
 	}
 	uniform := uniformMarks(s.line, start, end, o.dropUniformMark)
 	var nodes []any

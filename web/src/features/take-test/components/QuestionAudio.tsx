@@ -36,6 +36,18 @@ export function QuestionAudio({
           if (attemptId !== null)
             recordAudioEvent(attemptId, "audio_play", question.id);
         }}
+        onEnded={() => {
+          if (attemptId !== null)
+            recordAudioEvent(attemptId, "audio_ended", question.id);
+        }}
+        onBlocked={() => {
+          if (attemptId !== null)
+            recordAudioEvent(attemptId, "audio_blocked", question.id);
+        }}
+        onSeekBlocked={() => {
+          if (attemptId !== null)
+            recordAudioEvent(attemptId, "audio_seek", question.id);
+        }}
         onRetry={onExpired}
       />
       {maxPlays !== null && played >= maxPlays && (

@@ -15,19 +15,25 @@ import { getTest, listTests, saveOutline } from "@/features/tests/api";
 import { ApiError } from "@/lib/api/errors";
 import { toast } from "@/components/ui/sonner";
 import type { TFunction } from "i18next";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 
-/** A-06's "Thêm vào đề thi" for a selection. */
+/**
+ * AddToTestDialog adds the questions `questionIds` to a section of a test the
+ * teacher picks. When it closes, focus goes to `returnFocus` while that is in
+ * the page, such as the menu that opened it.
+ */
 export function AddToTestDialog({
   questionIds,
   open,
   onOpenChange,
   onAdded,
+  returnFocus,
 }: Readonly<{
   questionIds: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAdded: () => void;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
 }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -82,7 +88,15 @@ export function AddToTestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent
+        className="max-w-xl"
+        onCloseAutoFocus={(event) => {
+          const target = returnFocus?.current;
+          if (!target?.isConnected) return;
+          event.preventDefault();
+          target.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t("bank.addToTest")}</DialogTitle>
           <DialogDescription>

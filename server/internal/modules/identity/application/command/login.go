@@ -15,6 +15,7 @@ type Login struct {
 	Password  string
 	UserAgent string
 	IP        string
+	GeoLabel  string
 }
 
 type LoginHandler struct {
@@ -48,7 +49,7 @@ func (s LoginHandler) Handle(ctx context.Context, cmd Login) (model.Session, err
 		return model.Session{}, domain.ErrInvalidCredentials
 	}
 
-	session, err := s.IssueSession(ctx, user, cmd.UserAgent, cmd.IP)
+	session, err := s.IssueSession(ctx, user, support.Origin{UserAgent: cmd.UserAgent, IP: cmd.IP, GeoLabel: cmd.GeoLabel})
 	if errors.Is(err, domain.ErrAccountChanged) {
 		return model.Session{}, domain.ErrInvalidCredentials
 	}

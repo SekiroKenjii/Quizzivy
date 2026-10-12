@@ -1,6 +1,11 @@
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
-import { assignToClass, signInAsAdmin, signInAsStudent } from "./support/live";
+import {
+  assignToClass,
+  publishInBuilder,
+  signInAsAdmin,
+  signInAsStudent,
+} from "./support/live";
 
 /**
  * E2E 8 (§16, phase-3 exit criterion): the listening allowance is the server's
@@ -20,16 +25,25 @@ import { assignToClass, signInAsAdmin, signInAsStudent } from "./support/live";
 const AUDIO = fileURLToPath(new URL("./fixtures/unit5-listening.mp3", import.meta.url));
 
 async function publishListeningTest(page: Page, title: string) {
-  await page.goto("/admin/tests");
+  await page.goto("/teacher/tests");
   await page.getByRole("button", { name: "Đề thi mới" }).first().click();
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+\/edit$/);
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
 
-  await page.getByLabel("Tên đề thi").fill(title);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).fill(title);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần" }).click();
-  await expect(page.getByText("Phần 1")).toBeVisible();
+  const sectionName = page.getByRole("textbox", { name: "Tên phần", exact: true });
+  await expect(sectionName).toBeFocused();
+  await sectionName.press("Enter");
+  await expect(
+    page.getByRole("button", { name: /^Phần 1 \d+ · [\d.,]+đ$/ }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
-  await page.getByLabel("Nội dung câu hỏi").fill("Người phụ nữ đề nghị làm gì?");
+  await page
+    .getByLabel("Nội dung câu hỏi", { exact: true })
+    .fill("Người phụ nữ đề nghị làm gì?");
 
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
   // The upload is a real round trip through the API and object storage, and a
@@ -37,25 +51,33 @@ async function publishListeningTest(page: Page, title: string) {
   await expect(async () => {
     const rejected = page
       .getByRole("alert")
-      .filter({ hasText: "Không dùng được tệp này" });
+      .filter({ hasText: /Không dùng được tệp này|Máy chủ gặp lỗi khi nhận tệp/ });
     if (await rejected.isVisible()) {
       throw new Error(`upload rejected: ${await rejected.innerText()}`);
     }
-    await expect(page.getByRole("button", { name: "Gỡ", exact: true })).toBeVisible({
-      timeout: 1_000,
-    });
+    await expect(
+      page.getByRole("button", { name: "Gỡ media", exact: true }),
+    ).toBeVisible({ timeout: 1_000 });
   }).toPass({ timeout: 60_000 });
   // §11.1's default, and exactly the allowance this test needs.
-  await expect(page.getByLabel("Số lần được nghe")).toHaveText("2 lần");
+  await expect(
+    page
+      .getByRole("radiogroup", { name: "Số lần nghe" })
+      .getByRole("radio", { name: "Hai lần" }),
+  ).toBeChecked();
 
   for (const [index, text] of ["Gọi lại sau", "Đổi lịch hẹn"].entries()) {
-    await page.getByPlaceholder(`Lựa chọn ${index + 1}`).fill(text);
+    await page
+      .getByPlaceholder(`Lựa chọn ${String.fromCharCode(65 + index)}`)
+      .fill(text);
   }
-  await page.getByLabel("Lựa chọn 1", { exact: true }).check();
+  await page.getByLabel("Đánh dấu A là đáp án đúng", { exact: true }).check();
 
-  await expect(page.getByText(/Đã lưu \d\d:\d\d/)).toBeVisible({ timeout: 15_000 });
-  await page.getByRole("button", { name: "Phát hành" }).click();
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
+    timeout: 15_000,
+  });
+  await publishInBuilder(page);
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
 }
 
 test("E2E 8: the listening count is the server's and survives a reload", async ({
@@ -66,6 +88,9 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
 
   const teacher = await browser.newContext();
   const student = await browser.newContext();
+  let bodyFailed = false;
+  let bodyError: unknown;
+  let closeOutcomes: PromiseSettledResult<void>[] = [];
   try {
     const admin = await teacher.newPage();
     await signInAsAdmin(admin);
@@ -98,8 +123,27 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
     // that comes back was read from attempt_audio_plays.
     await page.reload();
     await expect(page.getByText("Đã nghe 2/2 lượt")).toBeVisible({ timeout: 30_000 });
+  } catch (error) {
+    bodyFailed = true;
+    bodyError = error;
   } finally {
-    await teacher.close();
-    await student.close();
+    closeOutcomes = await Promise.allSettled(
+      [teacher, student].map(async (context) => {
+        await context.close();
+      }),
+    );
   }
+  for (const [index, outcome] of closeOutcomes.entries()) {
+    test.info().annotations.push({
+      type: "context-cleanup",
+      description: `${index === 0 ? "teacher" : "student"}: ${outcome.status}${
+        outcome.status === "rejected" ? `: ${String(outcome.reason)}` : ""
+      }`,
+    });
+  }
+  if (bodyFailed) throw bodyError;
+  const failures: unknown[] = closeOutcomes.flatMap((outcome) =>
+    outcome.status === "rejected" ? [outcome.reason] : [],
+  );
+  if (failures.length) throw new AggregateError(failures, "Context cleanup failed");
 });

@@ -20,6 +20,7 @@ var informationalSource = map[string]bool{
 	"TABLE_GRID_REQUIRES_REVIEW":        true,
 	"ANCILLARY_CONTENT_REQUIRES_REVIEW": true,
 	"PDF_MARKS_UNAVAILABLE":             true,
+	"TEXT_MARKS_UNAVAILABLE":            true,
 }
 
 var reviewedOutsideExam = map[string]bool{

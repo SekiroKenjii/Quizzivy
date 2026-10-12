@@ -6,6 +6,8 @@ import {
   pending,
   record,
   restore,
+  suspendSession,
+  type Buffered,
 } from "@/features/integrity/buffer";
 
 const ATTEMPT = "att-1";
@@ -114,6 +116,41 @@ describe("across a reload", () => {
     beginSession(ATTEMPT, "ses-1");
 
     expect(pending().map((e) => e.kind)).toEqual(["copy"]);
+  });
+});
+
+describe("suspending", () => {
+  it("stops recording and keeps what is stored", () => {
+    beginSession(ATTEMPT, "ses-1");
+    record(ATTEMPT, "copy");
+    record(ATTEMPT, "cut");
+
+    suspendSession();
+    expect(pending()).toEqual([]);
+    record(ATTEMPT, "paste");
+    expect(pending()).toEqual([]);
+
+    const stored = JSON.parse(
+      sessionStorage.getItem("quizzivy.integrity." + ATTEMPT) ?? "null",
+    ) as Buffered | null;
+    expect(stored?.nextSeq).toBe(2);
+    expect(stored?.events.map((e) => [e.kind, e.clientSeq])).toEqual([
+      ["copy", 0],
+      ["cut", 1],
+    ]);
+  });
+
+  it("numbers on from the stored sequence when the same session begins again", () => {
+    beginSession(ATTEMPT, "ses-1");
+    record(ATTEMPT, "copy");
+    record(ATTEMPT, "cut");
+    drain(ATTEMPT);
+
+    suspendSession();
+    beginSession(ATTEMPT, "ses-1");
+    record(ATTEMPT, "paste");
+
+    expect(pending().map((e) => [e.kind, e.clientSeq])).toEqual([["paste", 2]]);
   });
 });
 

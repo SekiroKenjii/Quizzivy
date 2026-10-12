@@ -58,7 +58,7 @@ function renderJoin(entry = "/join") {
     { path: "/join", element: <JoinPage /> },
     { path: "/join/:code", element: <JoinPage /> },
     { path: "/login", element: <p>login page</p> },
-    { path: "/admin", element: <p>admin home</p> },
+    { path: "/teacher", element: <p>admin home</p> },
   ];
   const router = createMemoryRouter(routes, { initialEntries: [entry] });
   render(
@@ -309,6 +309,6 @@ describe("/join", () => {
     ).toBeVisible();
     expect(screen.queryByRole("button", { name: /Tham gia/ })).toBeNull();
     await user.click(screen.getByRole("link", { name: "Về trang chủ của tôi" }));
-    expect(router.state.location.pathname).toBe("/admin");
+    expect(router.state.location.pathname).toBe("/teacher");
   });
 });

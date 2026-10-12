@@ -28,12 +28,12 @@ func docsIssuers(t *testing.T) (access, docs *token.Issuer) {
 
 func TestADocsTokenOpensOnlyTheDocs(t *testing.T) {
 	access, docs := docsIssuers(t)
-	raw, err := docs.Issue("admin-1", "admin", 0)
+	raw, err := docs.Issue("admin-1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	claims, err := docs.Verify(raw)
-	if err != nil || claims.Subject != "admin-1" || claims.Role != "admin" {
+	if err != nil || claims.Subject != "admin-1" {
 		t.Fatalf("docs verify: %+v %v", claims, err)
 	}
 	if _, err := access.Verify(raw); !errors.Is(err, token.ErrTokenInvalid) {
@@ -43,7 +43,7 @@ func TestADocsTokenOpensOnlyTheDocs(t *testing.T) {
 
 func TestAnAccessTokenNeverOpensTheDocs(t *testing.T) {
 	access, docs := docsIssuers(t)
-	raw, err := access.Issue("admin-1", "admin", 0)
+	raw, err := access.Issue("admin-1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestADocsTokenLastsFifteenMinutes(t *testing.T) {
 	_, docs := docsIssuers(t)
 	start := time.Date(2026, 9, 25, 8, 0, 0, 0, time.UTC)
 	docs.SetClock(func() time.Time { return start })
-	raw, err := docs.Issue("admin-1", "admin", 0)
+	raw, err := docs.Issue("admin-1", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestTheDocsIssuerRefusesAShortKey(t *testing.T) {
 func signed(t *testing.T, key []byte, audience ...string) string {
 	t.Helper()
 	now := time.Now()
-	claims := token.Claims{Role: "admin", RegisteredClaims: jwt.RegisteredClaims{
+	claims := token.Claims{RegisteredClaims: jwt.RegisteredClaims{
 		Subject: "admin-1", Issuer: "quizzivy",
 		IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)),
 	}}

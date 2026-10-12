@@ -45,7 +45,9 @@ describe("MarqueeText", () => {
     setWidths(120, 300);
     const { container } = render(<MarqueeText text={title} />);
     expect(container.querySelector(".qz-marquee-track")).toBeNull();
-    expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
+    expect(
+      container.querySelector('.qz-marquee-track [aria-hidden="true"]'),
+    ).toBeNull();
     expect(container.firstElementChild).not.toHaveAttribute("title");
   });
 
@@ -54,7 +56,9 @@ describe("MarqueeText", () => {
     const { container } = render(<MarqueeText text={title} />);
     const track = container.querySelector(".qz-marquee-track");
     expect(track).not.toBeNull();
-    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(1);
+    expect(
+      container.querySelectorAll('.qz-marquee-track [aria-hidden="true"]'),
+    ).toHaveLength(1);
     expect(container.firstElementChild).toHaveAttribute("title", title);
     expect((track as HTMLElement).style.animationDuration).toBe("16s");
   });

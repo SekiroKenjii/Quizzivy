@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import TestsListPage from "@/features/tests/pages/TestsListPage";
+import TestsListPage from "@/features/tests/pages/teacher/TestsListPage";
 import { Toaster, toast } from "@/components/ui/sonner";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
@@ -17,11 +17,15 @@ const ARCHIVED_AT = "2026-02-02T02:02:02Z";
 
 function test(over: Record<string, unknown> = {}) {
   return {
+    skills: [],
+    assignments: { live: 0, scheduled: 0, closed: 0 },
+    unpublishedChanges: null,
     id: TEST_ID,
     title: "Unit 5",
     description: null,
     status: "draft" as const,
     currentVersion: 0,
+    nextVersion: 1,
     totalPoints: 10,
     questionCount: 4,
     audioCount: 0,
@@ -79,10 +83,10 @@ function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/tests", element: <TestsListPage /> },
-      { path: "/admin/tests/:id/edit", element: <p>builder</p> },
+      { path: "/teacher/tests", element: <TestsListPage /> },
+      { path: "/teacher/tests/:id/edit", element: <p>builder</p> },
     ],
-    { initialEntries: ["/admin/tests"] },
+    { initialEntries: ["/teacher/tests"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -113,7 +117,7 @@ describe("undoing an archive from the toast", () => {
   });
 
   it("offers no undo for a published test, because restoring cannot republish it", async () => {
-    status = { status: "published", currentVersion: 1 };
+    status = { status: "published", currentVersion: 1, nextVersion: 2 };
     const user = renderList();
     await user.click(await screen.findByRole("button", { name: /Thao tác/ }));
     await user.click(await screen.findByRole("menuitem", { name: "Lưu trữ" }));

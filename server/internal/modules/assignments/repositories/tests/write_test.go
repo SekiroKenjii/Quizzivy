@@ -90,8 +90,8 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, status string) world {
 		version = 0
 	}
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.tests (title, status, current_version, created_by)
-		 VALUES ($1,$2::app.test_status,$3,$4::uuid) RETURNING id::text`,
+		`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+		 VALUES ($1,$2::app.test_status,$3,$4::uuid,$4::uuid) RETURNING id::text`,
 		"Đề "+id, status, version, w.admin).Scan(&w.testID))
 	must(pool.QueryRow(ctx,
 		`INSERT INTO app.test_versions (test_id, version, total_points, published_by)
@@ -124,7 +124,7 @@ func legalInput(w world) domain.WriteInput {
 		ClosesAt:      now.Add(time.Hour),
 		DurationMin:   45,
 		MaxAttempts:   1,
-		Review:        domain.Review{ShowScore: true},
+		Review:        domain.Review{ShowScore: true, Release: domain.ReleaseOnSubmit},
 		Integrity: domain.Integrity{
 			BlockCopyPaste: true, OnLimitExceeded: "flag", MinAwayMs: 3000,
 		},
@@ -345,7 +345,12 @@ func TestTheVersionIsLockedOnceAnybodyHasStarted(t *testing.T) {
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
-	created, err := store.Create(ctx, request(w), legalInput(w))
+	scheduled := func() domain.WriteInput {
+		in := legalInput(w)
+		in.OpensAt, in.ClosesAt = in.Now.Add(time.Hour), in.Now.Add(3*time.Hour)
+		return in
+	}
+	created, err := store.Create(ctx, request(w), scheduled())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -359,7 +364,7 @@ func TestTheVersionIsLockedOnceAnybodyHasStarted(t *testing.T) {
 	}
 	req := request(w)
 	req.ID = created.ID
-	repointed := legalInput(w)
+	repointed := scheduled()
 	repointed.TestVersionID = second
 
 	// Untouched, so re-pointing is the legitimate workflow the contract names.
@@ -377,14 +382,14 @@ func TestTheVersionIsLockedOnceAnybodyHasStarted(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	back := legalInput(w)
+	back := scheduled()
 	back.TestVersionID = w.versionID
 	if _, err := store.Update(ctx, req, back); !errors.Is(err, domain.ErrVersionLocked) {
 		t.Fatalf("want ErrVersionLocked, got %v", err)
 	}
 
 	// Everything else about a started assignment is still editable.
-	sameVersion := legalInput(w)
+	sameVersion := scheduled()
 	sameVersion.TestVersionID = second
 	sameVersion.DurationMin = 60
 	saved, err := store.Update(ctx, req, sameVersion)
@@ -655,7 +660,7 @@ func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	found, page, err := store.List(ctx, domain.ListInput{Scope: everyone, ClassID: &mine.class})
+	found, page, err := store.List(ctx, domain.ListInput{Scope: everyone, ClassIDs: []string{mine.class}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -663,7 +668,7 @@ func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 		t.Fatalf("classId=%s returned %d rows (total %d), want only %s", mine.class, len(found), page.Total, kept.ID)
 	}
 
-	facets, err := store.Facets(ctx, domain.ListInput{Scope: everyone, ClassID: &mine.class})
+	facets, err := store.Facets(ctx, domain.ListInput{Scope: everyone, ClassIDs: []string{mine.class}})
 	if err != nil {
 		t.Fatal(err)
 	}

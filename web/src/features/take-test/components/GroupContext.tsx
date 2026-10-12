@@ -6,6 +6,7 @@ import {
   type MaterialGap,
 } from "@/components/shared/content/GroupMaterials";
 import { Button } from "@/components/ui/button";
+import { recordSharedAudioEvent } from "@/features/integrity/useIntegrityMonitor";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { cn } from "@/lib/utils";
 import { PassageBody } from "./PassageBody";
@@ -146,6 +147,8 @@ function SharedAudio({
   onRetry: () => void;
 }>) {
   const { t } = useTranslation();
+  const attemptId = useTakeTestStore((state) => state.attemptId);
+  const startedAt = useRef<number | null>(null);
   const played = useGroupPlaybackStore((state) => groupPlayCount(state, recording.id));
   const pending = useGroupPlaybackStore((state) =>
     state.pending.some((play) => play.recordingId === recording.id),
@@ -172,7 +175,24 @@ function SharedAudio({
         disabled={locked}
         preload="metadata"
         hint={hint}
-        onPlay={() => notePlay(recording.id)}
+        onPlay={() => {
+          startedAt.current = Date.now();
+          notePlay(recording.id);
+        }}
+        onEnded={() => {
+          const durationMs =
+            startedAt.current === null
+              ? undefined
+              : Math.max(0, Date.now() - startedAt.current);
+          startedAt.current = null;
+          if (attemptId !== null)
+            recordSharedAudioEvent(attemptId, "audio_ended", recording.id, durationMs);
+        }}
+        onBlocked={() => {
+          startedAt.current = null;
+          if (attemptId !== null)
+            recordSharedAudioEvent(attemptId, "audio_blocked", recording.id);
+        }}
         onRetry={onRetry}
       />
       <p className="text-muted-fg text-meta">{t("takeTest.sharedAudioScope")}</p>

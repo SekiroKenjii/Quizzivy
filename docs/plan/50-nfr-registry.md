@@ -104,7 +104,7 @@ at the end says how much is covered and what the next round is.
 | ID | Requirement | Source | Status | Evidence / gap |
 |---|---|---|---|---|
 | NFR-F01 | Lighthouse accessibility ≥ 95 on the nine key routes; `axe` in CI failing on serious/critical | §16, T-5.3 | ⬜ | Not measured; no axe run |
-| NFR-F02 | Every interactive element is a real element with a visible focus ring; icon-only buttons carry `aria-label`; decorative icons are `aria-hidden` | §12 | ✅ | R1 (T-R1.6): `--focus` and a 2px `:focus-visible` ring on every control, `tokens.test.ts` holding `--focus` at 3:1 or more on `--bg`, `--card`, `--sidebar` and `--muted` in both themes. T-R1.17 audited every `/app` route, the engine included, and every `/admin` route except the import detail, import review and question-group editor pages (no seeded rows), at 1280: 1,184 of 1,184 Tab stops (the first 40 per page) showed a visible change on focus |
+| NFR-F02 | Every interactive element is a real element with a visible focus ring; icon-only buttons carry `aria-label`; decorative icons are `aria-hidden` | §12 | ✅ | R1 (T-R1.6): `--focus` and a 2px `:focus-visible` ring on every control, `tokens.test.ts` holding `--focus` at 3:1 or more on `--bg`, `--card`, `--sidebar` and `--muted` in both themes. T-R1.17 audited every `/app` route, the engine included, and every `/admin` route except the import detail, import review and question-group editor pages (no seeded rows), at 1280: 1,184 of 1,184 Tab stops (the first 40 per page) showed a visible change on focus. Measured 2026-10-04 (#322) in Chromium on the built app, over the student console, sign-in and Join with the Join, Submit and Leave dialogs, at 360 and 1280: 130 Tab stops in each theme, and every settled ring is the 2px solid `--focus` outline, the 48 on `Button`, the segmented control and the switch included. The lowest contrast against what is behind the ring is 4.86:1 in light and 6.19:1 in dark, both on `--muted`. Those three controls reach it through a 150 ms transition from the resting outline colour, so a value read at the instant of focus is not the ring |
 | NFR-F03 | The whole attempt is completable by keyboard, including the audio player and fill-blank inputs; `Esc` always works, fullscreen never traps | §10.2, §14 DoD | 🟡 | #66 fixed the token field and palette; `student-interactions.spec.ts` covers choice shortcuts, fill-blank editing and dialog isolation at three widths; complete audio/assistive-technology coverage remains **T-5.3** |
 | NFR-F04 | Motion is the deck's, plus our 2px hover lift on cards; under `prefers-reduced-motion` the marquee, live dot, breath, shimmer and indeterminate bar each have a static state, not a shorter one, and all other motion is cut to 0.01 ms by the global reduced-motion block (spec §12) | §12 | 🟡 | R1 (T-R1.4): `web/src/index.css` defines the deck's keyframes, and each deck class that runs one has a static reduced-motion state; the `MarqueeText` and `LiveDot` unit tests cover the pause and the static state. Motion that is not the deck's remains, as spec §12 lists it: the old consoles' skeleton pulse and settings entrance, the vendored primitives' enter and exit, `animate-spin` on busy states, and the test builder outline's drag-reorder slide |
 | NFR-F05 | Colour never carries meaning alone: correct/incorrect, flagged and status badges also carry text | §12, F-07 | ✅ | `StatusBadge` words + colour; #67 |
@@ -130,7 +130,7 @@ at the end says how much is covered and what the next round is.
 | ID | Requirement | Source | Status | Evidence / gap |
 |---|---|---|---|---|
 | NFR-I01 | Vietnamese first: every string through `t()`, both locales, no key missing on either side, no empty string | §14 DoD, §18 | ✅ | `tests/units/i18n/parity.test.ts`, `no-hardcoded-strings.test.ts` |
-| NFR-I02 | Server error messages are localised by `Accept-Language`, `vi` default | overview §7 | ✅ | `httpx/errors.go` |
+| NFR-I02 | Server error messages are localised by `Accept-Language`, `vi` default | overview §7 | 🟡 | Every `message`: `httpx/language.go` (`Text`, `TextFor`), held for every transport by `server/internal/core/tests/messages_test.go`. The per-field sentences in `details` that the rules word, and the publish violations they word, are Vietnamese only (#284) |
 | NFR-I03 | Store UTC, render `Asia/Ho_Chi_Minh` everywhere, through one module | #68 | ✅ | `lib/i18n/datetime.ts`, `datetime.test.ts` |
 | NFR-I04 | Search is accent-insensitive on both sides (`pg_trgm`, client `fold`) | §13.8, D-11 | ✅ | Trigram index; `lib/fold.ts` |
 | NFR-I05 | A native review of every `vi` string, prioritising join, integrity and intro copy; layouts hold with the longest strings | T-5.8 | ⬜ | Not done |
@@ -184,11 +184,11 @@ at the end says how much is covered and what the next round is.
 | E. Performance | 5 | 1 | 2 | 0 | 0 | 8 |
 | F. Accessibility | 3 | 2 | 1 | 0 | 0 | 6 |
 | G. Usability | 8 | 2 | 0 | 0 | 0 | 10 |
-| H. i18n | 4 | 0 | 1 | 0 | 0 | 5 |
+| H. i18n | 3 | 1 | 1 | 0 | 0 | 5 |
 | I. Compatibility | 3 | 2 | 0 | 0 | 0 | 5 |
 | J. Maintainability | 12 | 0 | 0 | 0 | 0 | 12 |
 | K. Observability | 3 | 1 | 0 | 0 | 0 | 4 |
-| **Total** | **73** | **16** | **4** | **0** | **1** | **94** |
+| **Total** | **72** | **17** | **4** | **0** | **1** | **94** |
 
 Counts include all twelve maintainability requirements. Implemented mechanisms
 remain partial where deployment, notification delivery or device evidence is

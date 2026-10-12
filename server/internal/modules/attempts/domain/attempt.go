@@ -51,6 +51,9 @@ type Session struct {
 	GroupAudioPlays   map[string]int
 	Answers           map[string][]byte
 	Integrity         Integrity
+	// Superseded reports that the reader named a session the attempt no longer
+	// has; SessionID is then the one it named and BeaconToken is empty.
+	Superseded bool
 }
 
 // AttemptRecord carries the two columns Attempt deliberately does not: the seed is the
@@ -104,6 +107,22 @@ const (
 	KindResume          = "resume"
 	KindSessionTakeover = "session_takeover"
 )
+
+// CanStartAt reports whether a student under these rules may start an attempt
+// at now: the assignment is published, its window has opened, and neither its
+// end nor an early close has passed. Rules are the student's own, so a window
+// an override has lengthened or reopened is the one judged.
+func (r Rules) CanStartAt(now time.Time) error {
+	switch {
+	case r.PublishedAt == nil:
+		return ErrNotFound
+	case now.Before(r.OpensAt), !now.Before(r.ClosesAt):
+		return ErrAssignmentClosed
+	case r.ClosedAt != nil && !now.Before(*r.ClosedAt):
+		return ErrAssignmentClosed
+	}
+	return nil
+}
 
 // Deadline is the §9 rule, server-side and authoritative: a student gets their
 // full duration unless the assignment closes first.

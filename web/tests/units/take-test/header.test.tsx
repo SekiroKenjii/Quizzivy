@@ -113,6 +113,14 @@ function heldSave() {
   };
 }
 
+async function refuseLateSave() {
+  vi.mocked(saveAnswers).mockRejectedValueOnce(
+    new ApiError({ status: 409, code: "DEADLINE_PASSED", message: "late" }),
+  );
+  type();
+  await pass(FLUSH_DEBOUNCE_MS);
+}
+
 function connection(online: boolean) {
   vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(online);
   act(() => {
@@ -603,6 +611,62 @@ describe.each(["desktop", "phone"] as const)(
       expect(screen.getByText("Đã hết giờ làm bài.")).toBeInTheDocument();
       expect(timer()).toHaveTextContent("00:00");
       expect(timer()).toHaveClass("bg-danger-soft", "text-danger-ink");
+    });
+
+    it("stands at 00:00 in the danger tones once the server has said the time is up, and stops counting", async () => {
+      await open(60_000);
+      await refuseLateSave();
+
+      expect(store().lock).toBe("deadline");
+      expect(screen.getByText("Đã hết giờ làm bài.")).toBeInTheDocument();
+      expect(timer()).toHaveTextContent("00:00");
+      expect(timer()).toHaveClass("bg-danger-soft", "text-danger-ink");
+
+      await pass(3_000);
+      expect(timer()).toHaveTextContent("00:00");
+      expect(timer()).toHaveClass("bg-danger-soft", "text-danger-ink");
+    });
+
+    it.each([
+      ["five minutes", 5 * MINUTE + 3_000],
+      ["one minute", MINUTE + 3_000],
+    ])(
+      "announces no minute after the server has said the time is up, as the device's clock passes %s",
+      async (_, left) => {
+        await open(left);
+        await refuseLateSave();
+        expect(store().lock).toBe("deadline");
+
+        await pass(5_000);
+        expect(timer()).toHaveTextContent("00:00");
+        expect(announced()).not.toContainEqual(expect.stringMatching(/^Còn \d+ phút$/));
+      },
+    );
+
+    it("clears a minute it was announcing when the lock arrives", async () => {
+      await open(5 * MINUTE + 1_000);
+      await pass(2_000);
+      expect(announced()).toContain("Còn 5 phút");
+
+      await refuseLateSave();
+      expect(store().lock).toBe("deadline");
+      await pass(1_000);
+      expect(announced()).not.toContain("Còn 5 phút");
+    });
+
+    it("keeps announcing the minutes on a paper another device took over", async () => {
+      await open(5 * MINUTE + 3_000);
+      vi.mocked(saveAnswers).mockRejectedValueOnce(
+        new ApiError({ status: 409, code: "SESSION_SUPERSEDED", message: "elsewhere" }),
+      );
+      type();
+      await pass(FLUSH_DEBOUNCE_MS);
+      expect(store().lock).toBe("superseded");
+      expect(announced()).toEqual([]);
+
+      await pass(2_000);
+      expect(timer()).toHaveTextContent("04:59");
+      expect(announced()).toEqual(["Còn 5 phút"]);
     });
   },
 );

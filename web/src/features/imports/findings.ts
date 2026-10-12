@@ -49,6 +49,7 @@ export const OBJECT_REASONS = [
   "RENDERER_LAYOUT_REQUIRES_REVIEW",
   "ALTERNATE_CONTENT_REQUIRES_RESOLUTION",
   "PDF_MARKS_UNAVAILABLE",
+  "TEXT_MARKS_UNAVAILABLE",
   "PDF_REPEATED_LINE_REQUIRES_REVIEW",
   "PDF_COLUMNS_REQUIRE_REVIEW",
 ] as const;
@@ -58,6 +59,7 @@ const KNOWN_REASONS: ReadonlySet<string> = new Set(OBJECT_REASONS);
 /** TITLED_REASONS are the document-object reasons whose finding has its own title rather than the generic "objects not read". */
 export const TITLED_REASONS = [
   "PDF_MARKS_UNAVAILABLE",
+  "TEXT_MARKS_UNAVAILABLE",
   "PDF_REPEATED_LINE_REQUIRES_REVIEW",
   "PDF_COLUMNS_REQUIRE_REVIEW",
 ] as const;
@@ -77,10 +79,15 @@ export function objectReason(finding: ImportFinding): string | null {
   return KNOWN_REASONS.has(finding.field) ? finding.field : null;
 }
 
-export type FindingFilter = "all" | "blocking" | "review";
+export type FindingFilter = "all" | "blocking" | "review" | "info";
 
-/** FINDING_FILTERS orders the review workspace's finding filter. */
-export const FINDING_FILTERS: readonly FindingFilter[] = ["all", "blocking", "review"];
+/** FINDING_FILTERS orders the review workspace's finding filter: All, Needs action, To confirm and Info. */
+export const FINDING_FILTERS: readonly FindingFilter[] = [
+  "all",
+  "blocking",
+  "review",
+  "info",
+];
 
 /** isFindingFilter narrows an untrusted URL value to a finding filter. */
 export function isFindingFilter(value: string | null): value is FindingFilter {
@@ -93,13 +100,28 @@ export function isUnresolved(finding: ImportFinding): boolean {
   return finding.severity === "review_required" && finding.acknowledged !== true;
 }
 
-/** matchesFilter decides whether a finding belongs to a filter's navigation set; informational findings never do. */
+/**
+ * matchesFilter decides whether a finding belongs to a filter: the Info filter
+ * holds the informational findings and no other filter does; To confirm holds
+ * only the review items not yet confirmed.
+ */
 export function matchesFilter(finding: ImportFinding, filter: FindingFilter): boolean {
+  if (filter === "info") return finding.severity === "informational";
   if (finding.severity === "informational") return false;
   if (filter === "blocking") return finding.severity === "blocking";
   if (filter === "review")
     return finding.severity === "review_required" && finding.acknowledged !== true;
   return true;
+}
+
+/**
+ * isOpenIn decides whether Previous and Next stop at a finding under a filter:
+ * an unresolved finding the filter holds, or under Info any informational
+ * one, since those need nothing.
+ */
+export function isOpenIn(finding: ImportFinding, filter: FindingFilter): boolean {
+  if (filter === "info") return finding.severity === "informational";
+  return matchesFilter(finding, filter) && isUnresolved(finding);
 }
 
 /** findingRank is where a finding's target sits in the draft; findings about the whole import rank first. */

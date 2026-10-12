@@ -69,15 +69,14 @@ func reachOf(scope access.Scope) reach {
 	}
 }
 
-// Summary reads the teacher's home over what the scope reaches: the
-// assignments visibility.AssignmentIDs gives, the papers visibility.Papers
-// shows on them, and the student-like members of the classes the scope
-// teaches. Under scope.all it reads every row, exactly as before scoping; a
-// zero scope reads nothing.
-func (p *Postgres) Summary(ctx context.Context, scope access.Scope) (domain.Summary, error) {
+// Summary reads scoped home counts and an authorized flagged destination in one statement.
+func (p *Postgres) Summary(ctx context.Context, q domain.SummaryQuery) (domain.Summary, error) {
+	scope := q.Scope
 	r := reachOf(scope)
 	window := fmt.Sprintf(`$%d`, len(r.args)+1)
+	review := fmt.Sprintf(`$%d`, len(r.args)+2)
 	var out domain.Summary
+	var assignmentID, attemptID *string
 	err := p.QueryRow(ctx, `
 		SELECT
 		  (SELECT count(*) FROM app.assignments a
@@ -103,14 +102,23 @@ func (p *Postgres) Summary(ctx context.Context, scope access.Scope) (domain.Summ
              WHERE at.status IN ('submitted','timed_out') AND EXISTS (
                SELECT 1 FROM app.attempt_answers ans WHERE ans.attempt_id = at.id
                  AND ans.requires_manual AND ans.manual_score IS NULL)`+r.papers+`),
-          `+r.students+`
-	`, append(r.args, domain.ActiveWindow)...).Scan(
+          `+r.students+`, destination.assignment_id::text,destination.id::text
+          FROM (VALUES (1)) anchor(value)
+          LEFT JOIN LATERAL (
+            SELECT at.assignment_id,at.id FROM app.attempts at
+            WHERE `+review+`::boolean AND at.flagged`+r.papers+`
+            ORDER BY at.started_at DESC,at.id DESC LIMIT 1
+          ) destination ON TRUE
+	`, append(r.args, domain.ActiveWindow, q.CanReviewFlagged)...).Scan(
 		&out.OpenAssignments, &out.AwaitingGrading, &out.ActiveStudents, &out.FlaggedAttempts,
-		&out.ClosingSoon, &out.WaitingStudents, &out.OldestWaitingAt, &out.TotalStudents)
+		&out.ClosingSoon, &out.WaitingStudents, &out.OldestWaitingAt, &out.TotalStudents, &assignmentID, &attemptID)
 	if err != nil {
 		return domain.Summary{}, fmt.Errorf("dashboard: counts: %w", err)
 	}
 
+	if assignmentID != nil && attemptID != nil {
+		out.NewestFlaggedAttempt = &domain.FlaggedAttempt{AssignmentID: *assignmentID, AttemptID: *attemptID}
+	}
 	out.NextClosing, err = p.nextClosing(ctx, scope)
 	if err != nil {
 		return domain.Summary{}, err

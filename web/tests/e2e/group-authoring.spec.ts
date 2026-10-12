@@ -1,3 +1,4 @@
+import { storedGroupBundle } from "@tests/support/storedGroupBundle";
 import { expect, test, type Page } from "@playwright/test";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import type { components } from "../../src/lib/api/schema";
@@ -74,7 +75,7 @@ async function setup(page: Page) {
       expect(body.expectedRevision).toBe(state.stored.revision);
       state.stored = {
         ...state.stored,
-        bundle: body.bundle,
+        bundle: storedGroupBundle(body.bundle),
         revision: state.stored.revision + 1,
       };
       return route.fulfill({ json: state.stored });
@@ -102,7 +103,7 @@ async function setup(page: Page) {
       const body = route
         .request()
         .postDataJSON() as components["schemas"]["GroupCreateInput"];
-      const copy = { ...initial(), bundle: body.bundle };
+      const copy = { ...initial(), bundle: storedGroupBundle(body.bundle) };
       state.copies.push(copy);
       await page.route(
         `http://localhost:8080/teacher/question-groups/${copy.bundle.group.id}`,
@@ -124,7 +125,7 @@ async function setup(page: Page) {
     "POST /auth/logout": { status: 204 },
   });
   page.on("dialog", (dialog) => void dialog.accept());
-  await page.goto(`/admin/question-bank/groups/${groupId}`);
+  await page.goto(`/teacher/question-bank/groups/${groupId}`);
   await expect(page.getByLabel("Tên nhóm câu hỏi", { exact: true })).toHaveValue(
     "Nhóm đọc hiểu",
   );
@@ -192,7 +193,10 @@ test("offline edits recover after reload and flush before leaving without resett
   await material.click();
   await page.keyboard.press("Control+a");
   await page.keyboard.insertText("Nội dung mới có dấu tiếng Việt.");
-  await page.getByRole("button", { name: "Quay lại", exact: true }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Nhóm câu hỏi", exact: true })
+    .click();
   await page.getByRole("button", { name: "Lưu và rời trang", exact: true }).click();
   await expect(page).toHaveURL(/question-bank\/groups$/);
   expect(state.stored.bundle.group.title).toBe("Bản nháp riêng");
@@ -236,12 +240,12 @@ test("material editing and question switching preserve text at narrow widths", a
   await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).click();
   const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
   await prompt.click();
-  await expect(prompt).toHaveValue("");
+  await expect(prompt).toHaveText("");
   await prompt.fill("Câu hỏi đầu tiên");
   await page.getByRole("button", { name: "Bài đọc", exact: true }).click();
   await expect(material).toHaveText("Nội dung dùng chung");
   await page.getByRole("button", { name: "1 Câu hỏi đầu tiên", exact: true }).click();
-  await expect(prompt).toHaveValue("Câu hỏi đầu tiên");
+  await expect(prompt).toHaveText("Câu hỏi đầu tiên");
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
   await expect(page.getByText("Đã lưu trên máy chủ", { exact: true })).toBeVisible();
   expect(state.stored.bundle.questions[0]!.input.prompt).toBe("Câu hỏi đầu tiên");
@@ -313,7 +317,7 @@ test("logout clears local drafts and fences a stale writer in another tab", asyn
     ...sessionAs(adminUser),
     "POST /auth/logout": { status: 204 },
   });
-  await other.goto("/admin/settings");
+  await other.goto("/teacher/settings");
   await other.getByRole("button", { name: /Tài khoản/ }).click();
   await other.getByRole("menuitem", { name: "Đăng xuất", exact: true }).click();
   await expect(other).toHaveURL(/\/login(?:\?|$)/);
@@ -367,8 +371,8 @@ test("material assets, links and stable gap bindings survive preview and undo", 
   });
   await material.click();
   await page.keyboard.press("Control+End");
-  await page.getByRole("button", { name: "Thêm ô trống", exact: true }).click();
-  const target = page.getByRole("combobox", { name: "Ô 1", exact: true });
+  await page.getByRole("button", { name: "Thêm chỗ trống", exact: true }).click();
+  const target = page.getByRole("combobox", { name: "Chỗ trống 1", exact: true });
   await target.click();
   await page.getByRole("option", { name: "Câu 1", exact: true }).click();
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
@@ -399,7 +403,9 @@ test("material assets, links and stable gap bindings survive preview and undo", 
   await page.getByRole("button", { name: "Xem như học viên", exact: true }).click();
   await page.getByRole("radio", { name: "Điện thoại", exact: true }).click();
   await expect(
-    page.getByRole("dialog").getByRole("link", { name: "Ô 1 — chuyển đến câu 1" }),
+    page
+      .getByRole("dialog")
+      .getByRole("link", { name: "Chỗ trống 1 — chuyển đến câu 1" }),
   ).toBeVisible();
   await expect(page.locator('[data-preview-viewport="phone"]')).toHaveCSS(
     "width",

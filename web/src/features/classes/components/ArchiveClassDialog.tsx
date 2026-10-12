@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
@@ -6,13 +7,19 @@ import { toast } from "@/components/ui/sonner";
 import { updateClass, type Class } from "@/features/classes/api";
 import { invalidateClass } from "@/features/classes/invalidate";
 
-/** G-08's "Lưu trữ lớp": a confirm, not a delete, repeating the two numbers it leaves alone. */
+/**
+ * ArchiveClassDialog asks before archiving a class, a confirm and not a
+ * delete, repeating the two numbers it leaves alone; the toast after it
+ * offers Undo. Focus goes back to `returnFocus` when it closes.
+ */
 export function ArchiveClassDialog({
   klass,
   onOpenChange,
+  returnFocus,
 }: Readonly<{
-  klass: Class | null;
+  klass: Pick<Class, "id" | "name" | "studentCount" | "openAssignmentCount"> | null;
   onOpenChange: (open: boolean) => void;
+  returnFocus: RefObject<HTMLElement | null>;
 }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -44,6 +51,7 @@ export function ArchiveClassDialog({
       description={t("classes.archiveBody")}
       confirmLabel={t("classes.archive")}
       pending={archive.isPending}
+      returnFocus={returnFocus}
       error={archive.isError ? t("classes.archiveFailed") : null}
       onConfirm={() => archive.mutate(klass.id)}
     >

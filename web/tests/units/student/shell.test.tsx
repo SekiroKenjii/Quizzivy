@@ -16,7 +16,7 @@ import { viewport } from "@tests/support/viewport";
 import { useAuthStore } from "@/stores/auth";
 import { skeletonFor } from "@/app/boot/handoff";
 import { writeThemePreference } from "@/lib/theme";
-import { ASSIGNMENT, BASE, card, detail, renderAt } from "./support";
+import { ASSIGNMENT, BASE, STUDENT, card, detail, renderAt } from "./support";
 import "@/lib/i18n";
 
 const flags = vi.hoisted(() => ({
@@ -36,6 +36,9 @@ const CLASS = {
   name: "IELTS Foundation",
   description: "Thứ 3 và thứ 5, 19:30–21:00.",
   teacherName: "Cô Thương",
+  teacherAvatarUrl: null,
+  scheduleLabel: null,
+  room: null,
   joinedAt: "2026-06-01T00:00:00Z",
 };
 
@@ -62,13 +65,19 @@ const shell = (
   page: React.ReactElement,
   handle?: object,
   route: string = path,
+  user: Parameters<typeof renderAt>[3] = STUDENT,
 ) =>
-  renderAt(path, [
-    {
-      element: <StudentLayout />,
-      children: [{ path: route, element: page, ...(handle ? { handle } : {}) }],
-    },
-  ]);
+  renderAt(
+    path,
+    [
+      {
+        element: <StudentLayout />,
+        children: [{ path: route, element: page, ...(handle ? { handle } : {}) }],
+      },
+    ],
+    undefined,
+    user,
+  );
 
 beforeEach(() => {
   viewport("desktop");
@@ -191,7 +200,10 @@ describe("the shell from 768", () => {
   it("follows the chosen theme and draws the mark for it", async () => {
     writeThemePreference("dark");
     serveStudent({});
-    shell("/app", <p>trang</p>);
+    shell("/app", <p>trang</p>, undefined, "/app", {
+      ...STUDENT,
+      preferences: { theme: "dark" },
+    });
     const logo = await screen.findByRole("link", { name: "Trang chủ Quizzivy" });
 
     expect(document.documentElement.classList.contains("dark")).toBe(true);
@@ -276,7 +288,7 @@ describe("the splash hand-off", () => {
     expect(
       skeletonFor("/app/attempts/018f0000-0000-7000-8000-0000000000e1"),
     ).toBeNull();
-    expect(skeletonFor("/admin")).toBeNull();
+    expect(skeletonFor("/teacher")).toBeNull();
     expect(
       skeletonFor("/app/attempts/018f0000-0000-7000-8000-0000000000e1/result"),
     ).not.toBeNull();
@@ -593,5 +605,48 @@ describe("settings", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Cài đặt" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("the bell", () => {
+  afterEach(() => {
+    flags.notifications = false;
+  });
+
+  it("is absent while the notifications module is off", async () => {
+    serveStudent({});
+    shell("/app", <p>trang</p>);
+    await screen.findByRole("navigation", { name: NAV });
+    expect(screen.queryByRole("button", { name: /^Thông báo/ })).toBeNull();
+  });
+
+  it("sits before the account button with a dot while something is unread, counting the student's kinds", async () => {
+    flags.notifications = true;
+    serveStudent({});
+    const audiences: (string | null)[] = [];
+    server.use(
+      http.get(`${BASE}/me/summary`, ({ request }) => {
+        audiences.push(new URL(request.url).searchParams.get("audience"));
+        return contractJson("/me/summary", "get", 200, { unreadNotifications: 2 });
+      }),
+    );
+    shell("/app", <p>trang</p>);
+    const bell = await screen.findByRole("button", { name: "Thông báo, 2 chưa đọc" });
+    expect(bell.querySelector("[data-slot='bell-dot']")).not.toBeNull();
+    expect(new Set(audiences)).toEqual(new Set(["student"]));
+    const account = screen.getByRole("button", { name: "Tài khoản của Nguyễn Văn An" });
+    expect(
+      bell.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("keeps its place on a phone, with no dot when nothing is unread", async () => {
+    viewport("phone");
+    flags.notifications = true;
+    serveStudent({});
+    shell("/app", <p>trang</p>);
+    const bell = await screen.findByRole("button", { name: "Thông báo" });
+    expect(bell.closest("header")).not.toBeNull();
+    expect(bell.querySelector("[data-slot='bell-dot']")).toBeNull();
   });
 });

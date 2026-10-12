@@ -27,7 +27,7 @@ import { SaveStrip } from "../components/SaveState";
 import { SectionInstructions } from "../components/SectionInstructions";
 import { SubmitDialog } from "../components/SubmitDialog";
 import { SubmittedScreen } from "../components/SubmittedScreen";
-import { clearSession } from "@/features/integrity/buffer";
+import { releaseSession } from "@/features/integrity/release";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
 import { exitFullscreen } from "@/features/integrity/fullscreen";
 import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
@@ -43,6 +43,11 @@ import {
   sectionAt,
   type SectionGroup,
 } from "../sections";
+import {
+  clearOpenQuestion,
+  readOpenQuestion,
+  writeOpenQuestion,
+} from "../openQuestion";
 import { hasPassage, questionShowing, useKeptScroll } from "../panes";
 import { questionKind } from "../questionType";
 import { useTakeTestStore } from "../store";
@@ -126,6 +131,7 @@ export default function TakeTestPage() {
     if (ended && asksFullscreen) void exitFullscreen();
   }, [ended, asksFullscreen]);
 
+  const restoredFor = useRef<string | null>(null);
   useEffect(() => {
     if (attemptId === undefined) return;
     const abort = new AbortController();
@@ -133,6 +139,12 @@ export default function TakeTestPage() {
       .then((session) => {
         if (abort.signal.aborted) return;
         hydrate(session);
+        if (restoredFor.current !== attemptId) {
+          restoredFor.current = attemptId;
+          const stored = readOpenQuestion(attemptId);
+          const at = session.questions.findIndex((item) => item.id === stored);
+          if (at >= 0) setIndex(at);
+        }
         setStatus("ready");
       })
       .catch((cause: unknown) => {
@@ -146,11 +158,28 @@ export default function TakeTestPage() {
   }, [attemptId, reloads, hydrate]);
   useEffect(
     () => () => {
-      if (attemptId !== undefined) clearSession(attemptId);
+      if (attemptId !== undefined) {
+        const state = useTakeTestStore.getState();
+        const mine = state.attemptId === attemptId;
+        releaseSession({
+          attemptId,
+          sessionId: mine ? state.sessionId : null,
+          beaconToken: mine ? state.beaconToken : "",
+          ended: mine && (state.submitState === "done" || state.lock === "closed"),
+        });
+      }
       reset({ keepDraft: true });
     },
     [attemptId, reset],
   );
+
+  const openId = question?.id;
+  const ready = status === "ready";
+  useEffect(() => {
+    if (attemptId === undefined) return;
+    if (ended) clearOpenQuestion(attemptId);
+    else if (ready && openId !== undefined) writeOpenQuestion(attemptId, openId);
+  }, [attemptId, openId, ready, ended]);
 
   const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
     if (lock !== null || submitState !== "idle" || question === undefined) return;
@@ -421,7 +450,7 @@ function Paper({
             ref={sheet}
             onScroll={onSheetScroll}
             className={cn(
-              "min-h-0 flex-1 overflow-y-auto",
+              "relative min-h-0 flex-1 overflow-y-auto",
               wide ? "px-8 py-7" : "px-4 py-4.5",
             )}
           >

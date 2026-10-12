@@ -1,13 +1,30 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import type { components } from "../../src/lib/api/schema";
 
 const ID = "018f0000-0000-7000-8000-0000000000b1";
 
+/** promptTools is the formatting toolbar of "Câu hỏi", which another editor on the page does not share. */
+function promptTools(page: Page) {
+  return page.getByRole("toolbar", {
+    name: "Thanh định dạng: Câu hỏi",
+    exact: true,
+  });
+}
+
+/** answers are the accepted-answer chips on gap `label`'s row. */
+function answers(page: Page, label: string) {
+  return page
+    .getByRole("group", { name: `Chỗ trống ${label}`, exact: true })
+    .locator('[data-slot="chip"]');
+}
+
 test("rich blanks retain answers through conversion, table editing, undo, save and reload on a tablet", async ({
   page,
 }) => {
   let question: components["schemas"]["AdminQuestion"] = {
+    level: null,
+    skill: null,
     id: ID,
     type: "fill_blank",
     prompt: "**They** {{2}}, she {{1}}.",
@@ -44,13 +61,18 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
     },
   });
   await page.setViewportSize({ width: 768, height: 900 });
-  await page.goto(`/admin/question-bank/${ID}`);
-  await page
-    .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
-    .click();
+  await page.goto(`/teacher/question-bank/${ID}`);
+  const modes = page.getByRole("group", {
+    name: "Chế độ soạn: Câu hỏi",
+    exact: true,
+  });
+  await modes.getByRole("button", { name: "Văn bản định dạng", exact: true }).click();
   expect(writes).toBe(0);
-  await page.getByRole("button", { name: "Dùng nội dung này", exact: true }).click();
-  const prompt = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  await page.getByRole("button", { name: "Áp dụng chuyển đổi", exact: true }).click();
+  await expect(
+    modes.getByRole("button", { name: "Markdown", exact: true }),
+  ).toBeDisabled();
+  const prompt = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
   await expect(prompt.locator(".content-gap")).toHaveText(["2", "1"]);
   await prompt.locator("p").first().click();
   await page.keyboard.press("Control+End");
@@ -58,17 +80,21 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   await expect(prompt.locator(":scope > p")).toHaveCount(2);
   await expect(prompt.locator(":scope > p").first()).toContainText("They");
   await expect(prompt.locator(":scope > p").last()).toHaveText("");
-  await page.getByRole("button", { name: "Thêm bảng", exact: true }).click();
+  await promptTools(page)
+    .getByRole("button", { name: "Thêm bảng", exact: true })
+    .click();
   await prompt.locator("th").first().click();
-  await page.getByRole("button", { name: "Thêm ô trống", exact: true }).click();
+  await promptTools(page)
+    .getByRole("button", { name: "Thêm chỗ trống", exact: true })
+    .click();
   await expect(prompt.locator("table .content-gap")).toHaveText("3");
   await expect(prompt.locator(".content-gap")).toHaveText(["2", "1", "3"]);
-  await page
-    .getByRole("textbox", {
-      name: "Đáp án được chấp nhận cho chỗ trống 3",
-      exact: true,
-    })
-    .fill("three");
+  const third = page.getByRole("textbox", {
+    name: "Đáp án được chấp nhận cho chỗ trống 3",
+    exact: true,
+  });
+  await third.fill("three");
+  await third.press("Enter");
   await prompt.locator("th").first().click();
   await page.keyboard.press("Home");
   await page.keyboard.press("Shift+ArrowRight");
@@ -76,15 +102,11 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   await expect(
     page.getByText("Ô này đã được bỏ khỏi nội dung.", { exact: false }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Hoàn tác", exact: true }).click();
+  await promptTools(page)
+    .getByRole("button", { name: "Hoàn tác", exact: true })
+    .click();
   await expect(prompt.locator("table .content-gap")).toHaveText("3");
-  await expect(
-    page.getByRole("textbox", {
-      name: "Đáp án được chấp nhận cho chỗ trống 3",
-      exact: true,
-    }),
-  ).toHaveValue("three");
-  await page.getByRole("button", { name: "Xong", exact: true }).click();
+  await expect(answers(page, "3")).toHaveText(["three"]);
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
   await expect.poll(() => writes).toBe(1);
   expect(question.blanks?.map((blank) => blank.acceptedAnswers)).toEqual([
@@ -95,16 +117,8 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   const gaps = question.blanks?.map((blank) => blank.gapId);
   expect(new Set(gaps).size).toBe(3);
   await page.reload();
-  await page
-    .getByRole("button", { name: "Chỉnh sửa: Nội dung câu hỏi", exact: true })
-    .click();
   await expect(prompt.locator(".content-gap")).toHaveText(["2", "1", "3"]);
-  await expect(
-    page.getByRole("textbox", {
-      name: "Đáp án được chấp nhận cho chỗ trống 1",
-      exact: true,
-    }),
-  ).toHaveValue("one");
+  await expect(answers(page, "1")).toHaveText(["one"]);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true);

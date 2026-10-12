@@ -61,7 +61,6 @@ describe("single-flight refresh (R-06)", () => {
             id: "u1",
             email: "a@b.c",
             fullName: "A",
-            role: "student",
             hasPassword: true,
             linkedProviders: [],
             mustChangePassword: false,

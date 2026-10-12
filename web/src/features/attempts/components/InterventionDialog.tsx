@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -19,22 +19,19 @@ export type Intervention = "extend" | "reset" | "void";
 
 const EXTENSIONS = [5, 10, 15, 20, 30, 45, 60];
 
-/**
- * G-02b: extend, reset and void are one dialog shape learned once -- what will
- * happen, one required reason, two buttons. The confirming button stays
- * disabled until the reason is typed, because each of these changes a record
- * a parent may ask about weeks later.
- */
+/** InterventionDialog requires a reason for each authorized intervention and optionally returns focus to its caller. */
 export function InterventionDialog({
   kind,
   row,
   onOpenChange,
   onDone,
+  returnFocus,
 }: Readonly<{
   kind: Intervention | null;
   row: MonitorRow | null;
   onOpenChange: (open: boolean) => void;
   onDone: () => Promise<void> | void;
+  returnFocus?: RefObject<HTMLElement | null>;
 }>) {
   const { t } = useTranslation();
   const [minutes, setMinutes] = useState(10);
@@ -67,6 +64,7 @@ export function InterventionDialog({
 
   return (
     <ConfirmDialog
+      {...(returnFocus === undefined ? {} : { returnFocus })}
       open
       onOpenChange={(open) => {
         if (!open) {

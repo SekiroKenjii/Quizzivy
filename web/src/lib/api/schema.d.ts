@@ -159,17 +159,12 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Rename yourself
-         * @description The one thing an account may change about itself, and the only write
-         *     behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
-         *
-         *     The name is the account's own; the email is not. An address is issued
-         *     by the teacher or arrives from Google, it is the login, and moving it
-         *     would move who the account is — so it stays read-only here and only
-         *     `PATCH /teacher/students/{id}` can change it. Role, password and provider
-         *     links each have their own endpoint for the same reason.
-         *
-         *     Bounds match `users_full_name_check` and createStudent.
+         * Update your profile
+         * @description Updates only supplied profile fields. Omission preserves a field;
+         *     null clears displayName or phone. Names are trimmed, while phone
+         *     keeps the literal accepted pattern. timeZone must be a valid stable
+         *     IANA zone or UTC; blank and Local are refused. Email, role, password,
+         *     provider links and photo changes use their separate operations.
          */
         patch: operations["updateCurrentUser"];
         trace?: never;
@@ -255,6 +250,114 @@ export interface paths {
          *     account cannot unlink; the client disables the control and explains why.
          */
         delete: operations["unlinkGoogle"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's signed-in devices
+         * @description Every live session of the caller, one row per sign-in, and no one
+         *     else's. The session of the request's refresh cookie comes first with
+         *     `current: true`; the others follow by `lastUsedAt`, newest first, then
+         *     by `familyId`. At most 100 rows: a caller with more sees the newest
+         *     ones, and "sign out the others" still ends them all.
+         *
+         *     The calling session is identified by the refresh cookie, which reaches
+         *     this endpoint because it is scoped `Path=/auth`. Without a cookie that
+         *     names a live session of the caller, the list is still returned and no
+         *     row is current.
+         *
+         *     **Leak review.** Each row holds a handle, a label built from a closed
+         *     list of names, a city and a country code, and a time, all of the
+         *     caller's own session. A row holds no IP address, no raw user agent, no
+         *     token or hash and no expiry. The location is the approximate place of
+         *     the last sign-in or refresh, which the caller can already see on their
+         *     own device. Responses are `no-store`.
+         */
+        get: operations["listSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/revoke-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out every other device
+         * @description Revokes every live session of the caller except the calling one, and
+         *     only when there is one to revoke also moves the caller's session epoch
+         *     and forgets the cached principal, so the access tokens of the sessions
+         *     that ended stop working at once on the server that took the request
+         *     and within 10 seconds on any other (§5). The epoch is the caller's,
+         *     so the caller's own access token is refused on its next request as
+         *     well; the client's single-flight refresh replaces it and the calling
+         *     session keeps its place. With nothing to revoke nothing is written, the
+         *     epoch does not move and `revoked` is 0.
+         *
+         *     The calling session is identified by the refresh cookie. When the
+         *     request carries none that names a live session of the caller, the
+         *     answer is `401 UNAUTHORIZED` and nothing is written: the server cannot
+         *     tell the caller's session from the others, and a holder of an access
+         *     token alone is not enough to sign an account out everywhere.
+         *
+         *     Limited to 5 a minute and 30 an hour per signed-in user.
+         */
+        post: operations["revokeOtherSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/{familyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Sign out one device
+         * @description Revokes one live session of the caller, moves the caller's session
+         *     epoch and forgets the cached principal in the same command, so the
+         *     access tokens of every session of the caller are refused on their next
+         *     request, at once on the server that took the request and within 10
+         *     seconds on any other (§5). The sessions that were not revoked refresh
+         *     and carry on; the revoked one cannot refresh.
+         *
+         *     The id of another user's session, of one that is revoked or expired and
+         *     of one that never existed answer alike: `404 NOT_FOUND`. The calling
+         *     session is refused with `409 SESSION_IS_CURRENT`; signing out of it is
+         *     `POST /auth/logout`.
+         *
+         *     The calling session is identified by the refresh cookie. When the
+         *     request carries none that names a live session of the caller, the
+         *     answer is `401 UNAUTHORIZED` and nothing is written.
+         *
+         *     Limited to 10 a minute and 60 an hour per signed-in user.
+         */
+        delete: operations["revokeSession"];
         options?: never;
         head?: never;
         patch?: never;
@@ -416,6 +519,9 @@ export interface paths {
          *
          *     Republishing an unchanged test still creates a version — this is an
          *     append-only history, not a diff.
+         *
+         *     The body is optional. `changeNote` is kept with the version and is
+         *     trimmed first; a note that is empty after trimming is no note.
          */
         post: operations["publishTest"];
         delete?: never;
@@ -480,6 +586,38 @@ export interface paths {
         post?: never;
         /** @description Deletes an unused, non-current version. Existing assignments and attempts prevent deletion. */
         delete: operations["deleteTestVersion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/tests/{id}/versions/{version}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * What changed between a version and another paper
+         * @description Compares the version in the path with another paper of the same test
+         *     and lists what a teacher would call a change. The older paper is
+         *     `from` and the newer `to`; the draft is always the newer. Reads only:
+         *     nothing is written, and no row is locked.
+         *
+         *     Questions are matched by the bank question they were frozen from, and
+         *     the ones left over by identical content, because restoring a version as
+         *     a draft copies its questions. So a question that was restored and then
+         *     edited reads as `removed` and `added`, not as `changed`. Order alone is
+         *     never a change.
+         */
+        get: operations["getTestVersionDiff"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -647,7 +785,7 @@ export interface paths {
         };
         /**
          * Search private import history
-         * @description Paginated history of the caller's imports (every teacher's with `scope.all`), with accent-insensitive title and current filename search.
+         * @description Paginated history of the imports the caller created, for every caller (`scope.all` does not widen it), with accent-insensitive title and current filename search.
          */
         get: operations["listWordImports"];
         put?: never;
@@ -712,6 +850,33 @@ export interface paths {
          *     Source bytes and storage keys never enter ordinary logs or student payloads.
          */
         post: operations["uploadImportSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/imports/{id}/sources/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store a private pasted-text exam source
+         * @description Plain text only, normalized to NFC and stored as pasted-text.txt with role exam.
+         *     At most 100000 Unicode code points and 20000 nonblank lines; no NUL.
+         *     The default raw JSON body limit applies independently of text length.
+         *     Identical normalized text with the same uploadId and expectedRevision replays
+         *     the original immutable receipt; changed content conflicts. Quotas, intake
+         *     capacity, ownership and retention are shared with file uploads.
+         */
+        post: operations["pasteImportSource"];
         delete?: never;
         options?: never;
         head?: never;
@@ -937,26 +1102,79 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The §8 media library, with a usage count so referenced assets can be shown as undeletable. */
+        /**
+         * @description The §8 media library: the caller's own files, whatever the caller
+         *     holds, newest first. A deleted file is not listed, and neither is one
+         *     that was replaced. Each row carries how many questions use it and how
+         *     many published versions reference it, so a file that cannot be deleted
+         *     can be shown as such. `q` is matched on `displayName` and on
+         *     `originalFilename`, without accents and without case.
+         */
         get: operations["listMedia"];
         put?: never;
         /**
          * Upload an audio or image asset
-         * @description Upload goes **through the backend** in v1 — the files are small, volume
-         *     is low, and the backend must validate anyway. Presigned direct-to-R2 is
-         *     the P1 optimisation, and the client contract will not change beyond this
-         *     one call (§11.1).
+         * @description Upload goes **through the backend** in v1 — volume is low, and the
+         *     backend must validate anyway. Presigned direct-to-R2 is the P1
+         *     optimisation, and the client contract will not change beyond this one
+         *     call (§11.1).
          *
-         *     Validation order is size → magic bytes → duration, so an oversized
-         *     upload is cut off before anything is parsed. **Never trusts the
-         *     `Content-Type` header or the file extension** (§11.1): the type comes
-         *     from sniffing, and the duration from probing the container.
+         *     The file part is streamed to disk and never held in memory.
+         *     Audio is mp3 or m4a, at most 50 MB and 5 minutes; an image is png,
+         *     jpg or webp, at most 10 MB (`MediaAsset`'s `x-media-limits`).
+         *     Validation order is the audio size → magic bytes → the image size →
+         *     duration, so an oversized upload is cut off before anything is parsed.
+         *     **Never trusts the `Content-Type` header or the file extension**
+         *     (§11.1): the type comes from sniffing, and the duration from probing
+         *     the container. An image's pixel size is read from its header; an image
+         *     whose header cannot be read is stored without one.
+         *
+         *     The file joins the caller's library, which may hold at most the
+         *     deployment's quota (`listMedia`'s `usage.quotaBytes`); a file that
+         *     would take it past the quota is not kept.
          *
          *     Assets are immutable. Re-uploading the same file creates a new row with
          *     a new key; it never overwrites (§11.1). That is what lets a version
          *     snapshot reference an asset without copying the file.
          */
         post: operations["uploadMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/media/{id}/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace a library file without changing published versions
+         * @description Creates a new immutable file of the same kind, retaining the old owner's
+         *     display name and default play limit. Repoints that owner's editable
+         *     questions and bank or draft-owned groups atomically. Published versions,
+         *     other owners' rows and import review documents retain the old live file.
+         *     The old file leaves the library but remains readable and bindable.
+         *     Missing, foreign, deleted and already replaced IDs answer the same 404
+         *     before multipart bytes are read, after routing, authentication and header validation.
+         *     Audio is mp3 or m4a, at most 50 MB and 5 minutes; an image is png,
+         *     jpg or webp, at most 10 MB (MediaAsset's x-media-limits). Identification
+         *     and streamed validation match uploadMedia; kind is checked before storage.
+         *     Quota is the old owner's, excluding the old bytes. Every changed group
+         *     revision advances once, so cached question and group data must be reloaded.
+         *     This operation is not idempotent. An uncertain commit or a committed
+         *     replacement whose response fails returns an internal error and retains
+         *     the new object; retrying the old ID may answer 404. Failed storage
+         *     compensation also returns an internal error, without public internal details.
+         */
+        post: operations["replaceMedia"];
         delete?: never;
         options?: never;
         head?: never;
@@ -979,7 +1197,16 @@ export interface paths {
         delete: operations["deleteMedia"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename a file or set its default play limit
+         * @description Changes the name the library shows for a file and the default play
+         *     limit stored with it; the stored file and its `originalFilename` never
+         *     change, and neither does a question that uses it. It reaches the
+         *     caller's own file, or any file with `scope.all`, as `deleteMedia`
+         *     does. A missing, deleted or replaced file, and another owner's,
+         *     answer the same 404. The change is audited.
+         */
+        patch: operations["updateMedia"];
         trace?: never;
     };
     "/teacher/assignments": {
@@ -991,14 +1218,70 @@ export interface paths {
         };
         /**
          * @description Backs the §8 assignments list. `status` is derived per assignment, not
-         *     stored (D-18). `classId` narrows the list to assignments that target
-         *     that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
-         *     tab counts are the class's and never disagree with the rows.
+         *     stored (D-18). The list holds the assignments the caller created and
+         *     those that target a class the caller teaches, for every caller:
+         *     `scope.all` does not widen it. A row names only the target classes and
+         *     students the caller reaches, and `targetCount` counts those; for a
+         *     caller who holds `scope.all` that is every target, as in
+         *     `getAssignment`.
+         *     `classId` narrows the list to assignments that target
+         *     any of the classes named, one or several (G-06's "Xem tất cả", G-12);
+         *     the facets follow it, so the tab counts are those of the classes and
+         *     never disagree with the rows. A class the caller does not teach lists
+         *     nothing, as a missing class does, unless the caller holds `scope.all`:
+         *     it then lists those of the caller's own assignments that target it.
+         *     `q` keeps the assignments whose test title, or the name of a target
+         *     class the caller reaches, contains the text; it is accent-insensitive
+         *     and the facets follow it too. Every row carries `questionCount`.
          */
         get: operations["listAssignments"];
         put?: never;
         /** @description Only a **published** version may be assigned (§8). */
         post: operations["createAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/results.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the results of up to 50 assignments as a CSV file
+         * @description One row per student of each assignment the caller reaches, in the order
+         *     of `ids` and then by name, for the students the caller reaches: the
+         *     roster the assignment's Students tab draws, so a student who has not
+         *     started has a row. The attempt that stands for a student is the one
+         *     that tab shows: their latest attempt that is not voided, else the
+         *     latest. Columns: Assignment (the test's title), Version, Class (the
+         *     target classes the caller reaches that the student belongs to, joined
+         *     by `; `), Student, Email, Status, Score, Max, Percent (score over max,
+         *     one decimal), Submitted (in the caller's own time zone, named in the
+         *     header; the default zone when the stored one is invalid), Focus lost
+         *     and Flagged. Score, Max and Percent are empty until every manually
+         *     marked answer of the attempt has a mark. Headers and the Status and
+         *     Flagged words follow `Accept-Language`, Vietnamese by default.
+         *
+         *     The file is UTF-8 with a byte-order mark and CRLF line ends, so
+         *     spreadsheets open it correctly. A cell that a spreadsheet would run as
+         *     a formula (it starts with `=`, `+`, `-`, `@`, a tab or a carriage
+         *     return, also after leading spaces, or with the full-width forms of the
+         *     first four) is written with a leading `'`. Overdue attempts are closed
+         *     before the file is read, as the monitor does.
+         *
+         *     An id the caller does not reach answers 404 for the whole request, as
+         *     a missing one does. More than 20000 rows answer 422. The response is
+         *     `private, no-store`, and a caller is limited to 10 files a minute and
+         *     60 an hour.
+         */
+        get: operations["exportResultsCsv"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1027,8 +1310,77 @@ export interface paths {
          *     Re-pointing an untouched assignment at a corrected version is a
          *     legitimate workflow; doing it once students have started is not.
          *     Existing attempts always carry their own version regardless (§7).
+         *
+         *     While the assignment is `open`, a **change** to `testVersionId`,
+         *     `durationMinutes` or `maxAttempts` is refused with `ASSIGNMENT_LOCKED`
+         *     (DG-65: only "Test & timing" locks); sending the stored value passes,
+         *     and every other field stays editable. Outside `open` the version check
+         *     above is the only one.
+         *
+         *     A **closed** assignment, by its window or by an early close, at the
+         *     moment of the request, stays closed: a `window` that would make it
+         *     `scheduled` or `open` again, or that opens after the early close the
+         *     assignment keeps, is refused with `ASSIGNMENT_CLOSED`, because that is
+         *     a reopening and `reopenAssignment` does it, asking for a reason and
+         *     writing its own audit entry. A request that leaves it closed passes:
+         *     the stored window, an earlier `closesAt`, `closeNow` (while `opensAt`
+         *     is not ahead of now) and every other field. An early close is never
+         *     lifted here.
+         *
+         *     `review.release`, `review.showClassAverage` and `studentNote` are
+         *     partial: omitted, they keep what is stored. `studentNote: null` clears
+         *     the note. Every other field is replaced as before.
+         *
+         *     An attempt already in progress moves with a later close, in the same
+         *     transaction: its deadline becomes the earlier of its start plus the
+         *     student's time limit and the student's own close, when that is later
+         *     than the deadline it has. A deadline never moves earlier, so a shorter
+         *     close, or `closeNow`, leaves every attempt in progress where it is, and
+         *     an attempt whose deadline has already passed is over and is not
+         *     revived. Each attempt moved is audited as `attempt.extended`.
          */
         patch: operations["updateAssignment"];
+        trace?: never;
+    };
+    "/teacher/grading/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pending manual answers in grading order
+         * @description Read-only queue of reachable submitted or timed_out papers' saved answers
+         *     requiring manual grading with no manual score. Graded, voided, in-progress,
+         *     missing saved answers and marked zero scores are excluded. Normal
+         *     AssignmentIDs and Papers reach apply; scope.all widens the existing read.
+         *     Filters apply before complete counts, grouping and the first 200 items.
+         *     Groups order by their earliest known eligible submitted_at ascending,
+         *     all-null groups last, then student UUID or assignment/question UUID tuple.
+         *     Within a group items order by submitted_at ascending nulls last, attempt
+         *     UUID, paper ordinal and frozen question UUID. Only represented groups are
+         *     returned, with full remaining counts even when split at the cap.
+         *     Each supplied reference is independently checked: unknown and foreign
+         *     references answer the same 404, while reachable empty intersections are
+         *     empty successes. studentId selects an already authorized historical paper
+         *     taker, not a student-account target: it requires either a current strict
+         *     student-like account in StudentIDs reach or existing history satisfying
+         *     BOTH AssignmentIDs and Papers reach, independent of status or pending work.
+         *     A privileged account without reached history cannot use the strict branch.
+         *     Membership, counts, reference flags and prefix share one statement snapshot;
+         *     later immutable-content and signed-media enrichment is not a live whole
+         *     response snapshot. Names and titles are current text; question/group keys
+         *     and content are frozen. Grades and completion use existing gradeAttempt
+         *     and finishGrading; this read never writes or finishes a paper.
+         */
+        get: operations["listGradingQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/teacher/assignments/{id}/answers": {
@@ -1058,6 +1410,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teacher/assignments/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy an assignment as a draft
+         * @description Creates a **draft** that pins the same version and keeps the original's
+         *     time limit, attempts, shuffle flags, review options, integrity policy
+         *     and note to students, owned by the caller. Its window opens now and
+         *     lasts as long as the original's (`closesAt - opensAt`). It is assigned
+         *     to `classIds` and to no student by name; students never see a draft.
+         *     The original is not changed.
+         *
+         *     The original must be one the caller reaches, and its version one the
+         *     caller may assign (a published test of their own, or any under
+         *     `scope.all`): otherwise 409 `TEST_NOT_PUBLISHED`. A class the caller
+         *     does not teach answers 400 as an unknown one does.
+         */
+        post: operations["duplicateAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/{id}/item-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * How often students got each question wrong
+         * @description Every question of the pinned version, hardest first, over the papers
+         *     handed in by the students the caller reaches (see `handedIn`). Overdue
+         *     attempts are closed before it is read, as the monitor does. A question
+         *     no paper has a mark for sorts last with a null rate.
+         */
+        get: operations["getItemAnalysis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/assignments/{id}/reopen": {
         parameters: {
             query?: never;
@@ -1074,9 +1483,151 @@ export interface paths {
          *     `closesAt` and its early close, if any, is lifted, so every student
          *     with attempts left can go back in. Only a closed assignment can be
          *     reopened, and only to a moment still ahead. Audited with the reason.
+         *
+         *     An attempt still in progress moves with it, in the same transaction,
+         *     as it does on `extendAssignment`: its deadline becomes the earlier of
+         *     its start plus the student's time limit and the student's own close,
+         *     when that is later than the deadline it has. An attempt whose deadline
+         *     has already passed is over and is not revived.
          */
         post: operations["reopenAssignment"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/{id}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Moves the assignment's `closesAt` later by `minutes`, for everyone. A
+         *     draft, a scheduled and an open assignment can be extended; a **closed**
+         *     one goes through `reopenAssignment` instead and answers
+         *     `ASSIGNMENT_CLOSED` here. Audited with the old and new close, in the
+         *     statement that moves it.
+         *
+         *     `notify` says the teacher wants the students told. It is recorded with
+         *     the audit entry. When it is true, each enabled student of a published
+         *     assignment whose own close the extension changed is sent an
+         *     `assignment.extended` notification naming the close they now have,
+         *     once the extension has committed: a student without an override, and
+         *     one whose override closes before the new close. A student whose
+         *     override closes at or after it keeps the close they had and is told
+         *     nothing. A failure to send is logged and never fails the extension.
+         *
+         *     An attempt already in progress moves with it, in the same transaction:
+         *     its deadline becomes the earlier of its start plus the student's time
+         *     limit and the student's own close, when that is later than the deadline
+         *     it has. A deadline never moves earlier, a student whose own
+         *     override already closes later keeps it, and an attempt whose deadline
+         *     has already passed is over and is not revived. Each attempt moved is
+         *     audited as `attempt.extended`. A student who starts afterwards gets the new
+         *     close, even if the start and the extension run at the same moment.
+         */
+        post: operations["extendAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/{id}/student-overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The overrides on an assignment the caller reaches
+         * @description Every override on the assignment for a student the caller reaches, by
+         *     student name. It is not paged: an assignment holds at most one override
+         *     per targeted student.
+         */
+        get: operations["listStudentOverrides"];
+        /**
+         * @description Gives each named student an override, or changes the one they have: a
+         *     later close, a longer time limit, more attempts, with the reason. It is
+         *     an accommodation, so it can open an assignment that has closed for
+         *     everyone else, for those students alone.
+         *
+         *     A field the request names replaces the stored one and a field it
+         *     leaves out keeps it, so lengthening a student's time does not take
+         *     away the attempts they were given. The reason always replaces; the
+         *     audit log keeps every earlier one. An override is removed with
+         *     `deleteStudentOverride`, not by sending zeros: a request that would
+         *     leave a row changing nothing is a `VALIDATION_FAILED`.
+         *
+         *     `closesAt` must be ahead of the database's clock. `extendBy` adds minutes to the student's
+         *     current close (their override's, when it is later, else the
+         *     assignment's) and is refused with `ASSIGNMENT_CLOSED` for a student
+         *     whose close has passed: a closed assignment is reopened for a student
+         *     with `closesAt`. A request names `extendBy` or `closesAt`, not both,
+         *     and at least one of the four. An override never shortens a close: the
+         *     later of it and the assignment's own is the student's.
+         *
+         *     Every id in `studentIds` must be a student of the assignment the caller
+         *     reaches: in a target class they teach or named on an assignment they
+         *     created, enabled, with a student role. One that is not answers `422
+         *     VALIDATION_FAILED` for the whole request and names the ids in
+         *     `details.studentIds`; nothing is written. A student who does not exist
+         *     and one the caller may not know exist answer the same.
+         *
+         *     Audited per student with the old and new values, in the statement that
+         *     writes them. `notify` is recorded with them. When it is true and the
+         *     request moves a close (`extendBy` or `closesAt`), each student named
+         *     whose override now closes after the assignment's own close is sent an
+         *     `assignment.extended` notification naming their close, once the
+         *     override has committed; more attempts or a longer time limit move no
+         *     close and tell nobody. A failure to send is logged and never fails the
+         *     request.
+         *
+         *     Each named student's attempt in progress moves with the override, as it
+         *     does on `extendAssignment`: its deadline becomes the earlier of its
+         *     start plus the student's time limit and the student's own close, when
+         *     that is later than the deadline it has. An attempt whose deadline has
+         *     already passed is over and is not revived.
+         */
+        put: operations["setStudentOverrides"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/assignments/{id}/student-overrides/{studentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                studentId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Takes the override off one student: they have the assignment's own
+         *     window from then on. An override that does not exist is a 404, as one
+         *     on an assignment or a student the caller does not reach is. Audited
+         *     with the values removed. An attempt in progress keeps its deadline: a
+         *     deadline never moves earlier.
+         */
+        delete: operations["deleteStudentOverride"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1166,11 +1717,21 @@ export interface paths {
         };
         /**
          * Integrity timeline
-         * @description Chronological, with paired durations computed server-side so the client
+         * @description Integrity timeline, with paired durations computed server-side so the client
          *     does not reimplement pairing (§10.4).
          *
-         *     Ordering is `clientSeq` within a session and `occurredAt` across
-         *     sessions, so clock skew cannot scramble a session's internal order.
+         *     Events are grouped by session, ordered by each session’s earliest
+         *     received event time, with session ID breaking ties. Within a session,
+         *     resume events come first and session_takeover events last. Within that
+         *     priority, two events with different, non-null clientSeq values are
+         *     compared by clientSeq; otherwise they are compared by occurredAt, then
+         *     event ID. Current clients derive clientSeq from an attempt-relative
+         *     millisecond offset calibrated from serverTime, never below the tab’s
+         *     stored next sequence. This generally aligns separate tabs with elapsed
+         *     attempt time, but response latency, clock changes and per-tab increments
+         *     can cause reordering or collisions; chronology and uniqueness across
+         *     tabs are not guaranteed. Older counters can overlap newer values and
+         *     generally sort before offset-based events.
          *
          *     **The UI presenting this must be neutral** — no red banners, no
          *     "CHEATING DETECTED". These signals are evidence for a conversation, not
@@ -1351,8 +1912,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The five counts §8 needs and spec §15 has no endpoint for, over what the caller reaches. One round trip. */
+        /** @description The dashboard in the caller's own teaching scope, Admin included; the repository wide scope is never requested here. */
         get: operations["getDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Three nav counts in the caller's own teaching scope, Admin included; answersToGrade is null without teaching.grading.
+         *
+         *     `audience` narrows `unreadNotifications` to one console's kinds and
+         *     changes neither of the other two counts. The teacher's bell passes
+         *     `teacher`; without it the count is every kind the caller has.
+         */
+        get: operations["getTeacherSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1380,6 +1964,51 @@ export interface paths {
          *     does, and nothing is created.
          */
         post: operations["createStudent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/students/reset-passwords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset the passwords of up to 40 students at once
+         * @description Does for each student what `resetStudentPassword` does, one transaction
+         *     each: a new temporary password, `mustChangePassword` set, every refresh
+         *     family revoked, the session epoch moved, one audit row. The same guards
+         *     apply to each student, in the same order (`student` in the caller's reach
+         *     and student-like, the subset rule, then the shared-student rule), so a
+         *     batch cannot do what one reset cannot.
+         *
+         *     A student that fails does not stop the others: `failed` names it with
+         *     `NOT_FOUND` (another teacher's student, a disabled one, a missing id, an
+         *     account that is not a student, all alike), `FORBIDDEN` (the student's
+         *     permissions are not a subset of the caller's), `STUDENT_SHARED` (someone
+         *     else also reaches the student, so only a holder of `people.users.manage`
+         *     may reset them) or `INTERNAL` (a fault with that student alone, logged on
+         *     the server). The answer is 200 whenever the request was accepted, even
+         *     when every student failed. `items` and `failed` keep the order of
+         *     `studentIds`.
+         *
+         *     Each `temporaryPassword` is returned **once** and stored nowhere: the
+         *     server keeps only its hash. A reset that committed before the connection
+         *     dropped has lost its password for good; those students are on a
+         *     temporary password, so `listStudents` with `mustChangePassword=true`
+         *     lists them for another reset. The answer is never cached. Repeating a
+         *     request resets the same students again with new passwords.
+         *
+         *     Limited to 2 a minute and 10 an hour per signed-in user, a call counting
+         *     once however many students it names.
+         */
+        post: operations["resetStudentsPasswords"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1500,6 +2129,17 @@ export interface paths {
          * @description Classes, newest first. Paginated and searchable like every other list:
          *     §1.3 promised single-digit classes, and a development database already
          *     holds over a hundred, which is what broke the class pickers.
+         *
+         *     **Codes.** Each item's `joinCode.code` is a bearer secret, so it is opened
+         *     only when the request says `withCodes=true`, which the class cards send and
+         *     the pickers do not. It is then the code exactly when `getJoinCode` would
+         *     read it for the same caller and class: the caller holds
+         *     `teaching.classes.write`, reaches the class, and the code is readable (not
+         *     a legacy code, and sealed under a key this server holds). In every other
+         *     case `code` is `null`, a missing permission included, which is not an
+         *     error. The answer is never cached, whether or not codes are asked for, and
+         *     the operation is limited like the others that reveal one: 60 a minute and
+         *     600 an hour per user.
          */
         get: operations["listClasses"];
         put?: never;
@@ -1528,7 +2168,7 @@ export interface paths {
         delete: operations["deleteClass"];
         options?: never;
         head?: never;
-        /** @description Edits name and description, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that. */
+        /** @description Edits name, description, schedule and room, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that. */
         patch: operations["updateClass"];
         trace?: never;
     };
@@ -1624,6 +2264,15 @@ export interface paths {
          * @description Revoke-and-issue happens in **one transaction**, so the one-active-code-
          *     per-class constraint cannot be violated. Previously enrolled students are
          *     unaffected (§6.1).
+         *
+         *     An archived class is refused with `409 CLASS_ARCHIVED` and nothing is
+         *     written: its current code, if any, stays as it was. Nobody can join an
+         *     archived class, so a code issued for one would be a dead secret that
+         *     reads as live. The archived check runs after the class has been found
+         *     for the caller, so another teacher's archived class answers 404 exactly
+         *     as a missing one does. Restore the class (`updateClass` with
+         *     `archived: false`) to rotate again. `revokeJoinCode` stays allowed on an
+         *     archived class.
          *
          *     The plaintext code is returned here, and `getJoinCode` reads it again.
          *     It is stored encrypted under a key the database does not hold, with a
@@ -1786,6 +2435,12 @@ export interface paths {
          *     `acceptedAnswers` and no `transcript` — at any depth. This is asserted by
          *     a contract test over this file, a Go unit test that walks the live JSON,
          *     and E2E 9 (§13.5, §14). None of those three may be weakened.
+         *
+         *     A tab that names a session the attempt no longer has is answered with
+         *     the paper and `superseded: true`: it may read and may not write, until
+         *     the student continues the attempt there (`startOrResumeAttempt`). That
+         *     answer replaces no beacon token and records nothing. A tab that names
+         *     the attempt's session, or none, is answered as the tab that holds it.
          */
         get: operations["getAttempt"];
         put?: never;
@@ -1999,6 +2654,194 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notifications, newest first
+         * @description The caller's own notifications and nobody else's, read or unread,
+         *     newest first. A notification first written more than 180 days ago is
+         *     deleted, once a day.
+         *
+         *     Before it reads, the server writes the notifications the passing of
+         *     time has earned the caller, at most once in five minutes: an
+         *     assignment that opened, a close a day or an hour away, an assignment
+         *     about to close with students still to hand in, and a result an
+         *     after-close release has made ready. A moment older than seven days is
+         *     not made up, and one the caller already holds is left as it is.
+         *
+         *     Paged by a cursor, not by a page number: ask again with `before` set
+         *     to `nextBefore` for the next older page. Ids are time-ordered, so a
+         *     notification written while the caller pages never moves a row from one
+         *     page to the next.
+         */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark the caller's notifications read
+         * @description With `ids`, marks those of the caller's notifications that are unread;
+         *     without it, every unread one. A notification already read keeps the
+         *     time it was first read.
+         *
+         *     It marks the caller's own notifications only. An id that is another
+         *     user's, already read or not a notification at all is skipped, and the
+         *     answer is the same 204 whatever matched, so it tells the caller
+         *     nothing about an id that is not theirs.
+         *
+         *     With `audience`, only that console's kinds are marked, with `ids` or
+         *     without: an id of the other console's kind is skipped like any other
+         *     id that does not match, and "every unread one" becomes every unread
+         *     one of that console. Left out, every kind, as before.
+         */
+        post: operations["markNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update your stored preferences
+         * @description Merges supplied top-level keys into the caller's stored preferences;
+         *     assignmentDefaults replaces that whole nested object. False is a
+         *     supplied value and an empty object is a no-op. Null and unknown keys
+         *     are refused. Raw request bytes and the normalized merged JSONB object
+         *     each have an inclusive 8192-byte cap; exceeding either answers
+         *     400 VALIDATION_FAILED after the existing authentication gates.
+         */
+        patch: operations["updatePreferences"];
+        trace?: never;
+    };
+    "/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your profile photo
+         * @description Replaces the caller's photo. The file is a PNG or a JPEG of at most
+         *     2 MiB, and each side is between 200 and 2048 pixels. The server stores
+         *     a 256 x 256 PNG made from the centred square of the upload, so the
+         *     original file, its metadata (EXIF, ICC, comments) and its name are
+         *     never kept. The response is the whole `CurrentUser`, whose `avatarUrl`
+         *     names the new photo; the previous one is deleted.
+         *
+         *     Checked in this order, each before the next costs anything: the size,
+         *     the type from the first bytes (the part's `Content-Type` and the file's
+         *     extension are never read), the image header, the dimensions and the
+         *     memory the image would need, and only then the decode. At most two
+         *     images are decoded at a time across the server. The caller may set a
+         *     photo ten times an hour.
+         *
+         *     The file may be exactly 2 MiB; the request may carry 16 KiB more than
+         *     that for the multipart framing, so a file of 2 MiB and one byte is
+         *     refused by the size check with `MEDIA_TOO_LARGE`, and a request far
+         *     beyond it is cut off before the handler with the same answer.
+         */
+        put: operations["setAvatar"];
+        post?: never;
+        /**
+         * Remove your profile photo
+         * @description Clears the caller's photo and deletes its object, best effort. A caller
+         *     with no photo gets the same answer. The response is the whole
+         *     `CurrentUser`, without `avatarUrl`.
+         */
+        delete: operations["deleteAvatar"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The counts the caller's shell shows
+         * @description How many of the caller's notifications are unread: the dot on the
+         *     bell. One count over the caller's own rows, cheap enough to poll. It
+         *     writes the caller's due-time notifications first, exactly as
+         *     `listNotifications` does, so the count includes them.
+         *
+         *     `audience` counts one console's kinds only (`NotificationAudience`),
+         *     so the student's bell does not light for a teacher kind the same
+         *     account holds, nor the reverse. Left out, every kind.
+         */
+        get: operations["getMySummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notification switches
+         * @description All five switches, whatever the caller's role. One the caller never
+         *     saved answers its default: `inApp` true and `email` false.
+         */
+        get: operations["getNotificationPreferences"];
+        /**
+         * Replace the caller's notification switches
+         * @description Takes all five switches at once, each event exactly once and in any
+         *     order, and stores them for the caller. A client that draws only some
+         *     of them sends the others back as it read them.
+         */
+        put: operations["updateNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2177,9 +3020,20 @@ export interface components {
          *     `INVALID_CREDENTIALS` on the sign-in page and `PASSWORD_UNCHANGED` on
          *     the change-password forms. The server still sends a localised `message`
          *     for both, for any other client.
+         *
+         *     Two codes answer requests this contract does not describe, with this
+         *     envelope: `NOT_FOUND` (404) for a path outside it, and
+         *     `METHOD_NOT_ALLOWED` (405, with an `Allow` header) for a path of it
+         *     under a method the path does not serve. `HEAD` is served as `GET`
+         *     without a body on the operations that need no token.
+         *
+         *     `REQUEST_INCOMPLETE` (408) answers a request whose body the server
+         *     could not finish reading, on any operation that takes a body other than
+         *     a streamed upload. It says nothing about the body: the same request may
+         *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -2187,24 +3041,24 @@ export interface components {
         ErrorDetail: {
             code: components["schemas"]["ErrorCode"];
             /**
-             * @description Copy for the user, written by the server; `vi` by default.
-             *     Localised from `Accept-Language` where an operation's own handler
-             *     writes the refusal, for: the auth, account, student and class
-             *     operations; the media and Word import operations; a refused Start
-             *     or Continue of a test and a result that cannot be shown yet; the
-             *     `RESOURCE_REFERENCED` refusal of `createDraftFromTestVersion`; the
-             *     maintenance answer; and request validation. The answers shared
-             *     middleware writes on every operation (401, 403, 413, 429, 500,
-             *     501, and the 400 for a body that cannot be read) and every other
-             *     refusal a handler writes are Vietnamese until issue 284 is fixed.
-             *     Display it; do not build copy from `code`, except for the two
-             *     codes the `ErrorCode` description names.
+             * @description Copy for the user, written by the server in the language
+             *     `Accept-Language` prefers: Vietnamese by default, including when
+             *     the header is absent or names neither language, and English when
+             *     it prefers English. Display it; do not build copy from `code`,
+             *     except for the two codes the `ErrorCode` description names.
              * @example Mã lớp không hợp lệ.
              */
             message: string;
             /**
              * @description Shape depends on `code`. Field-level validation errors land here
              *     as `{ field: message }` for react-hook-form.
+             *
+             *     The per-field sentences the rules word for a refused question,
+             *     test or assignment, and the `message` of each publish violation
+             *     they produce (every one but that of a test with no part at all),
+             *     are Vietnamese whatever the header says (issue 284). A per-field
+             *     sentence the operation words itself follows the header, as
+             *     `message` does.
              */
             details?: {
                 [key: string]: unknown;
@@ -2234,15 +3088,30 @@ export interface components {
             role: components["schemas"]["ImportSourceRole"];
             filename: string;
             /** @enum {string} */
-            format: "docx" | "doc" | "pdf";
+            format: "docx" | "doc" | "pdf" | "text";
+            characters?: number;
             /** Format: int64 */
             bytes: number;
             sha256: string;
             uploadedBy: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];
+        } & ({
+            /** @enum {unknown} */
+            format?: "text";
+        } | {
+            /** @enum {unknown} */
+            format?: "docx" | "doc" | "pdf";
+        });
+        PasteImportSource: {
+            uploadId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            expectedRevision: number;
+            text: string;
         };
         /**
-         * @description Belongs to the teacher who created it (`createdBy`); every import with `scope.all`.
+         * @description Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+         *     any import by id; the history (`listWordImports`) holds only the
+         *     caller's own.
          *     Sources are private originals, never learner media. Source revision zero
          *     means no completed source set. Upload completion does not mean recognition.
          *     Pending uploads are durable reservations and cannot be downloaded or processed.
@@ -2280,6 +3149,65 @@ export interface components {
              *     touched it for the idle period, rather than a teacher cancelling it.
              */
             closedIdle?: boolean;
+        };
+        /**
+         * @description History-only current draft counts; unknown for a draft untouched since deploy.
+         *     Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+         *     any import by id; the history (`listWordImports`) holds only the
+         *     caller's own.
+         *     Sources are private originals, never learner media. Source revision zero
+         *     means no completed source set. Upload completion does not mean recognition.
+         *     Pending uploads are durable reservations and cannot be downloaded or processed.
+         */
+        WordImportHistoryItem: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            status: components["schemas"]["ImportStatus"];
+            /** Format: int64 */
+            revision: number;
+            /** Format: int64 */
+            sourceRevision: number;
+            sources: components["schemas"]["ImportSource"][];
+            pendingUploads: number;
+            createdBy: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            run?: components["schemas"]["ImportRun"];
+            /**
+             * Format: int64
+             * @description Zero until processing has produced a reviewable draft.
+             */
+            draftRevision?: number;
+            /** @description The draft test created by commit. */
+            testId?: components["schemas"]["Uuid"];
+            /**
+             * @description When retention removed this import's original files and review draft.
+             *     Set only on committed or cancelled imports. Afterwards the history row
+             *     and source metadata remain, but downloads, the source view and the
+             *     review answer 410 IMPORT_FILES_REMOVED.
+             */
+            filesRemovedAt?: components["schemas"]["Timestamp"];
+            /**
+             * @description Present and true when retention closed this import because nobody
+             *     touched it for the idle period, rather than a teacher cancelling it.
+             */
+            closedIdle?: boolean;
+            reviewCounts: components["schemas"]["ImportReviewCounts"] | null;
+        };
+        /** @description Findings from the current review body, never a pending reprocessing candidate. */
+        ImportReviewCounts: {
+            needsAction: number;
+            toConfirm: number;
+        };
+        /** @description Counts under the same search and caller-owned scope, ignoring the status filter. */
+        ImportStatusFacets: {
+            all: number;
+            /** @description awaiting_sources, queued, processing and committing together. */
+            processing: number;
+            needsReview: number;
+            failed: number;
+            committed: number;
+            cancelled: number;
         };
         /** @description The latest processing run. errorCode names why a failed run stopped; keyPaper is the answer-key paper the teacher chose for it, absent when recognition picked one. */
         ImportRun: {
@@ -2338,6 +3266,7 @@ export interface components {
             idleDays: number;
         };
         ImportLimits: {
+            pasteMaxCharacters: number;
             /** Format: int64 */
             maxBytes: number;
             /** @description Accepted file extensions; doc appears only when legacy conversion is enabled. */
@@ -2540,12 +3469,6 @@ export interface components {
             blocks: components["schemas"]["ImportSourceBlock"][];
         };
         /**
-         * @description Guards are written so a third role (`teacher`, limited admin) can be
-         *     added without restructuring (§1.1).
-         * @enum {string}
-         */
-        Role: "admin" | "student";
-        /**
          * @description The permission catalogue, in the order of the Roles & permissions
          *     matrix, and equal to the rows of `app.permissions`. Each key and the
          *     matrix row it is:
@@ -2573,7 +3496,13 @@ export interface components {
          *     no role is granted them, and only the Admin holds them. The Admin
          *     holds every key, and `learning.take_tests` only when that cell is
          *     turned on. `scope.all` reads and edits any teacher's content, classes
-         *     and people.
+         *     and people by id, and widens the lists of classes, students and
+         *     attempts and the dashboard's figures to every teacher's. It does not
+         *     widen the teaching workspace's six content lists: `listTests`,
+         *     `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`
+         *     and `listAssignments`, with their facets, tags and counts, hold the
+         *     caller's own rows for every caller (for assignments, those the caller
+         *     created and those that target a class the caller teaches).
          * @enum {string}
          */
         PermissionKey: "content.tests.write" | "content.tests.publish" | "content.questions.write" | "content.media.write" | "content.share" | "teaching.classes.write" | "teaching.assignments.write" | "teaching.grading" | "teaching.attempts.intervene" | "teaching.attendance" | "people.students.read" | "people.students.create" | "people.students.reset_password" | "people.users.manage" | "people.roles.manage" | "system.audit.read" | "system.settings.write" | "learning.take_tests" | "scope.all" | "system.api_reference" | "system.data_export" | "system.leads";
@@ -2582,13 +3511,29 @@ export interface components {
             /** Format: email */
             email: string;
             fullName: string;
-            role: components["schemas"]["Role"];
+            displayName?: string;
+            /** Format: uri */
+            avatarUrl?: string;
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
             linkedProviders: "google"[];
             /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description Stored account preferences; omitted keys use client defaults without materializing them. */
+        UserPreferences: {
+            /** @enum {string} */
+            theme?: "light" | "dark" | "system";
+            compactTables?: boolean;
+            largerTestText?: boolean;
+            assignmentDefaults?: {
+                durationMinutes?: number;
+                shuffleQuestions?: boolean;
+                showScore?: boolean;
+                blockCopyPaste?: boolean;
+                requireFullscreen?: boolean;
+            };
         };
         /**
          * @description A console the signed-in user may enter: `teacher` for any `content.*`,
@@ -2606,16 +3551,26 @@ export interface components {
          *     extended with `allOf` (issue #41). `User` stays where a response
          *     describes someone else, so a student's permissions never reach a
          *     teacher's payload.
-         *
-         *     `role` keeps its two legacy values, derived from the role, so a tab
-         *     still open on v0.7.0 keeps routing.
          */
         CurrentUser: {
             id: components["schemas"]["Uuid"];
             /** Format: email */
             email: string;
             fullName: string;
-            role: components["schemas"]["Role"];
+            displayName?: string;
+            /**
+             * Format: uri
+             * @description The caller's profile photo as a presigned `GET`, valid 24 hours and
+             *     minted again on every response that carries it. Absent when the
+             *     caller has no photo. Set and cleared by `setAvatar` and
+             *     `deleteAvatar`.
+             */
+            avatarUrl?: string;
+            phone?: string;
+            /** @enum {string} */
+            locale?: "vi" | "en";
+            timeZone?: string;
+            preferences?: components["schemas"]["UserPreferences"];
             /** @description false for Google-only accounts. Gates the unlink affordance. */
             hasPassword: boolean;
             linkedProviders: "google"[];
@@ -2649,6 +3604,59 @@ export interface components {
         PublishConflict: {
             error: components["schemas"]["ErrorDetail"];
             violations?: components["schemas"]["PublishValidationError"][];
+        };
+        /** @description Complete filtered pending counts with a deterministic prefix of at most 200 saved answers. */
+        GradingQueue: {
+            /** @description Only groups represented in items, in queue order; remaining counts each group's complete filtered work. */
+            groups: components["schemas"]["GradingQueueGroup"][];
+            items: components["schemas"]["GradingQueueItem"][];
+            answersRemaining: number;
+            /** @description Distinct student UUIDs across all filtered eligible answers. */
+            studentsWaiting: number;
+        };
+        GradingQueueGroup: {
+            /** @description Canonical lowercase student UUID, or assignmentUUID:versionQuestionUUID in question mode. */
+            key: string;
+            /** @enum {string} */
+            kind: "student" | "question";
+            /** @description Raw current student full name or decimal paper question number for client localization. */
+            label: string;
+            /** @description Live assignment title of this group's first returned item. */
+            sub: string;
+            /** @description Complete filtered eligible answer count; may exceed the returned prefix for this group. */
+            remaining: number;
+        };
+        /** @description One saved pending-manual answer and its frozen teacher question; identity is attemptId plus questionId. */
+        GradingQueueItem: {
+            attemptId: components["schemas"]["Uuid"];
+            questionId: components["schemas"]["Uuid"];
+            assignmentId: components["schemas"]["Uuid"];
+            assignmentTitle: string;
+            studentId: components["schemas"]["Uuid"];
+            /** @description Raw current full name */
+            studentName: string;
+            /** @description One-based section/question paper order */
+            questionNumber: number;
+            type: components["schemas"]["QuestionType"];
+            prompt: string;
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
+            answer: components["schemas"]["Answer"];
+            points: components["schemas"]["Points"];
+            /**
+             * Format: double
+             * @description Manual score; null while this answer remains in the pending queue.
+             */
+            score: number | null;
+            comment: string | null;
+            media?: components["schemas"]["MediaAsset"] | null;
+            audio?: components["schemas"]["AudioPolicy"] | null;
+            transcript?: string | null;
+            options?: components["schemas"]["AdminQuestionOption"][];
+            blanks?: components["schemas"]["AdminQuestionBlank"][];
+            explanation?: string | null;
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            sampleAnswer?: string | null;
+            sharedContext?: components["schemas"]["SharedReviewContext"];
         };
         /** @description One paper's answer to the question G-04 is grading. */
         QuestionAnswerRow: {
@@ -2694,9 +3702,22 @@ export interface components {
          * @enum {string}
          */
         ReferencedBy: "assignments" | "attempts" | "audit" | "members" | "owned_content" | "other";
+        MediaReplacementCounts: {
+            questions: number;
+            groups: number;
+        };
+        MediaReplacement: {
+            asset: components["schemas"]["LibraryAsset"];
+            /** @description Distinct live question rows and groups actually changed; question rows differ from LibraryAsset.questionCount's derived usage. */
+            repointed: components["schemas"]["MediaReplacementCounts"];
+            /** @description Other owners' live question rows and groups still using the old asset; excludes versions, import reviews and late same-owner bindings. */
+            left: components["schemas"]["MediaReplacementCounts"];
+        };
         /**
-         * @description A MediaAsset as the teacher's media library lists it, with how many published
-         *     versions reference it. Flat for the same reason (issue #41) -- this is
+         * @description A MediaAsset as the teacher's media library lists it: with the name the
+         *     library shows, its default play limit, an image's size in pixels, how
+         *     many questions use the file and how many published versions reference
+         *     it. Flat for the same reason (issue #41) -- this is
          *     the site that was actually shipping a body its own contract rejected.
          */
         LibraryAsset: {
@@ -2712,6 +3733,34 @@ export interface components {
             durationMs?: number | null;
             originalFilename: string;
             createdAt: components["schemas"]["Timestamp"];
+            /**
+             * @description The name the library shows: the one `updateMedia` stored, or
+             *     `originalFilename` while none was set.
+             */
+            displayName: string;
+            /**
+             * @description The default play limit stored with this audio, for a client to
+             *     start a question's own limit from when it attaches the file; the
+             *     server applies it to nothing. `0` is unlimited and `null` is not
+             *     set. Always `null` for an image.
+             */
+            defaultMaxPlays: number | null;
+            /**
+             * @description An image's width in pixels. `null` for audio, and for an image
+             *     whose header could not be read; `width` and `height` are `null`
+             *     together.
+             */
+            width: number | null;
+            /** @description An image's height in pixels; `null` exactly when `width` is. */
+            height: number | null;
+            /**
+             * @description How many questions use the file, each counted once: a question
+             *     that is not deleted and attaches it, and every member that is not
+             *     deleted of a question group whose recordings or materials hold it.
+             *     Any owner's questions count. A published version, and a group with
+             *     no member, add nothing here; `usageCount` counts versions.
+             */
+            questionCount: number;
             /** @description Published-version references. Non-zero blocks delete (§8). */
             usageCount?: number;
             /**
@@ -2721,9 +3770,51 @@ export interface components {
             usedIn?: components["schemas"]["ReferencingTest"][];
         };
         /**
+         * @description How many files of the caller's library each tab holds for the CURRENT
+         *     search, ignoring the `kind` and `unused` filters themselves, so that
+         *     choosing a tab does not zero the others. `unused` counts the files
+         *     whose `questionCount` is zero.
+         */
+        MediaFacets: {
+            all: number;
+            audio: number;
+            image: number;
+            unused: number;
+        };
+        /**
+         * @description The bytes the caller's whole library holds, whatever the search and
+         *     the filters, beside the quota an upload is measured against. A deleted
+         *     or replaced file counts in neither figure.
+         */
+        MediaUsage: {
+            /** Format: int64 */
+            audioBytes: number;
+            /** Format: int64 */
+            imageBytes: number;
+            /**
+             * Format: int64
+             * @description The most one owner's library may hold, as the deployment sets it.
+             */
+            quotaBytes: number;
+        };
+        /**
+         * @description What `updateMedia` changes. A property left out keeps its stored
+         *     value.
+         */
+        MediaUpdate: {
+            /** @description Trimmed by the server; a name that is blank once trimmed is refused. */
+            displayName?: string;
+            /**
+             * @description `0` is unlimited and `null` clears the limit. A number is refused
+             *     for an image.
+             */
+            defaultMaxPlays?: number | null;
+        };
+        /**
          * @description The intro screen's card: what StudentAssignmentCard carries, without
          *     `classId`, `classIds` and `liveAnsweredCount`, plus the policies §10.2 states in
-         *     plain Vietnamese before the student starts.
+         *     plain Vietnamese before the student starts. The window it states is the
+         *     student's own, as in StudentAssignmentCard.
          */
         StudentAssignmentDetail: {
             id: components["schemas"]["Uuid"];
@@ -2747,8 +3838,14 @@ export interface components {
             /** Format: date-time */
             lastSubmittedAt?: string | null;
             score?: components["schemas"]["AttemptScore"] | null;
+            /**
+             * @description On the intro's detail these are the stored flags, and `release` says
+             *     when they apply; they become effective only on the student's result.
+             */
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
+            /** @description The teacher's note for the students, plain text. Null or absent when there is none. */
+            studentNote?: string | null;
             /** @description Any question audio or shared recording on the assigned frozen version. */
             hasAudio: boolean;
             /** @description A shared recording has one allowance across its group's questions; absent means false for legacy readers. */
@@ -2845,6 +3942,20 @@ export interface components {
             classes: components["schemas"]["StudentClass"][];
             stats: components["schemas"]["StudentStats"];
         };
+        /** @description One student `resetStudentsPasswords` reset. The password is shown once. */
+        StudentPasswordReset: {
+            studentId: components["schemas"]["Uuid"];
+            fullName: string;
+            /** Format: email */
+            email: string;
+            temporaryPassword: string;
+        };
+        /** @description One student `resetStudentsPasswords` did not reset, and why. */
+        StudentResetFailure: {
+            studentId: components["schemas"]["Uuid"];
+            /** @description One of `NOT_FOUND`, `FORBIDDEN`, `STUDENT_SHARED` or `INTERNAL`. */
+            code: components["schemas"]["ErrorCode"];
+        };
         /**
          * @description G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a page
          *     cannot express, in the same shape as TestStatusFacets. Both count only
@@ -2865,10 +3976,47 @@ export interface components {
             expiresIn: number;
             user: components["schemas"]["CurrentUser"];
         };
+        /**
+         * @description One sign-in of the caller that is still live: a refresh-token family
+         *     that is neither revoked nor expired (§5.2). It is the caller's own and
+         *     nobody else's. It carries no IP address, no raw user agent and nothing
+         *     that could be presented as a credential.
+         *
+         *     `device` is computed from the user agent when the list is read and is
+         *     made only of names from a closed list, "Mac · Chrome", "Mac" or
+         *     "Chrome", never of any part of the header itself. It is null, and
+         *     `deviceKind` is `unknown`, when neither the system nor the browser is
+         *     recognised; the client words that case in the reader's language.
+         *     `deviceKind` picks the icon. An iPad that asks for desktop sites sends
+         *     a Mac user agent and reads as one.
+         *
+         *     `location` is "City, CC", the place of the request that last signed in
+         *     or refreshed this session, taken from the edge's location headers and
+         *     only where the server trusts them. It is null otherwise. `lastUsedAt`
+         *     is that same moment, so it is at most one access-token lifetime old.
+         */
+        Session: {
+            familyId: components["schemas"]["Uuid"];
+            device: string | null;
+            /** @enum {string} */
+            deviceKind: "computer" | "phone" | "tablet" | "unknown";
+            location: string | null;
+            lastUsedAt: components["schemas"]["Timestamp"];
+            /**
+             * @description True for the session the request's refresh cookie belongs to. False
+             *     for every session when the request carries no cookie that names a
+             *     live session of the caller.
+             */
+            current: boolean;
+        };
         Class: {
             id: components["schemas"]["Uuid"];
             name: string;
             description?: string | null;
+            /** @description When the class meets, as its teacher worded it ("Thứ 3, 5 · 18:00"). Plain text, trimmed; `null` for none. */
+            scheduleLabel?: string | null;
+            /** @description Where the class meets. Plain text, trimmed; `null` for none. */
+            room?: string | null;
             studentCount: number;
             /** @description Assignments whose derived status is `open` and that target this class (G-08). */
             openAssignmentCount: number;
@@ -2877,6 +4025,46 @@ export interface components {
             archivedAt: components["schemas"]["Timestamp"] | null;
             /** @description Teacher responses only. Never present on a `/app/*` response. */
             joinCode?: components["schemas"]["JoinCodeInfo"] | null;
+            /**
+             * @description Teacher responses only. Never present on a `/app/*` response: a student
+             *     does not see how the class did. The sum of earned points over the sum of
+             *     total points of the best graded attempt (the highest score, the later
+             *     attempt on a tie) of each **current member** on each assignment that
+             *     targets the class, with the manual answers still unmarked in those
+             *     attempts as `pendingManual`. A student who has left the class counts for
+             *     nothing. Voided attempts and attempts not yet graded are ignored. `null`
+             *     when nothing is graded yet.
+             */
+            averageScore?: components["schemas"]["AttemptScore"] | null;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description A row of `listClasses`: every property of `Class`, with `joinCode` read in
+         *     full. It repeats `Class` rather than extending it so that no other
+         *     operation's response carries a readable code; a test holds the two property
+         *     lists together. `joinCode.code` is the code when the request asked for codes
+         *     with `withCodes`, the caller holds `teaching.classes.write`, and
+         *     `getJoinCode` would read that class's code for that caller; otherwise it is
+         *     `null`.
+         */
+        ClassListItem: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            description?: string | null;
+            /** @description When the class meets, as its teacher worded it ("Thứ 3, 5 · 18:00"). Plain text, trimmed; `null` for none. */
+            scheduleLabel?: string | null;
+            /** @description Where the class meets. Plain text, trimmed; `null` for none. */
+            room?: string | null;
+            studentCount: number;
+            /** @description Assignments whose derived status is `open` and that target this class (G-08). */
+            openAssignmentCount: number;
+            selfJoinEnabled: boolean;
+            /** @description Set once archived. An archived class leaves every picker and keeps its record (G-08). */
+            archivedAt: components["schemas"]["Timestamp"] | null;
+            /** @description The active code with its metadata, or `null` for a class with none. Teacher responses only. */
+            joinCode?: components["schemas"]["JoinCode"] | null;
+            /** @description As `Class.averageScore`; `null` when nothing is graded yet. */
+            averageScore: components["schemas"]["AttemptScore"] | null;
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
@@ -2940,8 +4128,9 @@ export interface components {
             joinCodeHint?: string | null;
         };
         /**
-         * @description A class as its student sees it (S-10): the name, who teaches it and
-         *     when they joined. Never the join code or the roster.
+         * @description A class as its student sees it (S-10): the name, who teaches it, when
+         *     and where it meets, and when they joined. Never the join code, a count,
+         *     the roster or an average.
          */
         MyClass: {
             id: components["schemas"]["Uuid"];
@@ -2949,10 +4138,22 @@ export interface components {
             description: string | null;
             /** @description The display name of the class's own teacher. */
             teacherName: string | null;
+            /** @description The teacher's profile photo, a presigned GET valid 24 hours; `null` when the teacher has none or no store is configured. */
+            teacherAvatarUrl: string | null;
+            /** @description When the class meets, as its teacher worded it. */
+            scheduleLabel: string | null;
+            /** @description Where the class meets. */
+            room: string | null;
             joinedAt: components["schemas"]["Timestamp"];
         };
         /** @enum {string} */
         MediaKind: "image" | "audio";
+        /**
+         * @description A stored file as a question, a preview and a student's paper carry it.
+         *     `x-media-limits` is what an upload may be (§11.1): audio of at most
+         *     `audioBytes` and `durationMs`, an image of at most `imageBytes`. The
+         *     server's constants and the web's pre-check are tested against it.
+         */
         MediaAsset: {
             id: components["schemas"]["Uuid"];
             kind: components["schemas"]["MediaKind"];
@@ -2965,6 +4166,7 @@ export interface components {
             url: string;
             /** @enum {string} */
             mimeType: "audio/mpeg" | "audio/mp4" | "audio/aac" | "image/png" | "image/jpeg" | "image/webp";
+            /** @description At most `audioBytes` for audio, and `imageBytes` for an image. */
             bytes: number;
             /** @description Audio only, and always present for audio. Probed server-side (§11.1). */
             durationMs?: number | null;
@@ -2973,6 +4175,10 @@ export interface components {
         };
         /** @enum {string} */
         QuestionType: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer";
+        /** @enum {string} */
+        QuestionLevel: "pre_a1" | "a1" | "a2" | "b1" | "b2" | "c1" | "c2";
+        /** @enum {string} */
+        QuestionSkill: "grammar" | "vocabulary" | "reading" | "listening" | "writing" | "speaking";
         /** @description Present if and only if the attached asset is audio (§7). */
         AudioPolicy: {
             /**
@@ -3169,10 +4375,29 @@ export interface components {
             true_false: number;
             fill_blank: number;
             short_answer: number;
+            levels: {
+                pre_a1: number;
+                a1: number;
+                a2: number;
+                b1: number;
+                b2: number;
+                c1: number;
+                c2: number;
+            };
+            skills: {
+                grammar: number;
+                vocabulary: number;
+                reading: number;
+                listening: number;
+                writing: number;
+                speaking: number;
+            };
         };
         AdminQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
+            level: components["schemas"]["QuestionLevel"] | null;
+            skill: components["schemas"]["QuestionSkill"] | null;
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             /**
              * @description Legacy Markdown, or exact plain projection when promptContent is present. Markdown is rendered with rehype-sanitize — never
@@ -3181,6 +4406,8 @@ export interface components {
              */
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /** @description The alt text a teacher wrote for the question's image; absent or null when there is none, and always when `media` is not an image. */
+            mediaAlt?: string | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
             transcript?: string | null;
             options?: components["schemas"]["AdminQuestionOption"][];
@@ -3256,6 +4483,8 @@ export interface components {
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /** @description The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key. */
+            mediaAlt?: string | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
@@ -3312,6 +4541,8 @@ export interface components {
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /** @description The alt text frozen with the version for the question's image, as on `StudentQuestion`. Present under every review policy: the picture was already on the paper. */
+            mediaAlt?: string | null;
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
             points: components["schemas"]["Points"];
@@ -3421,12 +4652,20 @@ export interface components {
             group: components["schemas"]["QuestionGroup"];
             questions: components["schemas"]["GroupQuestionInput"][];
         };
+        StoredQuestionGroupBundle: {
+            group: components["schemas"]["QuestionGroup"];
+            questions: components["schemas"]["StoredGroupQuestionInput"][];
+        };
         GroupQuestionInput: {
             id: components["schemas"]["Uuid"];
             input: components["schemas"]["QuestionInput"];
         };
+        StoredGroupQuestionInput: {
+            id: components["schemas"]["Uuid"];
+            input: components["schemas"]["StoredQuestionInput"];
+        };
         StoredQuestionGroup: {
-            bundle: components["schemas"]["QuestionGroupBundle"];
+            bundle: components["schemas"]["StoredQuestionGroupBundle"];
             /** Format: uuid */
             ownerSectionId: string | null;
             /** Format: int64 */
@@ -3505,6 +4744,16 @@ export interface components {
             /** @description Complete mixed order when the section has shared groups; absent on historical standalone outlines. */
             units?: components["schemas"]["DraftSectionUnit"][];
         };
+        /**
+         * @description The assignments that name any version of a test, by derived status
+         *     (`AssignmentStatus`), whoever created them. `live` counts the `open`
+         *     ones. Drafts are not counted. Backs the tests card's "2 live".
+         */
+        TestAssignmentCounts: {
+            live: number;
+            scheduled: number;
+            closed: number;
+        };
         Test: {
             id: components["schemas"]["Uuid"];
             title: string;
@@ -3512,10 +4761,38 @@ export interface components {
             status: components["schemas"]["TestStatus"];
             /** @description 0 while never published. A `published` test always has ≥ 1. */
             currentVersion: number;
+            /**
+             * @description Read-only: the server computes it and a client never sends it. The
+             *     number the next publish of this test will take: one more than
+             *     the highest version ever published, whether or not that version
+             *     still exists, so it is 1 for a test never published. Deleting the
+             *     newest version does not lower it, and the publish and this field
+             *     read the same count. It is not `currentVersion + 1` and not the
+             *     highest listed version + 1, and a client that names the version
+             *     about to be published reads it from here.
+             */
+            nextVersion: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
             /** @description Draft questions with their own audio or a shared group recording, counted once per question. Backs A-03's headphone badge. */
             audioCount: number;
+            /** @description Sorted distinct non-null skills of the current draft, including grouped members. */
+            skills: components["schemas"]["QuestionSkill"][];
+            assignments: components["schemas"]["TestAssignmentCounts"];
+            /**
+             * @description How many changes the draft holds against the test's latest version:
+             *     the length of `getTestVersionDiff`'s `changes` for that version
+             *     against `draft`, so 0 means the draft is the latest version. It is
+             *     what the unpublished-changes banner reads.
+             *
+             *     Only `getTest` computes it. It is null for a test with no version,
+             *     in every row of `listTests`, in the answer of a write, and when a
+             *     group of the draft or of the latest version cannot be read; the
+             *     page then shows no banner. A
+             *     bank edit to a question the draft uses counts, though it never
+             *     moves `updatedAt`.
+             */
+            unpublishedChanges: number | null;
             /** @description The **draft** outline. Published content lives in versions. */
             sections: components["schemas"]["TestSection"][];
             createdAt: components["schemas"]["Timestamp"];
@@ -3529,6 +4806,13 @@ export interface components {
             version: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
+            /**
+             * @description Sorted distinct non-null skills of the questions this version froze,
+             *     grouped members included: the version's counterpart of `Test.skills`.
+             *     It is read from the version's own questions, so editing the draft or
+             *     the bank after the publish does not change it.
+             */
+            skills: components["schemas"]["QuestionSkill"][];
             /** @description Questions with their own audio or a shared group recording, counted once per question; shown when picking a version to assign (G-01). */
             audioCount: number;
             /**
@@ -3540,6 +4824,105 @@ export interface components {
             publishedAt: components["schemas"]["Timestamp"];
             /** @description Display name. */
             publishedBy: string;
+            /**
+             * @description Every assignment that names this version, drafts included, whoever
+             *     created it. A version with one cannot be deleted, so this is what
+             *     "In use · {n} assignments" and the disabled Delete read.
+             */
+            assignmentCount: number;
+            /** @description The note the teacher left when publishing. Null for a version published without one. */
+            changeNote: string | null;
+            /**
+             * @description `publishTest` only: the test's `updatedAt` after the publish, which
+             *     the publish itself moves. A caller that goes on saving the draft
+             *     sends it as `expectedUpdatedAt`, or its next save answers
+             *     `STALE_WRITE`. Absent from every other answer.
+             */
+            testUpdatedAt?: components["schemas"]["Timestamp"];
+        };
+        /** @description One of the two papers a diff compares. */
+        DiffSide: {
+            /** @enum {string} */
+            kind: "draft" | "version";
+            /** @description The server sends it exactly when `kind` is `version`. The schema does not tie the two together. */
+            version?: number;
+            /** @description The server sends it exactly when `kind` is `version`. The schema does not tie the two together. */
+            publishedAt?: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description What one change reports. A question is never reported twice under one
+         *     kind. An edit to the shared material of a group, or to a section,
+         *     reaches each of its questions as one `changed` entry (field `context`
+         *     or `section`), so `Test.unpublishedChanges` counts it once per
+         *     question.
+         *
+         *     | Kind | The question | `params` |
+         *     |---|---|---|
+         *     | `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |
+         *     | `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |
+         *     | `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |
+         *     | `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice question; none otherwise |
+         *     | `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |
+         *
+         *     A question that changed in its words and in its key is reported twice,
+         *     once as `changed` and once as `answer`. Moving a question to another
+         *     place in the paper is not a change.
+         * @enum {string}
+         */
+        DiffChangeKind: "added" | "removed" | "changed" | "answer" | "points";
+        /**
+         * @description The part of a question that differs, for a `changed` entry.
+         *     `prompt` and `explanation` cover the text and the rich content;
+         *     `options` the text and content of the choices in their order, `blanks`
+         *     the gaps and their case rule, and `media` the attachment with its audio
+         *     policy and transcript. `context` is the shared material of the group
+         *     the question belongs to, or its being in a group at all, and `section`
+         *     the part of the paper it sits in. The correct options and the accepted
+         *     answers are not here: they are `answer` entries.
+         * @enum {string}
+         */
+        DiffField: "type" | "prompt" | "options" | "blanks" | "media" | "points" | "explanation" | "context" | "section";
+        /**
+         * @description One closed set of fields for every kind; `DiffChangeKind` says which of
+         *     them a kind carries. Plain values only.
+         */
+        DiffChangeParams: {
+            /** @description The question's prompt as plain text, cut to 200 characters with `…` in place of the rest. */
+            prompt?: string;
+            fields?: components["schemas"]["DiffField"][];
+            /** @description The labels (`A`, `B`, …) of the correct options in `from`, in order. */
+            answerFrom?: string[];
+            /** @description The labels of the correct options in `to`, in order. */
+            answerTo?: string[];
+            pointsFrom?: components["schemas"]["Points"];
+            pointsTo?: components["schemas"]["Points"];
+        };
+        DiffChange: {
+            kind: components["schemas"]["DiffChangeKind"];
+            /** @description The question's number in its paper, counting across sections. */
+            questionNumber?: number;
+            /**
+             * @description The question's id in the paper `questionNumber` counts in: the
+             *     frozen question of a version, the bank question of the draft. It is
+             *     the id the preview of that version carries.
+             */
+            questionId?: components["schemas"]["Uuid"];
+            params: components["schemas"]["DiffChangeParams"];
+        };
+        /** @description What differs between two papers of one test. */
+        TestVersionDiff: {
+            /**
+             * @description The older paper. Null only for `against=previous` on the first
+             *     version, which has nothing before it: every question is then an
+             *     `added` one.
+             */
+            from: components["schemas"]["DiffSide"] | null;
+            to: components["schemas"]["DiffSide"];
+            /**
+             * @description Ordered by kind (`added`, `removed`, `changed`, `answer`, `points`)
+             *     and then by question number.
+             */
+            changes: components["schemas"]["DiffChange"][];
         };
         /**
          * @description Publish returns **every** problem at once, each anchored to a question,
@@ -3568,6 +4951,21 @@ export interface components {
          * @enum {string}
          */
         AssignmentStatus: "draft" | "scheduled" | "open" | "closed";
+        /**
+         * @description When a student's result is released. `on_submit` is as soon as they
+         *     hand in. `after_close` is once the assignment has closed for them, at
+         *     its effective close: until then the result withholds the score, the
+         *     marks, the answer key and the explanations through the same path a
+         *     policy that hides them takes, and carries `releasesAt`.
+         * @enum {string}
+         */
+        ReviewRelease: "on_submit" | "after_close";
+        /**
+         * @description What the assignment lets a student see, as the server reads it. On the
+         *     student's result the three flags are the **effective** ones: all three
+         *     read false while an `after_close` release has not come, whatever the
+         *     teacher chose.
+         */
         ReviewPolicy: {
             /** @default true */
             showScore: boolean;
@@ -3575,6 +4973,27 @@ export interface components {
             showCorrectAnswers: boolean;
             /** @default false */
             showExplanations: boolean;
+            release: components["schemas"]["ReviewRelease"];
+            /**
+             * @description Whether the result may carry `classAverage`. It says what the
+             *     teacher chose; whether the average is there is `classAverage`.
+             */
+            showClassAverage: boolean;
+        };
+        /**
+         * @description The review policy a teacher writes. `release` and `showClassAverage`
+         *     are optional: a create without them gets `on_submit` and false, and a
+         *     PATCH without them keeps what is stored.
+         */
+        ReviewPolicyInput: {
+            /** @default true */
+            showScore: boolean;
+            /** @default false */
+            showCorrectAnswers: boolean;
+            /** @default false */
+            showExplanations: boolean;
+            release?: components["schemas"]["ReviewRelease"];
+            showClassAverage?: boolean;
         };
         /**
          * @description Defaults are §10.3's, conservative on purpose — the teacher opts into
@@ -3649,15 +5068,50 @@ export interface components {
             shuffleOptions: boolean;
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
+            /** @description The note for the students, as stored. Null when there is none. */
+            studentNote: string | null;
             status: components["schemas"]["AssignmentStatus"];
             /** @description Distinct enabled students with at least one handed-in non-voided attempt. */
             submittedCount?: number;
             targetCount?: number;
+            /** @description Questions on the pinned version, counted as `TestVersion.questionCount` counts them. */
+            questionCount?: number;
             flaggedCount?: number;
             /** @description Outstanding manual answers across handed-in attempts, including partially graded papers. */
             pendingManualCount?: number;
             /** @description Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm"). */
             pendingGradingCount?: number;
+        };
+        DuplicateAssignmentInput: {
+            /** @description The classes the copy is assigned to. May be empty, since the copy is a draft and is given its targets later. */
+            classIds: components["schemas"]["Uuid"][];
+        };
+        ItemAnalysis: {
+            /**
+             * @description The papers the figures range over: for each student the caller
+             *     reaches, their latest handed-in attempt that is not voided.
+             */
+            handedIn: number;
+            /** @description Sorted by `correctRate` ascending, a question with none last, then by `number`. */
+            items: components["schemas"]["ItemAnalysisItem"][];
+        };
+        ItemAnalysisItem: {
+            questionId: components["schemas"]["Uuid"];
+            /** @description The question's place on the paper */
+            number: number;
+            type: components["schemas"]["QuestionType"];
+            /** @description The prompt as plain text with its whitespace collapsed */
+            promptExcerpt: string;
+            /** @description Papers with an answer that says something to this question. */
+            answered: number;
+            /**
+             * Format: double
+             * @description Papers that earned the question's full points, over the papers that
+             *     have a mark for it. A question left unanswered counts against it; a
+             *     manually marked answer the teacher has not marked yet counts for
+             *     neither side. Null when no paper has a mark for it.
+             */
+            correctRate: number | null;
         };
         /** @enum {string} */
         AttemptStatus: "in_progress" | "submitted" | "timed_out" | "graded" | "voided";
@@ -3724,8 +5178,8 @@ export interface components {
             } | null;
         };
         /**
-         * @description Returned when an attempt is created or resumed. Everything the engine
-         *     needs to run authoritatively.
+         * @description Returned when an attempt is created, resumed or read. Everything the
+         *     engine needs to run authoritatively.
          */
         AttemptSession: {
             /** @description Additional attempts available after this one */
@@ -3762,6 +5216,13 @@ export interface components {
              *     beacon carries this in its body instead. Grants no read access.
              */
             beaconToken: string;
+            /**
+             * @description Present and true only in an answer of `getAttempt` to a tab that
+             *     named a session the attempt no longer has. `sessionId` is then the
+             *     session that tab named, `beaconToken` is empty, and every write
+             *     under that session answers `SESSION_SUPERSEDED`.
+             */
+            superseded?: boolean;
             serverTime: components["schemas"]["Timestamp"];
             /**
              * @description Keyed by question id. **Server-authoritative** — the client renders
@@ -3811,9 +5272,13 @@ export interface components {
             kind: string;
             occurredAt: components["schemas"]["Timestamp"];
             /**
-             * @description Monotonic **within a session**. Uniqueness is
-             *     `(attempt, session, clientSeq)`, so a resumed attempt restarting at 0
-             *     does not collide with the previous session (D-01).
+             * @description The event's offset in milliseconds from the attempt's start, as the
+             *     tab that recorded it measured it against the server's clock, and
+             *     never below the number after that tab's last one: it increases
+             *     **within a tab**. Uniqueness is `(attempt, session, clientSeq)`: an
+             *     event that repeats a number its session has used is taken for a
+             *     retry and is not stored. A new session may use any number again
+             *     (D-01). A client that sends a plain counter is accepted.
              */
             clientSeq: number;
             /** Format: uuid */
@@ -3877,6 +5342,11 @@ export interface components {
             flagged?: boolean;
             /** @description Reported */
             audioOverLimit?: boolean;
+            /**
+             * Format: date-time
+             * @description This student's own close, when an override of theirs reaches past the assignment's own: "Extended to …". Absent or null when they have none, or theirs is no later. While it is ahead of `serverTime` the student can still start or carry on, even if the assignment has closed early or its window has ended.
+             */
+            extendedTo?: string | null;
         };
         AttemptListRow: {
             id: components["schemas"]["Uuid"];
@@ -3891,11 +5361,12 @@ export interface components {
             flagged: boolean;
         };
         /**
-         * @description §8's teacher dashboard needs five counts that spec §15 has no endpoint for. One
-         *     round trip, not five. Every figure covers what the caller reaches: the assignments
-         *     they created or that target a class they teach, the papers the grading queue shows
-         *     them on those assignments, and the students of the classes they teach. With
-         *     `scope.all` it covers everything.
+         * @description The Teacher dashboard covers the caller's own teaching, including an Admin:
+         *     assignments they created or targeting classes they teach, reachable papers on
+         *     them, and their classes. Its repository supports scope.all for a future Admin
+         *     console, but this operation never requests it. Legacy fields retain their
+         *     meaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents
+         *     and recentAttempts, and R5 removes them. Range affects submissions only.
          */
         Dashboard: {
             /** @description Open assignments closing within the next 24 hours. */
@@ -3904,15 +5375,78 @@ export interface components {
             waitingStudents?: number;
             /** Format: date-time */
             oldestWaitingAt?: string | null;
-            /** @description Enabled student accounts in the classes the caller teaches; every enabled student account with `scope.all`. */
+            /** @description Enabled student-like accounts in the classes the caller teaches, for an Admin too; this operation never requests the repository wide scope. */
             totalStudents?: number;
             nextClosing?: components["schemas"]["ClosingAssignment"] | null;
             openAssignments: number;
             awaitingGrading: number;
-            /** @description Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches. With `scope.all`, every enabled account that started an attempt in the last seven days, whatever its role. */
+            /** @description Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here. */
             activeStudents: number;
             flaggedAttempts: number;
+            /** @description Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible. */
+            newestFlaggedAttempt: components["schemas"]["DashboardFlaggedAttempt"] | null;
             recentAttempts: components["schemas"]["AttemptListRow"][];
+            takingNow: components["schemas"]["DashboardTakingNow"];
+            submissions: components["schemas"]["DashboardSubmissions"];
+            today: components["schemas"]["DashboardToday"][];
+            recentActivity: components["schemas"]["DashboardActivity"][];
+        };
+        DashboardFlaggedAttempt: {
+            /** Format: uuid */
+            assignmentId: string;
+            /** Format: uuid */
+            attemptId: string;
+        };
+        /** @description Distinct students and assignments with reachable in-progress attempts before their deadline. */
+        DashboardTakingNow: {
+            students: number;
+            assignments: number;
+            /**
+             * Format: uuid
+             * @description Assignment of the newest started reachable in-progress paper strictly before its deadline at the supplied application clock, ordered by started_at then id descending, from the taking count statement snapshot; null when none qualifies.
+             */
+            assignmentId: string | null;
+        };
+        /** @description Handed-in papers within the chosen calendar range in the actor's zone, including graded papers. */
+        DashboardSubmissions: {
+            /** @description One entry per day, oldest first and today last, including zero days. */
+            days: components["schemas"]["DashboardDay"][];
+            total: number;
+            /** @description Mean graded paper percentage, rounded half up; null when no graded paper has a score. */
+            averagePercent: number | null;
+        };
+        DashboardDay: {
+            /** Format: date */
+            date: string;
+            count: number;
+        };
+        /** @description Published assignment openings and effective closings today in the actor's zone, oldest first. */
+        DashboardToday: {
+            /** @enum {string} */
+            kind: "opens" | "closes";
+            at: components["schemas"]["Timestamp"];
+            assignmentId: components["schemas"]["Uuid"];
+            title: string;
+            /** @description Distinct enabled reached targets without a submitted, timed-out or graded attempt on this assignment. */
+            notSubmitted: number;
+        };
+        /** @description Latest ten activities, newest first; one row per non-voided attempt, plus student-like joins by code into taught classes. */
+        DashboardActivity: {
+            /** @enum {string} */
+            kind: "submitted" | "started" | "joined";
+            at: components["schemas"]["Timestamp"];
+            studentName: string;
+            subject: string;
+            flagged: boolean;
+        };
+        /** @description Cheap nav counts in the caller's own teaching scope, for an Admin too. */
+        TeacherSummary: {
+            /** @description Rows the caller's Assignments list shows as open; always a number under the current workspace.teacher gate. */
+            liveAssignments: number | null;
+            /** @description Unmarked manual answers in reachable handed-in papers; null without teaching.grading, when the count is not run. */
+            answersToGrade: number | null;
+            /** @description The caller's own unread notifications. */
+            unreadNotifications: number;
         };
         ClosingAssignment: {
             id: components["schemas"]["Uuid"];
@@ -3924,6 +5458,14 @@ export interface components {
             /** @description Enabled students in the union of class and individual targets, counting only the classes the caller teaches and the students they reach. */
             targetCount: number;
         };
+        /**
+         * @description `status`, `closesAt`, `durationMinutes` and `maxAttempts` are the
+         *     signed-in student's own: when a teacher has given this student an
+         *     override, they are the later close, the longer time limit and the added
+         *     attempts (T-R4.12), and an assignment that closed for everyone else
+         *     reads `open` here while the student's close is still ahead. Nothing in
+         *     the card says an override exists or why.
+         */
         StudentAssignmentCard: {
             id: components["schemas"]["Uuid"];
             testTitle: string;
@@ -3966,21 +5508,136 @@ export interface components {
             score?: components["schemas"]["AttemptScore"] | null;
         };
         /**
+         * @description What a notification is about. The server sends no sentence: the client
+         *     words the item from `kind` and `params` in the reader's language.
+         *
+         *     Each kind carries exactly these `params`:
+         *
+         *     | Kind | For | Params |
+         *     |---|---|---|
+         *     | `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |
+         *     | `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |
+         *     | `assignment.closing` | a teacher | `title`, `notSubmitted` |
+         *     | `class.joined` | a teacher | `studentName`, `className` |
+         *     | `join_codes.rotated` | a teacher | `count`, `classNames` |
+         *     | `assignment.opened` | a student | `title`, `closesAt` |
+         *     | `assignment.due_soon` | a student | `title`, `closesAt` |
+         *     | `assignment.extended` | a student | `title`, `closesAt` |
+         *     | `result.ready` | a student | `title` |
+         * @enum {string}
+         */
+        NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready";
+        /**
+         * @description The console that reads a notification, and so which of the caller's
+         *     notifications a bell counts, lists and clears. Which kinds each one
+         *     reads is the "For" column of the table in `NotificationKind`, and every
+         *     kind belongs to exactly one.
+         *
+         *     Where an operation takes it, it is optional, and leaving it out keeps
+         *     the behaviour from before it existed: every kind. An Admin who takes
+         *     tests holds rows of both, and each of their two bells passes its own.
+         *     It only narrows: the rows are still the caller's own and nobody else's.
+         * @enum {string}
+         */
+        NotificationAudience: "teacher" | "student";
+        /**
+         * @description One switch of the notification settings. `attempt.submitted`,
+         *     `attempt.flagged` and `assignment.closing` are the teacher's;
+         *     `assignment.due_soon` and `result.ready` the student's. A switch
+         *     governs the kind of the same name, and `assignment.due_soon` also
+         *     governs `assignment.opened` and `assignment.extended`. `class.joined`
+         *     and `join_codes.rotated` have no switch.
+         * @enum {string}
+         */
+        NotificationEvent: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "assignment.due_soon" | "result.ready";
+        /**
+         * @description What the client builds a notification's sentence from. One closed set
+         *     of fields for every kind; `NotificationKind` says which of them a kind
+         *     carries. Plain values only: never markup, never a score, a band or an
+         *     answer. A name is a copy taken when the notification was written.
+         */
+        NotificationParams: {
+            /** @description The title of the test the assignment gives. */
+            title?: string;
+            /** @description Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`). */
+            count?: number;
+            /** @description Of the papers handed in, those with an answer waiting for a mark. */
+            toGrade?: number;
+            /** @description Times the student left the test. */
+            focusLost?: number;
+            /** @description Students who have not handed in. */
+            notSubmitted?: number;
+            studentName?: string;
+            className?: string;
+            /** @description At most five names; `count` holds how many classes there are. */
+            classNames?: string[];
+            closesAt?: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description Where a click on the notification goes: a page the client resolves from
+         *     `route`, never a URL. `assignmentId` is present for `assignment` and
+         *     `studentAssignment`, and `attemptId` for `attempt` and `result`; either
+         *     may accompany any other route.
+         */
+        NotificationTarget: {
+            /**
+             * @description `assignment`, `attempt`, `grading` and `classes` are pages of the
+             *     teaching workspace; `result` and `studentAssignment` are the
+             *     student's result and the student's page of an assignment.
+             * @enum {string}
+             */
+            route: "assignment" | "attempt" | "grading" | "classes" | "result" | "studentAssignment";
+            assignmentId?: components["schemas"]["Uuid"];
+            attemptId?: components["schemas"]["Uuid"];
+        };
+        Notification: {
+            id: components["schemas"]["Uuid"];
+            kind: components["schemas"]["NotificationKind"];
+            params: components["schemas"]["NotificationParams"];
+            /** @description Null when the notification leads nowhere. */
+            target: components["schemas"]["NotificationTarget"] | null;
+            createdAt: components["schemas"]["Timestamp"];
+            /**
+             * Format: date-time
+             * @description When the caller marked it read; null while it is unread. A
+             *     notification that is written again after it was read, as a count
+             *     that grew is, is unread again.
+             */
+            readAt: string | null;
+        };
+        NotificationPreference: {
+            event: components["schemas"]["NotificationEvent"];
+            /** @description While false, no notification this switch governs is written for the caller. */
+            inApp: boolean;
+            /** @description Stored and returned. Nothing is sent by email yet. */
+            email: boolean;
+        };
+        /** @description Every `NotificationEvent` once. The server answers them in the enum's order. */
+        NotificationPreferences: components["schemas"]["NotificationPreference"][];
+        /** @description What the caller's shell shows before any page is open. */
+        MySummary: {
+            unreadNotifications: number;
+        };
+        /**
          * @description Create/update body for a bank question. Cross-field rules that a single
          *     schema cannot express — single_choice and true_false need exactly one correct
          *     option (true_false has exactly two options), multiple_choice needs at least one correct
          *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
          *     server and again at publish (§8). Failing them returns
          *     `VALIDATION_FAILED` with per-field `details`.
          */
         QuestionInput: {
             type: components["schemas"]["QuestionType"];
+            level?: components["schemas"]["QuestionLevel"] | null;
+            skill?: components["schemas"]["QuestionSkill"] | null;
             promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             /** @description Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown. */
             prompt: string;
             /** Format: uuid */
             mediaAssetId?: string | null;
+            /** @description Alt text for the question's image, for screen readers (1 to 1000 characters). Refused with a field error on `mediaAlt` unless `mediaAssetId` names an image; send null, or omit it, to clear it. A write replaces the stored value, as it does for `level` and `skill`, so an update that leaves it out clears it. */
+            mediaAlt?: string | null;
             /** @description Required if and only if the asset is audio (§7). */
             audio?: components["schemas"]["AudioPolicy"] | null;
             /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */
@@ -4012,6 +5669,92 @@ export interface components {
             sampleAnswer?: string | null;
             tags?: string[];
         };
+        /**
+         * @description Stored editable content used by teacher reads, bodyless copies and version
+         *     restoration. Existing choice arrays retain their length; the eight-option
+         *     limit applies to authoring requests. Cross-field rules that a single
+         *     schema cannot express — single_choice and true_false need exactly one correct
+         *     option (true_false has exactly two options), multiple_choice needs at least one correct
+         *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
+         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
+         *     server and again at publish (§8). Failing them returns
+         *     `VALIDATION_FAILED` with per-field `details`.
+         */
+        StoredQuestionInput: {
+            type: components["schemas"]["QuestionType"];
+            level: components["schemas"]["QuestionLevel"] | null;
+            skill: components["schemas"]["QuestionSkill"] | null;
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
+            /** @description Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown. */
+            prompt: string;
+            /** Format: uuid */
+            mediaAssetId?: string | null;
+            /** @description Alt text for the question's image, as stored. Absent or null when there is none. */
+            mediaAlt?: string | null;
+            /** @description Required if and only if the asset is audio (§7). */
+            audio?: components["schemas"]["AudioPolicy"] | null;
+            /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */
+            transcript?: string | null;
+            /** @description Order in the array is the stored ordinal. */
+            options?: {
+                /**
+                 * Format: uuid
+                 * @description Omit to create.
+                 */
+                id?: string | null;
+                content?: components["schemas"]["OptionContent"] | null;
+                text: string;
+                isCorrect: boolean;
+            }[];
+            blanks?: {
+                /** Format: uuid */
+                id?: string | null;
+                gapId?: string | null;
+                ordinal: number;
+                acceptedAnswers: string[];
+                /** @default false */
+                caseSensitive: boolean;
+            }[];
+            points: components["schemas"]["Points"];
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            explanation?: string | null;
+            /** @description `short_answer` only. Rejected on any other type. */
+            sampleAnswer?: string | null;
+            tags?: string[];
+        };
+        /**
+         * @description What one teacher changed about one student's turn at an assignment.
+         *     Teacher-only: nothing here, the reason least of all, reaches the
+         *     student's payloads.
+         */
+        StudentOverride: {
+            studentId: components["schemas"]["Uuid"];
+            studentName: string;
+            /**
+             * Format: date-time
+             * @description The student's own close. Null when the override leaves the close alone. It never closes the student sooner than the assignment does.
+             */
+            closesAt: string | null;
+            /** @description The student's time limit. Null when the assignment's applies. */
+            durationMinutes: number | null;
+            /** @description Attempts added to the assignment's `maxAttempts`. */
+            extraAttempts: number;
+            reason: string;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        StudentOverrideInput: {
+            studentIds: components["schemas"]["Uuid"][];
+            /** @description Minutes added to each student's current close. Not with `closesAt`. */
+            extendBy?: number;
+            /** @description Must be ahead. Not with `extendBy`. */
+            closesAt?: components["schemas"]["Timestamp"];
+            durationMinutes?: number;
+            extraAttempts?: number;
+            reason: string;
+            /** @description Absent means false. */
+            notify?: boolean;
+        };
         AssignmentInput: {
             /** @description Must be a published version. Immutable once any attempt exists. */
             testVersionId: components["schemas"]["Uuid"];
@@ -4036,8 +5779,16 @@ export interface components {
              * @default false
              */
             shuffleOptions: boolean;
-            review: components["schemas"]["ReviewPolicy"];
+            review: components["schemas"]["ReviewPolicyInput"];
             integrity: components["schemas"]["IntegrityPolicy"];
+            /**
+             * @description A note for the students, drawn on the Test intro. Plain text,
+             *     trimmed by the server; an empty one, or one that is blank once
+             *     trimmed, is the same as none. The 500 characters are counted before trimming. Omitted,
+             *     a create has none and a PATCH keeps the stored note; `null` clears
+             *     it.
+             */
+            studentNote?: string | null;
             /**
              * @description Save without giving it out — G-01's "Lưu nháp". Saving again with
              *     `false` publishes it, which is what the "Giao bài" button sends.
@@ -4047,12 +5798,26 @@ export interface components {
              * @default false
              */
             draft: boolean;
-            /** @description PATCH only. Sets `closedAt`, closing the assignment before `closesAt`. */
+            /**
+             * @description PATCH only; a create ignores it. Sets `closedAt`, closing the
+             *     assignment before `closesAt`. It is refused with `400
+             *     VALIDATION_FAILED` naming `closeNow` while `window.opensAt` is
+             *     still ahead, because an assignment cannot close before it opens,
+             *     whatever its status.
+             */
             closeNow?: boolean;
         };
     };
     responses: {
-        /** @description Malformed or failing validation. */
+        /**
+         * @description Request validation answers this on every operation that takes a JSON body,
+         *     before the operation runs: a body that fails its schema, that cannot be
+         *     decoded, or that is not JSON.
+         *     Malformed or failing validation. A JSON body in which an object repeats
+         *     a member name is refused here too, at any depth, unless the server
+         *     filled a default into that body: it is then read with the last
+         *     occurrence of each repeated name.
+         */
         BadRequest: {
             headers: {
                 [name: string]: unknown;
@@ -4192,6 +5957,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description Invalid, expired, exhausted, revoked, or self-join disabled.
              *
@@ -4271,6 +6037,7 @@ export interface operations {
                     "application/json": components["schemas"]["AuthSuccess"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description **Leak review.** `INVALID_CREDENTIALS` for both an unknown email and
              *     a wrong password, with the same message and comparable timing, so the
@@ -4329,6 +6096,7 @@ export interface operations {
                     "application/json": components["schemas"]["GoogleSignInSuccess"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Code exchange failed, or `email_verified` was false. */
             401: {
                 headers: {
@@ -4468,12 +6236,17 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    fullName: string;
+                    fullName?: string;
+                    displayName?: string | null;
+                    phone?: string | null;
+                    /** @enum {string} */
+                    locale?: "vi" | "en";
+                    timeZone?: string;
                 };
             };
         };
         responses: {
-            /** @description Saved. The whole user, so the client can replace its session copy. */
+            /** @description The whole persisted caller profile and permissions. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4482,7 +6255,7 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentUser"];
                 };
             };
-            /** @description `VALIDATION_FAILED` — the name is empty or too long. */
+            /** @description `VALIDATION_FAILED` — a supplied field is invalid. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4631,6 +6404,7 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentUser"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description The session is invalid, or the exchange failed, or `email_verified`
              *     was false — the same §5.1 rule sign-in applies, for the same reason:
@@ -4691,6 +6465,81 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    listSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The live sessions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Session"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    revokeOtherSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The other sessions are revoked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description How many sessions this call ended. */
+                        revoked: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The `familyId` of a session `listSessions` returned. */
+                familyId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description `SESSION_IS_CURRENT` — the session is the one making the request. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listQuestionGroups: {
@@ -5191,9 +7040,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description What changed in this version, in the teacher's words. Shown in the version history. The 200-character limit applies to the text as sent, before it is trimmed. */
+                    changeNote?: string | null;
+                };
+            };
+        };
         responses: {
-            /** @description Published. */
+            /** @description Published. `testUpdatedAt` is present. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -5202,11 +7058,18 @@ export interface operations {
                     "application/json": components["schemas"]["TestVersion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description `PUBLISH_VALIDATION_FAILED`. **Every** problem is returned at once,
              *     each anchored to a question, so the builder marks them inline rather
              *     than surfacing one per attempt (§8).
+             *
+             *     A question whose media file has been deleted from the library (rule
+             *     `audio_question_has_asset` for audio, `question_valid` for any other
+             *     file), or a group whose material names one (`group_valid`), is
+             *     reported the same way, but only once the draft passes every other
+             *     rule: the files are checked when the version is frozen.
              */
             409: {
                 headers: {
@@ -5296,6 +7159,50 @@ export interface operations {
             };
         };
     };
+    getTestVersionDiff: {
+        parameters: {
+            query: {
+                /**
+                 * @description `previous` is the highest version below the path version, so the
+                 *     path version is `to`; on the first version there is none, `from` is
+                 *     null and every question is `added`. `draft` is the test's draft, so
+                 *     the path version is `from`. A number is another version of the test:
+                 *     the lower of the two is `from`. The path version itself is refused
+                 *     with 400, and a version that does not exist is 404.
+                 */
+                against: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestVersionDiff"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description A group of one of the two papers cannot be read, so there is no paper to compare. For the draft (`against=draft`) the builder reports the cause when the teacher publishes; for a version it is stored data that no longer reads back. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     setCurrentTestVersion: {
         parameters: {
             query?: never;
@@ -5323,8 +7230,9 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description The version is referenced/current, the test is archived, or the expected update time is stale. */
+            /** @description The test is archived (`TEST_ARCHIVED`) or the expected update time is stale (`STALE_WRITE`). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5362,8 +7270,14 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description The version is referenced/current, the test is archived, or the expected update time is stale. */
+            /**
+             * @description The test is archived (`TEST_ARCHIVED`), the expected update time is
+             *     stale (`STALE_WRITE`), or a question of one of the draft's groups is
+             *     still used elsewhere (`RESOURCE_REFERENCED`): the draft is left as
+             *     it was.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5418,6 +7332,9 @@ export interface operations {
             query?: {
                 type?: components["schemas"]["QuestionType"][];
                 tag?: string[];
+                level?: components["schemas"]["QuestionLevel"][];
+                skill?: components["schemas"]["QuestionSkill"][];
+                tagMatch?: "any" | "all";
                 /** @description A-06's "Chỉ câu có audio". */
                 hasAudio?: boolean;
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
@@ -5664,7 +7581,8 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
-                status?: components["schemas"]["ImportStatus"];
+                /** @description Repeated statuses are OR-ed; a single status remains valid. */
+                status?: components["schemas"]["ImportStatus"][];
                 limit?: number;
             };
             header?: never;
@@ -5680,7 +7598,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
-                        items: components["schemas"]["WordImport"][];
+                        items: components["schemas"]["WordImportHistoryItem"][];
+                        facets: components["schemas"]["ImportStatusFacets"];
                     };
                 };
             };
@@ -5708,6 +7627,7 @@ export interface operations {
                     "application/json": components["schemas"]["WordImport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_CONFLICT — request identity already used with different input. */
             409: {
                 headers: {
@@ -5846,6 +7766,95 @@ export interface operations {
             };
         };
     };
+    pasteImportSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasteImportSource"];
+            };
+        };
+        responses: {
+            /** @description Stored and associated with one source revision. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportUploadReceipt"];
+                };
+            };
+            /** @description Malformed text request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_TOO_LARGE — normalized character or nonblank line limit exceeded. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — invalid UTF-8, NUL or empty text. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Private source intake is not configured. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     downloadImportSource: {
         parameters: {
             query?: never;
@@ -5951,6 +7960,7 @@ export interface operations {
                     "application/json": components["schemas"]["WordImport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Import not found. */
             404: {
                 headers: {
@@ -6016,6 +8026,7 @@ export interface operations {
                     "application/json": components["schemas"]["WordImport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Import not found. */
             404: {
                 headers: {
@@ -6100,6 +8111,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportReview"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
             404: {
                 headers: {
@@ -6153,6 +8165,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportReview"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — no draft, or import not found. */
             404: {
                 headers: {
@@ -6240,6 +8253,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportCommitResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
             404: {
                 headers: {
@@ -6273,6 +8287,15 @@ export interface operations {
         parameters: {
             query?: {
                 kind?: components["schemas"]["MediaKind"];
+                /**
+                 * @description `true` keeps only the files whose `questionCount` is zero. `false`
+                 *     is the same as leaving it out. A file that only a published
+                 *     version or an empty group still holds is unused here, and
+                 *     `deleteMedia` still refuses it.
+                 */
+                unused?: boolean;
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
@@ -6311,8 +8334,14 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["LibraryAsset"][];
-                        /** @description Every live asset the filter matches, not just this page, for A-07's "18 tệp · 42 MB". */
+                        /**
+                         * @description Every file the search and the filters match, not
+                         *     just this page, for A-07's "18 tệp · 42 MB". `total`
+                         *     follows them in the same way.
+                         */
                         totalBytes: number;
+                        facets: components["schemas"]["MediaFacets"];
+                        usage: components["schemas"]["MediaUsage"];
                     };
                 };
             };
@@ -6321,7 +8350,15 @@ export interface operations {
     };
     uploadMedia: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description The default play limit to store with the audio, as
+                 *     `LibraryAsset.defaultMaxPlays` reads it; `0` is unlimited. Left
+                 *     out, none is set. Audio only: sent with a file that turns out to
+                 *     be an image, the upload is refused and nothing is stored.
+                 */
+                defaultMaxPlays?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6344,7 +8381,23 @@ export interface operations {
                     "application/json": components["schemas"]["MediaAsset"];
                 };
             };
-            /** @description `MEDIA_TOO_LARGE` — over 10 MB (§11.1). */
+            400: components["responses"]["BadRequest"];
+            /**
+             * @description `MEDIA_QUOTA_EXCEEDED` — the caller's library would hold more than
+             *     its quota with this file. Nothing was stored.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TOO_LARGE` — over 50 MB, or an image over 10 MB (§11.1).
+             *     The message names the limit that was passed.
+             */
             413: {
                 headers: {
                     [name: string]: unknown;
@@ -6358,6 +8411,73 @@ export interface operations {
              *     `MEDIA_TOO_LONG` (over 5 minutes), or `MEDIA_UNREADABLE` (sniffed
              *     correctly but the duration could not be probed — rejected rather
              *     than stored with an unknown duration).
+             */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Replaced; asset is the new library file under the retained name. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaReplacement"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota; no replacement committed and fresh-object compensation succeeded. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TOO_LARGE` — over 50 MB, or an image over 10 MB (§11.1).
+             *     The message names the limit that was passed.
+             */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TYPE_UNSUPPORTED` (not mp3/m4a — §11.1 and §17.3),
+             *     `MEDIA_TOO_LONG` (over 5 minutes), or `MEDIA_UNREADABLE` (sniffed
+             *     correctly but the duration could not be probed — rejected rather
+             *     than stored with an unknown duration). `MEDIA_KIND_MISMATCH` means
+             *     the identified file differs from the old asset's kind.
              */
             415: {
                 headers: {
@@ -6398,11 +8518,41 @@ export interface operations {
             };
         };
     };
+    updateMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaUpdate"];
+            };
+        };
+        responses: {
+            /** @description The file as the library now lists it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryAsset"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     listAssignments: {
         parameters: {
             query?: {
                 status?: components["schemas"]["AssignmentStatus"];
-                classId?: components["schemas"]["Uuid"];
+                classId?: components["schemas"]["Uuid"][];
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
@@ -6463,6 +8613,43 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             /** @description `TEST_NOT_PUBLISHED`. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    exportResultsCsv: {
+        parameters: {
+            query: {
+                ids: components["schemas"]["Uuid"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="results-YYYYMMDD.csv"`. */
+                    "Content-Disposition": string;
+                    /** @description `private, no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `VALIDATION_FAILED` — the assignments hold more than 20000 rows; `details.ids` says so. Pick fewer. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6551,7 +8738,13 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description `VERSION_LOCKED` — attempts exist, so the version cannot be changed. */
+            /**
+             * @description `ASSIGNMENT_LOCKED` — the assignment is open, so the version, the
+             *     duration and the attempts cannot be changed; `ASSIGNMENT_CLOSED` —
+             *     the assignment is closed and the window would open it again, so it
+             *     is reopened with `reopenAssignment`; `VERSION_LOCKED` — attempts
+             *     exist, so the version cannot be changed; or `TEST_NOT_PUBLISHED`.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6560,6 +8753,35 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    listGradingQueue: {
+        parameters: {
+            query?: {
+                mode?: "student" | "question";
+                assignmentId?: components["schemas"]["Uuid"];
+                /** @description Historical paper-taker identity filter, not a strict student-account lookup. */
+                studentId?: components["schemas"]["Uuid"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Full filtered counts and the first 200 pending answers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GradingQueue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listAnswersForQuestion: {
@@ -6604,6 +8826,66 @@ export interface operations {
             };
         };
     };
+    duplicateAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicateAssignmentInput"];
+            };
+        };
+        responses: {
+            /** @description The draft. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `TEST_NOT_PUBLISHED` — the original's version is not one the caller can assign. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getItemAnalysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemAnalysis"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     reopenAssignment: {
         parameters: {
             query?: never;
@@ -6642,6 +8924,136 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    extendAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    minutes: number;
+                    /** @description Absent means false. */
+                    notify?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Extended. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ASSIGNMENT_CLOSED` — a closed assignment is reopened, not extended. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listStudentOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["StudentOverride"][];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setStudentOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudentOverrideInput"];
+            };
+        };
+        responses: {
+            /** @description The overrides as they now stand, by student name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["StudentOverride"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ASSIGNMENT_CLOSED` — `extendBy` names a student whose close has passed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `VALIDATION_FAILED` — `details.studentIds` names the ids that are not students of this assignment the caller reaches. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteStudentOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                studentId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            404: components["responses"]["NotFound"];
         };
     };
     getAssignmentMonitor: {
@@ -6936,6 +9348,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -6966,6 +9379,7 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `ATTEMPT_VOIDED` — a voided attempt is out of the queue already. */
             409: {
@@ -7055,7 +9469,10 @@ export interface operations {
     };
     getDashboard: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Calendar range for submissions only; all other dashboard figures keep their own windows. */
+                range?: "7d" | "14d" | "30d";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7073,12 +9490,47 @@ export interface operations {
             };
         };
     };
+    getTeacherSummary: {
+        parameters: {
+            query?: {
+                audience?: components["schemas"]["NotificationAudience"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeacherSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
     listStudents: {
         parameters: {
             query?: {
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
-                classId?: components["schemas"]["Uuid"];
+                /**
+                 * @description Only students who are in at least one of these classes (`classId=a&classId=b`;
+                 *     one value still works). A class the caller does not reach matches nothing,
+                 *     as a missing class does.
+                 */
+                classId?: components["schemas"]["Uuid"][];
+                /**
+                 * @description `true` lists only the accounts still on a temporary password; after a
+                 *     `resetStudentsPasswords` whose answer was lost, those are the students
+                 *     whose password must be reset again. `false` lists only the others.
+                 *     Absent lists both.
+                 */
+                mustChangePassword?: boolean;
                 /**
                  * @description Defaults to `active`. Without `disabled` there is no request that can
                  *     return a suspended account, so `updateStudent`'s `disabled: false`
@@ -7151,6 +9603,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `EMAIL_TAKEN` — already in use, compared case-insensitively. */
             409: {
@@ -7161,6 +9614,38 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    resetStudentsPasswords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    studentIds: components["schemas"]["Uuid"][];
+                };
+            };
+        };
+        responses: {
+            /** @description The batch ran. Passwords are returned **once**. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["StudentPasswordReset"][];
+                        failed: components["schemas"]["StudentResetFailure"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getStudent: {
@@ -7215,6 +9700,7 @@ export interface operations {
                     "application/json": components["schemas"]["StudentRow"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description `FORBIDDEN` — `disabled` without `people.users.manage`, or a student
              *     whose permissions are not a subset of the caller's.
@@ -7369,6 +9855,8 @@ export interface operations {
                 limit?: number;
                 /** @description Defaults to `active`, so every picker drops archived classes without asking (G-08). */
                 status?: "active" | "joinable" | "archived" | "all";
+                /** @description Open each item's join code. Only the screen that shows codes asks. */
+                withCodes?: boolean;
             };
             header?: never;
             path?: never;
@@ -7379,15 +9867,17 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
-                        items: components["schemas"]["Class"][];
+                        items: components["schemas"]["ClassListItem"][];
                         facets: components["schemas"]["ClassFacets"];
                     };
                 };
             };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     createClass: {
@@ -7402,6 +9892,10 @@ export interface operations {
                 "application/json": {
                     name: string;
                     description?: string | null;
+                    /** @description Plain text, trimmed by the server; omitted, `null` and blank are all none. The 120 characters are counted before trimming. */
+                    scheduleLabel?: string | null;
+                    /** @description As `scheduleLabel`, 60 characters. */
+                    room?: string | null;
                     /** @default true */
                     selfJoinEnabled?: boolean;
                 };
@@ -7417,6 +9911,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     getClass: {
@@ -7493,6 +9988,15 @@ export interface operations {
                 "application/json": {
                     name?: string;
                     description?: string | null;
+                    /**
+                     * @description Plain text, trimmed by the server; a value that is blank once
+                     *     trimmed is the same as none. Omitted, the stored value is kept;
+                     *     `null` or blank clears it. The 120 characters are counted before
+                     *     trimming.
+                     */
+                    scheduleLabel?: string | null;
+                    /** @description As `scheduleLabel`, 60 characters. */
+                    room?: string | null;
                     selfJoinEnabled?: boolean;
                     /** @description true archives, false restores; either is idempotent. */
                     archived?: boolean;
@@ -7509,6 +10013,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -7637,7 +10142,13 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
-                    /** @default 30 */
+                    /**
+                     * @description The code works through 23:59:59 on the day this many days from
+                     *     today, in the caller's time zone: the profile preference, or
+                     *     `Asia/Ho_Chi_Minh` when there is none or it cannot be read. A code
+                     *     made at any hour of a day expires at the end of the same day.
+                     * @default 30
+                     */
                     expiresInDays?: number;
                     /**
                      * @description Defaults to 40 rather than spec §6.1's `null = unlimited`
@@ -7676,8 +10187,18 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description `CLASS_ARCHIVED` — the class is archived, so it can have no new code. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     revokeJoinCode: {
@@ -7742,6 +10263,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Invalid, expired, exhausted or revoked. Same leak rules as `/join/preview`. */
             404: {
                 headers: {
@@ -7838,6 +10360,7 @@ export interface operations {
                     "application/json": components["schemas"]["AttemptSession"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /**
              * @description `ATTEMPT_CLOSED` — `resume` named an attempt that is no longer live;
@@ -7861,7 +10384,14 @@ export interface operations {
     };
     getAttempt: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description The session this tab holds for the attempt: the `sessionId` of the
+                 *     last answer it was given by this operation or by
+                 *     `startOrResumeAttempt`. A tab that holds none sends none.
+                 */
+                session?: components["schemas"]["Uuid"];
+            };
             header?: never;
             path: {
                 id: components["parameters"]["IdPath"];
@@ -7879,6 +10409,7 @@ export interface operations {
                     "application/json": components["schemas"]["AttemptSession"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -7923,6 +10454,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /**
              * @description `SESSION_SUPERSEDED` — opened elsewhere; the client goes read-only
@@ -7967,6 +10499,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["TooManyRequests"];
         };
@@ -8000,6 +10533,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
         };
     };
@@ -8027,6 +10561,7 @@ export interface operations {
                     "application/json": components["schemas"]["GroupAudioPlayResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /** @description SESSION_SUPERSEDED, ATTEMPT_CLOSED, DEADLINE_PASSED or PLAY_ID_CONFLICT. */
             409: {
@@ -8070,6 +10605,7 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /**
              * @description `ATTEMPT_CLOSED`.
@@ -8109,6 +10645,23 @@ export interface operations {
                     "application/json": {
                         attempt: components["schemas"]["Attempt"];
                         review: components["schemas"]["ReviewPolicy"];
+                        /**
+                         * @description Present only while an `after_close` release is withheld: when
+                         *     it ends for this student, their effective close. Absent
+                         *     otherwise.
+                         */
+                        releasesAt?: components["schemas"]["Timestamp"];
+                        /**
+                         * Format: double
+                         * @description The class average as a percent: the mean, over the students
+                         *     who qualify, of each one's best graded attempt as earned over
+                         *     total. Present only when `review.showClassAverage` is on, this
+                         *     result is released, the assignment has closed, and at least 3
+                         *     students qualify: a targeted active account with a graded
+                         *     attempt. Voided, ungraded and unstarted work counts for
+                         *     nothing. It is an aggregate: no student is named.
+                         */
+                        classAverage?: number;
                         testTitle: string;
                         /** @description For "Lượt 1/2" under the score (S-09). */
                         maxAttempts: number;
@@ -8163,6 +10716,274 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Only the kinds this console reads (`NotificationAudience`). The
+                 *     page, `limit` and `nextBefore` count the narrowed list, so a page
+                 *     is never empty because the other console's rows filled it. Left
+                 *     out, every kind.
+                 */
+                audience?: components["schemas"]["NotificationAudience"];
+                /**
+                 * @description A notification id, as `nextBefore` gave it: the page holds the
+                 *     caller's notifications older than it. It is a position in the
+                 *     caller's own list and never a lookup: an id the caller does not
+                 *     hold, another user's or nobody's, only bounds the page, which
+                 *     still holds the caller's rows alone.
+                 */
+                before?: components["schemas"]["Uuid"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page. An empty `items` when the caller has none, or none older than `before`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Notification"][];
+                        /**
+                         * Format: uuid
+                         * @description The id of the last item when older notifications exist, else null.
+                         */
+                        nextBefore: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    markNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Absent means every unread notification the caller has (of `audience`, when it is given). */
+                    ids?: components["schemas"]["Uuid"][];
+                    audience?: components["schemas"]["NotificationAudience"];
+                };
+            };
+        };
+        responses: {
+            204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updatePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPreferences"];
+            };
+        };
+        responses: {
+            /** @description The merged persisted preferences, without materialized defaults. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferences"];
+                };
+            };
+            /** @description `VALIDATION_FAILED` — the shape or either byte cap is invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Maintenance"];
+        };
+    };
+    setAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Stored. The whole persisted caller, with the new `avatarUrl`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description `MEDIA_TOO_LARGE` — the upload is over 2 MiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TYPE_UNSUPPORTED` (not a PNG or a JPEG), `MEDIA_UNREADABLE`
+             *     (sniffed correctly but the header or the pixels cannot be read) or
+             *     `IMAGE_DIMENSIONS` (a side under 200 or over 2048 pixels, an
+             *     image that would need more memory to decode than the server
+             *     allows, or a JPEG of more than 32 scans, which a decoder that
+             *     cannot be cancelled would spend minutes on). Nothing was stored.
+             */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Object storage is not configured, so no photo can be kept. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            503: components["responses"]["Maintenance"];
+        };
+    };
+    deleteAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleared. The whole persisted caller. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Maintenance"];
+        };
+    };
+    getMySummary: {
+        parameters: {
+            query?: {
+                audience?: components["schemas"]["NotificationAudience"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferences"];
+            };
+        };
+        responses: {
+            /** @description Saved. The five switches as stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description `VALIDATION_FAILED`: an event is unknown, repeated or missing, or the body is not the five switches. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
 }

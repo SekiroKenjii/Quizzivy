@@ -3,6 +3,7 @@ package support
 import (
 	"context"
 	"errors"
+	"log/slog"
 	accessdomain "quizzivy/internal/modules/access/domain"
 	"quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/domain"
@@ -17,10 +18,14 @@ type Students struct {
 	Stats      stats.Source
 	Principals ports.Principals
 	Now        func() time.Time
+	// Password makes a temporary password and its hash.
+	Password func(ctx context.Context) (password, hash string, err error)
+	Logger   *slog.Logger
 }
 
 func NewStudents(repo domain.Students, stats stats.Source) *Students {
-	return &Students{Repo: repo, Stats: stats, Principals: noPrincipals{}, Now: time.Now}
+	return &Students{Repo: repo, Stats: stats, Principals: noPrincipals{}, Now: time.Now,
+		Password: TemporaryPassword, Logger: slog.New(slog.DiscardHandler)}
 }
 
 type noPrincipals struct{}
@@ -54,6 +59,17 @@ func (s *Students) AttachStats(ctx context.Context, scope access.Scope, students
 	return nil
 }
 
+// ForgetAfterReset drops the student's cached principal once a reset may have
+// committed: when ResetPassword answered nil, and when it answered a context
+// error, because a commit whose acknowledgement the ended request never read may
+// still have happened. Any other error means nothing committed, and the
+// principal stays. Forget takes no context, so a cancelled request cannot skip it.
+func (s *Students) ForgetAfterReset(id string, resetErr error) {
+	if resetErr == nil || errors.Is(resetErr, context.Canceled) || errors.Is(resetErr, context.DeadlineExceeded) {
+		s.Principals.Forget(id)
+	}
+}
+
 // MayActOn checks the guards a write to a student's account passes before it
 // runs, in the order that keeps another teacher's student indistinguishable
 // from a missing one: the student must be one the request reaches
@@ -61,21 +77,28 @@ func (s *Students) AttachStats(ctx context.Context, scope access.Scope, students
 // the student's permissions, except learning.take_tests, must be a subset of
 // the actor's (ErrForbidden for either).
 func (s *Students) MayActOn(ctx context.Context, req domain.WriteRequest, id string, needsManage bool) error {
-	if _, err := s.Repo.Get(ctx, req.Scope(), id); err != nil {
-		return err
+	_, err := s.Reach(ctx, req, id, needsManage)
+	return err
+}
+
+// Reach is MayActOn that also returns the student it found.
+func (s *Students) Reach(ctx context.Context, req domain.WriteRequest, id string, needsManage bool) (domain.Student, error) {
+	student, err := s.Repo.Get(ctx, req.Scope(), id)
+	if err != nil {
+		return domain.Student{}, err
 	}
 	if needsManage && !req.ManagesUsers() {
-		return domain.ErrForbidden
+		return domain.Student{}, domain.ErrForbidden
 	}
 	target, err := s.Principals.Resolve(ctx, id)
 	if errors.Is(err, accessdomain.ErrUnknownUser) {
-		return domain.ErrStudentNotFound
+		return domain.Student{}, domain.ErrStudentNotFound
 	}
 	if err != nil {
-		return err
+		return domain.Student{}, err
 	}
 	if !access.CanActOn(req.Grants, target.Permissions) {
-		return domain.ErrForbidden
+		return domain.Student{}, domain.ErrForbidden
 	}
-	return nil
+	return student, nil
 }

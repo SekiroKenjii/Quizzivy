@@ -161,13 +161,13 @@ export function reprocessOutcome(value: WordImport): "failed" | "cancelled" | nu
 
 /** importHref is the import's own page, whatever its status. */
 export function importHref(value: WordImport): string {
-  return `/admin/imports/${value.id}`;
+  return `/teacher/imports/${value.id}`;
 }
 
 /** importActionHref is where a history row's action leads for the import's current state. */
 export function importActionHref(value: WordImport): string {
   if (value.status === "committed" && value.testId !== undefined)
-    return `/admin/tests/${value.testId}/edit`;
-  if (value.status === "needs_review") return `/admin/imports/${value.id}/review`;
+    return `/teacher/tests/${value.testId}/edit`;
+  if (value.status === "needs_review") return `/teacher/imports/${value.id}/review`;
   return importHref(value);
 }

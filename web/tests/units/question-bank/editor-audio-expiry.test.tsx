@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import QuestionEditorPage from "@/features/question-bank/pages/QuestionEditorPage";
+import QuestionEditorPage from "@/features/question-bank/pages/teacher/QuestionEditorPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -16,6 +16,8 @@ let fetches = 0;
 
 function question(url: string) {
   return {
+    level: null,
+    skill: null,
     id: ID,
     type: "short_answer" as const,
     prompt: "Người phụ nữ đề nghị làm gì?",
@@ -60,8 +62,8 @@ beforeEach(() => {
 function renderEditor() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/question-bank/:id", element: <QuestionEditorPage /> }],
-    { initialEntries: [`/admin/question-bank/${ID}`] },
+    [{ path: "/teacher/question-bank/:id", element: <QuestionEditorPage /> }],
+    { initialEntries: [`/teacher/question-bank/${ID}`] },
   );
   render(
     <QueryClientProvider client={client}>

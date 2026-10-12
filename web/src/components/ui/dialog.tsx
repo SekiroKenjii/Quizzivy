@@ -27,41 +27,49 @@ function DialogClose({ ...props }: React.ComponentProps<typeof DialogPrimitive.C
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
+/** DialogOverlay covers the current surface at its scoped dialog layer. */
 function DialogOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+  const deck = useDeckScale();
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
         "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 bg-overlay fixed inset-0 z-50",
+        deck && "data-[scale=deck]:z-(--z-dialog)",
         className,
       )}
+      data-scale={deck ? "deck" : undefined}
       {...props}
     />
   );
 }
 
+/** DialogContent portals a scoped dialog with optional overlay classes and unchanged default motion. */
 function DialogContent({
   className,
   children,
   showCloseButton = true,
+  overlayClassName,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  overlayClassName?: string;
 }) {
   const { t } = useTranslation();
   const deck = useDeckScale();
 
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         data-scale={deck ? "deck" : undefined}
         className={cn(
           "bg-background data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
+          deck && "data-[scale=deck]:z-(--z-dialog)",
           className,
         )}
         {...props}

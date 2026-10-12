@@ -1,17 +1,26 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Timer } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Assignment } from "@/features/assignments/api";
-import { formatMoment, formatTime } from "@/lib/i18n/datetime";
+import { formatMoment, formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
+import { useLocale } from "@/lib/i18n/useLocale";
 
-/** G-09's "Đóng sớm" confirm: restates S-04's promise and asks for one tick. */
+/**
+ * CloseEarlyDialog is "Close early": the deck's title and button, and the
+ * true promise that students mid-test keep their time (DG-161), in the
+ * reader's language, with one tick to confirm. `keepTime`, given where the
+ * roster is known, counts the students whose own extension reaches past now;
+ * they keep it, and none draws no sentence. Focus returns to `returnFocus` when it closes.
+ */
 export function CloseEarlyDialog({
   assignment,
   open,
   pending,
   failed,
+  keepTime = 0,
+  returnFocus,
   onOpenChange,
   onConfirm,
 }: Readonly<{
@@ -19,10 +28,14 @@ export function CloseEarlyDialog({
   open: boolean;
   pending: boolean;
   failed: boolean;
+  keepTime?: number | undefined;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }>) {
+  useDisplayTimeZone();
   const { t } = useTranslation();
+  const locale = useLocale();
   const [understood, setUnderstood] = useState(false);
 
   return (
@@ -32,14 +45,15 @@ export function CloseEarlyDialog({
         if (!next) setUnderstood(false);
         onOpenChange(next);
       }}
-      title={t("assignments.detail.closeNowTitle")}
+      title={t("assignments.detail.closeNowTitle", { title: assignment.testTitle })}
       description={t("assignments.detail.closeNowBody", {
         now: formatTime(new Date()),
-        planned: formatMoment(assignment.window.closesAt),
+        planned: formatMoment(assignment.window.closesAt, locale),
       })}
       confirmLabel={t("assignments.detail.closeNow")}
       disabled={!understood}
       pending={pending}
+      {...(returnFocus === undefined ? {} : { returnFocus })}
       error={failed ? t("assignments.detail.closeFailed") : null}
       onConfirm={onConfirm}
     >
@@ -52,6 +66,8 @@ export function CloseEarlyDialog({
           {t("assignments.detail.closeNowNote", {
             minutes: assignment.durationMinutes,
           })}
+          {keepTime > 0 &&
+            ` ${t("assignments.detail.closeNowKeepTime", { count: keepTime })}`}
         </p>
       </div>
       <label className="flex items-start gap-2 text-sm">

@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Timer } from "lucide-react";
 import { countdown } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
-import { remainingMs, takeTestStore, useTakeTestStore } from "../store";
+import { takeTestStore, useTakeTestStore } from "../store";
+import { timeLeft } from "../timeLeft";
 
 const LOW_MS = 5 * 60_000;
 const LAST_MS = 60_000;
@@ -35,28 +36,31 @@ function cells(text: string) {
  * once when it passes one, and again if a later deadline lets it pass them
  * again. The region holds that line only for the minute it is true of and is
  * empty otherwise, so it never reads a time that has gone. A paper opened
- * with less than that left is not told a time it never crossed. Each digit
- * sits in a cell one zero wide, because the typeface has no tabular figures
- * and the pill would otherwise change width, and move, every second.
+ * with less than that left is not told a time it never crossed. Once the
+ * server has said the time is up it stands at 00:00 in the danger tones and
+ * says nothing. Each digit sits in a cell one zero wide, because the typeface
+ * has no tabular figures and the pill would otherwise change width, and move,
+ * every second.
  */
 export function Clock() {
   const { t } = useTranslation();
   const deadlineAt = useTakeTestStore((s) => s.deadlineAt);
   const offsetMs = useTakeTestStore((s) => s.offsetMs);
+  const over = useTakeTestStore((s) => s.lock === "deadline");
   const [said, setSaid] = useState<number | null>(null);
   const [, repaint] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
-    let before = remainingMs(takeTestStore.getState());
+    let before = timeLeft(takeTestStore.getState());
     const tick = setInterval(() => {
       const was = before;
-      const left = remainingMs(takeTestStore.getState());
+      const left = timeLeft(takeTestStore.getState());
       before = left;
       setSaid((current) => minutesToSay(was, left, current));
       repaint();
     }, 1000);
     return () => clearInterval(tick);
   }, []);
-  const left = remainingMs({ deadlineAt, offsetMs });
+  const left = timeLeft({ deadlineAt, offsetMs, lock: over ? "deadline" : null });
   return (
     <>
       <span

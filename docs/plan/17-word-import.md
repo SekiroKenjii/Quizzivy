@@ -153,8 +153,9 @@ lists and tables with marks, breaks and safe links. Migration 00033 preserves
 these documents through bank duplication, publication, restoration, previews,
 attempts, results and teacher review. Existing Markdown stays unchanged. Prose
 cannot bind assets or gaps; fill-blank prompts retain their historical path.
-The new editor affordance is opt-in with `VITE_RICH_QUESTION_EDITOR`; existing
-rich content remains editable when the flag is off.
+Since T-R4.64 the rich editor is how every teacher writes a prompt or an
+explanation; a field stored as Markdown stays Markdown until its teacher
+converts it.
 
 Explicit Markdown conversion previews the supported subset and refuses unknown
 structures without modifying the original. Removing rich structure is an explicit
@@ -1189,37 +1190,124 @@ four changes it depended on: the worker wake (§1.36), the R2 import store
 
 Decided on 2026-10-03 under Thuong's delegated authority, when the design deck
 drew "Paste a test": a teacher may paste an exam as text instead of uploading a
-file. Nothing here is built yet. Phase R builds it in R4, and `74-r4.md` holds
-the contract, migrations and tests: T-R4.55 (the source, intake, extractor and
-worker), T-R4.56 (recognition) and T-R4.57 (the page). This section records
-the scope.
+file. Built in R4 as T-R4.55 (the source, intake, extractor and worker),
+T-R4.56 (recognition) and T-R4.57 (the page); `74-r4.md` holds the contract,
+the migrations and their as-built notes. The scope Thuong accepted:
 
 - **Plain text only.** Every paste is stored and processed as plain text,
-  whatever the clipboard held. No mark is read, as with a PDF (§1.39), and the
-  deck's "formatting kept" labels do not ship (`docs/design/gaps.md`).
-  Recognition never takes an answer from a mark, so no key is lost; a question
-  that depends on an underline is marked by the teacher in review.
-- **A fourth source format, `text`.** One exam source, at most 100,000 Unicode
-  code points after NFC normalisation, stored as UTF-8 in the private bucket
-  like any original. Quotas and retention (§1.38) apply unchanged, and
-  "Download original" returns the `.txt`. A pasted import may still take an
-  answer-key file through the API.
-- **Conventions for text sources only, with one exception.** The recognizer
-  learns the forms the paste page tells the teacher to type: `*` on the
-  correct option, an `Answer: B` line under a question, a one-line key such
-  as `Answer key: 1-B 2-C`, and the looser labels and the three-underscore
-  gap that T-R4.56 lists. They are gated on the text evidence version, so
-  Word and PDF results do not change, except for the one-line key, which is
-  read for every evidence version (#233, decided 2026-10-04): the corpus
-  harness may report keys that are now read, and nothing else. They are
-  text, not formatting, so §1.32's rule stands: formatting is never evidence
-  of correctness.
-- **Versions.** `recognition.Version` becomes `rules-v3` and `PipelineVersion`
-  `word-pipeline-v3`. A run still queued under v2 at the deploy retires with
-  `PIPELINE_RETIRED` and is retried, as at the PDF release.
-- **True / False / Not given** is not a question type until R6 (`76-r6.md`
-  T-R6.13). Until then "Answer: Not given" gives a short answer the teacher
-  fixes in review.
+  whatever the clipboard held. The page is a textarea and nothing reads the
+  clipboard's HTML, so no mark exists to read, as with a PDF (§1.39), and the
+  deck's "formatting kept" labels do not ship (DG-12). Every pasted draft says
+  so in an informational finding, `TEXT_MARKS_UNAVAILABLE`, as a PDF's says
+  `PDF_MARKS_UNAVAILABLE`. Recognition never takes an answer from a mark, so no
+  key is lost; a question that depends on an underline is marked by the teacher
+  in review.
+- **Keys come from text.** An answer is a `*`, an answer line or a key line the
+  teacher typed, or a separate key file. A pasted import may still take an
+  answer-key file through `uploadImportSource`.
+
+**Intake.** `POST /teacher/imports/{id}/sources/text` (`pasteImportSource`,
+`content.tests.write`) takes the closed JSON body `{uploadId, expectedRevision,
+text}`. It is its own operation because `uploadImportSource` streams a multipart
+file, so the contract validator would see neither the text nor its limit. A
+`.txt` file on `uploadImportSource` is still refused.
+
+- The contract refuses a `text` of more than 100,000 code points as sent (400
+  `VALIDATION_FAILED`) and one with no non-space character. The command
+  (`command.Paste`) then composes the text to NFC, counts code points, and
+  refuses a NUL or invalid UTF-8 (415 `IMPORT_SOURCE_INVALID`), a text of more
+  than 100,000 code points after composing, or of more than 20,000 non-blank
+  lines (413 `IMPORT_SOURCE_TOO_LARGE`). `ImportLimits.pasteMaxCharacters` is
+  100000; `formats` still lists file extensions only.
+- The text is stored as UTF-8 at the usual private key with the constant name
+  `pasted-text.txt`, role `exam`, through the upload's own path
+  (`UploadHandler.handlePrepared`): the reservation, the quotas (a paste counts
+  as an import and its bytes as source bytes), the intake slot and the source
+  revision are the upload's, and so are retention (§1.38) and the ownership
+  rules. A replay with the same `uploadId`, revision and text returns the first
+  receipt; a changed one is 409 `IMPORT_CONFLICT`. No rate-limit entry exists, as
+  for `uploadImportSource`.
+- The source is `ImportSource.format = text` with `characters`, the code-point
+  count after composing (migrations `00090` and `00091`: the `format` CHECK admits
+  `text`, and `characters` is 1 to 100000, set exactly when the format is
+  `text`). "Download original" returns the stored `.txt`, and the source view
+  returns the line blocks. The history search skips a text source's stored
+  filename; the title and a companion file's name still match.
+- Nothing about a paste is a test without questions: a text with no question
+  reaches review with the blocking `NO_QUESTIONS` finding.
+
+**Extractor and evidence.** `adapters.TextEvidence` (`import_text.go`) is to a
+text source what `PDFEvidence` is to a PDF. It drops a leading byte-order mark,
+turns CRLF and CR into LF, composes to NFC and makes each non-blank line one
+paragraph block `l{n}`, n being the line's number in the composed text, with no
+spans. The evidence version is `text-lines-v1`, and a source of that format is
+never normalised or converted: `normalizeSources` passes it through and
+`ExtractionVersion("text")` fences stage reuse as `text-lines-v1:projection-v1`.
+The worker reads at most 400,000 bytes of it, and needs no converter, sandbox or
+Docker (`docs/setup/word-import-worker.md`). Recognition accepts
+`ooxml-blocks-v1`, `pdf-lines-v1` and `text-lines-v1`.
+
+**Conventions.** The recognizer learns the forms the paste page tells the teacher
+to type. They are gated on `examRules{text: version == "text-lines-v1"}`
+(`text_rules.go`), so a Word or PDF paper recognises as before, with one exception
+below:
+
+- `*` as the first or the last non-space character of an option marks it correct
+  and is taken out of its content; several starred options of one question are one
+  answer, and a `*` anywhere else is content.
+- An answer line under a question reads `Answer: B`, `Ans: B`, `Answer - B`,
+  `Key: B` and `Đáp án: B`.
+- Option letters may be lower-case, a bare `1:` is a question label, a bare roman
+  numeral on its own line is a part heading, a named part (`Part A`, `Bài tập 1`)
+  is a heading and never the paper's title, and a run of three or more
+  underscores is a gap (dots and ellipses keep their threshold).
+- `Answer: Not given` gives a short answer the teacher fixes in review. True /
+  False / Not given is not a question type until R6 (`76-r6.md` T-R6.13).
+- **A one-line key** (`Answer key: 1-B 2-C`, also `Answers:`, `Key:` and
+  `Đáp án:` before the pairs) is read as the key's entries when it holds at least
+  two pairs, whose separator is `-`, `:`, `.` or `)`. This rule is read for every
+  evidence version, Word and PDF too (#233, decided 2026-10-04):
+  `Đáp án: 1-B 2-C` is no longer attached to the last question as one value. A
+  line with fewer than two pairs keeps its old meaning. The other conventions are
+  text, not formatting, so §1.32's rule stands: formatting is never evidence of
+  correctness.
+
+**Versions.** `recognition.Version` is `rules-v3` and `PipelineVersion`
+`word-pipeline-v3`, so a worker that predates text sources never claims a text
+run. A run still queued under v2 at the deploy retires after ten minutes with
+`PIPELINE_RETIRED` and is retried, as at the PDF release.
+
+**The page.** T-R4.57 builds the paste mode of the upload page. Its "Found so far"
+count is `web/src/features/imports/paste.ts`, which follows the server's text
+path, not the deck's `WI_detect`, so the page cannot contradict the review.
+`api/testdata/pasted-text-counts.json` holds both sides to the same numbers.
+Start processing stays disabled for an empty box, a text over the limit and a
+text with no numbered question. The screens are in `18-word-import-ux.md` §4.1
+and §12.
+
+**Measurements.** What is measured, and what is not:
+
+- The fixture holds 120 cases (sections, questions, answered count and missing
+  numbers): the deck's sample and the page's example, one or more cases for each
+  rule above, and texts aimed at one rule each. A Go test builds each case's exam
+  with `TextEvidence`, runs the recognizer and compares it with the review summary
+  and its `MISSING_ANSWER` findings
+  (`TestPastedTextCountsUseRealTextEvidence`, `core/adapters/tests/import_paste_counts_test.go`);
+  the web unit test `paste-scan.test.ts` asserts the same numbers from `paste.ts`.
+- Mutation runs, each mutant killed by a test: T-R4.55's source behaviour 14 of 14;
+  T-R4.56's rules and the text gate once each, the one-line key apart; T-R4.57's
+  `paste.ts` 79 rules and the page and hook 24. These are source mutations, not
+  proof against a real database.
+- The deck's sample is taken from intake to its draft in
+  `TestTextPipelineDeckSampleHasExactReviewCounts` (`text_counts_pipeline_test.go`)
+  and finds the same four numbers (3 sections, 10 questions,
+  8 answered, questions 4 and 7 missing).
+- **Not measured here.** The time from Start processing to the Ready card on a
+  cold worker is T-R4.51's measurement (DG-16): at 10 s or less the footer takes
+  the deck's "Processing takes a few seconds."; otherwise the file flow's sentence
+  stays. And the local corpus run, which should report only the keys the one-line
+  rule now reads in Word and PDF files, is not recorded in the repository; the
+  corpus is never committed.
 
 ## 2. Current code and the actual gaps
 
@@ -1636,7 +1724,7 @@ deploy and verify backup/restore before enabling production writes.
 | D-08 | Retention/cleanup | **Decided 2026-09-25:** files and draft kept 30 days after commit and 7 after cancel; imports idle 60 days are closed and their files removed; history rows kept (§1.38) | Thuong |
 | D-09 | Quality and pilot | Verified real corpus, holdout, matched manual baseline and explicit release thresholds | Thuong + pilot teachers; W-01 baseline, thresholds before holdout |
 | D-10 | PDF input | **Decided 2026-09-25:** text-layer PDFs are accepted beside `.docx`; scans are refused without OCR; underline, bold and colour are not read; keys come from a key file or explicit lines (§1.39) | Thuong |
-| D-11 | Pasted text input | **Decided 2026-10-03:** a test pasted as plain text is accepted as an exam source beside `.docx` and PDF, up to 100,000 characters; no formatting is read; the answer conventions the paste page states are read for text sources only, except the one-line answer key, which is read in Word and PDF files too (#233, decided 2026-10-04); built in R4 (§1.41) | Thuong (delegated); R4 |
+| D-11 | Pasted text input | **Decided 2026-10-03, built in R4 (§1.41):** a test pasted as plain text is accepted as an exam source beside `.docx` and PDF, up to 100,000 Unicode code points after NFC and 20,000 non-blank lines; no formatting is read; the answer conventions the paste page states are read for text sources only (`text-lines-v1`), except the one-line answer key, which is read in Word and PDF files too (#233, decided 2026-10-04); `rules-v3` and `word-pipeline-v3` | Thuong (delegated); R4 |
 
 First checkpoint deliverables are W-01–04: source family/coverage inventory,
 proposed contracts with concrete examples, extraction/editor/provider comparisons,

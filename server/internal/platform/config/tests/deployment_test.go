@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +29,7 @@ var configuredBy = []string{
 	"IMPORT_S3_BUCKET", "IMPORT_WORK_DIR", "IMPORT_LEGACY_DOC", "IMPORT_PROCESSING_ENABLED", "IMPORT_WORKER_WAKE_URL",
 	"IMPORT_WORKER_WAKE_ADDR", "IMPORT_WORKER_IDLE_POLL", "IMPORT_DOCKER_BINARY", "IMPORT_CONVERTER_IMAGE",
 	"IMPORT_ACTOR_COUNT", "IMPORT_GLOBAL_COUNT", "IMPORT_SOURCES_PER_ITEM", "IMPORT_ACTOR_MIB",
-	"IMPORT_GLOBAL_MIB",
+	"IMPORT_GLOBAL_MIB", "MEDIA_OWNER_QUOTA_MIB",
 }
 
 // What `fly secrets set` supplies, by name, per docs/setup/dns.md. Values are
@@ -125,6 +126,9 @@ func TestTheCommittedFlyConfigBootsWithTheDocumentedSecrets(t *testing.T) {
 	}
 	if cfg.DocsPublic {
 		t.Error("the API reference is open to anyone; production must keep the docs gate on")
+	}
+	if declared := flyEnv(t)["MEDIA_OWNER_QUOTA_MIB"]; declared == "" || declared != strconv.Itoa(cfg.MediaOwnerQuotaMiB) {
+		t.Errorf("fly.toml sets MEDIA_OWNER_QUOTA_MIB to %q and the API runs with %d MiB; production must name its media quota", declared, cfg.MediaOwnerQuotaMiB)
 	}
 }
 
@@ -316,5 +320,37 @@ func TestObjectStorageUnderTheWrongNamesLeavesMediaOff(t *testing.T) {
 	}
 	if cfg.MediaEnabled() {
 		t.Fatal("R2_* names now reach the S3_* config; update the docs and delete this test")
+	}
+}
+
+// The VPS half of deploy.yml. Fly stays the default until API_HOST is set to
+// vps, so this reads the file as text and asks the three things that would go
+// wrong without anyone noticing: a deploy that trusts any host key, one that
+// reaches the box before the image exists, and a web deploy that no longer waits
+// for the API job that ran.
+func TestTheVPSDeployJobPushesBeforeItDeploysAndChecksTheHostKey(t *testing.T) {
+	text := repoFile(t, ".github/workflows/deploy.yml")
+	start := strings.Index(text, "\n  api-vps:")
+	end := strings.Index(text, "\n  web:")
+	if start < 0 || end < start {
+		t.Fatal("deploy.yml has no api-vps job; this test is not reading what it thinks it is")
+	}
+	job := text[start:end]
+
+	if strings.Contains(job, "StrictHostKeyChecking=no") || strings.Contains(job, "StrictHostKeyChecking no") {
+		t.Fatal("api-vps turns host key checking off: the host key must come from VPS_KNOWN_HOSTS")
+	}
+	if !strings.Contains(job, "StrictHostKeyChecking=yes") {
+		t.Fatal("api-vps does not require a known host key")
+	}
+	push := strings.Index(job, "docker push")
+	ssh := strings.Index(job, `deploy "$SHA"`)
+	if push < 0 || ssh < 0 || push > ssh {
+		t.Fatal(`api-vps must run "docker push" before it asks the box to deploy "$SHA"`)
+	}
+
+	web := text[end:]
+	if !strings.Contains(web, "api-vps") {
+		t.Fatal("the web job no longer waits for api-vps: it could deploy the SPA before the API it calls")
 	}
 }

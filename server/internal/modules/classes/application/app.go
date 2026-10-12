@@ -1,8 +1,10 @@
 package application
 
 import (
+	"log/slog"
 	"quizzivy/internal/modules/classes/application/command"
 	"quizzivy/internal/modules/classes/application/internal/support"
+	"quizzivy/internal/modules/classes/application/ports"
 	"quizzivy/internal/modules/classes/application/query"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/shared/cqrs"
@@ -22,6 +24,44 @@ func (a *Application) SetClock(now func() time.Time) {
 	a.enrolment.SetClock(now)
 }
 
+// WithNotifier supplies the notifier RotateLegacyJoinCodes tells each teacher
+// through, and the enrolments tell a class's teacher of a join by code. Without
+// one the commands rotate and enrol and tell nobody.
+func (a *Application) WithNotifier(notifier ports.Notifier) *Application {
+	a.enrolment.Notifier = notifier
+	a.Commands.RotateLegacyJoinCodes = command.RotateLegacyJoinCodesHandler{Enrolment: a.enrolment, Notifier: notifier}
+	return a
+}
+
+// WithLogger supplies the logger a failed notification of a join is written
+// to. Without one it is not logged.
+func (a *Application) WithLogger(logger *slog.Logger) *Application {
+	a.enrolment.Logger = logger
+	return a
+}
+
+// WithZones supplies the reader of a user's calendar zone, which a new join
+// code's last day is counted in. Without one, or when it fails, the zone is
+// domain.DefaultZone.
+func (a *Application) WithZones(zones ports.Zones) *Application {
+	a.enrolment.Zones = zones
+	return a
+}
+
+// WithClassScores supplies the source of a class's average score. Without one
+// no class has an average.
+func (a *Application) WithClassScores(source stats.ClassSource) *Application {
+	a.service.ClassScores = source
+	return a
+}
+
+// WithAvatars supplies the signer of a teacher's profile photo for the classes
+// a student belongs to. Without one no photo is signed.
+func (a *Application) WithAvatars(avatars ports.Avatars) *Application {
+	a.service.Avatars = avatars
+	return a
+}
+
 type Commands struct {
 	Delete         cqrs.CommandHandler[command.Delete, cqrs.Nothing]
 	AddMember      cqrs.CommandHandler[command.AddMember, domain.Member]
@@ -33,6 +73,8 @@ type Commands struct {
 	Revoke         cqrs.CommandHandler[command.Revoke, cqrs.Nothing]
 	Rotate         cqrs.CommandHandler[command.Rotate, domain.Rotated]
 	Update         cqrs.CommandHandler[command.Update, domain.Class]
+
+	RotateLegacyJoinCodes cqrs.CommandHandler[command.RotateLegacyJoinCodes, domain.LegacyRotation]
 }
 
 type Queries struct {
@@ -62,12 +104,14 @@ func New(repo domain.Repository, stats stats.Source, keys domain.JoinCodeKeys) *
 			Revoke:         command.RevokeHandler{Enrolment: enrolment},
 			Rotate:         command.RotateHandler{Enrolment: enrolment},
 			Update:         command.UpdateHandler{Service: service},
+
+			RotateLegacyJoinCodes: command.RotateLegacyJoinCodesHandler{Enrolment: enrolment},
 		},
 		Queries: Queries{
 			ActiveCode: query.ActiveCodeHandler{Enrolment: enrolment},
 			Facets:     query.FacetsHandler{Service: service},
 			Get:        query.GetHandler{Service: service},
-			List:       query.ListHandler{Service: service},
+			List:       query.ListHandler{Service: service, Codes: enrolment},
 			ListMine:   query.ListMineHandler{Service: service},
 			Members:    query.MembersHandler{Service: service},
 			Preview:    query.PreviewHandler{Enrolment: enrolment},

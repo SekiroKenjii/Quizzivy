@@ -1,4 +1,4 @@
-import { useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleAlert, LoaderCircle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthLayout } from "@/features/auth/AuthLayout";
-import { changePassword, fetchCurrentUser } from "@/features/auth/api";
+import { changePassword } from "@/features/auth/api";
 import { destinationAfterSignIn } from "@/features/auth/home";
 import { readJoinContext } from "@/features/join/context";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { passwordRules } from "@/lib/password";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/stores/auth";
+import { authStore } from "@/stores/auth";
+import { runAccountMutation } from "@/features/auth/accountPreferences";
 
 /**
  * ChangePasswordPage is the forced password change (§5.4) an account with a
@@ -27,7 +28,13 @@ export default function ChangePasswordPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const setUser = useAuthStore((s) => s.setUser);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [password, setPassword] = useState("");
   const [again, setAgain] = useState("");
   const [revealed, setRevealed] = useState(false);
@@ -53,10 +60,10 @@ export default function ChangePasswordPage() {
     setBusy(true);
     setError(null);
     setRefusal(null);
+    const lease = authStore.captureActor();
     try {
-      await changePassword("", password);
-      const user = await fetchCurrentUser();
-      setUser(user);
+      const user = await runAccountMutation(() => changePassword("", password));
+      if (!user || !mounted.current || !authStore.isCurrent(lease)) return;
       const joining = readJoinContext();
       await navigate(
         joining
@@ -65,6 +72,7 @@ export default function ChangePasswordPage() {
         { replace: true },
       );
     } catch (cause) {
+      if (!mounted.current || !authStore.isCurrent(lease)) return;
       if (cause instanceof ApiError && cause.code === "PASSWORD_UNCHANGED") {
         setRefusal(t("changePassword.errors.unchanged"));
         passwordRef.current?.focus();

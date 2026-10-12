@@ -112,7 +112,7 @@ func questionBody[T any](t *testing.T) *T {
 	return &body
 }
 
-func TestEveryQuestionOperationCarriesTheCallersScope(t *testing.T) {
+func TestTheBankListsOwnRowsAndEveryOtherQuestionOperationCarriesTheCallersScope(t *testing.T) {
 	for name, principal := range map[string]access.Principal{
 		"a Teacher": {UserID: uuid.NewString(), Permissions: access.NewSet(access.ContentQuestionsWrite)},
 		"an Admin":  {UserID: uuid.NewString(), Permissions: access.NewSet(access.All()...)},
@@ -149,7 +149,13 @@ func TestEveryQuestionOperationCarriesTheCallersScope(t *testing.T) {
 					t.Fatalf("call %d: %v", i, err)
 				}
 			}
-			for _, read := range []string{"list", "facets", "tags", "counts", "get", "tag"} {
+			own := access.Scope{UserID: principal.UserID}
+			for _, read := range []string{"list", "facets", "tags", "counts"} {
+				if s.scopes[read] != own {
+					t.Errorf("%s ran in %+v, want the caller's own rows %+v", read, s.scopes[read], own)
+				}
+			}
+			for _, read := range []string{"get", "tag"} {
 				if s.scopes[read] != want {
 					t.Errorf("%s ran in %+v, want %+v", read, s.scopes[read], want)
 				}

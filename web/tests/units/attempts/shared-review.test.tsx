@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import AttemptReviewPage from "@/features/attempts/pages/AttemptReviewPage";
+import AttemptReviewPage from "@/features/attempts/pages/teacher/AttemptReviewPage";
 import { GradeByQuestion } from "@/features/attempts/components/GradeByQuestion";
 import { previewGroup } from "@tests/support/groupPreview";
 import { server } from "@tests/support/server";
@@ -38,7 +38,7 @@ function renderPage(byQuestion: boolean) {
   const router = createMemoryRouter(
     [
       {
-        path: "/admin/attempts/:id",
+        path: "/teacher/attempts/:id",
         element: byQuestion ? (
           <GradeByQuestion
             assignmentId={ASSIGNMENT_ID}
@@ -51,7 +51,7 @@ function renderPage(byQuestion: boolean) {
         ),
       },
     ],
-    { initialEntries: [`/admin/attempts/${ATTEMPT_ID}`] },
+    { initialEntries: [`/teacher/attempts/${ATTEMPT_ID}`] },
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -85,7 +85,9 @@ it("shows a teacher the group's material, transcript and attempt allowance while
   ).toBeVisible();
   await user.click(screen.getByText("Nội dung bài nghe"));
   expect(screen.getByText("Teacher-only shared transcript.")).toBeVisible();
-  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 1" }));
+  await user.click(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 1" }),
+  );
   expect(screen.getByText("Thủ đô của Việt Nam?")).toBeVisible();
   expect(screen.getByText(group.title)).toBeVisible();
 });

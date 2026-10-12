@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import NewImportPage from "@/features/imports/pages/NewImportPage";
+import NewImportPage from "@/features/imports/pages/teacher/NewImportPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import {
@@ -39,6 +39,7 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/teacher/imports/limits`, () =>
       contractJson("/teacher/imports/limits", "get", 200, {
+        pasteMaxCharacters: 100000,
         maxBytes: 25 * 1024 * 1024,
         formats: ["docx", "pdf"],
       }),
@@ -113,21 +114,21 @@ beforeEach(() => {
   );
 });
 
-function renderPage() {
+function renderPage(entry = "/teacher/imports/new") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/imports/new", element: <NewImportPage /> },
-      { path: "/admin/imports/:id", element: <p>detail page</p> },
+      { path: "/teacher/imports/new", element: <NewImportPage /> },
+      { path: "/teacher/imports/:id", element: <p>detail page</p> },
     ],
-    { initialEntries: ["/admin/imports/new"] },
+    { initialEntries: [entry] },
   );
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return userEvent.setup();
+  return { ...userEvent.setup(), router };
 }
 
 describe("starting a Word import", () => {
@@ -143,7 +144,7 @@ describe("starting a Word import", () => {
   it("shows the server's limits before a file is chosen", async () => {
     renderPage();
     expect(
-      await screen.findByText(/Nhận tệp \.docx, \.pdf, tối đa 25\.0 MB/),
+      await screen.findByText(/Nhận tệp \.docx, \.pdf, tối đa 25 MB/),
     ).toBeInTheDocument();
   });
 
@@ -213,9 +214,9 @@ describe("starting a Word import", () => {
       await screen.findByText("Chưa nhập được đề mới lúc này."),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Tệp đề thi")).toBeNull();
-    expect(screen.getByRole("link", { name: "Về lịch sử nhập đề" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Về mục Nhập đề" })).toHaveAttribute(
       "href",
-      "/admin/imports",
+      "/teacher/imports",
     );
   });
 
@@ -298,8 +299,8 @@ describe("starting a Word import", () => {
     const user = userEvent.setup({ applyAccept: false });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createMemoryRouter(
-      [{ path: "/admin/imports/new", element: <NewImportPage /> }],
-      { initialEntries: ["/admin/imports/new"] },
+      [{ path: "/teacher/imports/new", element: <NewImportPage /> }],
+      { initialEntries: ["/teacher/imports/new"] },
     );
     render(
       <QueryClientProvider client={client}>
@@ -333,11 +334,11 @@ describe("starting a Word import", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createMemoryRouter(
       [
-        { path: "/admin/imports/new", element: <NewImportPage /> },
-        { path: "/admin/imports/:id", element: <p>detail page</p> },
-        { path: "/admin/tests", element: <p>tests page</p> },
+        { path: "/teacher/imports/new", element: <NewImportPage /> },
+        { path: "/teacher/imports/:id", element: <p>detail page</p> },
+        { path: "/teacher/tests", element: <p>tests page</p> },
       ],
-      { initialEntries: ["/admin/imports/new"] },
+      { initialEntries: ["/teacher/imports/new"] },
     );
     render(
       <QueryClientProvider client={client}>
@@ -349,11 +350,11 @@ describe("starting a Word import", () => {
     await user.click(screen.getByRole("button", { name: "Bắt đầu xử lý" }));
     await waitFor(() => expect(calls).toHaveLength(1));
 
-    await router.navigate("/admin/tests");
+    await router.navigate("/teacher/tests");
     expect(await screen.findByText("tests page")).toBeInTheDocument();
     gate.resolve();
     await new Promise((settle) => setTimeout(settle, 100));
-    expect(router.state.location.pathname).toBe("/admin/tests");
+    expect(router.state.location.pathname).toBe("/teacher/tests");
     expect(calls.map((call) => call.kind)).toEqual(["create"]);
   });
 
@@ -372,9 +373,67 @@ describe("starting a Word import", () => {
     expect(screen.getByRole("button", { name: "Chọn tệp đề thi" })).toHaveFocus();
   });
 
-  it("titles the card for the whole step and does not repeat the required tag", async () => {
+  it("draws the deck's head, Files card and title card in file mode", async () => {
     renderPage();
-    expect(await screen.findByText("Chọn tệp để nhập")).toBeInTheDocument();
-    expect(screen.getAllByText("Bắt buộc")).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Nhập đề từ Word/PDF",
+    );
+    expect(
+      screen.getByText(/^Tải lên đề thi Word hoặc PDF và, nếu có, tệp đáp án riêng\./),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Về mục Nhập đề" })).toBeNull();
+    const files = screen.getByRole("region", { name: "Tệp" });
+    expect(
+      await within(files).findByText("DOCX hoặc PDF · tối đa 25 MB mỗi tệp"),
+    ).toBeInTheDocument();
+    expect(within(files).getAllByText("Bắt buộc")).toHaveLength(1);
+    expect(within(files).getAllByText("Kéo tệp vào đây hoặc chọn tệp")).toHaveLength(2);
+    expect(
+      screen.getByText(/^Hệ thống tự nhận diện phần, nhóm câu/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Tự động nhận diện")).toBeInTheDocument();
+  });
+  it("reads paste mode from the URL and shows the text box in place of the files", async () => {
+    const user = renderPage("/teacher/imports/new?source=paste&keep=1");
+    expect(screen.getByRole("button", { name: "Dán văn bản" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("textbox", { name: "Nội dung đề" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Tệp", hidden: true })).not.toBeVisible();
+    expect(screen.getByRole("button", { name: "Bắt đầu xử lý" })).toBeDisabled();
+    expect(screen.getByText("Cách đọc nội dung")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Tải tệp lên" }));
+    expect(user.router.state.location.search).toBe("?keep=1");
+    expect(screen.getByRole("button", { name: "Tải tệp lên" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await screen.findByText(/Nhận tệp/);
+    expect(calls).toEqual([]);
+  });
+
+  it("keeps both chosen files and a typed title across source switches, then uses the real file flow", async () => {
+    const user = renderPage("/teacher/imports/new?source=other&keep=1");
+    await screen.findByText(/Nhận tệp/);
+    await user.upload(screen.getByLabelText("Tệp đề thi"), docx("de-thi.docx"));
+    await user.upload(screen.getByLabelText("Tệp đáp án"), docx("dap-an.docx"));
+    await user.clear(screen.getByLabelText("Tên đề"));
+    await user.type(screen.getByLabelText("Tên đề"), "Đề đã sửa");
+    await user.click(screen.getByRole("button", { name: "Dán văn bản" }));
+    expect(user.router.state.location.search).toBe("?source=paste&keep=1");
+    expect(screen.getByLabelText("Tên đề")).toHaveValue("Đề đã sửa");
+    expect(screen.getByRole("button", { name: "Bắt đầu xử lý" })).toBeDisabled();
+    expect(calls).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Tải tệp lên" }));
+    expect(screen.getByText("de-thi.docx")).toBeInTheDocument();
+    expect(screen.getByText("dap-an.docx")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tên đề")).toHaveValue("Đề đã sửa");
+    await user.click(screen.getByRole("button", { name: "Bắt đầu xử lý" }));
+    expect(await screen.findByText("detail page")).toBeInTheDocument();
+    expect(
+      calls.map((call) => (call.kind === "upload" ? call.role : call.kind)),
+    ).toEqual(["create", "exam", "answer_key", "process"]);
+    expect(calls[0]).toMatchObject({ title: "Đề đã sửa" });
   });
 });

@@ -19,21 +19,34 @@ this file describe the code as it is and name the release that changes them.
   heights, radii, badge and card shapes) applies only inside
   `data-scale="deck"`, which a rebuilt surface sets on its root. The student
   app and the take-test engine are such surfaces since R3 (v0.9.0) and follow
-  the theme. The teacher console keeps its layout and forces light
-  (`useForcedLightTheme`) until R4 rebuilds it. R5 makes the deck geometry the
+  the theme. Since R4 (v0.10.0) every teacher screen is one too: it renders in
+  `TeacherLayout` and follows the theme, and `AdminLayout` and
+  `useForcedLightTheme` are gone (T-R4.48). R5 makes the deck geometry the
   default and removes `data-scale`
   (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
-  since the CSP allows no inline script. Do not restyle an old console's screen
-  ad hoc: its release rebuilds it.
+  since the CSP allows no inline script. Do not restyle a screen ad hoc ahead
+  of the release that rebuilds it.
 - **Since R2** (v0.8.0) permissions, not paths, gate the API, repositories
   scope rows to their owner, and teaching operations are under `/teacher/*`
   ("Authentication and authorization" below). The v0.7.0 `/admin/*` API paths
-  answer through an alias until v0.9.1 (T-R3.1 to T-R3.3).
+  answer through an alias until v0.9.1 (T-R3.3).
 - **v0.9.1** (T-R3.1 to T-R3.3, no earlier than 2026-10-10) removes that alias,
   drops the legacy `users.role` column with its sync trigger, and validates the
-  owner constraints and drops their fill triggers. Until then all of them are
-  in the code.
-- **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
+  owner constraints and drops their fill triggers. By default the three now ship
+  inside R4 as T-R4.49, because R4 has already taken migrations 00080 to 00091
+  (`73-r3.md`, "Migration numbers"). The legacy role is gone (00105, T-R3.1):
+  no `users.role`, no `app.user_role`, no sync trigger, and no `role` in the
+  contract or in an access token. The owner constraints are validated and their
+  fill triggers dropped (00106, T-R3.2). Only the alias (T-R3.3) is in the code
+  until its step merges.
+- **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
+  an old `/admin/*` bookmark redirects to the same path under `/teacher` until
+  R5 builds the Admin console at `/admin`.
+- **The design team's exports of 2026-10-04 (the fourth) and 2026-10-10 (v2, which
+  carries the fourth) are not the deck of record.** R4 builds from
+  `docs/design/deck/` as it is, and D4 imports v2 after v0.10.0
+  (`docs/plan/74d-d4-deck-update.md`, T-D4.1). v2 also draws the AI assistant,
+  which D4 builds under D19 to D22 (`docs/plan/70-redesign-overview.md` §1).
 
 ## Sources of truth, in order
 
@@ -150,8 +163,8 @@ module:
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
 | `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application) |
 | `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`), one module's handlers behind another's port (`Media`, `MediaKinds`), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver` |
-| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.1 to T-R3.3)), `RateLimits` for contract operations and `ServiceRateLimits` for the routes beside it |
-| `core/jobs` | background commands (`PruneRefreshTokens`) |
+| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
+| `core/jobs` | background commands (`PruneRefreshTokens`, `PruneNotifications`) |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
 A new module is wired in `wiring/<module>.go`. An optional dependency stays a
@@ -168,17 +181,22 @@ by `core/tests/architecture_test.go`.
 ```
 api/openapi.yaml   the contract — edit this first, then `make gen`
 web/               quizzivy-web
-  src/             spec §3 layout, unchanged -- source only, no tests
+  src/             spec §3 layout -- source only, no tests; a feature's teacher
+                   pages are in features/<name>/pages/teacher/, the shell in
+                   layouts/TeacherLayout.tsx and layouts/shell/; features/notifications
+                   is the bell and its preferences in both consoles
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
   internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, ...)
   internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation, content,
                      access (permission keys, Principal, Scope, CanActOn), visibility (who a teacher reaches),
-                     answered (when a saved answer counts as answered)
+                     answered (when a saved answer counts as answered), schedule (the assignment status and close rules, a student's override of them, and the lock and recompute that move a deadline in progress)
   internal/modules/  one directory per bounded context, four layers each:
                      domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/;
-                     access (roles, grants, the principal cache) has no http/ until R5
+                     access (roles, grants, the principal cache) has no http/ until R5;
+                     notifications (the store, the kinds and their producers, the
+                     due-time items, a user's switches) is R4's
   tests/             end-to-end tests (build tag e2e)
   gen/openapi/       generated, committed, never hand-edited
 migrations/        goose, forward-only, 00001…
@@ -210,7 +228,12 @@ unit, integration and end-to-end in that order.
 - **A permission says what a caller may do; `access.Scope` says whose rows.**
   Repositories take an `access.Scope`, which only `scope.all` widens. Another
   teacher's id answers exactly as a missing one does: 404, or for a reference
-  in a body the error an unknown id gets.
+  in a body the error an unknown id gets. The teacher workspace's six content
+  lists (`listTests`, `listQuestions`, `listQuestionGroups`, `listMedia`,
+  `listWordImports`, `listAssignments`) pass
+  `httpapi.ScopeFromContext(ctx).Own()`, with their facets, tags and counts,
+  so an Admin's list holds what a teacher's would (DG-53). A read or a write
+  by id never calls `Own`.
 - **Student targets go through `app.student_like_roles` and nothing else.** No
   query reads `users.role` to decide who is a student, so an Admin with "Take
   tests" turned on is never a student target.
@@ -221,8 +244,7 @@ unit, integration and end-to-end in that order.
   declares `x-resource-list`. `TestAnotherTeachersIdsAnswerAsMissingOnes`
   fails naming an operation the table lacks, and `resource_contract_test.go`
   a uuid without a kind.
-- **The v0.7.0 `/admin/*` teaching paths answer until v0.9.1 (T-R3.1 to
-  T-R3.3).** The router
+- **The v0.7.0 `/admin/*` teaching paths answer until v0.9.1 (T-R3.3).** The router
   rewrites each to its new path (`LegacyAdminPaths`: a `/teacher/*` path, and
   `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
   `legacy_admin_path`. A new operation never joins that table.
@@ -245,19 +267,42 @@ time once: a type-level contract assertion was silently never evaluated.
 ## Two things about the middleware chain
 
 - **`oapi-codegen` applies the middleware slice in reverse**: the LAST entry
-  wraps outermost and therefore runs FIRST. `NewRouter` passes the list through
+  wraps outermost and therefore runs FIRST. `router.New` passes the list through
   `inExecutionOrder`, so what is written top-to-bottom is what a request
   actually travels. Add new middleware to that list in the position you want it
   to RUN. `TestAuthenticationIsDecidedBeforeValidation` (`validate_test.go`) and
   `TestBodyLimitPrecedesJSONValidation` (`hardening_test.go`) pin the direction.
+- **Two rate limiters run at two places in that list.** `httpx.RateLimit` runs
+  first, before authentication, over `RateLimits()`: buckets keyed by the
+  client address or by a field of the body, for every open operation and the
+  in-app join. `httpx.PrincipalRateLimit` runs directly after
+  `RequirePermission` and before the body limit, over `PrincipalRateLimits()`:
+  one `perActor` bucket per entry, keyed by `ratelimit.PrincipalKey`, the
+  resolved principal's user id. A limit "per user" or "per actor" goes in the
+  second registry, and so does every authenticated operation that mints a
+  credential, so staff behind one address do not share a budget. An anonymous
+  or forbidden caller of such an operation is answered 401 or 403 and spends
+  none. An entry there for an open operation stops the server at start-up
+  (`httpx.AssertPrincipalRoutesGated`): no principal exists on one. `/docs` and
+  `/docs/openapi.json` are served beside the list and stay per address
+  (`ServiceRateLimits()`).
+  `TestRateLimitsRunBeforeAuthenticationAndThePermissionGate`
+  (`permissions_test.go`) and
+  `TestThePrincipalLimiterRunsAfterTheGateAndBeforeTheBody`
+  (`principal_limits_test.go`) pin the two positions.
 - **The maintenance gate is outside that list.** `httpx.Maintenance` wraps the
   mux inside CORS, `CORS(Maintenance(mux))`, so it runs before rate limiting and
   authentication: during a window every route answers `503 MAINTENANCE`, an
   expired token included, and only `GET`/`HEAD` `/livez`, `/healthz` and
   `/public/status` pass. It runs only when the path matches a route under some
-  method (`routedOnly` in `router.go`): a path no route serves gets the mux's
-  404 without a read of the window snapshot, so scanners cannot wake Neon
-  through it. `maintenance_gate_test.go` pins its position.
+  method (`routedOnly` in `router.go`): a path no route serves gets the
+  envelope's `404 NOT_FOUND` without a read of the window snapshot, so scanners
+  cannot wake Neon through it. Inside the gate, `servedMethodOnly` answers a
+  known path under a method it does not serve with `405 METHOD_NOT_ALLOWED` and
+  `Allow`, and serves `HEAD` on an open `GET` as that `GET` without a body;
+  `HEAD` on a `GET` that needs a token is the same 405.
+  `maintenance_gate_test.go` pins its position and `unrouted_test.go` these
+  answers.
 - **The contract is enforced at runtime, once, in `httpx.ValidateRequests`.**
   Do not hand-write `required` / length / format checks in a handler; put the
   constraint in `api/openapi.yaml` and it is enforced everywhere. Handlers still
@@ -395,7 +440,9 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
   off `develop`.
 - Phase R tasks are `T-R<k>.<n>` on `feature/t-r<k>-<nn>-<slug>`, off the
   release's integration branch `work/redesign-r<k>`, which is cut from `develop`
-  and merged back `--no-ff` when the release is complete.
+  and merged back `--no-ff` when the release is complete. D4 runs the same way
+  under its own names: `T-D4.<n>` on `feature/t-d4-<nn>-<slug>`, off
+  `work/deck-d4`.
 - A release is `release/<version>` → `main` → back-merge to `develop`. Merging to
   `main` deploys to production.
 - `hotfix/<slug>` off `main`, merged to both.
@@ -471,6 +518,18 @@ route loads `SideColumn`, directly or through `PageAside`
 the test" alert (`StrikeDialog`, 420px) and the question sheet draw their own
 on the dialog primitive.
 
+The teacher console lives in `TeacherLayout` (`layouts/shell/`), which reads the
+leaf route's `handle` (`TeacherHandle`: the whole breadcrumb trail, the content's
+maximum width, a collapsed start) and keeps one outlet mounted at every width.
+From 768px the sidebar is in the page's flow, 248px expanded or 60px collapsed,
+as the user last chose (`quizzivy.sidebar`); it never collapses by itself.
+Below 768 it is a drawer that closes on every navigation. That 768 is the
+shell's only viewport breakpoint: a teacher page lays itself out by the width
+of `<main>`'s content (`useContentWidthAtLeast`, `useContentBand`), so
+collapsing the sidebar can move a page into its next layout. A unit test of a
+page in the shell calls `contentWidth(px)` (`tests/support/contentWidth.ts`)
+first, because jsdom measures 0.
+
 The take-test engine runs in `FocusLayout` and branches at the same 768px.
 From 768, a question whose group has something to read splits into a passage
 pane and a question pane, and the question pane's footer is Previous, a strip
@@ -528,11 +587,10 @@ to these. Do not refactor them opportunistically while doing something else.
 **Access and ownership.** A write that ends someone's access revokes their
 refresh families, bumps `session_epoch` and calls `Principals.Forget` in one
 command (`docs/plan/70-redesign-overview.md` §4.2). Every insert names its
-owner itself: the `BEFORE INSERT` fill triggers exist only for the v0.7.0
-binary, and v0.9.1 (T-R3.1 to T-R3.3) drops them. A user write sets `role_id`,
-never `role`: 00056's trigger derives `role` until v0.9.1 (T-R3.1 to T-R3.3)
-drops the column. The `users_last_admin` trigger refuses any change that leaves
-no active Admin.
+owner itself, a test fixture and a seed too: the `BEFORE INSERT` fill triggers
+went with 00106 (T-R3.2), and an insert that omits an owner fails with `23502`.
+A user write sets `role_id`; the legacy `role` column went with 00105. The
+`users_last_admin` trigger refuses any change that leaves no active Admin.
 
 **Soft delete and the reference check are two tables, so the lock must be taken
 on both sides.** `SoftDelete` locks the row it is deleting and then counts
@@ -580,6 +638,13 @@ still reports the previous save. Publishing has to flush every autosave on the
 screen first, because a version snapshots what is SAVED. Both were real bugs
 that shipped past every unit test and were caught by E2E 1a; `builder/
 autosave-unmount.test.tsx` pins the first.
+
+## Agent team
+
+Multi-agent work runs as the team in `docs/team/README.md`: the primary session is the
+Tech Lead, and the five specialists are defined in `.claude/agents/`, each pinned to its
+model. `docs/team/ledger.md` is the team's checkpoint: read it after an interruption. The
+team adds no rule; this file still governs.
 
 ## When you are unsure
 

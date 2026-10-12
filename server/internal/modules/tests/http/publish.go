@@ -20,13 +20,18 @@ func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestReque
 		return nil, httpx.ErrNotImplemented
 	}
 
+	var changeNote *string
+	if request.Body != nil {
+		changeNote = request.Body.ChangeNote
+	}
 	meta := httpx.RequestMetaFromContext(ctx)
 	version, err := h.app.Commands.Publish.Handle(ctx, command.Publish{Request: domain.PublishRequest{
-		TestID:    request.Id.String(),
-		ActorID:   principal.UserID,
-		IP:        meta.IP,
-		UserAgent: meta.UserAgent,
-		Scope:     httpapi.ScopeFromContext(ctx),
+		TestID:     request.Id.String(),
+		ActorID:    principal.UserID,
+		ChangeNote: changeNote,
+		IP:         meta.IP,
+		UserAgent:  meta.UserAgent,
+		Scope:      httpapi.ScopeFromContext(ctx),
 	}})
 	switch {
 	case err == nil:
@@ -39,9 +44,14 @@ func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestReque
 			Message: httpx.Text(ctx, "Đề chưa có phần nào để xuất bản.", "The test has no sections to publish."),
 		}}), nil
 	default:
-		var invalid *domain.PublishValidationError
+		var violations *domain.PublishValidationError
+		if errors.As(err, &violations) {
+			return publishViolations(ctx, violations.Violations), nil
+		}
+		var invalid *domain.ValidationError
 		if errors.As(err, &invalid) {
-			return publishViolations(ctx, invalid.Violations), nil
+			return openapi.PublishTest400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+				testValidationError(ctx, invalid))}, nil
 		}
 		return nil, err
 	}

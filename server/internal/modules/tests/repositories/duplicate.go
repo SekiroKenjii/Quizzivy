@@ -37,7 +37,10 @@ func (s *Postgres) Duplicate(ctx context.Context, in domain.DuplicateInput) (dom
 	}
 
 	if len(source.Sections) > 0 {
-		draft, err := s.loadDraft(ctx, tx, in.ID, true)
+		if err := lockDraftContent(ctx, tx, in.ID, true); err != nil {
+			return domain.Test{}, err
+		}
+		draft, err := s.loadDraftSnapshot(ctx, tx, in.ID)
 		if err != nil {
 			return domain.Test{}, err
 		}

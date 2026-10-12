@@ -26,6 +26,19 @@ func (PublishManager) Totals(d DraftContent) (string, int) {
 	return fmt.Sprintf("%d.%02d", total/100, total%100), count
 }
 
+// ChangeNote trims a teacher's note for a version. A note that is empty once
+// trimmed is no note, so it answers nil, and the table never holds an empty one.
+func (PublishManager) ChangeNote(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	note := strings.TrimSpace(*raw)
+	if note == "" {
+		return nil
+	}
+	return &note
+}
+
 // Validate runs the shared question rules and assessment-level publication invariants.
 func (PublishManager) Validate(d DraftContent) error {
 	var violations []Violation
@@ -160,13 +173,15 @@ const (
 // PublishValidationError carries every violation at once.
 type PublishValidationError struct{ Violations []Violation }
 
-// PublishRequest is one publish.
+// PublishRequest is one publish. ChangeNote is the teacher's optional note for
+// the version; Publishing.ChangeNote normalises it before it is stored.
 type PublishRequest struct {
-	TestID    string
-	ActorID   string
-	IP        string
-	UserAgent string
-	Scope     access.Scope
+	TestID     string
+	ActorID    string
+	ChangeNote *string
+	IP         string
+	UserAgent  string
+	Scope      access.Scope
 }
 
 func (e *PublishValidationError) Error() string {

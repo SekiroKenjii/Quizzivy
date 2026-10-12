@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/assignments/application/internal/support"
 	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/shared/content"
 )
 
 type Create struct {
@@ -16,5 +17,6 @@ type CreateHandler struct {
 }
 
 func (s CreateHandler) Handle(ctx context.Context, cmd Create) (domain.Assignment, error) {
+	cmd.Input.StudentNote = content.NFCPtr(cmd.Input.StudentNote)
 	return s.Repo.Create(ctx, cmd.Request, cmd.Input)
 }

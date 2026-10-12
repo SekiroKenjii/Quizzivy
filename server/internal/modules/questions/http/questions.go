@@ -13,6 +13,10 @@ import (
 	"strconv"
 )
 
+func msgQuestionNotFound(ctx context.Context) string {
+	return httpx.Text(ctx, "Không tìm thấy câu hỏi.", "The question was not found.")
+}
+
 // ListQuestions implements GET /teacher/questions -- the §8 bank, with type and
 // tag filters plus accent-insensitive search (D-11).
 func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuestionsRequestObject) (openapi.ListQuestionsResponseObject, error) {
@@ -20,12 +24,8 @@ func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuesti
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
-	if request.Params.Type != nil {
-		for _, t := range *request.Params.Type {
-			in.Types = append(in.Types, domain.Type(t))
-		}
-	}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx).Own()}
+	questionListDimensions(&in, request.Params)
 	if request.Params.Tag != nil {
 		in.Tags = append(in.Tags, *request.Params.Tag...)
 	}
@@ -78,6 +78,19 @@ func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuesti
 		PageSize:  page.Size,
 		Total:     page.Total,
 	}
+	out.Facets.Levels.PreA1 = facets.ByLevel["pre_a1"]
+	out.Facets.Levels.A1 = facets.ByLevel["a1"]
+	out.Facets.Levels.A2 = facets.ByLevel["a2"]
+	out.Facets.Levels.B1 = facets.ByLevel["b1"]
+	out.Facets.Levels.B2 = facets.ByLevel["b2"]
+	out.Facets.Levels.C1 = facets.ByLevel["c1"]
+	out.Facets.Levels.C2 = facets.ByLevel["c2"]
+	out.Facets.Skills.Grammar = facets.BySkill["grammar"]
+	out.Facets.Skills.Vocabulary = facets.BySkill["vocabulary"]
+	out.Facets.Skills.Reading = facets.BySkill["reading"]
+	out.Facets.Skills.Listening = facets.BySkill["listening"]
+	out.Facets.Skills.Writing = facets.BySkill["writing"]
+	out.Facets.Skills.Speaking = facets.BySkill["speaking"]
 	for i, q := range found {
 		out.Items[i], err = h.toAPIQuestion(ctx, q)
 		if err != nil {
@@ -94,7 +107,7 @@ func (h Questions) GetQuestion(ctx context.Context, request openapi.GetQuestionR
 	q, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
+			httpapi.NotFound(ctx, msgQuestionNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -141,7 +154,7 @@ func (h Questions) DuplicateQuestion(ctx context.Context, request openapi.Duplic
 	q, err := h.app.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: req})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.DuplicateQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
+			httpapi.NotFound(ctx, msgQuestionNotFound(ctx)))}, nil
 	}
 	if resp, handled := questionWriteError(ctx, err); handled {
 		return openapi.DuplicateQuestion400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(resp)}, nil
@@ -168,7 +181,7 @@ func (h Questions) UpdateQuestion(ctx context.Context, request openapi.UpdateQue
 	q, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.UpdateQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
+			httpapi.NotFound(ctx, msgQuestionNotFound(ctx)))}, nil
 	}
 	if resp, handled := questionWriteError(ctx, err); handled {
 		return openapi.UpdateQuestion400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(resp)}, nil
@@ -198,7 +211,8 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 		return openapi.DeleteQuestion204Response{}, nil
 	case errors.Is(err, domain.ErrReferenced):
 		resp := httpapi.Error(ctx, openapi.QUESTIONREFERENCED,
-			"Câu hỏi đang được dùng trong một đề nháp nên không thể xoá.")
+			httpx.Text(ctx, "Câu hỏi đang được dùng trong một đề nháp nên không thể xoá.",
+				"The question is used in a draft test, so it cannot be deleted."))
 		var blocked *domain.ReferencedError
 		if errors.As(err, &blocked) {
 			refs := make([]openapi.ReferencingTest, len(blocked.Tests))
@@ -210,7 +224,7 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 		return openapi.DeleteQuestion409JSONResponse(resp), nil
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.DeleteQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
+			httpapi.NotFound(ctx, msgQuestionNotFound(ctx)))}, nil
 	default:
 		return nil, err
 	}
@@ -219,7 +233,8 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, bool) {
 	var invalid *domain.ValidationError
 	if errors.As(err, &invalid) {
-		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Dữ liệu câu hỏi không hợp lệ.")
+		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			httpx.Text(ctx, "Dữ liệu câu hỏi không hợp lệ.", "The question data is not valid."))
 		details := map[string]interface{}{}
 		for _, f := range invalid.Fields {
 			if _, seen := details[f.Field]; !seen {
@@ -230,8 +245,9 @@ func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, 
 		return resp, true
 	}
 	if errors.Is(err, domain.ErrMediaNotFound) {
-		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Không tìm thấy tệp đính kèm.")
-		resp.Error.Details = &map[string]interface{}{"mediaAssetId": "Tệp không tồn tại hoặc đã bị xoá."}
+		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			httpx.Text(ctx, "Không tìm thấy tệp đính kèm.", "The attachment was not found."))
+		resp.Error.Details = &map[string]interface{}{"mediaAssetId": httpx.Text(ctx, "Tệp không tồn tại hoặc đã bị xoá.", "The file does not exist or has been deleted.")}
 		return resp, true
 	}
 	return openapi.ErrorResponse{}, false
@@ -241,8 +257,11 @@ func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, 
 func ToQuestionInput(body openapi.QuestionInput) domain.Input {
 	in := domain.Input{
 		Type:               domain.Type(body.Type),
+		Level:              (*domain.Level)(body.Level),
+		Skill:              (*domain.Skill)(body.Skill),
 		Prompt:             body.Prompt,
 		PromptContent:      body.PromptContent,
+		MediaAlt:           body.MediaAlt,
 		Transcript:         body.Transcript,
 		Points:             strconv.FormatFloat(float64(body.Points), 'f', -1, 64),
 		Explanation:        body.Explanation,
@@ -298,8 +317,11 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 	out := openapi.AdminQuestion{
 		Id:                 httpapi.ParseUUID(q.ID),
 		Type:               openapi.QuestionType(q.Type),
+		Level:              (*openapi.QuestionLevel)(q.Level),
+		Skill:              (*openapi.QuestionSkill)(q.Skill),
 		Prompt:             q.Prompt,
 		PromptContent:      q.PromptContent,
+		MediaAlt:           q.MediaAlt,
 		Points:             points,
 		Explanation:        q.Explanation,
 		ExplanationContent: q.ExplanationContent,
@@ -387,4 +409,25 @@ func optionID(id *openapi.Uuid) *string {
 	}
 	value := id.String()
 	return &value
+}
+
+func questionListDimensions(in *domain.ListInput, params openapi.ListQuestionsParams) {
+	if params.Type != nil {
+		for _, t := range *params.Type {
+			in.Types = append(in.Types, domain.Type(t))
+		}
+	}
+	if params.Level != nil {
+		for _, level := range *params.Level {
+			in.Levels = append(in.Levels, domain.Level(level))
+		}
+	}
+	if params.Skill != nil {
+		for _, skill := range *params.Skill {
+			in.Skills = append(in.Skills, domain.Skill(skill))
+		}
+	}
+	if params.TagMatch != nil {
+		in.TagMatch = string(*params.TagMatch)
+	}
 }

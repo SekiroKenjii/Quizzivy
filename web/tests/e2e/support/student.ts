@@ -13,6 +13,9 @@ export const classes = [
     name: "Lớp luyện tập buổi tối",
     description: "Thứ ba và thứ năm",
     teacherName: "Cô Thương",
+    teacherAvatarUrl: null,
+    scheduleLabel: null,
+    room: null,
     joinedAt: "2026-01-01T00:00:00Z",
   },
 ];
@@ -38,9 +41,13 @@ export function assignment(index: number, live: boolean): Assignment {
 }
 
 /** student signs the student in with one class, two papers in progress and one still to start. */
-export async function student(page: Page) {
+export async function student(
+  page: Page,
+  user: Parameters<typeof sessionAs>[0] &
+    Pick<components["schemas"]["CurrentUser"], "locale" | "preferences"> = studentUser,
+) {
   await stubApi(page, {
-    ...sessionAs(studentUser),
+    ...sessionAs(user),
     "GET /app/classes": { body: { items: classes } },
     "GET /app/assignments": {
       body: {
@@ -71,7 +78,13 @@ export async function fits(page: Page) {
 export const gradedResult: AttemptResult = {
   testTitle: "Bài kiểm tra có tiêu đề dài cần hiển thị đầy đủ trên điện thoại",
   maxAttempts: 2,
-  review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
+  review: {
+    showScore: true,
+    showCorrectAnswers: false,
+    showExplanations: false,
+    release: "on_submit",
+    showClassAverage: false,
+  },
   attempt: {
     id: "result",
     assignmentId: "assignment",

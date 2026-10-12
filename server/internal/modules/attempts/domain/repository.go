@@ -14,10 +14,10 @@ import (
 // as a missing one does. The student paths take no scope.
 type Repository interface {
 	Rules(ctx context.Context, assignmentID, studentID string) (Rules, error)
-	RulesFor(ctx context.Context, assignmentID string) (Rules, error)
+	RulesFor(ctx context.Context, assignmentID, studentID string) (Rules, error)
 	Live(ctx context.Context, assignmentID, studentID string) (AttemptRecord, error)
 	Tally(ctx context.Context, assignmentID, studentID string) (Tally, error)
-	Create(ctx context.Context, in CreateInput) (AttemptRecord, error)
+	Create(ctx context.Context, in CreateInput) (AttemptRecord, Rules, error)
 	Resume(ctx context.Context, in ResumeInput) (AttemptRecord, bool, error)
 	ByID(ctx context.Context, attemptID, studentID string) (AttemptRecord, error)
 	Rebeacon(ctx context.Context, attemptID string, hash []byte) error
@@ -30,23 +30,27 @@ type Repository interface {
 	ReleasedGroupTranscripts(ctx context.Context, versionID string) (map[string]string, error)
 	RecordGroupPlay(ctx context.Context, in GroupPlayInput, now time.Time) (GroupPlays, error)
 	RecordPlay(ctx context.Context, attemptID, studentID, questionID string, now time.Time) (Plays, error)
-	Save(ctx context.Context, in SaveInput, now time.Time) (SaveResult, error)
-	Flush(ctx context.Context, in FlushInput, now time.Time) error
-	Submit(ctx context.Context, attemptID, studentID string, reason Reason, now time.Time) (AttemptRecord, error)
-	ExpireIfDue(ctx context.Context, attemptID string, now time.Time) error
+	Save(ctx context.Context, in SaveInput, now time.Time) (SaveResult, Milestones, error)
+	Flush(ctx context.Context, in FlushInput, now time.Time) (Milestones, error)
+	Submit(ctx context.Context, attemptID, studentID string, reason Reason, now time.Time) (AttemptRecord, Milestones, error)
+	ExpireIfDue(ctx context.Context, attemptID string, now time.Time) (Milestones, error)
 	DueAttempts(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) ([]string, error)
-	LoadResult(ctx context.Context, a AttemptRecord) (Result, error)
+	LoadResult(ctx context.Context, a AttemptRecord, now time.Time) (Result, error)
 	Monitor(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) (Monitor, error)
+	ItemAnalysis(ctx context.Context, scope access.Scope, assignmentID string) (ItemAnalysis, error)
+	Results(ctx context.Context, scope access.Scope, assignmentIDs []string) ([]ResultRow, error)
 	Extend(ctx context.Context, req Request, attemptID string, minutes int, reason string, now time.Time) (Attempt, error)
 	Void(ctx context.Context, req Request, attemptID, reason string, now time.Time) (Attempt, error)
 	Reset(ctx context.Context, req Request, attemptID, reason string, now time.Time) (Attempt, error)
 	Flag(ctx context.Context, req Request, attemptID string, flagged bool, reason string, now time.Time) (Attempt, error)
+	Briefings
 }
 
 // ReviewRepository is the teacher's side of a paper: reading it with the
 // grading key, marking it, and noting it, each only on an assignment the scope
 // reaches.
 type ReviewRepository interface {
+	GradingQueue(ctx context.Context, q GradingQueueQuery) (GradingQueue, error)
 	GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
 	GroupTranscripts(ctx context.Context, versionID string) (map[string]string, error)
 	Get(ctx context.Context, scope access.Scope, attemptID string) (Review, error)

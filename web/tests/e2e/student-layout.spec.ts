@@ -108,7 +108,7 @@ test("result filters survive resizing, explain empty results and retain the full
 
 test("English student controls fit a 320px phone", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("quizzivy.locale", "en"));
-  await student(page);
+  await student(page, { ...studentUser, locale: "en" });
   await page.setViewportSize({ width: 320, height: 900 });
   await page.goto("/app");
   await expect(page.getByRole("button", { name: "Continue test" })).toHaveCount(1);
@@ -178,7 +178,7 @@ test("a toast clears the tab bar, and sits at the edge where there is none", asy
 test("the student console follows the dark theme", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("quizzivy.theme", "dark"));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await student(page);
+  await student(page, { ...studentUser, preferences: { theme: "dark" } });
   await page.goto("/app");
   await expect(page.getByRole("link", { name: "Trang chủ Quizzivy" })).toBeVisible();
   await expect(page.locator("html")).toHaveClass(/dark/);

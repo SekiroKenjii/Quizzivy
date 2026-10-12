@@ -14,9 +14,10 @@ import (
 // decorative: editing a published test would reach students mid-attempt and
 // change what a finished attempt was scored against.
 func TestEditingTheBankAfterPublishLeavesTheVersionUnchanged(t *testing.T) {
-	pool := newPool(t)
-	author := pubMakeAuthor(t, pool)
-	b := newBuilder(t, pool, author)
+	fixture := newSnapshotFixture(t)
+	pool := fixture.conn
+	author := fixture.author
+	b := fixture.builder
 	ctx := context.Background()
 
 	q := b.shortAnswer("Bản gốc của đề bài", "5.00")
@@ -70,9 +71,9 @@ func TestEditingTheBankAfterPublishLeavesTheVersionUnchanged(t *testing.T) {
 // The grading key has to survive exactly: an ordinal or an is_correct flag that
 // shifted would score the wrong answer.
 func TestTheSnapshotPreservesOptionOrdinalsAndCorrectness(t *testing.T) {
-	pool := newPool(t)
-	author := pubMakeAuthor(t, pool)
-	b := newBuilder(t, pool, author)
+	fixture := newSnapshotFixture(t)
+	pool := fixture.conn
+	b := fixture.builder
 	ctx := context.Background()
 
 	q := b.question(questionsdomain.Input{
@@ -137,9 +138,9 @@ func TestTheSnapshotPreservesOptionOrdinalsAndCorrectness(t *testing.T) {
 // fill_blank carries its accepted answers into the snapshot, since grading
 // reads them from there and never from the bank.
 func TestTheSnapshotCarriesBlanksAndAcceptedAnswers(t *testing.T) {
-	pool := newPool(t)
-	author := pubMakeAuthor(t, pool)
-	b := newBuilder(t, pool, author)
+	fixture := newSnapshotFixture(t)
+	pool := fixture.conn
+	b := fixture.builder
 	ctx := context.Background()
 
 	q := b.question(questionsdomain.Input{
@@ -197,9 +198,9 @@ func TestTheSnapshotCarriesBlanksAndAcceptedAnswers(t *testing.T) {
 // Versions are an append-only history of what was published and when, not a
 // diff: an assignment names a version, so "nothing changed" still needs a row.
 func TestRepublishingUnchangedStillCreatesAVersion(t *testing.T) {
-	pool := newPool(t)
-	author := pubMakeAuthor(t, pool)
-	b := newBuilder(t, pool, author)
+	fixture := newSnapshotFixture(t)
+	pool := fixture.conn
+	b := fixture.builder
 	ctx := context.Background()
 
 	q := b.shortAnswer("Không đổi gì cả", "1.00")
@@ -245,9 +246,9 @@ func TestRepublishingUnchangedStillCreatesAVersion(t *testing.T) {
 // The whole publish is one transaction, so a failure part-way must leave no
 // half-written version behind.
 func TestAFailedPublishLeavesNoVersionRow(t *testing.T) {
-	pool := newPool(t)
-	author := pubMakeAuthor(t, pool)
-	b := newBuilder(t, pool, author)
+	fixture := newSnapshotFixture(t)
+	pool := fixture.conn
+	b := fixture.builder
 	ctx := context.Background()
 
 	// A choice question with no correct option fails validation.

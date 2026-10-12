@@ -24,11 +24,15 @@ func (h Assignments) DeleteAssignment(ctx context.Context, request openapi.Delet
 	case err == nil:
 		return openapi.DeleteAssignment204Response{}, nil
 	case errors.Is(err, domain.ErrNotFound):
-		return openapi.DeleteAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, "Không tìm thấy dữ liệu."))}, nil
+		return openapi.DeleteAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy dữ liệu.", "The data was not found.")))}, nil
 	case errors.Is(err, domain.ErrNotArchived):
-		return openapi.DeleteAssignment409JSONResponse(httpapi.Error(ctx, openapi.RESOURCENOTARCHIVED, "Cần lưu trữ, vô hiệu hoá hoặc đóng mục này trước khi xoá vĩnh viễn.")), nil
+		return openapi.DeleteAssignment409JSONResponse(httpapi.Error(ctx, openapi.RESOURCENOTARCHIVED,
+			httpx.Text(ctx, "Cần lưu trữ, vô hiệu hoá hoặc đóng mục này trước khi xoá vĩnh viễn.",
+				"Archive, disable or close this item before deleting it permanently."))), nil
 	case errors.Is(err, domain.ErrReferenced):
-		return openapi.DeleteAssignment409JSONResponse(httpapi.Error(ctx, openapi.RESOURCEREFERENCED, "Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.")), nil
+		return openapi.DeleteAssignment409JSONResponse(httpapi.Error(ctx, openapi.RESOURCEREFERENCED,
+			httpx.Text(ctx, "Không thể xoá vì dữ liệu vẫn được bài giao, bài làm hoặc lịch sử tham chiếu.",
+				"This cannot be deleted because assignments, attempts or history still refer to it."))), nil
 	default:
 		return nil, err
 	}

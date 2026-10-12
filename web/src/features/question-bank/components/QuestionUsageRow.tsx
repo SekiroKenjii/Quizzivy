@@ -64,7 +64,7 @@ export function QuestionUsageRow({
                       <TableCell>
                         <Link
                           className="font-medium break-words hover:underline"
-                          to={`/admin/tests/${test.id}/edit`}
+                          to={`/teacher/tests/${test.id}/edit`}
                         >
                           {test.title}
                         </Link>

@@ -72,6 +72,46 @@ export function clearDraft(attemptId: string): void {
   }
 }
 
+/**
+ * strandedDraft returns the draft this browser holds for the attempt, whatever
+ * session wrote it, when it is this student's and holds at least one answer,
+ * and null otherwise. It changes nothing: a draft that does not parse, that is
+ * another student's or that is past its own deadline is neither rewritten nor
+ * removed.
+ */
+export function strandedDraft(
+  attemptId: string,
+  studentId: string,
+): { raw: string; sessionId: string; answers: Record<string, Answer> } | null {
+  try {
+    const raw = localStorage.getItem(prefix + attemptId);
+    if (raw === null) return null;
+    const parsed = schema.safeParse(JSON.parse(raw));
+    if (
+      !parsed.success ||
+      parsed.data.studentId !== studentId ||
+      Object.keys(parsed.data.answers).length === 0
+    )
+      return null;
+    return { raw, sessionId: parsed.data.sessionId, answers: parsed.data.answers };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * dropDraft removes the draft that was read as `raw`, and leaves one a live
+ * tab has rewritten since.
+ */
+export function dropDraft(attemptId: string, raw: string): void {
+  try {
+    if (localStorage.getItem(prefix + attemptId) === raw)
+      localStorage.removeItem(prefix + attemptId);
+  } catch {
+    return;
+  }
+}
+
 /** clearAnswerDrafts removes student answers from a shared browser on sign-out. */
 export function clearAnswerDrafts(): void {
   try {

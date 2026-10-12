@@ -21,7 +21,7 @@ function renderAt(element: React.ReactElement, path = "/app/assignments/8f2c-uni
     { path: "*", element },
     { path: "/login", element: <p>login page</p> },
     { path: "/app", element: <p>student home</p> },
-    { path: "/admin", element: <p>admin home</p> },
+    { path: "/teacher", element: <p>admin home</p> },
   ];
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   render(
@@ -74,7 +74,7 @@ describe("the 404", () => {
   it.each([
     [null, "/login"],
     [studentUser, "/app"],
-    [adminUser, "/admin"],
+    [adminUser, "/teacher"],
   ])("sends home to the caller's console (%#)", (user, home) => {
     useAuthStore.setState({ user });
     renderAt(<NotFoundPage />);
@@ -116,7 +116,7 @@ describe("the 404", () => {
 describe("the 403", () => {
   it("names the account it is refusing, by name", () => {
     useAuthStore.setState({ user: studentUser });
-    renderAt(<ForbiddenPage />, "/admin/tests");
+    renderAt(<ForbiddenPage />, "/teacher/tests");
     expect(screen.getByText(studentUser.fullName)).toBeInTheDocument();
     expect(screen.getByText("Đang đăng nhập")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Về trang chủ của tôi" })).toHaveAttribute(
@@ -127,13 +127,13 @@ describe("the 403", () => {
 
   it("offers to switch accounts rather than to sign out", () => {
     useAuthStore.setState({ user: studentUser });
-    renderAt(<ForbiddenPage />, "/admin/tests");
+    renderAt(<ForbiddenPage />, "/teacher/tests");
     expect(screen.getByText("Đăng nhập bằng tài khoản khác")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/Đăng xuất/);
   });
 
   it("offers a signed-out visitor sign-in, and invents no account", () => {
-    renderAt(<ForbiddenPage />, "/admin/tests");
+    renderAt(<ForbiddenPage />, "/teacher/tests");
     expect(
       screen.getByRole("heading", { name: "Bạn không có quyền mở trang này" }),
     ).toBeInTheDocument();

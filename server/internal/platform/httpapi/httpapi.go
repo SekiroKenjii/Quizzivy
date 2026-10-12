@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/stats"
+	"quizzivy/internal/shared/validation"
 )
 
 // Actor is who is calling and from where, as every audited write records it.
@@ -72,13 +73,24 @@ func FieldError(ctx context.Context, field, message string) openapi.ErrorRespons
 	return ErrorWithDetails(ctx, openapi.VALIDATIONFAILED, message, map[string]interface{}{field: message})
 }
 
+// Invalid is VALIDATION_FAILED carrying the first message of each field invalid refused, keyed by field.
+func Invalid(ctx context.Context, message string, invalid *validation.Error) openapi.ErrorResponse {
+	details := make(map[string]interface{}, len(invalid.Fields))
+	for _, field := range invalid.Fields {
+		if _, seen := details[field.Field]; !seen {
+			details[field.Field] = field.Message
+		}
+	}
+	return ErrorWithDetails(ctx, openapi.VALIDATIONFAILED, message, details)
+}
+
 func NotFound(ctx context.Context, message string) openapi.ErrorResponse {
 	return Error(ctx, openapi.NOTFOUND, message)
 }
 
 func BlankReason(ctx context.Context) openapi.ErrorResponse {
-	return ErrorWithDetails(ctx, openapi.VALIDATIONFAILED, "Cần ghi lý do.",
-		map[string]interface{}{"reason": "Lý do không được để trống."})
+	return ErrorWithDetails(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Cần ghi lý do.", "A reason is needed."),
+		map[string]interface{}{"reason": httpx.Text(ctx, "Lý do không được để trống.", "The reason cannot be empty.")})
 }
 
 // ParseUUID renders a stored id; ids never come from user input, so a bad one is the zero value, not a 500.

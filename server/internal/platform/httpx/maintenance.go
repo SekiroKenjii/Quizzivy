@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	"golang.org/x/text/language"
 )
 
 // MaintenanceSource tells the maintenance gate whether a window is under way.
@@ -19,8 +17,6 @@ type MaintenanceSource interface {
 // MaintenanceRefusal runs on a request the maintenance gate refuses, before
 // the 503 is written, so a caller can add headers to that answer.
 type MaintenanceRefusal func(w http.ResponseWriter, r *http.Request)
-
-var maintenanceLanguages = language.NewMatcher([]language.Tag{language.Vietnamese, language.English})
 
 var maintenanceExempt = map[string]bool{"/livez": true, "/healthz": true, "/public/status": true}
 
@@ -62,8 +58,5 @@ func Maintenance(source MaintenanceSource, onRefuse ...MaintenanceRefusal) func(
 }
 
 func maintenanceMessage(r *http.Request) string {
-	if _, index := language.MatchStrings(maintenanceLanguages, r.Header.Get("Accept-Language")); index == 1 {
-		return "Quizzivy is being updated. Please come back when the update ends."
-	}
-	return "Quizzivy đang được cập nhật. Vui lòng quay lại khi cập nhật xong."
+	return TextFor(r, "Quizzivy đang được cập nhật. Vui lòng quay lại khi cập nhật xong.", "Quizzivy is being updated. Please come back when the update ends.")
 }

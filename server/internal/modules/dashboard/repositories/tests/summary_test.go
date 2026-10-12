@@ -96,8 +96,8 @@ func seed(t *testing.T, db db.Querier, opensAt, closesAt time.Time, flagged bool
 		}
 	}
 	must(db.QueryRow(ctx,
-		`INSERT INTO app.tests (title, status, current_version, created_by)
-		 VALUES ('Dashboard fixture','published',1,$1) RETURNING id::text`, author).Scan(&testID))
+		`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+		 VALUES ('Dashboard fixture','published',1,$1,$1) RETURNING id::text`, author).Scan(&testID))
 	must(db.QueryRow(ctx,
 		`INSERT INTO app.test_versions (test_id, version, total_points, published_by)
 		 VALUES ($1,1,'2.00',$2) RETURNING id::text`, testID, author).Scan(&versionID))
@@ -140,7 +140,7 @@ func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
-	before, err := store.Summary(ctx, everyone)
+	before, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
 	// Already finished: outside the window, so not "open".
 	seed(t, tx, time.Now().Add(-48*time.Hour), time.Now().Add(-24*time.Hour), false)
 
-	after, err := store.Summary(ctx, everyone)
+	after, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,13 +165,13 @@ func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
-	before, err := store.Summary(ctx, everyone)
+	before, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
 	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
 
-	after, err := store.Summary(ctx, everyone)
+	after, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 		  WHERE attempt_id = $1`, f.attempt); err != nil {
 		t.Fatal(err)
 	}
-	graded, err := store.Summary(ctx, everyone)
+	graded, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,13 +200,13 @@ func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
-	before, err := store.Summary(ctx, everyone)
+	before, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
 	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true)
 
-	after, err := store.Summary(ctx, everyone)
+	after, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 		t.Errorf("flagged: want +1, got +%d", got)
 	}
 
-	own, err := store.Summary(ctx, access.Scope{UserID: f.author})
+	own, err := store.Summary(ctx, domain.SummaryQuery{Scope: access.Scope{UserID: f.author}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,13 +245,13 @@ func TestActiveStudentsCountsDistinctRecentSitters(t *testing.T) {
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
-	before, err := store.Summary(ctx, everyone)
+	before, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
 	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
 
-	after, err := store.Summary(ctx, everyone)
+	after, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +265,7 @@ func TestActiveStudentsCountsDistinctRecentSitters(t *testing.T) {
 		f.attempt); err != nil {
 		t.Fatal(err)
 	}
-	stale, err := store.Summary(ctx, everyone)
+	stale, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +279,7 @@ func TestCountsDeduplicateRetakesAndCountPartiallyGradedQuestions(t *testing.T) 
 	tx := isolated(t, pool)
 	ctx := context.Background()
 	store := repositories.NewPostgres(db.NewContext(tx))
-	before, err := store.Summary(ctx, everyone)
+	before, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func TestCountsDeduplicateRetakesAndCountPartiallyGradedQuestions(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	after, err := store.Summary(ctx, everyone)
+	after, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}

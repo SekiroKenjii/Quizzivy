@@ -178,6 +178,58 @@ func TestTheBankListsFacetsAndCountsOnlyTheCallersOwnQuestions(t *testing.T) {
 	}
 }
 
+func TestTheAdminsBankHoldsOnlyTheAdminsOwnQuestions(t *testing.T) {
+	w := newBankWorld(t)
+	ctx := context.Background()
+	theirs := w.create(t, w.a, "cua-a", nil)
+	mine := w.create(t, w.admin, "cua-admin", nil)
+	held := access.Scope{UserID: w.admin, All: true}
+
+	in := domain.ListInput{Limit: repositories.MaxLimit, Scope: held.Own()}
+	listed, err := w.svc.Queries.List.Handle(ctx, query.List{Input: in})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := questionIDs(listed.Items); !slices.Equal(got, []string{mine.ID}) || listed.Page.Total != 1 {
+		t.Errorf("the Admin's bank lists %v with total %d, want only the Admin's %s", got, listed.Page.Total, mine.ID)
+	}
+	facets, err := w.svc.Queries.Facets.Handle(ctx, query.Facets{Input: in})
+	if err != nil || facets.All != 1 || facets.ByType[domain.ShortAnswer] != 1 {
+		t.Errorf("the Admin's facets count %+v (%v), want the Admin's one short answer", facets, err)
+	}
+	counts, err := w.svc.Queries.Counts.Handle(ctx, query.Counts{Input: in})
+	if err != nil || counts.Total != 1 || counts.Filtered != 1 {
+		t.Errorf("the Admin's bank counts %+v (%v), want 1 of 1", counts, err)
+	}
+	rail, err := w.svc.Queries.Tags.Handle(ctx, query.Tags{Input: in})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(rail, mine.Tags[1]) || slices.Contains(rail, theirs.Tags[1]) || len(rail) != len(mine.Tags) {
+		t.Errorf("the Admin's tag rail offers %v, want only the Admin's %v", rail, mine.Tags)
+	}
+
+	if _, err := w.get(held, theirs.ID); err != nil {
+		t.Errorf("the Admin opening A's question by id: %v", err)
+	}
+	if _, err := w.get(held.Own(), theirs.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("A's question in the scope the list passes: %v, want not found", err)
+	}
+
+	own := access.Scope{UserID: w.a}
+	if own.Own() != own {
+		t.Fatalf("a teacher's own scope is %+v, want it unchanged %+v", own.Own(), own)
+	}
+	in.Scope = own.Own()
+	listed, err = w.svc.Queries.List.Handle(ctx, query.List{Input: in})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := questionIDs(listed.Items); !slices.Equal(got, []string{theirs.ID}) || listed.Page.Total != 1 {
+		t.Errorf("A's bank lists %v with total %d, want only A's %s", got, listed.Page.Total, theirs.ID)
+	}
+}
+
 func TestAnotherTeachersQuestionAnswersAsAMissingOne(t *testing.T) {
 	w := newBankWorld(t)
 	ctx := context.Background()

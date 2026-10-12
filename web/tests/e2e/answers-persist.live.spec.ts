@@ -43,7 +43,6 @@ test("E2E 2: an answer survives a reload, and the result shows what was earned",
   await page.getByRole("textbox", { name: "Bài làm của bạn" }).fill(draft);
   page.once("dialog", (dialog) => dialog.accept());
   await page.reload();
-  await page.getByRole("button", { name: "Câu sau" }).click();
   await expect(page.getByRole("textbox", { name: "Bài làm của bạn" })).toHaveValue(
     draft,
   );

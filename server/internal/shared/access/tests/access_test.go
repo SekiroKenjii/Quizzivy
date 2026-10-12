@@ -232,3 +232,21 @@ func TestAPrincipalWithScopeAllReachesEveryRow(t *testing.T) {
 		t.Errorf("teacher scope = %+v", got)
 	}
 }
+
+func TestOwnClearsAllAndKeepsTheUser(t *testing.T) {
+	for name, c := range map[string]struct{ in, want access.Scope }{
+		"a scope that holds scope.all": {access.Scope{UserID: "u1", All: true}, access.Scope{UserID: "u1"}},
+		"an own scope":                 {access.Scope{UserID: "u2"}, access.Scope{UserID: "u2"}},
+		"an own scope narrowed twice":  {access.Scope{UserID: "u2"}.Own(), access.Scope{UserID: "u2"}},
+		"scope.all with no user":       {access.Scope{All: true}, access.Scope{}},
+		"the zero scope":               {access.Scope{}, access.Scope{}},
+	} {
+		if got := c.in.Own(); got != c.want {
+			t.Errorf("%s: Own() = %+v, want %+v", name, got, c.want)
+		}
+	}
+	wide := access.Principal{UserID: "u1", Permissions: adminEffective}.Scope()
+	if narrowed := wide.Own(); narrowed.All || !wide.All {
+		t.Errorf("Own() gave %+v and left its receiver %+v, want only the copy narrowed", narrowed, wide)
+	}
+}

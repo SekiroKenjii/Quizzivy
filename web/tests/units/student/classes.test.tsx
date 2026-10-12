@@ -18,6 +18,9 @@ const A = {
   name: "IELTS Foundation A",
   description: null,
   teacherName: "Hoàng Thương",
+  teacherAvatarUrl: null,
+  scheduleLabel: null,
+  room: null,
   joinedAt: "2026-07-12T01:00:00Z",
 };
 const B = { ...A, id: "018f0000-0000-7000-8000-0000000000c2", name: "TOEIC 600" };

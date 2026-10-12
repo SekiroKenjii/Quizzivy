@@ -240,7 +240,9 @@ it("keeps shared material under a result filter and follows gaps to a hidden que
   );
   expect(screen.getByText(group.title)).toBeVisible();
   expect(screen.queryByText(body.questions[1]!.prompt)).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+  await user.click(
+    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
+  );
   expect(screen.getByText(body.questions[1]!.prompt)).toBeVisible();
   expect(screen.getByRole("button", { name: "Tất cả" })).toHaveAttribute(
     "aria-pressed",
@@ -351,7 +353,18 @@ describe("the result page", () => {
   it.each(combos)(
     "showScore=%s showCorrectAnswers=%s showExplanations=%s renders exactly its blocks",
     async (showScore, showCorrectAnswers, showExplanations) => {
-      serve(passive({ showScore, showCorrectAnswers, showExplanations }, true));
+      serve(
+        passive(
+          {
+            showScore,
+            showCorrectAnswers,
+            showExplanations,
+            release: "on_submit",
+            showClassAverage: false,
+          },
+          true,
+        ),
+      );
       renderResult();
       const wrong = (await screen.findByText("The letter ____ yesterday.")).closest(
         "article",
@@ -566,6 +579,46 @@ describe("the result page", () => {
       .setup()
       .click(await within(article).findByRole("button", { name: "Thử lại" }));
     await waitFor(() => expect(reads).toBe(2));
+  });
+
+  it("draws a question's image under its prompt, described by its alt text", async () => {
+    const image = (n: number) => ({
+      id: uuid("cc", n),
+      kind: "image" as const,
+      url: `https://assets.example/map-${n}.png`,
+      mimeType: "image/png" as const,
+      bytes: 12,
+      originalFilename: `map-${n}.png`,
+      createdAt: "2026-08-20T00:00:00Z",
+    });
+    serve(
+      scored([
+        choice(1, AB, [1], {
+          prompt: "Bưu điện ở đâu?",
+          earned: 1,
+          media: image(1),
+          mediaAlt: "Bản đồ trung tâm, bưu điện cạnh ngân hàng",
+        }),
+        choice(2, AB, [1], { prompt: "Còn chợ?", earned: 1, media: image(2) }),
+      ]),
+    );
+    renderResult();
+
+    const described = await screen.findByAltText(
+      "Bản đồ trung tâm, bưu điện cạnh ngân hàng",
+    );
+    expect(described).toHaveAttribute("src", "https://assets.example/map-1.png");
+    expect(item("Bưu điện ở đâu?")).toContainElement(described);
+    expect(described.closest("[data-slot=result-answers]")).toHaveClass(
+      "[&_img]:bg-paper",
+    );
+    const prompt = screen.getByText("Bưu điện ở đâu?");
+    expect(
+      prompt.compareDocumentPosition(described) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(item("Còn chợ?")).getByAltText("Hình ảnh của câu hỏi"),
+    ).toHaveAttribute("src", "https://assets.example/map-2.png");
   });
 });
 
@@ -791,7 +844,18 @@ describe("the deck's three variants", () => {
       "names what showScore=%s showCorrectAnswers=%s showExplanations=%s hides",
       async (showScore, showCorrectAnswers, showExplanations, line) => {
         await i18n.changeLanguage("en");
-        serve(passive({ showScore, showCorrectAnswers, showExplanations }, false));
+        serve(
+          passive(
+            {
+              showScore,
+              showCorrectAnswers,
+              showExplanations,
+              release: "on_submit",
+              showClassAverage: false,
+            },
+            false,
+          ),
+        );
         renderResult();
         expect(await screen.findByText(line)).toBeVisible();
       },
@@ -1558,4 +1622,130 @@ it("keeps the deck's 820px column and 112px ring", async () => {
   const card = (await screen.findByRole("heading", { level: 1 })).closest("section")!;
   expect(card.parentElement).toHaveClass("max-w-205", "mx-auto");
   expect(ring()).toHaveClass("size-28");
+});
+
+describe("a result released after the close", () => {
+  const HELD: Review = { ...CLOSED, release: "after_close", showClassAverage: true };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function hold(releasesAt: string) {
+    const first = choice(1, AB, [0]);
+    return paper({ review: HELD, releasesAt, questions: [first] });
+  }
+
+  it("says when it is released, in place of the teacher's refusal", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
+    serve(hold("2026-08-29T14:00:00Z"));
+    renderResult();
+    expect(
+      await screen.findByText(
+        "Bạn đã trả lời 1/1 câu. Điểm được công bố khi bài đóng.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Kết quả được công bố khi bài đóng, lúc 21:00."),
+    ).toBeVisible();
+    expect(ring()).toHaveAttribute("data-ring", "withheld");
+    expect(screen.queryByText(/Giáo viên (chưa|không)/)).not.toBeInTheDocument();
+  });
+
+  it("names the day when the close is not today", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
+    serve(hold("2026-09-03T14:00:00Z"));
+    renderResult();
+    expect(
+      await screen.findByText("Kết quả được công bố khi bài đóng, lúc 21:00, 03/09."),
+    ).toBeVisible();
+  });
+
+  it("reads in English", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
+    await i18n.changeLanguage("en");
+    serve(hold("2026-08-29T14:00:00Z"));
+    renderResult();
+    expect(
+      await screen.findByText(
+        "You answered 1 of 1 questions. Your score is released when the test closes.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Results are released when the test closes, at 21:00."),
+    ).toBeVisible();
+  });
+
+  it("names the month in English when the close is not today", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-29T10:00:00Z"));
+    await i18n.changeLanguage("en");
+    serve(hold("2026-09-03T14:00:00Z"));
+    renderResult();
+    expect(
+      await screen.findByText(
+        "Results are released when the test closes, at 21:00, 3 Sep.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("draws no class average while it is withheld", async () => {
+    serve(hold("2026-08-29T14:00:00Z"));
+    renderResult();
+    await screen.findByText(/Điểm được công bố khi bài đóng/);
+    expect(document.querySelector("[data-slot=class-average]")).toBeNull();
+  });
+});
+
+describe("the class average", () => {
+  const SHOWN: Review = { ...OPEN, showClassAverage: true };
+
+  function average(classAverage?: number) {
+    return scored([choice(1, AB, [0], { earned: 1 })], {
+      review: SHOWN,
+      ...(classAverage === undefined ? {} : { classAverage }),
+    });
+  }
+
+  it("is one muted line under the summary sentence, in Vietnamese", async () => {
+    serve(average(60));
+    renderResult();
+    const line = await screen.findByText("Điểm trung bình của lớp: 60%.");
+    const sentence = screen.getByText(/Bạn trả lời đúng/);
+    expect(line).toBeVisible();
+    expect(line.parentElement).toBe(sentence.parentElement);
+    expect(sentence.compareDocumentPosition(line)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(line).toHaveAttribute("data-slot", "class-average");
+  });
+
+  it("keeps one decimal, written the reader's way", async () => {
+    serve(average(44.44));
+    renderResult();
+    expect(await screen.findByText("Điểm trung bình của lớp: 44,4%.")).toBeVisible();
+  });
+
+  it("reads in English", async () => {
+    await i18n.changeLanguage("en");
+    serve(average(44.44));
+    renderResult();
+    expect(await screen.findByText("Class average: 44.4%.")).toBeVisible();
+  });
+
+  it("is a real zero when the class scored nothing", async () => {
+    serve(average(0));
+    renderResult();
+    expect(await screen.findByText("Điểm trung bình của lớp: 0%.")).toBeVisible();
+  });
+
+  it("is absent when the server sends none", async () => {
+    serve(average());
+    renderResult();
+    await screen.findByText(/Bạn trả lời đúng/);
+    expect(screen.queryByText(/Điểm trung bình của lớp/)).not.toBeInTheDocument();
+  });
 });

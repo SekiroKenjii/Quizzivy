@@ -14,8 +14,6 @@ import (
 
 const docsCookieName = "quizzivy_docs"
 
-const legacyAdminRole = "admin"
-
 // OpenDocsSession sets the caller's fifteen-minute docs session cookie, which
 // RequireDocsSession accepts on /docs. The operation requires
 // system.api_reference, which only the Admin holds, and the cookie carries the
@@ -28,7 +26,7 @@ func (h Identity) OpenDocsSession(ctx context.Context, _ openapi.OpenDocsSession
 	if !ok {
 		return nil, errors.New("docs session requested without an authenticated principal")
 	}
-	raw, err := h.docs.Issue(principal.UserID, legacyAdminRole, principal.Epoch)
+	raw, err := h.docs.Issue(principal.UserID, principal.Epoch)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +56,9 @@ func docsCookie(raw string) *http.Cookie {
 // RequireDocsSession admits a request to the API reference only with the docs
 // session cookie of a user who still holds system.api_reference: 401 without
 // a valid cookie, for an unknown or disabled user, or for a cookie older than
-// the user's session epoch; 403 when the user's role lacks the key. The
+// the user's session epoch; 403 when the user's role lacks the key. A resolve
+// that fails because the client cancelled the request answers
+// httpx.StatusClientClosedRequest, and any other failure 500. The
 // Authorization header is never consulted.
 func RequireDocsSession(docs *token.Issuer, resolver httpx.PrincipalResolver) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -77,6 +77,8 @@ func RequireDocsSession(docs *token.Issuer, resolver httpx.PrincipalResolver) fu
 			switch {
 			case errors.Is(err, httpx.ErrUnknownPrincipal):
 				writeDocsUnauthenticated(w, r)
+			case httpx.ClientGone(r.Context(), err):
+				httpx.WriteClientGone(w)
 			case err != nil:
 				httpx.WriteError(w, r, http.StatusInternalServerError, httpx.CodeInternal,
 					httpx.TextFor(r, "Đã xảy ra lỗi. Vui lòng thử lại.", "Something went wrong. Try again."))

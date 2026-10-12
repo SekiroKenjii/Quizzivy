@@ -41,13 +41,13 @@ func (h Tests) writeGroup(ctx context.Context, in domain.StoredGroup) (openapi.S
 	if err := json.Unmarshal(raw, &out.Bundle.Group); err != nil {
 		return out, err
 	}
-	out.Bundle.Questions = make([]openapi.GroupQuestionInput, len(in.Bundle.Questions))
+	out.Bundle.Questions = make([]openapi.StoredGroupQuestionInput, len(in.Bundle.Questions))
 	for i, q := range in.Bundle.Questions {
 		input, err := questionshttp.ToAPIInput(q.Input)
 		if err != nil {
 			return out, err
 		}
-		out.Bundle.Questions[i] = openapi.GroupQuestionInput{Id: httpapi.ParseUUID(q.ID), Input: input}
+		out.Bundle.Questions[i] = openapi.StoredGroupQuestionInput{Id: httpapi.ParseUUID(q.ID), Input: input}
 	}
 	ids, err := groupAssetIDs(in.Bundle)
 	if err != nil {

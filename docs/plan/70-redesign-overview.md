@@ -2,8 +2,9 @@
 
 The programme that rebuilds Quizzivy to the new design deck (`docs/design/deck/`), splits the
 Admin role from the Teacher role, makes every resource owned by a teacher, and builds every
-capability the deck draws. Release files are `71-r1.md` … `81-r11.md`; groundwork (R0) is
-recorded here. Design requests are in `docs/design/gaps.md`.
+capability the deck draws. Release files are `71-r1.md` … `81-r11.md`, with
+`74d-d4-deck-update.md` for the deck update between R4 and R5; groundwork (R0) is recorded here.
+Design requests are in `docs/design/gaps.md`.
 
 Where this file and a release file disagree, this file wins until the release file is corrected.
 Where either disagrees with the spec, the spec wins and the plan is corrected (AGENTS.md).
@@ -33,6 +34,16 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | D17 | Messages | Direct messages are readable by their participants only. Admins see counts, never contents. |
 | D18 | Leads | A consent checkbox and a privacy notice (Decree 13/2023); leads kept 12 months. |
 
+Decided by Thuong on 2026-10-10 for the AI assistant the design team's v2 export draws
+(`74d-d4-deck-update.md`, section G):
+
+| # | Area | Decision |
+|---|---|---|
+| D19 | AI provider | Anthropic's API for every AI feature in v2; cloud processing is approved and enabled. This replaces the spec's "cloud and private AI processing remain candidates … not enabled by default" for these features. The provider sits behind a module port (`core/adapters`, as Google and the audio probe do); with `ANTHROPIC_API_KEY` unset the AI operations answer 501 and the web shows the deck's "AI didn't respond" fallback where it draws one, never a 500. Model choice is configuration, as tiers (a fast tier and a capable tier with vision), never a model identifier in a document. |
+| D20 | AI data | Data minimisation, decided per feature: each feature sends exactly what it needs and the plan lists it. Personal identifiers never reach the provider unless a feature cannot work without them (none does), and the plan says so wherever that would happen. |
+| D21 | AI budget | The centre has $200 of API credit a month; that is the pool. Use beyond it happens only when an Admin approves extra credit, which Thuong pays for (the deck's "Add credits"). The accounting is a hard stop, never a soft warning: a credit unit mapped to the provider's token cost, metered per call from the reported usage, with per-teacher allowances under the pool. |
+| D22 | AI release | Built in D4, the release right after R4, not a release of its own; D4's lanes, tasks and version are reshaped to fit. |
+
 ## 2. The release train
 
 | Rel | Version | Name | Plan file |
@@ -41,15 +52,19 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | R1 | v0.7.0 | Foundations and front door | `71-r1.md` |
 | R2 | v0.8.0 | Access: permissions, ownership, `/teacher` rename, encrypted join codes (no screen changes) | `72-r2.md` |
 | R3 | v0.9.0 | Student console and the take-test engine | `73-r3.md` |
-| R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10 | `73-r3.md` |
+| R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10. By default carried inside v0.10.0 as T-R4.49 (2026-10-08; `73-r3.md`, "Migration numbers") | `73-r3.md` |
 | R4 | v0.10.0 | Teacher workspace | `74-r4.md` |
-| R5 | v0.11.0 | Admin console and email | `75-r5.md` |
-| R6 | v0.12.0 | Question types and scoring | `76-r6.md` |
-| R7 | v0.13.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
-| R8 | v0.14.0 | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
-| R9 | v0.15.0 | Insights: gradebook, reports, student grades | `79-r9.md` |
-| R10 | v0.16.0 | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
+| D4 | v0.11.0 (decided 2026-10-10, `74d` Q29) | Deck update: the fourth export (2026-10-04) and v2 (2026-10-10). The take-test engine, the builder's shared content and the three previews, rebuilt to it; the AI assistant (D19 to D22); the four R4 screens v2 redraws | `74d-d4-deck-update.md` |
+| R5 | v0.12.0 | Admin console and email; the AI credits page on D4's operations | `75-r5.md` |
+| R6 | v0.13.0 | Question types and scoring | `76-r6.md` |
+| R7 | v0.14.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
+| R8 | v0.15.0 | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
+| R9 | v0.16.0 | Insights: gradebook, reports, student grades | `79-r9.md` |
+| R10 | v0.17.0 | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
 | R11 | v1.0.0 | Landing, leads, and v1.0 hardening | `81-r11.md` |
+
+The release files `75-r5.md` to `80-r10.md` still carry their first-planned version in their
+titles; D4's release task (T-D4.18) corrects them to the versions above (Q29, decided 2026-10-10).
 
 **Ordering rules.**
 
@@ -70,6 +85,12 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
    it. Class staff (D14, DG-04) is the case today: until then every release only hides
    Assistant from role pickers, and if DG-04 is still open at T-R11.14 class staff goes on the
    post-1.0 list (§10).
+10. D4 follows R4 and comes before R5 (Thuong, 2026-10-04). R4 builds from the deck of record
+    as it stands. The v2 export of 2026-10-10, which carries the fourth export, is imported by
+    D4's first task, after v0.10.0, and no R4 task is amended to it while R4 is in flight. The
+    AI assistant ships inside D4 (D22); the Admin "AI credits" page, which needs R5's console,
+    is R5's T-R5.35 on operations D4 ships (`74d` Q28, decided 2026-10-10); until then the
+    owner uses `cmd/maintenance ai-credits`.
 
 ## 3. How the work is run
 
@@ -77,8 +98,10 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 - **Integration branches.** For R1–R11, `work/redesign-r<k>` is cut from `develop`; feature PRs
   target it; `develop` is merged into it at least weekly and before every verification run.
   When every task is ticked, `work/redesign-r<k>` → `develop` (`--no-ff`), then
-  `release/0.<x>.0` → `main`. R0 PRs go straight to `develop`. Merging to `main` deploys, so it
-  waits for Thuong's go every time.
+  `release/0.<x>.0` → `main`. R0 PRs go straight to `develop`. D4 runs the same way under its
+  own names: tasks `T-D4.<n>`, branches `feature/t-d4-<nn>-<slug>`, the integration branch
+  `work/deck-d4`, and `release/0.10.1`. Merging to `main` deploys, so it waits for Thuong's go
+  every time.
 - **One task, one branch, one PR**, under ~800 non-generated lines; XL tasks split into lettered
   sub-PRs under one id.
 - **Mechanical sweeps are their own commits** with no behaviour inside: path renames, test
@@ -131,6 +154,13 @@ integration test asserts they are equal. Labels and defaults are the deck's
 | `system.audit.read` | View audit log | System | ✓ | | | |
 | `system.settings.write` | Change system settings | System | ✓ | | | |
 | `learning.take_tests` | Take tests and view own results | System | toggle | | | ✓ |
+| `ai.use` | Use AI features (D19 to D22; D4, T-D4.32) | Content | ✓ | ✓ | | |
+| `ai.credits.manage` | Manage AI credits (D21; D4, T-D4.32) | System | ✓ | | | |
+
+The two AI rows are not in the deck's matrix (DG+18 in `74d`, asked of the design team); they are
+drawn in the matrix's own style until then. `ai.use` gates every `/teacher/ai/*` operation and the
+import's "Read with AI"; `ai.credits.manage` gates `/admin/ai/*` (the pool, allowances, rules and
+requests). Neither is a pseudo-key: a role may hold every teaching key and no AI.
 
 - **Admin is a wildcard**: it holds every key, including the hidden ones below, except
   `learning.take_tests`, the one Admin cell the matrix may toggle (DG-51). New keys added by
@@ -234,7 +264,7 @@ integration test asserts they are equal. Labels and defaults are the deck's
 | `/` | Anyone (signed-in → console) | Landing (R11) |
 | `/login`, `/forgot-password`, `/join`, `/join/:code`, `/set-password`, `/change-password` | Front door | `AuthLayout` |
 | `/teacher/*` | `workspace.teacher` | `TeacherLayout` |
-| `/admin/*` | `workspace.admin` | `AdminLayout` |
+| `/admin/*` | `workspace.admin` | R5's Admin console; until then every `/admin/*` address redirects to the same path under `/teacher` (T-R4.5) |
 | `/app/*` | `learning.take_tests` | `StudentLayout`; `/app/attempts/:id` in `FocusLayout` |
 | `/403`, `*`, error boundary, maintenance | Everyone | System pages |
 
@@ -248,9 +278,9 @@ API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*
 |---|---|---|
 | The owner's account | `role='admin'` maps to the built-in Admin role: every permission, both workspaces. No manual step. | R2 (done) |
 | Students | `role='student'` → built-in Student. Memberships, attempts, answers and events are untouched. | R2 (done) |
-| Ownership | `owner_id` backfilled from `created_by` / `uploaded_by`; classes' `teacher_id` from the oldest active Admin, the teacher v0.7.0 shows, because `app.classes` has never recorded a creator (D-23, decided 2026-09-28). Each backfill raises if a row would stay NULL. | R2 (done) |
+| Ownership | `owner_id` backfilled from `created_by` / `uploaded_by`; classes' `teacher_id` from the oldest active Admin, the teacher v0.7.0 shows, because `app.classes` has never recorded a creator (D-23, decided 2026-09-28). Each backfill raises if a row would stay NULL. The constraints are validated and the fill triggers dropped by 00106 (T-R4.49, T-R3.2). | R2 (done), R4 (T-R4.49) |
 | Join codes | New codes are encrypted from R2. Every legacy hashed code is rotated at the R4 release, when the new class screens can show codes (D5); legacy codes redeem until then. | R2 (done), R4 |
-| Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped in v0.9.1 (T-R3.1). | R2 (done), v0.9.1 |
+| Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped by 00105 (T-R4.49, T-R3.1), and an access token carries no role. | R2 (done), v0.9.1 |
 | Attempts in flight | R3 reads the existing local answer drafts unchanged. Deploys happen outside exam windows. | R3 |
 | Assignment integrity | Existing assignments keep their stored policy; the wizard's new defaults apply to new assignments. | R4 |
 | Retention | O-23's fixed rules apply until an admin changes the R5 settings. | R5 |
@@ -262,10 +292,11 @@ The student's browser storage in v0.9.0, as `web/src` reads and writes it:
 |---|---|---|
 | `quizzivy.theme` | local | The theme preference: light, dark or system (R1). |
 | `quizzivy.locale` | local | The language, `vi` or `en`. |
-| `quizzivy.testText` | local | "Larger text in tests", `large` or `default`, until R4's `users.preferences` takes it (`73-r3.md`). |
+| `quizzivy.testText` | local | "Larger text in tests", `large` or `default`: the anonymous choice, and since R4 a mirror of the signed-in user's `users.preferences` value (spec §12). |
 | `quizzivy.answer-draft.<attemptId>` | local | Answers the server has not confirmed. The format is v0.8.0's. |
 | `quizzivy.group-play.<playId>` | local | A play of a shared recording the server has not confirmed. |
 | `quizzivy.flags.<attemptId>` | session | The questions flagged for review. |
+| `quizzivy.open-question.<attemptId>` | session | The id of the question that was open, so a reload returns to it. Removed when the attempt is submitted. |
 | `quizzivy.integrity.<attemptId>` | session | The integrity event buffer and its sequence number. |
 | `quizzivy.join` | session | The class being joined, across sign-in, for 30 minutes. |
 | `quizzivy.oauth.pending` | session | The Google authorization in flight (PKCE). |
@@ -273,7 +304,10 @@ The student's browser storage in v0.9.0, as `web/src` reads and writes it:
 Two keys are gone since R3: `quizzivy.column.studentNavigator` (local), and
 `quizzivy.material-collapsed.<groupId>` (session), which nothing writes now
 that the phone has no collapse button. The teacher console keeps
-`quizzivy.column.sidebar`, `rail`, `panel`, `outline` and `importSource`.
+`quizzivy.column.rail`, `panel`, `outline` and `importSource`, and stores its
+sidebar's state, `expanded` or `collapsed`, in `quizzivy.sidebar` (local, T-R4.4).
+`quizzivy.column.sidebar` was the width of the old `AdminLayout`, which T-R4.48
+deleted.
 
 ## 7. R0 — Groundwork
 
@@ -304,8 +338,8 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
    `getBoundingClientRect`, not screenshots alone.
 3. Security: the isolation suite (R2 on), escalation tests (R2, R5), the leak E2E that asserts
    student payloads carry no `isCorrect`, `sampleAnswer`, `acceptedAnswers` or `transcript` in
-   every release that adds or changes an `/app/*` or `/me/*` response (R3, R4, R6, R7, R8, R9,
-   R10), rate-limit tests for every new public operation.
+   every release that adds or changes an `/app/*` or `/me/*` response (R3, R4, D4, R6, R7, R8,
+   R9, R10), rate-limit tests for every new public operation.
 4. Release: migrations rehearsed on a Neon branch; deploy API then Pages; smoke `/healthz`,
    `/livez` and a sign-in per role; roll forward only; release notes; tag.
 
@@ -318,7 +352,7 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
 | PR-3 | The rebuilt take-test engine loses work | The five canaries before and after every PR; local drafts read unchanged; live E2E 5–8; deploy outside exam windows |
 | PR-4 | Rolling deploy breaks inserts from the old binary | Expand/contract with fill triggers; the old-binary insert test |
 | PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logs `legacy_admin_path` and lasts until v0.9.1 (T-R2.8, T-R3.3); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
-| PR-6 | Legacy join codes stop working unannounced | Rotation only at R4, with the release note and an in-app notice |
+| PR-6 | Legacy join codes stop working unannounced | Landed in R4: the API replaces every live legacy code once at start-up and tells each class's teacher in the app (T-R4.22, spec §6.1); the release note says so |
 | PR-7 | Polling keeps Neon awake | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4 and R7 |
 | PR-8 | English-only deck leaks English into the product | vi first per PR; `no-hardcoded-strings` and parity tests; a native review before v1.0 |
 | PR-9 | The deck keeps changing under the work | The manifest pins the imported version; re-imports are PRs that say which screens changed |
@@ -362,11 +396,22 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
   built; and a prompt holds no media in R4. The last is the large one. Images and audio inside
   a prompt or an explanation need a contract change that runs through the publish snapshot,
   the student payload and the engine. Default: built, as D1 requires, in R6; `76-r6.md` gains
-  the tasks when Thuong confirms. The alternative is to build them in R4. Two defaults leave
-  something drawn unbuilt in every release: "Students can pause" (DG-111) and the review's
-  "Markdown" mode (DG-114). If Thuong confirms them, each is a D1 exception recorded in §2 with
-  its DG entry.
+  the tasks when Thuong confirms. The alternative is to build them in R4. "Students can pause"
+  (DG-111) is unbuilt until D4, which builds it as `allowPause` on its own default
+  (`74d-d4-deck-update.md`, T-D4.13 and Q4). One default leaves something drawn unbuilt in
+  every release: the review's "Markdown" mode (DG-114). If Thuong confirms it, it is a D1
+  exception recorded in §2 with its DG entry; so is "Students can pause" if he declines it
+  in D4.
 - **Class staff (D14, DG-04).** §2 rule 9. Default: class staff lands in the first release that
   starts after the deck draws DG-04; if DG-04 is still open at T-R11.14, v1.0 ships with
   Assistant hidden from role pickers and class staff on the post-1.0 list. Thuong confirms the
   fallback.
+- **The AI assistant's questions (D19 to D22; `74d` Q28 to Q35).** Thuong answered Q28 to Q34
+  on 2026-10-10 as recommended: the Admin page waits for R5 and D4 ships its operations and a
+  maintenance command; D4 is v0.11.0; the default allowance is 20,000 credits; the pool's rule
+  has one value; a variant is a new draft test and the clean-up merges nothing; "Let AI read
+  student answers" is a per-teacher switch on by default; paused or exhausted buttons are visible
+  and disabled with the reason. **Still open (Q35):** the student-facing sentence on the Test
+  intro about cloud processing, which waits for Thuong's wording, and the provider account's
+  data-retention setting, which he confirms. The import page's sentence (D4) and the privacy
+  notice (R11) are decided.

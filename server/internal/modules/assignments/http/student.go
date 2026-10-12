@@ -49,7 +49,8 @@ func (h Assignments) GetMyAssignment(ctx context.Context, request openapi.GetMyA
 	if errors.Is(err, domain.ErrForbidden) {
 		return openapi.GetMyAssignment403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền xem bài này.")),
+				httpapi.Error(ctx, openapi.FORBIDDEN,
+					httpx.Text(ctx, "Bạn không có quyền xem bài này.", "You do not have permission to view this assignment."))),
 		}, nil
 	}
 	if err != nil {
@@ -74,11 +75,8 @@ func (h Assignments) GetMyAssignment(ctx context.Context, request openapi.GetMyA
 		LiveDeadlineAt:  card.LiveDeadlineAt,
 		LastSubmittedAt: card.LastSubmittedAt,
 		Score:           card.Score,
-		Review: openapi.ReviewPolicy{
-			ShowScore:          d.Review.ShowScore,
-			ShowCorrectAnswers: d.Review.ShowCorrectAnswers,
-			ShowExplanations:   d.Review.ShowExplanations,
-		},
+		Review:          toAPIReview(d.Review),
+		StudentNote:     d.StudentNote,
 		Integrity: openapi.IntegrityPolicy{
 			RequireFullscreen: d.Integrity.RequireFullscreen,
 			BlockCopyPaste:    d.Integrity.BlockCopyPaste,

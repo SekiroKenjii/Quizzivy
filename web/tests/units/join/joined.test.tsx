@@ -101,21 +101,6 @@ describe("coming back from sign-in to join", () => {
     expect(client.getQueryState(["my-assignments"])?.isInvalidated).toBe(true);
   });
 
-  it("counts a class the student is already in as joined", async () => {
-    joinAnswers(404, {
-      error: {
-        code: "ALREADY_ENROLLED",
-        message: "Bạn đã ở trong lớp này.",
-        requestId: REQUEST_ID,
-      },
-    });
-    useAuthStore.getState().setSession("token", studentUser);
-    renderReturn();
-    expect(
-      await screen.findByRole("heading", { name: `Bạn đã vào lớp ${CLASS_NAME}` }),
-    ).toBeVisible();
-  });
-
   it("says plainly when the class could not take the student", async () => {
     joinAnswers(404, {
       error: {

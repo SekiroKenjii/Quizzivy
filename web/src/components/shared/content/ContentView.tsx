@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
+import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
 import type { ContentBlock } from "./model";
 import { validateContent } from "./validation";
@@ -99,7 +100,7 @@ function Block({
       if (renderAsset) return <>{renderAsset(node)}</>;
       return (
         <div className="content-asset" role="note">
-          <span>{node.type === "image" ? node.alt : node.label}</span>
+          <span>{nfc(node.type === "image" ? node.alt : node.label)}</span>
           <span className="text-muted-foreground text-xs">
             {t("contentEditor.assetUnbound")}
           </span>

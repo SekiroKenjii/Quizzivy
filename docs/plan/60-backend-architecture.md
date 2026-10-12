@@ -53,22 +53,73 @@ the "one package per feature" layout AGENTS.md described until then.
   - `AuthoredAssignmentIDs`: the assignments a teacher created;
   - `StudentIDs`: the students a teacher reaches;
   - `AssignmentIDs`: the assignments a teacher reaches;
-  - `Papers`: which attempts a list of papers shows.
+  - `Papers`: which attempts a list of papers shows;
+  - `PaperReaders`: `Papers` read the other way, the teachers who reach one
+    paper (the assignment's creator and the teachers of a target class the
+    student belongs to), which notifications use to tell exactly them; a test
+    holds it equal to `Papers` over a world with every route to a student;
+  - `Roster`: the accounts an assignment is addressed to.
 
   identity, classes, assignments, attempts and dashboard splice them into
   their own statements, and callers lift them under `scope.all`. Like
   `shared/audit`, it is SQL in the kernel, because a port cannot splice a
   predicate into another module's list or aggregate.
+- **Telling after commit.** A module that causes a notification declares a
+  `Notifier` port typed as the notifications `Notify` handler (attempts,
+  assignments and classes each do; wiring hands them
+  `notificationsApp.Commands.Notify`), and tells through `shared/cqrs.Announce`
+  once its own transaction has committed. `Announce` runs a `build` function that
+  reads what the notice says and returns the commands, then hands each to the
+  handler under a ten-second budget and a context that keeps the request's values
+  and not its end, so a client that went away after the commit still gets its
+  teacher told. A failure of either is logged once with how many commands went
+  undelivered and is never returned; a nil handler reads nothing. A repository
+  that cannot know a notice's audience returns `domain.Milestones` (attempts:
+  the paper was handed in, flagged by the policy, or graded) and the command
+  asks `Briefing` for the rest in a read of its own, so nothing about a
+  notification runs inside the write. attempts' `Announcer` and assignments'
+  `TellMoved` and `TellGranted` build the commands; the dedupe key formats
+  are `notifications/domain/dedupe.go`'s, in one place.
 - **The answered rule in the kernel.** `shared/answered.SaysSomething` is the
   one SQL definition of a saved answer that says something. assignments (the
   student's card) and attempts (the teacher's monitor) splice it, so the two
   counts cannot drift.
+- **The status rule in the kernel.** `shared/schedule.DerivedStatus` is the
+  one SQL definition of an assignment's status (draft, scheduled, open or
+  closed) from its window, over a row of `app.assignments` aliased `a`.
+  assignments (its list, facets and reopen) and tests (the per-test counts on
+  `Test.assignments`) splice it, so the two cannot drift, and a change to the
+  window rule is made there once. The same package holds the close rule:
+  `CloseOf` is the SQL for the moment an assignment stops taking attempts
+  (`least(closed_at, closes_at)`, or the later of that and a student's
+  override), and `Close` and `Window.WithOverride` are its Go twin. attempts
+  uses them to hold a result back until the close and to decide whether the
+  class average may show (T-R4.11). The same package reads a student's override:
+  `OverrideJoin` is the `LEFT JOIN` on one student and `OverrideColumns` scans
+  it, so the student's card and intro (assignments) and a start, a resume and
+  a result (attempts) all take one student's window, time limit and attempts
+  from one rule (T-R4.12). The override feeds the reader's own close and never
+  the assignment's, which is what the class average waits for. The same package
+  moves the deadlines of attempts in progress (T-R4.12b): `LockWindows` takes
+  the maintenance-windows lock shared, and `RecomputeDeadlines` lengthens each
+  live attempt's deadline to the window's, only ever later and audited, in the
+  transaction that changed the window. assignments calls `LockWindows` before
+  it locks the assignment row in an extension, an update, a reopening, an
+  override write and an override delete, and `RecomputeDeadlines` after the
+  write in all but the last;
+  attempts' start takes the same lock and then the assignment row
+  `FOR SHARE`, so the lock order is the same everywhere: windows, assignment,
+  attempts. The kernel owns the statement because assignments writes the
+  window, the rows it moves are attempts', and the two modules do not import
+  each other.
 - **Access in the kernel.** `shared/access` is the authorization model every
   layer may use, and it imports only the standard library: the catalogue as
   `Key`s, with the pseudo-keys `self`, `workspace.teacher` and
   `workspace.admin`; a role's grants as a `Set`; the any-of `Requirement` an
   operation declares in `x-permission`; `Workspaces`; the `Principal` a
-  request acts as and the `Scope` it reaches (`All` only for `scope.all`);
+  request acts as and the `Scope` it reaches (`All` only for `scope.all`;
+  `Scope.Own` clears it, and the teacher workspace's six content lists pass
+  that, T-R4.54);
   `IsStudentLike`, which is `app.student_like_roles` in Go; and `CanActOn`,
   the subset rule. The access module fills it: `core/adapters.Principals`
   puts its `ResolvePrincipal` behind `httpx.RequirePermission` and the docs
@@ -80,6 +131,14 @@ the "one package per feature" layout AGENTS.md described until then.
   Postgres type embeds `db.Repository` and uses the generic `QueryOne`,
   `QueryMany`, `Count`, `Exists`, `IsUniqueViolation`, `EscapeLike`. Optional
   values go through `shared/opt`, field errors through `shared/validation`.
+- **A table that leaves the product goes through `platform/tabular`** (T-R4.13):
+  `EscapeCell` prefixes an apostrophe to a cell a spreadsheet would run as a
+  formula, and the `CSV` writer passes every cell through it after a
+  byte-order mark, CRLF-ended. A transport that exports builds its file with it
+  and nothing else; R5 adds XLSX to the package. A time in such a file is
+  written in the caller's own zone, which attempts reads through its
+  `ports.Zones`, the way dashboard does, wired from identity's
+  `EffectiveZone` in `core/wiring`.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware

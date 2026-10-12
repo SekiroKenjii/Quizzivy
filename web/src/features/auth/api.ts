@@ -1,5 +1,6 @@
+import type { AccountTransition } from "@/lib/api/authTransition";
 import { api } from "@/lib/api/client";
-import type { components } from "@/lib/api/schema";
+import type { components, operations } from "@/lib/api/schema";
 
 export type User = components["schemas"]["CurrentUser"];
 
@@ -14,13 +15,18 @@ export function fetchCurrentUser(signal?: AbortSignal): Promise<User> {
   return api("get", "/auth/me", signal ? { signal } : {});
 }
 
-/** The "Hồ sơ" card's save. The email is not here: only an admin moves that. */
-export function updateProfile(fullName: string) {
-  return api("patch", "/auth/me", { body: { fullName } });
+/** updateProfile sends a typed profile patch while preserving the existing legal-name shorthand. */
+export function updateProfile(input: string | ProfilePatch) {
+  return api("patch", "/auth/me", {
+    body: typeof input === "string" ? { fullName: input } : input,
+  });
 }
 
-export function login(email: string, password: string) {
-  return api("post", "/auth/login", { body: { email, password } });
+export function login(email: string, password: string, transition?: AccountTransition) {
+  return api("post", "/auth/login", {
+    body: { email, password },
+    ...(transition ? { transition } : {}),
+  });
 }
 
 /**
@@ -28,8 +34,8 @@ export function login(email: string, password: string) {
  * reaches the endpoint on its own -- `Path=/auth`, and the client sends
  * credentials. Nothing is passed here because nothing needs to be.
  */
-export function logout() {
-  return api("post", "/auth/logout");
+export function logout(transition?: AccountTransition) {
+  return api("post", "/auth/logout", transition ? { transition } : {});
 }
 
 /**
@@ -51,4 +57,16 @@ export function changePassword(currentPassword: string, newPassword: string) {
 /** openDocsSession sets the fifteen-minute cookie that opens the API reference on the API origin; admins only. */
 export function openDocsSession() {
   return api("post", "/admin/docs-session");
+}
+
+/** ProfilePatch preserves omission and explicit nullable clearing for all five account fields. */
+export type ProfilePatch =
+  operations["updateCurrentUser"]["requestBody"]["content"]["application/json"];
+
+/** PreferencesPatch contains only the preference keys deliberately changed by the caller. */
+export type PreferencesPatch = components["schemas"]["UserPreferences"];
+
+/** updatePreferences returns the complete merged stored preferences acknowledged by the server. */
+export function updatePreferences(body: PreferencesPatch) {
+  return api("patch", "/me/preferences", { body });
 }

@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/tests/application/query"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
+	"reflect"
 	"testing"
 
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -88,7 +89,12 @@ func TestThePublishResultCountsWhatTheVersionHistoryCounts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list versions: %v", err)
 	}
-	if len(versions) != 1 || versions[0] != published {
+	if published.TestUpdatedAt == nil {
+		t.Fatal("the publish result carries no test update time")
+	}
+	inHistory := published
+	inHistory.TestUpdatedAt = nil
+	if len(versions) != 1 || !reflect.DeepEqual(versions[0], inHistory) {
 		t.Fatalf("history %+v disagrees with the publish result %+v", versions, published)
 	}
 }

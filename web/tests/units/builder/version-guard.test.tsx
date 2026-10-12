@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import TestBuilderPage from "@/features/tests/pages/TestBuilderPage";
+import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -25,11 +25,15 @@ let accepted = 0;
 
 function testBody() {
   return {
+    skills: [],
+    assignments: { live: 0, scheduled: 0, closed: 0 },
+    unpublishedChanges: null,
     id: TEST_ID,
     title: "Unit 5",
     description: null,
     status: "draft" as const,
     currentVersion: 0,
+    nextVersion: 1,
     totalPoints: 1,
     questionCount: 1,
     audioCount: 0,
@@ -59,6 +63,8 @@ beforeEach(() => {
     ),
     http.get(`${BASE}/teacher/questions/:id`, () =>
       contractJson("/teacher/questions/{id}", "get", 200, {
+        level: null,
+        skill: null,
         id: QUESTION_ID,
         type: "short_answer" as const,
         prompt: "Câu hỏi",
@@ -99,17 +105,21 @@ afterEach(() => {
 async function renderBuilder() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
-    [{ path: "/admin/tests/:id/edit", element: <TestBuilderPage /> }],
-    { initialEntries: [`/admin/tests/${TEST_ID}/edit`] },
+    [{ path: "/teacher/tests/:id/edit", element: <TestBuilderPage /> }],
+    { initialEntries: [`/teacher/tests/${TEST_ID}/edit`] },
   );
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(await screen.findByRole("button", { name: "Tên đề thi" }));
+  const title = screen.getByRole<HTMLInputElement>("textbox", { name: "Tên đề thi" });
+  title.setSelectionRange(title.value.length, title.value.length);
   return {
-    user: userEvent.setup({ advanceTimers: vi.advanceTimersByTime }),
-    title: await screen.findByLabelText("Tên đề thi"),
+    user,
+    title,
   };
 }
 

@@ -156,6 +156,14 @@ func freshStudent(x *iso, own *party) *party {
 	return own.with("student", created["user"].(map[string]any)["id"].(string))
 }
 
+func freshOverride(x *iso, own *party) *party {
+	student := freshStudent(x, own).id("student")
+	own.c.must(http.StatusOK, http.MethodPut, "/teacher/assignments/"+own.id("assignment")+"/student-overrides", map[string]any{
+		"studentIds": []any{student}, "extraAttempts": 1, "reason": "Dùng một lần",
+	})
+	return own.with("override", student)
+}
+
 func freshAttempt(x *iso, own *party) *party {
 	created := own.c.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "lam-bai-" + nonce(x.t) + "@example.com", "fullName": "Học viên làm bài", "classIds": []any{own.id("class")},
@@ -202,6 +210,10 @@ const (
 	notMember       = "removing someone who is not a member answers as removing a member does"
 	outsideEvent    = "an event naming a question outside the attempt's paper is kept without it; the cross-reference scan proves the id is not stored"
 	outsideAnswer   = "an answer to a question outside the attempt's paper is dropped; the cross-reference scan proves no row names it"
+	ownOnly         = "marks only the caller's own notifications; any other id is skipped"
+
+	reportedPerStudent = "answers 200 and reports each student it cannot reset as NOT_FOUND, another teacher's as a missing one's; the bulk reset flow test proves the rows stay untouched"
+	budgetSpent        = "the third call in a minute is refused 429 (two a minute per user), so the caller's own id cannot be tried here; the bulk reset flow test resets the caller's own students beside another teacher's in one batch"
 )
 
 func isolationCases() map[string]isoCase {
@@ -273,10 +285,11 @@ func isolationCases() map[string]isoCase {
 			},
 			link: map[string][]string{"body /sections/-/units/-/id": {"/sections/-/questionIds/-"}},
 		},
-		"publishTest":       {},
-		"duplicateTest":     {},
-		"listTestVersions":  {excuse: map[string]string{"path id": "a missing test lists no versions"}},
-		"deleteTestVersion": {params: map[string]string{"version": "1"}, fresh: freshPublishedTest},
+		"publishTest":        {},
+		"duplicateTest":      {},
+		"listTestVersions":   {excuse: map[string]string{"path id": "a missing test lists no versions"}},
+		"deleteTestVersion":  {params: map[string]string{"version": "1"}, fresh: freshPublishedTest},
+		"getTestVersionDiff": {params: map[string]string{"version": "1"}, query: map[string]string{"against": "draft"}, fresh: freshPublishedTest},
 		"setCurrentTestVersion": {params: map[string]string{"version": "1"}, fresh: freshPublishedTest, body: func(x *iso, own *party, _ string) any {
 			return map[string]any{"expectedUpdatedAt": x.testUpdatedAt(own)}
 		}},
@@ -293,9 +306,12 @@ func isolationCases() map[string]isoCase {
 		"deleteQuestion":    {fresh: freshQuestion},
 		"duplicateQuestion": {},
 
-		"createWordImport":          {},
-		"listWordImports":           {},
-		"getWordImport":             {},
+		"createWordImport": {},
+		"listWordImports":  {},
+		"getWordImport":    {},
+		"pasteImportSource": {body: func(*iso, *party, string) any {
+			return map[string]any{"uploadId": uuid.NewString(), "expectedRevision": 1, "text": "Question 1. Plain text"}
+		}},
 		"uploadImportSource":        {query: map[string]string{"role": "exam", "expectedRevision": "1"}, format: "docx"},
 		"downloadImportSource":      {},
 		"getWordImportCapabilities": {},
@@ -322,9 +338,11 @@ func isolationCases() map[string]isoCase {
 			return map[string]any{"requestId": uuid.NewString(), "draftRevision": 1}
 		}},
 
-		"listMedia":   {},
-		"uploadMedia": {},
-		"deleteMedia": {fresh: freshMedia},
+		"listMedia":    {},
+		"uploadMedia":  {},
+		"updateMedia":  {fresh: freshMedia, body: fixed(map[string]any{"displayName": "Tên đã đổi"})},
+		"deleteMedia":  {fresh: freshMedia},
+		"replaceMedia": {fresh: freshMedia, format: "png"},
 
 		"listAssignments":        {excuse: map[string]string{"query classId": "a filter by a missing class lists nothing"}},
 		"createAssignment":       {body: func(_ *iso, own *party, _ string) any { return assignmentBody(own) }},
@@ -334,7 +352,17 @@ func isolationCases() map[string]isoCase {
 		"listAnswersForQuestion": {},
 		"reopenAssignment":       {body: fixed(map[string]any{"closesAt": later, "reason": "Kiểm tra cách ly"})},
 		"getAssignmentMonitor":   {},
+		"extendAssignment":       {body: fixed(map[string]any{"minutes": 10, "notify": false})},
+		"duplicateAssignment":    {body: fixed(map[string]any{"classIds": []any{""}})},
+		"getItemAnalysis":        {},
+		"exportResultsCsv":       {},
+		"listStudentOverrides":   {},
+		"setStudentOverrides": {body: fixed(map[string]any{
+			"studentIds": []any{""}, "extraAttempts": 1, "reason": "Kiểm tra cách ly",
+		})},
+		"deleteStudentOverride": {fresh: freshOverride},
 
+		"listGradingQueue":    {},
 		"listAttempts":        {},
 		"getAttemptForReview": {},
 		"getAttemptEvents":    {},
@@ -346,6 +374,7 @@ func isolationCases() map[string]isoCase {
 		"gradeAttempt":        {body: fixed(map[string]any{"items": []any{map[string]any{"questionId": "", "points": 1}}})},
 		"finishGrading":       {},
 		"getDashboard":        {},
+		"getTeacherSummary":   {},
 		"listStudents":        {excuse: map[string]string{"query classId": "a filter by a missing class lists nothing"}},
 		"createStudent": {body: func(x *iso, _ *party, _ string) any {
 			return map[string]any{"email": "tao-" + nonce(x.t) + "@example.com", "fullName": "Học viên mới", "classIds": []any{""}}
@@ -353,6 +382,11 @@ func isolationCases() map[string]isoCase {
 		"getStudent":           {},
 		"updateStudent":        {body: fixed(map[string]any{"fullName": "Tên đã sửa"})},
 		"resetStudentPassword": {fresh: freshStudent},
+		"resetStudentsPasswords": {
+			excuse: map[string]string{"body /studentIds/-": reportedPerStudent},
+			blind:  map[string]string{"body /studentIds/-": budgetSpent},
+			body:   fixed(map[string]any{"studentIds": []any{""}}),
+		},
 
 		"listClasses":      {},
 		"createClass":      {},
@@ -395,5 +429,18 @@ func isolationCases() map[string]isoCase {
 		"submitAttempt":    {student: true, body: session(map[string]any{"reason": "manual"})},
 		"getAttemptResult": {student: true},
 		"getMediaUrl":      {student: true},
+
+		"listNotifications": {},
+		"markNotificationsRead": {
+			excuse: map[string]string{"body /ids/-": ownOnly},
+			blind:  map[string]string{"body /ids/-": ownOnly},
+			body:   fixed(map[string]any{"ids": []any{""}}),
+		},
+		"getMySummary":                  {},
+		"getNotificationPreferences":    {},
+		"updateNotificationPreferences": {},
+		"updatePreferences":             {},
+		"setAvatar":                     {format: "avatar"},
+		"deleteAvatar":                  {},
 	}
 }

@@ -9,8 +9,9 @@ type Limits struct{}
 
 // LimitsResult states what an upload may be before a file is chosen.
 type LimitsResult struct {
-	MaxBytes int64
-	Formats  []string
+	PasteMaxCharacters int
+	MaxBytes           int64
+	Formats            []string
 }
 
 type LimitsHandler struct{ Legacy bool }
@@ -20,5 +21,5 @@ func (h LimitsHandler) Handle(context.Context, Limits) (LimitsResult, error) {
 	if h.Legacy {
 		formats = append(formats, "doc")
 	}
-	return LimitsResult{MaxBytes: domain.MaxSourceBytes, Formats: formats}, nil
+	return LimitsResult{PasteMaxCharacters: domain.MaxPasteCharacters, MaxBytes: domain.MaxSourceBytes, Formats: formats}, nil
 }

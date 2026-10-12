@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -67,26 +68,33 @@ func (PasswordManager) BurnTime(ctx context.Context, password string) {
 	_, _ = Passwords.Verify(ctx, password, dummyHash)
 }
 
-// TemporaryPassword returns a password a teacher can read across a room.
+// Temporary returns a password a teacher can read across a room: three words
+// and a two-digit number, such as "tho-vang-cay-42". It carries TemporaryBits
+// bits of entropy, drawn from crypto/rand.
 func (PasswordManager) Temporary() (string, error) {
-	first, err := word()
-	if err != nil {
-		return "", err
+	var words [temporaryWordCount]string
+	for i := range words {
+		w, err := word()
+		if err != nil {
+			return "", err
+		}
+		words[i] = w
 	}
-	second, err := word()
-	if err != nil {
-		return "", err
-	}
-	n, err := rand.Int(rand.Reader, big.NewInt(90))
+	n, err := rand.Int(rand.Reader, big.NewInt(temporaryNumbers))
 	if err != nil {
 		return "", fmt.Errorf("temporary password: %w", err)
 	}
 
-	out := fmt.Sprintf("%s-%s-%d", first, second, n.Int64()+10)
+	out := fmt.Sprintf("%s-%d", strings.Join(words[:], "-"), n.Int64()+temporaryNumberFloor)
 	if len(out) < MinPasswordLength {
-		return "", fmt.Errorf("temporary password %q is shorter than the minimum", out)
+		return "", fmt.Errorf("temporary password of %d bytes is shorter than the minimum of %d", len(out), MinPasswordLength)
 	}
 	return out, nil
+}
+
+// TemporaryBits is the entropy, in bits, of a password Temporary returns.
+func (PasswordManager) TemporaryBits() float64 {
+	return temporaryWordCount*math.Log2(float64(len(temporaryWords))) + math.Log2(temporaryNumbers)
 }
 
 var Passwords PasswordManager
@@ -180,6 +188,12 @@ func init() {
 	}
 	dummyHash = h
 }
+
+const (
+	temporaryWordCount   = 3
+	temporaryNumbers     = 90
+	temporaryNumberFloor = 10
+)
 
 var temporaryWords = []string{
 	"ao", "bao", "bien", "bo", "bong", "buom", "ca", "cam", "canh", "cao",

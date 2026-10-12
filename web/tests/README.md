@@ -56,3 +56,20 @@ fails at the mock rather than inside whatever it was meant to be testing.
 the §13.5 student-payload boundary, the §6.5 public-endpoint rules, pagination,
 `operationId` uniqueness. Its helpers are unit-tested against synthetic
 documents, because a checker nobody checks is decoration.
+
+**`units/styles/tailwind-classes.test.ts`** reads every colour utility (`bg-`,
+`text-`, `border-` and its side forms, `ring-`, `shadow-` and the rest) in `src/`
+and fails when one names no `--color-*` or `--shadow-*` key of `index.css`'s
+`@theme`, no Tailwind default and no non-colour utility. Tailwind generates no
+CSS for such a class, and a test that only asserts the class name passes anyway;
+`bg-accent-soft` shipped that way.
+
+The scan is a token regex over each file's text with its comments removed, not a
+parse, so it sees a class the same way inside a template literal, `cn(...)`,
+`cva(...)` and `clsx(...)`, and it cannot tell a class from a string that looks
+like one. Variants, the `/50` opacity suffix and the `!` marker are stripped
+first. A value in brackets or parentheses (`text-[13px]`, `bg-(--x)`) is
+arbitrary and skipped. The longest prefix wins, so `border-t-brand` is read as
+side `border-t` with colour `brand`, not as `border` with `t-brand`. A new
+non-colour suffix (say `border-spacing-*`) goes in the test's `NON_COLOUR` table,
+and a CSS word that merely starts with a prefix (`border-box`) in `CSS_WORDS`.

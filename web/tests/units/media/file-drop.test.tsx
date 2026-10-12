@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen } from "@testing-library/react";
-import { useFileDrop } from "@/features/media/useFileDrop";
+import { act, render, screen, cleanup } from "@testing-library/react";
+import { useFileDrop } from "@/hooks/useFileDrop";
 import "@/lib/i18n";
 
 /**
@@ -98,4 +98,34 @@ describe("the window file drop", () => {
     expect(add.mock.calls).toHaveLength(before);
     add.mockRestore();
   });
+});
+
+function EnabledDrop({ enabled }: Readonly<{ enabled: boolean }>) {
+  const dragging = useFileDrop((files) => dropped.push(files), enabled);
+  return <p>{dragging ? "active" : "stopped"}</p>;
+}
+it("disabled still prevents a file drop without calling back, and clears a stale drag across re-enable", () => {
+  cleanup();
+  const add = vi.spyOn(window, "addEventListener");
+  const view = render(<EnabledDrop enabled={false} />);
+  const bound = () =>
+    add.mock.calls.filter(([name]) => ["dragover", "dragleave", "drop"].includes(name))
+      .length;
+  expect(bound()).toBe(3);
+  expect(fire("dragover", transfer([clip("a.mp3")])).defaultPrevented).toBe(true);
+  expect(screen.getByText("stopped")).toBeInTheDocument();
+  expect(fire("drop", transfer([clip("a.mp3")])).defaultPrevented).toBe(true);
+  expect(dropped).toEqual([]);
+  expect(fire("drop", transfer([], ["text/plain"])).defaultPrevented).toBe(false);
+  view.rerender(<EnabledDrop enabled />);
+  fire("dragover", transfer([]));
+  expect(screen.getByText("active")).toBeInTheDocument();
+  view.rerender(<EnabledDrop enabled={false} />);
+  expect(screen.getByText("stopped")).toBeInTheDocument();
+  view.rerender(<EnabledDrop enabled />);
+  expect(screen.getByText("stopped")).toBeInTheDocument();
+  expect(bound(), "toggling enabled never rebinds the listeners").toBe(3);
+  fire("drop", transfer([clip("b.mp3")]));
+  expect(dropped.map((files) => files.map((file) => file.name))).toEqual([["b.mp3"]]);
+  add.mockRestore();
 });

@@ -1,16 +1,19 @@
 import { ReviewGroup } from "@/features/media";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Eye, Minus, Plus } from "lucide-react";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { KeyGlyph } from "@/components/shared/KeyGlyph";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { commandKeyLabel } from "@/features/search/useCommandPalette";
+import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
+import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
 import { gradeAttempt, listAnswersForQuestion, type QuestionAnswerRow } from "../api";
 import { answersKey, monitorKey, reviewKey } from "../keys";
@@ -89,30 +92,22 @@ export function GradeByQuestion({
   };
 
   return (
-    <>
-      <PageHeader
+    <div className="flex min-w-0 flex-col gap-4">
+      <PageHead
         title={t("byQuestion.title")}
-        backTo={`/admin/assignments/${assignmentId}`}
-        meta={
-          data ? (
-            <span className="text-muted-foreground text-xs">
-              {testTitle} ·{" "}
-              {t("byQuestion.questionOf", {
-                n: data.questionNumber,
-                count: data.questionCount,
-              })}
-            </span>
-          ) : null
-        }
+        back={{
+          to: `/teacher/assignments/${assignmentId}`,
+          label: t("review.backToAssignment"),
+        }}
         actions={
           <>
             {data ? (
               <>
-                <span className="text-muted-foreground text-xs tabular-nums">
+                <span className="text-muted-foreground self-center text-xs tabular-nums">
                   {t("byQuestion.graded", { done, total: gradable.length })}
                 </span>
                 <span
-                  className="bg-secondary block h-1.5 w-32 overflow-hidden rounded-full"
+                  className="bg-secondary block h-1.5 w-32 self-center overflow-hidden rounded-full"
                   role="img"
                   aria-label={t("byQuestion.graded", { done, total: gradable.length })}
                 >
@@ -139,7 +134,17 @@ export function GradeByQuestion({
             </Button>
           </>
         }
-      />
+      >
+        {data ? (
+          <p className="text-muted-fg text-sm [overflow-wrap:anywhere]">
+            {testTitle} ·{" "}
+            {t("byQuestion.questionOf", {
+              n: data.questionNumber,
+              count: data.questionCount,
+            })}
+          </p>
+        ) : null}
+      </PageHead>
 
       <QueryStates
         query={answers}
@@ -259,14 +264,18 @@ export function GradeByQuestion({
                   ))
                 )}
                 <p className="text-muted-foreground text-xs">
-                  {t("byQuestion.keys", { max: data.question.points })}
+                  <Trans
+                    i18nKey="byQuestion.keys"
+                    values={{ max: data.question.points, modifier: commandKeyLabel() }}
+                    components={{ down: <KeyGlyph name="down" /> }}
+                  />
                 </p>
               </div>
             </div>
           )
         }
       </QueryStates>
-    </>
+    </div>
   );
 }
 
@@ -323,7 +332,9 @@ function AnswerRow({
         {blank ? (
           <p className="text-muted-foreground text-sm">{t("byQuestion.blank")}</p>
         ) : (
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{text ?? ""}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {nfc(text ?? "")}
+          </p>
         )}
         {!blank && (
           <div className="flex items-center gap-2">

@@ -18,6 +18,23 @@ export const handlers = [
       pageSize: 20,
       total: 0,
       facets: {
+        levels: {
+          pre_a1: 0,
+          a1: 0,
+          a2: 0,
+          b1: 0,
+          b2: 0,
+          c1: 0,
+          c2: 0,
+        },
+        skills: {
+          grammar: 0,
+          vocabulary: 0,
+          reading: 0,
+          listening: 0,
+          writing: 0,
+          speaking: 0,
+        },
         all: 0,
         single_choice: 0,
         multiple_choice: 0,
@@ -28,6 +45,26 @@ export const handlers = [
     }),
   ),
   http.get(`${BASE}/auth/me`, () => contractJson("/auth/me", "get", 200, studentUser)),
+  http.get(`${BASE}/me/notification-preferences`, () =>
+    contractJson(
+      "/me/notification-preferences",
+      "get",
+      200,
+      [
+        "attempt.submitted",
+        "attempt.flagged",
+        "assignment.closing",
+        "assignment.due_soon",
+        "result.ready",
+      ].map((event) => ({ event, inApp: true, email: false })),
+    ),
+  ),
+  http.get(`${BASE}/me/summary`, () =>
+    contractJson("/me/summary", "get", 200, { unreadNotifications: 0 }),
+  ),
+  http.get(`${BASE}/me/notifications`, () =>
+    contractJson("/me/notifications", "get", 200, { items: [], nextBefore: null }),
+  ),
   http.get(`${BASE}/teacher/imports/capabilities`, () =>
     contractJson("/teacher/imports/capabilities", "get", 200, {
       intakeEnabled: true,

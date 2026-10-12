@@ -1,8 +1,11 @@
 import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
 import type { components, operations } from "@/lib/api/schema";
 
 export type Class = components["schemas"]["Class"];
+/** ClassListItem is a row of the teacher's class list, its join code readable. */
+export type ClassListItem = components["schemas"]["ClassListItem"];
 export type MyClass = components["schemas"]["MyClass"];
 export type ClassMember = components["schemas"]["ClassMember"];
 export type ClassFacets = components["schemas"]["ClassFacets"];
@@ -14,6 +17,8 @@ export interface ListClassesParams {
   limit?: number;
   /** Absent means active: pickers never see an archived class (G-08). */
   status?: ClassStatus;
+  /** Only the screen that shows join codes asks; a picker never receives one. */
+  withCodes?: boolean;
 }
 
 export function fetchClasses(params: ListClassesParams = {}, signal?: AbortSignal) {
@@ -22,14 +27,15 @@ export function fetchClasses(params: ListClassesParams = {}, signal?: AbortSigna
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   if (params.status) query["status"] = params.status;
+  if (params.withCodes) query["withCodes"] = true;
   return api("get", "/teacher/classes", signal ? { query, signal } : { query });
 }
 
-export function createClass(body: {
-  name: string;
-  description: string | null;
-  selfJoinEnabled: boolean;
-}) {
+/** NewClass is the body `createClass` sends. */
+export type NewClass =
+  operations["createClass"]["requestBody"]["content"]["application/json"];
+
+export function createClass(body: NewClass) {
   return api("post", "/teacher/classes", { body });
 }
 
@@ -72,6 +78,8 @@ export function fetchMembers(
 export interface ClassEdit {
   name?: string;
   description?: string;
+  scheduleLabel?: string | null;
+  room?: string | null;
   selfJoinEnabled?: boolean;
   archived?: boolean;
 }
@@ -91,6 +99,30 @@ export function rotateJoinCode(id: string, options: JoinCodeOptions = {}) {
     path: { id },
     body: options,
   });
+}
+
+/** JoinCode is a class's active code read back for its teacher, `code` null when unreadable. */
+export type JoinCode = components["schemas"]["JoinCode"];
+
+/**
+ * getJoinCode reads a class's active code for its teacher, or null when the
+ * class has none (the 404 a missing code answers). The answer is never
+ * cached by the server, and a caller keeps it no longer than its screen.
+ */
+export async function getJoinCode(
+  id: string,
+  signal?: AbortSignal,
+): Promise<JoinCode | null> {
+  try {
+    return await api(
+      "get",
+      "/teacher/classes/{id}/join-code",
+      signal ? { path: { id }, signal } : { path: { id } },
+    );
+  } catch (cause) {
+    if (cause instanceof ApiError && cause.status === 404) return null;
+    throw cause;
+  }
 }
 
 export function revokeJoinCode(id: string) {

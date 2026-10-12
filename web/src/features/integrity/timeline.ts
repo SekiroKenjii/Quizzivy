@@ -5,7 +5,7 @@ export type TimelineFilter = "all" | "away" | "audio" | "network";
 
 const AWAY_OPENERS = new Set(["tab_hidden", "window_blur", "fullscreen_exit"]);
 const AWAY_CLOSERS = new Set(["tab_visible", "window_focus", "fullscreen_enter"]);
-const AUDIO = new Set(["audio_play", "audio_ended", "audio_blocked"]);
+const AUDIO = new Set(["audio_play", "audio_ended", "audio_blocked", "audio_seek"]);
 const NETWORK = new Set(["network_offline", "network_online"]);
 const CLOSERS = new Set([...AWAY_CLOSERS, "network_online", "audio_ended"]);
 
@@ -20,9 +20,9 @@ export function family(kind: string): Exclude<TimelineFilter, "all"> | null {
 /** One row of the Diễn biến table. */
 export interface TimelineRow {
   event: IntegrityEvent;
-  /** No return yet: the student is still away, still offline, still listening. */
+  /** No return yet: the student is still away or still offline. */
   ongoing: boolean;
-  /** For `audio_play`, which play of that question this was. */
+  /** playNo numbers an audio play within its question or shared recording. */
   playNo: number | null;
 }
 
@@ -31,7 +31,9 @@ export interface TimelineRow {
  * event, so a closing event carries nothing the row above does not; and a
  * second leave inside an open episode (blur then hidden) is the same absence
  * twice. Both are dropped. An opener with no duration is kept only when nothing
- * later closed its family -- the "đang tiếp diễn" row (G-05b).
+ * later closed its family -- the "đang tiếp diễn" row (G-05b). An audio play
+ * with no recorded end is kept and is not ongoing, because most plays never
+ * record one.
  */
 export function timelineRows(
   events: IntegrityEvent[],
@@ -43,20 +45,24 @@ export function timelineRows(
     if (CLOSERS.has(event.kind)) return;
     let playNo: number | null = null;
     if (event.kind === "audio_play") {
-      const key = event.questionId ?? "";
+      const key = audioSubject(event);
       playNo = (plays.get(key) ?? 0) + 1;
       plays.set(key, playNo);
     }
-    const opener =
-      AWAY_OPENERS.has(event.kind) ||
-      event.kind === "network_offline" ||
-      event.kind === "audio_play";
+    const opener = AWAY_OPENERS.has(event.kind) || event.kind === "network_offline";
     const ongoing = opener && event.durationMs == null && !closedLater(events, index);
     if (opener && event.durationMs == null && !ongoing) return;
     if (filter !== "all" && family(event.kind) !== filter) return;
     rows.push({ event, ongoing, playNo });
   });
   return rows;
+}
+
+function audioSubject(event: IntegrityEvent): string {
+  if (event.questionId !== undefined && event.questionId !== null)
+    return event.questionId;
+  const recordingId = event.meta?.recordingId;
+  return typeof recordingId === "string" ? recordingId : "";
 }
 
 function closedLater(events: IntegrityEvent[], index: number): boolean {

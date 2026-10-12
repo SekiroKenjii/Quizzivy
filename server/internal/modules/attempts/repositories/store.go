@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/schedule"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -31,12 +32,12 @@ func NewPostgres(dbx db.Context, guard StartGuard) *Postgres {
 	return &Postgres{Repository: db.NewRepository(dbx), guard: guard}
 }
 
-const rulesQuery = `
+var rulesQuery = `
 	SELECT a.test_version_id, a.opens_at, a.closes_at, a.closed_at, a.published_at,
 	       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 	       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded,
-	       a.integrity_min_away_ms, t.title,
+	       a.integrity_min_away_ms, t.title, ` + schedule.OverrideSelect + `,
 	       -- Targeted by class or by name is one answer, not two: EXISTS over
 	       -- the union rather than two counts, for the same reason the roster
 	       -- count is a union (a student reached both ways is one person).
@@ -56,16 +57,27 @@ const rulesQuery = `
 	  FROM app.assignments a
 	  JOIN app.test_versions v ON v.id = a.test_version_id
 	  JOIN app.tests t ON t.id = v.test_id
+	  ` + schedule.OverrideJoin("$2::uuid") + `
 	 WHERE a.id = $1::uuid`
 
+// Rules reads the assignment's rules as this student sees them: the window,
+// the time limit and the attempts they have under their own override, when
+// they have one.
 func (s *Postgres) Rules(ctx context.Context, assignmentID, studentID string) (domain.Rules, error) {
-	var r domain.Rules
-	err := s.QueryRow(ctx, rulesQuery, assignmentID, studentID).Scan(
+	return readRules(ctx, s.Conn(), assignmentID, studentID, "")
+}
+
+func readRules(ctx context.Context, q db.Querier, assignmentID, studentID, lock string) (domain.Rules, error) {
+	var (
+		r  domain.Rules
+		oc schedule.OverrideColumns
+	)
+	err := q.QueryRow(ctx, rulesQuery+lock, assignmentID, studentID).Scan(
 		&r.TestVersionID, &r.OpensAt, &r.ClosesAt, &r.ClosedAt, &r.PublishedAt,
 		&r.DurationMinutes, &r.MaxAttempts, &r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Integrity.RequireFullscreen, &r.Integrity.BlockCopyPaste,
 		&r.Integrity.MaxFocusLoss, &r.Integrity.OnLimitExceeded, &r.Integrity.MinAwayMs,
-		&r.TestTitle, &r.Targeted,
+		&r.TestTitle, &oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts, &r.Targeted,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Rules{}, domain.ErrNotFound
@@ -73,7 +85,17 @@ func (s *Postgres) Rules(ctx context.Context, assignmentID, studentID string) (d
 	if err != nil {
 		return domain.Rules{}, fmt.Errorf("attempts: read rules: %w", err)
 	}
-	return r, nil
+	return withOverride(r, oc.Override()), nil
+}
+
+func withOverride(r domain.Rules, o *schedule.Override) domain.Rules {
+	w := schedule.Window{
+		OpensAt: r.OpensAt, ClosesAt: r.ClosesAt, ClosedAt: r.ClosedAt,
+		DurationMin: r.DurationMinutes, MaxAttempts: r.MaxAttempts,
+	}.WithOverride(o)
+	r.OpensAt, r.ClosesAt, r.ClosedAt = w.OpensAt, w.ClosesAt, w.ClosedAt
+	r.DurationMinutes, r.MaxAttempts = w.DurationMin, w.MaxAttempts
+	return r
 }
 
 const attemptColumns = `
@@ -122,37 +144,85 @@ func (s *Postgres) Tally(ctx context.Context, assignmentID, studentID string) (d
 	return t, nil
 }
 
-func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.AttemptRecord, error) {
-	var out domain.AttemptRecord
+// Create starts an attempt under the rules as they stand when it commits, and
+// returns them with the attempt. The maintenance check goes first, because it
+// takes the windows lock that every writer of a window takes before it locks
+// the assignment. The transaction then reads the student's rules again with the
+// assignment row share-locked: a writer of the window, or of the student's
+// override, holds that row until it commits and recomputes the attempts in
+// progress, so this attempt either sees the committed window or is inserted
+// before the writer reads the attempts. The deadline stored comes from that
+// read; the caller's is only where the first maintenance check looks.
+func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.AttemptRecord, domain.Rules, error) {
+	var (
+		out   domain.AttemptRecord
+		rules domain.Rules
+	)
 	err := s.InTx(ctx, "attempts: create", func(tx pgx.Tx) error {
-		window, err := s.guard.GuardAttemptStart(ctx, tx, in.StartedAt, in.DeadlineAt)
-		if err != nil {
-			return fmt.Errorf("attempts: check maintenance: %w", err)
+		var deadline time.Time
+		var err error
+		if rules, deadline, err = s.committedRules(ctx, tx, in); err != nil {
+			return err
 		}
-		if window != nil {
-			return &domain.MaintenanceScheduledError{Window: *window}
-		}
-		q := `
-			INSERT INTO app.attempts
-			  (assignment_id, test_version_id, student_id, attempt_no, session_id,
-			   shuffle_seed, beacon_token_hash, started_at, deadline_at)
-			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8, $9)
-			RETURNING ` + attemptColumns
-		out, err = scanAttempt(tx.QueryRow(ctx, q,
-			in.AssignmentID, in.TestVersionID, in.StudentID, in.AttemptNo, in.SessionID,
-			in.Seed, in.BeaconHash, in.StartedAt, in.DeadlineAt))
-		if db.IsUniqueViolation(err, "") {
-			return domain.ErrRaceLost
-		}
-		if err != nil {
-			return fmt.Errorf("attempts: create: %w", err)
-		}
-		return nil
+		out, err = insertAttempt(ctx, tx, in, rules.TestVersionID, deadline)
+		return err
 	})
 	if err != nil {
-		return domain.AttemptRecord{}, err
+		return domain.AttemptRecord{}, domain.Rules{}, err
+	}
+	return out, rules, nil
+}
+
+func (s *Postgres) committedRules(ctx context.Context, tx pgx.Tx, in domain.CreateInput) (domain.Rules, time.Time, error) {
+	if err := s.guardStart(ctx, tx, in.StartedAt, in.ExpectedDeadlineAt); err != nil {
+		return domain.Rules{}, time.Time{}, err
+	}
+	rules, err := readRules(ctx, tx, in.AssignmentID, in.StudentID, " FOR SHARE OF a")
+	if err != nil {
+		return domain.Rules{}, time.Time{}, err
+	}
+	if !rules.Targeted {
+		return domain.Rules{}, time.Time{}, domain.ErrForbidden
+	}
+	if err := rules.CanStartAt(in.StartedAt); err != nil {
+		return domain.Rules{}, time.Time{}, err
+	}
+	deadline := rules.Deadline(in.StartedAt)
+	if deadline.After(in.ExpectedDeadlineAt) {
+		if err := s.guardStart(ctx, tx, in.StartedAt, deadline); err != nil {
+			return domain.Rules{}, time.Time{}, err
+		}
+	}
+	return rules, deadline, nil
+}
+
+func insertAttempt(ctx context.Context, tx pgx.Tx, in domain.CreateInput, versionID string, deadline time.Time) (domain.AttemptRecord, error) {
+	out, err := scanAttempt(tx.QueryRow(ctx, `
+		INSERT INTO app.attempts
+		  (assignment_id, test_version_id, student_id, attempt_no, session_id,
+		   shuffle_seed, beacon_token_hash, started_at, deadline_at)
+		VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8, $9)
+		RETURNING `+attemptColumns,
+		in.AssignmentID, versionID, in.StudentID, in.AttemptNo, in.SessionID,
+		in.Seed, in.BeaconHash, in.StartedAt, deadline))
+	if db.IsUniqueViolation(err, "") {
+		return domain.AttemptRecord{}, domain.ErrRaceLost
+	}
+	if err != nil {
+		return domain.AttemptRecord{}, fmt.Errorf("attempts: create: %w", err)
 	}
 	return out, nil
+}
+
+func (s *Postgres) guardStart(ctx context.Context, tx pgx.Tx, now, deadline time.Time) error {
+	window, err := s.guard.GuardAttemptStart(ctx, tx, now, deadline)
+	if err != nil {
+		return fmt.Errorf("attempts: check maintenance: %w", err)
+	}
+	if window != nil {
+		return &domain.MaintenanceScheduledError{Window: *window}
+	}
+	return nil
 }
 
 // Resume hands the attempt to a new tab and records why, in one transaction:
@@ -240,7 +310,7 @@ const sectionsQuery = `
 
 const questionsQuery = `
 	SELECT q.id, q.test_version_section_id, q.type, q.prompt, q.prompt_content, q.points,
-	       q.media_asset_id, q.media_asset_kind, m.mime_type, m.original_filename,
+	       q.media_asset_id, q.media_asset_kind, q.media_alt, m.mime_type, m.original_filename,
 	       m.bytes, m.duration_ms, m.created_at,
 	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
            coalesce(gm.group_id::text,''),coalesce(gm.ordinal,0),coalesce(gm.option_order='fixed',false)
@@ -320,7 +390,7 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 		var q domain.Question
 		var r questionRow
 		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.PromptContent, &q.Points,
-			&r.mediaID, &r.mediaKind, &r.mimeType, &r.filename, &r.mediaBytes,
+			&r.mediaID, &r.mediaKind, &q.MediaAlt, &r.mimeType, &r.filename, &r.mediaBytes,
 			&r.durationMs, &r.createdAt,
 			&r.maxPlays, &r.allowSeek, &r.showTranscript,
 			&q.GroupID, &q.GroupOrdinal, &q.FixedOptionOrder); err != nil {
@@ -434,23 +504,28 @@ func (s *Postgres) ByID(ctx context.Context, attemptID, studentID string) (domai
 // RulesFor loads the assignment behind an attempt. Separate from Rules because
 // the attempt already proves which assignment applies -- re-deriving it from a
 // client-supplied id would be a way to render one paper under another's rules.
-func (s *Postgres) RulesFor(ctx context.Context, assignmentID string) (domain.Rules, error) {
-	var r domain.Rules
+// The rules are the attempt's student's, under their own override.
+func (s *Postgres) RulesFor(ctx context.Context, assignmentID, studentID string) (domain.Rules, error) {
+	var (
+		r  domain.Rules
+		oc schedule.OverrideColumns
+	)
 	err := s.QueryRow(ctx, `
 		SELECT a.test_version_id, a.opens_at, a.closes_at, a.closed_at, a.published_at,
 		       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
 		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded,
-		       a.integrity_min_away_ms, t.title
+		       a.integrity_min_away_ms, t.title, `+schedule.OverrideSelect+`
 		  FROM app.assignments a
 		  JOIN app.test_versions v ON v.id = a.test_version_id
 		  JOIN app.tests t ON t.id = v.test_id
-		 WHERE a.id = $1::uuid`, assignmentID).Scan(
+		  `+schedule.OverrideJoin("$2::uuid")+`
+		 WHERE a.id = $1::uuid`, assignmentID, studentID).Scan(
 		&r.TestVersionID, &r.OpensAt, &r.ClosesAt, &r.ClosedAt, &r.PublishedAt,
 		&r.DurationMinutes, &r.MaxAttempts, &r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Integrity.RequireFullscreen, &r.Integrity.BlockCopyPaste,
 		&r.Integrity.MaxFocusLoss, &r.Integrity.OnLimitExceeded, &r.Integrity.MinAwayMs,
-		&r.TestTitle,
+		&r.TestTitle, &oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Rules{}, domain.ErrNotFound
@@ -459,7 +534,7 @@ func (s *Postgres) RulesFor(ctx context.Context, assignmentID string) (domain.Ru
 		return domain.Rules{}, fmt.Errorf("attempts: read rules for attempt: %w", err)
 	}
 	r.Targeted = true
-	return r, nil
+	return withOverride(r, oc.Override()), nil
 }
 
 // Rebeacon issues a fresh append-only token WITHOUT touching session_id.

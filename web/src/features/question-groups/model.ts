@@ -35,9 +35,12 @@ export function emptyMaterial(title: string): GroupMaterial {
 export function memberValues(input: GroupQuestionInput): QuestionValues {
   return {
     ...input,
+    level: input.level ?? null,
+    skill: input.skill ?? null,
     promptContent: input.promptContent ?? null,
     explanationContent: input.explanationContent ?? null,
     mediaAssetId: input.mediaAssetId ?? null,
+    mediaAlt: input.mediaAlt ?? null,
     audio: input.audio ?? null,
     transcript: input.transcript ?? null,
     explanation: input.explanation ?? null,
@@ -56,12 +59,25 @@ export function memberValues(input: GroupQuestionInput): QuestionValues {
   };
 }
 
+/**
+ * newGroupQuestion is a group's starter question: single choice, two options,
+ * and a prompt stored as rich text, so it opens in the rich editor (T-17 a).
+ */
 export function newGroupQuestion(t: TFunction): GroupBundle["questions"][number] {
+  const prompt = t("builder.starterPrompt");
   return {
     id: crypto.randomUUID(),
     input: {
       type: "single_choice",
-      prompt: t("builder.starterPrompt"),
+      level: null,
+      skill: null,
+      prompt,
+      promptContent: {
+        format: "semantic_v1",
+        blocks: [
+          { type: "paragraph", content: [{ type: "text", text: prompt, marks: [] }] },
+        ],
+      },
       points: 1,
       options: [
         { text: t("builder.starterOption", { n: 1 }), isCorrect: true },

@@ -1,14 +1,15 @@
 import { clipboardHTML } from "@/components/shared/content/editor/clipboardHTML";
 import { CLIPBOARD_HTML_LIMIT } from "@/components/shared/content/editor/clipboardLimits";
 import { clipboardStyles } from "@/components/shared/content/editor/clipboardStyles";
+import { clipboardHasText } from "@/components/shared/content/editor/clipboardText";
 import { contentPlainText } from "@/components/shared/content/plainText";
 
 test("preserves Vietnamese text, combined semantic marks, safe links and Word paragraphs", () => {
   const result = clipboardHTML(`<html><head><meta charset="utf-8"></head><body>
     <!--StartFragment--><p class="MsoNormal" style="font-family:Arial;margin:0;color:red">Chọn <strong><span style="text-decoration:underline;font-style:italic">từ đúng</span></strong><br>H<sub>2</sub>O và x<sup>2</sup>.</p>
     <p><a href="https://example.test/đề">Tham khảo</a></p><!--EndFragment-->
-    </body></html>`);
-  expect(result).not.toBeNull();
+    </body></html>`)?.content;
+  expect(result).toBeTruthy();
   expect(contentPlainText(result!)).toBe("Chọn từ đúng\nH2O và x2.\n\nTham khảo");
   expect(JSON.stringify(result)).toContain('"marks":["bold","underline","italic"]');
   expect(JSON.stringify(result)).not.toMatch(/MsoNormal|Arial|red|style/);
@@ -18,7 +19,7 @@ test("preserves Vietnamese text, combined semantic marks, safe links and Word pa
 test("preserves list starts, table cells, spans and nested lists without inferring answers", () => {
   const result = clipboardHTML(
     '<ol start="4"><li><p><u>Đáp án A</u></p><ul><li>ghi chú</li></ul></li></ol><table><tr><th colspan="2">Buổi học</th></tr><tr><td rowspan="2">Sáng</td><td>Thứ hai</td></tr><tr><td>Thứ ba</td></tr></table>',
-  );
+  )?.content;
   expect(result?.blocks[0]).toMatchObject({ type: "list", ordered: true, start: 4 });
   expect(result?.blocks[1]).toMatchObject({
     type: "table",
@@ -33,6 +34,30 @@ test("preserves list starts, table cells, spans and nested lists without inferri
   });
   expect(contentPlainText(result!)).toContain("Buổi học\nSáng\tThứ hai\nThứ ba");
   expect(JSON.stringify(result)).not.toMatch(/isCorrect|acceptedAnswers|gap/);
+});
+
+test.each([
+  ['<meta charset="utf-8"><img src="https://example.test/a.png">', false],
+  ["<!-- note --><p>&nbsp;</p>", false],
+  ['<style>p { color: red }</style><img src="x">', false],
+  ['<STYLE type="text/css">.a{}</STYLE ><img src="x">', false],
+  ["<script>alert(1)</script><title>Ảnh</title><img src=x>", false],
+  ["<p>Chữ</p>", true],
+  ["<style>p{}</style><p>Chữ</p>", true],
+  ["<p>a &lt; b</p>", true],
+  ["<styled>chữ</styled>", true],
+])("decides whether copied HTML shows text: %s", (html, shows) => {
+  expect(clipboardHasText(html)).toBe(shows);
+});
+
+test("keeps a pasted heading's level", () => {
+  expect(
+    clipboardHTML("<h1>Một</h1><h2>Hai</h2><h3>Ba</h3>")?.content?.blocks,
+  ).toMatchObject([
+    { type: "heading", level: 1 },
+    { type: "heading", level: 2 },
+    { type: "heading", level: 3 },
+  ]);
 });
 
 test("CSS overrides retain independent marks and reject ambiguous or hidden meaning", () => {
@@ -52,7 +77,25 @@ test("CSS overrides retain independent marks and reject ambiguous or hidden mean
 });
 
 test.each([
-  '<p>A<img src="https://example.test/tracker">B</p>',
+  ['<p>A<img src="https://example.test/tracker">B</p>', 1, "AB"],
+  ["<p><svg><text>A</text></svg></p>", 1, null],
+  [
+    '<p>Chọn<picture><source srcset="https://example.test/a.webp"><img src="https://example.test/a.png" onerror="alert(1)"></picture> đáp án</p><video src="https://example.test/v.mp4"><track src="https://example.test/t.vtt"></video><canvas></canvas>',
+    3,
+    "Chọn đáp án",
+  ],
+  ['<img src="https://example.test/only.png">', 1, null],
+] as const)("leaves images out and counts them: %s", (html, count, text) => {
+  const result = clipboardHTML(html);
+  expect(result?.imagesLeftOut).toBe(count);
+  if (text === null) expect(result?.content).toBeNull();
+  else expect(contentPlainText(result!.content!)).toBe(text);
+  expect(JSON.stringify(result)).not.toMatch(
+    /img|svg|picture|video|canvas|src|example\.test/,
+  );
+});
+
+test.each([
   '<p>A<script>fetch("https://example.test")</script>B</p>',
   '<p>A<iframe src="https://example.test"></iframe>B</p>',
   '<p onclick="alert(1)">A</p>',
@@ -63,6 +106,8 @@ test.each([
   '<p><a href="https://example.test"><br>A</a></p>',
   '<p><span data-gap-id="injected">1</span></p>',
   "<p>A<del>B</del>C</p>",
+  '<p>A<img src="https://example.test/i.png"><del>B</del></p>',
+  '<p>A<img src="https://example.test/i.png"></p><h4>B</h4>',
   "<h4>A</h4>",
   '<p style="mso-list:l0 level1 lfo1">A</p>',
   "<ol reversed><li>A</li></ol>",
@@ -73,7 +118,6 @@ test.each([
   "<table><tr><td><table><tr><td>A</td></tr></table></td></tr></table>",
   '<table><tr><td rowspan="0">A</td></tr></table>',
   '<p style="white-space:pre"> A  B </p>',
-  "<p><svg><text>A</text></svg></p>",
   '<style>.answer {text-decoration:underline}</style><p class="answer">A</p>',
   "<p>A\u0000B</p>",
   "<p>A\ud800B</p>",
@@ -92,6 +136,6 @@ test("bounds input bytes, tree depth and output text before a candidate can be u
 test("collapses HTML layout whitespace without collapsing nonbreaking spaces or accents", () => {
   const result = clipboardHTML(
     "<div>\n <p>A <b> B </b> C&nbsp;D e\u0302</p>\n<p></p></div>",
-  );
+  )?.content;
   expect(contentPlainText(result!)).toBe("A B C\u00a0D e\u0302\n\n");
 });

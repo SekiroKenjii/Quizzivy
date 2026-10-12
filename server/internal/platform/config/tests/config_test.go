@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	mediadomain "quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/platform/config"
 )
 
@@ -29,6 +30,7 @@ func loadWith(t *testing.T, env map[string]string) (config.Config, error) {
 		"S3_SECRET_ACCESS_KEY":   "",
 		"S3_FORCE_PATH_STYLE":    "",
 		"SIGNED_URL_TTL":         "",
+		"MEDIA_OWNER_QUOTA_MIB":  "",
 		"GOOGLE_CLIENT_ID":       "",
 		"GOOGLE_CLIENT_SECRET":   "",
 		"GOOGLE_REDIRECT_URI":    "",
@@ -156,6 +158,35 @@ func TestSignedURLTTLDefaultsToTenMinutes(t *testing.T) {
 	}
 	if cfg.SignedURLTTL != 10*time.Minute {
 		t.Errorf("SignedURLTTL = %v, want §11.2's 10m", cfg.SignedURLTTL)
+	}
+}
+
+func TestTheMediaQuotaDefaultsToFiveGibibytes(t *testing.T) {
+	for name, env := range map[string]map[string]string{"with object storage": fullMedia(), "without it": nil} {
+		cfg, err := loadWith(t, env)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if cfg.MediaOwnerQuotaMiB != 5120 {
+			t.Errorf("%s: MediaOwnerQuotaMiB = %d, want 5120", name, cfg.MediaOwnerQuotaMiB)
+		}
+		if got := int64(cfg.MediaOwnerQuotaMiB) << 20; got != mediadomain.DefaultOwnerQuotaBytes {
+			t.Errorf("%s: the configured default is %d bytes and the media domain's is %d", name, got, mediadomain.DefaultOwnerQuotaBytes)
+		}
+	}
+}
+
+func TestTheMediaQuotaIsReadAndBounded(t *testing.T) {
+	for value, want := range map[string]int{"1": 1, "256": 256, " 2048 ": 2048, "1048576": 1048576} {
+		cfg, err := loadWith(t, merge(fullMedia(), map[string]string{"MEDIA_OWNER_QUOTA_MIB": value}))
+		if err != nil || cfg.MediaOwnerQuotaMiB != want {
+			t.Errorf("MEDIA_OWNER_QUOTA_MIB=%q read as %d (%v), want %d", value, cfg.MediaOwnerQuotaMiB, err, want)
+		}
+	}
+	for _, value := range []string{"-1", "0", "1048577", "5 GB", "5120.5"} {
+		if _, err := loadWith(t, merge(fullMedia(), map[string]string{"MEDIA_OWNER_QUOTA_MIB": value})); err == nil {
+			t.Errorf("MEDIA_OWNER_QUOTA_MIB=%q was accepted", value)
+		}
 	}
 }
 

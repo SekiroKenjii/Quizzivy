@@ -17,6 +17,7 @@ type GoogleSignIn struct {
 	JoinCode     string
 	UserAgent    string
 	IP           string
+	GeoLabel     string
 }
 
 type GoogleSignInHandler struct {

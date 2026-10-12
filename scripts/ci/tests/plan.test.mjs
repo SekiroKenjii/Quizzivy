@@ -93,6 +93,23 @@ test('every set reads the workflow, its actions and these scripts', () => {
   }
 });
 
+test('the live E2E job reads the import worker, its converter and the spec that drives them', () => {
+  const live = SETS[JOBS.find((job) => job.id === 'e2e-live').set];
+  const needed = [
+    'server/cmd/import-worker/main.go',
+    'server/internal/modules/imports/application/worker/pipeline.go',
+    'server/internal/platform/wordconvert/converter.go',
+    'docker/word-converter/Dockerfile',
+    '.github/actions/word-converter/action.yml',
+    'web/tests/e2e/import.live.spec.ts',
+    'web/tests/e2e/support/docx.ts',
+  ];
+  for (const path of needed) {
+    assert.ok(paths.includes(path), `${path} is no longer tracked`);
+    assert.equal(inSet(live, path), true, path);
+  }
+});
+
 test('git checks out exactly the paths inSet selects', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ci-plan-'));
   try {
@@ -128,6 +145,18 @@ test('a hash moves only when a file of the set changes', () => {
     hashOf(SETS.code, before.map((e) => (e.path === 'server/a.go' ? { ...e, mode: '100755' } : e))),
     hashOf(SETS.code, before),
   );
+});
+
+test('the local scripts under scripts/dev move no hash, and no job reads them', () => {
+  for (const [name, set] of Object.entries(SETS)) {
+    assert.equal(inSet(set, 'scripts/dev/heavy.sh'), false, name);
+  }
+  const text = readFileSync(new URL('../../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  assert.ok(!text.includes('scripts/dev'), 'ci.yml reads scripts/dev');
+  for (const action of ['db-tools', 'minio', 'record', 'web']) {
+    const body = readFileSync(new URL(`../../../.github/actions/${action}/action.yml`, import.meta.url), 'utf8');
+    assert.ok(!body.includes('scripts/dev'), `${action} reads scripts/dev`);
+  }
 });
 
 test('a renamed file changes the hash although its content does not', () => {

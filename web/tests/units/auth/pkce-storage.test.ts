@@ -39,14 +39,14 @@ beforeEach(() => {
 
 describe("takePending", () => {
   it("round-trips a well-formed record", () => {
-    rememberPending({ ...valid, next: "/admin", joinCode: "K7M3P9QR" });
+    rememberPending({ ...valid, next: "/teacher", joinCode: "K7M3P9QR" });
 
     const got = takePending();
     expect(got).not.toBeNull();
     expect(got?.verifier).toBe(valid.verifier);
     expect(got?.state).toBe(valid.state);
     expect(got?.mode).toBe("signin");
-    expect(got?.next).toBe("/admin");
+    expect(got?.next).toBe("/teacher");
     expect(got?.joinCode).toBe("K7M3P9QR");
   });
 

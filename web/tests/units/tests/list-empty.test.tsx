@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import TestsListPage from "@/features/tests/pages/TestsListPage";
+import TestsListPage from "@/features/tests/pages/teacher/TestsListPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
@@ -18,11 +18,15 @@ const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
  * had rows in it and failed the first time it ran against an empty one.
  */
 const created = {
+  skills: [],
+  assignments: { live: 0, scheduled: 0, closed: 0 },
+  unpublishedChanges: null,
   id: TEST_ID,
   title: "Đề thi chưa đặt tên",
   description: null,
   status: "draft" as const,
   currentVersion: 0,
+  nextVersion: 1,
   totalPoints: 1,
   questionCount: 0,
   audioCount: 0,
@@ -57,10 +61,10 @@ function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/admin/tests", element: <TestsListPage /> },
-      { path: "/admin/tests/:id/edit", element: <p>builder</p> },
+      { path: "/teacher/tests", element: <TestsListPage /> },
+      { path: "/teacher/tests/:id/edit", element: <p>builder</p> },
     ],
-    { initialEntries: ["/admin/tests"] },
+    { initialEntries: ["/teacher/tests"] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -71,11 +75,11 @@ function renderList() {
 }
 
 describe("the tests list with nothing in it", () => {
-  it("says the bank is empty rather than showing a table with no rows", async () => {
+  it("says there are no tests rather than showing an empty grid", async () => {
     renderList();
 
     expect(await screen.findByText("Chưa có đề thi nào.")).toBeInTheDocument();
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Đề thi" })).toBeNull();
   });
 
   it("offers the create action twice, and the page header's comes first", async () => {
@@ -112,8 +116,14 @@ describe("the tests list with nothing in it", () => {
     const user = renderList();
     await screen.findByText("Chưa có đề thi nào.");
 
-    await user.click(screen.getByRole("tab", { name: /^Đã phát hành/ }));
+    await user.click(screen.getByRole("button", { name: /^Đã phát hành/ }));
 
     expect(await screen.findByText("Không có đề thi nào khớp.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Xoá bộ lọc" }));
+    expect(await screen.findByText("Chưa có đề thi nào.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Tất cả/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });

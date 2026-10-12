@@ -2,6 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   chooseOption,
   goAway,
+  fillStepper,
+  pickInWizard,
+  publishInBuilder,
   signInAsAdmin,
   signInAsStudent,
   startAttempt,
@@ -10,18 +13,21 @@ import {
 test.use({ actionTimeout: 10_000 });
 
 async function addQuestion(page: Page, prompt: string) {
-  await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).click();
-  const input = page.getByLabel("Nội dung câu hỏi", { exact: true });
-  await expect(input).toHaveValue("Câu hỏi mới — nhập nội dung ở đây");
+  await page
+    .getByRole("button", { name: "Thêm câu hỏi vào Phần 1", exact: true })
+    .click();
+  const input = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  await expect(input).toHaveText("");
   await input.click();
-  await expect(input).toHaveValue("");
   await input.fill(prompt);
 }
 
 async function publish(page: Page, version: number) {
-  await page.getByRole("button", { name: "Phát hành", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+$/);
-  await expect(page.getByText(`Bản đang phát hành · v${version}`)).toBeVisible();
+  await publishInBuilder(page);
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/);
+  await expect(
+    page.getByText(`Phiên bản ${version} · mặc định cho bài giao mới`),
+  ).toBeVisible();
 }
 
 async function confirm(page: Page, label: string) {
@@ -37,45 +43,49 @@ test("admin edits persist through selection, empty-group drops and immutable ver
 }) => {
   test.setTimeout(180_000);
   await signInAsAdmin(page);
-  await page.goto("/admin/tests");
+  await page.goto("/teacher/tests");
   await page.getByRole("button", { name: "Đề thi mới", exact: true }).first().click();
-  await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+\/edit$/);
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
   const id = page.url().split("/").at(-2);
   const title = `Admin CR ${Date.now()}`;
-  await page.getByLabel("Tên đề thi").fill(title);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).fill(title);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
   await addQuestion(page, "First saved prompt");
+  await page.getByText("Tuỳ chọn khác", { exact: true }).click();
   await page.getByLabel("Thẻ", { exact: true }).fill("Ngữ pháp CR");
   await page.getByLabel("Thẻ", { exact: true }).press("Enter");
   await addQuestion(page, "Second prompt");
+  await page.getByText("Tuỳ chọn khác", { exact: true }).click();
   await page.getByLabel("Thẻ", { exact: true }).fill("ngu phap cr");
   await expect(
     page.getByRole("button", { name: "Ngữ pháp CR", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Ngữ pháp CR", exact: true }).click();
   await page.getByRole("button", { name: "First saved prompt", exact: true }).click();
-  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveText(
     "First saved prompt",
   );
   await page
     .getByLabel("Nội dung câu hỏi", { exact: true })
     .fill("First updated promptly");
   await page.getByRole("button", { name: "Second prompt", exact: true }).click();
-  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveText(
     "Second prompt",
   );
   await page
     .getByRole("button", { name: "First updated promptly", exact: true })
     .click();
-  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveText(
     "First updated promptly",
   );
 
-  await page.getByText("Phần 1", { exact: true }).dblclick();
+  await page.getByRole("button", { name: /^Phần 1 \d+ · [\d.,]+đ$/ }).dblclick();
   await page.getByLabel("Tên phần").fill("Grammar");
   await page.getByLabel("Tên phần").press("Enter");
   await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
-  const target = page.getByText("Kéo câu hỏi vào đây hoặc thêm câu hỏi mới.", {
+  const target = page.getByText("Kéo câu hỏi vào đây", {
     exact: true,
   });
   const handle = page.getByRole("button", {
@@ -92,7 +102,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 20 });
   await page.mouse.up();
   await expect(target).toBeHidden();
-  await expect(page.getByText(/Đã lưu \d\d:\d\d/)).toBeVisible();
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible();
   await page.reload();
   const secondSection = page
     .locator("[data-outline-section]")
@@ -110,11 +120,10 @@ test("admin edits persist through selection, empty-group drops and immutable ver
     .fill("Second version content");
   await publish(page, 2);
 
+  await page.setViewportSize({ width: 1440, height: 900 });
   const history = page.getByRole("complementary", { name: "Lịch sử phiên bản" });
-  const firstVersion = history
-    .getByRole("listitem")
-    .filter({ has: page.getByText("v1", { exact: true }) });
-  await firstVersion.getByRole("button", { name: /^v1/ }).click();
+  const firstVersion = history.locator('[data-version="1"]');
+  await firstVersion.getByRole("button", { name: /^Phiên bản 1/ }).click();
   await expect(page.getByText("First updated promptly", { exact: true })).toBeVisible();
   await expect(page.getByText("Second version content", { exact: true })).toBeHidden();
   await firstVersion
@@ -122,91 +131,98 @@ test("admin edits persist through selection, empty-group drops and immutable ver
     .click();
   await confirm(page, "Đặt làm mặc định");
   await expect(firstVersion.getByText("Mặc định", { exact: true })).toBeVisible();
-  await page.goto(`/admin/assignments/new?testId=${id}`);
-  await expect(page.getByText(/Bài giao gắn với bản v1/)).toBeVisible();
-  await expect(page.getByLabel("Số lượt làm", { exact: true })).toHaveValue("1");
-  await page.getByLabel("Thời lượng làm bài", { exact: true }).click();
-  await expect(page.getByRole("option")).toHaveCount(4);
-  await page.getByRole("option", { name: "Nhập thời lượng khác", exact: true }).click();
-  await page.getByLabel("Thời lượng tự nhập (phút)").fill("65");
-  await page.getByLabel("Số lượt làm", { exact: true }).fill("2");
-  await page.getByLabel("Số lần rời trang cho phép", { exact: true }).click();
-  await expect(page.getByRole("option")).toHaveCount(3);
-  await page.getByRole("option", { name: "Không được phép", exact: true }).click();
-  await page.getByLabel("Khi vượt quá", { exact: true }).click();
+  await pickInWizard(page, title, `?test=${id}`);
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  const timeLimit = page.getByRole("group", { name: "Thời gian làm bài" });
+  await expect(timeLimit.getByRole("button")).toHaveCount(4);
+  await timeLimit.getByRole("button", { name: "Tuỳ chỉnh", exact: true }).click();
+  await fillStepper(page, "Thời gian làm bài", "65");
+  const attempts = page.getByRole("spinbutton", { name: "Số lượt mỗi học viên" });
+  await expect(attempts).toHaveAttribute("aria-valuenow", "1");
+  await fillStepper(page, "Số lượt mỗi học viên", "2");
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  const leaving = page.getByRole("group", { name: "Rời khỏi bài" });
+  await expect(leaving.getByRole("button")).toHaveCount(3);
+  await leaving.getByRole("button", { name: "Không được phép", exact: true }).click();
   await page
-    .getByRole("option", { name: "Tự nộp ngay, ghi nhận vi phạm", exact: true })
-    .click();
-  await expect(page.getByLabel("Khi vượt quá", { exact: true })).toBeFocused();
-  await page.getByPlaceholder("thêm lớp").fill("Tiếng Anh");
-  await page
-    .getByRole("listbox")
-    .getByRole("option", { name: /Tiếng Anh giao tiếp/ })
-    .first()
+    .getByRole("group", { name: "Khi vượt giới hạn" })
+    .getByRole("button", { name: "Tự nộp bài", exact: true })
     .click();
   const created = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       response.url().endsWith("/teacher/assignments"),
   );
-  await page.getByRole("button", { name: "Giao bài", exact: true }).click();
-  const assignment = (await (await created).json()) as { id: string };
-  await expect(page).toHaveURL(/\/admin\/assignments$/);
-  await page.goto(`/admin/assignments/${assignment.id}/edit`);
-  await expect(page.getByLabel("Thời lượng tự nhập (phút)")).toHaveValue("65");
-  await expect(page.getByLabel("Số lượt làm", { exact: true })).toHaveValue("2");
+  await page.getByRole("button", { name: /^Giao (cho \d+ học viên|bài)$/ }).click();
+  const assignment = (await (await created).json()) as {
+    id: string;
+    testVersion: number;
+  };
+  expect(assignment.testVersion, "the default version is the one assigned").toBe(1);
+  await expect(page).toHaveURL(/\/teacher\/assignments\?status=(open|scheduled)$/);
+  await page.goto(`/teacher/assignments/${assignment.id}/edit?step=3`);
   await expect(
-    page.getByLabel("Số lần rời trang cho phép", { exact: true }),
-  ).toHaveText("Không được phép");
-  await expect(page.getByLabel("Khi vượt quá", { exact: true })).toHaveText(
-    "Tự nộp ngay, ghi nhận vi phạm",
-  );
+    page.getByRole("spinbutton", { name: "Thời gian làm bài" }),
+  ).toHaveAttribute("aria-valuenow", "65");
+  await expect(
+    page.getByRole("spinbutton", { name: "Số lượt mỗi học viên" }),
+  ).toHaveAttribute("aria-valuenow", "2");
+  await page.goto(`/teacher/assignments/${assignment.id}/edit?step=4`);
+  await expect(
+    page
+      .getByRole("group", { name: "Rời khỏi bài" })
+      .getByRole("button", { name: "Không được phép", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page
+      .getByRole("group", { name: "Khi vượt giới hạn" })
+      .getByRole("button", { name: "Tự nộp bài", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
 
-  await page.goto(`/admin/tests/${id}`);
-  const secondVersion = history
-    .getByRole("listitem")
-    .filter({ has: page.getByText("v2", { exact: true }) });
-  await secondVersion
-    .getByRole("button", { name: "Xoá phiên bản", exact: true })
-    .click();
+  await page.goto(`/teacher/tests/${id}`);
+  const secondVersion = history.locator('[data-version="2"]');
+  await secondVersion.getByRole("button", { name: "Xoá", exact: true }).click();
   await confirm(page, "Xoá phiên bản");
-  await expect(history.getByText("v2", { exact: true })).toBeHidden();
+  await expect(secondVersion).toHaveCount(0);
   await firstVersion
-    .getByRole("button", { name: "Sửa từ phiên bản này", exact: true })
+    .getByRole("button", { name: "Khôi phục thành bản nháp", exact: true })
     .click();
-  await confirm(page, "Sửa từ phiên bản này");
+  await confirm(page, "Khôi phục thành bản nháp");
   await expect(page).toHaveURL(/\/edit$/);
   await page
     .getByRole("button", { name: "First updated promptly", exact: true })
     .click();
-  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Nội dung câu hỏi", { exact: true })).toHaveText(
     "First updated promptly",
   );
   await publish(page, 3);
 
-  await page.goto("/admin/tests");
+  await page.goto("/teacher/tests");
   await page.getByPlaceholder("Tìm theo tên đề").fill(title);
-  const original = page
-    .getByRole("row")
-    .filter({ has: page.locator(`a[href="/admin/tests/${id}"]`) });
+  const cards = page
+    .getByRole("list", { name: "Đề thi", exact: true })
+    .getByRole("listitem");
+  const original = cards.filter({
+    has: page.locator(`a[href="/teacher/tests/${id}"]`),
+  });
   await expect(original).toBeVisible();
   await original
     .getByRole("button", { name: `Nhân bản ${title}`, exact: true })
     .click();
-  await expect(page).toHaveURL(/\/admin\/tests\?q=/);
+  await expect(page).toHaveURL(/\/teacher\/tests\?q=/);
   await expect(page.getByText("Vừa nhân bản").first()).toBeVisible();
-  const copies = page
-    .getByRole("row")
-    .filter({ hasText: title })
-    .filter({ hasText: "Bản nháp" });
+  const copies = cards.filter({ hasText: title }).filter({ hasText: "Bản nháp" });
   await expect(copies).toHaveCount(1);
   await original
     .getByRole("button", { name: `Nhân bản ${title}`, exact: true })
     .click();
   await expect(copies).toHaveCount(2);
   await original.getByRole("link", { name: title, exact: true }).click();
-  await expect(page).toHaveURL((url) => url.pathname === `/admin/tests/${id}`);
-  await page.getByRole("button", { name: "Quay lại", exact: true }).click();
+  await expect(page).toHaveURL((url) => url.pathname === `/teacher/tests/${id}`);
+  await page
+    .locator('[data-slot="page-head"]')
+    .getByRole("link", { name: "Đề thi", exact: true })
+    .click();
   await expect(page.getByPlaceholder("Tìm theo tên đề")).toHaveValue(title);
   await expect(copies).toHaveCount(2);
   for (const copy of await copies.all()) await copy.getByRole("checkbox").check();
@@ -217,15 +233,14 @@ test("admin edits persist through selection, empty-group drops and immutable ver
     .getByRole("button", { name: "Lưu trữ các mục đã chọn", exact: true })
     .click();
   await confirm(page, "Xác nhận 2 mục");
-  await page.getByRole("tab", { name: /^Lưu trữ/ }).click();
-  await expect(page.getByRole("row").filter({ hasText: title })).toHaveCount(2);
-  await page
-    .getByRole("checkbox", { name: "Chọn tất cả mục trên trang này", exact: true })
-    .check();
+  const archived = cards.filter({ hasText: title }).filter({ hasText: "Đã lưu trữ" });
+  await expect(archived).toHaveCount(2);
+  for (const copy of await archived.all()) await copy.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Xoá vĩnh viễn", exact: true }).click();
   await confirm(page, "Xác nhận 2 mục");
-  await expect(page.getByRole("row").filter({ hasText: title })).toHaveCount(0);
-  await page.goto("/admin/settings");
+  await expect(archived).toHaveCount(0);
+  await expect(cards.filter({ hasText: title })).toHaveCount(1);
+  await page.goto("/teacher/settings");
   await page.getByRole("button", { name: /^Tài khoản của/ }).click();
   await page.getByRole("menuitem", { name: "Đăng xuất", exact: true }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/login");

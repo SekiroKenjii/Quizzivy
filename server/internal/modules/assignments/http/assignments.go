@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/assignments/application/command"
@@ -12,20 +13,29 @@ import (
 	"time"
 )
 
+func msgAssignmentNotFound(ctx context.Context) string {
+	return httpx.Text(ctx, "Không tìm thấy bài giao.", "The assignment was not found.")
+}
+
 // ListAssignments backs §8's assignments list and A-01's "Bài đang mở".
 func (h Assignments) ListAssignments(ctx context.Context, request openapi.ListAssignmentsRequestObject) (openapi.ListAssignmentsResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
+	scope := httpapi.ScopeFromContext(ctx)
+	in := domain.ListInput{Scope: scope.Own(), EveryTarget: scope.All}
 	if request.Params.Status != nil {
 		status := domain.Status(*request.Params.Status)
 		in.Status = &status
 	}
 	if request.Params.ClassId != nil {
-		classID := request.Params.ClassId.String()
-		in.ClassID = &classID
+		for _, id := range *request.Params.ClassId {
+			in.ClassIDs = append(in.ClassIDs, id.String())
+		}
+	}
+	if request.Params.Q != nil {
+		in.Query = *request.Params.Q
 	}
 	if request.Params.Page != nil {
 		in.Page = int(*request.Params.Page)
@@ -102,11 +112,7 @@ func toAPIAssignment(a domain.Assignment) openapi.Assignment {
 		MaxAttempts:      a.MaxAttempts,
 		ShuffleQuestions: a.ShuffleQ,
 		ShuffleOptions:   a.ShuffleO,
-		Review: openapi.ReviewPolicy{
-			ShowScore:          a.Review.ShowScore,
-			ShowCorrectAnswers: a.Review.ShowCorrectAnswers,
-			ShowExplanations:   a.Review.ShowExplanations,
-		},
+		Review:           toAPIReview(a.Review),
 		Integrity: openapi.IntegrityPolicy{
 			RequireFullscreen: a.Integrity.RequireFullscreen,
 			BlockCopyPaste:    a.Integrity.BlockCopyPaste,
@@ -114,12 +120,14 @@ func toAPIAssignment(a domain.Assignment) openapi.Assignment {
 			OnLimitExceeded:   openapi.IntegrityPolicyOnLimitExceeded(a.Integrity.OnLimitExceeded),
 			MinAwayMs:         a.Integrity.MinAwayMs,
 		},
+		StudentNote: a.StudentNote,
 		Status: openapi.AssignmentStatus(
 			domain.Schedule.StatusAt(time.Now(), a.PublishedAt, a.OpensAt, a.ClosesAt, a.ClosedAt),
 		),
 		PublishedAt:         a.PublishedAt,
 		SubmittedCount:      &a.SubmittedCount,
 		TargetCount:         &a.TargetCount,
+		QuestionCount:       &a.QuestionCount,
 		FlaggedCount:        &a.FlaggedCount,
 		PendingGradingCount: &a.PendingGradingCount,
 		PendingManualCount:  &a.PendingManualCount,
@@ -130,6 +138,16 @@ func toAPIAssignment(a domain.Assignment) openapi.Assignment {
 	return out
 }
 
+func toAPIReview(r domain.Review) openapi.ReviewPolicy {
+	return openapi.ReviewPolicy{
+		ShowScore:          r.ShowScore,
+		ShowCorrectAnswers: r.ShowCorrectAnswers,
+		ShowExplanations:   r.ShowExplanations,
+		Release:            openapi.ReviewRelease(r.Release),
+		ShowClassAverage:   r.ShowClassAverage,
+	}
+}
+
 func (h Assignments) GetAssignment(ctx context.Context, request openapi.GetAssignmentRequestObject) (openapi.GetAssignmentResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
@@ -137,7 +155,7 @@ func (h Assignments) GetAssignment(ctx context.Context, request openapi.GetAssig
 	a, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
+			httpapi.NotFound(ctx, msgAssignmentNotFound(ctx)))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -154,8 +172,16 @@ func (h Assignments) CreateAssignment(ctx context.Context, request openapi.Creat
 		return nil, httpx.ErrNotImplemented
 	}
 
-	a, err := h.app.Commands.Create.Handle(ctx, command.Create{Request: req, Input: toWriteInput(*request.Body)})
 	var invalid *domain.ValidationError
+	input, err := toWriteInput(ctx, *request.Body)
+	if errors.As(err, &invalid) {
+		return openapi.CreateAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			assignmentValidationError(ctx, invalid))}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	a, err := h.app.Commands.Create.Handle(ctx, command.Create{Request: req, Input: input})
 	switch {
 	case err == nil:
 	case errors.As(err, &invalid):
@@ -163,7 +189,7 @@ func (h Assignments) CreateAssignment(ctx context.Context, request openapi.Creat
 			assignmentValidationError(ctx, invalid))}, nil
 	case errors.Is(err, domain.ErrTestNotPublished):
 		return openapi.CreateAssignment409JSONResponse(httpapi.Error(ctx, openapi.TESTNOTPUBLISHED,
-			"Chỉ có thể giao một phiên bản đề đã xuất bản.")), nil
+			httpx.Text(ctx, "Chỉ có thể giao một phiên bản đề đã xuất bản.", "Only a published version of a test can be assigned."))), nil
 	default:
 		return nil, err
 	}
@@ -179,8 +205,16 @@ func (h Assignments) UpdateAssignment(ctx context.Context, request openapi.Updat
 		return nil, httpx.ErrNotImplemented
 	}
 
-	a, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req, Input: toWriteInput(*request.Body)})
 	var invalid *domain.ValidationError
+	input, err := toWriteInput(ctx, *request.Body)
+	if errors.As(err, &invalid) {
+		return openapi.UpdateAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			assignmentValidationError(ctx, invalid))}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	a, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req, Input: input})
 	switch {
 	case err == nil:
 	case errors.As(err, &invalid):
@@ -188,13 +222,22 @@ func (h Assignments) UpdateAssignment(ctx context.Context, request openapi.Updat
 			assignmentValidationError(ctx, invalid))}, nil
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.UpdateAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
+			httpapi.NotFound(ctx, msgAssignmentNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrTestNotPublished):
 		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.TESTNOTPUBLISHED,
-			"Chỉ có thể giao một phiên bản đề đã xuất bản.")), nil
+			httpx.Text(ctx, "Chỉ có thể giao một phiên bản đề đã xuất bản.", "Only a published version of a test can be assigned."))), nil
+	case errors.Is(err, domain.ErrAssignmentLocked):
+		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.ASSIGNMENTLOCKED,
+			httpx.Text(ctx, "Bài giao đang mở nên không thể đổi đề, thời lượng hoặc số lượt làm.",
+				"The assignment is open, so its test, duration and attempts cannot be changed."))), nil
+	case errors.Is(err, domain.ErrReopens):
+		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.ASSIGNMENTCLOSED,
+			httpx.Text(ctx, "Bài giao đã đóng nên không thể đổi thời gian để mở lại. Hãy mở lại bài giao và ghi lý do.",
+				"The assignment has closed, so its window cannot be changed to open it again. Reopen it instead, with a reason."))), nil
 	case errors.Is(err, domain.ErrVersionLocked):
 		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.VERSIONLOCKED,
-			"Đã có học viên làm bài, không thể đổi phiên bản đề.")), nil
+			httpx.Text(ctx, "Đã có học viên làm bài, không thể đổi phiên bản đề.",
+				"A student has already started, so the test version cannot be changed."))), nil
 	default:
 		return nil, err
 	}
@@ -216,16 +259,17 @@ func (h Assignments) ReopenAssignment(ctx context.Context, request openapi.Reope
 	case err == nil:
 	case errors.Is(err, domain.ErrBlankReason):
 		return openapi.ReopenAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			httpapi.FieldError(ctx, "reason", "Hãy ghi lý do mở lại."))}, nil
+			httpapi.FieldError(ctx, "reason", httpx.Text(ctx, "Hãy ghi lý do mở lại.", "Give a reason for reopening.")))}, nil
 	case errors.Is(err, domain.ErrClosesInPast):
 		return openapi.ReopenAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			httpapi.FieldError(ctx, "closesAt", "Thời điểm đóng mới phải ở phía trước."))}, nil
+			httpapi.FieldError(ctx, "closesAt", httpx.Text(ctx, "Thời điểm đóng mới phải ở phía trước.", "The new closing time must be in the future.")))}, nil
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.ReopenAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
+			httpapi.NotFound(ctx, msgAssignmentNotFound(ctx)))}, nil
 	case errors.Is(err, domain.ErrNotClosed):
 		return openapi.ReopenAssignment409JSONResponse(httpapi.Error(ctx, openapi.ASSIGNMENTNOTCLOSED,
-			"Bài giao chưa đóng nên không có gì để mở lại.")), nil
+			httpx.Text(ctx, "Bài giao chưa đóng nên không có gì để mở lại.",
+				"The assignment is not closed, so there is nothing to reopen."))), nil
 	default:
 		return nil, err
 	}
@@ -238,7 +282,8 @@ func assignmentRequest(ctx context.Context, id string) (domain.Request, bool) {
 }
 
 func assignmentValidationError(ctx context.Context, invalid *domain.ValidationError) openapi.ErrorResponse {
-	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Dữ liệu bài giao không hợp lệ.")
+	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+		httpx.Text(ctx, "Dữ liệu bài giao không hợp lệ.", "The assignment data is not valid."))
 	details := map[string]interface{}{}
 	for _, f := range invalid.Fields {
 		if _, seen := details[f.Field]; !seen {
@@ -249,7 +294,7 @@ func assignmentValidationError(ctx context.Context, invalid *domain.ValidationEr
 	return resp
 }
 
-func toWriteInput(body openapi.AssignmentInput) domain.WriteInput {
+func toWriteInput(ctx context.Context, body openapi.AssignmentInput) (domain.WriteInput, error) {
 	in := domain.WriteInput{
 		TestVersionID: body.TestVersionId.String(),
 		OpensAt:       body.Window.OpensAt,
@@ -260,6 +305,7 @@ func toWriteInput(body openapi.AssignmentInput) domain.WriteInput {
 			ShowScore:          body.Review.ShowScore,
 			ShowCorrectAnswers: body.Review.ShowCorrectAnswers,
 			ShowExplanations:   body.Review.ShowExplanations,
+			Release:            domain.ReleaseOnSubmit,
 		},
 		Integrity: domain.Integrity{
 			RequireFullscreen: body.Integrity.RequireFullscreen,
@@ -282,11 +328,24 @@ func toWriteInput(body openapi.AssignmentInput) domain.WriteInput {
 	if body.Draft != nil {
 		in.Draft = *body.Draft
 	}
+	if body.Review.Release != nil {
+		in.Review.Release, in.ReleaseSet = domain.Release(*body.Review.Release), true
+	}
+	if body.Review.ShowClassAverage != nil {
+		in.Review.ShowClassAverage, in.ClassAverageSet = *body.Review.ShowClassAverage, true
+	}
+	if len(body.StudentNote) > 0 {
+		var note *string
+		if err := json.Unmarshal(body.StudentNote, &note); err != nil {
+			return domain.WriteInput{}, &domain.ValidationError{Fields: []domain.FieldError{{Field: "studentNote", Message: httpx.Text(ctx, "Ghi chú cho học viên phải là văn bản.", "The note for students must be text.")}}}
+		}
+		in.StudentNote, in.StudentNoteSet = domain.StudentNoteOf(note), true
+	}
 	for _, id := range body.Targets.ClassIds {
 		in.ClassIDs = append(in.ClassIDs, id.String())
 	}
 	for _, id := range body.Targets.StudentIds {
 		in.StudentIDs = append(in.StudentIDs, id.String())
 	}
-	return in
+	return in, nil
 }
