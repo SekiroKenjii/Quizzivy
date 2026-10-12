@@ -7,23 +7,21 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-11, evening.
-- **Base:** `work/redesign-r4` at `c5ec99ad` (#497 merged).
-- **Objective:** unchanged: R4 to v0.10.0, then D4 (v0.11.0) (T-24). T-22 governs merges;
-  since 2026-10-11 the user lets the Tech Lead merge a PR into `work/redesign-r4` on green CI
-  without asking. A release to `main` still needs the user.
+- **As of:** 2026-10-12, 00:20 UTC.
+- **Base:** `work/redesign-r4` at `733cf1e2` (#510 merged).
+- **Objective:** unchanged: R4 to v0.10.0, then D4 (v0.11.0) (T-24). The Tech Lead merges into
+  `work/redesign-r4` on green CI (T-37); a release to `main` needs the user.
 - **In flight** (at most three agents, T-36):
 
   | Task | PR | Owner | State |
   |---|---|---|---|
-  | T-R4.40 students | none yet | frontend, lane 1 | implementing; the Principal's security review before merge (temporary passwords) |
-  | T-R4.41 classes list | #498 | frontend, lane 2 | green; VER-41 running; takes the base after #499 (the audience argument) |
-  | T-R4.42 class detail | none yet | frontend, lane 2 | implementing, stacked on 41 |
-  | DG-170, the web half | #499 | Tech Lead | approved by the Principal; merges on green |
-  | F-63 `closeNow` before the window opens | #500 | backend | reviewed by the Tech Lead; merges on green |
+  | T-R4.40 students | #504 | frontend, lane 2 | round 3: VER-40's QA-40-1 to 5; then a VER-40 retest |
+  | QA-42 and QA-505-1 follow-ups | #509 | frontend, lane 2 | green; VER-509 running |
+  | T-R4.51a, the development seed | #511 | platform | the Tech Lead's review; media rows have no objects (README's copy step) |
 
 - **Waiting on the user:** the seven days of production `legacy_admin_path` counts for
-  T-R4.49 A; the release to `main` at T-R4.52.
+  T-R4.49 A; the release to `main` at T-R4.52; whether Remove and Move on Students act only on
+  the filtered class (O-R below; built default: every class, named).
 
 ## Roster and models
 
@@ -68,8 +66,14 @@ Taken from merged pull requests on 2026-10-10. The plan's "Done when" boxes lag 
   (#486, 00105) and 49 C (#491, 00106), after the user's Neon rehearsal passed; 43 (#485);
   F-59 (#494); DG-170's server half (#495); 26 (#493); 44 (#496); and the closed-assignment
   guard (#497).
+- **Merged later on 2026-10-11 and on 2026-10-12:** DG-170's web half (#499), F-63 (#500),
+  the ledger (#501), the notifications plan-test fixture (#502), 41 (#498), 42 (#503), the
+  T-35 / VER-26 / VER-41 follow-ups (#505), F-24 (#506), the scratch-database drop (#508),
+  SR-420-2 to 4 (#507) and F-64 (#510).
 - **In flight:** see the checkpoint.
-- **Order (2026-10-11, evening):** lane 1: 40. Lane 2: 41 → 42. Backend: F-63, then frontend
+- **Order (2026-10-12):** 40 (#504) round 3 → retest → merge; #509 → merge; then 48 (lane 2);
+  51a seed (platform) → 51's comparison and #139; 50 (Tech Lead); 52. 49 A waits on the user.
+- **Order (2026-10-11, evening, superseded):** lane 1: 40. Lane 2: 41 → 42. Backend: F-63, then frontend
   help or 49 A. Then 48, and the close-out: 50, 51, 52.
 - **Order (2026-10-11, morning, superseded):** lane 1: 43 round 2 → 44 → 40 (after #481). Lane 2: 45b → 41 and 42
   (after #484). Lane 3: 26 → 48. Backend: 49 C, then 49 A when the user has read the
@@ -294,6 +298,20 @@ and any reversal of the defaults above.
   `ASSIGNMENT_CLOSED` (#497); a later close on an assignment closed early stays allowed.
   `closeNow` belongs to `PATCH`: a create ignores it, and with the window opening after now
   it answers 400 `VALIDATION_FAILED` (F-63).
+- **T-40 (2026-10-12).** An agent starts in the launcher's working directory. The Tech Lead
+  never launches an agent while its own shell sits in another agent's worktree, and every brief
+  tells the agent to make its own worktree under `/home/user` (INC-4). An agent that cannot be
+  resumed because its worktree is gone hands its PR to another engineer of the same kind.
+- **T-41 (2026-10-12).** When a change removes what a test exercises by design (theme.spec's
+  "console not yet rebuilt" after Students was rebuilt), the test is rewritten to the new
+  invariant and the old path keeps its unit coverage until the code goes; it is never skipped.
+- **T-42 (2026-10-12).** CI runs staticcheck untagged as well as tagged: a helper used only by
+  `integration` tests lives in an `integration`-tagged file (#508's U1000), and local lint runs
+  both ways.
+- **T-43 (2026-10-12).** SR-420-3: a reset whose commit the request may not have read (a context
+  error) still forgets the cached principal; any other error forgets nothing (#507). Students'
+  Remove and Move act on every class the student is in, and the confirmation names them
+  (SR-40-1); limiting them to the filtered class is the user's call (O-R).
 
 ## Findings and open items
 
@@ -328,7 +346,7 @@ and any reversal of the defaults above.
 | F-21 | Dialogs opened from a menu item without `returnFocus`: the rebuilt AssignmentDetailPage (Close early, Reopen) and the pages not yet rebuilt. | each rebuild task; a small fix for AssignmentDetailPage | open |
 | F-22 | A new accessible name containing an existing field label shadows a bare `getByLabel` in `*.live.spec.ts`, which `pnpm e2e` does not run. | every brief | closed: grep the live specs when a label changes; prefer `getByRole` with `exact` |
 | F-23 | The join-code rotation and a redemption took the class and code rows in opposite orders and deadlocked; the retry could deadlock again. | senior_swe_backend | fixed (#438): the writers take the class row `FOR NO KEY UPDATE` |
-| F-24 | A NUL character in any free-text field answers 500 (PostgreSQL refuses 0x00 in `text`). | senior_swe_platform | open: refuse it in `httpx.ValidateRequests` |
+| F-24 | A NUL character in any free-text field answers 500 (PostgreSQL refuses 0x00 in `text`). | senior_swe_platform | fixed (#506): refused in `httpx.ValidateRequests`, and a media filename refused by its upload command |
 | F-25 | The content editor says "ô trống" where the question editor and the blanks list say "chỗ trống". | T-R4.65, or whoever next touches the content editor | open |
 | F-26 | The Vietnamese grading score's accessible name reads "2.5", not "2,5". | the next grading copy change | open |
 | F-27 | Docker Hub's anonymous pull limit refused `postgres:18` in CI. | senior_swe_platform | fixed on r4 (#437, `mirror.gcr.io`); `develop` and `main` still need the change |
@@ -365,15 +383,22 @@ and any reversal of the defaults above.
 | F-53 | The temporary password `word-word-NN` is about 18.45 bits. Options: (A) as is, (B) a third word, about 24.4 bits, before T-R4.40 (recommended), (C) a 24-hour expiry (R5 size). | the user | closed: option B, shipped in #481 |
 | F-57 | Settings loses unsaved Profile edits on reload or leaving, without a warning (VER-43). Disclosed in #485. | the user | closed: yes, a warning; shipped in #485 |
 | F-58 | "Mark all read" marks student-side items the teacher bell does not show; for an Admin who takes tests the dot and the list can disagree. | frontend, lane 2 | fixed by DG-170 (#495, #499) |
-| SR-420-1 to 4 | The Principal's review of #481: a word-list error message could log a candidate; a refused student costs a hash; `Forget` on a cancelled commit; no batch correlation in the audit rows. All low. | senior_swe_backend | open: follow-ups |
+| SR-420-1 to 4 | The Principal's review of #481: a word-list error message could log a candidate; a refused student costs a hash; `Forget` on a cancelled commit; no batch correlation in the audit rows. All low. | senior_swe_backend | fixed: 1 in #481, 2 to 4 in #507 |
 | QA-34-6 | In the material editor, an image inserted at an audio block's cursor seemed to replace the audio block (VER-34, observation 6). | senior_swe_frontend, lane 3 | investigating in #471's round 2 |
 | F-59 | `FormDialog` and `ConfirmDialog` disabled their submit while pending, so focus fell to `<body>` (T-35). | senior_swe_frontend | fixed (#494) |
-| F-60 | Vietnamese "Hôm nay" is capitalised mid-sentence. | the next task touching relative dates | open |
-| F-61 | `GroupEditorPage`'s keep-local button takes native `disabled` while busy (T-35). | senior_swe_frontend | open |
-| F-62 | `Segmented` has no `aria-disabled` path for a pending option (T-35). | senior_swe_frontend | open |
-| F-63 | `closeNow` on an assignment whose window opens later answered 500 (the `closed_at` CHECK). | senior_swe_backend | fixed on #500 |
-| QA-26-3 to 5 | VER-26: the segmented fill labels (with F-15), a raw `{{n}}` in the Questions tab's excerpt, and no hint when chosen students drop out; focus after Publish → Assign lands on `<body>`. | senior_swe_frontend | open |
+| F-60 | Vietnamese "Hôm nay" is capitalised mid-sentence. | the next task touching relative dates | fixed (#505) |
+| F-61 | `GroupEditorPage`'s keep-local button takes native `disabled` while busy (T-35). | senior_swe_frontend | fixed (#505) |
+| F-62 | `Segmented` has no `aria-disabled` path for a pending option (T-35). | senior_swe_frontend | fixed (#505) |
+| F-63 | `closeNow` on an assignment whose window opens later answered 500 (the `closed_at` CHECK). | senior_swe_backend | fixed (#500) |
+| QA-26-3 to 5 | VER-26: the segmented fill labels (with F-15), a raw `{{n}}` in the Questions tab's excerpt, and no hint when chosen students drop out; focus after Publish → Assign lands on `<body>`. | senior_swe_frontend | QA-26-4, 5 and the focus fixed (#505); QA-26-3 stays with F-15 |
 | INC-3 | After a container restart dockerd would not start: a stale `/var/run/docker.pid`. Removing it, starting dockerd and `docker compose up -d db minio` recovered with the volumes intact. | Tech Lead | closed: add the check to the session-start hook with F-13 |
+| F-64 | `rotateJoinCode` issued a code for an archived class (found in #509). | senior_swe_backend | fixed (#510): 409 `CLASS_ARCHIVED`, read under the class lock; redemption already refused |
+| QA-41-1 to 4 | VER-41: focus after a card's dialog, the card's text height, the QR dialog width, the vi footer at 360. | frontend, lane 2 | fixed (#505) |
+| QA-505-1 | #505's footer fix truncated the vi Expired and Used up notes alike. | frontend, lane 2 | on #509 |
+| QA-42-1 to 5 | VER-42: a partial Add students, focus after Remove, the 404 heading, copy after Stop, copy and format; and two T-35 leftovers (BulkActions, FormDialog's select). | frontend, lane 2 | on #509 |
+| QA-40-1 to 5 | VER-40: focus after Done (bulk reset, Add student), the Classes chips overflow, ResetSheet at 360 (major); the vi pill and header width (minor). The passwords, SR-40-1, permissions, T-35 and the deck geometry passed. | frontend, lane 2 | round 3 on #504 |
+| INC-4 | The SR-420 agent started in lane 1's worktree, the Tech Lead's working directory at launch, and checked out its branch there; the Tech Lead's base merge for #504 landed on it (`7d637134`, kept: a plain base merge under a wrong message). Nothing wrong reached #504. | Tech Lead | closed: T-40 |
+| O-R (Students) | Should Remove and Move act only on the class the Class facet filters to, when exactly one is chosen? Built: every class, named in the confirmation. | the user | open: T-R4.50 moves it to `40-open-items.md` |
 
 ## Reviews
 
@@ -452,8 +477,7 @@ and any reversal of the defaults above.
 ## Next action
 
 As each hand-off arrives:
-- **#499** and **#500** merge on green; then #498 takes the base and merges after VER-41.
-- **T-R4.40** opens → the Principal's security review (T-29) → VER-40 → merge.
-- **T-R4.42** opens after 41 → VER-42 → merge.
-- Then T-R4.48 (the old tree, F-54, QA-F1-2's remainder), the small T-35 fixes (F-61, F-62)
-  and VER-26's follow-ups, and the close-out (50, 51, 52). 49 A waits on the user.
+- **#504** round 3 → a VER-40 retest of QA-40-1 to 5 → merge. Then lane 2 starts T-R4.48.
+- **#509** after VER-509 → merge.
+- **#511** (T-R4.51a) → the Tech Lead's review → merge; then 51's browser comparison and #139.
+- The Tech Lead writes T-R4.50 once 48 is in; T-R4.52's checklist goes to the user.

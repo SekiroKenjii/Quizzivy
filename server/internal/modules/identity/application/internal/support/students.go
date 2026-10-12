@@ -59,6 +59,17 @@ func (s *Students) AttachStats(ctx context.Context, scope access.Scope, students
 	return nil
 }
 
+// ForgetAfterReset drops the student's cached principal once a reset may have
+// committed: when ResetPassword answered nil, and when it answered a context
+// error, because a commit whose acknowledgement the ended request never read may
+// still have happened. Any other error means nothing committed, and the
+// principal stays. Forget takes no context, so a cancelled request cannot skip it.
+func (s *Students) ForgetAfterReset(id string, resetErr error) {
+	if resetErr == nil || errors.Is(resetErr, context.Canceled) || errors.Is(resetErr, context.DeadlineExceeded) {
+		s.Principals.Forget(id)
+	}
+}
+
 // MayActOn checks the guards a write to a student's account passes before it
 // runs, in the order that keeps another teacher's student indistinguishable
 // from a missing one: the student must be one the request reaches

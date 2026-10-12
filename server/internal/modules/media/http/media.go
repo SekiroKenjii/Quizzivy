@@ -63,6 +63,9 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 	case errors.Is(err, domain.ErrPlayLimitOnImage), errors.Is(err, domain.ErrInvalidPlayLimit):
 		return openapi.UploadMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(playLimitRefused(ctx, err))}, nil
 
+	case errors.Is(err, domain.ErrInvalidFilename):
+		return openapi.UploadMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(filenameRefused(ctx))}, nil
+
 	case errors.Is(err, domain.ErrTooLong):
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLONG,
 			httpx.Text(ctx, "Tệp âm thanh dài hơn 5 phút. Vui lòng cắt ngắn.",
@@ -97,6 +100,13 @@ func fileTooLarge(ctx context.Context) openapi.UploadMedia413JSONResponse {
 	return openapi.UploadMedia413JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLARGE,
 		httpx.Text(ctx, "Tệp vượt quá 50 MB. Vui lòng nén hoặc cắt ngắn tệp.",
 			"The file is larger than 50 MB. Please compress or shorten it.")))
+}
+
+const filenameField = "filename"
+
+func filenameRefused(ctx context.Context) openapi.ErrorResponse {
+	return httpapi.FieldError(ctx, filenameField,
+		httpx.Text(ctx, "Tên tệp không được chứa ký tự NUL (U+0000).", "The file name must not contain the NUL character (U+0000)."))
 }
 
 const playLimitField = "defaultMaxPlays"
@@ -423,6 +433,8 @@ func replacementRefused(ctx context.Context, err error) (openapi.ReplaceMediaRes
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		return openapi.ReplaceMedia404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy tệp.", "The file was not found.")))}, nil
+	case errors.Is(err, domain.ErrInvalidFilename):
+		return openapi.ReplaceMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(filenameRefused(ctx))}, nil
 	case errors.Is(err, domain.ErrQuotaExceeded):
 		return openapi.ReplaceMedia409JSONResponse(httpapi.Error(ctx, openapi.MEDIAQUOTAEXCEEDED, httpx.Text(ctx, "Thư viện đã hết dung lượng. Hãy xoá bớt tệp rồi tải lại.", "Your media library is full. Delete some files, then upload again."))), nil
 	case errors.Is(err, domain.ErrImageTooLarge):

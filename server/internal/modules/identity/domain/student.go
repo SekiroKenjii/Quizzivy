@@ -77,13 +77,16 @@ type StudentQuery struct {
 // ActorID reaches and classes ActorID teaches, unless All, the actor's
 // scope.all, is set. Grants are the actor's effective permissions; they decide
 // whether the actor manages accounts and whether a student's permissions are a
-// subset of the actor's.
+// subset of the actor's. BatchID, when set, is recorded in the audit row of
+// each student a bulk write changes, so the rows of one request can be found
+// together; a write of one student leaves it empty.
 type WriteRequest struct {
 	ActorID   string
 	All       bool
 	Grants    access.Set
 	IP        string
 	UserAgent string
+	BatchID   string
 }
 
 // ManagesUsers reports whether the actor holds people.users.manage, which
