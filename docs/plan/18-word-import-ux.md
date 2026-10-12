@@ -5,6 +5,12 @@ Status: direction accepted for implementation, 2026-09-22. Companion to
 The interaction mockup uses synthetic content and demonstrates review decisions;
 it is not a working importer or evidence of recognition quality.
 
+R4 (v0.10.0) rebuilt every import screen on the design deck, under
+`/teacher/imports`, and added the pasted-text source. §§1 to 11 are the direction
+of 2026-09-22; §12 records the screens as built and wins where it differs: the
+route table in §2 is corrected in place, and §12.7 lists what the deck drew that
+the product keeps, what it gates and why.
+
 ## 1. Design direction
 
 Use Quizzivy's current zinc/charcoal components, divided settings-style rows,
@@ -27,12 +33,16 @@ finished processing says “Sẵn sàng rà soát”, not “Nhập thành công
 
 | Route | Purpose | Entry / primary action |
 | --- | --- | --- |
-| `/admin/imports` | Searchable import history | Secondary entry from tests; “Nhập đề từ Word/PDF” |
-| `/admin/imports/new` | Upload, optional key/audio, recognition setup | Tests list split action beside “Tạo đề”; “Bắt đầu xử lý” |
-| `/admin/imports/:id` | Current processing state or resumable import | “Tiếp tục rà soát” when ready; committed state links to resulting test |
-| `/admin/imports/:id/review` | Source-linked correction workspace | “Xem trước & hoàn tất” |
-| `/admin/imports/:id/compare/:runId` | New recognition versus manual draft | “Áp dụng các thay đổi đã chọn” |
-| `/admin/imports/:id/confirm` | Learner preview and validated summary | “Tạo bản nháp đề” |
+| `/teacher/imports` | Searchable import history | Secondary entry from tests; "Import from Word/PDF" and "Paste a test" |
+| `/teacher/imports/new` | Upload or paste, optional key | Tests list split action beside "Tạo đề"; "Bắt đầu xử lý"; `?source=paste` opens the paste mode |
+| `/teacher/imports/:id` | Current processing state or resumable import | "Tiếp tục rà soát" when ready; committed state links to resulting test |
+| `/teacher/imports/:id/review` | Source-linked correction workspace | "Xem trước & hoàn tất" |
+| `/teacher/imports/:id/confirm` | Learner preview and validated summary | "Tạo bản nháp đề" |
+
+There is no `/compare/:runId` route (WU-05): a newer machine draft that arrives
+while the teacher has edits is offered inside the review, beside the teacher's
+version, and applied with `adoptWordImportReprocessed` (§12.5). The old
+`/admin/imports*` paths redirect to these (T-R4.5).
 
 Do not add many permanent global sidebar items. The tests area exposes imports
 and history clearly; the dedicated review route can collapse global navigation
@@ -41,8 +51,8 @@ for processing, failed, cancelled, stale or committed imports.
 
 These entries follow `GET /teacher/imports/capabilities`:
 
-- **Intake off.** The tests list shows neither entry, and every `/admin/imports`
-  route explains that import is not enabled.
+- **Intake off.** The tests list shows neither entry, and every `/teacher/imports`
+  route explains that import is not enabled (`ImportsGate`).
 - **Intake on, processing off.** The history, review and commit stay available.
   Upload, retry, reprocess and "start over" are replaced by a calm note saying
   why. A queued import says it waits for processing to return.
@@ -103,9 +113,10 @@ inputs. A partially uploaded companion key never appears as fully received.
 The same page also takes a test pasted as text in place of the exam file. A
 "Source" switch chooses between uploading a file and pasting. The paste mode
 has a plain text box with a character count against the server's limit, a
-quick count of what was found so far, and no answer-key slot. The layout, copy
-and tests are in `74-r4.md` T-R4.57, the source and its recognition rules in
-T-R4.55 and T-R4.56, and the scope in `17-word-import.md` §1.41.
+quick count of what was found so far, and no answer-key slot. The layout is in
+§12.3; the copy and tests are in `74-r4.md` T-R4.57, the source and its
+recognition rules in T-R4.55 and T-R4.56, and the scope and what was built in
+`17-word-import.md` §1.41.
 
 What the teacher is told holds on every screen:
 
@@ -342,3 +353,193 @@ annotated homework containing learner answers plus teacher corrections (classify
 the evidence before accepting a key). Treat source defects separately from
 recognition defects in both wording and measurements. These are acceptance
 requirements, not functionality implemented by the initial source inspector.
+
+## 12. R4: the screens as built on the deck
+
+R4 (T-R4.36 to T-R4.39 and T-R4.57) rebuilt the five import pages in
+`TeacherLayout`, on the deck in `docs/design/deck/` and its tokens, with
+`data-scale="deck"` on each page root, in light and dark. Every string is a vi
+key first, then en. The behaviours below are read from
+`web/src/app/router.tsx` and `web/src/features/imports/`; the task notes in
+`74-r4.md` have the measurements and the departures (DG-12 to DG-18, DG-21,
+DG-73, DG-142, DG-147, DG-148).
+
+### 12.1 Frame
+
+| Route | Content width | Notes |
+| --- | --- | --- |
+| `/teacher/imports` | 1320 | The history |
+| `/teacher/imports/new` | 860 | Upload and paste |
+| `/teacher/imports/:id` | 720 | Processing |
+| `/teacher/imports/:id/review` | full, sidebar collapsed | Entering the review collapses the sidebar for the visit and leaving restores it (route handle `sidebar: "collapsed"`); it is no longer collapsed permanently |
+| `/teacher/imports/:id/confirm` | 1320 | Preview and create |
+
+All five sit under `ImportsGate`, which answers from `GET
+/teacher/imports/capabilities` (§2). Another teacher's import answers as a
+missing one on every page. The breadcrumb names Tests, then Imports, then the
+page (the import's title on the review and the confirm page).
+
+### 12.2 History
+
+- **Header.** "Word and PDF files and pasted text you are turning into tests.
+  Each import keeps its original content, its progress and your review, so you can
+  come back at any time." Then the outline action "Paste a test"
+  (`/teacher/imports/new?source=paste`) and the primary "Import from Word/PDF".
+  Both show only while a new import can start, which is when intake and processing
+  are both on; with processing off the page keeps its list and a calm note says
+  why.
+- **Filters.** One segmented control, a group of `aria-pressed` buttons and not a
+  tablist (DG-17), in the order All, Processing, Ready for review, Couldn't
+  process, Draft created, Cancelled, each with its count. The counts are the
+  history's six facets, which follow the search and ignore the selected status.
+  Processing selects `awaiting_sources`, `queued`, `processing` and `committing`.
+  The search ("Search file or test name", 200px at least, 280px at most) matches
+  the title and the current filenames, accents ignored; a pasted import is found by
+  its title only. Status, search, page and size are in the URL, and a status change
+  resets the page.
+- **Pager.** The sizes are 20, 30 and 50, and real pagination shows whenever the
+  list has a total.
+- **Grid and cards.** The list is not a `DataTable`. A container query on the list
+  itself (not the viewport) switches it: from 960px of its own width a six-column
+  grid with table roles, `minmax(200px,2.4fr) minmax(160px,1fr) minmax(150px,1.4fr)
+  minmax(110px,1fr) minmax(150px,1fr) 32px`, the deck's tracks with the fixed ones
+  taken as minimums so longer Vietnamese labels fit (DG-21); below it each import is
+  a stacked card with the tile, name, wrapping meta and the menu, then the status
+  pill and the review chips, then the test link and the primary action. Nothing
+  scrolls sideways at any width, and a row's controls exist once in the
+  accessibility tree. At 1280px with the sidebar expanded the list is 976px wide,
+  so a vertical scrollbar of more than 16px turns it into cards (DG-18).
+- **Cells.** File: the tile, the name and "{creator} · {when} · with {key}". Status:
+  the eight import statuses on the deck's five pills. To review: "{n} need action"
+  and "{n} to confirm" from the review counts (an import whose draft was never
+  assessed shows no counts). The test link. The primary action follows the status:
+  continue the review, view progress, view the cause, open the test. The menu has
+  Download original only.
+- **A pasted import** shows the clipboard tile, the localized name "Pasted text" in
+  place of the stored filename, and "{creator} · {when} · {n} characters".
+- **States.** The skeleton, a filtered empty state with "Clear filters", the
+  no-imports state with a hint that names both ways in, and a failed load with a
+  retry that keeps the last list on screen. Active imports are polled only while
+  the tab is visible and the user is active.
+
+### 12.3 Upload and paste
+
+A "Source" control under the header, "Upload a file | Paste text", chooses the mode
+(`?source=paste`; anything else is the file mode). The options size to their
+content rather than the deck's fixed 168px (DG-21). One intake stays mounted across
+the switch, so chosen files, the pasted text and a typed title survive it.
+
+- **File mode.** The Files card with Exam (required) and Answer key (optional), the
+  deck's preflight messages and the server's limits, Test title prefilled from the
+  exam file's name. "How to read the content" offers automatic recognition only.
+  The privacy callout, "Where your content goes.", names files and pasted text and
+  says only what the capabilities report.
+- **Paste mode.** The page reads "Paste a test" and the "Test content" card takes
+  the Files card's place, with no answer-key slot. The box is a plain monospace
+  textarea at least 340px high. The counter reads "{n} of {max} characters", n
+  counting code points of the NFC-normalised text (the text sent), max
+  `ImportLimits.pasteMaxCharacters`; over the limit the counter and the border turn
+  danger. "Paste from clipboard" replaces the text and moves focus to the box, and an
+  empty or refused clipboard shows the deck's two toasts; "Clear" shows only with text;
+  "Copy example" ships. The kind pill has one state, "Plain text · mark answers with *
+  or "Answer:"", and nothing reads the clipboard's HTML (DG-12).
+- **Found so far.** While the box has text: Sections, Questions, With an answer and
+  Need an answer, then the notes (over the limit, no numbered question, which
+  questions have no answer, a number seen twice in one part, images and audio are
+  not pasted). The count is `paste.ts`, the server's grammar for text sources, run on
+  a deferred value, never the deck's script (DG-13); `api/testdata/pasted-text-counts.json`
+  holds it and the server to the same numbers.
+- **"How to lay out pasted text"** is open while the box is empty: the deck's four tips
+  beside the example (a container query on the card, 594px wide, DG-142), stacked
+  below it otherwise. The example is a case of the shared fixture with nothing
+  missing (DG-15).
+- **Title.** The first non-blank line when it reads as one (at most 120 characters and
+  not a part heading, a question or an option); a typed title wins; a blank title
+  starts as "Pasted test · {date}" in the user's zone.
+- **Footer.** Cancel and Start processing, which is disabled for an empty box, a text
+  over the limit and a text with no numbered question, each with the deck's hint. When
+  ready it reads "{n} questions found." and then the file flow's sentence, "Processing
+  takes about a minute. You can leave this page.", until T-R4.51 measures the cold
+  worker at 10 s or less for the deck's sample (DG-16). Ctrl or Cmd+Enter in the box
+  starts, never during an IME composition.
+- **Start** runs the file flow's steps with the text in place of the exam file: the
+  capability re-check, `createWordImport`, `pasteImportSource`, `processWordImport`. A
+  retry reuses the create and upload identities; an edited text takes a new
+  `uploadId`; a 409 re-reads the import; a 429 and an intake refusal show the
+  server's message.
+- **Leaving.** Pasted text that has not started asks first (a router blocker and
+  `beforeunload`); switching the Source does not ask, nor does the navigation after a
+  start. The file mode has no guard: leaving mid-upload stops the intake quietly.
+
+### 12.4 Processing
+
+A 720px frame with the file tile (the clipboard tile for a paste), the name,
+"Started {when}" and "with {key}". The running card (`role="status"`) draws the deck's
+five rows from the run's stage: Check the files, Read the content, Recognise the
+structure and Match the answers, Check the test. Elapsed time, "attempt n of m" and
+waiting-to-retry stay, with the callout "You can leave this page." Ready reads "We
+found {q} questions with {a} answers in {s} sections" with pills for "{n} need action",
+"{n} to confirm" and "{n} notes", each shown above zero, "Start review →" and Later.
+Failed names the stage, the error code in mono and the action: replace the exam file
+when the import accepts a new source, otherwise start a new import. Cancel asks first
+and states the configured retention; Cancelled is final; committing and committed are
+kept. A pasted import says "Check the text" and "{n} characters checked", then "Plain
+text · no formatting"; its failed state offers "Start a new import", which opens the
+paste mode; the cancel copy says "the pasted text". Its Ready card's first pill is
+"Every question has an answer" when nothing blocks, and the deck's "need an answer" pill
+is not built (DG-14). The processing history is absent until run events are exposed.
+The spinner pauses on hover and focus and is static under reduced motion.
+
+### 12.5 Review
+
+One card the height of the viewport less 128px, at least 560px. The top bar has the
+title (an input, because it is part of the saved draft, DG-147), "{q} questions · {a}
+answers · {s} sections", the save state ("Saved", "Saving…", or "Couldn't save your
+last change" with Retry, `role="status"`), the severity pills and "Preview & finish →".
+The toolbar has the Section select, All / Needs action / To confirm / Info with counts,
+a Source | Test switch below 980px of content width, and the navigator ("{i} of {n}
+open", Previous, Next). From 980px the source pane and the test pane share a `SplitPane`
+(30 to 65 percent, 42 by default, arrow keys step 2, remembered under
+`quizzivy.importReview.split`). The source pane has Exam | Answer key, Extracted | Page
+view (Page view is off until a page renderer exists), Download original and the block
+tags. A pasted import has one option, "Pasted text", and one view, "As pasted". The test
+pane has the whole-test card, findings with their resolutions as radio cards, the Exclude
+dialog (a reason of up to 500 characters is required) and the Points dialog. The open
+question's prompt is the content editor of T-R4.63 in the import profile: "Insert gap"
+for a fill-in-the-blank, no Rich text | Markdown switch (import content is never
+Markdown), no Image or Audio. One card is open at a time, so one editor is mounted.
+A phone (below 768) is read-only with the deck's dismissible note. The stale reload
+and "Use the new result" notices, the leave guard and the lost-response commit copy stay.
+
+### 12.6 Preview and create
+
+`/teacher/imports/:id/confirm`: "Preview and create a draft" and "← Back to review". Two
+columns, `minmax(0,1fr) 360px`, from 1000px of the page's own width. The preview is the
+student's paper through `StudentPreview` with Computer | Phone and the answers hidden, and
+reads "Showing {k} of {n} questions…" when a type the paper cannot draw is left out
+(DG-148). The summary lists the answers included, sections and groups, answers set (with
+Fix), points (with Confirm), audio and images ("Images and audio are not imported. Add
+them in the test builder.") and what is still to resolve (with Review); only a row that
+blocks the draft is in danger ink. "Create draft test" is 44px and `aria-disabled` with
+its reason while off; a lost response replays the same request. The created draft's card
+offers "Open in test builder →" and "Back to imports".
+
+### 12.7 What DG-67 kept and what it gated
+
+The deck did not draw several behaviours the product has, and drew several controls the
+product has no backend for (DG-67). R4 keeps the first in the deck's styling and does not
+build the second. Their backend and UI are built in R6 beside T-R6.13.
+
+| Kept, in the deck's styling | Gated, absent until built in R6 |
+| --- | --- |
+| Elapsed time, attempt n of m and waiting-to-retry on the processing page | The audio slot |
+| The stale reload notice and "Use the new result" | Saved recognition profiles |
+| The committed card and banner, and the lost-response commit copy | Source conventions |
+| The leave guard on the review (and, for pasted text, on the paste box) | The template download |
+| The no-imports empty state, with a hint that names both ways in | Move, Split and Merge in the review (Exclude and Restore stay) |
+| Cancel as a final state; Download original in the row menu | The processing history; "Page view" in the source pane (shown, off) |
+| Phones read-only, with the deck's dismissible note | "Create another test from this file", "Delete import" and "Process again" |
+
+"Paste a test" is not one of the gated controls: R4 builds it (§12.3) with its departures
+in DG-12 to DG-16. Its "How to read the content" card is the file flow's, so the same
+controls stay gated there.
