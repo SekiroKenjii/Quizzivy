@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.86 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.87 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.86**
+
+R4, F-66: a sign-out finishes when the client has gone.
+
+- §5.4 `POST /auth/logout` revokes the refresh family under its own ten-second budget, which the end of the request does not cancel, so a tab closed during sign-out still ends the session. A refresh keeps running on the request's own context; the window it leaves (a rotation committed whose answer never arrives) is recorded under R-06 in `docs/plan/30-risks.md`.
 
 **Changes since v0.85**
 
@@ -1260,7 +1266,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   - A v0.9.x address under `/admin/*` redirects to the same path under `/teacher`, in any letter case, keeping its query and hash; `/admin/assignments/:id/attempts` and `/teacher/assignments/:id/attempts` go to the assignment's Students tab. The redirect stays until R5 builds the Admin console at `/admin`.
   - `learnsOnly` (the student app is the user's only workspace) keeps v0.7.0's rules on `/join` and the Settings role label (§6.2).
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
-- Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`.
+- Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`. The server revokes the family under a budget of its own, ten seconds, that the end of the request does not cancel: a tab closed or a connection lost during sign-out still ends the session, whose cookie stays in a browser that never saw the answer. A refresh does the opposite and runs on the request's own context (`docs/plan/30-risks.md` R-06).
 - The frontend applies accepted server locale/theme/display zone/larger
   text over browser mirrors, with omitted defaults `vi`/`light`/`Asia/Ho_Chi_Minh`/false
   and no default-materialization PATCH. Anonymous choices remain local. Authenticated

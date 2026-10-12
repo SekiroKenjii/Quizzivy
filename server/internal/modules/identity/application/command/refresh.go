@@ -10,7 +10,8 @@ import (
 	"quizzivy/internal/shared/opt"
 )
 
-// Refresh rotates a refresh token (§5.2).
+// Refresh rotates a refresh token (§5.2). The rotation runs on the request's own
+// context, deliberately; docs/plan/30-risks.md R-06 says why.
 type Refresh struct {
 	Token     string
 	UserAgent string
