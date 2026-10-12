@@ -63,6 +63,11 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 					httpx.TextFor(r, "Chức năng này chưa được xây dựng.", "This feature has not been built yet."))
 				return
 			}
+			if httpx.ClientGone(r.Context(), err) {
+				logger.Debug("client_cancelled", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+				httpx.WriteClientGone(w)
+				return
+			}
 			logger.Error("handler", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 			httpx.WriteError(w, r, http.StatusInternalServerError, httpx.CodeInternal,
 				httpx.TextFor(r, "Đã xảy ra lỗi. Vui lòng thử lại.", "Something went wrong. Try again."))
@@ -224,10 +229,14 @@ func livez(w http.ResponseWriter, _ *http.Request) {
 
 func healthz(database DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case database == nil:
+		if database == nil {
 			writeHealth(w, http.StatusOK, health{Status: "ok", Database: "not configured"})
-		case database.Ping(r.Context()) != nil:
+			return
+		}
+		switch err := database.Ping(r.Context()); {
+		case httpx.ClientGone(r.Context(), err):
+			httpx.WriteClientGone(w)
+		case err != nil:
 			writeHealth(w, http.StatusServiceUnavailable, health{Status: "degraded", Database: "unreachable"})
 		default:
 			writeHealth(w, http.StatusOK, health{Status: "ok", Database: "ok"})
