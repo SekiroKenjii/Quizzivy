@@ -19,13 +19,13 @@ this file describe the code as it is and name the release that changes them.
   heights, radii, badge and card shapes) applies only inside
   `data-scale="deck"`, which a rebuilt surface sets on its root. The student
   app and the take-test engine are such surfaces since R3 (v0.9.0) and follow
-  the theme. In R4, a teacher screen rebuilt to the deck renders in `TeacherLayout`
-  and follows the theme; one not yet rebuilt still renders in `AdminLayout`, which
-  forces light (`useForcedLightTheme`), until its R4 task. R5 makes the deck geometry the
+  the theme. Since R4 (v0.10.0) every teacher screen is one too: it renders in
+  `TeacherLayout` and follows the theme, and `AdminLayout` and
+  `useForcedLightTheme` are gone (T-R4.48). R5 makes the deck geometry the
   default and removes `data-scale`
   (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
-  since the CSP allows no inline script. Do not restyle an old console's screen
-  ad hoc: its release rebuilds it.
+  since the CSP allows no inline script. Do not restyle a screen ad hoc ahead
+  of the release that rebuilds it.
 - **Since R2** (v0.8.0) permissions, not paths, gate the API, repositories
   scope rows to their owner, and teaching operations are under `/teacher/*`
   ("Authentication and authorization" below). The v0.7.0 `/admin/*` API paths
@@ -40,7 +40,8 @@ this file describe the code as it is and name the release that changes them.
   fill triggers dropped (00106, T-R3.2). Only the alias (T-R3.3) is in the code
   until its step merges.
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
-  an old `/admin/*` bookmark redirects.
+  an old `/admin/*` bookmark redirects to the same path under `/teacher` until
+  R5 builds the Admin console at `/admin`.
 - **The design team's exports of 2026-10-04 (the fourth) and 2026-10-10 (v2, which
   carries the fourth) are not the deck of record.** R4 builds from
   `docs/design/deck/` as it is, and D4 imports v2 after v0.10.0
@@ -180,7 +181,10 @@ by `core/tests/architecture_test.go`.
 ```
 api/openapi.yaml   the contract — edit this first, then `make gen`
 web/               quizzivy-web
-  src/             spec §3 layout, unchanged -- source only, no tests
+  src/             spec §3 layout -- source only, no tests; a feature's teacher
+                   pages are in features/<name>/pages/teacher/, the shell in
+                   layouts/TeacherLayout.tsx and layouts/shell/; features/notifications
+                   is the bell and its preferences in both consoles
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
@@ -190,7 +194,9 @@ server/            Go module `quizzivy`: a modular monolith
                      answered (when a saved answer counts as answered), schedule (the assignment status and close rules, a student's override of them, and the lock and recompute that move a deadline in progress)
   internal/modules/  one directory per bounded context, four layers each:
                      domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/;
-                     access (roles, grants, the principal cache) has no http/ until R5
+                     access (roles, grants, the principal cache) has no http/ until R5;
+                     notifications (the store, the kinds and their producers, the
+                     due-time items, a user's switches) is R4's
   tests/             end-to-end tests (build tag e2e)
   gen/openapi/       generated, committed, never hand-edited
 migrations/        goose, forward-only, 00001…
@@ -511,6 +517,18 @@ route loads `SideColumn`, directly or through `PageAside`
 (`components/shared/`) is the frame of the student's dialogs; the "You left
 the test" alert (`StrikeDialog`, 420px) and the question sheet draw their own
 on the dialog primitive.
+
+The teacher console lives in `TeacherLayout` (`layouts/shell/`), which reads the
+leaf route's `handle` (`TeacherHandle`: the whole breadcrumb trail, the content's
+maximum width, a collapsed start) and keeps one outlet mounted at every width.
+From 768px the sidebar is in the page's flow, 248px expanded or 60px collapsed,
+as the user last chose (`quizzivy.sidebar`); it never collapses by itself.
+Below 768 it is a drawer that closes on every navigation. That 768 is the
+shell's only viewport breakpoint: a teacher page lays itself out by the width
+of `<main>`'s content (`useContentWidthAtLeast`, `useContentBand`), so
+collapsing the sidebar can move a page into its next layout. A unit test of a
+page in the shell calls `contentWidth(px)` (`tests/support/contentWidth.ts`)
+first, because jsdom measures 0.
 
 The take-test engine runs in `FocusLayout` and branches at the same 768px.
 From 768, a question whose group has something to read splits into a passage
