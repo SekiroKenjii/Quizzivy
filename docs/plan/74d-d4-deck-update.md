@@ -1260,21 +1260,21 @@ DG-80's "Footer and sheet" sentence is trimmed in this PR, as DG-80 asks.
 **Frozen:** `QuestionCard`'s join to the paper source, `useLanding` (where focus lands), the
 gap callbacks of `GroupMaterials`, `PAPER_SURFACE`, `UnknownType`, the order of questions.
 **Done when:**
-- [ ] The question pane is on `--sidebar` only beside shared content from 768; alone, or on a
+- [x] The question pane is on `--sidebar` only beside shared content from 768; alone, or on a
       phone, it is on `--bg`. Its column is at most 600px beside shared content and 720px alone.
-- [ ] At the top of the question column, on every question: the section's title (12px, 600,
+- [x] At the top of the question column, on every question: the section's title (12px, 600,
       muted, uppercase, letter-spacing .04em) over its instructions (13.5px, muted), 2px apart,
       12px of padding and a 1px border under them. It is left out on a paper of one section
       that has no instructions, and the instructions line when a section has none (DG-192).
       The first-question note and the headphones note go; `opensSection` and
       `SectionInstructions.tsx` are removed.
-- [ ] That section header is drawn by `Paper`, above `QuestionCard`, never by `QuestionSheet`.
+- [x] That section header is drawn by `Paper`, above `QuestionCard`, never by `QuestionSheet`.
       `StudentPreview` stacks every question in one list and mounts `QuestionSheet` for each,
       so a header inside the sheet would repeat a section's instructions above every question
       of the teacher's preview; it keeps its own header, once per section
       (`StudentPreview.tsx:51-58`), until T-D4.16 replaces it. A unit test renders
       `StudentPreview` with a three-question section and finds its instructions once.
-- [ ] The line reads "Question 4 of 8 · Single choice": the types are the builder's names. The
+- [x] The line reads "Question 4 of 8 · Single choice": the types are the builder's names. The
       engine keeps its own keys, `takeTest.type.*`, and their values become those of
       `questionEditor.type.*` as T-R4.31b's type menu left them: "Single choice", "Multiple
       choice", "True / False", "Fill in the blank" and "Short answer", with "Một đáp án" and
@@ -1282,7 +1282,7 @@ gap callbacks of `GroupMaterials`, `PAPER_SURFACE`, `UnknownType`, the order of 
       deck's in both groups. `type-names.test.ts` asserts the two groups are equal in vi and
       in en, so the engine and the builder's type menu cannot drift. Multiple choice keeps
       its instruction sentence as the hint line.
-- [ ] The stimulus pane's kicker is the group's title (12.5px, 600, muted, uppercase,
+- [x] The stimulus pane's kicker is the group's title (12.5px, 600, muted, uppercase,
       letter-spacing .04em). Its 22px heading is the title of the group's first material that
       has something to read; when that title equals the group's, the kicker is the section's
       title, so nothing is said twice. A material whose content is only audio nodes has no
@@ -1292,23 +1292,44 @@ gap callbacks of `GroupMaterials`, `PAPER_SURFACE`, `UnknownType`, the order of 
       instructions stay under the heading, or under the kicker when there is none (14px,
       muted). Further materials keep their own headings. `GroupMaterials` gains the
       audio-only rule; the audio node itself is still today's label until T-D4.8.
-- [ ] `StudentPreview` takes the type names (it shares `QuestionSheet`) and the kicker and
+- [x] `StudentPreview` takes the type names (it shares `QuestionSheet`) and the kicker and
       heading (`PreviewGroupContext` shares `PassageBody` and `GroupMaterials`);
       `builder/group-preview.test.tsx` and `group-preview.spec.ts` follow.
-- [ ] The builder's Instructions dialog, which T-R4.31a built with the deck's "Students see
+- [x] The builder's Instructions dialog, which T-R4.31a built with the deck's "Students see
       this above the group’s first question." (T 7030), reads "Students see this above every
       question in the section." in this PR. It is one string in both languages and no builder
       logic (DG-192).
-- [ ] `api/openapi.yaml`'s `StudentSection` description ("the engine shows it above the
+- [x] `api/openapi.yaml`'s `StudentSection` description ("the engine shows it above the
       section's first question") is corrected in T-D4.13's pull request, or in a contract pull
       request of its own if the owner declines Q4 and T-D4.13 is not built.
-- [ ] Tests: `panes.test.tsx`'s cases on the part eyebrow, the listening note and the type
+- [x] Tests: `panes.test.tsx`'s cases on the part eyebrow, the listening note and the type
       labels are rewritten; "is the deck's line in English" asserts the new labels;
       `group-context.test.tsx` gains "a material that is only a recording has no heading" and
       "a material with text and a recording keeps its heading", on the validated shape.
-- [ ] Compared with s1 question 4, s9 question 5 (no shared content, 720px), s9 question 28
+- [x] Compared with s1 question 4, s9 question 5 (no shared content, 720px), s9 question 28
       (shared content, 600px; the deck's 24, four later because the cloze is five questions)
       and s2 question 6 (the kicker with no heading) at the five widths, light and dark.
+
+**As built:** the section header is `SectionHeader` in `TakeTestPage.tsx`, drawn by `Paper`
+above `QuestionCard` from `sectionHead(groups, group)` in `sections.ts`, which replaces
+`opensSection`; it is also left out for an untitled section with no instructions on a paper of
+several. `SectionInstructions.tsx` and `Note.tsx`, which only it used, are gone. The stimulus
+pane's head is `materialsHead` in the new `components/shared/content/materials.ts` (beside
+`hasReading`, a material with any block that is not an audio node, or legacy Markdown), kept
+out of `GroupMaterials.tsx` so that file exports only components; titles are compared and
+returned in NFC. `GroupMaterials` gives a material with nothing to read neither a heading nor a
+region name. `PassageBody` takes `kicker` and an optional `title`. `PreviewGroupContext` takes
+the same head with no section, so the teacher's preview loses its "Shared material · Questions
+n–m" eyebrow (`preview.sharedRange` stays, for the review screens). The type names: the vi
+values copied are the type menu's ("Một đáp án", "Nhiều đáp án", "Đúng/Sai", "Điền từ", "Tự
+luận"); en was already the deck's. The builder's line is `builder.sectionInstructionsHint`.
+`StudentSection`'s description already said "above each of the section's questions" (T-D4.13).
+`jumpToGap` lists `setReadingFor` in its dependencies, because the React Compiler now compiles
+`PaperAt` and asks for it. Tests that pinned the old frame and moved with it: the type labels in
+`open-question`, `header`, `renderers`, `breakpoint` and `student-engine.phone.spec.ts`;
+`sections.test.ts`'s `opensSection` case became three `sectionHead` cases; the group-title
+heading locators of `group-attempt`, `document-scroll` and `student-engine.phone` now find the
+material's heading.
 
 ### T-D4.6 — Engine: answer areas (choice rows and columns, the blank, the short answer)
 **Depends on:** T-D4.5 (shares `panes.test.tsx`); otherwise beside the chain
