@@ -33,12 +33,11 @@ const ART = {
 
 type Art = keyof typeof ART;
 
-function box(art: Art, height: number) {
+function box(art: Art, height: number, belowFloor = false) {
   const { ratio, floor } = ART[art];
   const width = Math.round(height * ratio);
   const measured = art === "mark" || art === "markOnDark" ? height : width;
-  if (import.meta.env.DEV && measured < floor) {
-    // A warning, never a throw.
+  if (import.meta.env.DEV && measured < floor && !belowFloor) {
     console.warn(
       `Brand: ${art} at height ${height} measures ${measured}px, under the kit's ${floor}px floor (B-05). ` +
         `Below a lockup's floor, switch to <BrandMark> rather than scaling the lockup down.`,
@@ -83,7 +82,9 @@ export function BrandLockup({
 /**
  * The mark alone, beside the app's own wordmark as ordinary text.
  * `wordmark="header"` is the deck's 16px bold name beside a 24px mark, as a
- * console's top bar draws it.
+ * console's top bar draws it. `belowFloor` names a decided departure in
+ * `docs/design/gaps.md` that draws the mark under the kit's 24px floor, and
+ * silences the development warning for that call site only.
  */
 export function BrandMark({
   height = 22,
@@ -91,12 +92,14 @@ export function BrandMark({
   label = true,
   wordmark = "compact",
   theme,
+  belowFloor,
 }: Readonly<{
   height?: number;
   className?: string;
   label?: boolean;
   wordmark?: "compact" | "header";
   theme?: "auto";
+  belowFloor?: `DG-${number}`;
 }>) {
   const { t } = useTranslation();
   const resolved = useResolvedTheme();
@@ -104,9 +107,8 @@ export function BrandMark({
   const mark = (
     <img
       src={ART[art].src}
-      // Decorative when the name follows it as text; the identifier otherwise.
       alt={label ? "" : t("app.name")}
-      {...box(art, height)}
+      {...box(art, height, belowFloor !== undefined)}
       className={wordmark === "header" ? "h-6 w-auto select-none" : "select-none"}
       draggable={false}
     />

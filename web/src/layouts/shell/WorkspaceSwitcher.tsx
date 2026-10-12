@@ -57,7 +57,7 @@ export function WorkspaceSwitcher({
         aria-hidden={collapsed ? undefined : true}
         className="bg-card grid size-8 flex-none place-items-center rounded-md border"
       >
-        <BrandMark height={18} label={false} theme="auto" />
+        <BrandMark height={18} label={false} theme="auto" belowFloor="DG-123" />
       </span>
       {!collapsed && (
         <span className="flex min-w-0 flex-1 flex-col">
