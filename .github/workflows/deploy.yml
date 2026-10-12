@@ -62,6 +62,7 @@ jobs:
       sha: ${{ steps.pick.outputs.sha }}
       api: ${{ steps.pick.outputs.api }}
       web: ${{ steps.pick.outputs.web }}
+      host: ${{ steps.pick.outputs.host }}
     steps:
       # A CI run that is no longer the tip of main deploys nothing. Re-running
       # an old run to green completes it again, and without this check that
@@ -70,7 +71,16 @@ jobs:
         env:
           TRIGGER: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
+          API_HOST: ${{ vars.API_HOST }}
         run: |
+          # Where the API runs: the repository variable API_HOST, `fly` until
+          # someone sets it to `vps`. Anything else stops here rather than
+          # deploying nowhere, or to the wrong place.
+          host="${API_HOST:-fly}"
+          case "$host" in
+            fly|vps) ;;
+            *) echo "::error::API_HOST must be fly or vps, not '$host'"; exit 1 ;;
+          esac
           sha="${{ github.event.workflow_run.head_sha || github.sha }}"
           target="${{ inputs.target || 'all' }}"
           api="${{ inputs.target == 'web' && 'false' || 'true' }}"
@@ -85,13 +95,14 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "api=$api" >> "$GITHUB_OUTPUT"
           echo "web=$web" >> "$GITHUB_OUTPUT"
-          echo "Deploying $target at $sha (api=$api, web=$web)"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "Deploying $target at $sha (api=$api on $host, web=$web)"
 
   # ------------------------------------------------------------------- api
   api:
     name: API → Fly
     needs: resolve
-    if: needs.resolve.outputs.api == 'true'
+    if: needs.resolve.outputs.api == 'true' && needs.resolve.outputs.host == 'fly'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -284,6 +295,93 @@ jobs:
           flyctl config env -a quizzivy-api || true
           echo "::endgroup::"
 
+  # ------------------------------------------------------------- api (vps)
+  # The same release on the VPS (infra: github.com/Quizzivy/infra, docs/vps.md).
+  # The image is built here and pushed to ghcr.io; the box pulls it, runs the
+  # migrations as a one-shot container, replaces api and worker, and rolls back
+  # on a failed health check. The key below can run `deploy <sha>` and
+  # nothing else: the box forces its command, so a leaked key cannot get a shell.
+  #
+  # Needs: secrets VPS_HOST, VPS_SSH_KEY (private half of the deploy key) and
+  # VPS_KNOWN_HOSTS (the box's host key line, from `ssh-keyscan -t ed25519`).
+  # The box's compose.env must name this image repository in API_IMAGE_REPO and
+  # `docker login ghcr.io` there must hold a token with read:packages.
+  api-vps:
+    name: API → VPS
+    needs: resolve
+    if: needs.resolve.outputs.api == 'true' && needs.resolve.outputs.host == 'vps'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Check the credentials are present
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          missing=
+          [ -n "$VPS_HOST" ]        || missing="$missing VPS_HOST"
+          [ -n "$VPS_SSH_KEY" ]     || missing="$missing VPS_SSH_KEY"
+          [ -n "$VPS_KNOWN_HOSTS" ] || missing="$missing VPS_KNOWN_HOSTS"
+          if [ -n "$missing" ]; then
+            echo "::error::secrets not set:$missing (see docs/setup/deploy.md)"
+            exit 1
+          fi
+
+      # Tagged with the commit, so a deploy names exactly one build. A re-run
+      # of the same commit finds the image already pushed and builds nothing.
+      - name: Build and push the image
+        env:
+          TOKEN: ${{ github.token }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          image="ghcr.io/${OWNER,,}/quizzivy-api:$SHA"
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          if docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "$image is already published"
+          else
+            docker build --tag "$image" .
+            docker push "$image"
+          fi
+          echo "image: $image" >> "$GITHUB_STEP_SUMMARY"
+
+      # StrictHostKeyChecking stays on: the host key comes from the secret, so
+      # a different machine answering on that address is refused.
+      - name: Deploy
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # The box streams the deploy log and exits with the deploy's status.
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=15 "deploy@$VPS_HOST" deploy "$SHA"
+
+      # The box already waited for its own /healthz; this asks through
+      # Cloudflare, the path users take.
+      - name: Verify the API answers
+        run: |
+          for attempt in 1 2 3 4 5; do
+            body=$(curl -fsS --max-time 10 "$API_ORIGIN/healthz") && break
+            echo "attempt $attempt failed; retrying in 6s"; sleep 6
+          done
+          echo "$body"
+          echo "$body" | grep -q '"database":"ok"' || {
+            echo "::error::/healthz did not report database:ok"; exit 1; }
+
   # ------------------------------------------------------------------- web
   # After the API, deliberately. The SPA is the half that calls the other, so
   # the window between the two deploys is old-SPA-against-new-API rather than
@@ -293,8 +391,8 @@ jobs:
   # notes for tabs loaded before the deploy.
   web:
     name: Web → Cloudflare Pages
-    needs: [resolve, api]
-    if: ${{ !cancelled() && needs.resolve.outputs.web == 'true' && (needs.api.result == 'success' || needs.api.result == 'skipped') }}
+    needs: [resolve, api, api-vps]
+    if: ${{ !cancelled() && needs.resolve.outputs.web == 'true' && contains(fromJSON('["success","skipped"]'), needs.api.result) && contains(fromJSON('["success","skipped"]'), needs.api-vps.result) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

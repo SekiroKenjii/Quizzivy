@@ -25,6 +25,7 @@ the tip check is what keeps that from putting an earlier release back.
 | Job | Target | How |
 |---|---|---|
 | `api` | Fly.io `quizzivy-api` | `flyctl deploy --remote-only` |
+| `api-vps` | the VPS, instead of `api` | build and push the image to `ghcr.io`, then `ssh deploy@host deploy <sha>` |
 | `web` | Cloudflare Pages `quizzivy-web` | `pnpm build` then `wrangler pages deploy` |
 
 The API goes first. The SPA is the half that calls the other, so the window
@@ -67,6 +68,41 @@ Check what is set:
 ```bash
 gh secret list && gh variable list
 ```
+
+## Choosing where the API runs
+
+The repository variable `API_HOST` picks one of the two API jobs: `fly` (the
+default when it is unset) or `vps`. Any other value stops the run before
+anything deploys. `web` waits for whichever job ran. Switching is therefore a
+variable, not a code change, and so is switching back:
+
+```bash
+gh variable set API_HOST --body vps    # or: fly
+```
+
+`api-vps` needs three secrets and nothing else on the GitHub side:
+
+```bash
+gh secret set VPS_HOST          # the box's address, as DNS-only or its IP
+gh secret set VPS_SSH_KEY       # private half of the deploy key (ed25519)
+gh secret set VPS_KNOWN_HOSTS   # ssh-keyscan -t ed25519 <host>, checked against the box's console
+```
+
+The public half of the key goes to the box as `QUIZZIVY_DEPLOY_PUBKEY` when
+`bootstrap.sh` runs; the box then forces that key's command to `deploy.sh`, so
+the key can deploy a commit and do nothing else. The job tags the image
+`ghcr.io/<owner>/quizzivy-api:<sha>`; the box's `compose.env` must name that
+repository in `API_IMAGE_REPO`, and `docker login ghcr.io` there needs a token
+with `read:packages` only. Everything on the box side (PostgreSQL, Caddy,
+backups, rollback) is in `github.com/Quizzivy/infra`, `docs/vps.md`.
+
+Migrations run on the box before the new API starts, as `fly.toml`'s
+`release_command` does on Fly, and a failed health check puts the previous image
+back. The `Fly-Client-IP` setting in `fly.toml` does not apply there: the box
+reads `CF-Connecting-IP`, which only Cloudflare can set.
+
+The preflight below is Fly-only. The box checks its own `app.secrets.env` when
+the API starts, and the log says which name is wrong.
 
 ## The preflight
 
