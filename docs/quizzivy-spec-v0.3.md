@@ -1260,7 +1260,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
   - A v0.9.x address under `/admin/*` redirects to the same path under `/teacher`, in any letter case, keeping its query and hash; `/admin/assignments/:id/attempts` and `/teacher/assignments/:id/attempts` go to the assignment's Students tab. The redirect stays until R5 builds the Admin console at `/admin`.
   - `learnsOnly` (the student app is the user's only workspace) keeps v0.7.0's rules on `/join` and the Settings role label (§6.2).
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
-- Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`.
+- Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`. The server revokes the family under a budget of its own, ten seconds, that the end of the request does not cancel: a tab closed or a connection lost during sign-out still ends the session, whose cookie stays in a browser that never saw the answer. A refresh does the opposite and runs on the request's own context (`docs/plan/30-risks.md` R-06).
 - The frontend applies accepted server locale/theme/display zone/larger
   text over browser mirrors, with omitted defaults `vi`/`light`/`Asia/Ho_Chi_Minh`/false
   and no default-materialization PATCH. Anonymous choices remain local. Authenticated

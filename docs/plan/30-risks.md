@@ -250,6 +250,22 @@ buttons while one is pending. The durable fix is a cross-tab refresh lock in the
 (Web Locks or a `BroadcastChannel`), tracked as F-49 because `client.refresh.test.ts` is
 a canary.
 
+**Residual added by F-66 (2026-10-12).** A rotation commits in the database but its answer
+never reaches the client when the connection ends between the `COMMIT` and the response: a
+tab closed or reloaded, or a network drop, in that round trip. The client keeps the old
+cookie, and its next refresh presents a rotated-out token, which is reuse and revokes the
+family. The web client never aborts the refresh fetch (`performRefresh` takes no signal,
+`api()` strips the caller's signal from cookie operations, `waitForTransition` stops waiting
+without aborting), so only the browser unloading the page or the network can do it.
+Finishing the rotation on a context the request's end cannot cancel would make it worse: it
+would commit a successor for every client that has gone. A request cancelled before the
+commit rolls back and leaves the old token live, which `session_writes_cancel_test.go` pins.
+Only a reuse interval closes the window (a predecessor presented within seconds of its
+rotation, with its successor unused, is a retry), and that changes §5.2's rule that
+presenting a rotated token revokes the family; it is Thuong's decision and is not built.
+A logout is the other way round: its revoke runs under `command.LogoutBudget`, so it
+finishes for a client that has gone.
+
 ---
 
 ## R-07 — Cross-origin cookie or CORS misconfiguration
