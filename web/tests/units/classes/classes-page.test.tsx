@@ -186,7 +186,7 @@ describe("the classes list", () => {
     expect(lists[0]?.get("limit")).toBe("24");
   });
 
-  it("keeps an expired code's footer on one row, its note truncating with a title (QA-41-4)", async () => {
+  it("keeps an expired code's footer on one row, where the label gives way and the note never does (QA-41-4, QA-509-1)", async () => {
     serveList([
       {
         ...EVENING,
@@ -197,7 +197,11 @@ describe("the classes list", () => {
     const evening = await card("IELTS 6.5 Evening");
     const note = within(evening).getByText("Hết hạn");
     expect(note).toHaveAttribute("title", "Hết hạn");
-    expect(note).toHaveClass("min-w-0", "truncate");
+    expect(note).toHaveClass("flex-none", "whitespace-nowrap");
+    expect(note).not.toHaveClass("truncate");
+    const label = within(evening).getByText("Mã tham gia");
+    expect(label).toHaveClass("min-w-0", "truncate");
+    expect(label).toHaveAttribute("title", "Mã tham gia");
     expect(note.parentElement).not.toHaveClass("flex-wrap");
   });
 
