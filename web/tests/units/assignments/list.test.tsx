@@ -263,7 +263,8 @@ describe("the assignments list", () => {
       `/teacher/assignments/${A1}`,
     );
     expect(rows.getByText("Đề v3 · 40 câu hỏi")).toBeInTheDocument();
-    expect(rows.getByText("· 6 bài chờ chấm")).toBeInTheDocument();
+    expect(rows.getByRole("columnheader", { name: "Chờ chấm" })).toBeInTheDocument();
+    expect(rows.queryByText("· 6 bài chờ chấm")).toBeNull();
     expect(rows.getAllByText("IELTS Foundation").length).toBeGreaterThan(0);
     expect(rows.getByText("12/19")).toBeInTheDocument();
     expect(rows.getByText("Đang mở")).toBeInTheDocument();
@@ -346,7 +347,7 @@ describe("the assignments list", () => {
 });
 
 describe("the columns as the content narrows", () => {
-  it("drops Assigned to, the window and Status in the deck's order, and says them inline", async () => {
+  it("drops Assigned to, To grade, then Submitted and Status at the design's widths, and says them inline", async () => {
     const { resize } = contentWidth(1280);
     renderList();
     let rows = await table();
@@ -355,23 +356,36 @@ describe("the columns as the content narrows", () => {
         .getAllByRole("columnheader")
         .map((header) => header.textContent?.trim() ?? "");
     expect(headers()).toEqual(
-      expect.arrayContaining(["Giao cho", "Đóng lúc", "Đã nộp", "Trạng thái"]),
+      expect.arrayContaining([
+        "Giao cho",
+        "Đóng lúc",
+        "Đã nộp",
+        "Chờ chấm",
+        "Trạng thái",
+      ]),
     );
-    expect(rows.queryByText(/^IELTS Foundation · /)).toBeNull();
+    expect(rows.queryByText("· 6 bài chờ chấm")).toBeNull();
 
-    resize(800);
+    resize(1239);
     rows = await table();
     await waitFor(() => expect(headers()).not.toContain("Giao cho"));
-    expect(headers()).toEqual(expect.arrayContaining(["Đóng lúc", "Trạng thái"]));
-    expect(rows.getByText(/^IELTS Foundation · /)).toBeVisible();
+    expect(headers()).toEqual(
+      expect.arrayContaining(["Đóng lúc", "Đã nộp", "Chờ chấm", "Trạng thái"]),
+    );
+    expect(rows.getAllByText("IELTS Foundation").length).toBeGreaterThan(0);
+    expect(rows.queryByText("· 6 bài chờ chấm")).toBeNull();
 
-    resize(600);
-    await waitFor(() => expect(headers()).not.toContain("Đóng lúc"));
-    expect(headers()).not.toContain("Trạng thái");
-    expect(headers()).toContain("Đã nộp");
+    resize(899);
+    await waitFor(() => expect(headers()).not.toContain("Chờ chấm"));
+    expect(headers()).toEqual(
+      expect.arrayContaining(["Đóng lúc", "Đã nộp", "Trạng thái"]),
+    );
+    expect(rows.getByText("· 6 bài chờ chấm")).toBeVisible();
 
-    resize(500);
+    resize(759);
     await waitFor(() => expect(headers()).not.toContain("Đã nộp"));
+    expect(headers()).not.toContain("Trạng thái");
+    expect(headers()).toContain("Đóng lúc");
   });
 });
 

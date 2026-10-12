@@ -46,7 +46,7 @@ function isProfileField(name: string | undefined): name is keyof ProfileFormValu
 }
 
 const GRID =
-  "grid grid-cols-[repeat(auto-fit,minmax(min(260px,100%),1fr))] gap-x-5 gap-y-3.5";
+  "grid grid-cols-[repeat(auto-fit,minmax(max(min(260px,100%),calc((100%_-_2.5rem)/3)),1fr))] gap-x-5 gap-y-3.5";
 const INPUT = "bg-bg h-9.5";
 
 function savedProfile(user: User): ProfileFormOutput {
