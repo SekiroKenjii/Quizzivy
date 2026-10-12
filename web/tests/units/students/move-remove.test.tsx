@@ -118,6 +118,29 @@ describe("moving a student", () => {
     expect(calls).toEqual([`add ${CLASS_B.id} ${AN.id}`]);
   });
 
+  it("gives focus to the select-all box after a bulk Move clears the selection (QA-40-6)", async () => {
+    const BINH = student("018f0000-0000-7000-8000-0000000000e2", "Trần Thị Bình", {
+      classes: [inClass(CLASS_A)],
+    });
+    serveStudents([AN, BINH]);
+    serveMembers();
+    const { user } = renderStudents(teacherUser);
+
+    for (const name of ["Nguyễn Văn An", "Trần Thị Bình"]) {
+      await user.click(
+        within(await rowOf(name)).getByRole("checkbox", { name: `Chọn ${name}` }),
+      );
+    }
+    await user.click(screen.getByRole("button", { name: "Chuyển lớp" }));
+    const dialog = await screen.findByRole("dialog", { name: "Chuyển 2 học viên" });
+    await chooseClass(user, CLASS_B.name);
+    await user.click(within(dialog).getByRole("button", { name: "Chuyển" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("button", { name: "Chuyển lớp" })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: /Chọn tất cả/ })).toHaveFocus();
+  });
+
   it("gives each student it could not move the server's own reason", async () => {
     const BINH = student("018f0000-0000-7000-8000-0000000000e2", "Trần Thị Bình", {
       classes: [inClass(CLASS_A)],
