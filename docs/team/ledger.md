@@ -7,24 +7,38 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-12, 04:25 UTC.
-- **Base:** `work/redesign-r4` at `a598a44d` (#513 merged).
-- **Objective:** unchanged: R4 to v0.10.0, then D4 (v0.11.0) (T-24). The Tech Lead merges into
-  `work/redesign-r4` on green CI (T-37); a release to `main` needs the user.
-- **In flight** (at most three agents, T-36):
-
-  | Task | PR | Owner | State |
-  |---|---|---|---|
-  | T-R4.50, the Tech Lead's half, and this checkpoint | #517 | Tech Lead | merge on green |
-  | F-65, the seed's import holding the worker's slot | #518 | platform | drops #513's CI workaround (`IMPORT_WORKER_GLOBAL_LIMIT: "2"`), then green |
-  | UI minors (F-21, F-50, F-15, F-47, F-38, F-25, F-26, F-44) | not yet | frontend, lane 2, `/home/user/wt-minors` | building |
-  | T-R4.51, the deck comparison of every `/teacher/*` route | not yet | tester, `/home/user/wt-r451` | sweep running |
-
-- **Waiting on the user:** the seven days of production `legacy_admin_path` counts for
-  T-R4.49 A; the release to `main` at T-R4.52; O-R4.20 (Remove and Move on Students); whether
-  to delete the local-dev MinIO objects the E2E runs left (about 72 in `quizzivy-imports`, ids in
-  `/tmp/claude-0/imports-ids-139.txt`, and the five audio files in `quizzivy-media`); the
-  T-R4.51 items that need Firefox, WebKit, Word or Google Docs.
+- **As of:** 2026-10-12, 10:35 UTC.
+- **Base:** `develop` at `aa0e0d29` (#530: R4 merged in); `release/0.10.0` cut from it.
+- **Objective:** v0.10.0 to `main` and Fly, with the owner's go of 2026-10-12 ("release as
+  v0.9.0 did; what cannot be checked in the infra does not block"), then D4 (v0.11.0) (T-24).
+- **In flight:** the release PR to `main`; then the tag, the back-merge, and the read-only
+  production checks (`/livez`, `/healthz`, `legacy_join_codes_rotated` in the API log).
+- **Decided by the owner today:**
+  - Deploy to Fly; the VPS path (#434) is later work.
+  - A rotated legacy join code keeps its use count (F-67, #527).
+  - No Neon rehearsal; the `api` record stays grey.
+  - The `/admin` alias stays (T-R4.49 A to R5).
+- **Waiting on the user:**
+  - O-R4.20: Remove and Move on Students.
+  - O-R4.21: the refresh window (keepalive or a reuse interval).
+  - The media replace accounting (F-68, below).
+  - The infra checks the release could not run: Neon, phone smoke, the v0.9.0 checks, compute hours.
+  - Whether to delete the local-dev MinIO objects the E2E runs left.
+- **Follow-ups after the release** (one PR each, before D4 starts):
+  - F-68: `replaceMedia`'s quota accounting, the review's option (c): count a replaced file
+    while a version holds it, then a sweep. The owner's policy decides. Declare the 429 in the
+    contract with it.
+  - F-69: the class monitor lists a non-student member who has not sat; the export no longer does.
+  - F-70: other `uniqueItems` uuid arrays (`duplicateAssignment.classIds`, the overrides'
+    `studentIds`) may repeat under case variants.
+  - F-71: `APP_DATABASE_URL` is unset in CI, so one app-role test skips there (platform).
+  - QA-51-9: the Brand dev warning.
+  - QA-51-10's rest: a reset socket on the response write is still a 500.
+  - QA-51-11: the Imports pager in the card.
+  - QA-51-12: line-heights.
+  - QA-51-13: the formats line.
+  - The `admin-*` query-key rename (T-R4.48).
+  - O-R4.23: the student payload's flag.
 
 ## Roster and models
 
