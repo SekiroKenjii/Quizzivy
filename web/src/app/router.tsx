@@ -56,14 +56,14 @@ const teacherTree: RouteObject = {
       children: [
         {
           index: true,
-          handle: { crumb: [{ key: "teacherShell.nav.dashboard" }], width: 1320 },
+          handle: { crumb: [{ key: "teacherShell.nav.dashboard" }] },
           lazy: page(
             () => import("@/features/dashboard/pages/teacher/TeacherDashboardPage"),
           ),
         },
         {
           path: "tests",
-          handle: { crumb: [{ key: "teacherShell.nav.tests" }], width: 1320 },
+          handle: { crumb: [{ key: "teacherShell.nav.tests" }] },
           lazy: page(() => import("@/features/tests/pages/teacher/TestsListPage")),
         },
         {
@@ -73,7 +73,6 @@ const teacherTree: RouteObject = {
               { key: "teacherShell.nav.tests", to: "/teacher/tests" },
               { key: "tests.detail.crumb" },
             ],
-            width: 1320,
           },
           lazy: page(() => import("@/features/tests/pages/teacher/TestDetailPage")),
         },
@@ -85,7 +84,6 @@ const teacherTree: RouteObject = {
               { key: "teacherShell.nav.tests", to: "/teacher/tests" },
               { key: "builder.titleLabel" },
             ],
-            width: 1320,
           },
           lazy: page(() => import("@/features/tests/pages/teacher/TestBuilderPage")),
         },
@@ -100,7 +98,6 @@ const teacherTree: RouteObject = {
                   { key: "teacherShell.nav.tests", to: "/teacher/tests" },
                   { key: "imports.historyTitle" },
                 ],
-                width: 1320,
               },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/ImportsListPage"),
@@ -114,7 +111,6 @@ const teacherTree: RouteObject = {
                   { key: "imports.historyTitle", to: "/teacher/imports" },
                   { key: "imports.newCrumb" },
                 ],
-                width: 860,
               },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/NewImportPage"),
@@ -128,7 +124,6 @@ const teacherTree: RouteObject = {
                   { key: "imports.historyTitle", to: "/teacher/imports" },
                   { key: "imports.detail.pageTitle" },
                 ],
-                width: 720,
               },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/ImportDetailPage"),
@@ -142,7 +137,6 @@ const teacherTree: RouteObject = {
                   { key: "imports.historyTitle", to: "/teacher/imports" },
                   { key: "imports.review.crumb" },
                 ],
-                width: "full",
                 sidebar: "collapsed",
               },
               lazy: page(
@@ -157,7 +151,6 @@ const teacherTree: RouteObject = {
                   { key: "imports.historyTitle", to: "/teacher/imports" },
                   { key: "imports.confirm.crumb" },
                 ],
-                width: 1320,
               },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/ImportConfirmPage"),
@@ -167,7 +160,7 @@ const teacherTree: RouteObject = {
         },
         {
           path: "question-bank",
-          handle: { crumb: [{ key: "teacherShell.nav.questionBank" }], width: 1320 },
+          handle: { crumb: [{ key: "teacherShell.nav.questionBank" }] },
           lazy: page(
             () => import("@/features/question-bank/pages/teacher/QuestionBankPage"),
           ),
@@ -179,7 +172,6 @@ const teacherTree: RouteObject = {
               { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
               { key: "groups.bankTitle" },
             ],
-            width: 1320,
           },
           lazy: page(
             () => import("@/features/question-groups/pages/teacher/GroupsListPage"),
@@ -193,7 +185,6 @@ const teacherTree: RouteObject = {
               { key: "groups.bankTitle", to: "/teacher/question-bank/groups" },
               { key: "groups.one" },
             ],
-            width: 1320,
           },
           lazy: page(
             () => import("@/features/question-groups/pages/teacher/GroupEditorPage"),
@@ -206,7 +197,6 @@ const teacherTree: RouteObject = {
               { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
               { key: "questionEditor.newTitle" },
             ],
-            width: 1320,
           },
           lazy: page(
             () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
@@ -219,7 +209,6 @@ const teacherTree: RouteObject = {
               { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
               { key: "questionEditor.editTitle" },
             ],
-            width: 1320,
           },
           lazy: page(
             () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
@@ -227,12 +216,12 @@ const teacherTree: RouteObject = {
         },
         {
           path: "media",
-          handle: { crumb: [{ key: "media.title" }], width: 1320 },
+          handle: { crumb: [{ key: "media.title" }] },
           lazy: page(() => import("@/features/media/pages/teacher/MediaPage")),
         },
         {
           path: "assignments",
-          handle: { crumb: [{ key: "teacherShell.nav.assignments" }], width: 1320 },
+          handle: { crumb: [{ key: "teacherShell.nav.assignments" }] },
           lazy: page(
             () => import("@/features/assignments/pages/teacher/AssignmentsListPage"),
           ),
@@ -244,7 +233,6 @@ const teacherTree: RouteObject = {
               { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
               { key: "assignments.new" },
             ],
-            width: 1080,
           },
           lazy: page(
             () => import("@/features/assignments/pages/teacher/AssignmentWizardPage"),
@@ -257,7 +245,6 @@ const teacherTree: RouteObject = {
               { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
               { key: "assignmentDetail.title" },
             ],
-            width: 1320,
           },
           lazy: page(
             () => import("@/features/assignments/pages/teacher/AssignmentDetailPage"),
@@ -270,7 +257,6 @@ const teacherTree: RouteObject = {
               { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
               { key: "assignments.edit" },
             ],
-            width: 1080,
           },
           lazy: page(
             () => import("@/features/assignments/pages/teacher/AssignmentWizardPage"),
@@ -288,7 +274,6 @@ const teacherTree: RouteObject = {
               { key: "assignmentDetail.title" },
               { key: "review.title" },
             ],
-            width: 1320,
           },
           lazy: page(
             () => import("@/features/attempts/pages/teacher/AttemptReviewPage"),
@@ -296,17 +281,17 @@ const teacherTree: RouteObject = {
         },
         {
           path: "grading",
-          handle: { crumb: [{ key: "teacherShell.nav.grading" }], width: 1320 },
+          handle: { crumb: [{ key: "teacherShell.nav.grading" }] },
           lazy: page(() => import("@/features/attempts/pages/teacher/GradingPage")),
         },
         {
           path: "students",
-          handle: { crumb: [{ key: "teacherShell.nav.students" }], width: 1320 },
+          handle: { crumb: [{ key: "teacherShell.nav.students" }] },
           lazy: page(() => import("@/features/students/pages/teacher/StudentsPage")),
         },
         {
           path: "classes",
-          handle: { crumb: [{ key: "teacherShell.nav.classes" }], width: 1320 },
+          handle: { crumb: [{ key: "teacherShell.nav.classes" }] },
           lazy: page(() => import("@/features/classes/pages/teacher/ClassesPage")),
         },
         {
@@ -316,13 +301,12 @@ const teacherTree: RouteObject = {
               { key: "teacherShell.nav.classes", to: "/teacher/classes" },
               { key: "classDetail.crumb" },
             ],
-            width: 1320,
           },
           lazy: page(() => import("@/features/classes/pages/teacher/ClassDetailPage")),
         },
         {
           path: "settings/:section?",
-          handle: { crumb: [{ key: "nav.settings" }], width: 1080 },
+          handle: { crumb: [{ key: "nav.settings" }] },
           lazy: page(
             () => import("@/features/settings/pages/teacher/TeacherSettingsPage"),
           ),

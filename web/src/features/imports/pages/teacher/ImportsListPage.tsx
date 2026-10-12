@@ -208,10 +208,7 @@ export default function ImportsListPage() {
   };
 
   return (
-    <div
-      className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4"
-      data-scale="deck"
-    >
+    <div className="flex w-full min-w-0 flex-col gap-4" data-scale="deck">
       <PageHead
         className="[&>div:first-child]:max-w-[720px] [&>div:first-child]:flex-[1_1_360px]"
         title={t("imports.historyTitle")}

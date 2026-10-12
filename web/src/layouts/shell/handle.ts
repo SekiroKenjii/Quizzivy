@@ -9,20 +9,14 @@ export interface TeacherCrumb {
 }
 
 /**
- * ContentWidth is the widest a page's content column grows inside the teacher
- * shell, in CSS pixels; `"full"` sets no limit.
- */
-export type ContentWidth = 1320 | 1080 | 860 | 720 | "full";
-
-/**
  * TeacherHandle is what a route rebuilt for the teacher shell declares as its
- * `handle`. `crumb` is the whole trail, ancestors first; `width` is 1320 when
- * absent; `sidebar: "collapsed"` starts the route with the sidebar collapsed
- * and leaves the stored choice alone. Only the leaf match's handle is read.
+ * `handle`. `crumb` is the whole trail, ancestors first; `sidebar:
+ * "collapsed"` starts the route with the sidebar collapsed and leaves the
+ * stored choice alone. Only the leaf match's handle is read. A route declares
+ * no width, since every page shares the shell's frame.
  */
 export interface TeacherHandle {
   crumb: readonly TeacherCrumb[];
-  width?: ContentWidth;
   sidebar?: "collapsed";
 }
 

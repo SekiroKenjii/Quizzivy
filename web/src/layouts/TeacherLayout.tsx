@@ -17,31 +17,18 @@ import { useCommandPalette } from "@/features/search/useCommandPalette";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { registerContentElement } from "@/layouts/shell/contentWidth";
 import { CrumbTailContext, trailOf, type PageCrumb } from "@/layouts/shell/crumbs";
-import {
-  teacherHandleOf,
-  type ContentWidth,
-  type TeacherCrumb,
-} from "@/layouts/shell/handle";
+import { teacherHandleOf, type TeacherCrumb } from "@/layouts/shell/handle";
 import { Sidebar, SidebarDrawer } from "@/layouts/shell/Sidebar";
 import { useSidebarState, writeSidebarState } from "@/layouts/shell/sidebarState";
 import { TopBar } from "@/layouts/shell/TopBar";
 import { useNavCounts } from "@/layouts/shell/useNavCounts";
 import { activeNavId, navFor, reaches } from "@/layouts/teacherNav";
 import { TeacherSkeleton } from "@/layouts/TeacherSkeleton";
-import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 
 registerSkeleton("teacher", () => <TeacherSkeleton />);
 
 const NO_CRUMB: readonly TeacherCrumb[] = [];
-
-const MAX_WIDTH: Record<ContentWidth, string> = {
-  1320: "max-w-330",
-  1080: "max-w-270",
-  860: "max-w-215",
-  720: "max-w-180",
-  full: "",
-};
 
 interface Visit {
   route: string | undefined;
@@ -53,18 +40,19 @@ type Drawer = { at: string } | "left" | null;
 /**
  * TeacherLayout is the teacher console's shell, as the design deck draws it:
  * a sidebar, a top bar and the page. It reads the leaf route's handle for
- * the breadcrumb trail, the content's maximum width and a collapsed start,
- * and sets the document title from the last crumb, restoring the earlier
- * title when it unmounts. From 768px the sidebar is in the page's flow,
- * collapsed or expanded as the user last chose; a route that asks for a
- * collapsed start gets one for the visit and leaves that choice alone. Below
- * 768px the sidebar is a drawer that closes on every navigation.
- * `<main>` is the scroller, the containing block of everything positioned in
- * the page, so nothing in it extends the document, and the element pages
- * measure their width by. It sets the page's padding and maximum width,
- * returns to the top and takes focus when the route changes, and does neither
- * when only a parameter does. One outlet serves every width, so a page keeps
- * its state across 768.
+ * the breadcrumb trail and a collapsed start, and sets the document title
+ * from the last crumb, restoring the earlier title when it unmounts. From
+ * 768px the sidebar is in the page's flow, collapsed or expanded as the user
+ * last chose; a route that asks for a collapsed start gets one for the visit
+ * and leaves that choice alone. Below 768px the sidebar is a drawer that
+ * closes on every navigation. `<main>` is the scroller, the containing block
+ * of everything positioned in the page, so nothing in it extends the
+ * document, and the element pages measure their width by. It sets the
+ * page's gutters and the one page frame every route renders in: the full
+ * width up to `--container-page`, centred beyond it (DG-205). It returns to
+ * the top and takes focus when the route changes, and does neither when only
+ * a parameter does. One outlet serves every width, so a page keeps its state
+ * across 768.
  */
 export default function TeacherLayout() {
   const { t } = useTranslation();
@@ -197,10 +185,7 @@ export default function TeacherLayout() {
             className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3.5 pt-4 pb-8 outline-none! min-[768px]:px-7 min-[768px]:pt-6 min-[768px]:pb-10"
           >
             {registered && (
-              <div
-                data-slot="page"
-                className={cn("mx-auto w-full", MAX_WIDTH[handle?.width ?? 1320])}
-              >
+              <div data-slot="page" className="max-w-page mx-auto w-full">
                 <CrumbTailContext value={setTail}>
                   <Outlet />
                 </CrumbTailContext>

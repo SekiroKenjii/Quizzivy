@@ -69,7 +69,7 @@ export function SettingsLayout({
           </Link>
         ))}
       </nav>
-      <div className="min-w-0 flex-[1_1_480px]">
+      <div className="max-w-column min-w-0 flex-[1_1_480px]">
         {sections.map(({ id, content }) => (
           <div
             key={id}

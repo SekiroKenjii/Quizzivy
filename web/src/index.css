@@ -271,6 +271,11 @@
 
   --breakpoint-auth: 56.25rem;
 
+  /* The teacher workspace's page frame, the widest any page grows, and the
+     measure of a single-column form inside it, which keeps to its left edge (DG-205). */
+  --container-page: 100rem;
+  --container-column: 53.75rem;
+
   --font-sans:
     "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     sans-serif;

@@ -99,7 +99,7 @@ export default function ImportDetailPage() {
           role="status"
           aria-label={t("common.loading")}
           data-scale="deck"
-          className="mx-auto flex w-full max-w-[720px] flex-col gap-3 focus-within:[&_[data-slot=skeleton]]:[animation-play-state:paused]! hover:[&_[data-slot=skeleton]]:[animation-play-state:paused]!"
+          className="flex w-full flex-col gap-3 focus-within:[&_[data-slot=skeleton]]:[animation-play-state:paused]! hover:[&_[data-slot=skeleton]]:[animation-play-state:paused]!"
         >
           <Skeleton className="h-8 w-72" />
           <Skeleton className="h-40 w-full" />
@@ -107,7 +107,7 @@ export default function ImportDetailPage() {
       );
     if (query.error instanceof ApiError && query.error.status === 404)
       return (
-        <div className="mx-auto w-full max-w-[720px] min-w-0" data-scale="deck">
+        <div className="w-full min-w-0" data-scale="deck">
           <EmptyState
             action={
               <Button asChild size="sm" variant="outline">
@@ -120,7 +120,7 @@ export default function ImportDetailPage() {
         </div>
       );
     return (
-      <div className="mx-auto w-full max-w-[720px] min-w-0" data-scale="deck">
+      <div className="w-full min-w-0" data-scale="deck">
         <LoadError error={query.error} onRetry={() => void query.refetch()}>
           {t("imports.detailFailed")}
         </LoadError>
@@ -130,12 +130,9 @@ export default function ImportDetailPage() {
   const value = query.data;
   const outcome = reprocessOutcome(value);
   return (
-    <div
-      className="mx-auto flex w-full max-w-[720px] min-w-0 flex-col gap-4"
-      data-scale="deck"
-    >
+    <div className="flex w-full min-w-0 flex-col gap-4" data-scale="deck">
       <DetailHead value={value} />
-      <div className="flex min-w-0 flex-col gap-4">
+      <div className="max-w-column flex w-full min-w-0 flex-col gap-4">
         <p role="status" aria-live="polite" className="sr-only">
           {outcome === null
             ? t(`imports.status.${value.status}`)

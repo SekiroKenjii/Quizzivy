@@ -12,7 +12,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { useCrumbs } from "@/layouts/shell/crumbs";
-import type { ContentWidth, TeacherHandle } from "@/layouts/shell/handle";
+import type { TeacherHandle } from "@/layouts/shell/handle";
 import { writeSidebarState } from "@/layouts/shell/sidebarState";
 import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
@@ -66,10 +66,7 @@ const CLASS: TeacherHandle = {
     { key: "common.loading" },
   ],
 };
-const REVIEW = crumbed("teacherShell.nav.tests", {
-  sidebar: "collapsed",
-  width: "full",
-});
+const REVIEW = crumbed("teacherShell.nav.tests", { sidebar: "collapsed" });
 const SETTINGS = { path: "settings/:section?", handle: crumbed("nav.settings") };
 
 const sidebar = () => document.getElementById("teacher-sidebar");
@@ -517,31 +514,26 @@ describe("the breadcrumb trail and the document title", () => {
 
 describe("the page's frame", () => {
   it.each([
-    [undefined, "max-w-330"],
-    [1320, "max-w-330"],
-    [1080, "max-w-270"],
-    [860, "max-w-215"],
-    [720, "max-w-180"],
-  ] as [ContentWidth | undefined, string][])(
-    "centres a page of width %s under %s",
-    async (width, limit) => {
-      serveSummary(QUIET);
-      const handle = crumbed("teacherShell.nav.tests", width ? { width } : {});
-      renderShell("/teacher", [{ index: true, handle, element: <p>trang</p> }]);
-      const page = (await screen.findByText("trang")).parentElement!;
-      expect(page).toHaveAttribute("data-slot", "page");
-      expect(page.parentElement).toBe(screen.getByRole("main"));
-      expect(page).toHaveClass("mx-auto", "w-full", limit);
-      expect(page.className.match(/max-w-/g)).toHaveLength(1);
-    },
-  );
-
-  it("sets no limit on a full-width page", async () => {
+    ["a list", crumbed("teacherShell.nav.tests")],
+    ["a page that starts collapsed", REVIEW],
+    ["a route with no trail", { crumb: [] }],
+  ])("renders %s in the one frame every page shares", async (_, handle) => {
     serveSummary(QUIET);
-    renderShell("/teacher", [{ index: true, handle: REVIEW, element: <p>trang</p> }]);
+    renderShell("/teacher", [{ index: true, handle, element: <p>trang</p> }]);
     const page = (await screen.findByText("trang")).parentElement!;
-    expect(page).toHaveClass("mx-auto", "w-full");
-    expect(page.className).not.toContain("max-w-");
+    expect(page).toHaveAttribute("data-slot", "page");
+    expect(page.parentElement).toBe(screen.getByRole("main"));
+    expect(page).toHaveClass("mx-auto", "w-full", "max-w-page");
+    expect(page.className.match(/max-w-/g)).toHaveLength(1);
+  });
+
+  it("ignores a width a stale handle still declares", async () => {
+    serveSummary(QUIET);
+    const handle = { ...crumbed("assignments.new"), width: 1080 };
+    renderShell("/teacher", [{ index: true, handle, element: <p>trang</p> }]);
+    const page = (await screen.findByText("trang")).parentElement!;
+    expect(page).toHaveClass("max-w-page");
+    expect(page.className.match(/max-w-/g)).toHaveLength(1);
   });
 
   it("registers main before a page first renders, and unregisters it on the way out", async () => {
