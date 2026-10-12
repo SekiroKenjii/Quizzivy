@@ -3,11 +3,11 @@ import {
   useId,
   useRef,
   useState,
+  type ComponentType,
   type ReactNode,
   type RefObject,
 } from "react";
 import { Link, useBeforeUnload, useBlocker } from "react-router";
-import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -19,12 +19,14 @@ import { formatBytes } from "@/features/media/format";
 import { commandKeyLabel } from "@/features/search/useCommandPalette";
 import { dayMonth } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { getWordImportLimits, type WordImport, type ImportRetention } from "../api";
+import type { WordImport } from "../api";
 import { listFormats } from "../formats";
+import { importLimitsQuery } from "../queries";
 import { usePastedText, type PasteState } from "../usePastedText";
 import { SOURCE_ROLES, useSourceIntake } from "../useSourceIntake";
 import { FileSlot } from "./FileSlot";
 import { PasteField } from "./PasteField";
+import { PasteFindings } from "./PasteFindings";
 
 const TITLE_MAX = 200;
 const PASTE_MAX = 100_000;
@@ -81,42 +83,53 @@ function titleFromFilename(name: string): string {
 }
 
 /**
+ * IntakeParts is what SourceIntake hands the import workspace to lay out in
+ * its two panes: `sources`, the files or the pasted-text box; `findings`, what
+ * the quick count found in pasted text (null in file mode); `details`, the
+ * title and how the content is read; and `footer`, the error, the hint and
+ * Start.
+ */
+export interface IntakeParts {
+  pasting: boolean;
+  sources: ReactNode;
+  findings: ReactNode;
+  details: ReactNode;
+  footer: ReactNode;
+}
+
+/**
  * SourceIntake is the upload form for a new import, one awaiting its sources,
  * and, with `replacing`, a failed one whose files are replaced: the limits,
  * the exam and optional key, and one action that uploads what changed and
  * queues processing. For a new import, `fileMode` false shows the pasted-text
  * box in place of the files; the files, the text and a typed title survive a
- * switch, and leaving with text that has not started asks first.
+ * switch, and leaving with text that has not started asks first. It owns the
+ * form and its state, and `children` lays the parts out; `examAlert` draws a
+ * note under the exam's file, given `onChoose`, which opens its file picker.
  */
 export function SourceIntake({
   existing,
   replacing = false,
-  deck = false,
   enabled = true,
   fileMode = true,
-  retention,
-  privacy,
+  examAlert,
   onChanged,
   onStarted,
+  children,
 }: Readonly<{
   existing: WordImport | null;
   replacing?: boolean;
-  deck?: boolean;
   enabled?: boolean;
   fileMode?: boolean;
-  retention?: ImportRetention | undefined;
-  privacy?: ReactNode;
+  examAlert?: ComponentType<{ onChoose: () => void }> | undefined;
   onChanged?: ((next: WordImport) => void) | undefined;
   onStarted: (started: WordImport) => void;
+  children: (parts: IntakeParts) => ReactNode;
 }>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const released = useRef(false);
-  const limits = useQuery({
-    queryKey: ["word-import-limits"],
-    queryFn: ({ signal }) => getWordImportLimits(signal),
-    staleTime: 5 * 60_000,
-  });
+  const limits = useQuery(importLimitsQuery());
   const intake = useSourceIntake({
     existing,
     limits: limits.data,
@@ -168,94 +181,98 @@ export function SourceIntake({
     if (exact !== null) void intake.startText(title.trim() || fallbackTitle, exact);
   }
 
-  return (
-    <form
-      className={cn("flex flex-col", deck ? "gap-4.5" : "gap-6")}
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
-      <div hidden={!fileMode}>
-        <SourceFiles
-          deck={deck}
+  const sources = (
+    <>
+      <div hidden={!fileMode} className="flex flex-col gap-3.5">
+        <LimitsLine
           pending={limits.isPending}
           failed={limits.isError}
           maxBytes={limits.data?.maxBytes}
           formats={limits.data?.formats}
           onRetry={() => void limits.refetch()}
-        >
-          {SOURCE_ROLES.map((role) => (
-            <FileSlot
-              key={role}
-              role={role}
-              slot={intake.slots[role]}
-              accept={accept}
-              required={role === "exam"}
-              disabled={intake.busy}
-              onChoose={(file) => intake.choose(role, file)}
-              onRemove={() => intake.remove(role)}
-            />
-          ))}
-        </SourceFiles>
+        />
+        {SOURCE_ROLES.map((role) => (
+          <FileSlot
+            key={role}
+            role={role}
+            slot={intake.slots[role]}
+            accept={accept}
+            required={role === "exam"}
+            disabled={intake.busy}
+            Alert={role === "exam" ? examAlert : undefined}
+            onChoose={(file) => intake.choose(role, file)}
+            onRemove={() => intake.remove(role)}
+          />
+        ))}
       </div>
       {askTitle ? (
-        <>
-          <div hidden={!pasting}>
-            <PasteField
-              text={paste.text}
-              length={paste.length}
-              max={pasteMax}
-              scan={paste.scan}
-              busy={intake.busy}
-              onTextChange={paste.setText}
-            />
-          </div>
-          <TitleField
-            deck={deck}
-            value={title}
-            disabled={intake.busy}
-            locked={titleLocked}
-            pasting={pasting}
-            fallback={fallbackTitle}
-            onChange={setTypedTitle}
+        <div hidden={!pasting}>
+          <PasteField
+            text={paste.text}
+            length={paste.length}
+            max={pasteMax}
+            busy={intake.busy}
+            onTextChange={paste.setText}
           />
-        </>
+        </div>
       ) : null}
-      <Recognition deck={deck} replacing={replacing} />
-      {deck ? (
-        <>
-          {privacy}
-          {retention === undefined ? null : (
-            <p className="text-muted-fg text-xs leading-relaxed">
-              {t("imports.retention.policy", {
-                afterCommit: retention.afterCommitDays,
-                afterCancel: retention.afterCancelDays,
-                idle: retention.idleDays,
-              })}
-            </p>
-          )}
-        </>
+    </>
+  );
+  const details = (
+    <>
+      {askTitle ? (
+        <TitleField
+          value={title}
+          disabled={intake.busy}
+          locked={titleLocked}
+          pasting={pasting}
+          fallback={fallbackTitle}
+          onChange={setTypedTitle}
+        />
       ) : null}
+      <Recognition replacing={replacing} />
+    </>
+  );
+  const footer = (
+    <>
       {intake.error === null ? null : (
         <p role="alert" className="text-destructive text-sm">
           {intake.error}
         </p>
       )}
       <IntakeFooter
-        deck={deck}
         hint={hint}
         canStart={canStart}
         busy={intake.busy}
         replacing={replacing}
+        cancel={existing === null}
       />
+    </>
+  );
+
+  return (
+    <form
+      className="flex min-w-0 flex-col"
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit();
+      }}
+    >
+      {children({
+        pasting,
+        sources,
+        findings: pasting ? (
+          <PasteFindings scan={paste.scan} state={paste.state} max={pasteMax} />
+        ) : null,
+        details,
+        footer,
+      })}
       {askTitle ? <LeaveGuard dirty={paste.text !== ""} released={released} /> : null}
     </form>
   );
 }
 
 function TitleField({
-  deck,
   value,
   disabled,
   locked,
@@ -263,7 +280,6 @@ function TitleField({
   fallback,
   onChange,
 }: Readonly<{
-  deck: boolean;
   value: string;
   disabled: boolean;
   locked: boolean;
@@ -276,13 +292,7 @@ function TitleField({
   let hint = pasting ? t("imports.paste.titleHint") : t("imports.upload.titleHint");
   if (locked) hint = t("imports.upload.titleLocked");
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-1.5",
-        deck &&
-          "bg-card text-card-foreground shadow-card rounded-xl border px-4.5 py-4",
-      )}
-    >
+    <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{t("imports.upload.titleLabel")}</Label>
       <Input
         id={id}
@@ -294,73 +304,7 @@ function TitleField({
         onChange={(event) => onChange(event.target.value)}
       />
       <p className="text-muted-fg text-meta leading-normal">{hint}</p>
-      {deck ? (
-        <p className="text-muted-fg text-meta mt-1.5 border-t pt-2.5 leading-[1.55] text-pretty">
-          {t("imports.upload.recognitionNote")}
-        </p>
-      ) : null}
     </div>
-  );
-}
-
-function SourceFiles({
-  deck,
-  pending,
-  failed,
-  maxBytes,
-  formats,
-  onRetry,
-  children,
-}: Readonly<{
-  deck: boolean;
-  pending: boolean;
-  failed: boolean;
-  maxBytes: number | undefined;
-  formats: readonly string[] | undefined;
-  onRetry: () => void;
-  children: ReactNode;
-}>) {
-  const { t } = useTranslation();
-  const headingId = useId();
-  const limits = (
-    <LimitsLine
-      pending={pending}
-      failed={failed}
-      maxBytes={maxBytes}
-      formats={formats}
-      onRetry={onRetry}
-    />
-  );
-  if (!deck)
-    return (
-      <>
-        {limits}
-        <div className="flex flex-col gap-5">{children}</div>
-      </>
-    );
-  return (
-    <section
-      aria-labelledby={headingId}
-      className="bg-card text-card-foreground shadow-card rounded-xl border"
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-3 px-4.5 pt-4 pb-1">
-        <h2 id={headingId} className="text-md font-semibold">
-          {t("imports.newHeading")}
-        </h2>
-        {maxBytes === undefined || formats === undefined ? null : (
-          <span className="text-muted-fg text-meta">
-            {t("imports.newFormats", {
-              formats: listFormats(formats, "name", "or", t),
-              size: formatBytes(maxBytes),
-            })}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-col gap-3.5 px-4.5 pt-2.5 pb-4.5">
-        {limits}
-        {children}
-      </div>
-    </section>
   );
 }
 
@@ -399,98 +343,83 @@ function LeaveGuard({
   );
 }
 
-function Recognition({
-  deck,
-  replacing,
-}: Readonly<{ deck: boolean; replacing: boolean }>) {
+function Recognition({ replacing }: Readonly<{ replacing: boolean }>) {
   const { t } = useTranslation();
   const headingId = useId();
   if (replacing) return null;
-  if (!deck)
-    return (
-      <p className="text-muted-foreground text-xs leading-relaxed">
-        {t("imports.upload.recognitionNote")}
-      </p>
-    );
   return (
     <section
       aria-labelledby={headingId}
-      className="bg-card text-card-foreground shadow-card rounded-xl border"
+      className="@container/modes flex flex-col gap-2.5"
     >
-      <h2 id={headingId} className="text-md px-4.5 pt-4 pb-1 font-semibold">
+      <h3 id={headingId} className="text-ui font-semibold">
         {t("imports.upload.recognitionHeading")}
-      </h2>
-      <div className="@container/modes px-4.5 pt-2.5 pb-4.5">
-        <div className="grid gap-2.5 @[490px]/modes:grid-cols-2">
-          <p className="border-primary flex items-start gap-3 rounded-[10px] border-[1.5px] px-3.5 py-3">
-            <span
-              aria-hidden="true"
-              className="border-primary mt-px grid size-4.5 shrink-0 place-items-center rounded-full border-2"
-            >
-              <span className="bg-primary size-2 rounded-full" />
+      </h3>
+      <div className="grid gap-2.5 @[490px]/modes:grid-cols-2">
+        <p className="border-primary flex items-start gap-3 rounded-[10px] border-[1.5px] px-3.5 py-3">
+          <span
+            aria-hidden="true"
+            className="border-primary mt-px grid size-4.5 shrink-0 place-items-center rounded-full border-2"
+          >
+            <span className="bg-primary size-2 rounded-full" />
+          </span>
+          <span>
+            <span className="text-ui block leading-[normal] font-medium">
+              {t("imports.upload.automatic")}
             </span>
-            <span>
-              <span className="text-ui block leading-[normal] font-medium">
-                {t("imports.upload.automatic")}
-              </span>
-              <span className="text-muted-fg text-meta block leading-[1.45]">
-                {t("imports.upload.automaticHint")}
-              </span>
+            <span className="text-muted-fg text-meta block leading-[1.45]">
+              {t("imports.upload.automaticHint")}
             </span>
-          </p>
-        </div>
+          </span>
+        </p>
       </div>
+      <p className="text-muted-fg text-meta leading-[1.55] text-pretty">
+        {t("imports.upload.recognitionNote")}
+      </p>
     </section>
   );
 }
 
 function IntakeFooter({
-  deck,
   hint,
   canStart,
   busy,
   replacing,
+  cancel,
 }: Readonly<{
-  deck: boolean;
   hint: string;
   canStart: boolean;
   busy: boolean;
   replacing: boolean;
+  cancel: boolean;
 }>) {
   const { t } = useTranslation();
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center",
-        deck ? "bg-background sticky bottom-0 gap-2.5 border-t py-3" : "gap-3",
-      )}
-    >
-      {deck ? (
-        <>
-          <span className="text-muted-fg text-meta min-w-0 flex-[1_1_220px] leading-normal">
-            {hint}
-          </span>
-          <Button
-            asChild
-            type="button"
-            variant="outline"
-            size="md"
-            className="leading-[normal]"
-          >
-            <Link to="/teacher/imports">{t("common.cancel")}</Link>
-          </Button>
-        </>
+    <div className="flex flex-wrap items-center gap-2.5">
+      <span className="text-muted-fg text-meta min-w-0 flex-[1_1_220px] leading-normal">
+        {hint}
+      </span>
+      {cancel ? (
+        <Button
+          asChild
+          type="button"
+          variant="outline"
+          size="md"
+          className="leading-[normal]"
+        >
+          <Link to="/teacher/imports">{t("common.cancel")}</Link>
+        </Button>
       ) : null}
       <Button
         type="submit"
-        size={deck ? "md" : "default"}
-        className={deck ? "px-4 leading-[normal] font-semibold" : undefined}
+        size="md"
+        className="px-4 leading-[normal] font-semibold"
         disabled={!canStart}
       >
         {submitLabel(busy, replacing, t)}
       </Button>
       {busy ? (
-        <span role="status" className="text-muted-foreground text-xs">
+        <span role="status" className="text-muted-foreground w-full text-xs">
           {t("imports.upload.keepOpen")}
         </span>
       ) : null}

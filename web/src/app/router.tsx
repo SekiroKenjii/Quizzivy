@@ -113,7 +113,7 @@ const teacherTree: RouteObject = {
                 ],
               },
               lazy: page(
-                () => import("@/features/imports/pages/teacher/NewImportPage"),
+                () => import("@/features/imports/pages/teacher/ImportWorkspacePage"),
               ),
             },
             {
@@ -126,7 +126,7 @@ const teacherTree: RouteObject = {
                 ],
               },
               lazy: page(
-                () => import("@/features/imports/pages/teacher/ImportDetailPage"),
+                () => import("@/features/imports/pages/teacher/ImportWorkspacePage"),
               ),
             },
             {

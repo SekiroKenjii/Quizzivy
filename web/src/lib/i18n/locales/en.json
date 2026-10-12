@@ -3079,7 +3079,8 @@
       "state": {
         "done": "done",
         "current": "in progress",
-        "waiting": "not started"
+        "waiting": "not started",
+        "failed": "stopped"
       },
       "current": "Current step: {{stage}}",
       "waitingToStart": "Waiting for a turn",
@@ -3684,6 +3685,26 @@
       "pointsNone": "No questions yet",
       "cancelled": "This import was cancelled, so no draft can be created from it.",
       "failed": "This import couldn't be processed, so no draft can be created from it."
+    },
+    "workspace": {
+      "steps": "What will run",
+      "progress": "Progress",
+      "readAs": "Read as",
+      "questionLabel": "Question {{label}}",
+      "noAnswer": "No answer marked",
+      "repeated": "This number appears twice in the same part",
+      "needsCheck": "Needs checking",
+      "needsCheckList": "Items to check",
+      "pasteLead_one": "{{questions}} question recognised · {{check}} need checking",
+      "pasteLead_other": "{{questions}} questions recognised · {{check}} need checking",
+      "pasteHint": "Updates as you type. Fix the formatting in the box before you start.",
+      "pasteEmpty": "Paste the test to see what is recognised.",
+      "fileState": {
+        "waiting": "Waiting",
+        "reading": "Reading",
+        "read": "Read",
+        "failed": "Failed"
+      }
     }
   },
   "controls": {
